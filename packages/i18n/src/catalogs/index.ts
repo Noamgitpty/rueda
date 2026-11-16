@@ -128,8 +128,15 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  checkout), `common.quote.line.protection*` (ligne de protection du détail du prix de S05, nom du
  niveau) et `common.listing.earningsPlanSaved`, `common.listing.earningsPlanNotAvailable` (plan
  de gains du véhicule).
+ Version 57 (la 56 est réservée à US-205) : protections et plans de gains, écrans (US-226 partie
+ 226b, ADR-137) : `web.s05.protection.*` et `web.s05.age.*` (choix du niveau sur S05, âge déclaré,
+ niveau grisé « dès {age} ans », prix par jour et pour la période), `common.price.protectionIncluded`
+ (« protection de base incluse » près du total des cartes et de la fiche), `web.a11.plan.*` et
+ `web.a11.coverage.*` (plan de gains du véhicule, effet sur les nouveaux trips, période couverte) ;
+ noms des niveaux en minuscules dans les quatre langues (`common.quote.line.protection*`, revue ux
+ de 226a).
  */
-export const CATALOG_VERSION = 55;
+export const CATALOG_VERSION = 57;
 
 /** Catalogues de base par langue ; la langue d'un profil de locale choisit le sien. */
 export const CATALOGS: Readonly<Record<CatalogLanguage, VersionedCatalog<MessageKey>>> = {

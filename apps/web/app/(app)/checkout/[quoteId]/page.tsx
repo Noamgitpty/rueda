@@ -20,13 +20,14 @@ import accountStyles from '../../_account/account.module.css';
 import { MAIN_ID } from '../../_shell/main-id.ts';
 import styles from '../../host/host.module.css';
 import { CheckoutForm, RenewForm } from './checkout-form.tsx';
+import { ProtectionForm } from './protection-form.tsx';
 
 export async function generateMetadata(): Promise<Metadata> {
   const i18n = await getRequestI18n();
   return { title: i18n.t('web.s05.title'), robots: { index: false, follow: false } };
 }
 
-/** Libellé de la ligne de protection selon le niveau figé (US-226 ; 10b S05). */
+/** Nom d'un niveau de protection (ligne du devis et choix de S05, US-226 ; 10b S05). */
 function protectionLabel(
   level: string | null,
 ):
@@ -145,9 +146,13 @@ function Summary({
  * - bouton de pose du hold inactif (`aria-disabled`) tant qu'un champ manque, occupé pendant
  *   l'envoi ; aucun paiement (US-223).
  *
- * Protection du voyageur, caution, contrat hôte-voyageur et consentement MIT : US-226, US-701,
- * US-211, US-223 (hors de cette story). États : devis introuvable, erreur, chargement
- * (`loading.tsx`) ; sans session : connexion.
+ * - protection du voyageur (US-226 partie 226b, ADR-137) : âge déclaré, niveaux vendus avec leur
+ *   prix par jour et pour la période (API), niveau du devis présélectionné, niveau refusé grisé
+ *   avec sa raison ; le choix validé fige un NOUVEAU devis (`?protection=1`, nouveau total) ;
+ *   `insurerContractActive` faux ⇒ aucune réservation, retour à la recherche (16 PRT-001).
+ *
+ * Caution, contrat hôte-voyageur et consentement MIT : US-701, US-211, US-223 (hors de cette
+ * story). États : devis introuvable, erreur, chargement (`loading.tsx`) ; sans session : connexion.
  */
 export default async function CheckoutPage({
   params,
@@ -223,6 +228,11 @@ export default async function CheckoutPage({
           {t('common.quote.expired')}
         </Banner>
       )}
+      {query['protection'] === '1' && !quote.expired && (
+        <Banner tone="success" live="polite" icon="check">
+          {t('web.s05.protection.updated')}
+        </Banner>
+      )}
       {query['terms'] === 'changed' && (
         <Banner tone="warning" live="polite">
           {t('common.legal.versionChanged')}
@@ -230,6 +240,27 @@ export default async function CheckoutPage({
       )}
 
       <Summary i18n={i18n} quote={quote} listing={listing} timeZone={timeZone} />
+
+      {/* US-226b : choix de la protection au-dessus du total et du bouton (10b S05) */}
+      {!quote.expired && quote.insurerContractActive && quote.protectionOptions.length > 0 && (
+        <ProtectionForm
+          key={quote.quoteId}
+          localeTag={localeTag}
+          quoteId={quote.quoteId}
+          driverAge={quote.driverAge}
+          options={quote.protectionOptions.map((o) => ({
+            level: o.level,
+            label: t(protectionLabel(o.level)),
+            price: t('web.s05.protection.price', {
+              daily: i18n.money({ amountMinor: o.dailyMinor, currency: quote.currency, exponent }),
+              total: i18n.money({ amountMinor: o.lineMinor, currency: quote.currency, exponent }),
+            }),
+            minDriverAge: o.minDriverAge,
+            selected: o.selected,
+            eligible: o.eligible,
+          }))}
+        />
+      )}
 
       <section className={styles['section']} aria-labelledby="s05-price" data-testid="s05-price">
         <h2 id="s05-price" className={accountStyles['h2']}>
@@ -251,6 +282,17 @@ export default async function CheckoutPage({
           </h2>
           <p className={accountStyles['text']}>{t('web.s05.expired.body')}</p>
           <RenewForm localeTag={localeTag} quoteId={quote.quoteId} />
+        </section>
+      ) : !quote.insurerContractActive ? (
+        // 16 PRT-001 : vente des protections fermée dans le pays ⇒ aucune réservation possible
+        <section className={styles['section']} aria-labelledby="s05-closed">
+          <h2 id="s05-closed" className={accountStyles['h2']}>
+            {t('web.s05.protection.title')}
+          </h2>
+          <Banner tone="danger" live="polite">
+            {t('common.quote.insurerContractInactive')}
+          </Banner>
+          <ButtonLink href="/">{t('web.listing.search')}</ButtonLink>
         </section>
       ) : !quote.instantBook ? (
         <Banner tone="info">{t('common.checkout.requestModeUnavailable')}</Banner>

@@ -1820,7 +1820,7 @@ export const PT_MESSAGES = {
   'common.quote.lineNotSupported':
     'Esta opção ainda não pode ser reservada. Remova-a para continuar.',
   'common.quote.protectionRequired':
-    'Escolha uma proteção para continuar: toda viagem inclui pelo menos a proteção Básica.',
+    'Escolha uma proteção para continuar: toda viagem inclui pelo menos a proteção básica.',
   'common.quote.protectionNotEligible':
     'Esta proteção não está disponível para este motorista ou este carro. Escolha outra.',
   'common.quote.insurerContractInactive':
@@ -1830,9 +1830,9 @@ export const PT_MESSAGES = {
   'common.listing.earningsPlanNotAvailable':
     'Este plano de ganhos não está disponível onde você anuncia o carro. Escolha um da lista.',
   'common.quote.line.protection': 'Proteção',
-  'common.quote.line.protectionBasica': 'Proteção Básica',
-  'common.quote.line.protectionEstandar': 'Proteção Padrão',
-  'common.quote.line.protectionTotal': 'Proteção Total',
+  'common.quote.line.protectionBasica': 'Proteção básica',
+  'common.quote.line.protectionEstandar': 'Proteção padrão',
+  'common.quote.line.protectionTotal': 'Proteção total',
   'common.checkout.requestModeUnavailable':
     'Este carro é reservado por solicitação ao anfitrião, o que ainda não está disponível. Escolha outro carro.',
   'common.checkout.manualNotConfirmed':
@@ -1914,4 +1914,42 @@ export const PT_MESSAGES = {
   'web.s05.doc.GEO_TERMS': 'Onde você pode dirigir',
   'web.s05.back': 'Voltar para o carro',
   'web.legal.backCheckout': 'Voltar para sua reserva',
+  // US-226 partie 226b (ADR-137) : choix de la protection sur S05, mention « protection de base
+  // incluse » des cartes et de la fiche, plan de gains de l'hôte (A11)
+  'web.s05.protection.title': 'Escolha sua proteção',
+  'web.s05.protection.intro':
+    'Toda viagem inclui pelo menos a proteção básica. Você pode escolher uma mais completa: o preço é atualizado antes de reservar.',
+  'web.s05.protection.legend': 'Nível de proteção',
+  'web.s05.protection.price': '{daily} por dia · {total} ao todo',
+  'web.s05.protection.minAge': 'Disponível a partir de {age} anos',
+  'web.s05.protection.ageNeeded': 'Informe sua idade para escolhê-la.',
+  'web.s05.protection.apply': 'Atualizar o preço',
+  'web.s05.protection.unchanged':
+    'Escolha outra proteção ou mude sua idade para atualizar o preço.',
+  'web.s05.protection.updated': 'Proteção atualizada. Confira o novo total antes de reservar.',
+  'web.s05.age.label': 'Idade do motorista',
+  'web.s05.age.hint':
+    'Serve apenas para mostrar as proteções disponíveis. Informe sua idade real: uma informação falsa faz perder a proteção.',
+  'web.s05.age.invalid': 'Escreva sua idade em anos, entre {min} e {max}.',
+  'common.price.protectionIncluded': 'Proteção básica incluída',
+  'web.a11.plan.open': 'Plano de ganhos',
+  'web.a11.plan.title': 'Plano de ganhos',
+  'web.a11.plan.intro':
+    'Seu plano define a parte do preço de cada viagem que você recebe. O viajante paga à parte a tarifa da viagem e a proteção dele.',
+  'web.a11.plan.current': 'Plano atual: {plan}',
+  'web.a11.plan.option': '{plan} · você recebe {share}% do preço',
+  'web.a11.plan.default': 'Atribuído por padrão. Você pode mudá-lo quando quiser.',
+  'web.a11.plan.chosen': 'Escolhido por você. Você pode mudá-lo quando quiser.',
+  'web.a11.plan.newTripsOnly':
+    'Uma mudança vale para as viagens reservadas a partir de agora; as viagens já reservadas mantêm o plano delas.',
+  'web.a11.plan.only': 'Por enquanto, é o único plano disponível onde você anuncia seu carro.',
+  'web.a11.plan.choose': 'Escolha seu plano',
+  'web.a11.plan.save': 'Salvar o plano',
+  'web.a11.plan.name.ESTANDAR': 'Padrão',
+  'web.a11.plan.name.other': 'Plano de {share}%',
+  'web.a11.coverage.title': 'O que seu plano cobre',
+  'web.a11.coverage.period':
+    'Seu carro está coberto durante o período da reserva, pela proteção da seguradora parceira.',
+  'web.a11.coverage.contract':
+    'As exclusões e sua franquia vêm do contrato da seguradora parceira: vamos mostrá-las aqui, palavra por palavra, antes que você possa receber viagens.',
 } as const satisfies Readonly<Record<MessageKey, Message>>;

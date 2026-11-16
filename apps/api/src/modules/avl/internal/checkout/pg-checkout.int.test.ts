@@ -16,7 +16,9 @@
  * - exposant 0 (D2 de 08 : 333 334 × 3 j) : P 1 000 002 ; F 150 000 ; taxe 100 000 + 15 000 ;
  *   protection BASICA roundHalfUp(83 333,5) = 83 334 × 3 = 250 002 ; total 1 515 004 ;
  *   prime roundHalfUp(175 001,4) = 175 001 ;
- * - TOTAL refusé sans âge déclaré (16 PRT-002, dès 21 ans dans la grille de test).
+ * - TOTAL refusé sans âge déclaré (16 PRT-002, dès 21 ans dans la grille de test) ;
+ * - total de la carte et de la fiche (pricer de la recherche, protection minimale) égal au total du
+ *   checkout, au même instant (16 SRC-042, N-141 ; US-226 partie 226b).
  * Aucun code de pays ni de devise n'est écrit ici : ils sont lus des données (ADR-024).
  */
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
@@ -27,9 +29,14 @@ import type {} from '@rueda/db/testing/global-setup';
 import type pg from 'pg';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { countryCases } from '../../../../../test/support/countries.js';
-import { PgHostListingStore } from '../../../cat/index.js';
+import { PgHostListingStore, PgSearchStore } from '../../../cat/index.js';
 import { CountryConfigService } from '../../../cfg/index.js';
-import { PgQuoteStore, QuoteHttpError, QuoteService } from '../../../prc/index.js';
+import {
+  PgQuoteStore,
+  QuoteHttpError,
+  QuoteService,
+  searchQuotePricer,
+} from '../../../prc/index.js';
 import { CheckoutService } from './checkout.service.js';
 import { PgCheckoutStore } from './store.js';
 
@@ -184,6 +191,34 @@ describe.each(countryCases())(
       const read = await checkout.quote(guest, created.quoteId);
       expect(read).toEqual(created);
 
+      // N-141 / 16 SRC-042 : même total sur la carte de résultats, la fiche et le checkout, au même
+      // instant (revue argent de 226a, n° 7) ; la fiche lit l'annonce par le vrai magasin de la
+      // recherche, la carte passe par le même pricer avec le prix de l'annonce
+      const pricer = searchQuotePricer((ctx) => service.params(ctx));
+      const slot = await new PgSearchStore(client).listingPrice(listingId);
+      if (slot === null) throw new Error('prix de la fiche introuvable');
+      const fiche = pricer.price({
+        listingId,
+        country: cc.country,
+        currency: slot.currency,
+        dailyPriceMinor: slot.dailyPriceMinor,
+        startAt: START,
+        endAt: END,
+        quotedAt: slot.quotedAt,
+      });
+      const card = pricer.price({
+        listingId,
+        country: cc.country,
+        currency: created.currency,
+        dailyPriceMinor: want.daily,
+        startAt: START,
+        endAt: END,
+        quotedAt: NOW,
+      });
+      expect(fiche).toEqual({ totalMinor: want.total, billableDays: 3 });
+      expect(card).toEqual({ totalMinor: want.total, billableDays: 3 });
+      expect(created.totalMinor).toBe(want.total);
+
       const hold = await checkout.checkout(guest, created.quoteId, {
         driver: { firstName: 'Ana', lastName: 'Pérez' },
         acceptedDocuments: created.documents.map((d) => ({ kind: d.kind, version: d.version })),
@@ -212,7 +247,9 @@ describe.each(countryCases())(
       ).rejects.toBeInstanceOf(QuoteHttpError);
     });
 
-    it('plans de gains par le vrai magasin de CAT : plan par défaut lu, plan choisi enregistré puis lu, PRO refusé ; le plan choisi est celui que lit le devis du checkout', async () => {
+    // le plan lu par le devis du checkout (jambe HOST) est prouvé par les L0 d'US-226 : un seul
+    // plan vendu (ESTÁNDAR) ne le distingue pas du plan par défaut ici (revues de 226a, n° 5)
+    it('plans de gains par le vrai magasin de CAT : plan par défaut lu, plan choisi enregistré puis lu, PRO refusé, compte d’un autre invisible', async () => {
       const store = new PgHostListingStore(client);
       const holderId = await register(cc.country);
       const hostHash = sha();

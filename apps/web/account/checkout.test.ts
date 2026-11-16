@@ -16,7 +16,11 @@ import {
   checkoutInputOf,
   checkoutQuoteOf,
   holdRequestOf,
+  protectionChanged,
+  protectionInputErrors,
+  protectionInputOf,
   S05_FIELD,
+  S05_PROTECTION_FIELD,
   slotPriceOf,
 } from './checkout.ts';
 
@@ -112,6 +116,115 @@ describe('devis figé du checkout', () => {
     ]) {
       expect(checkoutQuoteOf(reply(200, quote(extra))), JSON.stringify(extra)).toBeNull();
     }
+  });
+
+  // US-226b : niveaux proposés de S05. Attendus (16 PRC-018, grille de TEST 1/4, 2/5, 13/20 du
+  // prix journalier net de 40,00 ; TOTAL dès 21 ans, ADR-136) : BASICA 10,00 / jour ⇒ 30,00 sur
+  // 3 jours (la protection du trip A de 08, TJ01) ; ESTANDAR 16,00 ⇒ 48,00 ; TOTAL 26,00 ⇒ 78,00
+  const options = (selected = 'BASICA', age: number | null = null) =>
+    [
+      ['BASICA', null, '1000', '3000'],
+      ['ESTANDAR', null, '1600', '4800'],
+      ['TOTAL', 21, '2600', '7800'],
+    ].map(([level, min, daily, line]) => {
+      const eligible = min === null || (age !== null && age >= (min as number));
+      return {
+        level,
+        eligible,
+        reason: eligible ? null : 'DRIVER_AGE',
+        minDriverAge: min,
+        dailyMinor: daily,
+        lineMinor: line,
+        selected: level === selected,
+      };
+    });
+  const withProtection = (extra: Record<string, unknown> = {}) =>
+    quote({
+      lines: [
+        { type: 'TRIP_PRICE', amountMinor: '12000', taxMinor: '840' },
+        { type: 'PROTECTION', amountMinor: '3000', taxMinor: '0' },
+      ],
+      totalMinor: '15840',
+      protectionLevel: 'BASICA',
+      driverAge: null,
+      insurerContractActive: true,
+      protectionOptions: options(),
+      ...extra,
+    });
+
+  it('US-226b : niveaux proposés lus tels quels (prix de l’API, niveau grisé avec sa raison), âge déclaré et interrupteur de l’assureur', () => {
+    const q = checkoutQuoteOf(reply(200, withProtection()));
+    expect(q?.driverAge).toBeNull();
+    expect(q?.insurerContractActive).toBe(true);
+    expect(q?.protectionOptions).toEqual([
+      {
+        level: 'BASICA',
+        eligible: true,
+        reason: null,
+        minDriverAge: null,
+        dailyMinor: 1000n,
+        lineMinor: 3000n,
+        selected: true,
+      },
+      {
+        level: 'ESTANDAR',
+        eligible: true,
+        reason: null,
+        minDriverAge: null,
+        dailyMinor: 1600n,
+        lineMinor: 4800n,
+        selected: false,
+      },
+      {
+        level: 'TOTAL',
+        eligible: false,
+        reason: 'DRIVER_AGE',
+        minDriverAge: 21,
+        dailyMinor: 2600n,
+        lineMinor: 7800n,
+        selected: false,
+      },
+    ]);
+    // 25 ans déclarés : TOTAL permis ; contrat de l'assureur fermé : lu (aucune réservation)
+    const older = checkoutQuoteOf(
+      reply(200, withProtection({ driverAge: 25, protectionOptions: options('BASICA', 25) })),
+    );
+    expect(older?.driverAge).toBe(25);
+    expect(older?.protectionOptions[2]?.eligible).toBe(true);
+    expect(
+      checkoutQuoteOf(reply(200, withProtection({ insurerContractActive: false })))
+        ?.insurerContractActive,
+    ).toBe(false);
+    // réponse antérieure à US-226 : aucun niveau, aucune fermeture annoncée
+    const legacy = checkoutQuoteOf(reply(200, quote()));
+    expect(legacy?.protectionOptions).toEqual([]);
+    expect(legacy?.insurerContractActive).toBe(true);
+    expect(legacy?.driverAge).toBeNull();
+  });
+
+  it('US-226b : niveaux incohérents ⇒ devis jamais affiché (fail-closed)', () => {
+    const bad = (mutate: (o: ReturnType<typeof options>) => unknown) =>
+      checkoutQuoteOf(reply(200, withProtection({ protectionOptions: mutate(options()) })));
+    // niveau sélectionné ≠ niveau du devis, ou sa ligne ≠ la ligne PROTECTION du devis
+    expect(
+      checkoutQuoteOf(reply(200, withProtection({ protectionOptions: options('ESTANDAR') }))),
+    ).toBeNull();
+    expect(
+      bad((o) => o.map((x) => (x.level === 'BASICA' ? { ...x, lineMinor: '3001' } : x))),
+    ).toBeNull();
+    // deux sélectionnés, doublon, niveau refusé sans raison, raison inconnue, montant illisible
+    expect(bad((o) => o.map((x) => ({ ...x, selected: x.level !== 'TOTAL' })))).toBeNull();
+    expect(bad((o) => [...o, o[1]])).toBeNull();
+    expect(bad((o) => o.map((x) => (x.level === 'TOTAL' ? { ...x, reason: null } : x)))).toBeNull();
+    expect(
+      bad((o) => o.map((x) => (x.level === 'TOTAL' ? { ...x, reason: 'VALUE' } : x))),
+    ).toBeNull();
+    expect(
+      bad((o) => o.map((x) => (x.level === 'ESTANDAR' ? { ...x, dailyMinor: 1600 } : x))),
+    ).toBeNull();
+    expect(bad(() => 'BASICA')).toBeNull();
+    expect(checkoutQuoteOf(reply(200, withProtection({ driverAge: '25' })))).toBeNull();
+    expect(checkoutQuoteOf(reply(200, withProtection({ insurerContractActive: 'no' })))).toBeNull();
   });
 
   it('somme des lignes ≠ total ⇒ jamais affiché (aucun recalcul)', () => {
@@ -254,7 +367,64 @@ describe('saisie de S05 : contrôles de forme et corps envoyé (jamais un montan
   });
 });
 
+describe('choix de la protection de S05 (US-226b) : contrôles de forme, aucun gel inutile', () => {
+  const form = (entries: Record<string, string>) => {
+    const f = new FormData();
+    for (const [k, v] of Object.entries(entries)) f.set(k, v);
+    return f;
+  };
+
+  it('niveau et âge lus ; âge vide ⇒ non déclaré ; âge illisible ou hors bornes ⇒ erreur liée au champ', () => {
+    expect(protectionInputOf(form({ protectionLevel: 'TOTAL', driverAge: ' 25 ' }))).toEqual({
+      level: 'TOTAL',
+      driverAge: 25,
+    });
+    expect(protectionInputOf(form({ protectionLevel: 'BASICA', driverAge: '' }))).toEqual({
+      level: 'BASICA',
+      driverAge: undefined,
+    });
+    for (const age of ['15', '100', '2a', '-3', '21.5']) {
+      const input = protectionInputOf(form({ protectionLevel: 'BASICA', driverAge: age }));
+      expect(input.driverAge, age).toBeNull();
+      expect(protectionInputErrors(input)).toEqual([
+        { fieldId: S05_PROTECTION_FIELD.age, key: 'web.s05.age.invalid' },
+      ]);
+    }
+  });
+
+  it('aucun niveau (ou niveau mal formé) ⇒ PROTECTION_LEVEL_REQUIRED : aucune option « sans protection »', () => {
+    for (const entries of [{}, { protectionLevel: '' }, { protectionLevel: 'none' }]) {
+      expect(protectionInputErrors(protectionInputOf(form(entries)))).toEqual([
+        { fieldId: S05_PROTECTION_FIELD.levels, key: 'common.quote.protectionRequired' },
+      ]);
+    }
+  });
+
+  it('même niveau et même âge que le devis ⇒ aucun nouveau gel ; tout changement ⇒ nouveau devis', () => {
+    const quote = { protectionLevel: 'BASICA', driverAge: null };
+    expect(protectionChanged(quote, { level: 'BASICA', driverAge: undefined })).toBe(false);
+    expect(protectionChanged(quote, { level: 'ESTANDAR', driverAge: undefined })).toBe(true);
+    expect(protectionChanged(quote, { level: 'BASICA', driverAge: 30 })).toBe(true);
+    expect(
+      protectionChanged(
+        { protectionLevel: 'TOTAL', driverAge: 30 },
+        { level: 'TOTAL', driverAge: 30 },
+      ),
+    ).toBe(false);
+  });
+});
+
 describe('messages des refus', () => {
+  it('US-226 : refus de la protection nommés (niveau exigé, refusé, contrat de l’assureur fermé)', () => {
+    for (const [code, key] of [
+      ['PROTECTION_LEVEL_REQUIRED', 'common.quote.protectionRequired'],
+      ['PROTECTION_LEVEL_NOT_ELIGIBLE', 'common.quote.protectionNotEligible'],
+      ['INSURER_CONTRACT_INACTIVE', 'common.quote.insurerContractInactive'],
+    ] as const) {
+      expect(checkoutErrorKey(reply(422, { code }))).toBe(key);
+    }
+  });
+
   it('chaque code connu a sa clé dans les quatre catalogues', () => {
     for (const code of CHECKOUT_ERROR_CODES) {
       const key = checkoutErrorKey(reply(409, { code }));

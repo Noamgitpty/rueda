@@ -104,7 +104,6 @@ export const PT_PROTO = {
   },
   'web.s04.result.glare':
     'A foto da sua carteira saiu com reflexo. Incline um pouco e evite luz direta.',
-  'web.s05.protection.title': 'Escolha sua proteção',
   'web.s05.contract': 'Aceito o contrato de aluguel com {host_name}',
   'web.s05.mitConsent':
     'Autorizo cobranças depois da viagem neste cartão apenas por despesas da viagem, minha franquia ou danos, sempre com aviso e comprovação.',

@@ -13,6 +13,11 @@
  *   pose (revue ux / qa / architecture de 208a).
  * - `placeHoldAction` (S05) : contrôles de forme (nom, case manuelle, chaque document coché), puis
  *   `POST /checkout/quotes/{id}/hold` ; succès : confirmation du hold. Aucun paiement (US-223).
+ * - `changeProtectionAction` (S05, US-226b, ADR-137) : niveau de protection et âge déclaré
+ *   VALIDÉS par le voyageur ⇒ nouveau devis figé pour la même annonce et la même période, puis S05
+ *   du nouveau devis (`?protection=1`) avec son total ; même choix ⇒ aucun gel (chaque gel compte
+ *   dans `quote_freezes_per_guest_hour`). Un nouveau prix (devis expiré, configuration changée)
+ *   est celui du nouveau devis, jamais recalculé ici.
  *
  * Session absente ou expirée ⇒ connexion ; CGU à réaccepter (`TERMS_REACCEPT_REQUIRED`, TermsGuard)
  * ⇒ écran de réacceptation. Jamais de donnée personnelle dans une URL ni dans un journal.
@@ -28,7 +33,11 @@ import {
   checkoutQuoteOf,
   holdRequestOf,
   isUuid,
+  protectionChanged,
+  protectionInputErrors,
+  protectionInputOf,
   S05_FIELD,
+  S05_PROTECTION_FIELD,
 } from '../../../account/checkout.ts';
 import type { CheckoutFieldError } from '../../../account/checkout.ts';
 import { clientContext } from '../../../account/request.ts';
@@ -53,24 +62,39 @@ function guardReply(reply: ApiResult): void {
   if (codeOf(reply) === 'TERMS_REACCEPT_REQUIRED') redirect('/terms/update');
 }
 
+/** Protection choisie à reprendre dans un nouveau devis (US-226b) ; absente : minimum du pays. */
+interface ProtectionChoice {
+  readonly protectionLevel: string;
+  readonly driverAge?: number;
+}
+
 /** Nouveau devis figé pour une annonce et une période ; S05 du devis, ou l'erreur à afficher. */
 async function freezeAndOpen(
   listingId: string,
   startAt: string,
   endAt: string,
-  renewed: boolean,
+  then: '' | '?renewed=1' | '?protection=1',
+  protection?: ProtectionChoice,
 ): Promise<CheckoutFormState> {
   const reply = await callApi('POST', '/checkout/quotes', await clientContext(), {
     listingId,
     startAt,
     endAt,
+    ...protection,
   });
   guardReply(reply);
   const quote = checkoutQuoteOf(reply);
   if (quote === null) {
-    return { errors: [{ fieldId: S05_FIELD.form, key: checkoutErrorKey(reply) }] };
+    // niveau refusé à l'âge déclaré : erreur liée au choix des niveaux (10b UX-50)
+    const fieldId =
+      codeOf(reply) === 'PROTECTION_LEVEL_NOT_ELIGIBLE' && protection !== undefined
+        ? S05_PROTECTION_FIELD.levels
+        : protection === undefined
+          ? S05_FIELD.form
+          : S05_PROTECTION_FIELD.form;
+    return { errors: [{ fieldId, key: checkoutErrorKey(reply) }] };
   }
-  redirect(`/checkout/${quote.quoteId}${renewed ? '?renewed=1' : ''}`);
+  redirect(`/checkout/${quote.quoteId}${then}`);
 }
 
 /** S03 « Reservar » : devis figé des dates contrôlées de la fiche, puis S05. */
@@ -86,10 +110,13 @@ export async function startCheckoutAction(
   }
   // session absente : la connexion d'abord (aucun devis figé pour un inconnu)
   if ((await clientContext()).sessionToken === null) redirect('/login');
-  return freezeAndOpen(listingId, startAt, endAt, false);
+  return freezeAndOpen(listingId, startAt, endAt, '');
 }
 
-/** Relit le devis du voyageur (annonce et période) pour en redemander un. */
+/**
+ * Relit le devis du voyageur (annonce et période) pour en redemander un ; le niveau de protection
+ * et l'âge déclaré choisis sont repris (US-226b : un prix redemandé ne retire jamais un choix).
+ */
 async function renewFrom(quoteId: string): Promise<CheckoutFormState> {
   const reply = await callApi('GET', `/checkout/quotes/${quoteId}`, await clientContext());
   guardReply(reply);
@@ -97,7 +124,78 @@ async function renewFrom(quoteId: string): Promise<CheckoutFormState> {
   if (old === null) {
     return { errors: [{ fieldId: S05_FIELD.form, key: checkoutErrorKey(reply) }] };
   }
-  return freezeAndOpen(old.listingId, old.startAt, old.endAt, true);
+  const state = await freezeAndOpen(
+    old.listingId,
+    old.startAt,
+    old.endAt,
+    '?renewed=1',
+    choiceOf(old),
+  );
+  // refus du nouveau gel : message du formulaire qui a demandé le prix (jamais un champ caché)
+  return { errors: state.errors.map((e) => ({ ...e, fieldId: S05_FIELD.form })) };
+}
+
+/** Choix de protection d'un devis lu (aucun niveau : minimum du pays au nouveau gel). */
+function choiceOf(quote: {
+  readonly protectionLevel: string | null;
+  readonly driverAge: number | null;
+}): ProtectionChoice | undefined {
+  if (quote.protectionLevel === null) return undefined;
+  return {
+    protectionLevel: quote.protectionLevel,
+    ...(quote.driverAge === null ? {} : { driverAge: quote.driverAge }),
+  };
+}
+
+/**
+ * S05 (US-226b) : niveau de protection et âge déclaré validés ⇒ nouveau devis figé, puis S05 du
+ * nouveau devis. Contrôles de forme d'abord (âge en années, un niveau choisi) ; même choix que le
+ * devis affiché ⇒ retour au même devis, aucun gel.
+ */
+export async function changeProtectionAction(
+  _prev: CheckoutFormState,
+  form: FormData,
+): Promise<CheckoutFormState> {
+  const quoteId = hidden(form, 'quoteId');
+  if (!isUuid(quoteId)) {
+    return { errors: [{ fieldId: S05_PROTECTION_FIELD.form, key: 'common.quote.notFound' }] };
+  }
+  const input = protectionInputOf(form);
+  const errors = protectionInputErrors(input);
+  if (errors.length > 0) return { errors, values: keepProtection(form) };
+  const reply = await callApi('GET', `/checkout/quotes/${quoteId}`, await clientContext());
+  guardReply(reply);
+  const current = checkoutQuoteOf(reply);
+  if (current === null) {
+    return {
+      errors: [{ fieldId: S05_PROTECTION_FIELD.form, key: checkoutErrorKey(reply) }],
+      values: keepProtection(form),
+    };
+  }
+  if (!protectionChanged(current, input)) redirect(`/checkout/${quoteId}`);
+  const state = await freezeAndOpen(
+    current.listingId,
+    current.startAt,
+    current.endAt,
+    '?protection=1',
+    {
+      protectionLevel: input.level as string,
+      ...(input.driverAge === undefined || input.driverAge === null
+        ? {}
+        : { driverAge: input.driverAge }),
+    },
+  );
+  return { ...state, values: keepProtection(form) };
+}
+
+/** Saisie du choix de la protection renvoyée après un refus (niveau et âge seulement). */
+function keepProtection(form: FormData): Record<string, string> {
+  const values: Record<string, string> = {};
+  for (const name of ['protectionLevel', 'driverAge']) {
+    const v = form.get(name);
+    if (typeof v === 'string') values[name] = v.slice(0, 32);
+  }
+  return values;
 }
 
 /** S05, devis expiré : nouveau devis pour la même annonce et la même période. */

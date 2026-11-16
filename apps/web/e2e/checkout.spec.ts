@@ -49,11 +49,37 @@ const RENEWED_TOTAL = /134[.,]82/;
 const PROTECTION_AMOUNT = /30[.,]00/;
 const WITH_PROTECTION_TOTAL = /158[.,]40/;
 const PROTECTION_LABEL: Readonly<Record<Language, string>> = {
-  es: 'Protección Básica',
+  es: 'Protección básica',
   en: 'Basic protection',
   fr: 'Protection de base',
-  pt: 'Proteção Básica',
+  pt: 'Proteção básica',
 };
+/**
+ * US-226b : niveaux de la grille de TEST (16 PRC-018 : 1/4, 2/5, 13/20 du prix journalier net de
+ * 40,00 ; TOTAL dès 21 ans, PRT-002) : ESTANDAR 16,00 par jour ⇒ 48,00, total 128,40 + 48,00 =
+ * 176,40 ; TOTAL 26,00 par jour ⇒ 78,00, total 128,40 + 78,00 = 206,40.
+ */
+const ESTANDAR_DAILY = /16[.,]00/;
+const ESTANDAR_LINE = /48[.,]00/;
+const ESTANDAR_TOTAL = /176[.,]40/;
+const TOTAL_LINE = /78[.,]00/;
+const TOTAL_TOTAL = /206[.,]40/;
+/** Raison du niveau grisé (« dès 21 ans ») et mention près du total de la fiche, par langue. */
+const FROM_21: Readonly<Record<Language, string>> = {
+  es: 'Disponible desde los 21 años',
+  en: 'Available from age 21',
+  fr: 'Disponible dès 21 ans',
+  pt: 'Disponível a partir de 21 anos',
+};
+const PROTECTION_INCLUDED: Readonly<Record<Language, string>> = {
+  es: 'Protección básica incluida',
+  en: 'Basic protection included',
+  fr: 'Protection de base incluse',
+  pt: 'Proteção básica incluída',
+};
+const PROTECTION_URL = /\/checkout\/[0-9a-f-]{36}\?protection=1$/;
+const radio = (page: Page, level: string) => page.locator(`#s05-protection-${level}`);
+const apply = (page: Page) => page.locator('[data-testid="s05-protection-apply"]');
 /** Trois jours (TA01) ; le 15 : expiré à la pose ; le 20 : expiré à la lecture (double). */
 const slot = (day: number) => ({
   start: `2036-12-${String(day).padStart(2, '0')}T10:00`,
@@ -204,6 +230,92 @@ for (const language of LANGUAGES) {
       await expect(page.locator('[data-testid="s05-hold-total"]')).toContainText(
         WITH_PROTECTION_TOTAL,
       );
+    });
+
+    test('US-226b critère 1 : BASICA présélectionnée, TOTAL grisé « dès 21 ans » sans âge, aucune option sans protection ; ESTANDAR validée ⇒ nouveau devis et nouveau total', async ({
+      page,
+      context,
+    }) => {
+      await signInGuest(context, language);
+      await page.goto(fiche(PUBLIC_ID, slot(25)));
+      // fiche : protection de base comprise dans le total (16 SRC-042)
+      await expect(page.locator('[data-testid="s03-protection-included"]')).toHaveText(
+        PROTECTION_INCLUDED[language],
+      );
+      await openCheckout(page, PUBLIC_ID, slot(25));
+      const first = new URL(page.url()).pathname;
+      const form = page.locator('[data-testid="s05-protection"]');
+      await expect(form.locator('input[type="radio"]')).toHaveCount(3);
+      await expect(radio(page, 'BASICA')).toBeChecked();
+      await expect(radio(page, 'ESTANDAR')).toBeEnabled();
+      await expect(radio(page, 'TOTAL')).toBeDisabled();
+      await expect(page.locator('#s05-protection-TOTAL-reason')).toContainText(FROM_21[language]);
+      await expect(form).toContainText(ESTANDAR_DAILY);
+      await expect(form).toContainText(ESTANDAR_LINE);
+      // aucun gel tant que rien ne change : bouton inactif, aide liée
+      await expect(apply(page)).toHaveAttribute('aria-disabled', 'true');
+      await expectAccessible(page);
+      await expectMobileFriendly(page);
+      // choix validé : UN nouveau devis, nouveau total rendu par l'API
+      await radio(page, 'ESTANDAR').check();
+      await expect(apply(page)).not.toHaveAttribute('aria-disabled', 'true');
+      await submitAndSettle(page, apply(page), PROTECTION_URL);
+      expect(new URL(page.url()).pathname).not.toBe(first);
+      await expect(page.locator('main [role="status"]').first()).toBeVisible();
+      await expect(radio(page, 'ESTANDAR')).toBeChecked();
+      const s05 = page.locator('[data-testid="s05-price"]');
+      await expect(s05.locator('dd').nth(1)).toHaveText(ESTANDAR_LINE);
+      await expect(s05.locator('dd').last()).toHaveText(ESTANDAR_TOTAL);
+      await expectAccessible(page);
+    });
+
+    test('US-226b : âge déclaré de 25 ans ⇒ TOTAL choisissable ; validé ⇒ total 206,40 jusqu’au hold ; âge illisible refusé et lié au champ', async ({
+      page,
+      context,
+    }) => {
+      await signInGuest(context, language);
+      await openCheckout(page, PUBLIC_ID, slot(25));
+      // âge hors bornes : refus de forme lié au champ, aucun nouveau devis
+      const before = page.url();
+      await page.locator('#s05-driver-age').fill('150');
+      await submitAndSettle(page, apply(page));
+      await expect(page.locator('#s05-driver-age')).toHaveAttribute('aria-invalid', 'true');
+      expect(page.url()).toBe(before);
+      await expectAccessible(page);
+      // 20 ans : TOTAL reste grisé ; 25 ans : choisissable
+      await page.locator('#s05-driver-age').fill('20');
+      await expect(radio(page, 'TOTAL')).toBeDisabled();
+      await page.locator('#s05-driver-age').fill('25');
+      await expect(radio(page, 'TOTAL')).toBeEnabled();
+      await radio(page, 'TOTAL').check();
+      await submitAndSettle(page, apply(page), PROTECTION_URL);
+      await expect(radio(page, 'TOTAL')).toBeChecked();
+      await expect(page.locator('#s05-driver-age')).toHaveValue('25');
+      const s05 = page.locator('[data-testid="s05-price"]');
+      await expect(s05.locator('dd').nth(1)).toHaveText(TOTAL_LINE);
+      await expect(s05.locator('dd').last()).toHaveText(TOTAL_TOTAL);
+      await fillDriver(page, 'Lucía', 'Gómez');
+      await acceptAll(page);
+      await submitAndSettle(page, submit(page), HOLD_URL);
+      await expect(page.locator('[data-testid="s05-hold-total"]')).toContainText(TOTAL_TOTAL);
+    });
+
+    test('US-226 critère 5 : contrat de l’assureur fermé ⇒ aucun devis depuis la fiche ; fermé après le gel ⇒ S05 sans formulaire, retour à la recherche', async ({
+      page,
+      context,
+    }) => {
+      await signInGuest(context, language);
+      await page.goto(fiche(PUBLIC_ID, slot(27)));
+      await page.locator('[data-testid="s03-book"] button[type="submit"]').click();
+      await expect(page.locator('[data-testid="s03-book"] [role="alert"]')).toBeVisible();
+      await expect(page).toHaveURL(/\/listings\//);
+      await expectAccessible(page);
+      await openCheckout(page, PUBLIC_ID, slot(28));
+      await expect(page.locator('section[aria-labelledby="s05-closed"] a[href="/"]')).toBeVisible();
+      await expect(page.locator('[data-testid="s05-form"]')).toHaveCount(0);
+      await expect(page.locator('[data-testid="s05-protection"]')).toHaveCount(0);
+      await expectAccessible(page);
+      await expectMobileFriendly(page);
     });
 
     test('document du checkout : version exacte servie, BROUILLON marqué, retour au devis', async ({

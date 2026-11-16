@@ -22,8 +22,20 @@
  */
 import { expectAccessible } from './axe.ts';
 import { expect, expectMobileFriendly, LANGUAGES, tagOf, test } from './fixtures.ts';
+import type { Language } from './fixtures.ts';
 import { SPEC_TEXT } from './oracle.ts';
 import { AREA, CITY, END, place, PUBLIC_ID, searchUrl, START } from './search-data.ts';
+
+/**
+ * US-226b : le total de chaque carte comprend la protection minimale du pays (16 SRC-042, N-141),
+ * mention affichée près du total (revue ux de 226a, n° 7).
+ */
+const PROTECTION_INCLUDED: Readonly<Record<Language, string>> = {
+  es: 'Protección básica incluida',
+  en: 'Basic protection included',
+  fr: 'Protection de base incluse',
+  pt: 'Proteção básica incluída',
+};
 
 for (const language of LANGUAGES) {
   test.describe(`recherche S01 → S02 → S03 · ${language}`, () => {
@@ -121,6 +133,8 @@ for (const language of LANGUAGES) {
       expect(generic).not.toBe('');
       await expect(swift).toContainText(generic);
       await expect(luxe).not.toContainText(generic);
+      // US-226b : « protection de base incluse » près du total, sur chaque carte
+      await expect(cards.filter({ hasText: PROTECTION_INCLUDED[language] })).toHaveCount(3);
       // sans avis : badge « Nuevo » (10b §4.3 `web.s02.new`) ; avec avis : note, pas de badge
       const nuevo = SPEC_TEXT.newBadge[language];
       if (nuevo !== undefined) {

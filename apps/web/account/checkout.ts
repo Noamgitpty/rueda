@@ -79,6 +79,25 @@ export interface QuoteLineView {
   readonly taxMinor: bigint;
 }
 
+/**
+ * Niveau de protection proposé sur S05 (US-226 ; 16 BKG-003, PRT-001 / PRT-002) : prix par jour et
+ * pour la période calculés par l'API (jamais par le site) ; niveau refusé à l'âge déclaré grisé
+ * avec sa raison (`DRIVER_AGE`, âge minimal du niveau).
+ */
+export interface ProtectionOptionView {
+  readonly level: string;
+  readonly eligible: boolean;
+  readonly reason: 'DRIVER_AGE' | null;
+  readonly minDriverAge: number | null;
+  readonly dailyMinor: bigint;
+  readonly lineMinor: bigint;
+  readonly selected: boolean;
+}
+
+/** Âge déclaré accepté par l'écran (années entières ; la base juge l'éligibilité). */
+export const DRIVER_AGE_MIN = 16;
+export const DRIVER_AGE_MAX = 99;
+
 export interface CheckoutDocumentView {
   readonly kind: CheckoutDocumentKind;
   readonly version: number;
@@ -100,6 +119,12 @@ export interface CheckoutQuoteView {
   readonly expiresAt: string | null;
   /** Niveau de protection figé (US-226) ; `null` : devis sans protection (jamais réservable). */
   readonly protectionLevel: string | null;
+  /** Âge déclaré figé dans le devis (US-226) ; `null` : non saisi. */
+  readonly driverAge: number | null;
+  /** `insurer_contract_active` du pays (16 PRT-001) ; `false` : aucune réservation possible. */
+  readonly insurerContractActive: boolean;
+  /** Niveaux vendus, par rang croissant, avec leur prix pour la période (US-226b, S05). */
+  readonly protectionOptions: readonly ProtectionOptionView[];
   readonly expired: boolean;
   readonly manualTransmission: boolean;
   readonly instantBook: boolean;
@@ -120,6 +145,44 @@ function linesOf(v: unknown): QuoteLineView[] | null {
     if (amount === null || tax === null || tax < 0n) return null;
     out.push({ type: type as QuoteLineType, amountMinor: amount, taxMinor: tax });
   }
+  return out;
+}
+
+/**
+ * Niveaux proposés (`protectionOptions`) : absents d'une réponse antérieure ⇒ aucun ; un niveau
+ * mal formé, en double, ou plus d'un niveau sélectionné ⇒ réponse refusée (fail-closed).
+ */
+function optionsOf(v: unknown): ProtectionOptionView[] | null {
+  if (v === undefined) return [];
+  if (!Array.isArray(v) || v.length > 10) return null;
+  const out: ProtectionOptionView[] = [];
+  for (const o of v as unknown[]) {
+    if (!isObj(o)) return null;
+    const level = str(o['level']);
+    const daily = minor(o['dailyMinor']);
+    const line = minor(o['lineMinor']);
+    const age = o['minDriverAge'] === null ? null : int(o['minDriverAge']);
+    const reason = o['reason'];
+    if (level === null || !PROTECTION_LEVEL.test(level) || out.some((x) => x.level === level)) {
+      return null;
+    }
+    if (daily === null || daily < 0n || line === null || line < 0n) return null;
+    if (typeof o['eligible'] !== 'boolean' || typeof o['selected'] !== 'boolean') return null;
+    if (o['minDriverAge'] !== null && (age === null || age < 1)) return null;
+    if (reason !== null && reason !== 'DRIVER_AGE') return null;
+    // un niveau refusé porte sa raison, un niveau permis n'en porte aucune
+    if ((reason === null) !== (o['eligible'] === true)) return null;
+    out.push({
+      level,
+      eligible: o['eligible'] === true,
+      reason: reason === null ? null : 'DRIVER_AGE',
+      minDriverAge: age,
+      dailyMinor: daily,
+      lineMinor: line,
+      selected: o['selected'] === true,
+    });
+  }
+  if (out.filter((o) => o.selected).length > 1) return null;
   return out;
 }
 
@@ -180,6 +243,19 @@ export function checkoutQuoteOf(reply: ApiResult): CheckoutQuoteView | null {
   const protectionLevel = typeof level === 'string' ? level : null;
   // une ligne de protection sans niveau, ou l'inverse : incohérent, jamais affiché
   if ((protectionLevel !== null) !== lines.some((l) => l.type === 'PROTECTION')) return null;
+  const options = optionsOf(q['protectionOptions']);
+  if (options === null) return null;
+  // le niveau sélectionné est celui du devis ; sa ligne de la période est la ligne du devis
+  const chosen = options.find((o) => o.selected);
+  if (chosen !== undefined) {
+    const line = lines.find((l) => l.type === 'PROTECTION');
+    if (chosen.level !== protectionLevel || line?.amountMinor !== chosen.lineMinor) return null;
+  }
+  const rawAge = q['driverAge'];
+  const driverAge = rawAge === undefined || rawAge === null ? null : int(rawAge);
+  if (rawAge !== undefined && rawAge !== null && (driverAge === null || driverAge < 1)) return null;
+  const contract = q['insurerContractActive'];
+  if (contract !== undefined && typeof contract !== 'boolean') return null;
   for (const flag of ['expired', 'manualTransmission', 'instantBook']) {
     if (typeof q[flag] !== 'boolean') return null;
   }
@@ -198,6 +274,10 @@ export function checkoutQuoteOf(reply: ApiResult): CheckoutQuoteView | null {
     totalMinor: total,
     expiresAt,
     protectionLevel,
+    driverAge,
+    // absent d'une réponse antérieure à US-226 : aucune fermeture annoncée par le pays
+    insurerContractActive: contract !== false,
+    protectionOptions: options,
     expired: q['expired'] === true,
     manualTransmission: q['manualTransmission'] === true,
     instantBook: q['instantBook'] === true,
@@ -344,6 +424,60 @@ export function checkoutInputErrors(
   return errors;
 }
 
+/** Champs du choix de la protection (S05, US-226b). */
+export const S05_PROTECTION_FIELD = {
+  form: 's05-protection',
+  age: 's05-driver-age',
+  levels: 's05-protection-levels',
+  level: (level: string): string => `s05-protection-${level}`,
+} as const;
+
+/** Choix de la protection lu d'un `FormData` : niveau de la grille et âge déclaré (aucun montant). */
+export interface ProtectionInput {
+  readonly level: string | null;
+  /** `undefined` : âge non saisi ; `null` : saisie illisible ou hors bornes. */
+  readonly driverAge: number | null | undefined;
+}
+
+export function protectionInputOf(form: FormData): ProtectionInput {
+  const level = form.get('protectionLevel');
+  const raw = form.get('driverAge');
+  const text = typeof raw === 'string' ? raw.trim().slice(0, 4) : '';
+  let driverAge: number | null | undefined;
+  if (text === '') driverAge = undefined;
+  else if (/^[0-9]{1,3}$/.test(text)) {
+    const n = Number(text);
+    driverAge = n >= DRIVER_AGE_MIN && n <= DRIVER_AGE_MAX ? n : null;
+  } else driverAge = null;
+  return {
+    level: typeof level === 'string' && PROTECTION_LEVEL.test(level) ? level : null,
+    driverAge,
+  };
+}
+
+/** Contrôles de forme du choix de la protection (la base juge l'éligibilité et le prix). */
+export function protectionInputErrors(input: ProtectionInput): CheckoutFieldError[] {
+  const errors: CheckoutFieldError[] = [];
+  if (input.driverAge === null) {
+    errors.push({ fieldId: S05_PROTECTION_FIELD.age, key: 'web.s05.age.invalid' });
+  }
+  if (input.level === null) {
+    errors.push({ fieldId: S05_PROTECTION_FIELD.levels, key: 'common.quote.protectionRequired' });
+  }
+  return errors;
+}
+
+/**
+ * Le choix change-t-il le devis ? Même niveau et même âge : aucun nouveau devis figé (chaque gel
+ * compte dans `quote_freezes_per_guest_hour`, ADR-136, ADR-137).
+ */
+export function protectionChanged(
+  quote: Pick<CheckoutQuoteView, 'protectionLevel' | 'driverAge'>,
+  input: ProtectionInput,
+): boolean {
+  return input.level !== quote.protectionLevel || (input.driverAge ?? null) !== quote.driverAge;
+}
+
 /** Corps de `POST /checkout/quotes/{id}/hold` : jamais un montant (L2-PM-03). */
 export function holdRequestOf(input: CheckoutInput): {
   readonly driver: { readonly firstName: string; readonly lastName: string };
@@ -371,6 +505,10 @@ const CHECKOUT_KEYS: Readonly<Record<string, MessageKey>> = {
   QUOTE_EXPIRED: 'common.quote.expired',
   QUOTE_ALREADY_USED: 'common.checkout.quoteAlreadyUsed',
   QUOTE_LINE_NOT_SUPPORTED: 'common.quote.lineNotSupported',
+  // US-226 : protection du voyageur (ADR-136)
+  PROTECTION_LEVEL_REQUIRED: 'common.quote.protectionRequired',
+  PROTECTION_LEVEL_NOT_ELIGIBLE: 'common.quote.protectionNotEligible',
+  INSURER_CONTRACT_INACTIVE: 'common.quote.insurerContractInactive',
   LISTING_NOT_FOUND: 'web.listing.notFound',
   LISTING_UNAVAILABLE: 'common.checkout.listingUnavailable',
   REQUEST_MODE_UNAVAILABLE: 'common.checkout.requestModeUnavailable',
