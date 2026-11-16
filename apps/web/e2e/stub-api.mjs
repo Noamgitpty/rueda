@@ -502,7 +502,8 @@ const lateRetention = (q) => {
 };
 const holdJson = (h) => ({
   holdId: h.id,
-  status: 'ACTIVE',
+  // paiement du hold (US-223b) : état posé par la route du paiement et les webhooks du double
+  status: h.status ?? 'ACTIVE',
   expiresAt: HOLD_EXPIRES_AT,
   quoteId: h.quote.id,
   listingId: h.quote.listingId,
@@ -662,7 +663,13 @@ async function checkoutRoute(req, res, path) {
       return err(res, 409, 'TERMS_VERSION_CHANGED', 'common.legal.versionChanged');
     }
     q.used = true;
-    const h = { id: uuid(), quote: q, manual: q.listingId === MANUAL_ID };
+    // préfixe fixe (US-223b) : le numéro de réservation de S06 (8 premiers caractères) est stable
+    // dans les captures ; le reste reste unique
+    const h = {
+      id: `${HOLD_ID_PREFIX}${uuid().slice(8)}`,
+      quote: q,
+      manual: q.listingId === MANUAL_ID,
+    };
     holds.set(h.id, h);
     return json(res, 201, { hold: holdJson(h) });
   }
@@ -674,6 +681,104 @@ async function checkoutRoute(req, res, path) {
     return json(res, 200, { hold: holdJson(h) });
   }
   return err(res, 404, 'NOT_FOUND', 'common.error.notFound');
+}
+
+// ---- Paiement du hold (US-223 partie 223b, ADR-142) -----------------------------------------
+// `POST /checkout/holds/{id}/payment` : ordre créé (201, page hébergée `https://psp.fake.invalid/…`,
+// jamais résolue : le test l'intercepte), hold « en vol » ; pendant un ordre actif, aucun nouvel
+// ordre (200 avec l'état). Refus par jour de départ : le 18, capacité bloquante du PSP non validée
+// (409 HOST_PAYOUT_RAIL_UNAVAILABLE) ; le 19, réservation en revue avant tout débit (409
+// BOOKING_UNDER_REVIEW) ; le 21, aucun compte marchand (503 PAYMENT_UNAVAILABLE). Aucun montant
+// reçu : un champ autre que `method` ⇒ 400. `GET …/payment` : état dérivé du hold et du trip né,
+// comme l'API (jamais un statut d'opération). `GET /__e2e/payment/webhook?hold=&event=` joue le
+// webhook FAKE signé et la conversion : SUCCEEDED (trip né ; après échéance : compensé), FAILED
+// (refus, hold gardé), MISMATCH (montant reçu différent : rien n'est appliqué), EXPIRE (échéance) ;
+// PAY met le hold « en vol » sans passer par le site (captures de S06) ; INTERRUPT : T1 passée sans
+// ordre enregistré (PSP sans réponse), reprise possible par « Reintentar el pago ».
+const PSP_PAGE = 'https://psp.fake.invalid/pay/';
+const HOLD_ID_PREFIX = '22300000';
+const PAYMENT_REFUSALS = {
+  '-12-18T': [409, 'HOST_PAYOUT_RAIL_UNAVAILABLE', 'common.payment.payoutRailUnavailable'],
+  '-12-19T': [409, 'BOOKING_UNDER_REVIEW', 'common.payment.underReview'],
+  '-12-21T': [503, 'PAYMENT_UNAVAILABLE', 'common.payment.unavailable'],
+};
+const PAYMENT_IN_FLIGHT_UNTIL = '2036-11-30T15:16:00.000Z';
+const paymentStateOf = (h) => {
+  const status = h.status ?? 'ACTIVE';
+  if (status === 'CONVERTED') return h.tripId ? 'CONFIRMED' : 'VERIFYING';
+  if (status === 'PAYMENT_IN_FLIGHT') return h.op === 'PENDING' ? 'INTERRUPTED' : 'VERIFYING';
+  if (status === 'ACTIVE') return !h.op ? 'PAYABLE' : h.op === 'FAILED' ? 'DECLINED' : 'VERIFYING';
+  if (status === 'COMPENSATED') return 'REFUND_DUE';
+  return !h.op || h.op === 'FAILED' ? 'ENDED' : 'UNPROVEN';
+};
+const paymentJson = (h, redirectUrl) => ({
+  holdId: h.id,
+  state: paymentStateOf(h),
+  holdStatus: h.status ?? 'ACTIVE',
+  tripId: h.tripId ?? null,
+  expiresAt: HOLD_EXPIRES_AT,
+  paymentInFlightUntil: h.status === 'PAYMENT_IN_FLIGHT' ? PAYMENT_IN_FLIGHT_UNTIL : null,
+  ...(redirectUrl === undefined ? {} : { redirectUrl }),
+});
+
+async function paymentRoute(req, res, url) {
+  const path = url.pathname;
+  if (req.method === 'GET' && path === '/__e2e/payment/webhook') {
+    const h = holds.get(url.searchParams.get('hold') ?? '');
+    if (h === undefined) return err(res, 404, 'HOLD_NOT_FOUND', 'common.checkout.holdNotFound');
+    const event = url.searchParams.get('event');
+    const status = h.status ?? 'ACTIVE';
+    const state = paymentStateOf(h);
+    if (event === 'PAY' && (state === 'PAYABLE' || state === 'DECLINED')) {
+      // ordre créé et enregistré (T1, createHostedPayment, T2), sans passer par le site
+      h.status = 'PAYMENT_IN_FLIGHT';
+      h.op = 'SUBMITTED';
+    } else if (event === 'INTERRUPT' && (state === 'PAYABLE' || state === 'DECLINED')) {
+      // T1 passée, PSP sans réponse avant T2 : opération PENDING sans référence
+      h.status = 'PAYMENT_IN_FLIGHT';
+      h.op = 'PENDING';
+    } else if (event === 'SUCCEEDED' && status === 'PAYMENT_IN_FLIGHT') {
+      h.status = 'CONVERTED';
+      h.op = 'SUCCEEDED';
+      h.tripId = uuid();
+    } else if (event === 'SUCCEEDED' && status === 'EXPIRED') {
+      // payé après la libération du créneau : compensation (remboursement intégral)
+      h.status = 'COMPENSATED';
+      h.op = 'SUCCEEDED';
+    } else if (event === 'FAILED' && status === 'PAYMENT_IN_FLIGHT') {
+      h.status = 'ACTIVE';
+      h.op = 'FAILED';
+    } else if (event === 'EXPIRE' && (status === 'ACTIVE' || status === 'PAYMENT_IN_FLIGHT')) {
+      h.status = 'EXPIRED';
+    } else if (event !== 'MISMATCH') {
+      return err(res, 409, 'INVALID_TRANSITION', 'common.error.notFound');
+    }
+    return json(res, 200, { payment: paymentJson(h) });
+  }
+  const id = /^\/checkout\/holds\/([0-9a-f-]{36})\/payment$/.exec(path)?.[1];
+  if (id === undefined) return false;
+  const guest = guestOf(req);
+  if (guest === undefined) return err(res, 401, 'AUTH_REQUIRED', 'common.auth.sessionRequired');
+  const h = holds.get(id);
+  if (h === undefined || h.quote.token !== guest.token) {
+    return err(res, 404, 'HOLD_NOT_FOUND', 'common.checkout.holdNotFound');
+  }
+  if (req.method === 'GET') return json(res, 200, { payment: paymentJson(h) });
+  if (req.method !== 'POST') return err(res, 404, 'NOT_FOUND', 'common.error.notFound');
+  const b = await readBody(req);
+  if (b !== null && (typeof b !== 'object' || Object.keys(b).some((k) => k !== 'method'))) {
+    return err(res, 400, 'REQUEST_INVALID', 'common.auth.requestInvalid');
+  }
+  const state = paymentStateOf(h);
+  // INTERRUPTED : reprise sous la même clé (le PSP du double ne trouve aucun ordre : il le crée)
+  if (state !== 'PAYABLE' && state !== 'DECLINED' && state !== 'INTERRUPTED') {
+    return json(res, 200, { payment: paymentJson(h, null) });
+  }
+  const refusal = Object.entries(PAYMENT_REFUSALS).find(([day]) => h.quote.startAt.includes(day));
+  if (refusal !== undefined) return err(res, refusal[1][0], refusal[1][1], refusal[1][2]);
+  h.status = 'PAYMENT_IN_FLIGHT';
+  h.op = 'SUBMITTED';
+  return json(res, 201, { payment: paymentJson(h, `${PSP_PAGE}${h.id}`) });
 }
 
 // ---- Vérification de l'hôte (US-123) : liste de tâches A07 -----------------------------------
@@ -1574,6 +1679,7 @@ async function hostRoute(req, res, url) {
 createServer(async (req, res) => {
   const url = new URL(req.url ?? '/', 'http://127.0.0.1');
   const path = url.pathname;
+  if ((await paymentRoute(req, res, url)) !== false) return;
   if ((await checkoutRoute(req, res, path)) !== false) return;
   if ((await hostRoute(req, res, url)) !== false) return;
   if (req.method === 'GET' && path === '/__e2e/signups') return json(res, 200, signups);

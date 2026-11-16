@@ -757,6 +757,15 @@ async function requestOf(
       };
     case 'GET /checkout/holds/{holdId}':
       return { method: 'GET', path: `/checkout/holds/${randomUUID()}` };
+    // paiement du hold (US-223b) : hold inconnu ⇒ 404 lu AVANT T1 (rien n'est démarré)
+    case 'POST /checkout/holds/{holdId}/payment':
+      return {
+        method: 'POST',
+        path: `/checkout/holds/${randomUUID()}/payment`,
+        body: { method: 'CARD' },
+      };
+    case 'GET /checkout/holds/{holdId}/payment':
+      return { method: 'GET', path: `/checkout/holds/${randomUUID()}/payment` };
     // recherche publique (US-201) : zones du pays ; recherche datée loin dans le futur
     case 'GET /search/areas':
       return { method: 'GET', path: `/search/areas?country=${country}` };

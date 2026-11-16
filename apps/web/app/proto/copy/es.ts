@@ -113,17 +113,9 @@ export const ES_PROTO = {
   'web.s05.contract': 'Acepto el contrato de alquiler con {host_name}',
   'web.s05.mitConsent':
     'Autorizo cargos posteriores al viaje en esta tarjeta solo por gastos del viaje, mi franquicia o daños, siempre con aviso y prueba.',
-  'web.s05.cta': 'Pagar {amount}',
   'web.s05.ctaRequest': 'Enviar solicitud',
   'web.s05.review.notice': 'Revisamos cada reserva. Si no podemos aprobarla, te devolvemos todo.',
   'web.s06.pre.title': 'En tu estado de cuenta verás: {merchant_name}',
-  'web.s06.pre.leaving':
-    'Vas a pagar {amount} en una página segura de nuestro procesador de pagos.',
-  'web.s06.verifying.title': 'Pago en verificación',
-  'web.s06.verifying.body': 'Esto suele tardar menos de un minuto. No pagues de nuevo.',
-  'web.s06.verifying.slow': 'Seguimos esperando la confirmación de tu banco.',
-  'web.s06.support': 'Hablar con soporte',
-  'web.s06.payAgain': 'Pagar de nuevo',
   'web.s07.title': '¡Reserva confirmada!',
   'web.s07.message': 'Escribir a {host_name}',
   'web.s07.checkinOpens': 'El check-in con fotos se abre el {date}.',
@@ -144,8 +136,6 @@ export const ES_PROTO = {
   'web.checkin.queue.savedOnDevice': 'Guardado en este teléfono',
   'web.error.datesUnavailable':
     'Este auto no está disponible el {date_unavailable}. Te proponemos devolverlo el {date_suggested}. ¿Usar esta fecha?',
-  'web.error.paymentDeclined':
-    'Tu banco rechazó el pago. No se hizo ningún cargo. Guardamos tu reserva hasta las {hold_end_time}: prueba otra tarjeta.',
   'web.error.requestExpired':
     '{host_name} no respondió a tiempo. No se te cobró nada. Mira estos autos disponibles en tus fechas.',
   'web.error.hostNoShow':
