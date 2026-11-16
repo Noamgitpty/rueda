@@ -1762,6 +1762,16 @@ export const EN_MESSAGES = {
     'You asked for many prices in a short time. Wait a few minutes and try again.',
   'common.quote.expired': 'This price is no longer valid. Here is the updated price.',
   'common.quote.lineNotSupported': 'This option can’t be booked yet. Remove it to continue.',
+  'common.quote.protectionRequired':
+    'Choose a protection to continue: every trip includes at least Basic protection.',
+  'common.quote.protectionNotEligible':
+    'This protection isn’t available for this driver or this car. Choose another one.',
+  'common.quote.insurerContractInactive':
+    'Trip protection isn’t available here yet, so you can’t book yet.',
+  'common.listing.earningsPlanSaved':
+    'Earnings plan saved. It applies to trips booked from now on; trips already booked keep their plan.',
+  'common.listing.earningsPlanNotAvailable':
+    'This earnings plan isn’t available where you list your car. Choose one from the list.',
   'common.checkout.requestModeUnavailable':
     'This car is booked by request to the host, which isn’t available yet. Choose another car.',
   'common.checkout.manualNotConfirmed':

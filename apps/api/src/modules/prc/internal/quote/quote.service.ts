@@ -1,6 +1,14 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { CountryConfigService } from '../../../cfg/index.js';
-import { computeQuote, type Quote, type QuoteParams, type QuoteRequest } from './engine.js';
+import type { Money } from '@rueda/money';
+import {
+  computeQuote,
+  protectionOptions,
+  type ProtectionOption,
+  type Quote,
+  type QuoteParams,
+  type QuoteRequest,
+} from './engine.js';
 import { freezeQuote, type FrozenQuote } from './frozen.js';
 import { resolveQuoteParams, type QuoteParamsContext } from './params.js';
 
@@ -26,6 +34,21 @@ export class QuoteService {
   /** Devis provisoire (affichage : recherche, fiche, checkout). */
   quote(request: QuoteRequest, ctx: QuoteParamsContext): Quote {
     return computeQuote(request, resolveQuoteParams(this.countryConfig.config, ctx));
+  }
+
+  /** Niveaux de protection vendus et leur prix pour la période (S05, US-226 ; 16 BKG-003). */
+  protectionOptions(
+    ctx: QuoteParamsContext,
+    dailyRate: Money,
+    billableDays: number,
+    driverAge?: number,
+  ): readonly ProtectionOption[] {
+    return protectionOptions(
+      resolveQuoteParams(this.countryConfig.config, ctx),
+      dailyRate,
+      billableDays,
+      driverAge,
+    );
   }
 
   /** Devis figé (réservation, modification) : entrées, instantané et sorties, rejouable. */

@@ -12,7 +12,12 @@
  *   `delivery_share_pct` / `extras_share_pct` facultatives, absentes ⇒ part de l'hôte (17 §7.2) ;
  * - parts de l'assureur : `insurer_premium_share[niveau]`, `insurer_roadside_share`, fixées par le
  *   contrat d'assureur. **Absentes ⇒ non figées** : le moteur refuse alors toute ligne de protection
- *   ou d'assistance non nulle (fail-closed, 08 E7).
+ *   ou d'assistance non nulle (fail-closed, 08 E7) ;
+ * - protection du voyageur (US-226, ADR-136) : grille `protection_grid` (BLOCK : absente ⇒
+ *   `QUOTE_UNAVAILABLE`, aucun trip sans protection) et minimum `guest_protection_min_level`
+ *   (absent ⇒ niveau de plus petit rang de la grille, 16 PRT-011) ;
+ * - plan de gains de l'hôte : celui du véhicule (`hostPlan`, lu en base par l'appelant), sinon
+ *   `host_default_plan` ; un plan absent de `host_share_pct` ⇒ `QUOTE_UNAVAILABLE`.
  */
 import {
   createCurrencyRegistry,
@@ -20,6 +25,7 @@ import {
   parseRatio,
   ratio,
   type Currency,
+  type Money,
   type Ratio,
 } from '@rueda/money';
 import {
@@ -29,17 +35,22 @@ import {
   type ParamContext,
   type ParamJson,
 } from '../../../cfg/index.js';
-import type { QuoteParams, QuoteTaxRule, TripFeeSchedule, TripFeeTier } from './engine.js';
+import type {
+  ProtectionGrid,
+  ProtectionTerms,
+  QuoteParams,
+  QuoteTaxRule,
+  TripFeeSchedule,
+  TripFeeTier,
+} from './engine.js';
 import { QuoteError } from './errors.js';
 
 export interface QuoteParamsContext {
   readonly country: string;
   /** Instant de référence des paramètres datés (instant serveur du devis). */
   readonly at: Date;
-  /** Plan de l'hôte (US-226) ; absent ⇒ `host_default_plan` du pays. */
-  readonly hostPlan?: string;
-  /** Niveau de protection du voyageur (US-226) ; requis pour figer la part de l'assureur. */
-  readonly protectionLevel?: string;
+  /** Plan de gains du véhicule (US-226) ; absent ou `null` ⇒ `host_default_plan` du pays. */
+  readonly hostPlan?: string | null;
 }
 
 const BPS = 10_000n;
@@ -170,11 +181,12 @@ export function resolveQuoteParams(config: CountryConfig, input: QuoteParamsCont
   const extras = resolveIfPresent(config, 'extras_share_pct', ctx);
 
   const premiumByLevel = resolveIfPresent(config, 'insurer_premium_share', ctx);
-  const premium =
-    input.protectionLevel === undefined
-      ? undefined
-      : entry('insurer_premium_share', premiumByLevel, input.protectionLevel);
   const roadside = resolveIfPresent(config, 'insurer_roadside_share', ctx);
+  const grid = protectionGrid(
+    resolve(config, 'protection_grid', ctx),
+    resolveIfPresent(config, 'guest_protection_min_level', ctx),
+    currency,
+  );
 
   return {
     currency,
@@ -185,11 +197,86 @@ export function resolveQuoteParams(config: CountryConfig, input: QuoteParamsCont
     hostSharePct,
     deliverySharePct: delivery === undefined ? hostSharePct : share('delivery_share_pct', delivery),
     extrasSharePct: extras === undefined ? hostSharePct : share('extras_share_pct', extras),
-    ...(premium === undefined
-      ? {}
-      : { insurerPremiumShare: share('insurer_premium_share', premium) }),
     ...(roadside === undefined
       ? {}
       : { insurerRoadsideShare: share('insurer_roadside_share', roadside) }),
+    protectionGrid: grid,
+    ...(premiumByLevel === undefined
+      ? {}
+      : { insurerPremiumShareByLevel: sharesByLevel(premiumByLevel, grid) }),
+    hostPlan: planValue,
   };
+}
+
+/** Parts de l'assureur des niveaux de la grille (`insurer_premium_share[niveau]`) ; part absente
+ * pour un niveau ⇒ ce niveau n'a pas de part (la vente en est refusée par les jambes). */
+function sharesByLevel(value: ParamJson, grid: ProtectionGrid): Readonly<Record<string, Ratio>> {
+  const out: Record<string, Ratio> = {};
+  for (const t of grid.levels) {
+    const v = entry('insurer_premium_share', value, t.level);
+    if (v !== undefined) out[t.level] = share(`insurer_premium_share[${t.level}]`, v);
+  }
+  return Object.freeze(out);
+}
+
+function minorOrNull(key: string, value: ParamJson | undefined, currency: Currency): Money | null {
+  if (value === null) return null;
+  if (typeof value !== 'string' || !/^(0|[1-9][0-9]{0,17})$/.test(value)) {
+    throw unavailable(`paramètre « ${key} » : montant en unités mineures attendu`);
+  }
+  return money(BigInt(value), currency);
+}
+
+/**
+ * Grille `protection_grid` (unité `protection_grid`, US-226) : forme contrôlée ici, cohérence
+ * (rangs distincts, minimum présent, bornes) contrôlée par le moteur. Minimum
+ * `guest_protection_min_level` absent ⇒ niveau de plus petit rang (16 PRT-011 : `BASICA`).
+ */
+function protectionGrid(
+  value: ParamJson,
+  minValue: ParamJson | undefined,
+  currency: Currency,
+): ProtectionGrid {
+  const key = 'protection_grid';
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    throw unavailable(`paramètre « ${key} » : objet par niveau attendu`);
+  }
+  const levels: ProtectionTerms[] = Object.entries(
+    value as Readonly<Record<string, ParamJson>>,
+  ).map(([level, raw]) => {
+    if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) {
+      throw unavailable(`paramètre « ${key} » : niveau ${level} invalide`);
+    }
+    const t = raw as Readonly<Record<string, ParamJson>>;
+    const rank = t['rank'];
+    const age = t['minDriverAge'];
+    if (typeof rank !== 'number' || !Number.isSafeInteger(rank)) {
+      throw unavailable(`paramètre « ${key} » : rang de ${level} invalide`);
+    }
+    if (age !== null && (typeof age !== 'number' || !Number.isSafeInteger(age))) {
+      throw unavailable(`paramètre « ${key} » : âge de ${level} invalide`);
+    }
+    return {
+      level,
+      rank,
+      price: share(`${key}[${level}].price`, t['price']),
+      minDriverAge: age,
+      dailyFloor: minorOrNull(`${key}[${level}].dailyFloorMinor`, t['dailyFloorMinor'], currency),
+      dailyCeiling: minorOrNull(
+        `${key}[${level}].dailyCeilingMinor`,
+        t['dailyCeilingMinor'],
+        currency,
+      ),
+    };
+  });
+  if (levels.length === 0) throw unavailable(`paramètre « ${key} » : aucun niveau`);
+  let minLevel: string;
+  if (minValue === undefined) {
+    minLevel = [...levels].sort((a, b) => a.rank - b.rank)[0]!.level;
+  } else if (typeof minValue === 'string') {
+    minLevel = minValue;
+  } else {
+    throw unavailable('paramètre « guest_protection_min_level » : texte attendu');
+  }
+  return { minLevel, levels };
 }

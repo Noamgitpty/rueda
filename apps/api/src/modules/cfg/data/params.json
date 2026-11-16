@@ -1452,7 +1452,10 @@
       "status": "contrat d'assureur (à fixer) ; absent ⇒ vente de protection refusée",
       "decision": "TO_DECIDE",
       "decisionRef": "contrat d'assureur (Q-002, OQ-P2P-03)",
-      "values": {}
+      "values": {
+        "PA": { "BASICA": "7/10", "ESTANDAR": "7/10", "TOTAL": "7/10" },
+        "PY": { "BASICA": "7/10", "ESTANDAR": "7/10", "TOTAL": "7/10" }
+      }
     },
     {
       "key": "insurer_roadside_share",
@@ -1464,7 +1467,7 @@
       "status": "contrat d'assureur (à fixer)",
       "decision": "TO_DECIDE",
       "decisionRef": "contrat d'assureur (Q-002, OQ-P2P-03)",
-      "values": {}
+      "values": { "PA": "1/2", "PY": "1/2" }
     },
     {
       "key": "insurer_settlement_at",
@@ -1686,6 +1689,66 @@
       "decision": "TO_DECIDE",
       "decisionRef": "OQ-P2P-12 (assureur) ; J-ADM-031 (16 ADM-031)",
       "values": { "PA": "BASICA", "PY": "BASICA" }
+    },
+    {
+      "key": "protection_grid",
+      "type": "JSON",
+      "unit": "protection_grid",
+      "scopes": ["COUNTRY"],
+      "currencyBound": true,
+      "failMode": "BLOCK",
+      "source": "16 PRC-018, PRT-001, PRT-002, BKG-003 ; 08 BR-PRICE-11, BR-PROT-02 ; OQ-P2P-12 ; US-226 (ADR-136) : par niveau, rang, prix = part du prix journalier net, âge minimal du conducteur, plancher et plafond par jour ; absent : aucune réservation (protection obligatoire)",
+      "status": "valeurs de test (16 PRC-018 « taux de test de 40 % », trip A de 08 : protection 25 % du loyer ; Total interdit aux moins de 21 ans, référence de PRT-002) ; grille à fixer avec l'assureur partenaire",
+      "decision": "TO_DECIDE",
+      "decisionRef": "OQ-P2P-12, OQ-P2P-03 (grille de l'assureur) ; J-ADM-031",
+      "values": {
+        "PA": {
+          "BASICA": {
+            "rank": 1,
+            "price": "1/4",
+            "minDriverAge": null,
+            "dailyFloorMinor": null,
+            "dailyCeilingMinor": null
+          },
+          "ESTANDAR": {
+            "rank": 2,
+            "price": "2/5",
+            "minDriverAge": null,
+            "dailyFloorMinor": null,
+            "dailyCeilingMinor": null
+          },
+          "TOTAL": {
+            "rank": 3,
+            "price": "13/20",
+            "minDriverAge": 21,
+            "dailyFloorMinor": null,
+            "dailyCeilingMinor": null
+          }
+        },
+        "PY": {
+          "BASICA": {
+            "rank": 1,
+            "price": "1/4",
+            "minDriverAge": null,
+            "dailyFloorMinor": null,
+            "dailyCeilingMinor": null
+          },
+          "ESTANDAR": {
+            "rank": 2,
+            "price": "2/5",
+            "minDriverAge": null,
+            "dailyFloorMinor": null,
+            "dailyCeilingMinor": null
+          },
+          "TOTAL": {
+            "rank": 3,
+            "price": "13/20",
+            "minDriverAge": 21,
+            "dailyFloorMinor": null,
+            "dailyCeilingMinor": null
+          }
+        }
+      }
     },
     {
       "key": "rate_limit_otp_per_phone_hour",

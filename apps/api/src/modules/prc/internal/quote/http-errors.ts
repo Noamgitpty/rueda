@@ -27,6 +27,11 @@ export const QUOTE_MESSAGES = {
   QUOTE_NOT_FOUND: { status: 404, messageKey: 'common.quote.notFound' },
   QUOTE_REPLAY_MISMATCH: { status: 409, messageKey: 'common.quote.changed' },
   QUOTE_RATE_LIMITED: { status: 429, messageKey: 'common.quote.rateLimited' },
+  // US-226 (ADR-136) : protection du voyageur (16 PRT-001, PRT-002, PRT-011 ; noms PROPOSÉS sauf
+  // INSURER_CONTRACT_INACTIVE, de 16)
+  PROTECTION_LEVEL_REQUIRED: { status: 422, messageKey: 'common.quote.protectionRequired' },
+  PROTECTION_LEVEL_NOT_ELIGIBLE: { status: 422, messageKey: 'common.quote.protectionNotEligible' },
+  INSURER_CONTRACT_INACTIVE: { status: 409, messageKey: 'common.quote.insurerContractInactive' },
 } as const;
 
 export type QuoteHttpCode = keyof typeof QUOTE_MESSAGES;

@@ -151,6 +151,8 @@ export const CONSTRAINT_CODES: Readonly<Record<string, readonly [string, DbBusin
   pricing_record_immutable: [SQLSTATE.integrityConstraintViolation, 'IMMUTABLE_RECORD'],
   // US-208 (0108, ADR-133) : rattachement du checkout au hold, registres immuables
   booking_checkout_immutable: [SQLSTATE.integrityConstraintViolation, 'IMMUTABLE_RECORD'],
+  // US-226 (0110, ADR-136) : plan de gains par véhicule, registre immuable
+  catalog_earnings_plan_immutable: [SQLSTATE.integrityConstraintViolation, 'IMMUTABLE_RECORD'],
   // avis enregistrés (US-218, migration 0104)
   review_record_immutable: [SQLSTATE.integrityConstraintViolation, 'IMMUTABLE_RECORD'],
   audit_log_key_destroyed: [SQLSTATE.integrityConstraintViolation, 'SUBJECT_ERASED'],

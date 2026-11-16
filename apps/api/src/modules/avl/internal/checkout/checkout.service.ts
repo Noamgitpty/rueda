@@ -2,7 +2,7 @@
  * Checkout en une page, partie back-end (US-208 ; 16 BKG-001 / BKG-006, BKG-002 / BKG-025,
  * BKG-008 / BKG-023, PRC-025 ; ADR-133).
  *
- * 1. Devis : l'API calcule le devis avec le moteur `prc.quote/2` de PRC (même instantané de
+ * 1. Devis : l'API calcule le devis avec le moteur `prc.quote/3` de PRC (même instantané de
  *    configuration que la recherche et la fiche : `paramsOf` câblé par `main.ts` sur l'instance
  *    `QuoteService`), le fige (`freezeQuote`), puis la base le REJOUE avec sa configuration avant
  *    de l'écrire (`core.pricing_cmd_freeze_quote`, écart ⇒ `QUOTE_MISMATCH`). La réponse est lue
@@ -11,21 +11,36 @@
  *    et rejoué, annonce immédiate, boîte manuelle, conducteur titulaire, documents acceptés, pose du
  *    hold CHECKOUT. Aucun paiement (US-223).
  *
- * Points d'extension : protection du voyageur (US-226, niveau dans `QuoteParamsContext` et ligne
- * `PROTECTION`) ; mode `REQUEST` (US-223, aujourd'hui `REQUEST_MODE_UNAVAILABLE`) ; contrôles
+ * 3. Protection du voyageur (US-226, ADR-136 ; 16 BKG-003, PRT-001, PRT-002, PRT-011) : le niveau
+ *    choisi (absent : minimum du pays, présélectionné) et l'âge déclaré entrent dans le devis ;
+ *    la ligne `PROTECTION` et la prime de l'assureur sont calculées par le moteur puis rejouées
+ *    par la base ; le devis lu rend les niveaux vendus et leur prix pour la période (options
+ *    calculées avec l'instantané du gel, jamais engagées : un autre niveau = un nouveau devis).
+ *    Le plan de gains du véhicule (lu en base) fixe la part de l'hôte figée au devis.
+ *
+ * Points d'extension : mode `REQUEST` (US-223, aujourd'hui `REQUEST_MODE_UNAVAILABLE`) ; contrôles
  * bloquants et revue (US-209, aujourd'hui aucune règle : hold non signalé).
  */
 import { money } from '@rueda/money';
 import {
   freezeQuote,
   isQuoteError,
+  protectionOptions,
   QuoteHttpError,
+  type QuoteErrorCode,
+  type QuoteHttpCode,
   type QuoteParamsOf,
   type QuoteStore,
 } from '../../../prc/index.js';
 import { CheckoutHttpError, isCheckoutCode } from './errors.js';
 import { isUuid, parseCheckoutDemand, parseQuoteDemand } from './model.js';
-import type { CheckoutHold, CheckoutQuote, CheckoutStore } from './store.js';
+import type {
+  CheckoutHold,
+  CheckoutProtectionOption,
+  CheckoutQuote,
+  CheckoutQuoteRow,
+  CheckoutStore,
+} from './store.js';
 
 /**
  * Journal d'exploitation d'une panne du magasin ou de la base (revue de code de 208a, n° 6) :
@@ -62,6 +77,18 @@ export const LOG_CHECKOUT_FAILURE: CheckoutFailureLog = (operation, error) => {
   );
 };
 
+/** Code HTTP d'un refus du moteur de devis (16 A.8) ; tout autre refus : prix impossible. */
+function quoteCodeOf(code: QuoteErrorCode): QuoteHttpCode {
+  switch (code) {
+    case 'QUOTE_INPUT_INVALID':
+    case 'PROTECTION_LEVEL_REQUIRED':
+    case 'PROTECTION_LEVEL_NOT_ELIGIBLE':
+      return code;
+    default:
+      return 'QUOTE_UNAVAILABLE';
+  }
+}
+
 export class CheckoutService {
   constructor(
     private readonly paramsOf: QuoteParamsOf,
@@ -74,13 +101,21 @@ export class CheckoutService {
   async createQuote(proof: Buffer, body: unknown): Promise<CheckoutQuote> {
     const demand = parseQuoteDemand(body);
     if (demand === null) throw new QuoteHttpError('QUOTE_INPUT_INVALID');
+    // 16 PRT-011 : aucune protection demandée ⇒ refus, jamais un trip sans protection
+    if (demand.protectionLevel === null) throw new QuoteHttpError('PROTECTION_LEVEL_REQUIRED');
     const listing = await this.#safe('listing', () => this.store.listing(demand.listingId));
     if (listing === null) throw new QuoteHttpError('LISTING_NOT_FOUND');
     let frozen;
     try {
-      const params = this.paramsOf({ country: listing.country, at: new Date(listing.quotedAtMs) });
+      const params = this.paramsOf({
+        country: listing.country,
+        at: new Date(listing.quotedAtMs),
+        hostPlan: listing.hostPlan,
+      });
       // annonce dans une autre devise que celle du pays : aucun devis (jamais de conversion)
       if (params.currency.code !== listing.currency) throw new QuoteHttpError('QUOTE_UNAVAILABLE');
+      // 16 BKG-003 : niveau absent ⇒ minimum du pays, présélectionné
+      const level = demand.protectionLevel ?? params.protectionGrid?.minLevel;
       frozen = freezeQuote(
         {
           startAtMs: demand.startAtMs,
@@ -89,16 +124,14 @@ export class CheckoutService {
           // le type de tarif ne change pas le total (seulement l'annulation, BR-PRICE-11)
           rateType: 'REFUNDABLE',
           dailyRate: money(BigInt(listing.dailyPriceMinor), params.currency),
+          ...(level === undefined ? {} : { protectionLevel: level }),
+          ...(demand.driverAge === undefined ? {} : { driverAge: demand.driverAge }),
         },
         params,
       ).frozen;
     } catch (error) {
       if (error instanceof QuoteHttpError) throw error;
-      if (isQuoteError(error)) {
-        throw new QuoteHttpError(
-          error.code === 'QUOTE_INPUT_INVALID' ? 'QUOTE_INPUT_INVALID' : 'QUOTE_UNAVAILABLE',
-        );
-      }
+      if (isQuoteError(error)) throw new QuoteHttpError(quoteCodeOf(error.code));
       // configuration illisible : indisponible, jamais un prix inventé
       throw new CheckoutHttpError('BOOKING_UNAVAILABLE');
     }
@@ -109,7 +142,7 @@ export class CheckoutService {
     const quoteId = r.quoteId;
     const view = await this.#safe('quote', () => this.store.quote(proof, quoteId));
     if (view === null) throw new CheckoutHttpError('BOOKING_UNAVAILABLE');
-    return view;
+    return this.#withOptions(view);
   }
 
   /** Devis figé du voyageur de la session ; inconnu ou d'un autre ⇒ 404 (même réponse). */
@@ -117,7 +150,46 @@ export class CheckoutService {
     if (!isUuid(quoteId)) throw new QuoteHttpError('QUOTE_NOT_FOUND');
     const view = await this.#safe('quote', () => this.store.quote(proof, quoteId.toLowerCase()));
     if (view === null) throw new QuoteHttpError('QUOTE_NOT_FOUND');
-    return view;
+    return this.#withOptions(view);
+  }
+
+  /**
+   * Niveaux vendus et leur prix pour la période du devis (16 BKG-003 ; PRT-001 : niveau refusé à
+   * l'âge déclaré grisé avec sa raison), avec l'instantané du pays à l'instant du gel. Prix
+   * journalier net = ligne `TRIP_PRICE` / jours facturables (prix journalier × jours, exact).
+   * Aucune option si le devis n'a pas de protection ou si la configuration ne le permet plus.
+   */
+  #withOptions(row: CheckoutQuoteRow): CheckoutQuote {
+    const { frozenAtMs, ...view } = row;
+    let options: readonly CheckoutProtectionOption[] = [];
+    const trip = view.lines.find((l) => l.type === 'TRIP_PRICE');
+    if (view.protectionLevel !== null && trip !== undefined && view.billableDays >= 1) {
+      try {
+        const params = this.paramsOf({ country: view.country, at: new Date(frozenAtMs) });
+        const total = BigInt(trip.amountMinor);
+        const days = BigInt(view.billableDays);
+        if (params.currency.code === view.currency && total % days === 0n) {
+          options = protectionOptions(
+            params,
+            money(total / days, params.currency),
+            view.billableDays,
+            view.driverAge ?? undefined,
+          ).map((o) => ({
+            level: o.level,
+            eligible: o.eligible,
+            reason: o.reason,
+            minDriverAge: o.minDriverAge,
+            dailyMinor: o.daily.amountMinor.toString(),
+            lineMinor: o.line.amountMinor.toString(),
+            selected: o.level === view.protectionLevel,
+          }));
+        }
+      } catch (error) {
+        // configuration du pays devenue illisible : le devis reste lisible, sans autre niveau
+        if (!isQuoteError(error)) throw error;
+      }
+    }
+    return { ...view, protectionOptions: options };
   }
 
   /** Checkout du devis : hold CHECKOUT posé, ou refus avec son code. */

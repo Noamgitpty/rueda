@@ -59,6 +59,7 @@ describe('translateDbError (17 §2.5 2d, §4.4, L0-08)', () => {
     ['23000', 'booking_record_no_delete', 'IMMUTABLE_RECORD'],
     ['23000', 'pricing_record_immutable', 'IMMUTABLE_RECORD'],
     ['23000', 'booking_checkout_immutable', 'IMMUTABLE_RECORD'],
+    ['23000', 'catalog_earnings_plan_immutable', 'IMMUTABLE_RECORD'],
     ['23000', 'review_record_immutable', 'IMMUTABLE_RECORD'],
     ['23514', 'hold_review_before_payment', 'BOOKING_UNDER_REVIEW'],
     // machine à états du trip (0099, US-207 ; 16 TRP-045, 08 BR-CXL règle 3)

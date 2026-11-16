@@ -1104,6 +1104,75 @@ describe('contrat HTTP — /host/accounts/{orgId} et /listings (US-115)', () => 
     expect(down.json).toMatchObject({ code: 'LISTING_UNAVAILABLE' });
   });
 
+  it('US-226 (16 PRT-007, PRT-008) : plans de gains — plan par défaut tant que rien n’est choisi, plans vendus sans PRO ; plan vendu ⇒ 200 EARNINGS_PLAN_SAVED ; PRO ou plan inconnu ⇒ 422 ; corps invalide ⇒ 400 ; autre hôte ou véhicule inconnu ⇒ 404 ; sans session ⇒ 401 ; corps non JSON ⇒ 415', async () => {
+    const w = await world();
+    const api = w.app.api;
+    // plans du pays : donnée de test (host_share_pct), PRO configuré pour prouver qu'il n'est jamais proposé
+    w.store.plansOffered.set(FIRST_COUNTRY, { ESTÁNDAR: '3/4', PLUS: '9/10', PRO: '17/20' });
+    w.store.defaultPlan.set(FIRST_COUNTRY, 'ESTÁNDAR');
+    const d = await draft(w);
+    const read = () => api.request('GET', `${d.base}/earnings-plans`, { headers: w.a });
+    const initial = await read();
+    expect(initial.status).toBe(200);
+    expect(initial.json).toEqual({
+      plans: {
+        defaultPlan: 'ESTÁNDAR',
+        offered: [
+          { planCode: 'ESTÁNDAR', hostShare: '3/4' },
+          { planCode: 'PLUS', hostShare: '9/10' },
+        ],
+        vehicles: [{ vehicleId: d.vehicleId, planCode: 'ESTÁNDAR', chosen: false, chosenAt: null }],
+      },
+    });
+    const put = (body: unknown, headers: Record<string, string> = w.a, vehicle = d.vehicleId) =>
+      api.request('PUT', `${d.base}/vehicles/${vehicle}/earnings-plan`, { headers, body });
+    const saved = await put({ planCode: 'PLUS' });
+    expect(saved.status).toBe(200);
+    expect(saved.json).toEqual({
+      code: 'EARNINGS_PLAN_SAVED',
+      messageKey: 'common.listing.earningsPlanSaved',
+      planCode: 'PLUS',
+    });
+    expect((await read()).json).toMatchObject({
+      plans: { vehicles: [{ vehicleId: d.vehicleId, planCode: 'PLUS', chosen: true }] },
+    });
+    for (const planCode of ['PRO', 'INCONNU']) {
+      const r = await put({ planCode });
+      expect(r.status, planCode).toBe(422);
+      expect(r.json).toEqual({
+        code: 'EARNINGS_PLAN_NOT_AVAILABLE',
+        messageKey: 'common.listing.earningsPlanNotAvailable',
+      });
+    }
+    for (const body of [{}, { planCode: 'plus' }, { planCode: 3 }, { planCode: '' }]) {
+      const r = await put(body);
+      expect(r.status, JSON.stringify(body)).toBe(400);
+      expect(r.json).toMatchObject({
+        code: 'REQUEST_INVALID',
+        fields: [{ field: 'planCode', reason: 'INVALID' }],
+      });
+    }
+    // IDOR : compte d'un autre hôte ⇒ 404 comme un compte inconnu ; véhicule inconnu ⇒ 404
+    const other = await api.request('GET', `${d.base}/earnings-plans`, { headers: w.b });
+    expect(other.status).toBe(404);
+    expect(other.json).toMatchObject({ code: 'HOST_ACCOUNT_NOT_FOUND' });
+    expect((await put({ planCode: 'ESTÁNDAR' }, w.b)).status).toBe(404);
+    expect((await put({ planCode: 'ESTÁNDAR' }, w.a, randomUUID())).json).toMatchObject({
+      code: 'VEHICLE_NOT_FOUND',
+    });
+    expect((await put({ planCode: 'ESTÁNDAR' }, w.a, 'pas-un-uuid')).status).toBe(404);
+    expect(w.store.vehiclePlans.get(d.vehicleId)?.planCode).toBe('PLUS');
+    expect((await api.request('GET', `${d.base}/earnings-plans`)).status).toBe(401);
+    expect((await put({ planCode: 'PLUS' }, {})).status).toBe(401);
+    expect(
+      (
+        await api.request('PUT', `${d.base}/vehicles/${d.vehicleId}/earnings-plan`, {
+          ...textBody(w.a),
+        })
+      ).status,
+    ).toBe(415);
+  });
+
   it('couverture : chaque statut déclaré pour /host/accounts/{orgId} est exercé ; chaque statut déclaré pour /listings est exercé', () => {
     const covered = coverageOf(...apps);
     // les CGU de l'hôte (/host/accounts/{orgId}/terms, US-126), la vérification de l'hôte

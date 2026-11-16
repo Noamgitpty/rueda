@@ -29,16 +29,52 @@ export interface QuoteDemand {
   readonly listingId: string;
   readonly startAtMs: number;
   readonly endAtMs: number;
+  /**
+   * Niveau de protection choisi (US-226, 16 BKG-003) : absent ⇒ minimum du pays (présélection) ;
+   * `null` ⇒ aucune protection demandée, refusée (`PROTECTION_LEVEL_REQUIRED`, 16 PRT-011).
+   */
+  readonly protectionLevel?: string | null;
+  /** Âge déclaré du conducteur (16 BKG-003 : saisi avant le choix du niveau). */
+  readonly driverAge?: number;
 }
 
-/** Demande de devis : annonce et période, au pas de 30 min, fin après le début ; sinon `null`. */
+/** Code de niveau de protection (forme seulement ; la base et le moteur jugent le niveau). */
+const LEVEL = /^[A-Z][A-Z_]{0,31}$/;
+const AGE_MIN = 1;
+const AGE_MAX = 150;
+
+/**
+ * Demande de devis : annonce et période, au pas de 30 min, fin après le début ; niveau de
+ * protection (code, ou `null` / vide pour aucun) et âge du conducteur (entier) facultatifs ;
+ * sinon `null`.
+ */
 export function parseQuoteDemand(body: unknown): QuoteDemand | null {
   if (!isRecord(body) || !isUuid(body['listingId'])) return null;
   const startAtMs = instantMs(body['startAt']);
   const endAtMs = instantMs(body['endAt']);
   if (startAtMs === null || endAtMs === null || endAtMs <= startAtMs) return null;
   if (startAtMs % STEP_MS !== 0 || endAtMs % STEP_MS !== 0) return null;
-  return { listingId: body['listingId'].toLowerCase(), startAtMs, endAtMs };
+  const level = body['protectionLevel'];
+  let protectionLevel: string | null | undefined;
+  if (level === undefined) protectionLevel = undefined;
+  else if (level === null || level === '') protectionLevel = null;
+  else if (typeof level === 'string' && LEVEL.test(level)) protectionLevel = level;
+  else return null;
+  const age = body['driverAge'];
+  if (
+    age !== undefined &&
+    age !== null &&
+    (typeof age !== 'number' || !Number.isSafeInteger(age) || age < AGE_MIN || age > AGE_MAX)
+  ) {
+    return null;
+  }
+  return {
+    listingId: body['listingId'].toLowerCase(),
+    startAtMs,
+    endAtMs,
+    ...(protectionLevel === undefined ? {} : { protectionLevel }),
+    ...(typeof age === 'number' ? { driverAge: age } : {}),
+  };
 }
 
 export interface AcceptedDocument {

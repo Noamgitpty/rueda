@@ -1,14 +1,15 @@
 /**
  * Adaptateur PRC du port `SearchPricer` de CAT (US-203 ; 16 SRC-042, PRC-025 ; ADR-131) : le total
- * TTC affiché par la recherche est un **devis provisoire** du moteur `prc.quote/2` (US-202,
- * US-704), le même que la fiche et le checkout : prix journalier × jours facturables, trip fee du
- * barème du pays, taxe par ligne, total. Rien n'est persisté (16 SRC-042 « devis PROVISIONAL »).
+ * TTC affiché par la recherche est un **devis provisoire** du moteur `prc.quote/3` (US-202,
+ * US-704, US-226), le même que la fiche et le checkout : prix journalier × jours facturables, trip
+ * fee du barème du pays, protection minimale du pays (`BASICA`, 16 SRC-042 ; BOARD N-141), taxe
+ * par ligne, total. Rien n'est persisté (16 SRC-042 « devis PROVISIONAL »).
  *
  * Entrées : l'annonce (prix, devise), la période et l'instant du devis lus en base
- * (`platform.now()`, contrainte 5) ; aucune option facultative. La protection minimale `BASICA`
- * de SRC-042 n'est pas encore une ligne du devis : tant que la part de l'assureur n'est pas figée
- * (contrat non signé, US-226), toute protection rend le devis `QUOTE_UNAVAILABLE` (fail-closed,
- * 08 E7). US-226 l'ajoute ici et au checkout ensemble.
+ * (`platform.now()`, contrainte 5) ; aucune option facultative. La protection minimale du pays
+ * (`guest_protection_min_level`, présélectionnée au checkout, 16 BKG-003) est une ligne du total,
+ * ici comme au checkout (US-226, N-141) ; sans âge déclaré, le minimum n'exige aucun âge. Grille
+ * ou part de l'assureur absentes : aucun devis (fail-closed, 08 E7).
  *
  * Devis impossible (paramètre du pays manquant ou invalide, devise de l'annonce différente de
  * celle du pays, durée) : `null`, l'annonce est exclue et l'ops alertée (16 SRC-008). Toute autre
@@ -50,6 +51,10 @@ export function searchQuotePricer(paramsOf: QuoteParamsOf): SearchPricer {
             // le type de tarif ne change pas le total (seulement l'annulation, US-208)
             rateType: 'REFUNDABLE',
             dailyRate: money(BigInt(input.dailyPriceMinor), params.currency),
+            // protection minimale du pays, comme le checkout présélectionné (US-226, N-141)
+            ...(params.protectionGrid === undefined
+              ? {}
+              : { protectionLevel: params.protectionGrid.minLevel }),
           },
           params,
         );

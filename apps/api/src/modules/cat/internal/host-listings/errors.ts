@@ -52,6 +52,10 @@
  * Fiche du véhicule (US-204, ADR-132), PROPOSÉ : `MEETING_POINT_NOT_FOUND` (lieu exact demandé
  * sans trip confirmé de ce véhicule : 404, rien n'est révélé ; 16 LST-007).
  *
+ * Plans de gains de l'hôte (US-226, ADR-136), PROPOSÉS : `EARNINGS_PLAN_SAVED` (plan du véhicule
+ * enregistré, effet sur les nouveaux devis seulement, 16 PRT-008) et `EARNINGS_PLAN_NOT_AVAILABLE`
+ * (16 PRT-007 : plan non vendu dans le pays, ou `PRO`, sans objet depuis le pivot P2P).
+ *
  * IDOR (17 §2.3 point 5) : un compte d'hôte ou un objet d'un autre hôte rend 404, comme un
  * identifiant inconnu ; jamais 403 (rien n'est révélé de son existence).
  */
@@ -78,6 +82,7 @@ export const HOST_LISTING_MESSAGES = {
   BLOCK_CREATED: { status: 201, messageKey: 'common.calendar.blockCreated' },
   BLOCK_REMOVED: { status: 200, messageKey: 'common.calendar.blockRemoved' },
   NOTICE_SAVED: { status: 200, messageKey: 'common.calendar.noticeSaved' },
+  EARNINGS_PLAN_SAVED: { status: 200, messageKey: 'common.listing.earningsPlanSaved' },
   REQUEST_INVALID: { status: 400, messageKey: 'common.auth.requestInvalid' },
   AUTH_REQUIRED: { status: 401, messageKey: 'common.auth.sessionRequired' },
   HOST_ACCOUNT_SUSPENDED: { status: 403, messageKey: 'common.listing.hostSuspended' },
@@ -158,6 +163,10 @@ export const HOST_LISTING_MESSAGES = {
   VEHICLE_DOCUMENT_EXPIRED: { status: 422, messageKey: 'common.vehicleDocs.documentExpired' },
   VEHICLE_DOCUMENT_INVALID: { status: 422, messageKey: 'common.vehicleDocs.documentInvalid' },
   NOTICE_INVALID: { status: 422, messageKey: 'common.calendar.noticeInvalid' },
+  EARNINGS_PLAN_NOT_AVAILABLE: {
+    status: 422,
+    messageKey: 'common.listing.earningsPlanNotAvailable',
+  },
   LISTING_UNAVAILABLE: { status: 503, messageKey: 'common.listing.unavailable' },
   HOST_TRIPS_UNAVAILABLE: { status: 503, messageKey: 'common.hostTrips.unavailable' },
   PHOTO_UPLOAD_UNAVAILABLE: { status: 503, messageKey: 'common.listing.photoUnavailable' },

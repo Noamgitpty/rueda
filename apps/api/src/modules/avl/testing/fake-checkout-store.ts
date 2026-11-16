@@ -10,6 +10,7 @@ import type {
   CheckoutHold,
   CheckoutListing,
   CheckoutQuote,
+  CheckoutQuoteRow,
   CheckoutResult,
   CheckoutStore,
 } from '../internal/checkout/store.js';
@@ -36,8 +37,13 @@ export class FakeQuoteStore implements QuoteStore {
 
 export class FakeCheckoutStore implements CheckoutStore {
   listings = new Map<string, CheckoutListing>();
-  /** Devis par empreinte de session (hex) puis identifiant. */
+  /**
+   * Devis par empreinte de session (hex) puis identifiant, tels que l'API les rend ; la lecture
+   * de la base en retire les options de protection (calculées par le service) et y ajoute
+   * l'instant du gel `frozenAtMs` (US-226).
+   */
   quotes = new Map<string, CheckoutQuote>();
+  frozenAtMs = 0;
   holds = new Map<string, CheckoutHold>();
   result: CheckoutResult = { outcome: 'DONE', holdId: null, expiresAt: null };
   down = false;
@@ -52,9 +58,15 @@ export class FakeCheckoutStore implements CheckoutStore {
     return Promise.resolve(this.listings.get(listingId) ?? null);
   }
 
-  quote(proof: Buffer, quoteId: string): Promise<CheckoutQuote | null> {
+  quote(proof: Buffer, quoteId: string): Promise<CheckoutQuoteRow | null> {
     if (this.down) return this.#fail();
-    return Promise.resolve(this.quotes.get(`${proof.toString('hex')}:${quoteId}`) ?? null);
+    const view = this.quotes.get(`${proof.toString('hex')}:${quoteId}`);
+    if (view === undefined) return Promise.resolve(null);
+    // options de protection : calculées par le service, jamais lues en base
+    const row = Object.fromEntries(
+      Object.entries(view).filter(([k]) => k !== 'protectionOptions'),
+    ) as Omit<CheckoutQuote, 'protectionOptions'>;
+    return Promise.resolve({ ...row, frozenAtMs: this.frozenAtMs });
   }
 
   checkout(proof: Buffer, quoteId: string, demand: CheckoutDemand): Promise<CheckoutResult> {

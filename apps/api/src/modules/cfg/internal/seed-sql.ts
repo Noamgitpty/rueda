@@ -25,6 +25,10 @@ export const POST_SEED_LANGUAGES: readonly { readonly language: string; readonly
  * est immuable ; ADR-075). 0009 est rendue sans eux (ni définition, ni valeur) ; chaque groupe a
  * sa migration de graine complémentaire, générée depuis `params.json` et comparée par
  * `seed-sql.test.ts`. Un préfixe ne peut couvrir aucune clé déjà présente dans 0009.
+ *
+ * `valueKeys` (US-226, ADR-136) : clés DÉFINIES dans 0009 sans valeur, dont les premières valeurs
+ * arrivent avec ce groupe. 0009 reste rendue sans ces valeurs (la définition y reste) ; la
+ * migration du groupe les insère après ses propres valeurs.
  */
 export const POST_SEED_PARAMS: readonly {
   readonly prefix: string;
@@ -32,6 +36,8 @@ export const POST_SEED_PARAMS: readonly {
   readonly story: string;
   /** Références citées par le motif des valeurs (défaut : celles de la graine US-052). */
   readonly refs?: string;
+  /** Clés définies dans 0009 dont les valeurs sont insérées par ce groupe (US-226). */
+  readonly valueKeys?: readonly string[];
 }[] = [
   { prefix: 'rate_limit_', file: '0046_config_rate_limit_params.sql', story: 'US-052' },
   { prefix: 'otp_rate_', file: '0065_config_otp_rate_params.sql', story: 'US-104' },
@@ -101,11 +107,23 @@ export const POST_SEED_PARAMS: readonly {
     story: 'US-208',
     refs: '16 PRC-025, BKG-001 ; BOARD N-129, N-130 ; ADR-133',
   },
+  {
+    prefix: 'protection_',
+    file: '0111_config_protection_params.sql',
+    story: 'US-226',
+    refs: '16 PRC-018, PRT-001, PRT-002 ; 08 BR-PRICE-11, E7 ; ADR-136',
+    valueKeys: ['insurer_premium_share', 'insurer_roadside_share'],
+  },
 ];
 
 /** La clé appartient à un groupe de paramètres ajouté après 0009. */
 export function isPostSeedParam(key: string): boolean {
   return POST_SEED_PARAMS.some((p) => key.startsWith(p.prefix));
+}
+
+/** Les valeurs de la clé (définie dans 0009) sont insérées par un groupe ajouté après 0009. */
+export function isPostSeedValue(key: string): boolean {
+  return isPostSeedParam(key) || POST_SEED_PARAMS.some((p) => p.valueKeys?.includes(key));
 }
 
 const languageOf = (tag: string): string => tag.split('-')[0] ?? tag;
@@ -223,7 +241,7 @@ export function renderSeedSql(config: CountryConfig): string {
   const definitions = [...config.definitions.values()]
     .filter((d) => !isPostSeedParam(d.key))
     .sort((a, b) => a.key.localeCompare(b.key));
-  const values = sortValues(config.values.filter((v) => !isPostSeedParam(v.key)));
+  const values = sortValues(config.values.filter((v) => !isPostSeedValue(v.key)));
 
   const parts: string[] = [
     [
@@ -375,6 +393,40 @@ export function renderLanguageSeedSql(config: CountryConfig, language: string): 
 }
 
 /**
+ * Premières valeurs de clés définies dans 0009 (`valueKeys` du groupe, US-226), avec leur propre
+ * contrôle fail-closed : chaque clé a une valeur dans chaque pays déclaré. Rien sans `valueKeys`.
+ */
+function valueKeysPart(config: CountryConfig, step: (typeof POST_SEED_PARAMS)[number]): string[] {
+  const keys = step.valueKeys ?? [];
+  if (keys.length === 0) return [];
+  const values = sortValues(config.values.filter((v) => keys.includes(v.key)));
+  return [
+    [
+      '',
+      `-- Premières valeurs de clés définies dans 0009 (${keys.join(', ')}) : 0009 reste rendue`,
+      '-- sans elles (ADR-044, ADR-136).',
+      '',
+    ].join('\n'),
+    valueInsert(values, `graine ${step.story} : valeurs de test (${step.refs ?? '17 §7.2'})`),
+    [
+      '',
+      '-- Fail-closed : chacune de ces clés a une valeur dans chaque pays déclaré.',
+      'DO $check_keys$',
+      'BEGIN',
+      '  IF EXISTS (SELECT 1 FROM pg_catalog.unnest(' + textArray(keys) + ') AS k(key)',
+      '              CROSS JOIN core.config_country AS c',
+      '             WHERE NOT EXISTS (SELECT 1 FROM core.config_param_value AS v',
+      '                                WHERE v.key = k.key AND v.country_code = c.code)) THEN',
+      `    RAISE EXCEPTION 'graine : valeur de test absente pour un pays' USING ERRCODE = 'check_violation';`,
+      '  END IF;',
+      'END',
+      '$check_keys$;',
+      '',
+    ].join('\n'),
+  ];
+}
+
+/**
  * Migration de graine complémentaire d'un groupe de paramètres ajouté après 0009
  * (`POST_SEED_PARAMS`) : définitions puis valeurs par pays, comme 0009 (la garde de
  * `config_param_value` pose `valid_from` = `platform.now()` et la devise). Contrôle final
@@ -407,6 +459,7 @@ export function renderParamSeedSql(config: CountryConfig, prefix: string): strin
       values,
       `graine ${step.story} : défauts PROPOSÉS (${step.refs ?? '17 §6.6, §7.2'})`,
     ),
+    ...valueKeysPart(config, step),
     [
       '',
       '-- Fail-closed : chaque paramètre du groupe a une valeur dans chaque pays déclaré.',

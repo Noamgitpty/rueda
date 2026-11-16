@@ -1813,6 +1813,16 @@ export const ES_MESSAGES = {
   'common.quote.expired': 'Este precio ya no es válido. Te mostramos el precio actualizado.',
   'common.quote.lineNotSupported':
     'Esta opción todavía no se puede reservar. Quítala para continuar.',
+  'common.quote.protectionRequired':
+    'Elige una protección para continuar: todo viaje incluye al menos la protección Básica.',
+  'common.quote.protectionNotEligible':
+    'Esta protección no está disponible para este conductor o este auto. Elige otra.',
+  'common.quote.insurerContractInactive':
+    'La protección de los viajes todavía no está disponible aquí, así que aún no se puede reservar.',
+  'common.listing.earningsPlanSaved':
+    'Plan de ganancias guardado. Se aplica a los viajes que se reserven desde ahora; los ya reservados conservan su plan.',
+  'common.listing.earningsPlanNotAvailable':
+    'Este plan de ganancias no está disponible donde publicas tu auto. Elige uno de la lista.',
   'common.checkout.requestModeUnavailable':
     'Este auto se reserva con solicitud al anfitrión, y eso todavía no está disponible. Elige otro auto.',
   'common.checkout.manualNotConfirmed':
