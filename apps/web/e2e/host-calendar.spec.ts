@@ -143,8 +143,10 @@ for (const language of LANGUAGES) {
       await expect(page.locator('#a06-notice-minutes')).toHaveValue('180');
       await expectAccessible(page);
       await expectMobileFriendly(page);
-      // l'adresse exacte du lieu n'apparaît jamais sur l'écran du calendrier
-      await expect(page.locator('main')).not.toContainText('Calle Secreta');
+      // l'adresse exacte du lieu n'apparaît jamais sur l'écran du calendrier ; après le
+      // rechargement, l'état de chargement (`loading.tsx`, `main[aria-busy]`) peut encore être dans
+      // le DOM à côté de la page rendue en flux : on lit la page (run 43813499341, mobile-390 fr)
+      await expect(page.locator('main:not([aria-busy="true"])')).not.toContainText('Calle Secreta');
     });
   });
 }
