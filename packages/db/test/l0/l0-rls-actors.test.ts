@@ -667,6 +667,10 @@ describe('RLS-5, RLS-12, RLS-18', () => {
       );
       expect(tables.rows.map((r) => r.t)).toEqual(
         sorted([
+          // US-208 (0108, ADR-133) : AUCUN droit ni politique d'app_api ; rattachement du hold au
+          // devis écrit et lu par les seules fonctions SECURITY DEFINER de cmd_hold_owner (voyageur
+          // désigné par son jeton de session)
+          'booking_checkout_acceptance',
           'booking_checkout_hold',
           'booking_guest_occupancy',
           'booking_trip',
@@ -694,7 +698,7 @@ describe('RLS-5, RLS-12, RLS-18', () => {
           'kyc_host_verification',
           'payment_payment_operation_leg', // US-019 : jambe HOST du titulaire, ADMIN / FINANCE
           'payment_psp_submerchant', // US-061 : statut du titulaire, ADMIN / FINANCE
-          // US-202 (0099, ADR-125) : AUCUN droit ni politique d'app_api ; devis figé écrit et lu
+          // US-202 (0100, ADR-125) : AUCUN droit ni politique d'app_api ; devis figé écrit et lu
           // par les seules commandes SECURITY DEFINER de cmd_money_owner (voyageur désigné par
           // son jeton de session, contrôle d'appartenance dans la commande)
           'pricing_quote',
@@ -713,7 +717,8 @@ describe('RLS-5, RLS-12, RLS-18', () => {
           r.t.startsWith('catalog_') ||
           r.t.startsWith('kyc_') ||
           r.t.startsWith('risk_') ||
-          r.t.startsWith('pricing_')
+          r.t.startsWith('pricing_') ||
+          r.t === 'booking_checkout_acceptance'
         ) {
           expect(r.api_policies, r.t).toBe(0);
         } else expect(r.api_policies, r.t).toBeGreaterThan(0);

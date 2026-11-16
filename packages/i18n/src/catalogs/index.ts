@@ -113,8 +113,12 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  `web.listing.meet.sameReturn` (lieu exact du voyageur d'un trip confirmé),
  `common.listing.datesNoticeTooShort`, `common.listing.datesUnavailable` et
  `common.listing.meetingPointNotFound` (refus des routes de la fiche).
+ Version 52 : checkout, partie back-end (US-208, ADR-133) : `common.quote.notFound`,
+ `common.quote.rateLimited`, `common.quote.expired`, `common.quote.lineNotSupported` et
+ `common.checkout.*` (refus de la route du checkout : devis engagé, mode sur demande, boîte
+ manuelle, conducteur, conditions, pose du hold).
  */
-export const CATALOG_VERSION = 51;
+export const CATALOG_VERSION = 52;
 
 /** Catalogues de base par langue ; la langue d'un profil de locale choisit le sien. */
 export const CATALOGS: Readonly<Record<CatalogLanguage, VersionedCatalog<MessageKey>>> = {

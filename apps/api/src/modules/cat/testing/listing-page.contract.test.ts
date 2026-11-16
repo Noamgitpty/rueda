@@ -30,6 +30,7 @@ import {
   UnavailableHostListingStore,
 } from '../internal/host-listings/store.js';
 import type { GuestMeetingPoint, PublicListing } from '../internal/host-listings/store.js';
+import type { SearchPriceInput, SearchPricer } from '../internal/search/cards.js';
 import type { AvailabilityProbeLimiter } from '../internal/search/search.service.js';
 import { FakeSearchStore } from './fake-search-store.js';
 
@@ -111,6 +112,7 @@ async function app(
     readonly ratings?: PublicListingRatings;
     readonly search?: FakeSearchStore;
     readonly probe?: AvailabilityProbeLimiter;
+    readonly pricer?: SearchPricer;
   } = {},
 ) {
   const a = await startContractApp({
@@ -121,6 +123,7 @@ async function app(
     search: {
       store: options.search ?? new FakeSearchStore(),
       ...(options.probe ? { probe: options.probe } : {}),
+      ...(options.pricer ? { pricer: options.pricer } : {}),
     },
   });
   apps.push(a);
@@ -182,11 +185,13 @@ describe('US-204 — contrat de la fiche du véhicule', () => {
     const ok = await a.api.request('GET', at(DATES));
     expect(ok.status).toBe(200);
     expect(ok.headers.get('cache-control')).toBe('no-store');
+    // annonce sans prix lu (double) : aucun total, jamais un total inventé
     expect(ok.json).toEqual({
       availability: {
         startAt: '2036-12-10T15:00:00.000Z',
         endAt: '2036-12-12T15:00:00.000Z',
         timezone: 'UTC',
+        price: null,
       },
     });
     expect(search.lastSlot).toEqual({
@@ -225,6 +230,61 @@ describe('US-204 — contrat de la fiche du véhicule', () => {
     expect((await a.api.request('GET', at(DATES))).status).toBe(404);
     search.slotOutcome = { outcome: 'SEARCH_UNAVAILABLE' };
     expect((await a.api.request('GET', at(DATES))).status).toBe(503);
+  });
+
+  it('US-208 : créneau libre ⇒ total TTC du devis provisoire (même pricer que la recherche, instants du créneau et instant lu en base) ; devis impossible ⇒ price null ; pricer en panne ⇒ 503', async () => {
+    const search = new FakeSearchStore();
+    search.listingCountries.set(LISTING, FIRST_COUNTRY);
+    search.listingPrices.set(LISTING, {
+      currency: 'XTS',
+      dailyPriceMinor: '4000',
+      quotedAt: '2036-12-01T12:00:00.000Z',
+    });
+    const seen: SearchPriceInput[] = [];
+    let answer: { totalMinor: string; billableDays: number } | null = {
+      totalMinor: '12840',
+      billableDays: 2,
+    };
+    const a = await app({
+      search,
+      pricer: {
+        price: (input) => {
+          seen.push(input);
+          return answer;
+        },
+      },
+    });
+    const ok = await a.api.request('GET', at(DATES));
+    expect(ok.status).toBe(200);
+    expect(ok.json).toMatchObject({
+      availability: { price: { totalMinor: '12840', currency: 'XTS', billableDays: 2 } },
+    });
+    expect(seen).toEqual([
+      {
+        listingId: LISTING,
+        country: FIRST_COUNTRY,
+        currency: 'XTS',
+        dailyPriceMinor: '4000',
+        startAt: '2036-12-10T15:00:00.000Z',
+        endAt: '2036-12-12T15:00:00.000Z',
+        quotedAt: '2036-12-01T12:00:00.000Z',
+      },
+    ]);
+    answer = null;
+    const none = await a.api.request('GET', at(DATES));
+    expect(none.status).toBe(200);
+    expect(none.json).toMatchObject({ availability: { price: null } });
+    const broken = await app({
+      search,
+      pricer: {
+        price: () => {
+          throw new Error('panne');
+        },
+      },
+    });
+    const down = await broken.api.request('GET', at(DATES));
+    expect(down.status).toBe(503);
+    expect(down.json).toMatchObject({ code: 'SEARCH_UNAVAILABLE' });
   });
 
   it('forme : dates hors pas de 30 min ou fin ≤ début ⇒ 422 sans appel de la base ; annonce mal formée, inconnue ou non publiée ⇒ 404 ; base en panne ⇒ 503', async () => {

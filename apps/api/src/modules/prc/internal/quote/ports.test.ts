@@ -1,5 +1,5 @@
 /**
- * Magasin des devis figés (commandes de la migration 0100) et textes du devis (US-202). Le
+ * Magasin des devis figés (commandes des migrations 0100, 0102, 0108) et textes du devis (US-202, US-208). Le
  * comportement des commandes est prouvé sous les rôles de production par
  * `packages/db/test/l0/l0-us202-quote.test.ts` ; ici, l'adaptateur seul (paramètres, issues).
  */
@@ -59,6 +59,30 @@ describe('PgQuoteStore', () => {
       version: 2,
     });
     expect(f.calls[0]?.text).toContain('core.pricing_cmd_version_trip_price');
+  });
+
+  it('US-208 : débit des gels (QUOTE_RATE_LIMITED) rendu tel quel ; rattachement concurrent du même devis (23505) ⇒ QUOTE_ALREADY_VERSIONED, toute autre erreur remonte', async () => {
+    expect(
+      await new PgQuoteStore(fake([{ outcome: 'QUOTE_RATE_LIMITED', quote_id: null }]).db).freeze(
+        Buffer.alloc(32),
+        'l',
+        FROZEN,
+      ),
+    ).toEqual({ outcome: 'QUOTE_RATE_LIMITED', quoteId: null });
+    const failing = (error: unknown) => ({
+      query: () => Promise.reject(error),
+    });
+    const conflict = Object.assign(new Error('dup'), {
+      code: '23505',
+      constraint: 'pricing_trip_price_version_quote_unique',
+    });
+    expect(
+      await new PgQuoteStore(failing(conflict)).versionTripPrice(Buffer.alloc(32), 't', 'q'),
+    ).toEqual({ outcome: 'QUOTE_ALREADY_VERSIONED', version: null });
+    const other = Object.assign(new Error('dup'), { code: '23505', constraint: 'autre' });
+    await expect(
+      new PgQuoteStore(failing(other)).versionTripPrice(Buffer.alloc(32), 't', 'q'),
+    ).rejects.toBe(other);
   });
 
   it('issue inconnue ou absente ⇒ erreur (fail-closed), jamais un succès', async () => {

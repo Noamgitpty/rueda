@@ -1756,4 +1756,34 @@ export const EN_MESSAGES = {
   'web.listing.meet.exact.title': 'Meeting address',
   'web.listing.meet.exact.only': 'Only you can see it: you have a confirmed booking for this car.',
   'web.listing.meet.sameReturn': 'You return the car to the same place.',
+  // US-208 (ADR-133) : refus de la route du checkout (devis figé et pose du hold)
+  'common.quote.notFound': 'We can’t find this quote. Go back to the car’s page.',
+  'common.quote.rateLimited':
+    'You asked for many prices in a short time. Wait a few minutes and try again.',
+  'common.quote.expired': 'This price is no longer valid. Here is the updated price.',
+  'common.quote.lineNotSupported': 'This option can’t be booked yet. Remove it to continue.',
+  'common.checkout.requestModeUnavailable':
+    'This car is booked by request to the host, which isn’t available yet. Choose another car.',
+  'common.checkout.manualNotConfirmed':
+    'This car has a manual gearbox. Confirm that you can drive it to continue.',
+  'common.checkout.driverMustBeAccountHolder':
+    'Only the account holder can drive. Enter your name as it appears on your account.',
+  'common.checkout.termsNotAccepted':
+    'Accept the terms, the cancellation policy and where you can drive to book.',
+  'common.checkout.quoteAlreadyUsed': 'You already booked with this price. Check your booking.',
+  'common.checkout.holdNotFound': 'We can’t find this booking in your account.',
+  'common.checkout.noticeTooShort': 'The host needs more notice. Choose a later start time.',
+  'common.checkout.guestOverlap': 'You already have a trip on these dates. Choose other dates.',
+  'common.checkout.holdAlreadyLive':
+    'You’re already booking this car. Finish that booking or wait a few minutes.',
+  'common.checkout.holdLimit':
+    'You have too many bookings in progress. Finish one before you start another.',
+  'common.checkout.holdRateLimited':
+    'You tried to book this car many times. Wait a little and try again.',
+  'common.checkout.accountRestricted':
+    'Your account can’t book right now. Write to us to learn more.',
+  'common.checkout.identityConsentWithdrawn':
+    'You withdrew your consent to identity verification. Give it again to book.',
+  'common.checkout.listingUnavailable': 'This car can’t be booked right now. Choose another one.',
+  'common.checkout.unavailable': 'We can’t take your booking right now. Try again later.',
 } as const satisfies Readonly<Record<MessageKey, Message>>;

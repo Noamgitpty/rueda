@@ -8,7 +8,7 @@ AVL tient la disponibilité de chaque véhicule (une seule table d'occupation, e
 
 AVL ne calcule ni prix (PRC) ni règlement (STL), et n'appelle jamais le PSP lui-même : il écrit des commandes dans la boîte d'envoi de PAY. On écrit **uniquement par commandes** SQL ; l'horloge fait foi côté base (`platform.now()`).
 
-État réel : le dossier du module est un **squelette** (`AvlModule` vide, US-001 ; `internal/` ne porte que la tâche de l'oracle C12, US-025). Tout ce qui est livré vit dans la base (`packages/db/migrations`) :
+État réel : `AvlModule` reste vide (US-001) ; `internal/` porte la tâche de l'oracle C12 (US-025) et le **checkout, partie back-end** (US-208, ADR-133, `internal/checkout/`, module dynamique `AvlCheckoutModule`). Le reste vit dans la base (`packages/db/migrations`) :
 
 - US-006 : schéma de preuve L0 (occupations, holds, trips, compensations, dispositions) ;
 - US-007 : preuves de concurrence L0-02 et L0-04 ;
@@ -18,6 +18,7 @@ AVL ne calcule ni prix (PRC) ni règlement (STL), et n'appelle jamais le PSP lui
 - US-024 : intention de paiement, conversion gardée, ré-acquisition, compensation, balayages (ADR-065) ;
 - US-127 : auto-réservation refusée à la pose et à la conversion pour l'hôte, les co-hôtes de tous ses comptes et les comptes liés (migration 0080, ADR-110). **Contrat de la future route de pose du hold** : sur `SELF_BOOKING_FORBIDDEN`, appeler `core.booking_cmd_report_self_booking(véhicule)` dans une **nouvelle** transaction (signalement à l'ops), puis afficher `common.booking.selfBookingForbidden.*`, sans autre détail ;
 - US-207 : machine à états du trip (SM-1) en base : table des transitions, commandes `core.booking_cmd_trip_transition` et `core.booking_cmd_trip_cancel` (travailleur `trip_lifecycle`), journal d'état, segment et conducteur principal, `trip.status_changed` et `trip.cancellation.qualified` (migration 0099, ADR-126). Les routes du voyageur, de l'hôte et de l'ops et le règlement dans la même transaction arrivent avec US-215 / US-224 ;
+- US-208 : checkout en une page, partie back-end (migrations 0107, 0108, ADR-133) : devis figé avec durée de validité, commande `core.booking_cmd_checkout` (devis, annonce immédiate, boîte manuelle, conducteur titulaire, documents acceptés, pose du hold par `core.booking_cmd_place_hold`), rattachement `booking_checkout_acceptance` / `booking_checkout_terms` ; aucun paiement (US-223) ;
 - US-025 : oracle de production C12 (migration 0045) et sa tâche périodique `internal/production-oracle.ts` (ADR-068) ; fuzz C11 (`packages/db/test/l0/l0-c11-fuzz.test.ts`).
 
 Détail des commandes : `packages/db/README.md`, sections « Table d'occupation unique », « Holds de checkout et commandes » et « Conversion gardée, ré-acquisition et compensation ». Machine à états du trip : section « Machine à états du trip » (US-207). iCal : US-510 (hors produit pour l'instant).
@@ -38,6 +39,17 @@ Détail des commandes : `packages/db/README.md`, sections « Table d'occupation 
 | `ical_conflict`       | cible 17, pas encore créée                                                      |
 
 Hors 17 §3.2.4 : `core.booking_disposition_repair_log` (migration 0041, essais du balayage des dispositions). Droits des travailleurs : 0007.
+
+## Routes (US-208)
+
+| Route                                  | Accès   | Rôle                                                                                   |
+| -------------------------------------- | ------- | -------------------------------------------------------------------------------------- |
+| `POST /checkout/quotes`                | session | devis figé (lignes, total, validité, documents) ; rejoué par la base avant d'être figé |
+| `GET /checkout/quotes/{quoteId}`       | session | devis figé du voyageur ; 404 sinon                                                     |
+| `POST /checkout/quotes/{quoteId}/hold` | session | checkout : contrôles, consentements et pose du hold CHECKOUT ; aucun paiement          |
+| `GET /checkout/holds/{holdId}`         | session | récapitulatif du hold et version exacte de chaque document accepté                     |
+
+`SessionGuard` + `TermsGuard` sur la classe (N-43 : contrôle à l'exécution, `ctr/internal/terms-guard-runtime.test.ts`). Écart assumé de 17 §2.2 : AVL dépend d'IAM (ADR-133). Points d'extension : protection (US-226), mode `REQUEST` (US-223, aujourd'hui `REQUEST_MODE_UNAVAILABLE`), contrôles bloquants (US-209).
 
 ## Événements
 
@@ -67,9 +79,9 @@ Dépendances fail-closed en attendant d'autres modules : `core.booking_vehicle_p
 
 ## Commandes de test
 
-- Unitaires du module : `internal/production-oracle.test.ts`. Commande : `pnpm --filter @rueda/api exec vitest run src/modules/avl`.
+- Unitaires du module : `internal/production-oracle.test.ts` ; contrat HTTP du checkout : `testing/checkout.contract.test.ts`. Commande : `pnpm --filter @rueda/api exec vitest run src/modules/avl`.
 - Intégration (PostgreSQL réel) : `pnpm --filter @rueda/db exec vitest run --config vitest.int.config.ts test/int/avl-schema.test.ts`.
-- Preuves L0 (rôles de production) : `pnpm --filter @rueda/db exec vitest run --config vitest.l0.config.ts test/l0/l0-01-reacquisition.test.ts test/l0/l0-02-concurrency.test.ts test/l0/l0-03-i-occ.test.ts test/l0/l0-04-expiry-plan.test.ts test/l0/l0-08-unique.test.ts test/l0/l0-occ-single-occupancy.test.ts test/l0/l0-hold-commands.test.ts test/l0/l0-us024-conversion.test.ts`. L0-02 et la conversion tournent seuls, dans le second groupe de `vitest.l0.config.ts`.
+- Preuves L0 (rôles de production) : `pnpm --filter @rueda/db exec vitest run --config vitest.l0.config.ts test/l0/l0-01-reacquisition.test.ts test/l0/l0-02-concurrency.test.ts test/l0/l0-03-i-occ.test.ts test/l0/l0-04-expiry-plan.test.ts test/l0/l0-08-unique.test.ts test/l0/l0-occ-single-occupancy.test.ts test/l0/l0-hold-commands.test.ts test/l0/l0-us024-conversion.test.ts test/l0/l0-us208-checkout.test.ts`. L0-02 et la conversion tournent seuls, dans le second groupe de `vitest.l0.config.ts`.
 - Toutes les preuves L0 : `pnpm --filter @rueda/db test:l0`.
 - Fuzz C11 et oracle C12 : `pnpm --filter @rueda/db test:c11` (1 000 exécutions par défaut ; rejeu `RUEDA_C11_REPLAY`).
 

@@ -109,8 +109,22 @@ export interface SearchStore {
    * `null` si inconnue ou non publiée (US-204).
    */
   listingCountry(listingId: string): Promise<string | null>;
+  /**
+   * Prix journalier, devise de l'annonce LISTED et instant du devis (`platform.now()`), pour le
+   * total TTC de la fiche (US-208, même devis provisoire que la recherche) ; `null` si inconnue.
+   */
+  listingPrice(listingId: string): Promise<ListingPrice | null>;
   /** Contrôle des dates de la fiche (US-204) ; une issue, jamais une exception métier. */
   slotCheck(query: SlotQuery): Promise<SlotOutcome>;
+}
+
+/** Prix de l'annonce pour le devis provisoire de la fiche (US-208). */
+export interface ListingPrice {
+  readonly currency: string;
+  /** Prix journalier (texte d'un entier, unités mineures). */
+  readonly dailyPriceMinor: string;
+  /** Instant du devis lu en base (ISO 8601 UTC). */
+  readonly quotedAt: string;
 }
 
 export class SearchStoreError extends Error {
@@ -130,6 +144,7 @@ export class UnavailableSearchStore implements SearchStore {
   areas = (): Promise<SearchArea[]> => this.#fail();
   search = (): Promise<SearchOutcome> => this.#fail();
   listingCountry = (): Promise<string | null> => this.#fail();
+  listingPrice = (): Promise<ListingPrice | null> => this.#fail();
   slotCheck = (): Promise<SlotOutcome> => this.#fail();
 }
 
@@ -238,6 +253,23 @@ export class PgSearchStore implements SearchStore {
       [listingId],
     );
     return str(rows[0]?.['country_code']);
+  }
+
+  async listingPrice(listingId: string): Promise<ListingPrice | null> {
+    const rows = await this.#rows(
+      'prix de l’annonce',
+      `SELECT p.currency, p.daily_price_minor::text AS daily_price_minor, platform.now() AS quoted_at
+         FROM core.catalog_public_listing($1::uuid) AS p`,
+      [listingId],
+    );
+    const r = rows[0];
+    if (r === undefined) return null;
+    const currency = str(r['currency']);
+    const daily = str(r['daily_price_minor']);
+    if (currency === null || daily === null || r['quoted_at'] === null) {
+      throw new SearchStoreError('ligne inattendue', undefined);
+    }
+    return { currency, dailyPriceMinor: daily, quotedAt: iso(r['quoted_at']) };
   }
 
   async slotCheck(q: SlotQuery): Promise<SlotOutcome> {

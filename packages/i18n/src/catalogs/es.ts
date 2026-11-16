@@ -1806,6 +1806,40 @@ export const ES_MESSAGES = {
   'web.listing.meet.exact.title': 'Dirección del encuentro',
   'web.listing.meet.exact.only': 'Solo tú la ves: tienes una reserva confirmada de este auto.',
   'web.listing.meet.sameReturn': 'Devuelves el auto en el mismo lugar.',
+  // US-208 (ADR-133) : refus de la route du checkout (devis figé et pose du hold)
+  'common.quote.notFound': 'No encontramos este presupuesto. Vuelve a la ficha del auto.',
+  'common.quote.rateLimited':
+    'Pediste muchos precios en poco tiempo. Espera unos minutos y vuelve a intentarlo.',
+  'common.quote.expired': 'Este precio ya no es válido. Te mostramos el precio actualizado.',
+  'common.quote.lineNotSupported':
+    'Esta opción todavía no se puede reservar. Quítala para continuar.',
+  'common.checkout.requestModeUnavailable':
+    'Este auto se reserva con solicitud al anfitrión, y eso todavía no está disponible. Elige otro auto.',
+  'common.checkout.manualNotConfirmed':
+    'Este auto es de caja manual. Confirma que sabes manejarlo para continuar.',
+  'common.checkout.driverMustBeAccountHolder':
+    'Solo el titular de la cuenta puede conducir. Escribe tu nombre como figura en tu cuenta.',
+  'common.checkout.termsNotAccepted':
+    'Acepta los términos, la política de cancelación y las zonas de circulación para reservar.',
+  'common.checkout.quoteAlreadyUsed': 'Ya reservaste con este precio. Revisa tu reserva.',
+  'common.checkout.holdNotFound': 'No encontramos esta reserva en tu cuenta.',
+  'common.checkout.noticeTooShort':
+    'El anfitrión necesita más anticipación. Elige una hora de inicio más tarde.',
+  'common.checkout.guestOverlap': 'Ya tienes un viaje en esas fechas. Elige otras.',
+  'common.checkout.holdAlreadyLive':
+    'Ya estás reservando este auto. Termina esa reserva o espera unos minutos.',
+  'common.checkout.holdLimit':
+    'Tienes demasiadas reservas en curso. Termina una antes de empezar otra.',
+  'common.checkout.holdRateLimited':
+    'Intentaste reservar este auto muchas veces. Espera un poco y vuelve a intentarlo.',
+  'common.checkout.accountRestricted':
+    'Tu cuenta no puede reservar por ahora. Escríbenos para saber más.',
+  'common.checkout.identityConsentWithdrawn':
+    'Retiraste tu consentimiento para la verificación de identidad. Vuelve a darlo para reservar.',
+  'common.checkout.listingUnavailable':
+    'Este auto no se puede reservar en este momento. Elige otro.',
+  'common.checkout.unavailable':
+    'No podemos tomar tu reserva en este momento. Inténtalo más tarde.',
 } as const satisfies Catalog;
 
 export type MessageKey = keyof typeof ES_MESSAGES;

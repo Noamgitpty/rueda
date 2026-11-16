@@ -27,10 +27,21 @@ export type FreezeOutcome =
   | 'QUOTE_UNAVAILABLE'
   | 'TAX_CONFIG_MISSING'
   | 'LEG_AMOUNT_NEGATIVE'
-  | 'QUOTE_MISMATCH';
+  | 'QUOTE_MISMATCH'
+  // US-208 (0108, N-130) : gels du voyageur au-delà de quote_freezes_per_guest_hour
+  | 'QUOTE_RATE_LIMITED';
 
+/**
+ * `QUOTE_ALREADY_VERSIONED` (US-208, N-130) : devis déjà rattaché à une version de prix d'un trip
+ * (`23505` sur `pricing_trip_price_version_quote_unique`, deux rattachements concurrents).
+ */
 export type VersionOutcome =
-  'DONE' | 'AUTH_REQUIRED' | 'QUOTE_NOT_FOUND' | 'TRIP_NOT_FOUND' | 'QUOTE_MISMATCH';
+  | 'DONE'
+  | 'AUTH_REQUIRED'
+  | 'QUOTE_NOT_FOUND'
+  | 'TRIP_NOT_FOUND'
+  | 'QUOTE_MISMATCH'
+  | 'QUOTE_ALREADY_VERSIONED';
 
 export interface QuoteStore {
   /** Fige le devis du voyageur de la session (la base le rejoue avec sa configuration). */
@@ -83,6 +94,7 @@ const FREEZE_OUTCOMES: readonly string[] = [
   'TAX_CONFIG_MISSING',
   'LEG_AMOUNT_NEGATIVE',
   'QUOTE_MISMATCH',
+  'QUOTE_RATE_LIMITED',
 ];
 const VERSION_OUTCOMES: readonly string[] = [
   'DONE',
@@ -92,7 +104,14 @@ const VERSION_OUTCOMES: readonly string[] = [
   'QUOTE_MISMATCH',
 ];
 
-/** Commandes de la migration 0100, sous app_api. */
+/** Rattachement concurrent du même devis (unicité de 0100). */
+function isQuoteVersionConflict(error: unknown): boolean {
+  if (typeof error !== 'object' || error === null) return false;
+  const e = error as { code?: unknown; constraint?: unknown };
+  return e.code === '23505' && e.constraint === 'pricing_trip_price_version_quote_unique';
+}
+
+/** Commandes des migrations 0100, 0102 et 0108, sous app_api. */
 export class PgQuoteStore implements QuoteStore {
   constructor(private readonly db: SqlExecutor) {}
 
@@ -109,10 +128,18 @@ export class PgQuoteStore implements QuoteStore {
   }
 
   async versionTripPrice(tokenHash: Buffer, tripId: string, quoteId: string) {
-    const { rows } = await this.db.query<{ outcome: string; version: number | null }>(
-      'SELECT * FROM core.pricing_cmd_version_trip_price($1, $2, $3)',
-      [tokenHash, tripId, quoteId],
-    );
+    let rows: { outcome: string; version: number | null }[];
+    try {
+      ({ rows } = await this.db.query<{ outcome: string; version: number | null }>(
+        'SELECT * FROM core.pricing_cmd_version_trip_price($1, $2, $3)',
+        [tokenHash, tripId, quoteId],
+      ));
+    } catch (error) {
+      if (isQuoteVersionConflict(error)) {
+        return { outcome: 'QUOTE_ALREADY_VERSIONED' as const, version: null };
+      }
+      throw error;
+    }
     const r = rows[0];
     if (r === undefined || !VERSION_OUTCOMES.includes(r.outcome)) {
       throw new QuoteStoreUnavailableError('issue inattendue de pricing_cmd_version_trip_price');

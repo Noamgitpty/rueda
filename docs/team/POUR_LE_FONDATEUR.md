@@ -75,6 +75,9 @@ Pour chaque point : la question, puis **ma suggestion** de réponse à faire val
 **4.1 Conditions générales, consentement biométrique, avertissements réglementaires.** Textes livrés comme modèles à valider (avocat).
 → **Suggestion** : un avocat par pays relit les modèles en une seule fois. Garder des textes courts et clairs, comme Turo, sans clauses inutiles.
 
+**4.1 bis Politique d'annulation et zones de circulation au checkout** (US-208, avocat, à la recette). Deux brouillons ont été rédigés, dans les quatre langues, communs aux deux pays : la **politique d'annulation** affichée avant de réserver (« le remboursement et ce qui est conservé sont calculés par la plateforme selon les règles publiées et le moment de l'annulation ; l'hôte qui annule rembourse tout ; un trajet en cours ne s'annule pas ») et les **zones de circulation** (« la voiture ne sort pas du pays du trajet ; pas de zones ni de routes exclues par l'hôte ; ces règles sont reprises au contrat »). Le voyageur les accepte par une case au checkout, avec les CGU ; la version acceptée est conservée.
+→ **Suggestion** : les faire relire avec les CGU (4.1), puis publier la version validée de chaque pays. Garder ces deux textes très courts, comme Turo.
+
 **4.2 Légalité de la location entre particuliers au Panama** (avocat). Une source non officielle évoque des inspections de l'ATTT depuis 2025 pour les véhicules en location ; l'avis d'opération ne semble pas exigé des personnes physiques.
 → **Suggestion** : faire confirmer que c'est permis. Si une inspection est obligatoire, Kmino **informe** l'hôte et lui fait cocher une déclaration, sans collecter de preuve.
 

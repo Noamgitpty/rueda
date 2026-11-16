@@ -15,6 +15,7 @@ import type {
 } from '../internal/search/cards.js';
 import type { SearchQuery } from '../internal/search/model.js';
 import type {
+  ListingPrice,
   SearchArea,
   SearchOutcome,
   SearchResult,
@@ -57,6 +58,14 @@ export class FakeSearchStore implements SearchStore {
   listingCountry(listingId: string): Promise<string | null> {
     if (this.down) return Promise.reject(new Error('base indisponible (FAKE)'));
     return Promise.resolve(this.listingCountries.get(listingId) ?? null);
+  }
+
+  /** Prix par annonce publiée (US-208) ; absent : aucun prix (annonce inconnue). */
+  listingPrices = new Map<string, ListingPrice>();
+
+  listingPrice(listingId: string): Promise<ListingPrice | null> {
+    if (this.down) return Promise.reject(new Error('base indisponible (FAKE)'));
+    return Promise.resolve(this.listingPrices.get(listingId) ?? null);
   }
 
   slotCheck(query: SlotQuery): Promise<SlotOutcome> {

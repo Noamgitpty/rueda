@@ -1949,6 +1949,30 @@
       "decision": "PROPOSED",
       "decisionRef": "ADR-124 PROPOSÉ (US-122) ; COMME_TURO",
       "values": { "PA": 20, "PY": 20 }
+    },
+    {
+      "key": "quote_freezes_per_guest_hour",
+      "type": "INT",
+      "unit": "count",
+      "scopes": ["COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "17 §3.2.5 ; suivi N-130 (revue sécurité d'US-202, constat 9 a) : devis figés par un même voyageur sur une heure glissante, tous véhicules confondus ; absent : refus QUOTE_UNAVAILABLE",
+      "status": "PROPOSÉ (comme Turo : débit d'un voyageur qui compare des dates, jamais atteint par un voyageur honnête)",
+      "decision": "PROPOSED",
+      "decisionRef": "ADR-133 PROPOSÉ (US-208) ; COMME_TURO",
+      "values": { "PA": 30, "PY": 30 }
+    },
+    {
+      "key": "quote_validity_minutes",
+      "type": "DURATION",
+      "unit": "min",
+      "scopes": ["COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "16 PRC-025, BKG-001 (« devis plus ancien que sa durée de validité (PROPOSÉ 30 min) ⇒ QUOTE_EXPIRED ») ; 17 §3.2.5 quote.expires_at ; suivi N-129 ; absent : refus QUOTE_UNAVAILABLE",
+      "status": "PROPOSÉ (16 PRC-025 : 30 min ; comme Turo : le prix affiché au checkout tient le temps de réserver)",
+      "decision": "PROPOSED",
+      "decisionRef": "ADR-133 PROPOSÉ (US-208) ; COMME_TURO",
+      "values": { "PA": 30, "PY": 30 }
     }
   ]
 }

@@ -451,6 +451,22 @@
       "acces": "public",
       "idor": "annonce non publiée (brouillon, en revue, d'un autre hôte ou inconnue) : 404 LISTING_NOT_FOUND ; colonnes C0 seulement, zone approximative, galerie (clés du bucket public), prénom et notes de l'hôte (19 US-115 critère 4, US-204 ; preuves base : l0-us204)"
     },
+    "POST /checkout/quotes": {
+      "acces": "session",
+      "idor": "devis figé pour le voyageur de la session (empreinte du jeton), jamais pour un autre ; annonce non publiée : 404 LISTING_NOT_FOUND ; aucun montant reçu du client, devis rejoué par la base (QUOTE_MISMATCH), débit par voyageur (quote_freezes_per_guest_hour) ; TermsGuard (19 US-208, N-43, N-130, L2-PM-03 ; preuves base : l0-us208)"
+    },
+    "GET /checkout/quotes/{quoteId}": {
+      "acces": "session",
+      "idor": "devis d'un autre voyageur ou inconnu : 404 QUOTE_NOT_FOUND, même réponse, rien n'est révélé ; TermsGuard (19 US-208 ; preuves base : l0-us208)"
+    },
+    "POST /checkout/quotes/{quoteId}/hold": {
+      "acces": "session",
+      "idor": "devis d'un autre voyageur : 404 QUOTE_NOT_FOUND ; hold posé pour le seul voyageur de la session (aucun identifiant de personne reçu) ; devis déjà engagé : 409 QUOTE_ALREADY_USED ; créneau pris : 409 DATES_UNAVAILABLE sans détail de l'occupation ; TermsGuard (19 US-208, N-128, N-129 ; preuves base : l0-us208)"
+    },
+    "GET /checkout/holds/{holdId}": {
+      "acces": "session",
+      "idor": "hold d'un autre voyageur ou inconnu : 404 HOLD_NOT_FOUND, même réponse ; versions acceptées du seul voyageur ; TermsGuard (19 US-208 critère 3 ; preuves base : l0-us208)"
+    },
     "GET /listings/{listingId}/availability": {
       "acces": "public",
       "idor": "annonce non publiée ou inconnue : 404 LISTING_NOT_FOUND ; « libre » ou refus seulement (préavis, créneau pris sans détail), sonde arrondie à l'heure, limitée par IP (availability_probe_per_minute, N-78) (19 US-204 critère 2 ; preuves base : l0-us204)"
