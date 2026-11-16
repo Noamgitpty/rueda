@@ -2013,8 +2013,54 @@ export const FR_MESSAGES = {
   'web.s05.hold.total': 'Total : {amount}',
   'web.s05.hold.documents': 'Tu as accepté',
   'web.s05.hold.accepted': '{document}, version {version}',
-  'web.s05.hold.payment':
-    'Le paiement en ligne n’est pas encore disponible : rien ne t’a été débité.',
+  // US-223 partie 223b (ADR-142) : paiement du hold (S05) et attente de la preuve (S06) ; refus
+  // du paiement rendus par l'API (common.payment.*) ; aucune durée écrite (heures lues dans l'API)
+  'common.payment.unavailable':
+    'Le paiement en ligne n’est pas disponible pour le moment. Aucun débit n’a été effectué.',
+  'common.payment.payoutRailUnavailable':
+    'Nous ne pouvons pas encore encaisser de réservation pour cette voiture. Aucun débit n’a été effectué.',
+  'common.payment.underReview':
+    'Nous vérifions ta réservation avant tout débit. Nous te préviendrons quand tu pourras payer.',
+  'common.payment.holdExpired':
+    'Nous ne gardons plus cette voiture pour toi. Aucun débit n’a été effectué : relance une recherche.',
+  'common.payment.holdNotPayable': 'Cette réservation ne peut plus être payée. Vérifie son état.',
+  'common.payment.startPassed':
+    'L’heure de début est passée : nous ne pouvons pas encaisser cette réservation. Aucun débit n’a été effectué.',
+  'common.payment.attemptsExceeded':
+    'Tu as atteint le nombre maximum de tentatives de paiement pour cette réservation. Aucun débit n’a été effectué.',
+  'common.payment.methodUnavailable':
+    'Ce moyen de paiement n’est pas disponible pour cette réservation.',
+  'web.s05.cta': 'Payer {amount}',
+  'web.s05.pay.title': 'Paie ta réservation',
+  'web.s06.pre.leaving':
+    'Tu vas payer {amount} sur une page sécurisée de notre prestataire de paiement.',
+  'web.s06.status.title': 'État de ton paiement',
+  'web.s06.verifying.title': 'Paiement en cours de vérification',
+  'web.s06.verifying.body':
+    'Cela prend en général moins d’une minute. Ne paie pas une seconde fois.',
+  'web.s06.verifying.slow': 'Nous attendons toujours la confirmation de ta banque.',
+  'web.s06.verifying.notify': 'Nous t’écrirons dès qu’il sera confirmé.',
+  'web.s06.refresh': 'Actualiser l’état',
+  'web.s06.reference': 'Numéro de réservation : {reference}',
+  'web.s06.support': 'Contacter l’assistance',
+  'web.s06.supportBody':
+    'Garde ton numéro de réservation et écris-nous en l’indiquant. Si un débit a eu lieu et que la réservation n’est pas confirmée, nous te remboursons tout le paiement.',
+  'web.s06.payAgain': 'Payer à nouveau',
+  'web.s06.confirmed.title': 'Paiement confirmé !',
+  'web.s06.confirmed.body':
+    'Ta réservation est confirmée. La fiche de la voiture montre maintenant le lieu exact de remise.',
+  'web.s06.confirmed.cta': 'Voir la voiture',
+  'web.s06.declined.title': 'Paiement non effectué',
+  'web.error.paymentDeclined':
+    'Ta banque a refusé le paiement. Aucun débit n’a été effectué. Nous gardons ta réservation jusqu’à {hold_end_time} : essaie une autre carte.',
+  'web.s06.ended.title': 'Réservation expirée',
+  'web.s06.ended.body':
+    'Nous ne gardons plus cette voiture pour toi. Aucun débit n’a été effectué.',
+  'web.s06.unproven.title': 'Nous n’avons pas pu confirmer ton paiement',
+  'web.s06.unproven.body': 'Ta réservation n’est pas confirmée. Ne paie pas une seconde fois.',
+  'web.s06.refund.title': 'Nous te remboursons',
+  'web.error.paidAfterRelease':
+    'Nous avons reçu ton paiement, mais la voiture n’était plus réservée pour toi. Nous te remboursons {amount} en totalité ; voici des voitures à proximité.',
   'web.s05.doc.TOS_GUEST': 'Conditions générales',
   'web.s05.doc.CANCELLATION_POLICY': 'Politique d’annulation',
   'web.s05.doc.GEO_TERMS': 'Zones de circulation',

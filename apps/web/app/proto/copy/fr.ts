@@ -109,19 +109,10 @@ export const FR_PROTO = {
   'web.s05.contract': 'J’accepte le contrat de location avec {host_name}',
   'web.s05.mitConsent':
     'J’autorise des débits après le voyage sur cette carte, uniquement pour des frais du voyage, ma franchise ou des dommages, toujours avec un avis et une preuve.',
-  'web.s05.cta': 'Payer {amount}',
   'web.s05.ctaRequest': 'Envoyer la demande',
   'web.s05.review.notice':
     'Nous examinons chaque réservation. Si nous ne pouvons pas l’accepter, nous te remboursons tout.',
   'web.s06.pre.title': 'Sur ton relevé, tu verras : {merchant_name}',
-  'web.s06.pre.leaving':
-    'Tu vas payer {amount} sur une page sécurisée de notre prestataire de paiement.',
-  'web.s06.verifying.title': 'Paiement en cours de vérification',
-  'web.s06.verifying.body':
-    'Cela prend en général moins d’une minute. Ne paie pas une seconde fois.',
-  'web.s06.verifying.slow': 'Nous attendons toujours la confirmation de ta banque.',
-  'web.s06.support': 'Contacter l’assistance',
-  'web.s06.payAgain': 'Payer à nouveau',
   'web.s07.title': 'Réservation confirmée !',
   'web.s07.message': 'Écrire à {host_name}',
   'web.s07.checkinOpens': 'Le check-in avec photos ouvre le {date}.',
@@ -142,8 +133,6 @@ export const FR_PROTO = {
   'web.checkin.queue.savedOnDevice': 'Enregistré sur ce téléphone',
   'web.error.datesUnavailable':
     'Cette voiture n’est pas disponible le {date_unavailable}. Nous te proposons de la rendre le {date_suggested}. Utiliser cette date ?',
-  'web.error.paymentDeclined':
-    'Ta banque a refusé le paiement. Aucun débit n’a été effectué. Nous gardons ta réservation jusqu’à {hold_end_time} : essaie une autre carte.',
   'web.error.requestExpired':
     '{host_name} n’a pas répondu à temps. Tu n’as rien payé. Voici des voitures disponibles à tes dates.',
   'web.error.hostNoShow':

@@ -154,8 +154,16 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  fenêtre en jours et en montant du moteur de règlement, taxes comprises, 10b UX-54) ;
  `web.s05.cancel.ifCancel*` (retenue sans date d'annulation gratuite) ; `web.s05.terms.title`
  renommé « documents que tu acceptes » (un seul titre « Condiciones » à l'écran, revue ux de 205b).
+ Version 62 (la 61 est réservée à US-209b) : paiement du hold et attente de la preuve (US-223
+ partie 223b, ADR-142) : `common.payment.*` (refus de la route du paiement : paiement indisponible,
+ capacité bloquante du PSP, réservation en revue, hold échu ou déjà payé, début dépassé, tentatives
+ épuisées, moyen indisponible), `web.s05.cta` (« Pagar {amount} », 10b S05 ; N-170) et `web.s05.pay.title`,
+ `web.s06.*` (S06 de 10b : `pre.leaving`, `verifying.*` dont `verifying.notify` (promesse de notification d'UX-27), `support`, `payAgain`, états confirmé,
+ refusé, échu, non prouvé, remboursé, numéro de réservation), `web.error.paymentDeclined` (heure
+ limite lue dans l'API, aucune durée écrite) et `web.error.paidAfterRelease` (10b §4.3) ;
+ `web.s05.hold.payment` retirée (le paiement en ligne existe désormais).
  */
-export const CATALOG_VERSION = 60;
+export const CATALOG_VERSION = 62;
 
 /** Catalogues de base par langue ; la langue d'un profil de locale choisit le sien. */
 export const CATALOGS: Readonly<Record<CatalogLanguage, VersionedCatalog<MessageKey>>> = {

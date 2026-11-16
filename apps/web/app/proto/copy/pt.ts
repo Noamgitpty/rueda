@@ -107,18 +107,10 @@ export const PT_PROTO = {
   'web.s05.contract': 'Aceito o contrato de aluguel com {host_name}',
   'web.s05.mitConsent':
     'Autorizo cobranças depois da viagem neste cartão apenas por despesas da viagem, minha franquia ou danos, sempre com aviso e comprovação.',
-  'web.s05.cta': 'Pagar {amount}',
   'web.s05.ctaRequest': 'Enviar pedido',
   'web.s05.review.notice':
     'Analisamos cada reserva. Se não pudermos aprovar, devolvemos tudo a você.',
   'web.s06.pre.title': 'Na sua fatura vai aparecer: {merchant_name}',
-  'web.s06.pre.leaving':
-    'Você vai pagar {amount} em uma página segura do nosso processador de pagamentos.',
-  'web.s06.verifying.title': 'Pagamento em verificação',
-  'web.s06.verifying.body': 'Isso costuma levar menos de um minuto. Não pague de novo.',
-  'web.s06.verifying.slow': 'Ainda estamos esperando a confirmação do seu banco.',
-  'web.s06.support': 'Falar com o suporte',
-  'web.s06.payAgain': 'Pagar novamente',
   'web.s07.title': 'Sua reserva está confirmada!',
   'web.s07.message': 'Escrever para {host_name}',
   'web.s07.checkinOpens': 'O check-in com fotos abre em {date}.',
@@ -139,8 +131,6 @@ export const PT_PROTO = {
   'web.checkin.queue.savedOnDevice': 'Salvo neste celular',
   'web.error.datesUnavailable':
     'Este carro não está disponível em {date_unavailable}. Sugerimos devolver em {date_suggested}. Usar essa data?',
-  'web.error.paymentDeclined':
-    'Seu banco recusou o pagamento. Nenhuma cobrança foi feita. Seguramos sua reserva até {hold_end_time}: tente outro cartão.',
   'web.error.requestExpired':
     '{host_name} não respondeu a tempo. Você não pagou nada. Veja estes carros disponíveis nas suas datas.',
   'web.error.hostNoShow':

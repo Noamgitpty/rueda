@@ -102,17 +102,10 @@ export const EN_PROTO = {
   'web.s05.contract': 'I accept the rental agreement with {host_name}',
   'web.s05.mitConsent':
     'I authorize post-trip charges to this card only for trip costs, my deductible or damage, always with notice and proof.',
-  'web.s05.cta': 'Pay {amount}',
   'web.s05.ctaRequest': 'Send request',
   'web.s05.review.notice':
     "We review every booking. If we can't approve it, you get a full refund.",
   'web.s06.pre.title': 'Your statement will show: {merchant_name}',
-  'web.s06.pre.leaving': "You'll pay {amount} on a secure page from our payment processor.",
-  'web.s06.verifying.title': 'Verifying your payment',
-  'web.s06.verifying.body': "This usually takes less than a minute. Don't pay again.",
-  'web.s06.verifying.slow': "We're still waiting for your bank to confirm.",
-  'web.s06.support': 'Contact support',
-  'web.s06.payAgain': 'Pay again',
   'web.s07.title': 'Your booking is confirmed!',
   'web.s07.message': 'Message {host_name}',
   'web.s07.checkinOpens': 'Photo check-in opens on {date}.',
@@ -133,8 +126,6 @@ export const EN_PROTO = {
   'web.checkin.queue.savedOnDevice': 'Saved on this phone',
   'web.error.datesUnavailable':
     "This car isn't available on {date_unavailable}. We suggest returning it on {date_suggested}. Use this date?",
-  'web.error.paymentDeclined':
-    "Your bank declined the payment. You weren't charged. We're holding your booking until {hold_end_time}: try another card.",
   'web.error.requestExpired':
     "{host_name} didn't reply in time. You weren't charged. Here are cars available for your dates.",
   'web.error.hostNoShow':

@@ -29,7 +29,9 @@ export const SPEC_TEXT: Readonly<
     | 'manualBox'
     | 'holdUntil'
     | 'priceChanged'
-    | 'kmIncluded',
+    | 'kmIncluded'
+    | 'verifyingTitle'
+    | 'verifyingBody',
     Readonly<Partial<Record<Language, string>>>
   >
 > = {
@@ -147,5 +149,16 @@ export const SPEC_TEXT: Readonly<
     es: 'Sin conexión. Te mostramos lo último guardado.',
     en: "You're offline. Showing what was last saved.",
     fr: 'Hors connexion. Voici les dernières informations enregistrées.',
+  },
+  // 10b §4.3, lignes `web.s06.verifying.title` et `web.s06.verifying.body` (S06, US-223b)
+  verifyingTitle: {
+    es: 'Pago en verificación',
+    en: 'Verifying your payment',
+    fr: 'Paiement en cours de vérification',
+  },
+  verifyingBody: {
+    es: 'Esto suele tardar menos de un minuto. No pagues de nuevo.',
+    en: "This usually takes less than a minute. Don't pay again.",
+    fr: 'Cela prend en général moins d’une minute. Ne paie pas une seconde fois.',
   },
 };

@@ -1909,7 +1909,50 @@ export const EN_MESSAGES = {
   'web.s05.hold.total': 'Total: {amount}',
   'web.s05.hold.documents': 'You accepted',
   'web.s05.hold.accepted': '{document}, version {version}',
-  'web.s05.hold.payment': 'Online payment isn’t available yet: you haven’t been charged.',
+  // US-223 partie 223b (ADR-142) : paiement du hold (S05) et attente de la preuve (S06) ; refus
+  // du paiement rendus par l'API (common.payment.*) ; aucune durée écrite (heures lues dans l'API)
+  'common.payment.unavailable':
+    'Online payment isn’t available right now. You haven’t been charged.',
+  'common.payment.payoutRailUnavailable':
+    'We can’t take payments for this car yet. You haven’t been charged.',
+  'common.payment.underReview':
+    'We’re reviewing your booking before any charge. We’ll let you know when you can pay.',
+  'common.payment.holdExpired':
+    'We’re no longer holding this car for you. You haven’t been charged: search again.',
+  'common.payment.holdNotPayable': 'This booking can no longer be paid. Check its status.',
+  'common.payment.startPassed':
+    'The start time has passed, so we can’t charge for this booking. You haven’t been charged.',
+  'common.payment.attemptsExceeded':
+    'You’ve reached the maximum number of payment attempts for this booking. You haven’t been charged.',
+  'common.payment.methodUnavailable': 'This payment method isn’t available for this booking.',
+  'web.s05.cta': 'Pay {amount}',
+  'web.s05.pay.title': 'Pay for your booking',
+  'web.s06.pre.leaving': "You'll pay {amount} on a secure page from our payment processor.",
+  'web.s06.status.title': 'Your payment status',
+  'web.s06.verifying.title': 'Verifying your payment',
+  'web.s06.verifying.body': "This usually takes less than a minute. Don't pay again.",
+  'web.s06.verifying.slow': "We're still waiting for your bank to confirm.",
+  'web.s06.verifying.notify': 'We’ll email you as soon as it’s confirmed.',
+  'web.s06.refresh': 'Refresh the status',
+  'web.s06.reference': 'Booking number: {reference}',
+  'web.s06.support': 'Contact support',
+  'web.s06.supportBody':
+    'Keep your booking number and contact us with it. If you were charged and the booking isn’t confirmed, we’ll refund the full payment.',
+  'web.s06.payAgain': 'Pay again',
+  'web.s06.confirmed.title': 'Payment confirmed!',
+  'web.s06.confirmed.body':
+    'Your booking is confirmed. The car’s page now shows the exact pickup spot.',
+  'web.s06.confirmed.cta': 'View the car',
+  'web.s06.declined.title': 'Payment not completed',
+  'web.error.paymentDeclined':
+    "Your bank declined the payment. You weren't charged. We're holding your booking until {hold_end_time}: try another card.",
+  'web.s06.ended.title': 'Booking expired',
+  'web.s06.ended.body': 'We’re no longer holding this car for you. You haven’t been charged.',
+  'web.s06.unproven.title': 'We couldn’t confirm your payment',
+  'web.s06.unproven.body': 'Your booking isn’t confirmed. Don’t pay again.',
+  'web.s06.refund.title': 'We’re refunding your payment',
+  'web.error.paidAfterRelease':
+    "We received your payment, but the car was no longer held for you. We'll refund the full {amount}; here are cars nearby.",
   'web.s05.doc.TOS_GUEST': 'Terms and conditions',
   'web.s05.doc.CANCELLATION_POLICY': 'Cancellation policy',
   'web.s05.doc.GEO_TERMS': 'Where you can drive',

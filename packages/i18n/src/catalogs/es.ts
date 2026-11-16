@@ -1966,7 +1966,51 @@ export const ES_MESSAGES = {
   'web.s05.hold.total': 'Total: {amount}',
   'web.s05.hold.documents': 'Aceptaste',
   'web.s05.hold.accepted': '{document}, versión {version}',
-  'web.s05.hold.payment': 'El pago en línea todavía no está disponible: no se te cobró nada.',
+  // US-223 partie 223b (ADR-142) : paiement du hold (S05) et attente de la preuve (S06) ; refus
+  // du paiement rendus par l'API (common.payment.*) ; aucune durée écrite (heures lues dans l'API)
+  'common.payment.unavailable':
+    'El pago en línea no está disponible por ahora. No se te cobró nada.',
+  'common.payment.payoutRailUnavailable':
+    'Todavía no podemos cobrar reservas de este auto. No se te cobró nada.',
+  'common.payment.underReview':
+    'Estamos revisando tu reserva antes de cualquier cobro. Te avisaremos cuando puedas pagar.',
+  'common.payment.holdExpired':
+    'Ya no guardamos este auto para ti. No se te cobró nada: vuelve a buscar.',
+  'common.payment.holdNotPayable': 'Esta reserva ya no se puede pagar. Revisa su estado.',
+  'common.payment.startPassed':
+    'La hora de inicio ya pasó: no podemos cobrar esta reserva. No se te cobró nada.',
+  'common.payment.attemptsExceeded':
+    'Llegaste al máximo de intentos de pago para esta reserva. No se te cobró nada.',
+  'common.payment.methodUnavailable': 'Este medio de pago no está disponible para esta reserva.',
+  'web.s05.cta': 'Pagar {amount}',
+  'web.s05.pay.title': 'Paga tu reserva',
+  'web.s06.pre.leaving':
+    'Vas a pagar {amount} en una página segura de nuestro procesador de pagos.',
+  'web.s06.status.title': 'Estado de tu pago',
+  'web.s06.verifying.title': 'Pago en verificación',
+  'web.s06.verifying.body': 'Esto suele tardar menos de un minuto. No pagues de nuevo.',
+  'web.s06.verifying.slow': 'Seguimos esperando la confirmación de tu banco.',
+  'web.s06.verifying.notify': 'Te avisaremos por correo en cuanto se confirme.',
+  'web.s06.refresh': 'Actualizar el estado',
+  'web.s06.reference': 'Número de reserva: {reference}',
+  'web.s06.support': 'Hablar con soporte',
+  'web.s06.supportBody':
+    'Guarda tu número de reserva y escríbenos con él. Si se te cobró y la reserva no se confirma, te devolvemos todo el pago.',
+  'web.s06.payAgain': 'Pagar de nuevo',
+  'web.s06.confirmed.title': '¡Pago confirmado!',
+  'web.s06.confirmed.body':
+    'Tu reserva está confirmada. En la ficha del auto ya ves el lugar exacto de entrega.',
+  'web.s06.confirmed.cta': 'Ver el auto',
+  'web.s06.declined.title': 'Pago no realizado',
+  'web.error.paymentDeclined':
+    'Tu banco rechazó el pago. No se hizo ningún cargo. Guardamos tu reserva hasta las {hold_end_time}: prueba otra tarjeta.',
+  'web.s06.ended.title': 'Reserva expirada',
+  'web.s06.ended.body': 'Ya no guardamos este auto para ti. No se te cobró nada.',
+  'web.s06.unproven.title': 'No pudimos confirmar tu pago',
+  'web.s06.unproven.body': 'Tu reserva no está confirmada. No pagues de nuevo.',
+  'web.s06.refund.title': 'Te devolvemos tu pago',
+  'web.error.paidAfterRelease':
+    'Recibimos tu pago, pero el auto ya no estaba reservado para ti. Te reembolsamos {amount} completo; mira estos autos cerca.',
   'web.s05.doc.TOS_GUEST': 'Términos y condiciones',
   'web.s05.doc.CANCELLATION_POLICY': 'Política de cancelación',
   'web.s05.doc.GEO_TERMS': 'Zonas de circulación',

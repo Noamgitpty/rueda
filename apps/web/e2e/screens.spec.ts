@@ -90,6 +90,42 @@ async function openCheckout(
   await expect(page.locator('[data-testid="s05-price"]')).toBeVisible();
 }
 
+/** Double de l'API (webhooks FAKE joués par `GET /__e2e/payment/webhook`, US-223b). */
+const API = `http://127.0.0.1:${process.env['RUEDA_E2E_API_PORT'] ?? '3199'}`;
+
+/**
+ * S05 → hold posé → événements de paiement joués par le double (ordre créé, webhook FAKE signé,
+ * échéance) → S06 dans l'état attendu (US-223 partie 223b). Aucune sortie vers le PSP ici : le
+ * parcours avec la page hébergée est dans `checkout-payment.spec.ts`.
+ */
+async function openPayment(
+  page: Page,
+  context: BrowserContext,
+  language: Language,
+  events: readonly string[],
+  state: string,
+): Promise<void> {
+  await openCheckout(page, context, language);
+  await page.locator('#s05-driver-first').fill('Lucía');
+  await page.locator('#s05-driver-last').fill('Gómez');
+  for (const kind of ['TOS_GUEST', 'CANCELLATION_POLICY', 'GEO_TERMS']) {
+    await page.locator(`#s05-doc-${kind}`).check();
+  }
+  await submitAndSettle(
+    page,
+    page.locator('[data-testid="s05-submit"]'),
+    /\/checkout\/hold\/[0-9a-f-]{36}$/,
+  );
+  const holdId = /\/checkout\/hold\/([0-9a-f-]{36})$/.exec(new URL(page.url()).pathname)?.[1];
+  if (holdId === undefined) throw new Error('hold non posé');
+  for (const event of events) {
+    const r = await fetch(`${API}/__e2e/payment/webhook?hold=${holdId}&event=${event}`);
+    expect(r.status).toBe(200);
+  }
+  await page.goto(`/checkout/hold/${holdId}/payment`);
+  await expect(page.locator('[data-testid="s06-title"]')).toHaveAttribute('data-state', state);
+}
+
 /** Lieu de remise et auto saisis sur le compte d'hôte affiché (A10), pour ouvrir A11 (US-226b). */
 async function placeAndCar(page: Page): Promise<void> {
   await page.locator('#a10-place-label').fill('Casa');
@@ -273,6 +309,42 @@ export const SCREENS: readonly Screen[] = [
       );
       await expect(page.locator('[data-testid="s05-hold-documents"]')).toBeVisible();
     },
+  },
+  // US-223 partie 223b : S06 dans chaque état (10b UX-27, règles 3 et 4) ; S05 du hold porte le
+  // bouton « Pagar {amount} » (capture checkout-hold)
+  {
+    name: 'paiement-verification',
+    source: 'S06, US-223',
+    open: (page, context, language) => openPayment(page, context, language, ['PAY'], 'VERIFYING'),
+  },
+  {
+    name: 'paiement-confirme',
+    source: 'S06, US-223',
+    open: (page, context, language) =>
+      openPayment(page, context, language, ['PAY', 'SUCCEEDED'], 'CONFIRMED'),
+  },
+  {
+    name: 'paiement-refuse',
+    source: 'S06, US-223',
+    open: (page, context, language) =>
+      openPayment(page, context, language, ['PAY', 'FAILED'], 'DECLINED'),
+  },
+  {
+    name: 'paiement-expire',
+    source: 'S06, US-223',
+    open: (page, context, language) => openPayment(page, context, language, ['EXPIRE'], 'ENDED'),
+  },
+  {
+    name: 'paiement-non-prouve',
+    source: 'S06, US-223',
+    open: (page, context, language) =>
+      openPayment(page, context, language, ['PAY', 'EXPIRE'], 'UNPROVEN'),
+  },
+  {
+    name: 'paiement-rembourse',
+    source: 'S06, US-223',
+    open: (page, context, language) =>
+      openPayment(page, context, language, ['PAY', 'EXPIRE', 'SUCCEEDED'], 'REFUND_DUE'),
   },
   // US-226 partie 226b : choix de la protection sur S05 (le 25 du double : BASICA présélectionnée,
   // TOTAL grisé sans âge) ; TOTAL validé à 25 ans (nouveau devis, nouveau total) ; contrat de
