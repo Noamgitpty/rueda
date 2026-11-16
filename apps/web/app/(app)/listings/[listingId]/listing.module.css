@@ -1,6 +1,7 @@
 /*
  * Fiche du véhicule S03 (US-204) : galerie bord à bord au balayage (16 LST-002), vignette de
- * remplacement d'une photo indisponible, lieu de remise exact. Jetons seulement (US-030).
+ * remplacement d'une photo indisponible, lieu de remise exact ; franchises par niveau de la
+ * protection (US-205). Jetons seulement (US-030).
  */
 .gallery {
   display: grid;
@@ -69,4 +70,27 @@
 .address {
   margin: 0;
   font-style: normal;
+}
+
+/* Franchises par niveau de protection (US-205) : niveau à gauche, montant à droite. */
+.terms {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+}
+
+.term {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.term dt,
+.term dd {
+  margin: 0;
+}
+
+.term dd {
+  font-weight: var(--font-weight-strong);
 }

@@ -1806,6 +1806,44 @@ export const ES_MESSAGES = {
   'web.listing.meet.exact.title': 'Dirección del encuentro',
   'web.listing.meet.exact.only': 'Solo tú la ves: tienes una reserva confirmada de este auto.',
   'web.listing.meet.sameReturn': 'Devuelves el auto en el mismo lugar.',
+  // US-205 (ADR-138) : conditions de la fiche S03 (annulation, distance, protection, caution)
+  'web.listing.cancel.title': 'Cancelación',
+  'web.listing.cancel.until': 'Cancelación gratuita hasta el {date}.',
+  'web.listing.cancel.lastMinute': {
+    one: 'Cancelación gratuita durante {count} hora después de reservar.',
+    other: 'Cancelación gratuita durante {count} horas después de reservar.',
+  },
+  'web.listing.cancel.lead': {
+    one: 'Cancelación gratuita hasta {count} hora antes del inicio del viaje.',
+    other: 'Cancelación gratuita hasta {count} horas antes del inicio del viaje.',
+  },
+  'web.listing.cancel.late': {
+    one: 'Si reservas con menos de {count} hora de anticipación, es gratuita durante {window} h después de reservar.',
+    other:
+      'Si reservas con menos de {count} horas de anticipación, es gratuita durante {window} h después de reservar.',
+  },
+  'web.listing.cancel.after':
+    'Después, se retiene 1 día de alquiler si el viaje dura más de 2 días; si no, medio día.',
+  'web.listing.cancel.unavailable':
+    'No pudimos mostrar la política de cancelación. Revísala antes de pagar.',
+  'web.listing.distance.title': 'Distancia incluida',
+  'web.listing.distance.total': { one: '{count} km incluido', other: '{count} km incluidos' },
+  'web.listing.distance.extra': 'Cada km adicional: {amount}',
+  'web.listing.protection.title': 'Protección',
+  'web.listing.protection.insurer':
+    'La protección se vende por cuenta de {insurer}, la aseguradora asociada, que la cubre.',
+  'web.listing.protection.license': 'Registro de {name}: {ref}',
+  'web.listing.protection.broker': 'Intermediario de seguros: {broker}',
+  'web.listing.protection.rc':
+    'Responsabilidad civil frente a terceros incluida en todos los niveles: hasta {amount} por evento.',
+  'web.listing.protection.basic':
+    'La protección Básica es obligatoria y ya está en el precio final. Puedes subirla al reservar.',
+  'web.listing.protection.deductibles': 'Lo máximo que pagas si hay daños (franquicia)',
+  'web.listing.protection.noDeductible': 'Sin franquicia',
+  'web.listing.protection.exclusions': 'Lo que no cubre',
+  'web.listing.protection.unavailable':
+    'Este auto todavía no tiene protección disponible, así que no se puede reservar por ahora.',
+  'web.listing.protection.error': 'No pudimos cargar la protección. Inténtalo de nuevo.',
   // US-208 (ADR-133) : refus de la route du checkout (devis figé et pose du hold)
   'common.quote.notFound': 'No encontramos este presupuesto. Vuelve a la ficha del auto.',
   'common.quote.rateLimited':

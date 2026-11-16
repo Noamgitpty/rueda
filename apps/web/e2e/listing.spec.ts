@@ -1,5 +1,5 @@
 /**
- * Parcours de la fiche du véhicule S03 (US-204), comme un visiteur réel, à 360 et 390 px, dans les
+ * Parcours de la fiche du véhicule S03 (US-204, US-205), comme un visiteur réel, à 360 et 390 px, dans les
  * quatre langues, contre le build de production du site et le double de l'API
  * (`e2e/stub-api.mjs`, appelé par le SERVEUR du site seulement ; photos relayées par le site
  * depuis le bucket du double, `WEB_MEDIA_URL`) :
@@ -13,6 +13,9 @@
  * - critère 3 : visiteur ⇒ zone approximative seulement, jamais l'adresse ; voyageur d'un trip
  *   confirmé (session du double) ⇒ libellé et adresse du lieu, retour au même lieu (16 LST-007) ;
  * - bloc de l'hôte : prénom, « identité vérifiée », note (16 LST-020 bêta) ;
+ * - US-205 : annulation gratuite en dates (veille même heure, ou dernière minute sans date), distance
+ *   de la période (« 600 km incluidos », 19 US-205 critère 2), protection de l'assureur partenaire
+ *   recopiée du contrat du double, et fiche sans protection promise ⇒ aucun « Reservar » ;
  * - accessibilité : axe-core (WCAG 2.2 A / AA) à chaque état, mobile d'abord.
  * Attendus : 19 US-204, 16 LST-002 / LST-006 / LST-007 / LST-020, 10b §4.3 (`oracle.ts`), jamais
  * le code testé ; préavis de 3 h : donnée du double (16 LST-006 « un préavis de 3 h »).
@@ -33,6 +36,16 @@ const GALLERY = [
 /** Adresse exacte du lieu du double : jamais montrée à un visiteur. */
 const ADDRESS = 'Avenida Ficticia 123';
 const PLACE = 'Entrada del centro comercial';
+
+/** Fiche publiée du double SANS protection promise (US-205 critère 4). */
+const NO_COVER_ID = '20500000-0000-4000-8000-00000000f005';
+/** Exclusions du contrat d'assureur du double (données de test), par langue du site. */
+const EXCLUSIONS: Readonly<Record<string, string>> = {
+  es: 'Daños interiores y mecánicos, conducir fuera del territorio y conductores no aprobados.',
+  en: 'Interior and mechanical damage, driving outside the country and unapproved drivers.',
+  fr: 'Dommages intérieurs et mécaniques, conduite hors du pays et conducteurs non approuvés.',
+  pt: 'Danos internos e mecânicos, dirigir fora do território e motoristas não aprovados.',
+};
 
 const fiche = (start: string, end: string): string =>
   `/listings/${PUBLIC_ID}?${new URLSearchParams({ start, end }).toString()}`;
@@ -145,6 +158,71 @@ for (const language of LANGUAGES) {
       await expect(exact).toBeVisible();
       await expect(exact.locator('address')).toContainText(PLACE);
       await expect(exact.locator('address')).toContainText(ADDRESS);
+      await expectAccessible(page);
+      await expectMobileFriendly(page);
+    });
+
+    // ---- US-205 : conditions affichées (annulation, distance, protection, caution) -----------
+    test('US-205 critères 1 et 2 : dates acceptées ⇒ annulation gratuite jusqu’à la veille même heure, distance de la période (200 km × 3 jours = 600 km) et prix du km ; départ de dernière minute ⇒ aucune date', async ({
+      page,
+    }) => {
+      // départ le 14/12 à 10:00, trois jours facturables (double : 200 km par jour, règle de 24 h)
+      await page.goto(fiche('2036-12-14T10:00', '2036-12-17T10:00'));
+      const cancel = page.locator('[data-testid="s03-cancel"]');
+      await expect(cancel).toBeVisible();
+      await expect(cancel).toContainText(/\b13\b/);
+      await expect(cancel).toContainText('10:00');
+      await expect(cancel).not.toContainText(/\b14\b/);
+      const distance = page.locator('[data-testid="s03-distance"]');
+      await expect(distance).toContainText('600');
+      const km = SPEC_TEXT.kmIncluded[language];
+      if (km !== undefined) await expect(distance).toContainText(km);
+      await expect(distance).not.toContainText(/mi\b|miles|millas/);
+      await expectAccessible(page);
+      await expectMobileFriendly(page);
+
+      // départ à 09:30 dans le double : réservation de dernière minute, gratuite 1 h après
+      await page.goto(fiche('2036-12-14T09:30', '2036-12-17T10:00'));
+      await expect(cancel).toBeVisible();
+      await expect(cancel).not.toContainText(/\b13\b/);
+      await expect(cancel).toContainText('1');
+      await expectAccessible(page);
+    });
+
+    test('US-205 critère 3 : protection de l’assureur partenaire recopiée du contrat (assureur, courtier, RC, franchise par niveau, exclusions dans la langue) ; « Reservar » proposé', async ({
+      page,
+    }) => {
+      await page.goto(fiche('2036-12-14T10:00', '2036-12-17T10:00'));
+      const protection = page.locator('[data-testid="s03-protection"]');
+      await expect(protection).toContainText('Aseguradora Ficticia');
+      await expect(protection).toContainText('Corredor Ficticio');
+      await expect(protection).toContainText('SSRP-0000');
+      await expect(page.locator('[data-testid="s03-deductibles"] > div')).toHaveCount(3);
+      await expect(page.locator('[data-testid="s03-exclusions"]')).toHaveText(
+        EXCLUSIONS[language] ?? '',
+      );
+      await expect(page.locator('[data-testid="s03-book"]')).toBeVisible();
+      await expect(page.locator('[data-testid="s03-deposit"]')).toBeVisible();
+      await expectAccessible(page);
+      await expectMobileFriendly(page);
+    });
+
+    test('US-205 critère 4 : aucune protection promise par l’API ⇒ aucun nom d’assureur, RC ni franchise, et pas de « Reservar »', async ({
+      page,
+    }) => {
+      await page.goto(
+        `/listings/${NO_COVER_ID}?${new URLSearchParams({
+          start: '2036-12-14T10:00',
+          end: '2036-12-17T10:00',
+        }).toString()}`,
+      );
+      const protection = page.locator('[data-testid="s03-protection"]');
+      await expect(protection).toBeVisible();
+      await expect(protection).not.toContainText('Aseguradora');
+      await expect(page.locator('[data-testid="s03-deductibles"]')).toHaveCount(0);
+      await expect(page.locator('[data-testid="s03-exclusions"]')).toHaveCount(0);
+      await expect(page.locator('[data-testid="s03-price"]')).toBeVisible();
+      await expect(page.locator('[data-testid="s03-book"]')).toHaveCount(0);
       await expectAccessible(page);
       await expectMobileFriendly(page);
     });

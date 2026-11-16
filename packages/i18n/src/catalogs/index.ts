@@ -128,8 +128,13 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  checkout), `common.quote.line.protection*` (ligne de protection du détail du prix de S05, nom du
  niveau) et `common.listing.earningsPlanSaved`, `common.listing.earningsPlanNotAvailable` (plan
  de gains du véhicule).
+ Version 58 (56 et 57 sont réservées à US-209 et US-226b) : conditions de la fiche S03 (US-205,
+ ADR-138) : `web.listing.cancel.*` (annulation gratuite en dates, dernière minute, règle du pays,
+ retenue hors fenêtre), `web.listing.distance.*` (distance incluse sur la période, prix du km
+ supplémentaire) et `web.listing.protection.*` (assureur partenaire, courtier, RC tiers incluse,
+ franchises par niveau, exclusions du contrat, protection indisponible).
  */
-export const CATALOG_VERSION = 55;
+export const CATALOG_VERSION = 58;
 
 /** Catalogues de base par langue ; la langue d'un profil de locale choisit le sien. */
 export const CATALOGS: Readonly<Record<CatalogLanguage, VersionedCatalog<MessageKey>>> = {

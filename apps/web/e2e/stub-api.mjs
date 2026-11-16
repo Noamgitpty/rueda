@@ -249,6 +249,34 @@ const SEARCH_DOWN_CITY = 'Ciudad Caida';
 /** Annonces de la recherche du double sans fiche (US-203) : LUXE notée, sans point sur la carte. */
 const SEARCH_LUXE_ID = '20300000-0000-4000-8000-00000000f002';
 const SEARCH_NO_POINT_ID = '20300000-0000-4000-8000-00000000f003';
+// Conditions de la fiche (US-205) : `PUBLIC_ID` et `MANUAL_ID` sont couvertes par le contrat de
+// l'assureur partenaire du double (assureur, courtier, RC, franchises, exclusions fictifs) ;
+// `NO_COVER_ID` est une fiche publiée SANS protection promise (interrupteur fermé, RC sous le
+// minimum ou véhicule hors contrat : la base ne dit pas lequel) ⇒ aucun bouton « Reservar ».
+// Départ à 09:30 ⇒ réservation de dernière minute (aucune date limite, fenêtre de 60 min) ;
+// sinon gratuite jusqu'à 24 h avant le départ (08 BR-CXL-01, règle du pays du double).
+const NO_COVER_ID = '20500000-0000-4000-8000-00000000f005';
+const LAST_MINUTE_TIME = 'T09:30';
+const FREE_CANCEL_LEAD_H = 24;
+const LAST_MINUTE_THRESHOLD_H = 25;
+const LAST_MINUTE_WINDOW_MIN = 60;
+const KM_PER_DAY = 200;
+const EXTRA_KM_MINOR = '20';
+const PROTECTION = {
+  insurerName: 'Aseguradora Ficticia',
+  insurerLicenseRef: 'SSRP-0000',
+  brokerName: 'Corredor Ficticio',
+  brokerLicenseRef: null,
+  contractVersion: 1,
+  rcAmountMinor: '10000000',
+  deductibles: { BASICA: '150000', ESTANDAR: '50000', TOTAL: '0' },
+  exclusions: {
+    es: 'Daños interiores y mecánicos, conducir fuera del territorio y conductores no aprobados.',
+    en: 'Interior and mechanical damage, driving outside the country and unapproved drivers.',
+    fr: 'Dommages intérieurs et mécaniques, conduite hors du pays et conducteurs non approuvés.',
+    'pt-BR': 'Danos internos e mecânicos, dirigir fora do território e motoristas não aprovados.',
+  },
+};
 const hosts = new Map();
 const uuid = () => {
   const h = randomBytes(16).toString('hex');
@@ -781,7 +809,7 @@ async function hostRoute(req, res, url) {
   }
   const avail = /^\/listings\/([0-9a-f-]{36})\/availability$/.exec(path)?.[1];
   if (req.method === 'GET' && avail !== undefined) {
-    if (avail !== PUBLIC_ID && avail !== MANUAL_ID) {
+    if (avail !== PUBLIC_ID && avail !== MANUAL_ID && avail !== NO_COVER_ID) {
       return err(res, 404, 'LISTING_NOT_FOUND', 'common.listing.notFound');
     }
     const start = url.searchParams.get('start') ?? '';
@@ -812,6 +840,42 @@ async function hostRoute(req, res, url) {
           currency: MARKET.currency,
           billableDays: t.days,
         },
+        // US-205 : annulation pour ce départ (dernière minute : départ à 09:30 dans le double) et
+        // distance sur la période (km par jour × jours facturables du devis)
+        cancellation: start.endsWith(LAST_MINUTE_TIME)
+          ? { lastMinute: true, freeUntil: null, lastMinuteWindowMinutes: LAST_MINUTE_WINDOW_MIN }
+          : {
+              lastMinute: false,
+              freeUntil: new Date(
+                Date.parse(`${start}:00Z`) - FREE_CANCEL_LEAD_H * 3_600_000,
+              ).toISOString(),
+              lastMinuteWindowMinutes: LAST_MINUTE_WINDOW_MIN,
+            },
+        mileage: {
+          mode: 'INCLUDED',
+          includedKmPerDay: KM_PER_DAY,
+          includedKm: KM_PER_DAY * t.days,
+          extraKmPriceMinor: EXTRA_KM_MINOR,
+        },
+      },
+    });
+  }
+  const cond = /^\/listings\/([0-9a-f-]{36})\/conditions$/.exec(path)?.[1];
+  if (req.method === 'GET' && cond !== undefined) {
+    if (cond !== PUBLIC_ID && cond !== MANUAL_ID && cond !== NO_COVER_ID) {
+      return err(res, 404, 'LISTING_NOT_FOUND', 'common.listing.notFound');
+    }
+    return json(res, 200, {
+      conditions: {
+        currency: MARKET.currency,
+        timezone: 'UTC',
+        cancellation: {
+          freeCancelLeadHours: FREE_CANCEL_LEAD_H,
+          lastMinuteThresholdHours: LAST_MINUTE_THRESHOLD_H,
+          lastMinuteWindowMinutes: LAST_MINUTE_WINDOW_MIN,
+        },
+        deposit: null,
+        protection: cond === NO_COVER_ID ? null : PROTECTION,
       },
     });
   }
@@ -835,10 +899,11 @@ async function hostRoute(req, res, url) {
   const pub = /^\/listings\/([0-9a-f-]{36})$/.exec(path)?.[1];
   if (req.method === 'GET' && pub !== undefined) {
     if (pub === DOWN_ID) return err(res, 503, 'LISTING_UNAVAILABLE', 'common.listing.unavailable');
-    if (pub !== PUBLIC_ID && pub !== MANUAL_ID) {
+    if (pub !== PUBLIC_ID && pub !== MANUAL_ID && pub !== NO_COVER_ID) {
       return err(res, 404, 'LISTING_NOT_FOUND', 'common.listing.notFound');
     }
     const manual = pub === MANUAL_ID;
+    const bare = manual || pub === NO_COVER_ID;
     return json(res, 200, {
       listing: {
         id: pub,
@@ -847,8 +912,8 @@ async function hostRoute(req, res, url) {
         currency: 'XTS',
         currencyExponent: 2,
         mileageMode: 'INCLUDED',
-        includedKmPerDay: 250,
-        extraKmPriceMinor: '20',
+        includedKmPerDay: KM_PER_DAY,
+        extraKmPriceMinor: EXTRA_KM_MINOR,
         instantBook: true,
         variantId: null,
         makeName: 'Toyota',
@@ -863,7 +928,7 @@ async function hostRoute(req, res, url) {
         approximatePoint: { lat: 8.98, lng: -79.52 },
         timezone: 'UTC',
         hostFirstName: 'Ana',
-        photos: manual
+        photos: bare
           ? []
           : GALLERY.map((id, order) => ({ id, order, key: `listing/${PUBLIC_ID}/${id}` })),
         hostVerified: true,
