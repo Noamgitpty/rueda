@@ -27,7 +27,9 @@
 --     ENTRY_NOT_DECLARED (l'ops contrôle statut et date à la revue, défaut d'UXQ-03) ; résident ⇒
 --     RESIDENT_FOREIGN_LICENSE ; date locale de fin > entrée + 90 j ⇒ BEYOND_90_DAYS ; fin à
 --     entrée + 90 j exactement : aucun signal (borne incluse). Mode FLAG seul (OQ-BR-21) : jamais un
---     refus automatique ;
+--     refus automatique. La règle n'est évaluée que si `foreign_license_review_enabled[pays]` vaut
+--     true (graine 0113 : false en PA et en PY, DEC-FONDATEUR-22 « jamais plus lourd que Turo » ;
+--     valeur absente : évaluée, fail-closed) ;
 --   - règles de risque de la bêta (16 ADM-029), codées ici et DÉCLARÉES dans `core.risk_rule`
 --     (version 1) : FOREIGN_LICENSE_90D (HIGH), ACCOUNT_UNDER_24H (LOW, compte de moins de 24 h),
 --     SHORT_NOTICE_START (LOW, départ dans moins de 3 h), HIGH_VALUE_CLASS (LOW, classe PREMIUM ou
@@ -41,7 +43,10 @@
 --     un conducteur inéligible est refusé APRÈS la pose, dans la même sous-transaction (annulée) :
 --     l'auto-réservation reste jugée, refusée et signalée en premier (US-127) ; une règle déclenchée
 --     écrit une évaluation `risk_assessment` (sujet HOLD, REVIEW ou AUTO_OK) et, si elle est
---     signalée, un élément de la file RISK_BOOKING (US-109) ;
+--     signalée, un élément de la file RISK_BOOKING (US-109), dans la sous-transaction de la pose :
+--     mise en file impossible ⇒ BOOKING_UNAVAILABLE, rien d'écrit ; un consentement biométrique
+--     retiré (refus de la pose) rend le même code que le contrôle du conducteur,
+--     KYC_BIOMETRIC_CONSENT_MISSING (N-122 ; l'ancien KYC_CONSENT_WITHDRAWN n'est plus rendu) ;
 --   - ordre revue / paiement (UXQ-08, inchangé : 0037) : REVIEW_BEFORE_CHARGE (défaut, valeur
 --     absente ou inconnue) ⇒ hold `review_required`, TTL `review_hold_minutes`, aucune intention de
 --     paiement avant `reviewed_at` (garde `hold_review_before_payment`) ; PAY_THEN_REVIEW ⇒ hold
@@ -291,7 +296,7 @@ REVOKE CREATE ON SCHEMA core FROM kyc_cmd_owner;
 -- âge minimum de la classe (portée CATEGORY : scope_id déjà accordé par 0071) ; politique ajoutée
 -- à côté de cmd_hold_read (permissives : OU), sans recopier sa liste
 CREATE POLICY cmd_hold_risk_read ON core.config_param_value FOR SELECT TO cmd_hold_owner
-  USING (key = 'min_driver_age');
+  USING (key IN ('min_driver_age', 'foreign_license_review_enabled'));
 -- poids des règles déclarées
 GRANT SELECT (severity) ON core.risk_rule TO cmd_hold_owner;
 -- évaluation d'un hold de checkout (sujet HOLD) : jamais décidée à l'écriture
@@ -356,6 +361,7 @@ DECLARE
   v_signal text;
   v_rules  jsonb := '[]'::jsonb;
   v_score  integer := 0;
+  v_foreign boolean;
 BEGIN
   SELECT cv.value_class INTO v_class FROM core.catalog_vehicle AS cv WHERE cv.id = p_vehicle;
   v_min := core.booking_min_driver_age(p_country, v_class);
@@ -364,6 +370,18 @@ BEGIN
     RETURN;
   END IF;
   SELECT * INTO d FROM core.kyc_checkout_driver(p_guest, p_start, p_end, p_country, v_min);
+  -- revue du permis étranger (16 VER-007) seulement si le pays l'exige
+  -- (`foreign_license_review_enabled`, graine 0113 : false, DEC-FONDATEUR-22) ; valeur absente ou
+  -- mal formée : revue (fail-closed)
+  SELECT CASE WHEN pg_catalog.jsonb_typeof(pv.value) = 'boolean' THEN (pv.value #>> '{}')::boolean
+         END INTO v_foreign
+    FROM core.config_param_value AS pv
+   WHERE pv.key = 'foreign_license_review_enabled' AND pv.country_code::text = p_country
+     AND pv.scope_type = 'COUNTRY' AND pv.valid_from <= v_now
+     AND (pv.valid_to IS NULL OR pv.valid_to > v_now)
+   ORDER BY pv.valid_from DESC
+   LIMIT 1;
+  v_foreign := COALESCE(v_foreign, true);
   -- dernière version en vigueur de chaque règle de la bêta ; inactive : non évaluée
   FOR r IN
     SELECT DISTINCT ON (ru.code) ru.code, ru.version, ru.severity, ru.active
@@ -375,7 +393,7 @@ BEGIN
   LOOP
     CONTINUE WHEN NOT r.active;
     v_signal := CASE r.code
-      WHEN 'FOREIGN_LICENSE_90D' THEN d.foreign_signal
+      WHEN 'FOREIGN_LICENSE_90D' THEN CASE WHEN v_foreign THEN d.foreign_signal END
       WHEN 'ACCOUNT_UNDER_24H' THEN
         CASE WHEN d.account_created_at > v_now - pg_catalog.make_interval(hours => 24)
              THEN 'ACCOUNT_AGE' END
@@ -399,8 +417,8 @@ COMMENT ON FUNCTION core.booking_checkout_risk(uuid, uuid, timestamptz, timestam
   'VER-007) : issue, signalement (score ≥ 50), règles et score. US-209 (ADR-135).';
 
 -- 6.3 Journal explicable (BR-TRUST-01) : évaluation du hold si une règle est déclenchée ; file
--- RISK_BOOKING du pays si la réservation est signalée (une mise en file impossible n'annule rien :
--- l'évaluation reste ouverte et visible, comme 0080).
+-- RISK_BOOKING du pays si la réservation est signalée ; mise en file impossible (paramètre de
+-- délai absent, file ou pays inconnus) ⇒ exception : le checkout appelant annule tout.
 CREATE FUNCTION core.booking_checkout_record_risk(p_hold uuid, p_guest uuid, p_org uuid,
                                                   p_country text, p_rules jsonb, p_score integer,
                                                   p_flagged boolean)
@@ -427,6 +445,13 @@ BEGIN
   IF p_flagged THEN
     SELECT * INTO r_queue
       FROM core.support_enqueue_review('RISK_BOOKING', 'RISK_ASSESSMENT', v_id, p_country, NULL);
+    -- jamais une réservation signalée sans élément de file (revue d'architecture n° 5) : le
+    -- checkout appelant annule la pose et répond BOOKING_UNAVAILABLE
+    IF r_queue.outcome IS NULL OR r_queue.outcome NOT IN ('CREATED', 'EXISTS') THEN
+      RAISE EXCEPTION 'checkout: review queue unavailable (%)', COALESCE(r_queue.outcome, 'NONE')
+        USING ERRCODE = 'object_not_in_prerequisite_state',
+              CONSTRAINT = 'checkout_review_queue_unavailable';
+    END IF;
   END IF;
 END
 $fn$;
@@ -486,7 +511,7 @@ REVOKE ALL ON FUNCTION core.booking_min_driver_age(text, text),
   core.booking_checkout_record_risk(uuid, uuid, uuid, text, jsonb, integer, boolean),
   core.booking_guest_eligibility(uuid) FROM PUBLIC;
 
--- 6.5 Checkout : corps de 0110 (US-226) recopié, changements marqués US-209 (étapes 3 bis, 4 et 6)
+-- 6.5 Checkout : corps de 0110 (US-226) recopié, changements marqués US-209 (étapes 3 bis et 4)
 CREATE OR REPLACE FUNCTION core.booking_cmd_checkout(p_token_hash bytea, p_quote_id uuid,
                                                      p_driver_first text, p_driver_last text,
                                                      p_manual_confirmed boolean,
@@ -632,6 +657,10 @@ BEGIN
         USING ERRCODE = 'object_not_in_prerequisite_state',
               CONSTRAINT = 'checkout_driver_ineligible';
     END IF;
+    -- US-209 : journal explicable (BR-TRUST-01) et file RISK_BOOKING si signalée (ADM-029),
+    -- dans la sous-transaction : une mise en file impossible annule aussi la pose
+    PERFORM core.booking_checkout_record_risk(v_hold, v_user, v_org, v_country, v_risk.rules,
+                                              v_risk.score, v_risk.flagged);
     PERFORM pg_catalog.set_config('app.actor_kind', COALESCE(v_prev_kind, ''), true);
     PERFORM pg_catalog.set_config('app.actor_id', COALESCE(v_prev_actor, ''), true);
   EXCEPTION
@@ -648,13 +677,15 @@ BEGIN
         WHEN 'hold_rate_limited' THEN 'HOLD_RATE_LIMITED'
         WHEN 'hold_self_booking' THEN 'SELF_BOOKING_FORBIDDEN'
         WHEN 'hold_account_restricted' THEN 'ACCOUNT_RESTRICTED'
-        WHEN 'hold_kyc_consent_withdrawn' THEN 'KYC_CONSENT_WITHDRAWN'
+        -- US-209 (N-122) : un seul code stable pour le consentement biométrique retiré
+        WHEN 'hold_kyc_consent_withdrawn' THEN 'KYC_BIOMETRIC_CONSENT_MISSING'
         WHEN 'hold_host_not_active' THEN 'LISTING_UNAVAILABLE'
         WHEN 'hold_vehicle_unknown' THEN 'LISTING_UNAVAILABLE'
         WHEN 'hold_param_missing' THEN 'BOOKING_UNAVAILABLE'
         -- US-209 : KYC_NOT_APPROVED, KYC_BIOMETRIC_CONSENT_MISSING, KYC_LICENSE_EXPIRED,
         -- AGE_CLASS_MISMATCH ou BOOKING_UNAVAILABLE (paramètre absent)
         WHEN 'checkout_driver_ineligible' THEN COALESCE(v_risk.outcome, 'BOOKING_UNAVAILABLE')
+        WHEN 'checkout_review_queue_unavailable' THEN 'BOOKING_UNAVAILABLE'
       END;
       IF v_code IS NULL THEN
         RAISE;
@@ -685,9 +716,6 @@ BEGIN
   SELECT v_hold, r ->> 'kind', (r ->> 'template')::uuid, (r ->> 'version')::integer,
          r ->> 'locale', (r ->> 'consent')::uuid
     FROM pg_catalog.jsonb_array_elements(v_rows) AS x(r);
-  -- 6. US-209 : journal explicable (BR-TRUST-01) et file RISK_BOOKING si signalée (ADM-029)
-  PERFORM core.booking_checkout_record_risk(v_hold, v_user, v_org, v_country, v_risk.rules,
-                                            v_risk.score, v_risk.flagged);
   RETURN QUERY SELECT 'DONE'::text, v_hold, v_exp;
 END
 $fn$;

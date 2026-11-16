@@ -121,13 +121,39 @@ function scenario(cc: CountryCase, now = NOW) {
     );
 }
 
-/** Annonce immédiate, classe de valeur du véhicule (NULL : sans classe). */
-async function listing(tx: Tx, cc: CountryCase, valueClass: string | null = null): Promise<string> {
+/** Annonce immédiate, classe de valeur du véhicule (NULL : sans classe), préavis du lieu. */
+async function listing(
+  tx: Tx,
+  cc: CountryCase,
+  valueClass: string | null = null,
+  noticeMinutes: number | null = null,
+): Promise<string> {
   const l = await listedListing(tx, cc, VECTORS[cc.country]!.daily);
   if (valueClass !== null) {
     await tx.query('SELECT test_fixture.us108_set_value_class($1, $2)', [l.vehicleId, valueClass]);
   }
+  if (noticeMinutes !== null) {
+    await tx.query('SELECT test_fixture.us209_set_notice($1, $2)', [l.vehicleId, noticeMinutes]);
+  }
   return l.listingId;
+}
+
+/** `foreign_license_review_enabled` du pays (graine 0113 : false, DEC-FONDATEUR-22). */
+async function foreignReview(tx: Tx, cc: CountryCase, on: boolean): Promise<void> {
+  await tx.query('SELECT test_fixture.us209_set_param($1, $2, NULL, $3::jsonb)', [
+    'foreign_license_review_enabled',
+    cc.country,
+    JSON.stringify(on),
+  ]);
+}
+
+/** Éligibilité à la conversion du hold (vraie fonction, contexte du travailleur, fixture 9967). */
+async function conversion(tx: Tx, holdId: string | null): Promise<string | undefined> {
+  const r = await tx.query<{ r: string }>(
+    'SELECT test_fixture.us209_conversion_eligibility($1) AS r',
+    [holdId],
+  );
+  return r.rows[0]?.r;
 }
 
 async function guest(tx: Tx, cc: CountryCase, d: Driver | null = ADULT): Promise<Person> {
@@ -305,6 +331,109 @@ describe.each(COUNTRIES.map((c) => [c.country, c] as const))(
       });
     });
 
+    it('critère 1, date LOCALE du début (08 BR-ACC-04) : départ le 11/12 à 02:00Z = 10/12 au soir dans le pays ⇒ né le 11/12/2001, 24 ans ce jour-là, refusé ; date de naissance inconnue ⇒ AGE_CLASS_MISMATCH ; né le 10/12/2001 ⇒ réservé', async () => {
+      await run(async (tx, w) => {
+        const premium = await listing(tx, cc, 'PREMIUM');
+        const LOCAL_EVENING = '2026-12-11T02:00:00.000Z';
+        const young = await guest(tx, cc, { ...ADULT, birth: '2001-12-11' });
+        expect((await book(tx, cc, w, young, premium, LOCAL_EVENING)).outcome).toBe(
+          'AGE_CLASS_MISMATCH',
+        );
+        const unknown = await guest(tx, cc, { ...ADULT, birth: null });
+        expect((await book(tx, cc, w, unknown, premium, LOCAL_EVENING)).outcome).toBe(
+          'AGE_CLASS_MISMATCH',
+        );
+        const exactly = await guest(tx, cc, { ...ADULT, birth: '2001-12-10' });
+        expect((await book(tx, cc, w, exactly, premium, LOCAL_EVENING)).outcome).toBe('DONE');
+      });
+    });
+
+    it('règles de 16 ADM-029 : départ dans moins de 3 h (préavis de l’hôte à 1 h) et compte récent ⇒ revue (50) ; classe LUXE et compte récent ⇒ revue ; dernière version inactive ⇒ règle non évaluée ; dernière version active ⇒ version citée', async () => {
+      await run(async (tx, w) => {
+        const soon = plus(NOW, 120);
+        const p1 = await guest(tx, cc);
+        const r1 = await book(tx, cc, w, p1, await listing(tx, cc, null, 60), soon);
+        expect(r1.outcome).toBe('DONE');
+        const [a1] = await riskRows(tx, r1.hold_id);
+        expect(a1).toMatchObject({ decision: 'REVIEW', score: 50 });
+        expect(codes(a1)).toEqual(['ACCOUNT_UNDER_24H', 'SHORT_NOTICE_START']);
+
+        const p2 = await guest(tx, cc);
+        const r2 = await book(tx, cc, w, p2, await listing(tx, cc, 'LUXE'));
+        expect(r2.outcome).toBe('DONE');
+        const [a2] = await riskRows(tx, r2.hold_id);
+        expect(a2?.['rules_fired']).toContainEqual({
+          code: 'HIGH_VALUE_CLASS',
+          version: 1,
+          signal: 'LUXE',
+        });
+        expect(a2).toMatchObject({ decision: 'REVIEW', score: 50 });
+
+        // version 2 inactive de ACCOUNT_UNDER_24H, version 2 active de HIGH_VALUE_CLASS
+        await tx.query('SELECT test_fixture.us209_rule_version($1, false)', ['ACCOUNT_UNDER_24H']);
+        await tx.query('SELECT test_fixture.us209_rule_version($1, true)', ['HIGH_VALUE_CLASS']);
+        const p3 = await guest(tx, cc);
+        const r3 = await book(tx, cc, w, p3, await listing(tx, cc, 'PREMIUM'));
+        expect(r3.outcome).toBe('DONE');
+        expect(await holdRow(tx, r3.hold_id)).toMatchObject({ review_required: false });
+        const [a3] = await riskRows(tx, r3.hold_id);
+        expect(a3).toMatchObject({ decision: 'AUTO_OK', score: 25 });
+        expect(a3?.['rules_fired']).toEqual([
+          { code: 'HIGH_VALUE_CLASS', version: 2, signal: 'PREMIUM' },
+        ]);
+      });
+    });
+
+    it('N-122 : vrai retrait du consentement biométrique (vérification RECHECK / CONSENT_WITHDRAWN) ⇒ KYC_BIOMETRIC_CONSENT_MISSING au checkout, au démarrage du paiement et à la conversion', async () => {
+      await run(async (tx, w) => {
+        const before = await guest(tx, cc);
+        await tx.query('SELECT test_fixture.us209_withdraw_biometric($1)', [before.id]);
+        const r0 = await book(tx, cc, w, before, await listing(tx, cc));
+        expect(r0).toMatchObject({ outcome: 'KYC_BIOMETRIC_CONSENT_MISSING', hold_id: null });
+
+        const after = await guest(tx, cc);
+        const r = await book(tx, cc, w, after, await listing(tx, cc));
+        expect(r.outcome).toBe('DONE');
+        expect(await conversion(tx, r.hold_id)).toBe('ELIGIBLE');
+        await tx.query('SELECT test_fixture.us209_withdraw_biometric($1)', [after.id]);
+        const e = await startPayment(tx, after, r.hold_id);
+        expect(e).toMatchObject({ code: '55000', constraint: 'hold_kyc_consent_missing' });
+        expect(translateDbError(e ?? {}).code).toBe('KYC_BIOMETRIC_CONSENT_MISSING');
+        expect(await conversion(tx, r.hold_id)).toBe('KYC_BIOMETRIC_CONSENT_MISSING');
+        expect(await paymentOperations(tx, r.hold_id)).toBe(0);
+      });
+    });
+
+    it('N-95 : permis échu avant la fin et vérification retirée après la pose ⇒ refus au démarrage du paiement (KYC_LICENSE_EXPIRED, KYC_NOT_APPROVED) et à la conversion d’un hold du checkout', async () => {
+      await run(async (tx, w) => {
+        const lic = await guest(tx, cc);
+        const r1 = await book(tx, cc, w, lic, await listing(tx, cc));
+        expect(r1.outcome).toBe('DONE');
+        // fin du trip le 13/12 : échéance le 12/12
+        await tx.query('SELECT test_fixture.us209_set_license_expiry($1, $2::date)', [
+          lic.id,
+          '2026-12-12',
+        ]);
+        const e1 = await startPayment(tx, lic, r1.hold_id);
+        expect(e1).toMatchObject({ code: '55000', constraint: 'hold_kyc_license_expired' });
+        expect(translateDbError(e1 ?? {}).code).toBe('KYC_LICENSE_EXPIRED');
+        expect(await conversion(tx, r1.hold_id)).toBe('KYC_LICENSE_EXPIRED');
+
+        const rev = await guest(tx, cc);
+        const r2 = await book(tx, cc, w, rev, await listing(tx, cc));
+        expect(r2.outcome).toBe('DONE');
+        await tx.query('SELECT test_fixture.us209_set_verification_status($1, $2)', [
+          rev.id,
+          'REVOKED',
+        ]);
+        const e2 = await startPayment(tx, rev, r2.hold_id);
+        expect(e2).toMatchObject({ code: '55000', constraint: 'hold_kyc_not_approved' });
+        expect(translateDbError(e2 ?? {}).code).toBe('KYC_NOT_APPROVED');
+        expect(await conversion(tx, r2.hold_id)).toBe('KYC_NOT_APPROVED');
+        for (const h of [r1.hold_id, r2.hold_id]) expect(await paymentOperations(tx, h)).toBe(0);
+      });
+    });
+
     describe('critère 2 : permis étranger, mode FLAG (16 VER-007)', () => {
       const LATER = '2027-01-20T12:00:00.000Z';
       const runLater = scenario(cc, LATER);
@@ -312,6 +441,7 @@ describe.each(COUNTRIES.map((c) => [c.country, c] as const))(
 
       it('entrée le 01/11, fin le 31/01 ⇒ réservation en revue (jamais refusée), évaluation REVIEW en file RISK_BOOKING ; fin le 30/01 (entrée + 90 j exactement) ⇒ aucun signalement', async () => {
         await runLater(async (tx, w) => {
+          await foreignReview(tx, cc, true);
           const tourist = await guest(tx, cc, FOREIGN);
           const declared = await tx.query<{ outcome: string }>(
             'SELECT * FROM core.kyc_cmd_declare_entry($1, $2, $3, $4::date)',
@@ -371,6 +501,7 @@ describe.each(COUNTRIES.map((c) => [c.country, c] as const))(
 
       it('permis étranger sans déclaration ⇒ revue (ENTRY_NOT_DECLARED : l’ops contrôle statut et date, UXQ-03) ; déclaration : date future ⇒ KYC_ENTRY_DATE_INVALID, touriste sans date ⇒ REQUEST_INVALID, sans session ⇒ AUTH_REQUIRED', async () => {
         await runLater(async (tx, w) => {
+          await foreignReview(tx, cc, true);
           const silent = await guest(tx, cc, FOREIGN);
           const r = await book(
             tx,
@@ -403,6 +534,85 @@ describe.each(COUNTRIES.map((c) => [c.country, c] as const))(
           expect(await declare(silent.hash, 'TOURIST', null)).toBe('REQUEST_INVALID');
           expect(await declare(Buffer.alloc(32), 'TOURIST', '2026-11-01')).toBe('AUTH_REQUIRED');
           expect(await declare(silent.hash, 'RESIDENT', null)).toBe('DONE');
+          // résident à permis étranger ⇒ revue (16 VER-007), signal RESIDENT_FOREIGN_LICENSE
+          const res = await book(
+            tx,
+            cc,
+            w,
+            silent,
+            await listing(tx, cc),
+            '2027-02-05T15:00:00.000Z',
+            LATER,
+          );
+          expect(res.outcome).toBe('DONE');
+          expect(await holdRow(tx, res.hold_id)).toMatchObject({ review_required: true });
+          const [ra] = await riskRows(tx, res.hold_id);
+          expect(ra?.['rules_fired']).toContainEqual({
+            code: 'FOREIGN_LICENSE_90D',
+            version: 1,
+            signal: 'RESIDENT_FOREIGN_LICENSE',
+          });
+        });
+      });
+
+      it('paramètre pays foreign_license_review_enabled (DEC-FONDATEUR-22) : graine false ⇒ permis étranger sans déclaration jamais signalé, hold ordinaire ; true ⇒ revue avant le débit', async () => {
+        await runLater(async (tx, w) => {
+          const off = await guest(tx, cc, FOREIGN);
+          const r = await book(
+            tx,
+            cc,
+            w,
+            off,
+            await listing(tx, cc),
+            '2027-01-25T15:00:00.000Z',
+            LATER,
+          );
+          expect(r.outcome).toBe('DONE');
+          expect(await holdRow(tx, r.hold_id)).toMatchObject({ review_required: false });
+          const rows = await riskRows(tx, r.hold_id);
+          expect(rows.every((x) => !codes(x).includes('FOREIGN_LICENSE_90D'))).toBe(true);
+
+          await setClock(tx, plus(LATER, 1));
+          await foreignReview(tx, cc, true);
+          const on = await guest(tx, cc, FOREIGN);
+          const r2 = await book(
+            tx,
+            cc,
+            w,
+            on,
+            await listing(tx, cc),
+            '2027-01-25T15:00:00.000Z',
+            plus(LATER, 1),
+          );
+          expect(r2.outcome).toBe('DONE');
+          expect(await holdRow(tx, r2.hold_id)).toMatchObject({ review_required: true });
+          expect(codes((await riskRows(tx, r2.hold_id))[0])).toContain('FOREIGN_LICENSE_90D');
+        });
+      });
+
+      it('date LOCALE de fin (16 VER-007) : fin le 31/01 à 02:00Z = 30/01 au soir dans le pays ⇒ aucun signalement (une date UTC signalerait)', async () => {
+        await runLater(async (tx, w) => {
+          await foreignReview(tx, cc, true);
+          const tourist = await guest(tx, cc, FOREIGN);
+          await tx.query('SELECT * FROM core.kyc_cmd_declare_entry($1, $2, $3, $4::date)', [
+            tourist.hash,
+            cc.country,
+            'TOURIST',
+            '2026-11-01',
+          ]);
+          // début 28/01 02:00Z, fin 31/01 02:00Z : le 30/01 au soir au Panama et au Paraguay
+          const r = await book(
+            tx,
+            cc,
+            w,
+            tourist,
+            await listing(tx, cc),
+            '2027-01-28T02:00:00.000Z',
+            LATER,
+          );
+          expect(r.outcome).toBe('DONE');
+          const rows = await riskRows(tx, r.hold_id);
+          expect(rows.every((x) => !codes(x).includes('FOREIGN_LICENSE_90D'))).toBe(true);
         });
       });
     });

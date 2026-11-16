@@ -6810,7 +6810,6 @@
                       "enum": [
                         "SELF_BOOKING_FORBIDDEN",
                         "ACCOUNT_RESTRICTED",
-                        "KYC_CONSENT_WITHDRAWN",
                         "KYC_NOT_APPROVED",
                         "KYC_BIOMETRIC_CONSENT_MISSING",
                         "KYC_LICENSE_EXPIRED",

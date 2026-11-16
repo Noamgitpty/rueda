@@ -7,7 +7,7 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 
 ## Synthèse
 
-- 113 migrations ; 120 tables ; 2 vues ; 649 politiques RLS ; 223 fonctions `SECURITY DEFINER` ; 220 autres fonctions.
+- 114 migrations ; 120 tables ; 2 vues ; 649 politiques RLS ; 223 fonctions `SECURITY DEFINER` ; 220 autres fonctions.
 - Tables sans RLS `ENABLE` + `FORCE` : aucune.
 - Rôles applicatifs avec `SUPERUSER` ou `BYPASSRLS` : aucun.
 
@@ -128,6 +128,7 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 | `0110_prc_protection_earnings_plans` | PRC / CAT / AVL : protections du voyageur et plans de gains de l'hôte, partie serveur. |
 | `0111_config_protection_params` | graine complémentaire : paramètres « protection_* » (US-226 ; 17 §7.2). |
 | `0112_booking_risk_checkout_controls` | AVL / RISK / KYC : contrôles bloquants du conducteur et revue des réservations signalées. |
+| `0113_config_foreign_license_params` | graine complémentaire : paramètres « foreign_license_* » (US-209 ; 17 §7.2). |
 
 ## Rôles
 
@@ -2464,7 +2465,7 @@ Politiques RLS :
 - `cmd_golive_ins` (INSERT, PERMISSIVE, cmd_golive_owner) WITH CHECK `((app.actor_kind() = 'STAFF'::text) AND (go_live_request_id IS NOT NULL) AND (approved_by IS NOT NULL) AND (scope_type = 'COUNTRY'::text))`
 - `cmd_golive_sel` (SELECT, PERMISSIVE, cmd_golive_owner) USING `((go_live_request_id IS NOT NULL) OR (key IN ( SELECT d.key FROM core.config_param_definition d WHERE d.go_live_switch)))`
 - `cmd_hold_read` (SELECT, PERMISSIVE, cmd_hold_owner) USING `(key = ANY (ARRAY['buffer_minutes'::text, 'hold_ttl_minutes'::text, 'hold_max_total_minutes'::text, 'max_active_holds_per_guest'::text, 'hold_creations_per_guest_vehicle_hour'::text, 'sweep_grace_s'::text, 'flagged_booking_payment_order'::text, 'review_hold_minutes'::text, 'payment_in_flight_margin_s'::text, 'psp_call_timeout_s'::text, 'conversion_start_tolerance_minutes'::text, 'payment_attempts_per_hold'::text, 'max_trip_days'::text, 'advance_notice_minutes'::text, 'no_show_grace_minutes'::text, 'overdue_detection_minutes'::text, 'p2p_private_hosts_enabled'::text, 'insurer_contract_active'::text]))`
-- `cmd_hold_risk_read` (SELECT, PERMISSIVE, cmd_hold_owner) USING `(key = 'min_driver_age'::text)`
+- `cmd_hold_risk_read` (SELECT, PERMISSIVE, cmd_hold_owner) USING `(key = ANY (ARRAY['min_driver_age'::text, 'foreign_license_review_enabled'::text]))`
 - `cmd_money_quote_read` (SELECT, PERMISSIVE, cmd_money_owner) USING `(key = ANY (ARRAY['grace_minutes'::text, 'max_trip_days'::text, 'host_default_plan'::text, 'host_share_pct'::text, 'delivery_share_pct'::text, 'extras_share_pct'::text, 'trip_fee_schedule'::text, 'quote_validity_minutes'::text, 'quote_freezes_per_guest_hour'::text, 'protection_grid'::text, 'guest_protection_min_level'::text, 'insurer_premium_share'::text]))`
 - `cmd_money_sel` (SELECT, PERMISSIVE, cmd_money_owner) USING `(key = ANY (ARRAY['payouts_enabled'::text, 'insurer_contract_active'::text, 'funds_holding_enabled'::text]))`
 - `iam_auth_host_read` (SELECT, PERMISSIVE, iam_auth_owner) USING `(key = 'host_min_age_years'::text)`

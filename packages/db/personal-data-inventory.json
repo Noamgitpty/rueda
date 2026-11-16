@@ -1774,7 +1774,12 @@
         "subject_id": "C1",
         "country_code": "C1",
         "org_id": "C1",
-        "rules_fired": "C1",
+        "rules_fired": {
+          "class": "C2",
+          "erasure": "derogation",
+          "justification": "journal explicable en ajout seul (BR-TRUST-01) : depuis US-209, un signal peut dériver du statut de résidence déclaré (RESIDENT_FOREIGN_LICENSE) ou de l'âge du compte ; codes seulement, jamais une date, un nom ni un document ; ni UPDATE ni clé de sujet",
+          "report": "US-536"
+        },
         "score": "C1",
         "decision": "C1",
         "dedupe_key": "C1",

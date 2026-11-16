@@ -156,7 +156,8 @@ export async function checkoutPerson(
 }
 
 export interface Driver {
-  readonly birth: string;
+  /** Date de naissance vérifiée ; `null` : inconnue du fournisseur et du compte. */
+  readonly birth: string | null;
   readonly licenseExpiry: string;
   /** Pays de délivrance du permis (ISO) ; défaut : le pays du dossier. */
   readonly licenseCountry?: string;

@@ -110,6 +110,8 @@ const EXPECTED_TO_DECIDE: Readonly<Record<string, string>> = {
     '16 HST-019 (« valeurs À DÉCIDER dans ADM-031 ») ; 22 OQ-P2P-02 (US-124)',
   evidence_retention_months: '17 statut OQ-BR-25',
   flagged_booking_payment_order: '17 statut UXQ-08',
+  foreign_license_review_enabled:
+    '22 OQ-BR-21 (permis étrangers, 90 jours ; défaut DEC-FONDATEUR-22, US-209)',
   free_cancel_lead: '16 ADM-031 ; 17 statut ADM-031',
   fuel_refill_max: '17 statut J-ADM-031',
   grace_minutes: '16 ADM-031 ; 17 statut OQ-BR-04 ; 22',
