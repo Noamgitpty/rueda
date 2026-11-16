@@ -106,6 +106,12 @@ const GRID: QuoteParams = {
 };
 
 const QUOTED_AT = T0_MS - 5 * DAY_MS;
+/** Annonce sans limite de distance (US-205b). */
+const UNLIMITED = {
+  mileageMode: 'UNLIMITED',
+  includedKmPerDay: null,
+  extraKmPriceMinor: null,
+} as const;
 const BODY = { listingId: LISTING, startAt: iso(T0_MS), endAt: iso(T0_MS + 3 * DAY_MS) };
 
 /** Devis figé tel que la base le rend (valeurs de forme). */
@@ -132,6 +138,14 @@ const VIEW: CheckoutQuote = {
   driverAge: null,
   insurerContractActive: true,
   protectionOptions: [],
+  mileage: { mode: 'UNLIMITED', includedKm: null, extraKmPriceMinor: null },
+  cancellation: {
+    lastMinute: false,
+    freeUntil: iso(T0_MS - DAY_MS),
+    lastMinuteWindowMinutes: 60,
+    endsAtStart: false,
+  },
+  lateCancellation: null,
 };
 
 const HOLD_VIEW: CheckoutHold = {
@@ -175,6 +189,7 @@ async function app(
       dailyPriceMinor: '4000',
       quotedAtMs: QUOTED_AT,
       hostPlan: null,
+      ...UNLIMITED,
     });
   }
   const quotes = options.quotes ?? new FakeQuoteStore();
@@ -225,6 +240,74 @@ describe('US-208 — contrat du checkout (partie back-end)', () => {
     expect(again.json).toEqual({ quote: VIEW });
   });
 
+  it('US-205b critère 2 et 10b UX-54 : distance de l’annonce figée dans le devis (200 km × 3 jours = 600, prix du km) ; le devis lu rend la distance figée, l’annulation gratuite de la base et la retenue hors fenêtre du moteur de règlement sur le devis REJOUÉ', async () => {
+    const store = new FakeCheckoutStore();
+    store.listings.set(LISTING, {
+      country: FIRST_COUNTRY,
+      currency: cur.code,
+      dailyPriceMinor: '4000',
+      quotedAtMs: QUOTED_AT,
+      hostPlan: null,
+      mileageMode: 'INCLUDED',
+      includedKmPerDay: 200,
+      extraKmPriceMinor: '35',
+    });
+    const asked: string[] = [];
+    const { a, quotes } = await app({ store });
+    const b = await startContractApp({
+      checkout: {
+        paramsOf: () => PA1,
+        quotes,
+        store,
+        // paramètres de TEST de 08 (24 h, 25 h, 60 min), lus du pays du devis à l'instant du gel
+        cancellationParamsOf: (ctx) => {
+          asked.push(`${ctx.country}@${ctx.at.toISOString()}`);
+          return { freeCancelLeadHours: 24, lastMinuteThresholdHours: 25, noShowGraceMinutes: 60 };
+        },
+      },
+    });
+    apps.push(b);
+    store.quotes.set(`${a.hash('voyageur')}:${QUOTE}`, VIEW);
+    const r = await a.api.request('POST', '/checkout/quotes', {
+      headers: a.cookie('voyageur'),
+      body: BODY,
+    });
+    expect(r.status).toBe(201);
+    const frozen = quotes.frozen[0]?.frozen;
+    if (frozen === undefined) throw new Error('aucun devis figé');
+    // 19 US-205 critère 2 : 200 km / j et 3 jours facturables ⇒ 600 km, prix du km de l'annonce
+    expect(JSON.parse(frozen.inputs)).toMatchObject({
+      request: { mileage: { mode: 'INCLUDED', kmPerDay: 200, extraKmPrice: '35' } },
+    });
+    expect(JSON.parse(frozen.outputs)).toMatchObject({
+      mileage: { mode: 'INCLUDED', kmPerDay: 200, includedKm: 600, extraKmPrice: '35' },
+    });
+    const view: CheckoutQuote = {
+      ...VIEW,
+      mileage: { mode: 'INCLUDED', includedKm: 600, extraKmPriceMinor: '35' },
+    };
+    store.quotes.set(`${b.hash('voyageur')}:${QUOTE}`, view);
+    store.frozenDocuments.set(QUOTE, frozen);
+    store.frozenAtMs = QUOTED_AT;
+    const read = await b.api.request('GET', `/checkout/quotes/${QUOTE}`, {
+      headers: b.cookie('voyageur'),
+    });
+    expect(read.status).toBe(200);
+    // TA01 (« PA1 », 3 jours, total 128,40) annulé hors fenêtre : 08 BR-CXL-06, j = 1 (trip de
+    // plus de 2 jours) ⇒ loyer retenu 120,00 × 1/3 = 40,00 ; taxe remboursée au prorata de la base
+    // remboursée = roundHalfUp(8,40 × 80,00 / 120,00) = 5,60 ⇒ taxe retenue 2,80 ; retenue 42,80
+    expect(read.json).toEqual({
+      quote: { ...view, lateCancellation: { penaltyDays: '1', retainedMinor: '4280' } },
+    });
+    expect(asked).toEqual([`${FIRST_COUNTRY}@${iso(QUOTED_AT)}`]);
+    // devis antérieur (aucun document) : aucune retenue calculée, jamais un montant deviné
+    store.frozenDocuments.clear();
+    const old = await b.api.request('GET', `/checkout/quotes/${QUOTE}`, {
+      headers: b.cookie('voyageur'),
+    });
+    expect(old.json).toEqual({ quote: { ...view, lateCancellation: null } });
+  });
+
   it('critère 4 : variante sans décimale (D2, T40) ⇒ total de l’oracle sans la protection ni la livraison, à l’unité près', async () => {
     const v = settlementVector(golden, 'T40');
     const { params: base } = caseOfGoldenTrip(v.trip);
@@ -242,6 +325,7 @@ describe('US-208 — contrat du checkout (partie back-end)', () => {
       dailyPriceMinor: '333334', // P = 1 000 002 de D2 (08), divisible par 3
       quotedAtMs: QUOTED_AT,
       hostPlan: null,
+      ...UNLIMITED,
     });
     const { a, quotes } = await app({ store, params: () => params });
     store.quotes.set(`${a.hash('voyageur')}:${QUOTE}`, { ...VIEW, currency: c.code });
@@ -414,6 +498,7 @@ describe('US-208 — contrat du checkout (partie back-end)', () => {
       dailyPriceMinor: '4000',
       quotedAtMs: QUOTED_AT,
       hostPlan: 'ESTÁNDAR',
+      ...UNLIMITED,
     });
     const { a, quotes } = await app({
       store,

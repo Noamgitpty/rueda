@@ -27,6 +27,7 @@ import {
   type Currency,
   type Money,
   type Ratio,
+  type SettlementParams,
 } from '@rueda/money';
 import {
   ConfigError,
@@ -279,4 +280,30 @@ function protectionGrid(
     throw unavailable('paramètre « guest_protection_min_level » : texte attendu');
   }
   return { minLevel, levels };
+}
+
+/**
+ * Paramètres d'annulation du pays pour le moteur de règlement (US-205b ; 08 BR-CXL-01, BR-CXL-08 ;
+ * 17 §7.2) : `free_cancel_lead` et `last_minute_threshold` (heures), `no_show_grace_minutes`.
+ * Absents ou mal formés ⇒ `QUOTE_UNAVAILABLE` (BLOCK : jamais une retenue devinée).
+ */
+export function resolveCancellationParams(
+  config: CountryConfig,
+  input: { readonly country: string; readonly at: Date },
+): SettlementParams {
+  if (!config.countries.has(input.country)) throw unavailable(`pays inconnu « ${input.country} »`);
+  const ctx: ParamContext = { country: input.country, at: input.at };
+  return {
+    freeCancelLeadHours: integer('free_cancel_lead', resolve(config, 'free_cancel_lead', ctx), 0),
+    lastMinuteThresholdHours: integer(
+      'last_minute_threshold',
+      resolve(config, 'last_minute_threshold', ctx),
+      0,
+    ),
+    noShowGraceMinutes: integer(
+      'no_show_grace_minutes',
+      resolve(config, 'no_show_grace_minutes', ctx),
+      0,
+    ),
+  };
 }

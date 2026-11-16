@@ -11,6 +11,8 @@
 import type { MessageKey } from '@rueda/i18n';
 import type { ApiResult } from './api-client.ts';
 import { codeOf } from './api-client.ts';
+import { cancellationViewOf } from './listing-terms.ts';
+import type { SlotCancellationView } from './listing-terms.ts';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 /** Instant UTC rendu par l'API (millisecondes facultatives). */
@@ -132,6 +134,48 @@ export interface CheckoutQuoteView {
   readonly instantBook: boolean;
   /** Documents à accepter, dans l'ordre de l'écran ; un genre absent : aucun texte publié. */
   readonly documents: readonly CheckoutDocumentView[];
+  /** Distance figée dans le devis (US-205b) ; `null` : aucune distance promise ou illisible. */
+  readonly mileage: QuoteMileageView | null;
+  /** Annulation gratuite si la réservation a lieu maintenant (base) ; `null` : aucune promesse. */
+  readonly cancellation: SlotCancellationView | null;
+  /** Retenue hors fenêtre gratuite (moteur de règlement) ; `null` : non calculée. */
+  readonly lateCancellation: LateCancellationView | null;
+}
+
+/** Distance figée du devis (16 LST-012) : km inclus sur la période et prix du km supplémentaire. */
+export type QuoteMileageView =
+  | { readonly mode: 'UNLIMITED' }
+  | { readonly mode: 'INCLUDED'; readonly includedKm: number; readonly extraKmPriceMinor: bigint };
+
+/** Retenue d'une annulation hors fenêtre (08 BR-CXL-06) : jour entier ou demi-journée, montant. */
+export interface LateCancellationView {
+  readonly penaltyDays: 'ONE' | 'HALF';
+  readonly retainedMinor: bigint;
+}
+
+/** Distance du devis ; forme inattendue ⇒ `null` (aucune distance affichée, jamais devinée). */
+function quoteMileageOf(v: unknown): QuoteMileageView | null {
+  if (!isObj(v)) return null;
+  if (v['mode'] === 'UNLIMITED') {
+    return v['includedKm'] === null && v['extraKmPriceMinor'] === null
+      ? { mode: 'UNLIMITED' }
+      : null;
+  }
+  if (v['mode'] !== 'INCLUDED') return null;
+  const km = int(v['includedKm']);
+  const extra = minor(v['extraKmPriceMinor']);
+  if (km === null || km < 1 || extra === null || extra < 0n) return null;
+  return { mode: 'INCLUDED', includedKm: km, extraKmPriceMinor: extra };
+}
+
+/** Retenue hors fenêtre ; forme inattendue ⇒ `null` (renvoi à la politique publiée). */
+function lateCancellationOf(v: unknown): LateCancellationView | null {
+  if (!isObj(v)) return null;
+  const amount = minor(v['retainedMinor']);
+  if (amount === null || amount < 1n) return null;
+  if (v['penaltyDays'] === '1') return { penaltyDays: 'ONE', retainedMinor: amount };
+  if (v['penaltyDays'] === '1/2') return { penaltyDays: 'HALF', retainedMinor: amount };
+  return null;
 }
 
 function linesOf(v: unknown): QuoteLineView[] | null {
@@ -267,6 +311,7 @@ export function checkoutQuoteOf(reply: ApiResult): CheckoutQuoteView | null {
   // 08 BR-PRICE-13 : total = Σ lignes + Σ taxes ; un écart n'est jamais affiché (aucun recalcul)
   const sum = lines.reduce((a, l) => a + l.amountMinor + l.taxMinor, 0n);
   if (sum !== total) return null;
+  const late = lateCancellationOf(q['lateCancellation']);
   return {
     quoteId,
     listingId,
@@ -287,6 +332,10 @@ export function checkoutQuoteOf(reply: ApiResult): CheckoutQuoteView | null {
     manualTransmission: q['manualTransmission'] === true,
     instantBook: q['instantBook'] === true,
     documents,
+    // US-205b : conditions affichées seulement si lisibles ; jamais une retenue au-delà du total
+    mileage: quoteMileageOf(q['mileage']),
+    cancellation: cancellationViewOf(q['cancellation'] ?? null) ?? null,
+    lateCancellation: late !== null && late.retainedMinor <= total ? late : null,
   };
 }
 

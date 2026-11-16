@@ -259,6 +259,52 @@ describe('devis figé du checkout', () => {
     expect(q?.documents).toHaveLength(2);
   });
 
+  it('US-205b : distance figée, annulation gratuite et retenue hors fenêtre lues telles quelles (TA01, 3 jours : 1 jour retenu, 42,80 de 08 BR-CXL-06) ; forme inattendue ⇒ champ nul, jamais deviné', () => {
+    const x = checkoutQuoteOf(
+      reply(
+        200,
+        quote({
+          mileage: { mode: 'INCLUDED', includedKm: 600, extraKmPriceMinor: '35' },
+          cancellation: {
+            lastMinute: false,
+            freeUntil: '2036-12-09T10:00:00.000Z',
+            lastMinuteWindowMinutes: 60,
+            endsAtStart: false,
+          },
+          lateCancellation: { penaltyDays: '1', retainedMinor: '4280' },
+        }),
+      ),
+    );
+    expect(x?.mileage).toEqual({ mode: 'INCLUDED', includedKm: 600, extraKmPriceMinor: 35n });
+    expect(x?.cancellation).toEqual({
+      lastMinute: false,
+      freeUntil: new Date('2036-12-09T10:00:00.000Z'),
+      windowMinutes: 60,
+      endsAtStart: false,
+    });
+    expect(x?.lateCancellation).toEqual({ penaltyDays: 'ONE', retainedMinor: 4280n });
+    const half = checkoutQuoteOf(
+      reply(200, quote({ lateCancellation: { penaltyDays: '1/2', retainedMinor: '2140' } })),
+    );
+    expect(half?.lateCancellation).toEqual({ penaltyDays: 'HALF', retainedMinor: 2140n });
+    // absents (réponse antérieure) : aucune condition promise, devis lisible
+    const old = checkoutQuoteOf(reply(200, quote()));
+    expect(old).not.toBeNull();
+    expect([old?.mileage, old?.cancellation, old?.lateCancellation]).toEqual([null, null, null]);
+    for (const extra of [
+      { mileage: { mode: 'INCLUDED', includedKm: 0, extraKmPriceMinor: '35' } },
+      { mileage: { mode: 'MILES', includedKm: 600, extraKmPriceMinor: '35' } },
+      { lateCancellation: { penaltyDays: '2', retainedMinor: '4280' } },
+      // retenue au-delà du total : jamais affichée
+      { lateCancellation: { penaltyDays: '1', retainedMinor: '12841' } },
+      { cancellation: { lastMinute: false, freeUntil: null, lastMinuteWindowMinutes: 60 } },
+    ]) {
+      const y = checkoutQuoteOf(reply(200, quote(extra)));
+      expect(y, JSON.stringify(extra)).not.toBeNull();
+      expect([y?.mileage, y?.cancellation, y?.lateCancellation]).toEqual([null, null, null]);
+    }
+  });
+
   it('expiré et boîte manuelle lus de la base', () => {
     const q = checkoutQuoteOf(reply(200, quote({ expired: true, manualTransmission: true })));
     expect(q).toMatchObject({ expired: true, manualTransmission: true });

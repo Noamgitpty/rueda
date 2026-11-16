@@ -123,6 +123,9 @@ describe('niveaux proposés du devis lu (US-226, revue de code n° 3)', () => {
     driverAge: null,
     insurerContractActive: true,
     frozenAtMs: 0,
+    frozen: null,
+    mileage: null,
+    cancellation: null,
   };
   const reading = (paramsError: unknown) => {
     const logged: CheckoutOperation[] = [];

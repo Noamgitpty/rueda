@@ -473,7 +473,33 @@ const quoteJson = (q) => ({
     locale: q.lang,
     title: CHECKOUT_TITLES[kind][q.lang],
   })),
+  // US-205b : distance figée (200 km par jour × jours facturables), annulation gratuite jusqu'à
+  // départ − 24 h et retenue hors fenêtre (08 BR-CXL-06 : 1 jour au-delà de 2 jours, ½ sinon)
+  mileage: { mode: 'INCLUDED', includedKm: KM_PER_DAY * q.days, extraKmPriceMinor: EXTRA_KM_MINOR },
+  cancellation: {
+    lastMinute: false,
+    freeUntil: new Date(Date.parse(q.startAt) - FREE_CANCEL_LEAD_H * 3_600_000).toISOString(),
+    lastMinuteWindowMinutes: LAST_MINUTE_WINDOW_MIN,
+    endsAtStart: false,
+  },
+  lateCancellation: lateRetention(q),
 });
+/**
+ * Retenue hors fenêtre du double (même règle que 08 BR-CXL-06, valeurs de forme) : j jours du
+ * loyer, arrondis au plus proche, et la taxe de ce loyer au prorata ; protection remboursée.
+ */
+const lateRetention = (q) => {
+  const half = q.days <= 2;
+  // loyer × j / jours, arrondi au plus proche (moitié vers le haut) : j = 1 ou ½
+  const retainedRent = half
+    ? Math.floor((q.rent + q.days) / (2 * q.days))
+    : Math.floor((2 * q.rent + q.days) / (2 * q.days));
+  const refundedTax = Math.floor((2 * q.tax * (q.rent - retainedRent) + q.rent) / (2 * q.rent));
+  return {
+    penaltyDays: half ? '1/2' : '1',
+    retainedMinor: String(retainedRent + q.tax - refundedTax),
+  };
+};
 const holdJson = (h) => ({
   holdId: h.id,
   status: 'ACTIVE',
@@ -844,6 +870,8 @@ async function hostRoute(req, res, url) {
       billableDays: days,
       depositAmountMinor: null,
       rating: null,
+      // US-205b : la base promet la protection de l'assureur (mention « protección incluida »)
+      protectionOffered: true,
       ...extra,
     });
     return json(res, 200, {
@@ -921,14 +949,22 @@ async function hostRoute(req, res, url) {
         },
         // US-205 : annulation pour ce départ (dernière minute : départ à 09:30 dans le double) et
         // distance sur la période (km par jour × jours facturables du devis)
+        // US-205b : en dernière minute, freeUntil = min(maintenant + fenêtre, départ) de la base
+        // (ici réservé 20 h avant : départ − 19 h), départ après la fin de la fenêtre
         cancellation: start.endsWith(LAST_MINUTE_TIME)
-          ? { lastMinute: true, freeUntil: null, lastMinuteWindowMinutes: LAST_MINUTE_WINDOW_MIN }
+          ? {
+              lastMinute: true,
+              freeUntil: new Date(Date.parse(`${start}:00Z`) - 19 * 3_600_000).toISOString(),
+              lastMinuteWindowMinutes: LAST_MINUTE_WINDOW_MIN,
+              endsAtStart: false,
+            }
           : {
               lastMinute: false,
               freeUntil: new Date(
                 Date.parse(`${start}:00Z`) - FREE_CANCEL_LEAD_H * 3_600_000,
               ).toISOString(),
               lastMinuteWindowMinutes: LAST_MINUTE_WINDOW_MIN,
+              endsAtStart: false,
             },
         mileage: {
           mode: 'INCLUDED',

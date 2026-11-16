@@ -37,7 +37,7 @@ import {
   QuoteService,
   searchQuotePricer,
 } from '../../../prc/index.js';
-import { CheckoutService } from './checkout.service.js';
+import { CheckoutService, LOG_CHECKOUT_FAILURE } from './checkout.service.js';
 import { PgCheckoutStore } from './store.js';
 
 const NOW = '2026-12-01T12:00:00.000Z';
@@ -195,6 +195,8 @@ describe.each(countryCases())(
         (ctx) => service.params(ctx),
         new PgQuoteStore(client),
         new PgCheckoutStore(client),
+        LOG_CHECKOUT_FAILURE,
+        (ctx) => service.cancellationParams(ctx),
       );
 
       const created = await checkout.createQuote(guest, { listingId, startAt: START, endAt: END });
@@ -211,6 +213,22 @@ describe.each(countryCases())(
         ['TOTAL', false, false],
       ]);
       expect(created.protectionOptions[0]?.lineMinor).toBe(want.lines['PROTECTION']);
+
+      // US-205b : distance de l'annonce figée (fixture illimitée), annulation gratuite de la base
+      // (départ dans plus de 25 h : départ − 24 h) et retenue hors fenêtre du moteur de règlement
+      // sur le devis rejoué (3 jours ⇒ j = 1, 08 BR-CXL-06)
+      expect(created.mileage).toEqual({
+        mode: 'UNLIMITED',
+        includedKm: null,
+        extraKmPriceMinor: null,
+      });
+      expect(created.cancellation).toMatchObject({ lastMinute: false, endsAtStart: false });
+      expect(Date.parse(created.cancellation?.freeUntil ?? '')).toBe(
+        Date.parse(START) - 24 * 3_600_000,
+      );
+      expect(created.lateCancellation?.penaltyDays).toBe('1');
+      const retained = BigInt(created.lateCancellation?.retainedMinor ?? '0');
+      expect(retained > 0n && retained < BigInt(want.total)).toBe(true);
 
       const read = await checkout.quote(guest, created.quoteId);
       expect(read).toEqual(created);

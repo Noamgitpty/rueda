@@ -12,7 +12,8 @@ import type { DynamicModule } from '@nestjs/common';
 import { PgQuoteStore, UnavailableQuoteStore } from '../../../prc/index.js';
 import type { QuoteParamsOf, QuoteStore } from '../../../prc/index.js';
 import { CheckoutController } from './checkout.controller.js';
-import { CheckoutService } from './checkout.service.js';
+import { CheckoutService, LOG_CHECKOUT_FAILURE } from './checkout.service.js';
+import type { CancellationParamsOf } from './checkout.service.js';
 import { PgCheckoutStore, UnavailableCheckoutStore } from './store.js';
 import type { CheckoutStore, SqlExecutor } from './store.js';
 
@@ -22,6 +23,11 @@ export interface AvlCheckoutOptions {
   /** Devis figés (commande de gel de PRC). */
   readonly quotes: QuoteStore;
   readonly store: CheckoutStore;
+  /**
+   * Paramètres d'annulation du pays (PRC, CFG ; US-205b) : retenue hors fenêtre gratuite affichée
+   * sur S05. Absents : aucune retenue affichée (renvoi à la politique publiée).
+   */
+  readonly cancellationParamsOf?: CancellationParamsOf;
 }
 
 /** Aucun adaptateur : 503 partout (fail-closed). */
@@ -37,8 +43,14 @@ export const UNAVAILABLE_AVL_CHECKOUT: AvlCheckoutOptions = {
 export function postgresCheckoutAdapters(
   db: SqlExecutor,
   paramsOf: QuoteParamsOf,
+  cancellationParamsOf?: CancellationParamsOf,
 ): AvlCheckoutOptions {
-  return { paramsOf, quotes: new PgQuoteStore(db), store: new PgCheckoutStore(db) };
+  return {
+    paramsOf,
+    quotes: new PgQuoteStore(db),
+    store: new PgCheckoutStore(db),
+    ...(cancellationParamsOf === undefined ? {} : { cancellationParamsOf }),
+  };
 }
 
 @Module({})
@@ -50,7 +62,13 @@ export class AvlCheckoutModule {
       providers: [
         {
           provide: CheckoutService,
-          useValue: new CheckoutService(options.paramsOf, options.quotes, options.store),
+          useValue: new CheckoutService(
+            options.paramsOf,
+            options.quotes,
+            options.store,
+            LOG_CHECKOUT_FAILURE,
+            options.cancellationParamsOf,
+          ),
         },
       ],
     };

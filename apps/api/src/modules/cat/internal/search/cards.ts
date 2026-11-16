@@ -74,6 +74,11 @@ export interface SearchCard extends Omit<SearchResult, 'quotedAt'> {
   readonly billableDays: number;
   /** Note publique, ou `null` sans avis (badge « Nuevo »). */
   readonly rating: SearchRating | null;
+  /**
+   * La base promet la protection de l'assureur partenaire pour cette annonce (US-205b, même règle
+   * que la fiche) : seule condition de la mention « protection incluse » de la carte.
+   */
+  readonly protectionOffered: boolean;
 }
 
 /** Alerte ops d'un devis impossible : identifiant de l'annonce seulement (aucune donnée C1+). */

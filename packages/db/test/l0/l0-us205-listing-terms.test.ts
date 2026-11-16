@@ -13,8 +13,8 @@
  * jour et le prix du km de l'annonce) ; « assureur, RC tiers incluse, franchises et exclusions du
  * contrat ; RC sous le minimum légal ⇒ POLICY_RC_BELOW_MINIMUM » ; « insurer_contract_active =
  * false ⇒ aucune promesse de couverture »), de 08 BR-CXL-01 (formulation exécutable : `lastMinute =
- * (start − bookedAt) < lastMinuteThreshold` (25 h), `freeUntil = start − 24 h` hors dernière
- * minute) et de 16 LST-013 / PRT-003 (bloc absent si le véhicule n'est pas couvert par le contrat
+ * (start − bookedAt) < lastMinuteThreshold` (25 h), `freeUntil = lastMinute ? min(bookedAt + 60 min,
+ * start) : start − 24 h`, fenêtre de 0116 depuis US-205b) et de 16 LST-013 / PRT-003 (bloc absent si le véhicule n'est pas couvert par le contrat
  * en vigueur), jamais du code testé.
  */
 import { randomBytes } from 'node:crypto';
@@ -217,7 +217,7 @@ function expectNoPromise(r: Row | undefined): void {
 }
 
 describe.each(COUNTRIES)('US-205 — conditions de la fiche ($country, $currency)', (cc) => {
-  it('critère 1 (08 BR-CXL-01) : départ le 14/01 10:00 réservé 5 j avant ⇒ gratuite jusqu’au 13/01 10:00 ; départ dans 20 h ⇒ dernière minute, sans date ; 25 h pile ⇒ hors dernière minute (seuil strict) ; sans départ : paramètres seuls', async () => {
+  it('critère 1 (08 BR-CXL-01) : départ le 14/01 10:00 réservé 5 j avant ⇒ gratuite jusqu’au 13/01 10:00 ; départ dans 20 h ⇒ dernière minute, gratuite 1 h après la réservation (US-205b : min(maintenant + 60 min, départ)) ; départ dans 30 min ⇒ jusqu’au départ ; 25 h pile ⇒ hors dernière minute (seuil strict) ; sans départ : paramètres seuls', async () => {
     await rolledBack(async (tx) => {
       const x = await car(tx, cc, 'UNLIMITED');
       // heure locale 10:00 du 14/01/2037 dans le fuseau du pays (donnée IANA, aucune constante)
@@ -235,6 +235,7 @@ describe.each(COUNTRIES)('US-205 — conditions de la fiche ($country, $currency
         timezone: cc.timezone,
         free_cancel_lead_hours: 24,
         last_minute_threshold_hours: 25,
+        last_minute_window_minutes: 60,
         last_minute: false,
       });
       // 13/01 10:00, heure locale du pays
@@ -246,12 +247,17 @@ describe.each(COUNTRIES)('US-205 — conditions de la fiche ($country, $currency
       expect((row?.['free_until'] as Date).getTime()).toBe(start.getTime() - 24 * HOUR);
       expect((row?.['read_at'] as Date).getTime()).toBe(start.getTime() - 5 * 24 * HOUR);
 
-      // départ dans 20 h : réservation de dernière minute (< 25 h), aucune date limite rendue
+      // départ dans 20 h : réservation de dernière minute (< 25 h), gratuite 1 h après la
+      // réservation (US-205b : last_minute_free_window_minutes = 60 de 0116, 08 BR-CXL-01)
       await setNow(tx, new Date(start.getTime() - 20 * HOUR).toISOString());
-      expect((await terms(tx, x.listing, start.toISOString()))[0]).toMatchObject({
-        last_minute: true,
-        free_until: null,
-      });
+      const late = (await terms(tx, x.listing, start.toISOString()))[0];
+      expect(late).toMatchObject({ last_minute: true, last_minute_window_minutes: 60 });
+      expect((late?.['free_until'] as Date).getTime()).toBe(start.getTime() - 19 * HOUR);
+      // départ dans 30 min : min(bookedAt + 60 min, start) = départ, jamais après le début (08)
+      await setNow(tx, new Date(start.getTime() - 30 * 60_000).toISOString());
+      const soon = (await terms(tx, x.listing, start.toISOString()))[0];
+      expect(soon?.['last_minute']).toBe(true);
+      expect((soon?.['free_until'] as Date).getTime()).toBe(start.getTime());
       // 25 h pile : pas de dernière minute (comparaison stricte de 08), gratuite jusqu'à start − 24 h
       await setNow(tx, new Date(start.getTime() - 25 * HOUR).toISOString());
       const edge = (await terms(tx, x.listing, start.toISOString()))[0];
@@ -264,6 +270,7 @@ describe.each(COUNTRIES)('US-205 — conditions de la fiche ($country, $currency
       for (const st of [null, new Date(start.getTime() - 26 * HOUR).toISOString()]) {
         expect((await terms(tx, x.listing, st))[0]).toMatchObject({
           free_cancel_lead_hours: 24,
+          last_minute_window_minutes: 60,
           last_minute: null,
           free_until: null,
         });
@@ -461,6 +468,7 @@ describe.each(COUNTRIES)('US-205 — conditions de la fiche ($country, $currency
           'last_minute_threshold_hours',
           'last_minute',
           'free_until',
+          'last_minute_window_minutes',
           'mileage_mode',
           'included_km_per_day',
           'extra_km_price_minor',

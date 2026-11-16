@@ -56,6 +56,11 @@ export interface SearchResultView {
   /** Caution par carte de la plateforme ; `null` : mention générique (16 SRC-011, T70 c). */
   readonly depositAmountMinor: bigint | null;
   readonly rating: SearchRatingView | null;
+  /**
+   * La base promet la protection de l'assureur partenaire (US-205b) : seule condition de la
+   * mention « protection incluse » de la carte ; absente ou autre qu'un booléen ⇒ `false`.
+   */
+  readonly protectionOffered: boolean;
   /** Point arrondi au centième de degré (zone approximative), ou `null` sans épingle. */
   readonly point: { readonly lat: number; readonly lng: number } | null;
   readonly currency: string;
@@ -179,6 +184,8 @@ export function searchResultsOf(reply: ApiResult): SearchResultView[] | null {
       billableDays: days,
       depositAmountMinor: deposit === null ? null : BigInt(deposit),
       rating,
+      // fail-closed : seul `true` exact promet la couverture
+      protectionOffered: r['protectionOffered'] === true,
       point,
       currency,
       currencyExponent: exponent,

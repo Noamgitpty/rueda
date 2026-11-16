@@ -1846,6 +1846,22 @@ export const ES_MESSAGES = {
     'Este auto todavía no tiene protección disponible, así que no se puede reservar por ahora.',
   'web.listing.protection.error':
     'No pudimos cargar la protección ni el depósito de este auto. Inténtalo de nuevo.',
+  // US-205b (ADR-140) : dernière minute en minutes, jusqu'au départ ; conditions du checkout S05
+  'web.listing.cancel.untilStart': 'Cancelación gratuita hasta el inicio del viaje ({date}).',
+  'web.listing.cancel.lastMinuteMinutes': {
+    one: 'Cancelación gratuita durante {count} minuto después de reservar.',
+    other: 'Cancelación gratuita durante {count} minutos después de reservar.',
+  },
+  'web.listing.cancel.lateMinutes': {
+    one: 'Si reservas con menos de {count} hora de anticipación, es gratuita durante {window} min después de reservar.',
+    other:
+      'Si reservas con menos de {count} horas de anticipación, es gratuita durante {window} min después de reservar.',
+  },
+  'web.listing.protection.unavailableShort': 'Este auto todavía no tiene protección disponible.',
+  'web.s05.conditions.title': 'Condiciones del viaje',
+  'web.s05.conditions.ifNow': 'Fechas calculadas si reservas ahora, a la hora del lugar.',
+  'web.s05.cancel.retainedDay': 'Después, se retiene 1 día de alquiler: {amount}.',
+  'web.s05.cancel.retainedHalfDay': 'Después, se retiene medio día de alquiler: {amount}.',
   // US-208 (ADR-133) : refus de la route du checkout (devis figé et pose du hold)
   'common.quote.notFound': 'No encontramos este presupuesto. Vuelve a la ficha del auto.',
   'common.quote.rateLimited':

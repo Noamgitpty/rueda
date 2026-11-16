@@ -1893,6 +1893,23 @@ export const FR_MESSAGES = {
     'Cette voiture n’a pas encore de protection disponible : elle ne peut pas être réservée pour l’instant.',
   'web.listing.protection.error':
     'Nous n’avons pas pu charger la protection ni le dépôt de cette voiture. Réessaie.',
+  // US-205b (ADR-140) : dernière minute en minutes, jusqu'au départ ; conditions du checkout S05
+  'web.listing.cancel.untilStart': 'Annulation gratuite jusqu’au début du voyage ({date}).',
+  'web.listing.cancel.lastMinuteMinutes': {
+    one: 'Annulation gratuite pendant {count} minute après la réservation.',
+    other: 'Annulation gratuite pendant {count} minutes après la réservation.',
+  },
+  'web.listing.cancel.lateMinutes': {
+    one: 'Si tu réserves moins de {count} heure à l’avance, elle est gratuite pendant {window} min après la réservation.',
+    other:
+      'Si tu réserves moins de {count} heures à l’avance, elle est gratuite pendant {window} min après la réservation.',
+  },
+  'web.listing.protection.unavailableShort':
+    'Cette voiture n’a pas encore de protection disponible.',
+  'web.s05.conditions.title': 'Conditions du voyage',
+  'web.s05.conditions.ifNow': 'Dates calculées si tu réserves maintenant, à l’heure du lieu.',
+  'web.s05.cancel.retainedDay': 'Ensuite, 1 jour de location est retenu : {amount}.',
+  'web.s05.cancel.retainedHalfDay': 'Ensuite, une demi-journée de location est retenue : {amount}.',
   // US-208 (ADR-133) : refus de la route du checkout (devis figé et pose du hold)
   'common.quote.notFound': 'Nous ne trouvons pas ce devis. Reviens à la fiche de la voiture.',
   'common.quote.rateLimited':

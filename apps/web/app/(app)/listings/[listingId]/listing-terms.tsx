@@ -4,6 +4,7 @@ import type { PublicListingView } from '../../../../account/host-listings.ts';
 import type {
   ListingConditionsView,
   ProtectionLevel,
+  SlotCancellationView,
   SlotTermsView,
 } from '../../../../account/listing-terms.ts';
 import { PROTECTION_LEVELS, termsLanguageOf } from '../../../../account/listing-terms.ts';
@@ -18,8 +19,43 @@ const LEVEL_KEY = {
   TOTAL: 'common.quote.line.protectionTotal',
 } as const satisfies Record<ProtectionLevel, string>;
 
-/** Heures entières d'une fenêtre en minutes (60 ⇒ 1), jamais moins d'une heure annoncée. */
-const hoursOf = (minutes: number): number => Math.max(1, Math.floor(minutes / 60));
+/**
+ * Annulation gratuite d'un départ, en une phrase (08 BR-CXL-01 ; 10b UX-54 ; US-205b) : date limite
+ * à l'heure du lieu ; en dernière minute, « pendant {fenêtre} après la réservation » (fenêtre du
+ * pays, en heures si elle en compte un nombre entier, sinon en minutes : jamais arrondie), ou
+ * « jusqu'au début du voyage » quand le départ arrive avant la fin de la fenêtre. Partagée par la
+ * fiche S03 et le checkout S05.
+ */
+export function cancellationText(
+  i18n: Translator,
+  c: SlotCancellationView,
+  timeZone: string,
+): string {
+  const t = i18n.t.bind(i18n);
+  if (!c.lastMinute) {
+    return t('web.listing.cancel.until', { date: i18n.dateTime(c.freeUntil, timeZone) });
+  }
+  if (c.endsAtStart) {
+    return t('web.listing.cancel.untilStart', { date: i18n.dateTime(c.freeUntil, timeZone) });
+  }
+  return c.windowMinutes % 60 === 0
+    ? t('web.listing.cancel.lastMinute', { count: c.windowMinutes / 60 })
+    : t('web.listing.cancel.lastMinuteMinutes', { count: c.windowMinutes });
+}
+
+/** Règle de dernière minute du pays (fiche sans dates) : seuil en heures, fenêtre exacte. */
+function lateRuleText(i18n: Translator, thresholdHours: number, windowMinutes: number): string {
+  const t = i18n.t.bind(i18n);
+  return windowMinutes % 60 === 0
+    ? t('web.listing.cancel.late', {
+        count: thresholdHours,
+        window: String(windowMinutes / 60),
+      })
+    : t('web.listing.cancel.lateMinutes', {
+        count: thresholdHours,
+        window: String(windowMinutes),
+      });
+}
 
 interface TermsProps {
   readonly i18n: Translator;
@@ -29,13 +65,19 @@ interface TermsProps {
   readonly conditions: ListingConditionsView | null;
   /** Conditions du créneau accepté ; `null` : pas de dates acceptées. */
   readonly slot: SlotTermsView | null;
+  /**
+   * Le total des dates acceptées est affiché, avec son bandeau « pas encore réservable » quand
+   * rien n'est promis (US-205b) : la section protection ne le répète pas.
+   */
+  readonly priceShown?: boolean;
 }
 
 /**
  * Annulation (16 LST-010 ; 08 BR-CXL-01, BR-CXL-06 ; 10b UX-54) : avec un créneau accepté, la date
  * limite calculée par la base pour une réservation faite maintenant (heure du lieu), ou « gratuite
- * pendant 1 h après la réservation » en dernière minute ; sans dates, la règle du pays. Politique
- * unique de la plateforme, jamais propre à l'hôte.
+ * pendant {fenêtre} après la réservation » en dernière minute (jusqu'au départ s'il arrive avant) ;
+ * sans dates, la règle du pays. Politique unique de la plateforme, jamais propre à l'hôte. La
+ * retenue hors fenêtre, en jours et en montant, est affichée au checkout (S05, US-205b).
  */
 function CancellationSection({ i18n, listing, conditions, slot }: Omit<TermsProps, 'localeTag'>) {
   const t = i18n.t.bind(i18n);
@@ -45,20 +87,11 @@ function CancellationSection({ i18n, listing, conditions, slot }: Omit<TermsProp
   const timeZone = conditions?.timezone ?? listing.timezone;
   let lines: string[] = [];
   if (slotRule !== null) {
-    if (slotRule.lastMinute || slotRule.freeUntil === null) {
-      lines = [t('web.listing.cancel.lastMinute', { count: hoursOf(slotRule.windowMinutes) })];
-    } else if (timeZone !== null) {
-      lines = [
-        t('web.listing.cancel.until', { date: i18n.dateTime(slotRule.freeUntil, timeZone) }),
-      ];
-    }
+    if (timeZone !== null) lines = [cancellationText(i18n, slotRule, timeZone)];
   } else if (policy !== null) {
     lines = [
       t('web.listing.cancel.lead', { count: policy.leadHours }),
-      t('web.listing.cancel.late', {
-        count: policy.thresholdHours,
-        window: String(hoursOf(policy.windowMinutes)),
-      }),
+      lateRuleText(i18n, policy.thresholdHours, policy.windowMinutes),
     ];
   }
   // conditions illisibles (panne) et aucun créneau : un seul message, celui de la protection
@@ -72,8 +105,8 @@ function CancellationSection({ i18n, listing, conditions, slot }: Omit<TermsProp
         <p className={accountStyles['muted']}>{t('web.listing.cancel.unavailable')}</p>
       ) : (
         <>
-          {lines.map((line) => (
-            <p key={line} className={accountStyles['text']}>
+          {lines.map((line, i) => (
+            <p key={i} className={accountStyles['text']}>
               <span className={styles['strong']}>{line}</span>
             </p>
           ))}
@@ -149,7 +182,16 @@ function DistanceSection({ i18n, listing, slot }: Omit<TermsProps, 'conditions' 
  * (mêmes sources que le contrat de location, US-211). Rien de promis si la base ne le promet pas
  * (19 US-205 critère 4) : le véhicule n'est alors pas réservable.
  */
-function ProtectionSection({ i18n, localeTag, listing, conditions }: Omit<TermsProps, 'slot'>) {
+function ProtectionSection({
+  i18n,
+  localeTag,
+  listing,
+  conditions,
+  priceShown,
+}: Omit<TermsProps, 'slot' | 'priceShown'> & {
+  /** Le bloc du prix est affiché (dates acceptées) : il porte déjà « pas encore réservable ». */
+  readonly priceShown: boolean;
+}) {
   const t = i18n.t.bind(i18n);
   const p = conditions?.protection ?? null;
   const sameCurrency = conditions !== null && conditions.currency === listing.currency;
@@ -169,7 +211,15 @@ function ProtectionSection({ i18n, localeTag, listing, conditions }: Omit<TermsP
           {t('web.listing.protection.error')}
         </p>
       ) : p === null || !sameCurrency ? (
-        <Banner tone="info">{t('web.listing.protection.unavailable')}</Banner>
+        // revue ux de 205a (n° 7) : « pas encore réservable » une seule fois ; avec le bloc du
+        // prix (dates acceptées), son bandeau le dit déjà, la section ne le répète pas
+        priceShown ? (
+          <p className={accountStyles['text']} data-testid="s03-protection-unavailable">
+            {t('web.listing.protection.unavailableShort')}
+          </p>
+        ) : (
+          <Banner tone="info">{t('web.listing.protection.unavailable')}</Banner>
+        )
       ) : (
         <>
           <p className={accountStyles['text']}>
@@ -275,6 +325,7 @@ export function ListingTerms(props: TermsProps) {
         localeTag={props.localeTag}
         listing={props.listing}
         conditions={props.conditions}
+        priceShown={props.priceShown ?? false}
       />
       {props.conditions !== null && (
         <DepositSection i18n={props.i18n} listing={props.listing} conditions={props.conditions} />

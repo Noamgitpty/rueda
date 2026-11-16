@@ -231,3 +231,58 @@ describe('règlement d’annulation calculé depuis le devis (T01–T27, oracle)
     },
   );
 });
+
+describe('US-205b : distance figée avec le devis (19 US-205 critère 2 ; 16 LST-012)', () => {
+  it.each(CASES)(
+    '%s : 200 km par jour × 3 jours facturables ⇒ « 600 km » figés, prix du km figé, rejeu identique ; illimité ⇒ aucun km',
+    (id, daily, fee) => {
+      const { params, request } = frozenCase(id, daily, fee);
+      const c = params.currency;
+      const extra = money(35n, c);
+      const { quote, frozen } = freezeQuote(
+        { ...request, mileage: { mode: 'INCLUDED', kmPerDay: 200, extraKmPrice: extra } },
+        params,
+      );
+      // 19 US-205 critère 2 : 200 km / j et 3 jours facturables ⇒ « 600 km incluidos »
+      expect(quote.billableDays).toBe(3);
+      expect(quote.mileage).toEqual({
+        mode: 'INCLUDED',
+        kmPerDay: 200,
+        includedKm: 600,
+        extraKmPrice: extra,
+      });
+      expect(JSON.parse(frozen.inputs)).toMatchObject({
+        request: { mileage: { mode: 'INCLUDED', kmPerDay: 200, extraKmPrice: '35' } },
+      });
+      expect(JSON.parse(frozen.outputs)).toMatchObject({
+        mileage: { mode: 'INCLUDED', kmPerDay: 200, includedKm: 600, extraKmPrice: '35' },
+      });
+      expect(replayFrozenQuote(frozen).mileage).toEqual(quote.mileage);
+      // la distance ne change aucun montant
+      const plain = freezeQuote(request, params);
+      expect(frozen.totalMinor).toBe(plain.frozen.totalMinor);
+      expect(JSON.parse(plain.frozen.outputs)).not.toHaveProperty('mileage');
+      const unlimited = freezeQuote({ ...request, mileage: { mode: 'UNLIMITED' } }, params);
+      expect(JSON.parse(unlimited.frozen.outputs)).toMatchObject({
+        mileage: { mode: 'UNLIMITED' },
+      });
+      expect(replayFrozenQuote(unlimited.frozen).mileage).toEqual({ mode: 'UNLIMITED' });
+    },
+  );
+
+  it('distance mal formée ⇒ QUOTE_INPUT_INVALID (km par jour hors de 1 à 10 000, prix négatif ou d’une autre devise)', () => {
+    const { params, request } = frozenCase('T01', 4_000n);
+    const c = params.currency;
+    const bad = [
+      { mode: 'INCLUDED', kmPerDay: 0, extraKmPrice: money(35n, c) },
+      { mode: 'INCLUDED', kmPerDay: 10_001, extraKmPrice: money(35n, c) },
+      { mode: 'INCLUDED', kmPerDay: 1.5, extraKmPrice: money(35n, c) },
+      { mode: 'INCLUDED', kmPerDay: 200, extraKmPrice: money(-1n, c) },
+    ] as const;
+    for (const mileage of bad) {
+      expect(codeOf(() => computeQuote({ ...request, mileage }, params))).toBe(
+        'QUOTE_INPUT_INVALID',
+      );
+    }
+  });
+});

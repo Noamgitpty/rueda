@@ -144,8 +144,16 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  retenue hors fenêtre sans durée écrite, lien vers la politique publiée), `web.listing.distance.*` (distance incluse sur la période, prix du km
  supplémentaire) et `web.listing.protection.*` (assureur partenaire, courtier, RC tiers incluse,
  franchises par niveau, exclusions du contrat, protection indisponible).
+ Version 60 (la 59 est réservée à US-223) : conditions du checkout S05 et fiche, partie 205b
+ (US-205, ADR-140) : `web.listing.cancel.untilStart` (dernière minute, départ dans moins que la
+ fenêtre : gratuite jusqu'au départ, 08 BR-CXL-01), `web.listing.cancel.lastMinuteMinutes` et
+ `web.listing.cancel.lateMinutes` (fenêtre de dernière minute du pays qui n'est pas un nombre
+ entier d'heures), `web.listing.protection.unavailableShort` (section protection sans répéter le
+ bandeau « pas encore réservable », revue ux de 205a n° 7), `web.s05.conditions.*` et
+ `web.s05.cancel.retained*` (conditions de S05 : annulation gratuite en dates, retenue hors
+ fenêtre en jours et en montant du moteur de règlement, 10b UX-54).
  */
-export const CATALOG_VERSION = 58;
+export const CATALOG_VERSION = 60;
 
 /** Catalogues de base par langue ; la langue d'un profil de locale choisit le sien. */
 export const CATALOGS: Readonly<Record<CatalogLanguage, VersionedCatalog<MessageKey>>> = {

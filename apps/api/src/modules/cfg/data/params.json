@@ -2059,6 +2059,18 @@
       "decision": "TO_DECIDE",
       "decisionRef": "OQ-BR-16 (à fixer avec l'avocat et l'assureur) ; ADR-138 PROPOSÉ (US-205)",
       "values": { "PA": "10000000", "PY": "750000000" }
+    },
+    {
+      "key": "last_minute_free_window_minutes",
+      "type": "DURATION",
+      "unit": "min",
+      "scopes": ["COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "08 BR-CXL-01 (« freeUntil = lastMinute ? min(bookedAt + 60 min, trip.start) : trip.start − 24 h ») ; 16 LST-010 (« gratuite pendant 1 h après la réservation ») ; absent : aucune date d'annulation gratuite promise en dernière minute",
+      "status": "PROPOSÉ (comme Turo : 1 h après la réservation ; égal à la fenêtre du moteur d'annulation cxl-beta/1, qui ne lit pas encore ce paramètre)",
+      "decision": "PROPOSED",
+      "decisionRef": "ADR-140 PROPOSÉ (US-205b) ; COMME_TURO",
+      "values": { "PA": 60, "PY": 60 }
     }
   ]
 }

@@ -127,6 +127,13 @@ Depuis US-115, `core.booking_vehicle_party` lit `catalog_vehicle` et son annonce
 - **Paramètres** : créé `insurer_rc_minimum` (0114, À DÉCIDER, OQ-BR-16) ; lus `free_cancel_lead`, `last_minute_threshold`, `insurer_contract_active`.
 - **Tests** : L0 `packages/db/test/l0/l0-us205-listing-terms.test.ts` (fixture `9973`) ; contrat `testing/listing-page.contract.test.ts` ; site `account/listing-terms.test.ts`, e2e `e2e/listing.spec.ts`, `SCREENS` (`fiche-derniere-minute`, `fiche-sans-protection`).
 
+### Conditions, partie 205b (US-205, ADR-140)
+
+- **Fenêtre de dernière minute** : paramètre `last_minute_free_window_minutes` (0116, 60 min, PROPOSÉ), lu par `core.catalog_public_terms` (recréée en 0117, colonne `last_minute_window_minutes`) ; en dernière minute `freeUntil = min(maintenant + fenêtre, départ)` et `endsAtStart` dans `availability` ; plus aucune constante de l'API.
+- **Lecture atomique** : `SearchStore.slotCheck` rend le contrôle des dates et les conditions du départ accepté en une requête (`LEFT JOIN LATERAL`).
+- **Limite de débit** : `GET /listings/{id}/conditions` passe par la sonde de la fiche (`availability_probe_per_minute` du pays, 429 `RATE_LIMITED` et `Retry-After`).
+- **Cartes** : `protectionOffered` (port `SearchStore.protectionOffered`, une requête par page) : mention « protection incluse » seulement si la base promet la couverture.
+
 ## Événements
 
 Émis : `catalog.addition_request.resolved` (US-114, outbox, par `core.catalog_resolve_addition` : `request_id`, `status`, `resolved_variant_id`, extensions `vehicle_id`, `org_id`, `host_user_id`, `reject_reason` ; consommé par NTF). Cible 17 §4.5, pas encore émis : `catalog.listing.status_changed`, `catalog.vehicle.restricted`, `catalog.deposit_policy.changed` (17 §2.2), `catalog.vehicle_document.expiring`.
