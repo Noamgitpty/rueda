@@ -1,5 +1,5 @@
 /**
- * US-224 (migration 0120, ADR-145) — ordres de règlement sur DEUX connexions (L2-PM-05, modèle
+ * US-224 (migration 0121, ADR-145) — ordres de règlement sur DEUX connexions (L2-PM-05, modèle
  * `rt-conc-*`, S-03) : la garde d'enregistrement prend le verrou du trip, compte les ordres en vol
  * validés par l'autre session et relit la version en tête après l'attente. Fichier ISOLÉ
  * (`vitest.l0.config.ts`, projet `l0-concurrence`) : la mise en place est validée (COMMIT) sur le

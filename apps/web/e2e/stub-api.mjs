@@ -61,6 +61,8 @@ const BIOMETRIC_TITLE = {
   pt: 'Consentimento para a checagem biométrica (RASCUNHO)',
 };
 const identities = new Map();
+/** Jour « aujourd'hui » de la déclaration d'entrée : celui de l'horloge figée des e2e (FROZEN_AT). */
+const ENTRY_TODAY = '2026-11-03';
 let identitySessions = 0;
 const identityOf = (email) => {
   const i = identities.get(email) ?? {
@@ -504,7 +506,7 @@ const holdJson = (h) => ({
   holdId: h.id,
   // paiement du hold (US-223b) : état posé par la route du paiement et les webhooks du double
   status: h.status ?? 'ACTIVE',
-  expiresAt: HOLD_EXPIRES_AT,
+  expiresAt: h.expiresAt ?? HOLD_EXPIRES_AT,
   quoteId: h.quote.id,
   listingId: h.quote.listingId,
   currency: MARKET.currency,
@@ -512,6 +514,8 @@ const holdJson = (h) => ({
   endAt: h.quote.endAt,
   totalMinor: String(h.quote.rent + h.quote.tax + h.quote.protection),
   manualConfirmed: h.manual,
+  // US-209c (ADR-144) : état de revue rendu par la base (0120)
+  reviewState: h.review ?? 'NONE',
   documents: Object.keys(CHECKOUT_DOCS).map((kind) => ({
     kind,
     version: CHECKOUT_DOCS[kind],
@@ -670,6 +674,11 @@ async function checkoutRoute(req, res, path) {
       quote: q,
       manual: q.listingId === MANUAL_ID,
     };
+    // US-209c : réservation signalée (revue avant le débit, hold de revue de 120 min)
+    if (q.startAt.includes(REVIEW_DAY)) {
+      h.review = 'PENDING';
+      h.expiresAt = REVIEW_EXPIRES_AT;
+    }
     holds.set(h.id, h);
     return json(res, 201, { hold: holdJson(h) });
   }
@@ -688,7 +697,8 @@ async function checkoutRoute(req, res, path) {
 // jamais résolue : le test l'intercepte), hold « en vol » ; pendant un ordre actif, aucun nouvel
 // ordre (200 avec l'état). Refus par jour de départ : le 18, capacité bloquante du PSP non validée
 // (409 HOST_PAYOUT_RAIL_UNAVAILABLE) ; le 19, réservation en revue avant tout débit (409
-// BOOKING_UNDER_REVIEW) ; le 21, aucun compte marchand (503 PAYMENT_UNAVAILABLE). Aucun montant
+// BOOKING_UNDER_REVIEW tant que la revue n'est pas décidée) ; le 21, aucun compte marchand (503
+// PAYMENT_UNAVAILABLE). Aucun montant
 // reçu : un champ autre que `method` ⇒ 400. `GET …/payment` : état dérivé du hold et du trip né,
 // comme l'API (jamais un statut d'opération). `GET /__e2e/payment/webhook?hold=&event=` joue le
 // webhook FAKE signé et la conversion : SUCCEEDED (trip né ; après échéance : compensé), FAILED
@@ -699,9 +709,17 @@ const PSP_PAGE = 'https://psp.fake.invalid/pay/';
 const HOLD_ID_PREFIX = '22300000';
 const PAYMENT_REFUSALS = {
   '-12-18T': [409, 'HOST_PAYOUT_RAIL_UNAVAILABLE', 'common.payment.payoutRailUnavailable'],
-  '-12-19T': [409, 'BOOKING_UNDER_REVIEW', 'common.payment.underReview'],
   '-12-21T': [503, 'PAYMENT_UNAVAILABLE', 'common.payment.unavailable'],
 };
+// ---- Revue d'une réservation signalée (US-209 partie 209c, ADR-144) ---------------------------
+// Le 19 décembre : hold de revue avant le débit (`reviewState` PENDING), échéance de la revue
+// REVIEW_EXPIRES_AT (pose + 120 min) ; paiement refusé (409 BOOKING_UNDER_REVIEW) tant que la revue
+// n'est pas décidée. `GET /__e2e/review?hold=&decision=` joue la décision de l'ops : APPROVED
+// (`reviewed_at`, prolongation unique : échéance APPROVED_EXPIRES_AT, fenêtre de paiement),
+// REJECTED (RELEASED / REVIEW_REJECTED) ou LAPSE (revue non faite dans le délai : même état).
+const REVIEW_DAY = '-12-19T';
+const REVIEW_EXPIRES_AT = '2036-11-30T17:00:00.000Z';
+const APPROVED_EXPIRES_AT = '2036-11-30T15:40:00.000Z';
 const PAYMENT_IN_FLIGHT_UNTIL = '2036-11-30T15:16:00.000Z';
 const paymentStateOf = (h) => {
   const status = h.status ?? 'ACTIVE';
@@ -716,13 +734,30 @@ const paymentJson = (h, redirectUrl) => ({
   state: paymentStateOf(h),
   holdStatus: h.status ?? 'ACTIVE',
   tripId: h.tripId ?? null,
-  expiresAt: HOLD_EXPIRES_AT,
+  expiresAt: h.expiresAt ?? HOLD_EXPIRES_AT,
   paymentInFlightUntil: h.status === 'PAYMENT_IN_FLIGHT' ? PAYMENT_IN_FLIGHT_UNTIL : null,
   ...(redirectUrl === undefined ? {} : { redirectUrl }),
 });
 
 async function paymentRoute(req, res, url) {
   const path = url.pathname;
+  if (req.method === 'GET' && path === '/__e2e/review') {
+    const h = holds.get(url.searchParams.get('hold') ?? '');
+    if (h === undefined || h.review !== 'PENDING' || (h.status ?? 'ACTIVE') !== 'ACTIVE') {
+      return err(res, 409, 'INVALID_TRANSITION', 'common.error.notFound');
+    }
+    const decision = url.searchParams.get('decision');
+    if (decision === 'APPROVED') {
+      h.review = 'APPROVED';
+      h.expiresAt = APPROVED_EXPIRES_AT;
+    } else if (decision === 'REJECTED' || decision === 'LAPSE') {
+      h.review = 'REJECTED';
+      h.status = 'RELEASED';
+    } else {
+      return err(res, 400, 'REQUEST_INVALID', 'common.auth.requestInvalid');
+    }
+    return json(res, 200, { hold: holdJson(h) });
+  }
   if (req.method === 'GET' && path === '/__e2e/payment/webhook') {
     const h = holds.get(url.searchParams.get('hold') ?? '');
     if (h === undefined) return err(res, 404, 'HOLD_NOT_FOUND', 'common.checkout.holdNotFound');
@@ -773,6 +808,10 @@ async function paymentRoute(req, res, url) {
   // INTERRUPTED : reprise sous la même clé (le PSP du double ne trouve aucun ordre : il le crée)
   if (state !== 'PAYABLE' && state !== 'DECLINED' && state !== 'INTERRUPTED') {
     return json(res, 200, { payment: paymentJson(h, null) });
+  }
+  // revue avant le débit pas encore décidée : aucune intention de paiement (UXQ-08)
+  if (h.review === 'PENDING') {
+    return err(res, 409, 'BOOKING_UNDER_REVIEW', 'common.payment.underReview');
   }
   const refusal = Object.entries(PAYMENT_REFUSALS).find(([day]) => h.quote.startAt.includes(day));
   if (refusal !== undefined) return err(res, refusal[1][0], refusal[1][1], refusal[1][2]);
@@ -1861,6 +1900,34 @@ ${kind} ${lang}`,
       messageKey: 'common.kyc.consentRecorded',
       version: 1,
     });
+  }
+  // déclaration d'entrée (US-209b, écran de 209c ; 16 VER-007) : mêmes refus que l'API ; « aujourd'hui »
+  // = jour de l'horloge figée des e2e (FROZEN_AT, 3 novembre 2026), date future ⇒ 422
+  if (path === '/identity/entry-declaration') {
+    const s = sessionOf(req);
+    if (!s) return err(res, 401, 'AUTH_REQUIRED', 'common.auth.sessionRequired');
+    if (!COUNTRIES.some((c) => c.code === body.country)) {
+      return err(res, 400, 'COUNTRY_UNKNOWN', 'common.legal.countryUnknown');
+    }
+    const day = body.entryDate ?? null;
+    const calendarDay =
+      typeof day === 'string' &&
+      /^\d{4}-\d{2}-\d{2}$/.test(day) &&
+      !Number.isNaN(Date.parse(`${day}T00:00:00Z`)) &&
+      new Date(`${day}T00:00:00Z`).toISOString().slice(0, 10) === day;
+    if (
+      !['TOURIST', 'RESIDENT'].includes(body.residencyStatus) ||
+      (day !== null && !calendarDay) ||
+      (body.residencyStatus === 'TOURIST' && day === null) ||
+      Object.keys(body).some((k) => !['country', 'residencyStatus', 'entryDate'].includes(k))
+    ) {
+      return err(res, 400, 'REQUEST_INVALID', 'common.auth.requestInvalid');
+    }
+    if (day !== null && day > ENTRY_TODAY) {
+      return err(res, 422, 'KYC_ENTRY_DATE_INVALID', 'common.kyc.entryDateInvalid');
+    }
+    identityOf(s.email).entry = { residencyStatus: body.residencyStatus, entryDate: day };
+    return err(res, 200, 'ENTRY_DECLARED', 'common.kyc.entryDeclared');
   }
   if (path === '/identity/verification') {
     const s = sessionOf(req);

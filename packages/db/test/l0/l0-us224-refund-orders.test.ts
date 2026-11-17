@@ -1,5 +1,5 @@
 /**
- * US-224 (partie 224a, migration 0120, ADR-145) — ordres de règlement rattachés à la version en
+ * US-224 (partie 224a, migration 0121, ADR-145) — ordres de règlement rattachés à la version en
  * tête et bornés dès l'enregistrement ; rejeu d'un règlement ; preuve signée d'un remboursement
  * avec son montant. Sous app_worker (rôle de PRODUCTION, assertion L0-05 en tête : withRole), en
  * USD (PA) et en PYG sans décimale (PY).

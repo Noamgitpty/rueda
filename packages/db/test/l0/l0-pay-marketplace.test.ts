@@ -89,7 +89,7 @@ const SETTLEMENT_OF: Readonly<Record<string, string>> = {
   [legVector(golden, 'TJ08a').currency]: 'T27',
 };
 /**
- * US-224 (0120) : version 1 de TJ18 (T05 en USD, T41 en PYG, 08 TJ18a / TJ18c), requalifiée FULL
+ * US-224 (0121) : version 1 de TJ18 (T05 en USD, T41 en PYG, 08 TJ18a / TJ18c), requalifiée FULL
  * en version 2 par l'événement de T08 ; un ordre de remboursement exige ce règlement en tête.
  */
 const RELEASED_V1_OF: Readonly<Record<string, string>> = {
@@ -623,7 +623,7 @@ async function succeeded(
     currency,
     idemPlain: `trip:${tripId}:${kind}:${uuid()}`,
     legs,
-    // US-224 (0120, S-02) : un ordre de règlement porte la version en tête du règlement du trip
+    // US-224 (0121, S-02) : un ordre de règlement porte la version en tête du règlement du trip
     ...(SETTLEMENT_ORDER_KINDS.includes(kind)
       ? { settlement: await headSettlement(tx, tripId) }
       : {}),
@@ -688,7 +688,7 @@ describe.each(COUNTRIES)('soldes par jambe — $country ($currency)', (c) => {
         ]);
         const before = await balances(tx, trip);
         expect(col(before, 'released')).toEqual(release);
-        // US-224 (0120, S-02) : un remboursement exige le règlement en tête (v1 TJ18, v2 FULL)
+        // US-224 (0121, S-02) : un remboursement exige le règlement en tête (v1 TJ18, v2 FULL)
         await settleReleasedChain(tx, c, trip);
         // la variation théorique débite HOST, déjà versée : refus (08 E7 règle 3 bis) ; US-224 :
         // même refus, dès l'enregistrement de l'ordre (jamais créé ni envoyé)
@@ -719,7 +719,7 @@ describe.each(COUNTRIES)('soldes par jambe — $country ($currency)', (c) => {
         const account = await insertAccount(tx, { country: c.country });
         await applyMovement(tx, await succeeded(tx, trip, account, 'CAPTURE', capture, c.currency));
         await tx.query(`SELECT test_fixture.marketplace_freeze_leg($1, 'HOST')`, [trip]);
-        // US-224 (0120, S-02) : règlement en tête exigé ; le gel refuse l'ordre dès son
+        // US-224 (0121, S-02) : règlement en tête exigé ; le gel refuse l'ordre dès son
         // enregistrement (avant : au report sur les soldes, même contrainte)
         await recordAsSettlementWorker(
           tx,
@@ -761,7 +761,7 @@ describe.each(COUNTRIES)('soldes par jambe — $country ($currency)', (c) => {
             tx,
             await succeeded(tx, trip, account, 'CAPTURE', capture, c.currency),
           );
-          // US-224 (0120, S-02) : la réaffectation découle du règlement T39 (hôte inéligible,
+          // US-224 (0121, S-02) : la réaffectation découle du règlement T39 (hôte inéligible,
           // TJ05a / TJ05b), en tête du trip
           await recordAsSettlementWorker(tx, { tripId: trip, version: 1 }, recordOfVector('T39'));
           await setSessionContext(tx, { kind: 'WORKER', workerName: 'payment_command' });

@@ -218,7 +218,7 @@ describe('US-018 — supersession : version n+1 par contre-passation, sans perte
       string,
     ][] = [
       [
-        // US-224 (0120, S-02 phrase 2) : la v1 rejouée au MÊME contenu rend la v1 existante (rejeu,
+        // US-224 (0121, S-02 phrase 2) : la v1 rejouée au MÊME contenu rend la v1 existante (rejeu,
         // rien d'écrit : l0-us224-refund-orders) ; une autre v1 (autre contenu) reste refusée
         'v1 une seconde fois, autre contenu',
         (tx, s) => recordAsSettlementWorker(tx, { tripId: s.trip, version: 1 }, r2),
@@ -266,7 +266,7 @@ describe('US-018 — supersession : version n+1 par contre-passation, sans perte
         expect(await codeOf(run(tx, s)), label).toBe(code);
       });
     }
-    // v2 enregistrée, puis une seconde v2 : US-224 (0120, S-02 phrase 2) : la MÊME v2 rejouée rend
+    // v2 enregistrée, puis une seconde v2 : US-224 (0121, S-02 phrase 2) : la MÊME v2 rejouée rend
     // la v2 existante (avant : SETTLEMENT_EXISTS) ; une v2 d'un autre événement (T03) ⇒
     // SETTLEMENT_EXISTS
     await worker(async (tx) => {

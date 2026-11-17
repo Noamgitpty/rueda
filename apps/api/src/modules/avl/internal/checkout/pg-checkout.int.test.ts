@@ -276,6 +276,8 @@ describe.each(countryCases())(
         status: 'ACTIVE',
         quoteId: created.quoteId,
         totalMinor: want.total,
+        // US-209c (0120) : hold ordinaire, aucune revue avant le débit
+        reviewState: 'NONE',
       });
 
       await expect(

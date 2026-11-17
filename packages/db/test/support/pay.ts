@@ -125,7 +125,7 @@ export interface RecordInput {
   readonly idemSent?: string;
   readonly legs: Legs | null;
   /**
-   * US-224 (0120, S-02) : règlement et version de l'ordre (commande à 15 arguments). Absent : la
+   * US-224 (0121, S-02) : règlement et version de l'ordre (commande à 15 arguments). Absent : la
    * commande à 13 arguments (aucun règlement : un ordre REFUND / LEG_* de trip est refusé).
    */
   readonly settlement?: SettlementRef | null;
@@ -155,7 +155,7 @@ export async function headSettlement(
   return row === undefined ? null : { id: row.id, version: row.version };
 }
 
-/** Natures d'ordre rattachées à un règlement (US-224, 0120). */
+/** Natures d'ordre rattachées à un règlement (US-224, 0121). */
 export const SETTLEMENT_ORDER_KINDS: readonly string[] = [
   'REFUND',
   'LEG_REALLOCATION',

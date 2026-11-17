@@ -1,4 +1,4 @@
--- 0120 — STL / PAY : ordres de remboursement et de jambe rattachés à la version du règlement,
+-- 0121 — STL / PAY : ordres de remboursement et de jambe rattachés à la version du règlement,
 -- bornés dès l'enregistrement ; rejeu d'un règlement ; preuve signée d'un remboursement avec son
 -- montant.
 -- US-224 (partie 224a, argent / back-end) ; 19 US-224 (critères 2 et 3, « jamais au prorata »,

@@ -138,7 +138,7 @@ async function succeeded(
     currency,
     idemPlain: `trip:${tripId}:${kind}:${uuid()}`,
     legs,
-    // US-224 (0120, S-02) : un ordre de règlement porte la version en tête du règlement du trip
+    // US-224 (0121, S-02) : un ordre de règlement porte la version en tête du règlement du trip
     ...(SETTLEMENT_ORDER_KINDS.includes(kind)
       ? { settlement: await headSettlement(tx, tripId) }
       : {}),

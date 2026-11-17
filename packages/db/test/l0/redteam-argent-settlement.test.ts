@@ -97,7 +97,7 @@ const bump = (obj: Record<string, unknown>, key: string, by: bigint): void => {
 };
 
 describe.each(COUNTRIES)('ARG-20 — règlement rejoué — $country ($currency)', (c) => {
-  // US-224 (0120, S-02 phrase 2) : un rejeu au MÊME contenu rend le règlement existant (rien
+  // US-224 (0121, S-02 phrase 2) : un rejeu au MÊME contenu rend le règlement existant (rien
   // d'écrit, une seule ligne) au lieu de SETTLEMENT_EXISTS ; un autre contenu à la même version
   // reste refusé. La propriété attaquée (jamais deux règlements de la même version) est inchangée ;
   // les ordres planifiés deux fois sont bornés à l'enregistrement (en-cours compté, ADR-145).
@@ -183,7 +183,7 @@ describe.each(COUNTRIES)(
           return r.rows[0];
         });
         if (!head) throw new Error('version 1 absente');
-        // US-224 (0120, S-02 phrase 2) : un seul gagnant ; les rivaux au MÊME contenu que lui
+        // US-224 (0121, S-02 phrase 2) : un seul gagnant ; les rivaux au MÊME contenu que lui
         // reçoivent le règlement existant (rejeu, rien d'écrit), les autres SETTLEMENT_EXISTS
         const sameAsWinner = outcomes1.map(
           (_o, i) => rivals[i % rivals.length]?.inputsHash === head.inputs_hash,
@@ -246,7 +246,7 @@ describe.each(COUNTRIES)(
             recordAsSettlementWorker(tx, { tripId: trip.id, version: 3, supersedesId: v1 }, r3),
           ),
         ).toBe('INVARIANT_VIOLATION');
-        // US-224 (0120, S-02 phrase 2) : v2 rejouée telle quelle ⇒ la v2 existante, rien d'écrit
+        // US-224 (0121, S-02 phrase 2) : v2 rejouée telle quelle ⇒ la v2 existante, rien d'écrit
         // (avant : SETTLEMENT_EXISTS) ; le nombre de versions est vérifié plus bas
         expect(
           await recordAsSettlementWorker(tx, { tripId: trip.id, version: 2, supersedesId: v1 }, r2),

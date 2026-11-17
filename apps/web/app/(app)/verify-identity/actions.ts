@@ -7,6 +7,13 @@
  */
 import { redirect } from 'next/navigation';
 import { callApi, codeOf } from '../../../account/api-client.ts';
+import {
+  ENTRY_FIELD,
+  entryInputErrors,
+  entryInputOf,
+  entryRequestOf,
+} from '../../../account/entry-declaration.ts';
+import type { ResidencyStatus } from '../../../account/entry-declaration.ts';
 import { clientContext } from '../../../account/request.ts';
 import { apiErrorKey } from '../_account/errors.ts';
 import type { FormErrors } from '../_account/errors.ts';
@@ -82,4 +89,51 @@ export async function startAction(
       },
     ],
   };
+}
+
+/** État de l'écran de déclaration d'entrée (US-209 partie 209c). */
+export interface EntryFormState {
+  readonly errors: FormErrors;
+  /** Déclaration enregistrée (statut et jour envoyés), affichée en confirmation. */
+  readonly saved: { readonly residency: ResidencyStatus; readonly date: string } | null;
+  /** Saisie renvoyée après un refus. */
+  readonly values?: Readonly<Record<string, string>>;
+}
+
+/**
+ * Déclaration d'entrée (`POST /identity/entry-declaration`, US-209b ; 16 VER-007) : statut
+ * (touriste ou résident) et, pour un touriste, date d'entrée ; contrôles de forme puis refus de
+ * l'API sur leur champ (date future ⇒ KYC_ENTRY_DATE_INVALID, pays inconnu). Aucune donnée dans
+ * une URL du site : la confirmation est rendue par l'état de l'action.
+ */
+export async function declareEntryAction(
+  _prev: EntryFormState,
+  form: FormData,
+): Promise<EntryFormState> {
+  const input = entryInputOf(form);
+  const values = {
+    country: input.country,
+    residencyStatus: input.residency ?? '',
+    entryDate: input.date,
+  };
+  const errors = entryInputErrors(input);
+  if (errors.length > 0) return { errors, saved: null, values };
+  const reply = await callApi(
+    'POST',
+    '/identity/entry-declaration',
+    await clientContext(),
+    entryRequestOf(input),
+  );
+  if (reply.status === 401) redirect('/login');
+  if (reply.status === 200 && input.residency !== null) {
+    return { errors: [], saved: { residency: input.residency, date: input.date }, values };
+  }
+  const code = codeOf(reply);
+  const fieldId =
+    code === 'KYC_ENTRY_DATE_INVALID'
+      ? ENTRY_FIELD.date
+      : code === 'COUNTRY_UNKNOWN'
+        ? ENTRY_FIELD.country
+        : ENTRY_FIELD.form;
+  return { errors: [{ fieldId, key: apiErrorKey(code, reply.status) }], saved: null, values };
 }

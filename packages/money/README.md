@@ -124,7 +124,7 @@ Module `src/settlement/tenders.ts`, exporté par `@rueda/money` ; fonctions pure
 Module `src/settlement/refunds.ts`, exporté par `@rueda/money` ; fonction pure, `bigint`, aucune division ni arrondi.
 
 - `settlementOrders(variation, remboursements)` : depuis la variation signée de chaque jambe (version en tête du règlement) et le remboursement de chaque moyen (décidé par E2), rend la réaffectation (`reallocation`, Σ = 0, passée avant ; variation positive prise sur `HOST` → … → `PLATFORM`, TJ05b) et un remboursement par moyen (`refunds`, cascade de `cascadeTenders`, jambes positives = débits).
-- Refus `SETTLEMENT_INPUT_INVALID` : devises différentes, Σ remboursements ≠ débits, moyen nul, réaffectation plus grande que les jambes en baisse, crédit qui toucherait une autre jambe que `PLATFORM` (TJ20b : réaffectation de 224b). Le plafond « jamais plus que l'encaissé » est tenu en base (migration 0120).
+- Refus `SETTLEMENT_INPUT_INVALID` : devises différentes, Σ remboursements ≠ débits, moyen nul, réaffectation plus grande que les jambes en baisse, crédit qui toucherait une autre jambe que `PLATFORM` (TJ20b : réaffectation de 224b). Le plafond « jamais plus que l'encaissé » est tenu en base (migration 0121).
 - Preuves : `test/settlement/refunds.golden.test.ts` (TJ02b + TJ16a/b, TJ08b + TJ16c/d, TJ10b / TJ10c de l'export ; TJ05b selon le texte de 08 E7 règle 3).
 
 ## Harnais des vecteurs dorés (US-016)

@@ -287,7 +287,7 @@ async function succeeded(
     currency,
     idemPlain: `trip:${tripId}:${kind}:${uuid()}`,
     legs,
-    // US-224 (0120, S-02) : un ordre de règlement porte la version en tête du règlement du trip
+    // US-224 (0121, S-02) : un ordre de règlement porte la version en tête du règlement du trip
     ...(SETTLEMENT_ORDER_KINDS.includes(kind)
       ? { settlement: await headSettlement(tx, tripId) }
       : {}),
@@ -331,7 +331,7 @@ describe.each(COUNTRIES)(
             await succeeded(tx, trip, account, 'CAPTURE', capture, c.currency),
           ),
         ).toBe('APPLIED');
-        // US-224 (0120, S-02) : même refus, dès l'enregistrement de l'ordre (jamais créé ni envoyé)
+        // US-224 (0121, S-02) : même refus, dès l'enregistrement de l'ordre (jamais créé ni envoyé)
         const err = await caught(tx, () =>
           succeeded(tx, trip, account, 'REFUND', { ...ZERO, PLATFORM: 1n }, c.currency),
         );
@@ -354,7 +354,7 @@ describe.each(COUNTRIES)(
         const r1 = recordOfVector(r.v1);
         const v1 = await recordAsSettlementWorker(tx, { tripId: trip, version: 1 }, r1);
         await setSessionContext(tx, { kind: 'WORKER', workerName: 'payment_command' });
-        // US-224 (0120, S-02) : même refus, dès l'enregistrement de l'ordre
+        // US-224 (0121, S-02) : même refus, dès l'enregistrement de l'ordre
         const err = await caught(tx, () =>
           succeeded(tx, trip, account, 'REFUND', capture, c.currency),
         );
@@ -387,7 +387,7 @@ describe.each(COUNTRIES)(
     const hostOnly: Legs = { ...ZERO, HOST: capture.HOST };
     /**
      * Refus d'un débit au-delà du remboursable : solde de la jambe ou chaîne de versions ; US-224
-     * (0120) : à l'enregistrement, au-delà de l'encaissé de la jambe (`refund_exceeds_collected`).
+     * (0121) : à l'enregistrement, au-delà de l'encaissé de la jambe (`refund_exceeds_collected`).
      */
     const REFUSED = [
       'leg_movement_exceeds_balance',
@@ -427,7 +427,7 @@ describe.each(COUNTRIES)(
             expect(await applyMovement(tx, op)).toBe('APPLIED');
           }
           expect(await refundedOf(tx, trip)).toEqual(capture);
-          // US-224 (0120) : refusé dès l'enregistrement de l'ordre (jamais créé ni envoyé)
+          // US-224 (0121) : refusé dès l'enregistrement de l'ordre (jamais créé ni envoyé)
           const err = await caught(tx, () =>
             succeeded(tx, trip, account, 'REFUND', { ...ZERO, PLATFORM: 1n }, c.currency),
           );
@@ -439,7 +439,7 @@ describe.each(COUNTRIES)(
       },
     );
 
-    // US-224 (0120, S-02) : le second ordre est refusé dès son ENREGISTREMENT (en-cours compté sous
+    // US-224 (0121, S-02) : le second ordre est refusé dès son ENREGISTREMENT (en-cours compté sous
     // le verrou du trip) ; il n'existe donc plus deux ordres réussis à reporter en concurrence. La
     // course sur deux connexions porte désormais sur l'enregistrement : l0-us224-refund-race.test.ts
     // (fichier isolé, données validées). Avant : deux ordres réussis, un seul reporté sur les soldes.

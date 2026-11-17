@@ -353,7 +353,7 @@ describe.each(COUNTRIES)('US-019 — $country ($currency)', (c) => {
           );
           expect(missing?.code).toBe('22023');
           // remboursement : jambes = débit de chaque jambe (variation TJ, 08 E7 règle 3). US-224
-          // (0120, S-02) : un ordre de règlement d'un trip SANS règlement n'est plus enregistrable
+          // (0121, S-02) : un ordre de règlement d'un trip SANS règlement n'est plus enregistrable
           // (aucun ordre écrit) ; le cas accepté (règlement en tête, jambes du vecteur) est prouvé
           // par l0-pay-marketplace (« capture puis remboursement ») et l0-us224-refund-orders
           const r = await caught(tx, () =>

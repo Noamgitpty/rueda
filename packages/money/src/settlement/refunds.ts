@@ -19,7 +19,7 @@
  *   Σ remboursements ≠ − Σ variations, variation positive plus grande que les jambes en baisse,
  *   crédit qui toucherait une autre jambe que `PLATFORM` (TJ20b : réaffectation de 224b) ;
  * - `REFUND_EXCEEDS_COLLECTED` n'est pas produit ici : le plafond « jamais plus que l'encaissé »
- *   est tenu en base à l'enregistrement de l'ordre (migration 0120, ADR-145).
+ *   est tenu en base à l'enregistrement de l'ordre (migration 0121, ADR-145).
  *
  * Fonction pure, `bigint` en unités mineures. Les attendus de ses tests viennent de l'export des
  * oracles (`check_legs.py` : `cascade`, vecteurs TJ02b, TJ08b, TJ10b, TJ16a à d) et de 08 E7

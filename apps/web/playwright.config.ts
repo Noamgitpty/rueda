@@ -46,6 +46,8 @@ const LISTING = /listing\.spec\.ts$/;
 const CHECKOUT = /checkout\.spec\.ts$/;
 /** Paiement du hold S05 → PSP → S06 et refus (US-223 partie 223b) : téléphones 360 et 390 px. */
 const PAYMENT = /checkout-payment\.spec\.ts$/;
+/** Revue d'une réservation signalée, écrans du voyageur (US-209 partie 209c). */
+const REVIEW = /checkout-review\.spec\.ts$/;
 /** Plan de gains d'un véhicule, A10 → A11 (US-226 partie 226b) : téléphones 360 et 390 px. */
 const HOST_EARNINGS = /host-earnings-plan\.spec\.ts$/;
 /** Balayage axe + captures de chaque écran du site (US-044). */
@@ -101,6 +103,7 @@ export default defineConfig({
         LISTING,
         CHECKOUT,
         PAYMENT,
+        REVIEW,
         HOST_EARNINGS,
         SCREENS,
       ],
@@ -121,6 +124,7 @@ export default defineConfig({
         LISTING,
         CHECKOUT,
         PAYMENT,
+        REVIEW,
         HOST_EARNINGS,
         SCREENS,
       ],

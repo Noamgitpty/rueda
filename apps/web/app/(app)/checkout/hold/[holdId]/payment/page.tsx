@@ -47,7 +47,8 @@ const BODY_ID = 's06-body';
  * - `CONFIRMED` : seulement si le hold est converti et le trip né (preuve par webhook signé) ;
  * - `DECLINED` : refus du PSP, aucun débit, hold gardé jusqu'à son heure limite (lue dans l'API,
  *   aucune durée écrite) et « Pagar de nuevo » ;
- * - `ENDED` : hold échu ou libéré sans paiement (N-169 : sortie vers la recherche) ;
+ * - `ENDED` : hold échu ou libéré sans paiement (N-169 : sortie vers la recherche) ; libéré par la
+ *   revue d'une réservation signalée (`reviewState` = REJECTED, US-209c) : « Reserva no aprobada » ;
  * - `UNPROVEN` : hold terminé avec un ordre non prouvé : ne pas payer de nouveau, support ;
  * - `REFUND_DUE` : payé après la libération (`web.error.paidAfterRelease`, montant rendu par l'API).
  * `PAYABLE` (aucun ordre) : retour à S05. Le passage d'un état à l'autre est annoncé par une région
@@ -277,9 +278,11 @@ export default async function PaymentPage({
       );
     }
     default: {
-      // ENDED : hold échu ou libéré sans paiement (N-169)
-      const title = t('web.s06.ended.title');
-      const body = t('web.s06.ended.body');
+      // ENDED : hold échu ou libéré sans paiement (N-169) ; libéré par la revue d'une réservation
+      // signalée (refus ou revue non faite dans le délai, jamais distingués : US-209c, ADR-144)
+      const rejected = hold.reviewState === 'REJECTED';
+      const title = t(rejected ? 'web.s06.reviewRejected.title' : 'web.s06.ended.title');
+      const body = t(rejected ? 'web.s06.reviewRejected.body' : 'web.s06.ended.body');
       return page(
         'ENDED',
         title,

@@ -1619,6 +1619,13 @@
       "story": "US-223"
     },
     {
+      "signature": "core.booking_checkout_review_state(bytea,uuid)",
+      "family": "cmd_hold",
+      "owner": "cmd_hold_owner",
+      "execute": ["app_api"],
+      "story": "US-209"
+    },
+    {
       "signature": "core.pricing_bind_checkout_trip(uuid)",
       "family": "cmd_money",
       "owner": "cmd_money_owner",
