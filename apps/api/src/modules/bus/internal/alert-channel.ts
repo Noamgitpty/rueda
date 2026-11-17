@@ -35,6 +35,11 @@ export const ALERT_CODES = [
   // annulation demandée par l'ops refusée de façon déterministe (paramètre, devis, état du trip,
   // liaison du règlement) : demande garée FAILED, trip inchangé (US-215, ADR-148)
   'TRIP_CANCELLATION_FAILED',
+  // ordonnanceur des remboursements (US-224c, ADR-150) : envoi retenu faute de décision FINANCE à
+  // deux personnes sur l'avance de Kmino (critère 4) ; remboursement en échec, escalade, envoi
+  // refusé ou report refusé (revue FIN). Une fois par instance et par état
+  'FIN_REFUND_BLOCKED',
+  'FIN_REFUND_FAILED',
   // files de revue (US-106, ADR-106) : élément en retard (16 ADM-002, P2) ; dossier KYC en revue
   // qui ne peut pas être mis en file (P1 : personne ne le verrait)
   'OPS_REVIEW_SLA_BREACH',
