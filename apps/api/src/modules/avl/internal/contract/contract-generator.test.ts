@@ -171,6 +171,7 @@ function generator(logs: ContractLogEntry[], params?: SettlementParams) {
     brand: 'Marca',
     localeConfig: parseLocaleConfig(locales),
     exponentOf: (c) => repoConfig.currencies.find((x) => x.code === c)?.exponent,
+    countryNamesOf: (code) => repoConfig.countries.get(code)?.names,
     cancellationParamsOf: () => {
       if (params === undefined) throw new Error('paramètres absents');
       return params;
@@ -264,7 +265,9 @@ describe('US-211 — travailleur booking_contract', () => {
     expect(text).toContain('Conductor (viajero): Ana P.');
     expect(text).toContain('Plataforma intermediaria: Marca');
     expect(text).toContain('o texto em espanhol prevalece');
-    expect(body.filter((l) => (l.s as string) === 'sig')).toHaveLength(10);
+    // bloc de signature : quatre champs remplis à la signature par partie (le nom du voyageur est
+    // hors du bloc `sig` depuis 211b, revue sécurité de #195 n° 5)
+    expect(body.filter((l) => (l.s as string) === 'sig')).toHaveLength(8);
     expect(p[5]).toBe('t-es');
     expect(p[6]).toBe('t-pt');
     expect(p[7]).toBe(RENTAL_CONTRACT_RENDERER);

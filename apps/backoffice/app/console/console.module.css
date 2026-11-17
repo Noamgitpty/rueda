@@ -128,3 +128,28 @@
   outline: var(--size-focus-ring) solid var(--color-focus);
   outline-offset: var(--size-focus-offset);
 }
+
+/* Faits d'une annulation (US-215b) : libellé puis valeur, empilés sur mobile, côte à côte ensuite */
+.facts {
+  display: grid;
+  gap: var(--space-3);
+  margin: 0;
+}
+
+.fact {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.factValue {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+@media (min-width: 48rem) {
+  .fact {
+    grid-template-columns: 1fr 2fr;
+    align-items: baseline;
+    gap: var(--space-3);
+  }
+}

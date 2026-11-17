@@ -13,11 +13,23 @@
  *   n'est démarrée ; le contrat réel est prouvé par les tests de l'API.
  * - Les comportements de la console (actions, files, fiche 360°) restent prouvés par ses tests
  *   unitaires (apps/backoffice) ; ici, seulement le rendu et l'accessibilité de chaque écran.
+ * - US-215b : parcours d'annulation d'un voyage (demandeur, motif fermé, confirmation, envoi), puis
+ *   état RÉEL de la demande lu dans l'API (ici, en revue FINANCE : jamais « C'est fait ») ; textes
+ *   lus dans le catalogue de la langue.
  */
 import { readFileSync } from 'node:fs';
 import type { Page, Route } from '@playwright/test';
+import { createTranslator, getProfile } from '@rueda/i18n';
+import { LOCALE_CONFIG } from '../locale-config.ts';
 import { expectAccessible } from './axe.ts';
-import { expect, expectMobileFriendly, LANGUAGES, tagOf, test } from './fixtures.ts';
+import {
+  expect,
+  expectMobileFriendly,
+  LANGUAGES,
+  submitAndSettle,
+  tagOf,
+  test,
+} from './fixtures.ts';
 import { captured, expectScreen } from './visual.ts';
 
 const COUNTRY = 'ZZ';
@@ -197,4 +209,92 @@ for (const screen of SCREENS) {
       });
     });
   }
+}
+
+/**
+ * US-215b : annulation d'un voyage par l'ops. La demande est enregistrée (201) ; la lecture de son
+ * état rend une demande garée en revue FINANCE (code de 215a) : l'écran montre cet état et la suite
+ * à donner, jamais « C'est fait ». Données fictives (pays « ZZ »).
+ */
+const TRIP = '04400000-0000-4000-8000-0000000000e5';
+const CANCEL: Api = {
+  ...CONSOLE,
+  '/console/actions': {
+    status: 201,
+    body: {
+      code: 'STAFF_ACTION_DONE',
+      messageKey: 'common.auth.actionDone',
+      actionId: '04400000-0000-4000-8000-0000000000f6',
+    },
+  },
+  [`/console/cancellations/${TRIP}`]: {
+    status: 200,
+    body: {
+      cancellation: {
+        cancellationId: '04400000-0000-4000-8000-0000000000f6',
+        tripId: TRIP,
+        country: COUNTRY,
+        action: 'CANCEL_TRIP_PLATFORM',
+        requestedReason: 'PLATFORM_TRUST_SAFETY',
+        initiator: 'PLATFORM',
+        subReason: null,
+        status: 'FIN_REVIEW',
+        outcomeCode: 'OPERATION_SETTLEMENT_FIN_REVIEW',
+        costBearer: null,
+        settlementId: null,
+        requestedAt: AT,
+        decidedAt: AT,
+        tripStatus: 'BOOKED',
+        settlement: null,
+      },
+    },
+  },
+};
+
+for (const language of LANGUAGES) {
+  test.describe(`écran console-annulation · ${language}`, () => {
+    test.use({ locale: tagOf(language) });
+
+    test('demandeur, motif fermé, confirmation, état réel ; axe, mobile d’abord et capture', async ({
+      page,
+    }, info) => {
+      const t = createTranslator(getProfile(LOCALE_CONFIG, tagOf(language)));
+      await serve(page, CANCEL);
+      await page.goto('/');
+      await expect(page.locator('#roles-heading')).toBeFocused();
+      await expect(page).toHaveTitle(/\S/);
+      await page
+        .getByRole('button', { name: t.t('backoffice.action.CANCEL_TRIP_PLATFORM'), exact: true })
+        .click();
+      const form = page.getByTestId('cancel-form');
+      await form.locator('#cancel-trip').fill(TRIP);
+      await form.locator('#cancel-platform').selectOption('PLATFORM_TRUST_SAFETY');
+      await form.locator('#cancel-reason').fill('Ref 4242 zz 0001');
+      await page.getByTestId('cancel-review').click();
+      const confirm = page.getByTestId('cancel-confirm');
+      await expect(confirm).toContainText(t.t('backoffice.cancel.confirmIntro'));
+      await expect(confirm).toContainText(t.t('backoffice.cancel.platform.PLATFORM_TRUST_SAFETY'));
+      await submitAndSettle(page, page.getByTestId('cancel-send'), undefined, {
+        api: /\/api\/console\/actions$/,
+        settled: page.getByTestId('cancel-state'),
+      });
+      await expect(page.getByTestId('cancel-status')).toHaveText(
+        t.t('backoffice.cancel.state.FIN_REVIEW'),
+      );
+      const state = page.getByTestId('cancel-state');
+      await expect(state).toContainText(t.t('backoffice.cancel.state.FIN_REVIEWBody'));
+      await expect(state).toContainText(
+        t.t('backoffice.cancel.outcome.OPERATION_SETTLEMENT_FIN_REVIEW'),
+      );
+      await expect(page.locator('body')).not.toContainText(t.t('common.auth.actionDone'));
+      await page.waitForLoadState('networkidle');
+      await expectMobileFriendly(page);
+      for (const scheme of ['light', 'dark'] as const) {
+        await page.emulateMedia({ colorScheme: scheme });
+        await expectAccessible(page, { include: null });
+        if (captured(info, language, scheme))
+          await expectScreen(page, 'console-annulation', language, scheme);
+      }
+    });
+  });
 }

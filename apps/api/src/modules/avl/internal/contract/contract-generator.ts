@@ -60,6 +60,8 @@ export interface ContractGeneratorDeps {
   readonly localeConfig: LocaleConfig;
   /** Exposant d'une devise (CFG) ; inconnu ⇒ génération refusée. */
   readonly exponentOf: (currency: string) => number | undefined;
+  /** Nom du pays dans chaque langue (CFG, `names`) ; inconnu ⇒ génération refusée (211b). */
+  readonly countryNamesOf: (country: string) => Readonly<Record<string, string>> | undefined;
   /** Paramètres d'annulation du pays à un instant (PRC, CFG) ; lève s'ils manquent. */
   readonly cancellationParamsOf: (ctx: {
     readonly country: string;
@@ -152,6 +154,8 @@ export class RentalContractGenerator {
     const currency = text(source, 'currency');
     const exponent = this.#deps.exponentOf(currency);
     if (exponent === undefined) return this.#failed(cc, 'CURRENCY_UNKNOWN');
+    const names = this.#deps.countryNamesOf(cc);
+    if (names === undefined) return this.#failed(cc, 'COUNTRY_UNKNOWN');
 
     let body;
     let facts;
@@ -185,6 +189,7 @@ export class RentalContractGenerator {
         },
         exponent,
         localeConfig: this.#deps.localeConfig,
+        countryNames: names,
       });
       const odd = nonWinAnsiCount(body);
       if (odd > 0) {
@@ -274,7 +279,9 @@ export class RentalContractGenerator {
     const late = lateCancellationOf(quote, params, Math.min(bookedAtMs, quote.startAtMs));
     if (late === null) return null;
     const penaltyDays = penaltyDaysLabel(late.penaltyDays);
-    if (penaltyDays === null) return null;
+    // jours retenus sans libellé (ni 1 ni ½) : jamais un contrat « selon la politique » à la place
+    // d'une retenue connue du moteur (fail-closed ; revues argent n° 6 et code n° 5 de #195)
+    if (penaltyDays === null) throw new ContractGenerationError('jours de retenue sans libellé');
     return {
       freeUntilLocal: localMinute(late.freeUntilMs, timeZone),
       penaltyDays,

@@ -35,11 +35,16 @@ export {
   contractFooter,
   contractSha256,
   ContractInputError,
+  fillSignatureBlock,
+  parseContractBody,
+  parseContractDerived,
   parseContractFacts,
+  parseContractTerms,
   renderContractPdf,
   RENTAL_CONTRACT_RENDERER,
   RENTAL_CONTRACT_SCHEMA,
   verifyContractPdf,
+  verifySignedContractPdf,
 } from './internal/contract/rental-contract.js';
 export type {
   ContractCancellation,
@@ -55,3 +60,18 @@ export type {
 } from './internal/contract/rental-contract.js';
 export { nonWinAnsiCount } from './internal/contract/pdf.js';
 export type { ContractLine, ContractLineStyle } from './internal/contract/pdf.js';
+
+// Routes du contrat d'un trip (US-211 partie 211b, ADR-149) : port et adaptateur PostgreSQL du
+// magasin (lecture d'une version, signature du voyageur), codes de réponse.
+export { CONTRACT_MESSAGES, ContractHttpError } from './internal/contract/errors.js';
+export {
+  ContractStoreError,
+  PgTripContractStore,
+  UnavailableTripContractStore,
+} from './internal/contract/trip-contract.store.js';
+export type {
+  ContractDocumentRow,
+  ContractReadResult,
+  ContractSignOutcome,
+  TripContractStore,
+} from './internal/contract/trip-contract.store.js';
