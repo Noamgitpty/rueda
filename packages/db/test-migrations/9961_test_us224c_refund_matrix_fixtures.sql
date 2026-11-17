@@ -8,7 +8,8 @@
 -- production. Les commandes de production (planification, envoi, ordonnanceur) sont éprouvées par
 -- l0-us224b-refund-instances et l0-us224c-refund-scheduler.
 --
--- Retour arrière : DROP FUNCTION test_fixture.us224c_insert_refund_instance(uuid, uuid, uuid).
+-- Retour arrière : DROP FUNCTION test_fixture.us224c_insert_refund_instance(uuid, uuid, uuid)
+--   (et la fonction de lecture ci-dessous).
 
 CREATE FUNCTION test_fixture.us224c_insert_refund_instance(p_instance_id uuid, p_operation_id uuid,
                                                           p_trip_id uuid)
@@ -59,3 +60,21 @@ END
 $fn$;
 REVOKE ALL ON FUNCTION test_fixture.us224c_insert_refund_instance(uuid, uuid, uuid) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION test_fixture.us224c_insert_refund_instance(uuid, uuid, uuid) TO app_worker;
+
+-- Identifiant public du point d'entrée de webhook d'un compte PSP de test (le compte FAKE ACTIVE
+-- partagé de la fixture 9800 : un seul compte ACTIVE par pays, psp_account_one_active). Les
+-- travailleurs n'ont aucun droit de lecture sur core.payment_psp_account ; un test d'intégration
+-- qui reçoit des webhooks sur le compte partagé lit ici son identifiant public (US-224c : fin de
+-- la collision entre fichiers d'intégration qui validaient chacun leur propre compte ACTIVE).
+-- Retour arrière : DROP FUNCTION test_fixture.us224c_psp_public_webhook_id(uuid).
+CREATE FUNCTION test_fixture.us224c_psp_public_webhook_id(p_account_id uuid)
+  RETURNS text
+  LANGUAGE sql
+  STABLE
+  SECURITY DEFINER
+  SET search_path = pg_catalog, pg_temp
+AS $fn$
+  SELECT a.public_webhook_id FROM core.payment_psp_account AS a WHERE a.id = p_account_id
+$fn$;
+REVOKE ALL ON FUNCTION test_fixture.us224c_psp_public_webhook_id(uuid) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION test_fixture.us224c_psp_public_webhook_id(uuid) TO app_worker;

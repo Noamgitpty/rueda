@@ -69,18 +69,22 @@ describe.each(CASES)('PAY de bout en bout — $country ($currency)', (c) => {
   it('webhooks en double et hors d’ordre : statut SUCCEEDED, doublons écartés, événements journalisés', async () => {
     const worker = await open('app_worker');
     const api = await open('app_api');
-    const hook = publicId();
-    const accountId = randomUUID();
     const tripId = randomUUID();
 
-    // compte FAKE (droit de TEST de 9500) et trip (fixture d'US-011), validés
+    // compte FAKE ACTIVE PARTAGÉ du pays (fixture 9800 : un seul compte ACTIVE par pays,
+    // psp_account_one_active ; un compte propre validé ici entrait en collision avec les autres
+    // fichiers d'intégration selon leur ordre, US-224c) et trip (fixture d'US-011), validés
     await worker.query('BEGIN');
-    await worker.query(
-      `INSERT INTO core.payment_psp_account (id, provider, country_code, environment, status, public_webhook_id,
-                                             webhook_secret_ref)
-       VALUES ($1, 'FAKE', $2, 'SANDBOX', 'ACTIVE', $3, 'vault:psp/fake/webhook')`,
-      [accountId, c.country, hook],
+    const shared = await worker.query<{ id: string }>(
+      'SELECT test_fixture.us024_psp_account($1) AS id',
+      [c.country],
     );
+    const accountId = shared.rows[0]?.id ?? '';
+    const webhookId = await worker.query<{ id: string }>(
+      'SELECT test_fixture.us224c_psp_public_webhook_id($1) AS id',
+      [accountId],
+    );
+    const hook = webhookId.rows[0]?.id ?? '';
     await worker.query(
       `SELECT test_fixture.rls_insert_trip($1, $2, $3, $4, $5, $6, 'UTC', $7, $8)`,
       [
@@ -194,8 +198,10 @@ describe.each(CASES)('PAY de bout en bout — $country ($currency)', (c) => {
     });
     const inbox = await withPaymentWorker(pool, 'webhook_ingest', (tx) =>
       tx.query<{ processing_status: string }>(
-        `SELECT processing_status FROM core.payment_webhook_inbox WHERE psp_account_id = $1`,
-        [accountId],
+        // compte partagé : seuls les webhooks de CET ordre (notre clé, trip unique)
+        `SELECT processing_status FROM core.payment_webhook_inbox
+          WHERE psp_account_id = $1 AND strpos(normalized_events::text, $2) > 0`,
+        [accountId, idem],
       ),
     );
     expect(inbox.rows.map((r) => r.processing_status)).toEqual(['PROCESSED', 'PROCESSED']);
