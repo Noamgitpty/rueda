@@ -51,8 +51,6 @@ export async function expectScreen(
 ): Promise<void> {
   await expect.soft(page).toHaveScreenshot([screen, `${language}-${scheme}.png`], {
     fullPage: true,
-    // TEMPORAIRE (reprise des références US-048) : échec rapide d'une capture en écart.
-    timeout: 1_500,
     ...(options.stableCompositing === true ? { stylePath: STABLE_CAPTURE_STYLE } : {}),
   });
 }

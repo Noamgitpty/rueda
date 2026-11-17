@@ -13,7 +13,7 @@
  *   démarré ici) ; références des captures dans `e2e/__screenshots__/<plateforme>/<projet>/`,
  *   jamais réécrites en CI (`updateSnapshots: 'none'`).
  */
-import { defineConfig, type Project } from '@playwright/test';
+import { defineConfig } from '@playwright/test';
 
 const PORT = Number(process.env['RUEDA_E2E_PORT'] ?? 3100);
 const BASE_URL = `http://localhost:${PORT}`;
@@ -104,76 +104,72 @@ export default defineConfig({
     trace: 'off',
   },
   // Les parcours de la coquille tournent sur les trois viewports ; ceux de la PWA sur « pwa » seul.
-  // TEMPORAIRE (reprise des références US-048) : seules les captures des projets touchés.
-  grep: /écran /,
-  projects: (
-    [
-      {
-        name: 'mobile-360',
-        testMatch: [
-          SHELL,
-          SIGNUP,
-          PHONE,
-          HOST,
-          IDENTITY,
-          HOST_VERIFICATION,
-          HOST_CALENDAR,
-          HOST_TRIPS,
-          SEARCH,
-          LISTING,
-          CHECKOUT,
-          PAYMENT,
-          REVIEW,
-          HOST_EARNINGS,
-          SCREENS,
-        ],
-        use: { ...phone, viewport: { width: 360, height: 780 } },
-      },
-      {
-        name: 'mobile-390',
-        testMatch: [
-          SHELL,
-          SIGNUP,
-          PHONE,
-          HOST,
-          IDENTITY,
-          HOST_VERIFICATION,
-          HOST_CALENDAR,
-          HOST_TRIPS,
-          SEARCH,
-          LISTING,
-          CHECKOUT,
-          PAYMENT,
-          REVIEW,
-          HOST_EARNINGS,
-          SCREENS,
-        ],
-        use: { ...phone, viewport: { width: 390, height: 844 } },
-      },
-      {
-        name: 'tablette',
-        testMatch: [SHELL, SCREENS],
-        // balayage des écrans en tablette : es et en seulement (19 US-044, notes techniques)
-        grepInvert: /écran .* · (fr|pt) /,
-        use: { viewport: { width: 768, height: 1024 }, hasTouch: true },
-      },
-      {
-        name: 'console-360',
-        testMatch: CONSOLE,
-        use: { ...phone, viewport: { width: 360, height: 780 }, baseURL: CONSOLE_URL },
-      },
-      {
-        name: 'console-390',
-        testMatch: CONSOLE,
-        use: { ...phone, viewport: { width: 390, height: 844 }, baseURL: CONSOLE_URL },
-      },
-      {
-        name: 'pwa',
-        testMatch: /pwa\.spec\.ts$/,
-        use: { ...phone, viewport: { width: 390, height: 844 }, serviceWorkers: 'allow' },
-      },
-    ] as Project[]
-  ).filter((project) => project.name === 'mobile-360' || project.name === 'console-360'),
+  projects: [
+    {
+      name: 'mobile-360',
+      testMatch: [
+        SHELL,
+        SIGNUP,
+        PHONE,
+        HOST,
+        IDENTITY,
+        HOST_VERIFICATION,
+        HOST_CALENDAR,
+        HOST_TRIPS,
+        SEARCH,
+        LISTING,
+        CHECKOUT,
+        PAYMENT,
+        REVIEW,
+        HOST_EARNINGS,
+        SCREENS,
+      ],
+      use: { ...phone, viewport: { width: 360, height: 780 } },
+    },
+    {
+      name: 'mobile-390',
+      testMatch: [
+        SHELL,
+        SIGNUP,
+        PHONE,
+        HOST,
+        IDENTITY,
+        HOST_VERIFICATION,
+        HOST_CALENDAR,
+        HOST_TRIPS,
+        SEARCH,
+        LISTING,
+        CHECKOUT,
+        PAYMENT,
+        REVIEW,
+        HOST_EARNINGS,
+        SCREENS,
+      ],
+      use: { ...phone, viewport: { width: 390, height: 844 } },
+    },
+    {
+      name: 'tablette',
+      testMatch: [SHELL, SCREENS],
+      // balayage des écrans en tablette : es et en seulement (19 US-044, notes techniques)
+      grepInvert: /écran .* · (fr|pt) /,
+      use: { viewport: { width: 768, height: 1024 }, hasTouch: true },
+    },
+    {
+      name: 'console-360',
+      testMatch: CONSOLE,
+      use: { ...phone, viewport: { width: 360, height: 780 }, baseURL: CONSOLE_URL },
+    },
+    {
+      name: 'console-390',
+      testMatch: CONSOLE,
+      use: { ...phone, viewport: { width: 390, height: 844 }, baseURL: CONSOLE_URL },
+    },
+    {
+      name: 'pwa',
+      testMatch: /pwa\.spec\.ts$/,
+      use: { ...phone, viewport: { width: 390, height: 844 }, serviceWorkers: 'allow' },
+    },
+  ],
   webServer: [
     {
       command: 'node e2e/stub-api.mjs',
