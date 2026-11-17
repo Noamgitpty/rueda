@@ -370,6 +370,8 @@ export const CONSTRAINT_CODES: Readonly<Record<string, readonly [string, DbBusin
   trip_contract_not_signed: [SQLSTATE.objectNotInPrerequisiteState, 'CONTRACT_NOT_SIGNED'],
   contract_record_immutable: [SQLSTATE.integrityConstraintViolation, 'IMMUTABLE_RECORD'],
   contract_command_forbidden: [SQLSTATE.insufficientPrivilege, 'FORBIDDEN'],
+  // parties d'une réservation pour les notifications (0131, US-213, ADR-157)
+  notification_parties_forbidden: [SQLSTATE.insufficientPrivilege, 'FORBIDDEN'],
   // annulations déclenchées par l'ops, réglées dans la transition (0124, US-215, ADR-148)
   trip_cancellation_closed: [SQLSTATE.objectNotInPrerequisiteState, 'CANCELLATION_NOT_PENDING'],
   trip_cancellation_live_unique: [SQLSTATE.uniqueViolation, 'CANCELLATION_PENDING'],

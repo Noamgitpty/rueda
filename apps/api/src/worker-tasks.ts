@@ -12,7 +12,7 @@
  * | `booking_oracle`      | 24 h (ADR-068)                             | `core.booking_production_oracle_alert` (0045, C12)        |
  * | `reconciliation`      | 24 h (ADR-087)                             | contrôles de rapprochement de l'argent, lecture seule (FIN, US-047) ; alerte `FIN_MONEY_RECONCILIATION` |
  * | `risk_pruner`         | 1 h                                        | `core.risk_cmd_prune` (0047, US-052)                      |
- * | `ntf_dispatcher`, `ntf_sender` | événements, minuterie             | NTF (US-021) ; plafond SMS du pays (`ntfSmsBudget`, US-052) |
+ * | `ntf_dispatcher`, `ntf_sender` | événements, minuterie             | NTF (US-021) ; plafond SMS du pays (`ntfSmsBudget`, US-052) ; parties des réservations lues par `core.booking_notification_parties` (0131, adaptateur `postgresNotificationParties` d'AVL, US-213) |
  * | `ops_monitor`         | 60 s (ADR-080)                             | `core.ops_monitor_metrics` (0051) ; alertes sur le port `AlertChannel` (US-004) |
  * | `iam_otp_sender`      | événement `iam.otp.requested`              | `core.iam_worker_otp_issue` (0066, US-104) puis SMS ; aucun canal SMS avant le lot C |
  * | `booking_contract`    | événement `booking.trip.booked`            | `core.booking_contract_source` puis `core.booking_cmd_record_contract` (0122, US-211) : contrat de location hôte–voyageur, retenue du moteur de règlement, PDF déterministe et empreinte ; idempotent par événement |
@@ -40,6 +40,7 @@ import type {
   WorkerTransactions,
 } from './modules/bus/index.js';
 import {
+  postgresNotificationParties,
   registerProductionOracle,
   registerRentalContracts,
   RentalContractGenerator,
@@ -557,5 +558,7 @@ export function registerWorkerTasks(registry: BusRegistry, deps: WorkerTaskDeps)
         deps.log(JSON.stringify({ level: 'info', ...entry }));
       },
     }),
+    // parties des réservations lues en base (US-213, ADR-157 ; fonction 0131, ntf_dispatcher)
+    { parties: postgresNotificationParties },
   );
 }

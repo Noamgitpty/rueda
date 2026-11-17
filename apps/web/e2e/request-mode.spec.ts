@@ -164,7 +164,7 @@ for (const language of LANGUAGES) {
         time: t.time(RESPOND_BY, 'UTC'),
       });
       await expectS06(page, holdId, 'REQUEST_SENT', t.t('web.s07.request.title'), pending);
-      await expect(page.locator(MAIN)).not.toContainText(t.t('web.s06.confirmed.title'));
+      await expect(page.locator(MAIN)).not.toContainText(t.t('web.s07.title'));
       await expectAccessible(page);
       await expectMobileFriendly(page);
 
@@ -211,14 +211,14 @@ for (const language of LANGUAGES) {
         t.t('web.s07.request.capturing.title'),
         t.t('web.s07.request.capturing.body', { host_name: HOST_NAME }),
       );
-      await expect(page.locator(MAIN)).not.toContainText(t.t('web.s06.confirmed.title'));
+      await expect(page.locator(MAIN)).not.toContainText(t.t('web.s07.title'));
       await expectAccessible(page);
       await call(`/__e2e/payment/webhook?hold=${holdId}&event=SUCCEEDED`);
       await expectS06(
         page,
         holdId,
         'CONFIRMED',
-        t.t('web.s06.confirmed.title'),
+        t.t('web.s07.title'),
         t.t('web.s06.confirmed.body'),
       );
     });
@@ -306,7 +306,7 @@ for (const language of LANGUAGES) {
       await expectAccessible(page);
       for (const id of [declined, expired, failed]) {
         await page.goto(`/checkout/hold/${id}/payment`);
-        await expect(page.locator(MAIN)).not.toContainText(t.t('web.s06.confirmed.title'));
+        await expect(page.locator(MAIN)).not.toContainText(t.t('web.s07.title'));
         await expect(page.locator(`${MAIN} form`)).toHaveCount(0);
       }
     });

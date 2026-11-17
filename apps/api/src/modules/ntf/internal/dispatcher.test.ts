@@ -6,17 +6,46 @@
  */
 import { randomUUID } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
-import { subscribedEventTypes } from './catalog.js';
-import { dispatchEvent, NotificationContractError, planDispatches } from './dispatcher.js';
-import { COUNTRY_CASES, event, MemoryDb } from './ntf.test-support.js';
+import type { PartyFacts } from './catalog.js';
+import { RULES, subscribedEventTypes } from './catalog.js';
+import {
+  dispatchEvent,
+  NotificationContractError,
+  partyKey,
+  planDispatches,
+  requiredParties,
+} from './dispatcher.js';
+import { COUNTRY_CASES, event, MemoryDb, MemoryParties, tripFacts } from './ntf.test-support.js';
 
 const guest = randomUUID();
 const host = randomUUID();
 const tripId = '0190f5a2-7c3e-7d4b-8a1f-3c5e9b2d4a6f';
+const holdId = '7d4b0190-8a1f-4c3e-9b2d-4a6f3c5e0190';
+
+/** Faits d'un trip lus en base (US-213, ADR-157), clés de `partyKey`. */
+const tripMap = (facts: PartyFacts | null = tripFacts(guest, host)) =>
+  new Map([[partyKey('TRIP', tripId), facts]]);
+/** Faits d'un hold (0131 : type, statut, motif, demande autorisée). */
+const holdFacts = (over: Partial<PartyFacts> = {}): PartyFacts => ({
+  ...tripFacts(guest, host),
+  holdKind: 'REQUEST',
+  holdStatus: 'AWAITING_HOST',
+  releaseReason: null,
+  requestAuthorized: true,
+  ...over,
+});
+const holdMap = (facts: PartyFacts | null) => new Map([[partyKey('HOLD', holdId), facts]]);
+const who = (plan: ReturnType<typeof planDispatches>) =>
+  plan.map((p) => [p.recipientRole, p.recipientUserId, p.channel, p.template]);
 
 describe('abonnement', () => {
   it('le dispatcher écoute les événements canoniques du catalogue (17 §4.5)', () => {
     expect(subscribedEventTypes()).toEqual([
+      'booking.hold.released',
+      'booking.request.capture_unconfirmed',
+      'booking.request.declined',
+      'booking.request.expired',
+      'booking.request.received',
       'booking.trip.booked',
       'booking.trip.host_restricted',
       'catalog.addition_request.resolved',
@@ -43,17 +72,138 @@ describe.each(COUNTRY_CASES)('planDispatches — $country ($currency)', (c) => {
       c.country,
     );
 
-  it('réservation confirmée : voyageur et hôte, e-mail (documents), référence courte', () => {
-    const plan = planDispatches(booked());
-    expect(plan.map((p) => [p.recipientRole, p.recipientUserId, p.channel, p.template])).toEqual([
+  it('réservation confirmée : voyageur et hôte (un texte par rôle), e-mail (documents), référence courte du trip (8 premiers chiffres, comme les écrans)', () => {
+    const plan = planDispatches(booked(), RULES, tripMap());
+    expect(who(plan)).toEqual([
       ['GUEST', guest, 'EMAIL', 'EVT_BOOKING_CONFIRMED'],
-      ['HOST', host, 'EMAIL', 'EVT_BOOKING_CONFIRMED'],
+      ['HOST', host, 'EMAIL', 'EVT_BOOKING_CONFIRMED_HOST'],
     ]);
-    expect(plan[0]?.variables).toEqual({
-      booking_ref: '9B2D4A6F',
-      start_at: '2026-12-24T14:00:00Z',
-      end_at: '2026-12-27T10:00:00Z',
-    });
+    for (const p of plan) {
+      expect(p.variables).toEqual({
+        booking_ref: '0190F5A2',
+        start_at: '2026-12-24T14:00:00Z',
+        end_at: '2026-12-27T10:00:00Z',
+      });
+    }
+  });
+
+  it('US-213 : charge utile réelle de `booking.trip.booked` (0126, sans identifiant de personne) ⇒ parties lues en base, titulaire du compte d’hôte', () => {
+    // 0126 : trip_id, hold_id, vehicle_id, org_id, scheduled_start, scheduled_end
+    const real = event(
+      'booking.trip.booked',
+      {
+        trip_id: tripId,
+        hold_id: holdId,
+        vehicle_id: randomUUID(),
+        org_id: randomUUID(),
+        scheduled_start: '2026-12-24T14:00:00.000000+00:00',
+        scheduled_end: '2026-12-27T10:00:00.000000+00:00',
+      },
+      c.country,
+    );
+    expect(requiredParties(real)).toEqual([{ subject: 'TRIP', id: tripId }]);
+    expect(who(planDispatches(real, RULES, tripMap()))).toEqual([
+      ['GUEST', guest, 'EMAIL', 'EVT_BOOKING_CONFIRMED'],
+      ['HOST', host, 'EMAIL', 'EVT_BOOKING_CONFIRMED_HOST'],
+    ]);
+    // trip inconnu de la base, ou faits non lus (port absent) : erreur de contrat, aucun envoi
+    expect(() => planDispatches(real, RULES, tripMap(null))).toThrow(NotificationContractError);
+    expect(() => planDispatches(real)).toThrow(NotificationContractError);
+  });
+
+  it('US-213 : charge utile et base en désaccord sur une personne ⇒ erreur de contrat (jamais un mélange)', () => {
+    const other = randomUUID();
+    expect(() => planDispatches(booked(), RULES, tripMap(tripFacts(other, host)))).toThrow(
+      NotificationContractError,
+    );
+    expect(() => planDispatches(booked(), RULES, tripMap(tripFacts(guest, other)))).toThrow(
+      NotificationContractError,
+    );
+  });
+
+  it('US-213 : demande reçue ⇒ l’hôte (titulaire), heure limite de la base ; refus et expiration ⇒ le voyageur ; capture non confirmée ⇒ les deux', () => {
+    const respondBy = '2026-12-20T18:00:00.000000+00:00';
+    const base = { hold_id: holdId, vehicle_id: randomUUID(), org_id: randomUUID() };
+    const received = planDispatches(
+      event('booking.request.received', { ...base, request_respond_by: respondBy }, c.country),
+      RULES,
+      holdMap(holdFacts()),
+    );
+    expect(who(received)).toEqual([['HOST', host, 'EMAIL', 'EVT_BOOKING_REQUEST_RECEIVED']]);
+    // référence de la demande : celle de S06, S07 et A05 (8 premiers chiffres du hold)
+    expect(received[0]?.variables).toEqual({ booking_ref: '7D4B0190', respond_by: respondBy });
+    // heure limite absente : erreur de contrat
+    expect(() =>
+      planDispatches(
+        event('booking.request.received', base, c.country),
+        RULES,
+        holdMap(holdFacts()),
+      ),
+    ).toThrow(NotificationContractError);
+    const plan = (type: string, facts: PartyFacts) =>
+      who(
+        planDispatches(event(type, { ...base, decision: 'X' }, c.country), RULES, holdMap(facts)),
+      );
+    expect(plan('booking.request.declined', holdFacts({ holdStatus: 'RELEASED' }))).toEqual([
+      ['GUEST', guest, 'EMAIL', 'EVT_BOOKING_REQUEST_DECLINED'],
+    ]);
+    expect(plan('booking.request.expired', holdFacts({ holdStatus: 'EXPIRED' }))).toEqual([
+      ['GUEST', guest, 'EMAIL', 'EVT_BOOKING_REQUEST_EXPIRED'],
+    ]);
+    expect(
+      plan(
+        'booking.request.capture_unconfirmed',
+        holdFacts({ holdStatus: 'RELEASED', releaseReason: 'CAPTURE_UNCONFIRMED' }),
+      ),
+    ).toEqual([
+      ['GUEST', guest, 'EMAIL', 'EVT_BOOKING_REQUEST_FAILED'],
+      ['HOST', host, 'EMAIL', 'EVT_BOOKING_REQUEST_FAILED_HOST'],
+    ]);
+    // l'acceptation n'a pas de message propre : la confirmation suit au passage BOOKED
+    expect(
+      planDispatches(
+        event('booking.request.accepted', base, c.country),
+        RULES,
+        holdMap(holdFacts()),
+      ),
+    ).toEqual([]);
+  });
+
+  it('US-213 (N-247) : `booking.hold.released` ⇒ voyageur et hôte prévenus SEULEMENT pour la capture refusée d’une demande acceptée (faits lus en base)', () => {
+    const released = event(
+      'booking.hold.released',
+      {
+        hold_id: holdId,
+        vehicle_id: randomUUID(),
+        org_id: randomUUID(),
+        reason: 'PAYMENT_DECLINED',
+      },
+      c.country,
+    );
+    const declined = holdFacts({ holdStatus: 'RELEASED', releaseReason: 'PAYMENT_DECLINED' });
+    expect(who(planDispatches(released, RULES, holdMap(declined)))).toEqual([
+      ['GUEST', guest, 'EMAIL', 'EVT_BOOKING_REQUEST_FAILED'],
+      ['HOST', host, 'EMAIL', 'EVT_BOOKING_REQUEST_FAILED_HOST'],
+    ]);
+    for (const facts of [
+      { ...declined, holdKind: 'CHECKOUT' },
+      { ...declined, requestAuthorized: false },
+      { ...declined, releaseReason: 'GUEST_RELEASED' },
+      { ...declined, holdStatus: 'EXPIRED' },
+    ]) {
+      expect(planDispatches(released, RULES, holdMap(facts))).toEqual([]);
+    }
+    // charge utile d'une libération par le voyageur (0037 : sans motif) : aucune erreur de contrat
+    const plain = event(
+      'booking.hold.released',
+      { hold_id: holdId, vehicle_id: randomUUID() },
+      c.country,
+    );
+    expect(planDispatches(plain, RULES, holdMap(holdFacts({ holdKind: 'CHECKOUT' })))).toEqual([]);
+    // hold absent de la charge utile : erreur de contrat
+    expect(() => requiredParties(event('booking.hold.released', {}, c.country))).toThrow(
+      NotificationContractError,
+    );
   });
 
   it('retard détecté : SMS d’abord (urgent, 10b §3.9)', () => {
@@ -144,19 +294,24 @@ describe.each(COUNTRY_CASES)('planDispatches — $country ($currency)', (c) => {
   });
 
   it('annulation : seulement vers un statut CANCELLED_* ; KYC : seulement APPROVED', () => {
-    const trip = (to: string) =>
-      planDispatches(
-        event(
-          'trip.status_changed',
-          { trip_id: tripId, guest_user_id: guest, host_user_id: host, to },
-          c.country,
-        ),
+    // charge utile de 0124 : trip_id, from, to, reason, settlement_id (parties lues en base)
+    const changed = (to: string) =>
+      event(
+        'trip.status_changed',
+        { trip_id: tripId, from: 'BOOKED', to, reason: 'X', settlement_id: null },
+        c.country,
       );
-    expect(trip('CANCELLED_BY_HOST').map((p) => p.template)).toEqual([
-      'EVT_BOOKING_CANCELLED',
-      'EVT_BOOKING_CANCELLED',
+    const trip = (to: string) => planDispatches(changed(to), RULES, tripMap());
+    expect(who(trip('CANCELLED_BY_HOST'))).toEqual([
+      ['GUEST', guest, 'EMAIL', 'EVT_BOOKING_CANCELLED'],
+      ['HOST', host, 'EMAIL', 'EVT_BOOKING_CANCELLED'],
     ]);
     expect(trip('IN_PROGRESS')).toEqual([]);
+    // statut non déclenchant : aucune lecture en base
+    expect(requiredParties(changed('IN_PROGRESS'))).toEqual([]);
+    expect(requiredParties(changed('CANCELLED_BY_GUEST'))).toEqual([
+      { subject: 'TRIP', id: tripId },
+    ]);
     const kyc = (to: string) =>
       planDispatches(event('kyc.verification.status_changed', { user_id: guest, to }, null));
     expect(kyc('APPROVED').map((p) => [p.recipientRole, p.channel])).toEqual([['GUEST', 'EMAIL']]);
@@ -165,12 +320,14 @@ describe.each(COUNTRY_CASES)('planDispatches — $country ($currency)', (c) => {
 
   it('contrat de charge utile violé : erreur (lettre morte et alerte), aucun envoi partiel', () => {
     const bad = [
+      // US-213 : le voyageur et l’hôte viennent de la base ; ici, c’est le trip qui manque
       {
-        trip_id: tripId,
         host_user_id: host,
         scheduled_start: '2026-12-24T14:00:00Z',
         scheduled_end: '2026-12-27T10:00:00Z',
       },
+      // date de fin absente
+      { trip_id: tripId, scheduled_start: '2026-12-24T14:00:00Z' },
       {
         trip_id: 'pas-un-uuid',
         guest_user_id: guest,
@@ -187,9 +344,9 @@ describe.each(COUNTRY_CASES)('planDispatches — $country ($currency)', (c) => {
       },
     ];
     for (const payload of bad) {
-      expect(() => planDispatches(event('booking.trip.booked', payload, c.country))).toThrow(
-        NotificationContractError,
-      );
+      expect(() =>
+        planDispatches(event('booking.trip.booked', payload, c.country), RULES, tripMap()),
+      ).toThrow(NotificationContractError);
     }
     expect(() =>
       planDispatches(
@@ -204,14 +361,29 @@ describe.each(COUNTRY_CASES)('planDispatches — $country ($currency)', (c) => {
 
   it('critère 2 : événement rejoué ⇒ aucun doublon par destinataire et canal, une seule tâche d’envoi', async () => {
     const db = new MemoryDb();
+    const parties = new MemoryParties().set('TRIP', tripId, tripFacts(guest, host));
     const e = booked();
-    const first = await dispatchEvent(e, db);
-    const replay = await dispatchEvent(e, db);
+    const first = await dispatchEvent(e, db, RULES, parties);
+    const replay = await dispatchEvent(e, db, RULES, parties);
     expect(first).toHaveLength(2);
     expect(replay).toEqual([]);
     expect(db.dispatches).toHaveLength(2);
     expect(db.pendingSends()).toHaveLength(2);
+    // une lecture des parties par traitement (les deux règles partagent le même trip)
+    expect(parties.calls).toEqual([partyKey('TRIP', tripId), partyKey('TRIP', tripId)]);
     // un autre événement de même contenu est un autre fait : nouveaux envois
-    expect(await dispatchEvent({ ...e, eventId: randomUUID() }, db)).toHaveLength(2);
+    expect(await dispatchEvent({ ...e, eventId: randomUUID() }, db, RULES, parties)).toHaveLength(
+      2,
+    );
+  });
+
+  it('US-213 : port des parties absent ou sujet inconnu ⇒ erreur de contrat, aucun envoi créé', async () => {
+    const db = new MemoryDb();
+    await expect(dispatchEvent(booked(), db)).rejects.toThrow(NotificationContractError);
+    await expect(dispatchEvent(booked(), db, RULES, new MemoryParties())).rejects.toThrow(
+      NotificationContractError,
+    );
+    expect(db.dispatches).toEqual([]);
+    expect(db.pendingSends()).toEqual([]);
   });
 });

@@ -8,7 +8,9 @@ import { randomUUID } from 'node:crypto';
 import { FakeClock, FakeMessagingChannel } from '@rueda/fake-adapters';
 import type { DomainEvent, JsonObject, SqlClient, SqlResult } from '../../bus/index.js';
 import { CountryConfigService } from '../../cfg/index.js';
+import type { PartyFacts, PartySubject } from './catalog.js';
 import type { MessageChannelKind } from './messaging-channel.port.js';
+import type { NotificationParties } from './parties.port.js';
 import type { RecipientContact, RecipientDirectory } from './recipient-directory.port.js';
 import { notificationCountryData, repositoryLocaleConfig } from './registration.js';
 import type { NotificationSenderDeps, NtfLogEntry } from './sender.js';
@@ -50,6 +52,35 @@ export function event(
     causationId: null,
     payload,
     partitionKey: null,
+  };
+}
+
+/** Faits d'un trip (voyageur, titulaire du compte d'hôte), comme `core.booking_notification_parties`. */
+export const tripFacts = (guestUserId: string, hostUserId: string): PartyFacts => ({
+  guestUserId,
+  hostUserId,
+  holdKind: null,
+  holdStatus: null,
+  releaseReason: null,
+  requestAuthorized: null,
+});
+
+/** Port `NotificationParties` en mémoire (US-213) : faits par sujet, appels relevés. */
+export class MemoryParties implements NotificationParties {
+  readonly #facts = new Map<string, PartyFacts>();
+  readonly calls: string[] = [];
+  set(subject: PartySubject, id: string, facts: PartyFacts): this {
+    this.#facts.set(`${subject}:${id.toLowerCase()}`, facts);
+    return this;
+  }
+  readonly partiesOf = (
+    _tx: SqlClient,
+    subject: PartySubject,
+    id: string,
+  ): Promise<PartyFacts | null> => {
+    const key = `${subject}:${id.toLowerCase()}`;
+    this.calls.push(key);
+    return Promise.resolve(this.#facts.get(key) ?? null);
   };
 }
 

@@ -64,6 +64,36 @@ export interface RecipientSpec {
   readonly field: string;
 }
 
+/**
+ * Sujet dont les parties sont lues en base par le port `NotificationParties` (US-213, ADR-157) :
+ * trip (`booking_trip`) ou hold (`booking_checkout_hold`).
+ */
+export type PartySubject = 'TRIP' | 'HOLD';
+
+/**
+ * Parties d'une réservation lues en base au moment de la résolution (fonction
+ * `core.booking_notification_parties`, migration 0131) : identifiants et codes seulement.
+ */
+export interface PartyFacts {
+  readonly guestUserId: string;
+  /** Titulaire du compte d'hôte (`organization.holder_user_id`). */
+  readonly hostUserId: string;
+  /** Hold seulement (`CHECKOUT` ou `REQUEST`) ; `null` pour un trip. */
+  readonly holdKind: string | null;
+  readonly holdStatus: string | null;
+  readonly releaseReason: string | null;
+  /** Hold seulement : demande autorisée (heure limite de réponse posée, 0126). */
+  readonly requestAuthorized: boolean | null;
+}
+
+export interface PartiesSpec {
+  readonly subject: PartySubject;
+  /** Champ UUID de la charge utile qui désigne le sujet (`trip_id`, `hold_id`). */
+  readonly field: string;
+  /** Condition sur les faits lus en base ; absente : la règle s'applique toujours. */
+  readonly when?: (facts: PartyFacts) => boolean;
+}
+
 export interface RuleSpec {
   readonly eventType: string;
   readonly template: TemplateKey;
@@ -79,6 +109,15 @@ export interface RuleSpec {
     readonly matches: (value: string) => boolean;
   };
   readonly recipients: readonly RecipientSpec[];
+  /**
+   * Destinataires lus EN BASE par le port `NotificationParties` (US-213, ADR-157) : les
+   * producteurs de `booking.trip.booked`, `trip.status_changed` et `booking.request.*` ne portent
+   * pas les identifiants des parties. Le voyageur (`guest_user_id`) et le titulaire du compte
+   * d'hôte (`host_user_id`) viennent alors de la base ; si la charge utile porte aussi l'un de ces
+   * champs, il doit être identique (sinon erreur de contrat). Sujet introuvable ou port absent :
+   * erreur de contrat (lettre morte et alerte), jamais un envoi deviné.
+   */
+  readonly parties?: PartiesSpec;
 }
 
 export const TEMPLATE_KEYS = [
@@ -91,12 +130,23 @@ export const TEMPLATE_KEYS = [
   'EVT_CATALOG_ADDITION_APPROVED',
   'EVT_CATALOG_ADDITION_REJECTED',
   'EVT_TRIP_HOST_RESTRICTED',
+  // confirmation et demandes de réservation (US-213, ADR-157)
+  'EVT_BOOKING_CONFIRMED_HOST',
+  'EVT_BOOKING_REQUEST_RECEIVED',
+  'EVT_BOOKING_REQUEST_DECLINED',
+  'EVT_BOOKING_REQUEST_EXPIRED',
+  'EVT_BOOKING_REQUEST_FAILED',
+  'EVT_BOOKING_REQUEST_FAILED_HOST',
 ] as const;
 export type TemplateKey = (typeof TEMPLATE_KEYS)[number];
 
 const FIRST_NAME: VariableSource = { from: 'recipient_first_name' };
 const BRAND: VariableSource = { from: 'brand' };
 const BOOKING_REF: VariableSource = { from: 'payload', type: 'ref', field: 'trip_id' };
+/** Référence d'une demande : celle de S06, S07 et A05 (`hold_id`, US-223d). */
+const REQUEST_REF: VariableSource = { from: 'payload', type: 'ref', field: 'hold_id' };
+const START_AT: VariableSource = { from: 'payload', type: 'instant', field: 'scheduled_start' };
+const END_AT: VariableSource = { from: 'payload', type: 'instant', field: 'scheduled_end' };
 
 /** Documents et confirmations : e-mail d'abord (preuve écrite), SMS en repli (16 A.8 « Notifications »). */
 const EMAIL_THEN_SMS: readonly ChannelSpec[] = [{ channel: 'EMAIL', fallback: 'SMS' }];
@@ -118,8 +168,8 @@ export const TEMPLATES: Readonly<Record<TemplateKey, TemplateSpec>> = {
       first_name: FIRST_NAME,
       brand: BRAND,
       booking_ref: BOOKING_REF,
-      start_at: { from: 'payload', type: 'instant', field: 'scheduled_start' },
-      end_at: { from: 'payload', type: 'instant', field: 'scheduled_end' },
+      start_at: START_AT,
+      end_at: END_AT,
     },
     channels: EMAIL_THEN_SMS,
     critical: true,
@@ -189,10 +239,86 @@ export const TEMPLATES: Readonly<Record<TemplateKey, TemplateSpec>> = {
     channels: EMAIL_THEN_SMS,
     critical: true,
   },
+  // Confirmation à l'hôte (16 BKG-022, NTF-007 « hôte : notification » ; US-213, ADR-157) : la
+  // référence est celle du trip (A03, contrat) ; aucune donnée du voyageur (minimisation)
+  EVT_BOOKING_CONFIRMED_HOST: {
+    key: 'EVT_BOOKING_CONFIRMED_HOST',
+    slug: 'bookingConfirmedHost',
+    variables: {
+      first_name: FIRST_NAME,
+      brand: BRAND,
+      booking_ref: BOOKING_REF,
+      start_at: START_AT,
+      end_at: END_AT,
+    },
+    channels: EMAIL_THEN_SMS,
+    critical: true,
+  },
+  // Demandes de réservation (mode REQUEST, US-223c ; 10b S07 « mode REQUEST », HDB-002) : l'hôte
+  // reçoit la demande avec l'heure limite de la base ; le voyageur apprend le refus, l'expiration
+  // ou l'échec de la capture ; l'hôte apprend l'échec de la capture qu'il a acceptée (N-247).
+  // L'acceptation n'a pas de message propre : la confirmation suit au passage BOOKED (comme Turo).
+  EVT_BOOKING_REQUEST_RECEIVED: {
+    key: 'EVT_BOOKING_REQUEST_RECEIVED',
+    slug: 'bookingRequestReceived',
+    variables: {
+      first_name: FIRST_NAME,
+      brand: BRAND,
+      booking_ref: REQUEST_REF,
+      respond_by: { from: 'payload', type: 'instant', field: 'request_respond_by' },
+    },
+    channels: EMAIL_THEN_SMS,
+    critical: true,
+  },
+  EVT_BOOKING_REQUEST_DECLINED: {
+    key: 'EVT_BOOKING_REQUEST_DECLINED',
+    slug: 'bookingRequestDeclined',
+    variables: { first_name: FIRST_NAME, brand: BRAND, booking_ref: REQUEST_REF },
+    channels: EMAIL_THEN_SMS,
+    critical: false,
+  },
+  EVT_BOOKING_REQUEST_EXPIRED: {
+    key: 'EVT_BOOKING_REQUEST_EXPIRED',
+    slug: 'bookingRequestExpired',
+    variables: { first_name: FIRST_NAME, brand: BRAND, booking_ref: REQUEST_REF },
+    channels: EMAIL_THEN_SMS,
+    critical: false,
+  },
+  EVT_BOOKING_REQUEST_FAILED: {
+    key: 'EVT_BOOKING_REQUEST_FAILED',
+    slug: 'bookingRequestFailed',
+    variables: { first_name: FIRST_NAME, brand: BRAND, booking_ref: REQUEST_REF },
+    channels: EMAIL_THEN_SMS,
+    critical: true,
+  },
+  EVT_BOOKING_REQUEST_FAILED_HOST: {
+    key: 'EVT_BOOKING_REQUEST_FAILED_HOST',
+    slug: 'bookingRequestFailedHost',
+    variables: { first_name: FIRST_NAME, brand: BRAND, booking_ref: REQUEST_REF },
+    channels: EMAIL_THEN_SMS,
+    critical: true,
+  },
 };
 
 const GUEST: RecipientSpec = { role: 'GUEST', field: 'guest_user_id' };
 const HOST: RecipientSpec = { role: 'HOST', field: 'host_user_id' };
+const TRIP_PARTIES: PartiesSpec = { subject: 'TRIP', field: 'trip_id' };
+const HOLD_PARTIES: PartiesSpec = { subject: 'HOLD', field: 'hold_id' };
+
+/** Capture refusée d'une demande acceptée : hold REQUEST autorisé, RELEASED pour PAYMENT_DECLINED. */
+export function isDeclinedRequestCapture(f: PartyFacts): boolean {
+  return (
+    f.holdKind === 'REQUEST' &&
+    f.holdStatus === 'RELEASED' &&
+    f.releaseReason === 'PAYMENT_DECLINED' &&
+    f.requestAuthorized === true
+  );
+}
+const CAPTURE_DECLINED_PARTIES: PartiesSpec = {
+  subject: 'HOLD',
+  field: 'hold_id',
+  when: isDeclinedRequestCapture,
+};
 const fieldIs = (field: string, value: string): NonNullable<RuleSpec['condition']> => ({
   field,
   matches: (v) => v === value,
@@ -206,16 +332,28 @@ export const RULES: readonly RuleSpec[] = [
     condition: fieldIs('to', 'APPROVED'),
     recipients: [{ role: 'GUEST', field: 'user_id' }],
   },
+  // `booking.trip.booked` (0126 : trip_id, hold_id, vehicle_id, org_id, scheduled_*) : parties
+  // lues en base (US-213, ADR-157) ; un texte par rôle
   {
     eventType: 'booking.trip.booked',
     template: 'EVT_BOOKING_CONFIRMED',
-    recipients: [GUEST, HOST],
+    recipients: [GUEST],
+    parties: TRIP_PARTIES,
   },
+  {
+    eventType: 'booking.trip.booked',
+    template: 'EVT_BOOKING_CONFIRMED_HOST',
+    recipients: [HOST],
+    parties: TRIP_PARTIES,
+  },
+  // `trip.status_changed` (0099, 0124 : trip_id, from, to, reason, settlement_id) : parties lues
+  // en base après la condition (aucune lecture pour un statut non déclenchant)
   {
     eventType: 'trip.status_changed',
     template: 'EVT_BOOKING_CANCELLED',
     condition: { field: 'to', matches: (v) => v.startsWith('CANCELLED_') },
     recipients: [GUEST, HOST],
+    parties: TRIP_PARTIES,
   },
   { eventType: 'trip.overdue.detected', template: 'EVT_TRIP_OVERDUE', recipients: [GUEST, HOST] },
   {
@@ -251,6 +389,55 @@ export const RULES: readonly RuleSpec[] = [
     eventType: 'booking.trip.host_restricted',
     template: 'EVT_TRIP_HOST_RESTRICTED',
     recipients: [GUEST],
+  },
+  // demandes de réservation (0126, US-223c ; charges utiles : hold_id, vehicle_id, org_id, et
+  // request_respond_by pour la réception) : parties du hold lues en base (US-213, ADR-157)
+  {
+    eventType: 'booking.request.received',
+    template: 'EVT_BOOKING_REQUEST_RECEIVED',
+    recipients: [HOST],
+    parties: HOLD_PARTIES,
+  },
+  {
+    eventType: 'booking.request.declined',
+    template: 'EVT_BOOKING_REQUEST_DECLINED',
+    recipients: [GUEST],
+    parties: HOLD_PARTIES,
+  },
+  {
+    eventType: 'booking.request.expired',
+    template: 'EVT_BOOKING_REQUEST_EXPIRED',
+    recipients: [GUEST],
+    parties: HOLD_PARTIES,
+  },
+  // capture de l'acceptation jamais confirmée (ADR-146 §6 bis) : voyageur et hôte
+  {
+    eventType: 'booking.request.capture_unconfirmed',
+    template: 'EVT_BOOKING_REQUEST_FAILED',
+    recipients: [GUEST],
+    parties: HOLD_PARTIES,
+  },
+  {
+    eventType: 'booking.request.capture_unconfirmed',
+    template: 'EVT_BOOKING_REQUEST_FAILED_HOST',
+    recipients: [HOST],
+    parties: HOLD_PARTIES,
+  },
+  // capture d'une demande acceptée refusée par le PSP (17 §2.5) : `booking.hold.released` de
+  // 0126, dont les charges utiles ne portent pas toutes un motif ; la règle ne vise que le hold
+  // REQUEST autorisé, libéré pour PAYMENT_DECLINED (faits lus en base : même définition que
+  // l'état CAPTURE_FAILED de la lecture de la demande, 0126)
+  {
+    eventType: 'booking.hold.released',
+    template: 'EVT_BOOKING_REQUEST_FAILED',
+    recipients: [GUEST],
+    parties: CAPTURE_DECLINED_PARTIES,
+  },
+  {
+    eventType: 'booking.hold.released',
+    template: 'EVT_BOOKING_REQUEST_FAILED_HOST',
+    recipients: [HOST],
+    parties: CAPTURE_DECLINED_PARTIES,
   },
 ];
 

@@ -12,9 +12,17 @@
 import type { DomainEvent, JsonObject, SqlClient } from '../../bus/index.js';
 import { scheduleJob } from '../../bus/index.js';
 import { CATALOG_VERSION } from '@rueda/i18n';
-import type { RecipientRole, RuleSpec, TemplateKey, TemplateSpec } from './catalog.js';
+import type {
+  PartyFacts,
+  PartySubject,
+  RecipientRole,
+  RuleSpec,
+  TemplateKey,
+  TemplateSpec,
+} from './catalog.js';
 import { RULES, TEMPLATES } from './catalog.js';
 import type { MessageChannelKind } from './messaging-channel.port.js';
+import type { NotificationParties } from './parties.port.js';
 import type { StoredVariable } from './render.js';
 import { shortRef } from './render.js';
 
@@ -72,29 +80,98 @@ export function payloadVariables(
   return out;
 }
 
-/** Envois à créer pour un événement (fonction pure, testée sans base). */
+/** Clé d'un sujet dans la table des faits lus en base (`TRIP:<uuid>`, `HOLD:<uuid>`). */
+export const partyKey = (subject: PartySubject, id: string): string =>
+  `${subject}:${id.toLowerCase()}`;
+
+/** Faits des parties lus en base pour un événement (US-213, ADR-157). */
+export type PartyFactsMap = ReadonlyMap<string, PartyFacts | null>;
+
+/** Règles applicables à l'événement : type et condition de statut de la charge utile. */
+function applicableRules(event: DomainEvent, rules: readonly RuleSpec[]): RuleSpec[] {
+  const payload = event.payload as Readonly<Record<string, unknown>>;
+  return rules.filter((rule) => {
+    if (rule.eventType !== event.type) return false;
+    if (rule.condition === undefined) return true;
+    const value = payload[rule.condition.field];
+    // champ de statut absent : contrat violé, lettre morte et alerte (jamais d'oubli silencieux)
+    if (typeof value !== 'string' || value === '') contract(event, rule.condition.field);
+    return rule.condition.matches(value);
+  });
+}
+
+/** Sujets dont les parties doivent être lues en base avant `planDispatches` (sans doublon). */
+export function requiredParties(
+  event: DomainEvent,
+  rules: readonly RuleSpec[] = RULES,
+): { readonly subject: PartySubject; readonly id: string }[] {
+  const payload = event.payload as Readonly<Record<string, unknown>>;
+  const out = new Map<string, { readonly subject: PartySubject; readonly id: string }>();
+  for (const rule of applicableRules(event, rules)) {
+    if (rule.parties === undefined) continue;
+    const id = payload[rule.parties.field];
+    if (typeof id !== 'string' || !UUID.test(id)) contract(event, rule.parties.field);
+    const key = partyKey(rule.parties.subject, id);
+    if (!out.has(key)) out.set(key, { subject: rule.parties.subject, id: id.toLowerCase() });
+  }
+  return [...out.values()];
+}
+
+/** Identifiant du destinataire : faits lus en base (règle `parties`) ou charge utile. */
+function recipientOf(
+  event: DomainEvent,
+  field: string,
+  role: RecipientRole,
+  facts: PartyFacts | undefined,
+): string {
+  const payload = event.payload as Readonly<Record<string, unknown>>;
+  const carried = payload[field];
+  if (facts === undefined) {
+    if (typeof carried !== 'string' || !UUID.test(carried)) contract(event, field);
+    return carried.toLowerCase();
+  }
+  const read = role === 'GUEST' ? facts.guestUserId : facts.hostUserId;
+  if (!UUID.test(read)) contract(event, field);
+  // charge utile ET base : les deux doivent désigner la même personne (jamais un mélange)
+  if (
+    carried !== undefined &&
+    (typeof carried !== 'string' || carried.toLowerCase() !== read.toLowerCase())
+  ) {
+    contract(event, field);
+  }
+  return read.toLowerCase();
+}
+
+/**
+ * Envois à créer pour un événement (fonction pure, testée sans base). `facts` : parties lues en
+ * base pour les règles `parties` (clés `partyKey`) ; une règle `parties` sans fait résolu, ou
+ * dont le sujet est inconnu (`null`), est une erreur de contrat.
+ */
 export function planDispatches(
   event: DomainEvent,
   rules: readonly RuleSpec[] = RULES,
+  facts: PartyFactsMap = new Map(),
 ): PlannedDispatch[] {
   const payload = event.payload as Readonly<Record<string, unknown>>;
   const out: PlannedDispatch[] = [];
-  for (const rule of rules) {
-    if (rule.eventType !== event.type) continue;
-    if (rule.condition !== undefined) {
-      const value = payload[rule.condition.field];
-      // champ de statut absent : contrat violé, lettre morte et alerte (jamais d'oubli silencieux)
-      if (typeof value !== 'string' || value === '') contract(event, rule.condition.field);
-      if (!rule.condition.matches(value)) continue;
+  for (const rule of applicableRules(event, rules)) {
+    let ruleFacts: PartyFacts | undefined;
+    if (rule.parties !== undefined) {
+      const id = payload[rule.parties.field];
+      if (typeof id !== 'string' || !UUID.test(id)) contract(event, rule.parties.field);
+      const found = facts.get(partyKey(rule.parties.subject, id));
+      // port absent, sujet non lu ou inconnu : jamais un destinataire deviné
+      if (found === undefined || found === null) contract(event, rule.parties.field);
+      if (rule.parties.when !== undefined && !rule.parties.when(found)) continue;
+      ruleFacts = found;
     }
     const template = TEMPLATES[rule.template];
     const variables = payloadVariables(template, event);
     for (const recipient of rule.recipients) {
-      const userId = payload[recipient.field];
-      if (typeof userId !== 'string' || !UUID.test(userId)) contract(event, recipient.field);
+      const userId = recipientOf(event, recipient.field, recipient.role, ruleFacts);
       for (const spec of template.channels) {
         out.push({
-          recipientUserId: userId.toLowerCase(),
+          recipientUserId: userId,
           recipientRole: recipient.role,
           channel: spec.channel,
           template: template.key,
@@ -165,14 +242,29 @@ export async function createDispatch(tx: SqlClient, d: NewDispatch): Promise<str
   return id;
 }
 
-/** Gestionnaire du consommateur `ntf_dispatcher` ; rend les identifiants des envois créés. */
+/**
+ * Gestionnaire du consommateur `ntf_dispatcher` ; rend les identifiants des envois créés. Les
+ * parties des règles `parties` sont lues par le port dans la même transaction (US-213, ADR-157) ;
+ * port absent : erreur de contrat (lettre morte et alerte), aucun envoi.
+ */
 export async function dispatchEvent(
   event: DomainEvent,
   tx: SqlClient,
   rules: readonly RuleSpec[] = RULES,
+  parties?: NotificationParties,
 ): Promise<string[]> {
+  const facts = new Map<string, PartyFacts | null>();
+  for (const subject of requiredParties(event, rules)) {
+    if (parties === undefined) {
+      throw new NotificationContractError(`${event.type} : parties non lues (port absent)`);
+    }
+    facts.set(
+      partyKey(subject.subject, subject.id),
+      await parties.partiesOf(tx, subject.subject, subject.id),
+    );
+  }
   const created: string[] = [];
-  for (const p of planDispatches(event, rules)) {
+  for (const p of planDispatches(event, rules, facts)) {
     const id = await createDispatch(tx, {
       eventId: event.eventId,
       eventType: event.type,

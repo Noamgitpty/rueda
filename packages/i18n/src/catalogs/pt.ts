@@ -832,9 +832,9 @@ export const PT_MESSAGES = {
     '{brand}: {first_name}, sua identidade foi verificada. Você já pode reservar.',
   'ntf.bookingConfirmed.email.subject': 'Reserva {booking_ref} confirmada',
   'ntf.bookingConfirmed.email.body':
-    'Olá, {first_name}. Sua reserva {booking_ref} está confirmada: de {start_at} a {end_at}. No app, você encontra o local de entrega, o contrato e as mensagens da reserva.',
+    'Olá, {first_name}. Sua reserva {booking_ref} está confirmada: de {start_at} a {end_at}. Na sua reserva na {brand}, você encontra o endereço exato do local de entrega, o contrato para ler e assinar antes da entrega e as mensagens com o seu anfitrião. Leve sua carteira de motorista física e seu documento de identidade: o anfitrião vai conferi-los na entrega. Para sua segurança: encontrem-se em um lugar público e iluminado, avise alguém de confiança onde você vai estar e converse só pela {brand}.',
   'ntf.bookingConfirmed.sms.body':
-    '{brand}: reserva {booking_ref} confirmada, de {start_at} a {end_at}. Detalhes no app.',
+    '{brand}: reserva {booking_ref} confirmada, de {start_at} a {end_at}. Leve sua carteira física. Endereço e contrato no app.',
   'ntf.bookingCancelled.email.subject': 'Reserva {booking_ref} cancelada',
   'ntf.bookingCancelled.email.body':
     'Olá, {first_name}. A reserva {booking_ref} foi cancelada. No app, você vê os detalhes e, se for o caso, o seu reembolso.',
@@ -1311,6 +1311,37 @@ export const PT_MESSAGES = {
     'Olá, {first_name}. Estamos analisando a conta do anfitrião da sua reserva {booking_ref}. Sua reserva continua registrada e vamos manter você informado. Se o anfitrião cancelar, você recebe o reembolso integral. Detalhes no app.',
   'ntf.tripHostRestricted.sms.body':
     '{brand}: estamos analisando a conta do anfitrião da sua reserva {booking_ref}. Reembolso integral se o anfitrião cancelar. Detalhes no app.',
+  // confirmation et demandes de réservation (US-213, ADR-157)
+  'ntf.bookingConfirmedHost.email.subject': 'Reserva {booking_ref} confirmada',
+  'ntf.bookingConfirmedHost.email.body':
+    'Olá, {first_name}. A reserva {booking_ref} do seu carro está confirmada: de {start_at} a {end_at}. A {brand} já recebeu o pagamento do viajante. No seu espaço de anfitrião, você vê a viagem e as mensagens com o viajante. Na entrega, confira a carteira de motorista física dele e se o nome é o da reserva.',
+  'ntf.bookingConfirmedHost.sms.body':
+    '{brand}: reserva {booking_ref} confirmada, de {start_at} a {end_at}. Detalhes no seu espaço de anfitrião.',
+  'ntf.bookingRequestReceived.email.subject': 'Novo pedido de reserva {booking_ref}',
+  'ntf.bookingRequestReceived.email.body':
+    'Olá, {first_name}. Um viajante enviou a você o pedido de reserva {booking_ref}. Você tem até {respond_by} para aceitar ou recusar no seu espaço de anfitrião da {brand}. Se você não responder a tempo, o pedido expira e o viajante não paga nada.',
+  'ntf.bookingRequestReceived.sms.body':
+    '{brand}: novo pedido {booking_ref}. Responda antes de {respond_by} no seu espaço de anfitrião.',
+  'ntf.bookingRequestDeclined.email.subject': 'Pedido {booking_ref} não aceito',
+  'ntf.bookingRequestDeclined.email.body':
+    'Olá, {first_name}. O anfitrião não aceitou seu pedido {booking_ref}. Você não foi cobrado: cancelamos a autorização do seu pagamento. Você pode procurar outro carro para as mesmas datas na {brand}.',
+  'ntf.bookingRequestDeclined.sms.body':
+    '{brand}: seu pedido {booking_ref} não foi aceito. Você não foi cobrado. Procure outro carro no app.',
+  'ntf.bookingRequestExpired.email.subject': 'Pedido {booking_ref} expirado',
+  'ntf.bookingRequestExpired.email.body':
+    'Olá, {first_name}. O anfitrião não respondeu a tempo ao seu pedido {booking_ref}. Você não foi cobrado: cancelamos a autorização do seu pagamento. Você pode procurar outro carro para as mesmas datas na {brand}.',
+  'ntf.bookingRequestExpired.sms.body':
+    '{brand}: seu pedido {booking_ref} expirou sem resposta. Você não foi cobrado. Procure outro carro no app.',
+  'ntf.bookingRequestFailed.email.subject': 'Reserva {booking_ref} não confirmada',
+  'ntf.bookingRequestFailed.email.body':
+    'Olá, {first_name}. O anfitrião aceitou seu pedido {booking_ref}, mas não conseguimos confirmar a cobrança e a reserva não foi feita. Não pague de novo: cancelamos a autorização do seu pagamento. Se você vir uma cobrança, fale com a gente pela sua reserva na {brand} e devolvemos todo o pagamento.',
+  'ntf.bookingRequestFailed.sms.body':
+    '{brand}: a reserva {booking_ref} não foi confirmada. Não pague de novo. Qualquer cobrança será devolvida. Detalhes no app.',
+  'ntf.bookingRequestFailedHost.email.subject': 'Reserva {booking_ref} não confirmada',
+  'ntf.bookingRequestFailedHost.email.body':
+    'Olá, {first_name}. Você aceitou o pedido {booking_ref}, mas não conseguimos confirmar o pagamento do viajante e a reserva não foi feita. As datas estão livres de novo no seu calendário da {brand}. Não entregue o carro para este pedido.',
+  'ntf.bookingRequestFailedHost.sms.body':
+    '{brand}: o pedido {booking_ref} que você aceitou não foi confirmado. Datas liberadas. Não entregue o carro.',
   'backoffice.catalog.open': 'Abrir o pedido',
   'backoffice.catalog.heading': 'Pedido de inclusão no catálogo',
   'backoffice.catalog.requested': 'O que o anfitrião digitou',
@@ -2133,7 +2164,6 @@ export const PT_MESSAGES = {
   'web.s06.interrupted.body':
     'Tente de novo: primeiro verificamos seu pagamento anterior e nunca criamos uma segunda cobrança.',
   'web.s06.interrupted.retry': 'Tentar o pagamento de novo',
-  'web.s06.confirmed.title': 'Pagamento confirmado!',
   'web.s06.confirmed.body':
     'Sua reserva está confirmada. A página do carro já mostra o local exato de retirada.',
   'web.s06.confirmed.cta': 'Ver o carro',
@@ -2332,6 +2362,12 @@ export const PT_MESSAGES = {
   'web.a03.contract.back': 'Voltar à reserva',
   'web.a05.contract': 'Ver o contrato',
   'web.s06.confirmed.contract': 'Ler e assinar o contrato',
+  // S06 confirmé, contenu de 10b S07 (US-213, ADR-157)
+  'web.s07.title': 'Sua reserva está confirmada!',
+  'web.s07.documents':
+    'Leve sua carteira de motorista física e seu documento de identidade: o anfitrião vai conferi-los na entrega.',
+  'web.s07.safety':
+    'Para sua segurança: encontrem-se em um lugar público e iluminado, avise alguém de confiança onde você vai estar e converse só pela {brand}.',
   // US-215b (v69) : annulation d’un voyage par l’ops et état réel de la demande (console O01)
   'backoffice.cancel.heading': 'Cancelar uma viagem',
   'backoffice.cancel.intro':
