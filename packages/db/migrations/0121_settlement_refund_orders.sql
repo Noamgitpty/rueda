@@ -112,6 +112,7 @@ DECLARE
   v_moved    numeric[] := ARRAY[0, 0, 0, 0];
   v_expected numeric[] := ARRAY[0, 0, 0, 0];
   v_one      numeric;
+  v_cap      numeric;
   i          integer;
 BEGIN
   SELECT o.trip_id, o.kind, o.settlement_id, o.settlement_version
@@ -292,8 +293,8 @@ BEGIN
     -- donne le règlement après la réaffectation (`settlementOrders`) : − V + réaffectation attendue
     -- pour une jambe en baisse, 0 pour une jambe à variation positive ou nulle (elle ne rembourse
     -- jamais : TJ05b, PLATFORM garde ses 18,53 retenus et INSURER ne garde rien de plus)
-    IF r.refunded > CASE WHEN v_var[r.rank] < 0 THEN -v_var[r.rank] + v_expected[r.rank] ELSE 0 END
-    THEN
+    v_cap := CASE WHEN v_var[r.rank] < 0 THEN -v_var[r.rank] + v_expected[r.rank] ELSE 0 END;
+    IF r.refunded > v_cap THEN
       RAISE EXCEPTION 'payment: refunds of leg % exceed the settlement', r.leg
         USING ERRCODE = 'object_not_in_prerequisite_state',
               CONSTRAINT = 'leg_refund_exceeds_settlement';
