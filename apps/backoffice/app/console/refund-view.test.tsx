@@ -133,7 +133,9 @@ describe('remboursements (224d) : lecture', () => {
     expect(out).toContain(t.t('backoffice.refunds.advance', { amount: money(8625n) }));
     expect(out).toContain(`${t.dateTime('2026-11-03T14:00:10.000Z', 'UTC')} UTC`);
     // un motif de blocage et l'alerte qui le répète : une seule explication
-    expect(out.split(es['backoffice.refunds.reason.PLATFORM_BALANCE_UNKNOWN']).length - 1).toBe(1);
+    expect(
+      out.split(String(es['backoffice.refunds.reason.PLATFORM_BALANCE_UNKNOWN'])).length - 1,
+    ).toBe(1);
   });
 
   it('aucun remboursement ⇒ dit ; lecture refusée ⇒ expliquée, jamais « rien »', () => {
