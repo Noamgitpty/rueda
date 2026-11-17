@@ -328,7 +328,7 @@ describe.each(CASES)('NTF sur PostgreSQL réel — $country ($currency)', (c) =>
         `SELECT trip_id::text, hold_id::text, holder_id::text
            FROM test_fixture.us211_world($1, $2::uuid, 'Ana', 'Pérez', 'es', 'María', 'Gómez', $3,
                                          'HOST', $4::timestamptz, $5::timestamptz, $6::jsonb,
-                                         'BASICA', 600, 35, $7::jsonb, $8::bigint, $8::bigint)`,
+                                         'BASICA', 600, 35, $7::jsonb, $9::bigint, $8::bigint)`,
         [
           c.country,
           guest,
@@ -338,6 +338,8 @@ describe.each(CASES)('NTF sur PostgreSQL réel — $country ($currency)', (c) =>
           lines,
           deductibles,
           c.amountMinor,
+          // RC de TEST au-dessus du minimum du pays (garde 0115) : 10^7 fois 120 unités
+          (BigInt(c.amountMinor) * 10_000_000n).toString(),
         ],
       );
       const w = world[0];
