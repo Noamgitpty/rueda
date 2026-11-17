@@ -905,6 +905,15 @@ Migration `0122_ctr_rental_contract`, fixture `9963_test_us211_rental_contract_f
 - **Remise** : `core.booking_cmd_trip_transition` (corps de 0099, bloc US-211) refuse `IN_PROGRESS` sans dernière version signée par le voyageur (`trip_contract_not_signed`, code `CONTRACT_NOT_SIGNED`).
 - **Lectures ajoutées à `cmd_hold_owner`** (au plus juste) : noms légaux et langue des comptes, marque et modèle du référentiel, contrat de l'assureur et assureur, caution du pays, gabarits, `grace_minutes` ; événements `contract.document.generated` (SYSTEM) et `contract.document.signed` (voyageur).
 
+## Remboursement lu par le voyageur, l'hôte et la console (US-224 partie 224d ; 19 US-224 critère 1 ; 08 SM-8, BR-PAY-08 ; ADR-154)
+
+Migration `0130_payment_refund_read` : trois fonctions de lecture AJOUTÉES, aucune table, aucun droit sur une table.
+
+- `core.payment_trip_refund_view(uuid, text)` (cmd_money_owner, EXECUTE cmd_hold_owner et iam_staff_owner) : instances SM-8 d'un trip pour une vue `GUEST` (état, montant, rail, dates de planification et d'émission), `HOST` (état, part de la jambe HOST seulement, dates) ou `STAFF` (tout : jambes demandées et de l'ordre, statut de l'ordre, tentative, version, motif de blocage, alerte FIN, avance) ; `SUPERSEDED` et `CANCELLED` au staff seulement ; montants en texte, dates ISO 8601 UTC.
+- `core.booking_trip_refunds(bytea, uuid)` (cmd_hold_owner, EXECUTE app_api) : partie de la session (voyageur du trip ou titulaire du compte d'hôte) ; `NOT_FOUND` à toute autre personne et pour un trip inconnu ; état, devise et fuseau du trip.
+- `core.support_staff_trip_refunds(bytea, uuid, uuid)` (iam_staff_owner, EXECUTE app_api) : session élevée, `ops.platform_cancel` ou `finance.platform_advance` dans le pays du trip, garde ADR-122, refus journalisés ; trip inconnu ⇒ `FORBIDDEN`.
+- **Preuves** : `test/l0/l0-us224d-refund-read.test.ts` (isolé ; PA USD, PY PYG ; instances menées par les vraies commandes jusqu'à `CONFIRMED` et `FAILED → SUPERSEDED`, validées ; lectures sous app_api annulées).
+
 ## État d'une annulation lu par la console (US-215 partie 215b ; 16 ADM-006 ; ADR-151)
 
 Migration `0128_support_console_trip_cancellation` : trois fonctions de lecture AJOUTÉES, aucun droit sur une table.

@@ -20,6 +20,7 @@ import type {
 } from './api.ts';
 import { CANCEL_ACTION, CANCEL_REFUSAL_KEYS, draftProblem } from './cancel-view.tsx';
 import type { CancelHandlers, CancelState, CancellationView } from './cancel-view.tsx';
+import type { RefundsHandlers, RefundsState, TripRefundsView } from './refund-view.tsx';
 import { ConsoleView, DSR_REFUSAL_KEYS, REVIEW_REFUSAL_KEYS, SCREEN_HEADINGS } from './view.tsx';
 import type {
   ConsoleAction,
@@ -98,6 +99,8 @@ export function ConsoleClient({ localeTag }: { readonly localeTag: string }) {
   // US-215b : annulation d'un voyage ; une génération par suivi (un nouveau suivi arrête l'ancien)
   const [cancel, setCancel] = useState<CancelState>({ step: 'form', initiator: null });
   const cancelGen = useRef(0);
+  // US-224d : remboursements d'un voyage (lecture seule)
+  const [refunds, setRefunds] = useState<RefundsState>({ step: 'form' });
   const cancelStep = useRef<CancelState['step']>('form');
   useEffect(() => {
     // focus sur le titre du panneau à chaque changement d'étape (clavier, lecteur d'écran)
@@ -414,6 +417,28 @@ export function ConsoleClient({ localeTag }: { readonly localeTag: string }) {
     setCancel((prev) =>
       prev.step === 'state' && prev.tripId === tripId ? { ...prev, slow: true } : prev,
     );
+  };
+
+  const refundsHandlers: RefundsHandlers = {
+    onRefundsRead: (tripId) => {
+      if (!TRIP_ID.test(tripId)) {
+        setRefunds({ step: 'form', error: 'backoffice.refunds.tripInvalid' });
+        return;
+      }
+      once(async () => {
+        const r = await call<TripRefundsView>('GET', `/console/refunds/${tripId}`);
+        setRefunds(
+          r.ok
+            ? { step: 'result', tripId, view: r.body }
+            : {
+                step: 'result',
+                tripId,
+                view: 'error',
+                notice: { tone: r.status === 0 ? 'danger' : 'warning', key: r.messageKey },
+              },
+        );
+      });
+    },
   };
 
   const cancelHandlers: CancelHandlers = {
@@ -856,6 +881,7 @@ export function ConsoleClient({ localeTag }: { readonly localeTag: string }) {
       busy={busy}
       ops={{ state: ops, handlers: opsHandlers }}
       cancel={{ state: cancel, handlers: cancelHandlers }}
+      refunds={{ state: refunds, handlers: refundsHandlers }}
     />
   );
 }

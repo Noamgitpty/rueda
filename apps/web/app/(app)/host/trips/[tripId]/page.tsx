@@ -5,8 +5,11 @@ import { callApi } from '../../../../../account/api-client.ts';
 import { hostAccountsOf } from '../../../../../account/host-listings.ts';
 import { hostTripOf } from '../../../../../account/host-trips.ts';
 import { clientContext } from '../../../../../account/request.ts';
+import { phaseOf, tripRefundsOf } from '../../../../../account/trip-refunds.ts';
+import type { HostRefundView, RefundPhase } from '../../../../../account/trip-refunds.ts';
 import { getRequestI18n } from '../../../../../i18n.ts';
 import accountStyles from '../../../_account/account.module.css';
+import { RefundPhaseLines } from '../../../_refund/refund-phase.tsx';
 import { MAIN_ID } from '../../../_shell/main-id.ts';
 import styles from '../../host.module.css';
 import { TripCard } from '../trip-card.tsx';
@@ -23,6 +26,11 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
  * l'hôte voit du voyageur (prénom, âge, note, vérification ; jamais le permis ni une pièce), dates
  * dans le fuseau du trip, lieu de remise, paiement, gains estimés. Un trip d'un autre hôte, ou
  * inconnu, rend le même message (404 de l'API, rien n'est révélé). Lecture seule.
+ *
+ * US-224 partie 224d (ADR-154 ; 19 US-224 critère 1) : remboursement du voyageur vu par l'hôte,
+ * jambe HOST seulement (part retirée de ses gains), état et date d'émission ; aucune donnée du
+ * voyageur au-delà de la carte du trip. Section absente si aucun remboursement ; une lecture
+ * impossible ne masque pas le reste de la page (message dans la section).
  */
 export default async function HostTripPage({
   params,
@@ -73,6 +81,25 @@ export default async function HostTripPage({
   if (reply.status === 404) return notFound;
   const read = hostTripOf(reply);
   if (read === null) return error;
+  const refundsReply = await callApi('GET', `/trips/${tripId}/refunds`, ctx);
+  const refunds = tripRefundsOf(refundsReply);
+  const shownRefunds: (HostRefundView & { readonly phase: RefundPhase })[] =
+    refunds === null || refunds.viewerRole !== 'HOST'
+      ? []
+      : refunds.refunds.flatMap((r) => {
+          const phase = phaseOf(r.status);
+          return phase === null ? [] : [{ ...r, phase }];
+        });
+  const refundsFailed =
+    refundsReply.status !== 404 && (refunds === null || refunds.viewerRole !== 'HOST');
+  const hostMoney = (minor: string) =>
+    refunds === null
+      ? minor
+      : i18n.money({
+          amountMinor: BigInt(minor),
+          currency: refunds.currency,
+          exponent: refunds.currencyExponent,
+        });
   return shell(
     <>
       <TripCard i18n={i18n} trip={read.trip} market={read.market} href={null} headingLevel={2} />
@@ -84,6 +111,38 @@ export default async function HostTripPage({
       >
         {t('web.a05.contract')}
       </a>
+      {(shownRefunds.length > 0 || refundsFailed) && (
+        <section className={styles['section']} aria-labelledby="a05-refund-title">
+          <h2 id="a05-refund-title" className={accountStyles['h2']}>
+            {t('web.a05.refund.title')}
+          </h2>
+          {refundsFailed ? (
+            <p className={styles['hint']}>{t('web.s10.refund.loadError')}</p>
+          ) : (
+            <>
+              <p className={styles['hint']}>{t('web.a05.refund.lead')}</p>
+              <ul className={styles['rows']} data-testid="a05-refunds">
+                {shownRefunds.map((r) => (
+                  <li key={`${r.plannedAt}-${r.hostLegMinor}`} className={styles['card']}>
+                    <p className={styles['strong']} data-testid="a05-refund-host-leg">
+                      {r.hostLegMinor === '0'
+                        ? t('web.a05.refund.noImpact')
+                        : t('web.a05.refund.hostLeg', { amount: hostMoney(r.hostLegMinor) })}
+                    </p>
+                    <RefundPhaseLines
+                      i18n={i18n}
+                      phase={r.phase}
+                      issuedAt={r.issuedAt}
+                      timezone={refunds?.timezone ?? 'UTC'}
+                      bankDelay={false}
+                    />
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+        </section>
+      )}
       <p className={styles['hint']}>{t('web.a05.earnings.note')}</p>
       <p className={styles['hint']}>{t('web.a05.privacy')}</p>
     </>,
