@@ -453,7 +453,7 @@ describe.each(COUNTRIES)('US-019 — $country ($currency)', (c) => {
       await withRole('app_api', async (client) => {
         const { rows } = await client.query<{ has: boolean }>(
           `SELECT pg_catalog.has_function_privilege('app_api',
-             'core.payment_cmd_record_operation(uuid,uuid,uuid,uuid,text,text,text,bigint,text,integer,text,text,jsonb)',
+             'core.payment_cmd_record_operation(uuid,uuid,uuid,uuid,text,text,text,bigint,text,integer,text,text,jsonb,uuid,integer)',
              'EXECUTE') AS has`,
         );
         expect(rows[0]?.has).toBe(false);

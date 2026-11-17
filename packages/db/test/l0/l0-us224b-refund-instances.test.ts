@@ -269,7 +269,7 @@ async function counts(tx: Tx, trip: string): Promise<{ instances: number; refund
 
 async function orgOf(tx: Tx, trip: string): Promise<string> {
   const { rows } = await tx.query<{ org_id: string }>(
-    'SELECT org_id FROM core.booking_trip WHERE id = $1',
+    'SELECT org_id FROM core.settlement_trip_leg_balance WHERE trip_id = $1 LIMIT 1',
     [trip],
   );
   return rows[0]?.org_id ?? '';
@@ -582,8 +582,12 @@ describe.each(COUNTRIES)(
       await withRole('app_worker', (client) =>
         payTx(client, { worker: 'payment_command', virtualNow: inside }, async (tx) => {
           expect(await goLive(tx, 'payouts_enabled', c.country)).toBe(true);
-          const payable = async (): Promise<World> => {
+          // le règlement est enregistré AVANT la fin du trajet (sa version optimiste du trip)
+          const payable = async (
+            settled: boolean,
+          ): Promise<{ w: World; v: SettlementRef | null }> => {
             const w = await captured(tx, c, capture);
+            const v = settled ? await settle(tx, w.trip, 1, recordOfVector(r.settlement)) : null;
             await tx.query(`SELECT test_fixture.us049_set_trip_status($1, 'COMPLETED')`, [w.trip]);
             for (const leg of LEGS) {
               await tx.query(
@@ -595,7 +599,7 @@ describe.each(COUNTRIES)(
               w.account,
               w.trip,
             ]);
-            return w;
+            return { w, v };
           };
           const release = (w: World, amount: bigint, settlement: SettlementRef | null) =>
             caught(tx, () =>
@@ -611,8 +615,8 @@ describe.each(COUNTRIES)(
               }),
             );
           // 1. règlement : la jambe HOST retenue (TJ02a / T27) et pas une unité de plus
-          const a = await payable();
-          const va = await settle(tx, a.trip, 1, recordOfVector(r.settlement));
+          const { w: a, v: va } = await payable(true);
+          if (va === null) throw new Error('règlement absent');
           expect(await release(a, keptHost + 1n, va)).toMatchObject({
             code: '55000',
             constraint: 'leg_release_exceeds_retained',
@@ -622,8 +626,8 @@ describe.each(COUNTRIES)(
             constraint: 'leg_release_exceeds_retained',
           });
           // 2. remboursement planifié (en vol) puis versement : la jambe n'a plus que la part retenue
-          const b = await payable();
-          const vb = await settle(tx, b.trip, 1, recordOfVector(r.settlement));
+          const { w: b, v: vb } = await payable(true);
+          if (vb === null) throw new Error('règlement absent');
           await plan(tx, b, vb, refund, newKey(b.trip));
           expect(await release(b, keptHost, vb)).toBeNull();
           const beyond = await release(b, 1n, vb);
@@ -633,7 +637,7 @@ describe.each(COUNTRIES)(
           });
           expect(translateDbError(beyond).code).toBe('LEG_AMOUNT_NEGATIVE');
           // 3. sans règlement (trajet réalisé) : un versement en vol compte pour le suivant
-          const d = await payable();
+          const { w: d } = await payable(false);
           expect(await release(d, capture.HOST, null)).toBeNull();
           expect(await release(d, 1n, null)).toMatchObject({
             code: '55000',

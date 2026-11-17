@@ -101,7 +101,7 @@ async function rawRecord(
   const { rows } = await tx.query<{ operation_id: string; replayed: boolean }>(
     `SELECT operation_id, replayed
        FROM core.payment_cmd_record_operation($1, NULL, $2, $3, 'CARD', $4, $5, $6::bigint, $7, $8, $9, $10,
-                                              $11::jsonb)`,
+                                              $11::jsonb, NULL, NULL)`,
     [
       uuid(),
       a.tripId,

@@ -1274,11 +1274,16 @@ describe('money_no_delete / money_no_truncate — aucune suppression, même par 
           t,
         ).rejects.toMatchObject({ code: '23000', constraint: 'money_no_delete' });
       }
-      for (const t of [
+      // US-224b (0122) : settlement_platform_advance est désormais référencée par
+      // payment_refund_instance (advance_id) : TRUNCATE y est refusé par PostgreSQL avant le
+      // déclencheur (0A000), toujours refusé
+      await expect(
+        withTestTransaction(client, {}, (tx) =>
+          tx.query('SELECT test_fixture.us062_try_truncate($1)', ['settlement_platform_advance']),
+        ),
         'settlement_platform_advance',
-        'settlement_insurer_ledger_state',
-        'settlement_insurer_bordereau_line',
-      ]) {
+      ).rejects.toMatchObject({ code: '0A000' });
+      for (const t of ['settlement_insurer_ledger_state', 'settlement_insurer_bordereau_line']) {
         await expect(
           withTestTransaction(client, {}, (tx) =>
             tx.query('SELECT test_fixture.us062_try_truncate($1)', [t]),
