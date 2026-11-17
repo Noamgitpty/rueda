@@ -16,10 +16,15 @@
 --   2. `us223c_set_request_mode` (migrator) : nouvelle valeur de booking_request_mode_enabled d'un
 --      pays, comme la console de configuration, à platform.now() ; appelée SEULEMENT dans une
 --      transaction annulée (l0-us223-request-checkout), jamais par une preuve qui commite.
+--   3. `us223c_shrink_authorization` (migrator) : retire une unité mineure au montant d'une
+--      autorisation SUCCEEDED et à sa jambe PLATFORM (somme des jambes gardée : contrôle différé
+--      payment_operation_legs_check), pour éprouver le refus LEG_SUM_MISMATCH de l'acceptation (total
+--      du devis > AUTH) ; aucune commande n'écrit un tel état : DONNÉE d'entrée.
 -- AUCUNE fixture n'écrit un interrupteur de mise en service (17 §0.1).
 --
 -- Retour arrière : DROP FUNCTION test_fixture.us223c_place_request_hold(uuid, timestamptz,
---   timestamptz), test_fixture.us223c_set_request_mode(text, boolean).
+--   timestamptz), test_fixture.us223c_set_request_mode(text, boolean),
+--   test_fixture.us223c_shrink_authorization(uuid).
 
 CREATE FUNCTION test_fixture.us223c_place_request_hold(p_vehicle_id uuid, p_start timestamptz,
                                                        p_end timestamptz)
@@ -56,3 +61,21 @@ END
 $fn$;
 REVOKE ALL ON FUNCTION test_fixture.us223c_set_request_mode(text, boolean) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION test_fixture.us223c_set_request_mode(text, boolean) TO app_api;
+
+CREATE FUNCTION test_fixture.us223c_shrink_authorization(p_operation_id uuid)
+  RETURNS void
+  LANGUAGE plpgsql
+  SECURITY DEFINER
+  SET search_path = pg_catalog, pg_temp
+AS $fn$
+BEGIN
+  UPDATE core.payment_payment_operation
+     SET amount_minor = amount_minor - 1
+   WHERE id = p_operation_id AND kind = 'AUTH' AND status = 'SUCCEEDED';
+  UPDATE core.payment_payment_operation_leg
+     SET amount_minor = amount_minor - 1
+   WHERE operation_id = p_operation_id AND leg = 'PLATFORM' AND amount_minor > 0;
+END
+$fn$;
+REVOKE ALL ON FUNCTION test_fixture.us223c_shrink_authorization(uuid) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION test_fixture.us223c_shrink_authorization(uuid) TO app_worker;

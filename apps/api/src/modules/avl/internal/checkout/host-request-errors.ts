@@ -20,12 +20,12 @@ export const HOST_REQUEST_MESSAGES = {
   REQUEST_NOT_FOUND: { status: 404, messageKey: 'common.request.notFound' },
   REQUEST_EXPIRED: { status: 409, messageKey: 'common.request.expired' },
   INVALID_TRANSITION: { status: 409, messageKey: 'common.request.alreadyAnswered' },
-  TERMS_REACCEPT_REQUIRED: { status: 409, messageKey: 'common.listing.hostTermsRequired' },
+  TERMS_REACCEPT_REQUIRED: { status: 409, messageKey: 'common.request.hostTermsRequired' },
   GUEST_NOT_ELIGIBLE: { status: 409, messageKey: 'common.request.guestNotEligible' },
-  START_PASSED: { status: 409, messageKey: 'common.payment.startPassed' },
+  START_PASSED: { status: 409, messageKey: 'common.request.startPassed' },
   LEG_SUM_MISMATCH: { status: 409, messageKey: 'common.request.amountMismatch' },
-  PAYMENT_UNAVAILABLE: { status: 503, messageKey: 'common.payment.unavailable' },
-  BOOKING_UNAVAILABLE: { status: 503, messageKey: 'common.checkout.unavailable' },
+  PAYMENT_UNAVAILABLE: { status: 503, messageKey: 'common.request.paymentUnavailable' },
+  BOOKING_UNAVAILABLE: { status: 503, messageKey: 'common.request.unavailable' },
 } as const;
 
 export type HostRequestHttpCode = keyof typeof HOST_REQUEST_MESSAGES;

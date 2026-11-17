@@ -83,11 +83,13 @@ interface World {
   readonly host: Host;
   readonly vehicle: string;
   readonly guest: string;
+  /** Empreinte de la session du voyageur (lecture de sa demande). */
+  readonly guestHash: Buffer;
   readonly account: string;
 }
 
 /** Personne inscrite, session ouverte, compte d'hôte ACTIVE, CGU de l'hôte acceptées (US-107, US-126). */
-async function newHost(c: CountryCase, when: string): Promise<Host> {
+async function newHost(c: CountryCase, when: string, acceptTerms = true): Promise<Host> {
   return inTx(api, { virtualNow: when, commit: true }, async (tx) => {
     const userId = uuid();
     const r = await tx.query<{ ok: boolean }>(
@@ -117,6 +119,7 @@ async function newHost(c: CountryCase, when: string): Promise<Host> {
     if (rows[0]?.outcome !== 'DONE' || !rows[0].org_id) throw new Error('compte d’hôte refusé');
     await tx.query('SELECT test_fixture.us115_set_org_status($1, $2)', [rows[0].org_id, 'ACTIVE']);
     // CGU de l'hôte dans la version exigée en vigueur (N-66 : l'acceptation d'une demande l'exige)
+    if (!acceptTerms) return { userId, hash: t.hash, org: rows[0].org_id };
     const current = await tx.query<{ outcome: string; version: number | null }>(
       'SELECT outcome, version FROM core.ctr_host_terms($1, $2, $3)',
       [t.hash, rows[0].org_id, 'es'],
@@ -133,12 +136,17 @@ async function newHost(c: CountryCase, when: string): Promise<Host> {
 }
 
 /** Hôte, véhicule, voyageur au conducteur approuvé, compte FAKE, capacités validées. */
-async function world(c: CountryCase, from: string): Promise<World> {
-  const host = await newHost(c, from);
+async function world(c: CountryCase, from: string, hostTerms = true): Promise<World> {
+  const host = await newHost(c, from, hostTerms);
   const vehicle = uuid();
   const guest = uuid();
+  const guestToken = newToken();
   const account = await inTx(api, { virtualNow: from, commit: true }, async (tx) => {
     await ensureParties(tx, [guest], host.org, c);
+    await tx.query(
+      `SELECT core.iam_cmd_open_session($1, $2, $3, $4, 'NONE', NULL, 'vitest') AS expires_at`,
+      [uuid(), guest, guestToken.hash, SESSION_TTL_S],
+    );
     await registerVehicles(tx, [vehicle], host.org, c);
     await tx.query('SELECT test_fixture.us209_driver($1, $2, $3::date, $4::date, $5)', [
       guest,
@@ -168,7 +176,7 @@ async function world(c: CountryCase, from: string): Promise<World> {
     ]);
     return a.rows[0]!.id;
   });
-  return { host, vehicle, guest, account };
+  return { host, vehicle, guest, guestHash: guestToken.hash, account };
 }
 
 async function guestCall<T>(
@@ -283,6 +291,7 @@ interface HoldRow {
   release_reason: string | null;
   converted_trip_id: string | null;
   occupancy_active: boolean;
+  payment_in_flight_until: Date | null;
 }
 
 async function hold(holdId: string): Promise<HoldRow> {
@@ -291,7 +300,7 @@ async function hold(holdId: string): Promise<HoldRow> {
       'booking_conversion',
       undefined,
       `SELECT h.status, h.kind, h.request_respond_by, h.expires_at, h.release_reason,
-              h.converted_trip_id, o.active AS occupancy_active
+              h.converted_trip_id, o.active AS occupancy_active, h.payment_in_flight_until
          FROM core.booking_checkout_hold AS h
          JOIN core.booking_vehicle_occupancy AS o ON o.id = h.occupancy_id
         WHERE h.id = $1`,
@@ -344,6 +353,76 @@ async function events(holdId: string): Promise<string[]> {
     [holdId],
   );
   return rows.map((r) => r.type);
+}
+
+/** Lecture de la demande par le voyageur (core.booking_checkout_request, app_api). */
+async function readRequest(w: World, holdId: string, when: string): Promise<Json> {
+  return inTx(
+    api,
+    { virtualNow: when, commit: false },
+    async (tx) =>
+      (
+        await tx.query<Json>('SELECT * FROM core.booking_checkout_request($1, $2)', [
+          w.guestHash,
+          holdId,
+        ])
+      ).rows[0]!,
+  );
+}
+
+/** Pose, devis engagé, T1 (AUTH MANUAL) et T2 : demande en cours d'autorisation. */
+async function authorizing(
+  c: CountryCase,
+  w: World,
+  t0: string,
+  start: string,
+  end: string,
+): Promise<{ holdId: string; auth: string; ref: string }> {
+  const holdId = await guestCall<string>(
+    w.guest,
+    'test_fixture.us223c_place_request_hold',
+    [
+      { value: w.vehicle, type: 'uuid' },
+      { value: start, type: 'timestamptz' },
+      { value: end, type: 'timestamptz' },
+    ],
+    t0,
+  );
+  const v = captureOf(c);
+  await inTx(api, { virtualNow: t0, commit: true }, async (tx) => {
+    await tx.query(
+      `SELECT test_fixture.us223_checkout_acceptance($1, $2::bigint, $3, $4::jsonb,
+                                                     $5::timestamptz, $6::timestamptz)`,
+      [holdId, v.totalMinor.toString(), v.currency, legsJson(v.legsMinor), start, end],
+    );
+  });
+  const t1 = await guestCall<Json>(
+    w.guest,
+    'core.booking_cmd_start_payment',
+    [
+      { value: holdId, type: 'uuid' },
+      { value: w.account, type: 'uuid' },
+      { value: 'CARD', type: 'text' },
+    ],
+    at(t0, 1),
+  );
+  expect(t1).toMatchObject({ outcome: 'NEW_ORDER', captureMode: 'MANUAL' });
+  const auth = t1['operationId'] as string;
+  const ref = `fake-${uuid()}`;
+  expect(
+    await guestCall<string>(
+      w.guest,
+      'core.booking_cmd_record_order',
+      [
+        { value: holdId, type: 'uuid' },
+        { value: auth, type: 'uuid' },
+        { value: ref, type: 'text' },
+        { value: at(t0, 6), type: 'timestamptz' },
+      ],
+      at(t0, 1),
+    ),
+  ).toBe('RECORDED');
+  return { holdId, auth, ref };
 }
 
 /**
@@ -408,10 +487,18 @@ async function sentRequest(
   );
   expect(t2).toBe('RECORDED');
   const sentAt = at(t0, 2);
+  // lecture du voyageur : autorisation pas encore prouvée
+  expect(await readRequest(w, holdId, at(t0, 1))).toMatchObject({
+    outcome: 'DONE',
+    hold_kind: 'REQUEST',
+    request_status: 'AUTHORIZING',
+    request_respond_by: null,
+  });
   expect(await webhook(auth, 'SUCCEEDED', sentAt)).toBe('APPLIED');
   expect(await due(sentAt)).toContainEqual({ operation_id: auth, action: 'CONVERT' });
   const r = await convert(auth, sentAt);
   expect(r['outcome']).toBe('AWAITING_HOST');
+  expect((await readRequest(w, holdId, sentAt))['request_status']).toBe('AWAITING_HOST');
   return { holdId, auth, ref, sentAt };
 }
 
@@ -497,6 +584,7 @@ describe.each(COUNTRIES)('US-223c — demande de réservation ($country, $curren
       expect(await hostCall('accept', w.host, r.holdId, at(acceptAt, 1))).toEqual({
         outcome: 'CAPTURING',
       });
+      expect((await readRequest(w, r.holdId, at(acceptAt, 1)))['request_status']).toBe('CAPTURING');
       const list = await ops(r.holdId);
       const capture = list.find((o) => o.kind === 'CAPTURE');
       const authorization = list.find((o) => o.kind === 'AUTH');
@@ -511,6 +599,7 @@ describe.each(COUNTRIES)('US-223c — demande de réservation ($country, $curren
       expect(await hostCall('accept', w.host, r.holdId, at(acceptAt, 3))).toEqual({
         outcome: 'ACCEPTED',
       });
+      expect((await readRequest(w, r.holdId, at(acceptAt, 3)))['request_status']).toBe('ACCEPTED');
       expect(await events(r.holdId)).toEqual(
         expect.arrayContaining(['booking.request.accepted', 'booking.hold.converted']),
       );
@@ -565,6 +654,26 @@ describe.each(COUNTRIES)('US-223c — demande de réservation ($country, $curren
         outcome: 'INVALID_TRANSITION',
       });
       expect(await events(r.holdId)).toContain('booking.request.declined');
+      expect((await readRequest(w, r.holdId, declineAt))['request_status']).toBe('DECLINED');
+      // escalade (exigence d'argent c) : VOID non confirmé compté après 30 min, par pays, pas avant
+      const pending = async (when: string): Promise<number> => {
+        const rows = await workerSql<{
+          metric: string;
+          country_code: string | null;
+          value: string;
+        }>(
+          'ops_monitor' as Worker,
+          when,
+          `SELECT metric, country_code, value::text AS value
+             FROM core.ops_monitor_metrics($1::timestamptz, 3)`,
+          [at(when, -1)],
+        );
+        const row = rows.find(
+          (x) => x.metric === 'request_void_pending_30m' && x.country_code === c.country,
+        );
+        return row === undefined ? 0 : Number(row.value);
+      };
+      expect((await pending(at(declineAt, 31))) - (await pending(at(declineAt, 29)))).toBe(1);
       // créneau libéré : un autre voyageur pose un hold sur les mêmes dates
       const other = uuid();
       await inTx(api, { virtualNow: declineAt, commit: true }, (tx) =>
@@ -608,6 +717,7 @@ describe.each(COUNTRIES)('US-223c — demande de réservation ($country, $curren
       expect(await expireRequests(limit)).toBeGreaterThanOrEqual(1);
       const h = await hold(r.holdId);
       expect(h).toMatchObject({ status: 'EXPIRED', occupancy_active: false });
+      expect((await readRequest(w, r.holdId, limit))['request_status']).toBe('EXPIRED');
       const list = await ops(r.holdId);
       expect(list.map((o) => o.kind).sort()).toEqual(['AUTH', 'VOID']);
       expect((await commands(r.holdId)).map((x) => x.operation_kind)).toEqual(['VOID']);
@@ -721,6 +831,9 @@ describe.each(COUNTRIES)('US-223c — demande de réservation ($country, $curren
         converted_trip_id: null,
       });
       expect((await commands(r.holdId)).map((x) => x.operation_kind)).toEqual(['VOID']);
+      expect((await readRequest(w, r.holdId, at(acceptAt, 1)))['request_status']).toBe(
+        'CAPTURE_FAILED',
+      );
     },
     LONG,
   );
@@ -769,6 +882,229 @@ describe.each(COUNTRIES)('US-223c — demande de réservation ($country, $curren
       expect((await hold(r.holdId)).status).toBe('EXPIRED');
       expect((await ops(r.holdId)).some((o) => o.kind === 'CAPTURE')).toBe(false);
       expect((await commands(r.holdId)).map((x) => x.operation_kind)).toEqual(['VOID']);
+    },
+    LONG,
+  );
+  it(
+    'autorisation prouvée après la sortie du hold (expiration 2a pendant un ordre UNKNOWN) ⇒ VOID (LATE_AUTHORIZATION), jamais d’attente de l’hôte ; lecture ENDED',
+    async () => {
+      const T0 = era(idx + 7);
+      const w = await world(c, T0);
+      const start = at(T0, 3 * 24 * 60);
+      const r = await authorizing(c, w, T0, start, at(start, 2 * 24 * 60));
+      // réponse d'API sans issue : l'ordre reste UNKNOWN ; au-delà de la borne et de la grâce, 2a
+      // expire le hold (hold_max_total_minutes 20, sweep_grace_s 60 : 17 §7.2)
+      await workerSql(
+        'payment_command',
+        at(T0, 2),
+        `SELECT core.payment_cmd_apply_operation_status($1, 'UNKNOWN', 'API_RESPONSE', NULL, NULL)`,
+        [r.auth],
+      );
+      await workerSql('hold_expiry', at(T0, 30), 'SELECT core.booking_expire_due_holds(10000)', []);
+      expect((await hold(r.holdId)).status).toBe('EXPIRED');
+      expect(await webhook(r.auth, 'SUCCEEDED', at(T0, 31))).toBe('APPLIED');
+      expect(await due(at(T0, 31))).toContainEqual({ operation_id: r.auth, action: 'CONVERT' });
+      expect(await convert(r.auth, at(T0, 31))).toEqual({ outcome: 'VOID_REQUESTED' });
+      const h = await hold(r.holdId);
+      expect(h).toMatchObject({ status: 'EXPIRED', request_respond_by: null });
+      expect((await commands(r.holdId)).map((x) => x.operation_kind)).toContain('VOID');
+      expect(await due(at(T0, 32))).not.toContainEqual(
+        expect.objectContaining({ operation_id: r.auth }),
+      );
+      expect(await events(r.holdId)).toContain('booking.request.void_requested');
+      expect((await readRequest(w, r.holdId, at(T0, 32)))['request_status']).toBe('ENDED');
+    },
+    LONG,
+  );
+
+  it(
+    'abandon du voyageur pendant l’autorisation (libération différée) ⇒ à la preuve : RELEASED (GUEST_ABANDON), créneau libéré, VOID ; la demande n’est jamais ouverte à l’hôte',
+    async () => {
+      const T0 = era(idx + 8);
+      const w = await world(c, T0);
+      const start = at(T0, 3 * 24 * 60);
+      const r = await authorizing(c, w, T0, start, at(start, 2 * 24 * 60));
+      const released = await guestCall<string>(
+        w.guest,
+        'core.booking_cmd_release_own_hold',
+        [{ value: r.holdId, type: 'uuid' }],
+        at(T0, 2),
+      );
+      expect(released).toBe('DEFERRED');
+      expect(await webhook(r.auth, 'SUCCEEDED', at(T0, 3))).toBe('APPLIED');
+      expect(await convert(r.auth, at(T0, 3))).toEqual({
+        outcome: 'VOID_REQUESTED',
+        reason: 'GUEST_ABANDON',
+      });
+      expect(await hold(r.holdId)).toMatchObject({
+        status: 'RELEASED',
+        release_reason: 'GUEST_ABANDON',
+        occupancy_active: false,
+        request_respond_by: null,
+      });
+      expect((await commands(r.holdId)).map((x) => x.operation_kind)).toContain('VOID');
+      expect(await hostCall('accept', w.host, r.holdId, at(T0, 4))).toEqual({
+        outcome: 'INVALID_TRANSITION',
+      });
+      expect((await readRequest(w, r.holdId, at(T0, 4)))['request_status']).toBe('ENDED');
+    },
+    LONG,
+  );
+
+  it(
+    'N-66 : CGU de l’hôte non acceptées ⇒ TERMS_REACCEPT_REQUIRED, aucune capture, la demande reste en attente',
+    async () => {
+      const T0 = era(idx + 9);
+      const w = await world(c, T0, false);
+      const start = at(T0, 3 * 24 * 60);
+      const r = await sentRequest(c, w, T0, start, at(start, 2 * 24 * 60));
+      expect(await hostCall('accept', w.host, r.holdId, at(r.sentAt, 10))).toEqual({
+        outcome: 'TERMS_REACCEPT_REQUIRED',
+      });
+      expect((await hold(r.holdId)).status).toBe('AWAITING_HOST');
+      expect((await ops(r.holdId)).map((o) => o.kind)).toEqual(['AUTH']);
+    },
+    LONG,
+  );
+
+  it(
+    'voyageur devenu inéligible : avant l’acceptation ⇒ GUEST_NOT_ELIGIBLE, aucune capture ; après la capture ⇒ la conversion compense (COMPENSATED), jamais un trip',
+    async () => {
+      const T0 = era(idx + 10);
+      const w = await world(c, T0);
+      const start = at(T0, 3 * 24 * 60);
+      const r = await sentRequest(c, w, T0, start, at(start, 2 * 24 * 60));
+      const other = await world(c, T0);
+      const r2 = await sentRequest(c, other, T0, start, at(start, 2 * 24 * 60));
+      // r2 : capture acceptée d'abord, restriction ensuite
+      const a2 = await hostCall('accept', other.host, r2.holdId, at(r2.sentAt, 5));
+      expect(a2['outcome']).toBe('CAPTURE_ORDER');
+      const cap = a2['operationId'] as string;
+      expect(
+        await recordCapture(other.host, r2.holdId, cap, `fake-cap-${uuid()}`, at(r2.sentAt, 5)),
+      ).toBe('RECORDED');
+      await inTx(api, { virtualNow: at(r.sentAt, 6), commit: true }, async (tx) => {
+        await tx.query('SELECT test_fixture.us209_restrict($1)', [w.guest]);
+        await tx.query('SELECT test_fixture.us209_restrict($1)', [other.guest]);
+      });
+      expect(await hostCall('accept', w.host, r.holdId, at(r.sentAt, 7))).toEqual({
+        outcome: 'GUEST_NOT_ELIGIBLE',
+      });
+      expect((await hold(r.holdId)).status).toBe('AWAITING_HOST');
+      expect((await ops(r.holdId)).map((o) => o.kind)).toEqual(['AUTH']);
+      expect(await webhook(cap, 'SUCCEEDED', at(r2.sentAt, 8))).toBe('APPLIED');
+      expect(await convert(cap, at(r2.sentAt, 8))).toMatchObject({ outcome: 'COMPENSATED' });
+      const h2 = await hold(r2.holdId);
+      expect(h2).toMatchObject({ status: 'COMPENSATED', converted_trip_id: null });
+      expect((await readRequest(other, r2.holdId, at(r2.sentAt, 8)))['request_status']).toBe(
+        'COMPENSATED',
+      );
+    },
+    LONG,
+  );
+
+  it(
+    'exigence d’argent a, côté base : total du devis > autorisation ⇒ LEG_SUM_MISMATCH avant toute transition, aucune capture',
+    async () => {
+      const T0 = era(idx + 11);
+      const w = await world(c, T0);
+      const start = at(T0, 3 * 24 * 60);
+      const r = await sentRequest(c, w, T0, start, at(start, 2 * 24 * 60));
+      await workerSql(
+        'booking_conversion',
+        at(r.sentAt, 1),
+        'SELECT test_fixture.us223c_shrink_authorization($1)',
+        [r.auth],
+      );
+      expect(await hostCall('accept', w.host, r.holdId, at(r.sentAt, 5))).toEqual({
+        outcome: 'LEG_SUM_MISMATCH',
+      });
+      expect((await hold(r.holdId)).status).toBe('AWAITING_HOST');
+      expect((await ops(r.holdId)).map((o) => o.kind)).toEqual(['AUTH']);
+    },
+    LONG,
+  );
+
+  it(
+    'ADR-146 §6 bis : capture de l’acceptation jamais confirmée (aucune référence) ⇒ après sa borne + grâce, RELEASED (CAPTURE_UNCONFIRMED), créneau libéré, VOID, alerte P1 ; pas avant',
+    async () => {
+      const T0 = era(idx + 12);
+      const w = await world(c, T0);
+      const start = at(T0, 3 * 24 * 60);
+      const r = await sentRequest(c, w, T0, start, at(start, 2 * 24 * 60));
+      const a = await hostCall('accept', w.host, r.holdId, at(r.sentAt, 5));
+      expect(a['outcome']).toBe('CAPTURE_ORDER');
+      const bound = (await hold(r.holdId)).payment_in_flight_until!.toISOString();
+      await expireRequests(bound);
+      expect((await hold(r.holdId)).status).toBe('PAYMENT_IN_FLIGHT');
+      // borne + sweep_grace_s (60 s, 17 §7.2)
+      await expireRequests(atSec(bound, 61));
+      expect(await hold(r.holdId)).toMatchObject({
+        status: 'RELEASED',
+        release_reason: 'CAPTURE_UNCONFIRMED',
+        occupancy_active: false,
+      });
+      expect((await commands(r.holdId)).map((x) => x.operation_kind)).toEqual(['VOID']);
+      expect(await events(r.holdId)).toContain('booking.request.capture_unconfirmed');
+      expect((await readRequest(w, r.holdId, atSec(bound, 61)))['request_status']).toBe(
+        'CAPTURE_FAILED',
+      );
+    },
+    LONG,
+  );
+
+  it(
+    'deux sessions : double acceptation ⇒ une seule capture ; acceptation contre refus ⇒ le refus lit INVALID_TRANSITION, aucun VOID',
+    async () => {
+      const T0 = era(idx + 13);
+      const w = await world(c, T0);
+      const start = at(T0, 3 * 24 * 60);
+      const r = await sentRequest(c, w, T0, start, at(start, 2 * 24 * 60));
+      const w2 = await world(c, T0);
+      const r2 = await sentRequest(c, w2, T0, start, at(start, 2 * 24 * 60));
+      const api2 = await connectAs('app_api');
+      try {
+        const pid2 = await backendPid(api2);
+        const race = async (
+          host: Host,
+          holdId: string,
+          second: 'accept' | 'decline',
+          when: string,
+        ): Promise<{ first: Json; second: Promise<Json> }> =>
+          inTx(api, { virtualNow: when, commit: true }, async (tx) => {
+            const first = (
+              await tx.query<{ r: Json }>(
+                'SELECT core.booking_cmd_accept_booking_request($1, $2, $3) AS r',
+                [host.hash, host.org, holdId],
+              )
+            ).rows[0]!.r;
+            const sql =
+              second === 'accept'
+                ? 'SELECT core.booking_cmd_accept_booking_request($1, $2, $3) AS r'
+                : 'SELECT core.booking_cmd_decline_booking_request($1, $2, $3) AS r';
+            const other = inTx(
+              api2,
+              { virtualNow: when, commit: true },
+              async (tx2) =>
+                (await tx2.query<{ r: Json }>(sql, [host.hash, host.org, holdId])).rows[0]!.r,
+            );
+            await waitUntilBlocked(worker, pid2, 'advisory');
+            // promesse emballée : la première transaction valide avant l'issue de la seconde
+            return { first, second: other };
+          });
+        const one = await race(w.host, r.holdId, 'accept', at(r.sentAt, 5));
+        expect(one.first['outcome']).toBe('CAPTURE_ORDER');
+        const again = await one.second;
+        expect(again['outcome']).not.toBe('CAPTURE_ORDER');
+        expect((await ops(r.holdId)).filter((o) => o.kind === 'CAPTURE')).toHaveLength(1);
+        const two = await race(w2.host, r2.holdId, 'decline', at(r2.sentAt, 5));
+        expect(two.first['outcome']).toBe('CAPTURE_ORDER');
+        expect(await two.second).toEqual({ outcome: 'INVALID_TRANSITION' });
+        expect((await hold(r2.holdId)).status).toBe('PAYMENT_IN_FLIGHT');
+        expect(await commands(r2.holdId)).toEqual([]);
+      } finally {
+        await releaseClient(api2);
+      }
     },
     LONG,
   );

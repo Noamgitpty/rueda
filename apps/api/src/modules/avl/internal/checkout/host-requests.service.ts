@@ -37,7 +37,8 @@ import { isUuid } from './model.js';
 /** Ce que l'API demande au connecteur d'un PSP pour capturer une demande acceptée. */
 export type RequestCaptureProvider = Pick<PaymentProvider, 'capture' | 'getOperation'>;
 
-export type HostRequestOperation = 'list' | 'accept' | 'provider' | 'lookup' | 'psp' | 'record';
+export type HostRequestOperation =
+  'list' | 'one' | 'accept' | 'decline' | 'provider' | 'lookup' | 'psp' | 'record' | 'invariant';
 
 /** Journal d'exploitation : opération, nom de l'erreur, SQLSTATE, code PSP ; aucune valeur. */
 export type HostRequestFailureLog = (operation: HostRequestOperation, error: unknown) => void;
@@ -96,7 +97,7 @@ export class HostRequestService {
   /** Une demande du compte ; inconnue ou d'un autre ⇒ 404. */
   async one(proof: Buffer, orgId: string, holdId: string): Promise<HostRequestRow> {
     if (!isUuid(orgId) || !isUuid(holdId)) throw new HostRequestHttpError('REQUEST_NOT_FOUND');
-    const rows = await this.#guard('list', () =>
+    const rows = await this.#guard('one', () =>
       this.store.list(proof, orgId.toLowerCase(), holdId.toLowerCase()),
     );
     if (rows === 'FORBIDDEN' || rows[0] === undefined) {
@@ -121,7 +122,9 @@ export class HostRequestService {
   async decline(proof: Buffer, orgId: string, holdId: string): Promise<HostRequestDecision> {
     if (!isUuid(orgId) || !isUuid(holdId)) throw new HostRequestHttpError('REQUEST_NOT_FOUND');
     const id = holdId.toLowerCase();
-    const r = await this.#guard('accept', () => this.store.decline(proof, orgId.toLowerCase(), id));
+    const r = await this.#guard('decline', () =>
+      this.store.decline(proof, orgId.toLowerCase(), id),
+    );
     if (r.kind === 'REFUSED') throw new HostRequestHttpError(REFUSAL_HTTP[r.code]);
     return { holdId: id, status: 'DECLINED' };
   }
@@ -134,13 +137,17 @@ export class HostRequestService {
       throw new HostRequestHttpError('PAYMENT_UNAVAILABLE');
     }
     try {
-      // 08 E7 règle 1 : la somme des jambes vaut le montant, avant tout appel au PSP
+      // 08 E7 règle 1 : la somme des jambes vaut le montant, avant tout appel au PSP. La base l'a
+      // déjà vérifié avant la transition : un écart ici est un défaut grave (invariant), jamais un
+      // conseil de refus ; aucun appel au PSP, la capture non confirmée sort par l'expiration
       assertMovingLegs(c.amountMinor, c.legs);
     } catch (error) {
-      this.logFailure('accept', error);
-      throw new HostRequestHttpError('LEG_SUM_MISMATCH');
+      this.logFailure('invariant', error);
+      throw new HostRequestHttpError('BOOKING_UNAVAILABLE');
     }
-    if (c.outcome === 'RETRY_SAME_KEY') {
+    // N-108 : lecture d'abord quand le PSP sait chercher par notre clé ; sinon la base n'a rendu
+    // la reprise que si l'en-tête d'idempotence est validé (même clé, aucun second débit)
+    if (c.outcome === 'RETRY_SAME_KEY' && c.lookup) {
       const found = await this.#psp('lookup', () =>
         provider.getOperation({ merchantReference: c.idemSent }),
       );

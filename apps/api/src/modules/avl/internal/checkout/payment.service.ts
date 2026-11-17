@@ -74,9 +74,9 @@ export interface CheckoutPayment {
   readonly expiresAt: string;
   readonly paymentInFlightUntil: string | null;
   /**
-   * Demande à l'hôte (US-223c, ADR-146) : état et heure limite de réponse ; `null` pour une
-   * Absent pour une réservation immédiate (forme de 223b inchangée). Lu par S05 « demande
-   * envoyée » et S06 (écrans : partie 223c-écrans).
+   * Demande à l'hôte (US-223c, ADR-146) : état et heure limite de réponse. Champ absent pour une
+   * réservation immédiate (forme de 223b inchangée), jamais `null`. Lu par les écrans de la partie
+   * 223c-écrans.
    */
   readonly request?: { readonly status: RequestStatus; readonly respondBy: string | null };
 }

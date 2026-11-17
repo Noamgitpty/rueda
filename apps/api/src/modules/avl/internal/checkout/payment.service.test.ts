@@ -14,7 +14,7 @@ import {
   paymentStateOf,
 } from './payment.service.js';
 import { paymentRefusalOf } from './payment-store.js';
-import type { CheckoutPaymentRow } from './payment-store.js';
+import type { CheckoutPaymentRow, RequestStatus } from './payment-store.js';
 
 const ROW: CheckoutPaymentRow = {
   holdStatus: 'ACTIVE',
@@ -64,6 +64,46 @@ describe('US-223b — paiement du hold (unitaires)', () => {
       'ENDED',
     );
     expect(() => paymentStateOf({ ...ROW, holdStatus: 'NOUVEAU' })).toThrow();
+  });
+
+  it('US-223c : demande en attente de l’hôte ⇒ VERIFYING ; demande terminée sans capture (refus, expiration, capture refusée, sortie avant l’envoi) ⇒ ENDED, jamais UNPROVEN ; demande acceptée et convertie ⇒ CONFIRMED', () => {
+    const request = (status: RequestStatus) => ({ status, respondBy: '2036-11-30T19:10:00.000Z' });
+    expect(
+      paymentStateOf({
+        ...ROW,
+        holdStatus: 'AWAITING_HOST',
+        operationStatus: 'SUCCEEDED',
+        request: request('AWAITING_HOST'),
+      }),
+    ).toBe('VERIFYING');
+    for (const [status, holdStatus] of [
+      ['DECLINED', 'RELEASED'],
+      ['EXPIRED', 'EXPIRED'],
+      ['CAPTURE_FAILED', 'RELEASED'],
+      ['ENDED', 'EXPIRED'],
+    ] as const) {
+      expect(
+        paymentStateOf({
+          ...ROW,
+          holdStatus,
+          operationStatus: 'PENDING',
+          request: request(status),
+        }),
+        status,
+      ).toBe('ENDED');
+    }
+    expect(
+      paymentStateOf({
+        ...ROW,
+        holdStatus: 'CONVERTED',
+        tripId: 't',
+        operationStatus: 'SUCCEEDED',
+        request: request('ACCEPTED'),
+      }),
+    ).toBe('CONFIRMED');
+    expect(
+      paymentStateOf({ ...ROW, holdStatus: 'COMPENSATED', request: request('COMPENSATED') }),
+    ).toBe('REFUND_DUE');
   });
 
   it('table de vérité : chaque statut d’opération de 0005 sur chaque état du hold ; seul CONVERTED + trip confirme ; un statut inconnu ne confirme jamais', () => {

@@ -47,6 +47,11 @@ export interface RequestCapture {
   readonly legs: Readonly<Record<Leg, bigint>>;
   /** Référence PSP de l'autorisation capturée. */
   readonly authorizationReference: string;
+  /**
+   * Reprise (`RETRY_SAME_KEY`) : `true` si le PSP permet de chercher l'ordre par NOTRE clé (lecture
+   * d'abord, N-108) ; `false` : reprise sous la même clé garantie par l'en-tête d'idempotence.
+   */
+  readonly lookup: boolean;
 }
 
 /** Refus de l'acceptation ou du refus (issues de 0124), codes de `host-request-errors.ts`. */
@@ -228,6 +233,7 @@ export class PgHostRequestStore implements HostRequestStore {
         currency: text(r['currency']),
         legs: legsOf(r['legs']),
         authorizationReference: text(r['authorizationReference']),
+        lookup: r['lookup'] === true,
       },
     };
   }

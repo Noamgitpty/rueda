@@ -67,7 +67,7 @@ ALTER TABLE core.booking_checkout_hold
   DROP CONSTRAINT hold_release_reason_valid,
   ADD CONSTRAINT hold_release_reason_valid CHECK (release_reason IN
     ('GUEST_ABANDON', 'PAYMENT_DECLINED', 'SUPERSEDED_BY_PAID_HOLD', 'REVIEW_REJECTED',
-     'HOST_UNAVAILABLE', 'REQUEST_DECLINED')),
+     'HOST_UNAVAILABLE', 'REQUEST_DECLINED', 'CAPTURE_UNCONFIRMED')),
   ADD CONSTRAINT hold_request_respond_by_kind CHECK (kind = 'REQUEST' OR request_respond_by IS NULL),
   ADD CONSTRAINT hold_awaiting_host_request CHECK (status <> 'AWAITING_HOST'
     OR (kind = 'REQUEST' AND request_respond_by IS NOT NULL));
@@ -221,25 +221,30 @@ CREATE POLICY cmd_hold_request_upd ON core.booking_checkout_hold FOR UPDATE TO c
   USING (kind = 'REQUEST' AND (
            (app.actor_kind() = 'HOST' AND org_id = app.org_id() AND status = 'AWAITING_HOST')
         OR (app.actor_kind() = 'WORKER' AND app.worker_name() = 'hold_expiry'
-            AND status = 'AWAITING_HOST')
+            AND (status = 'AWAITING_HOST'
+                 -- capture de l'acceptation jamais confirmée (sortie fail-closed, ADR-146 §6 bis)
+                 OR (status = 'PAYMENT_IN_FLIGHT' AND request_respond_by IS NOT NULL)))
         OR (app.actor_kind() = 'WORKER' AND app.worker_name() = 'booking_conversion'
             AND status = 'PAYMENT_IN_FLIGHT')))
   WITH CHECK (kind = 'REQUEST' AND (
            (app.actor_kind() = 'HOST' AND org_id = app.org_id()
             AND status IN ('PAYMENT_IN_FLIGHT', 'RELEASED'))
         OR (app.actor_kind() = 'WORKER' AND app.worker_name() = 'hold_expiry'
-            AND status = 'EXPIRED')
+            AND status IN ('EXPIRED', 'RELEASED'))
+        -- preuve de l'autorisation : attente de l'hôte, ou libération si le voyageur a abandonné
         OR (app.actor_kind() = 'WORKER' AND app.worker_name() = 'booking_conversion'
-            AND status = 'AWAITING_HOST')));
+            AND status IN ('AWAITING_HOST', 'RELEASED'))));
 -- occupation HOLD d'une demande : désactivée au refus ou à l'expiration
 CREATE POLICY cmd_hold_request_occ_upd ON core.booking_vehicle_occupancy FOR UPDATE
   TO cmd_hold_owner
   USING (kind = 'HOLD' AND active AND ref_type = 'HOLD'
-         AND (app.actor_kind() = 'HOST'
-              OR (app.actor_kind() = 'WORKER' AND app.worker_name() = 'hold_expiry')))
+         AND ((app.actor_kind() = 'HOST' AND org_id = app.org_id())
+              OR (app.actor_kind() = 'WORKER'
+                  AND app.worker_name() IN ('hold_expiry', 'booking_conversion'))))
   WITH CHECK (kind = 'HOLD' AND NOT active AND deactivated_reason IN ('HOLD_EXPIRED', 'HOLD_RELEASED')
-              AND (app.actor_kind() = 'HOST'
-                   OR (app.actor_kind() = 'WORKER' AND app.worker_name() = 'hold_expiry')));
+              AND ((app.actor_kind() = 'HOST' AND org_id = app.org_id())
+                   OR (app.actor_kind() = 'WORKER'
+                       AND app.worker_name() IN ('hold_expiry', 'booking_conversion'))));
 -- autorisation du voyageur (T1 d'une demande) : AUTH PENDING de son hold REQUEST en vol
 CREATE POLICY cmd_hold_request_auth_ins ON core.payment_payment_operation FOR INSERT
   TO cmd_hold_owner
@@ -260,15 +265,16 @@ CREATE POLICY cmd_hold_request_pay_ins ON core.payment_payment_operation FOR INS
                                    AND h.kind = 'REQUEST' AND h.org_id = app.org_id()
                                    AND h.status = 'PAYMENT_IN_FLIGHT'
                                    AND h.request_respond_by IS NOT NULL))
+                -- VOID : la fonction booking_request_void n'annule qu'une AUTH SUCCEEDED qui ne porte
+                -- pas la demande vivante ; l'hôte seulement pour une demande de son compte
                 OR (kind = 'VOID'
-                    AND (app.actor_kind() = 'HOST'
-                         OR (app.actor_kind() = 'WORKER'
-                             AND app.worker_name() IN ('hold_expiry', 'booking_conversion')))
                     AND EXISTS (SELECT 1 FROM core.booking_checkout_hold h
                                  WHERE h.id = payment_payment_operation.hold_id
                                    AND h.kind = 'REQUEST'
-                                   AND h.status IN ('ACTIVE', 'EXPIRED', 'RELEASED',
-                                                    'COMPENSATED')))));
+                                   AND ((app.actor_kind() = 'HOST' AND h.org_id = app.org_id())
+                                        OR (app.actor_kind() = 'WORKER'
+                                            AND app.worker_name() IN ('hold_expiry',
+                                                                      'booking_conversion')))))));
 -- affinage de la capture par l'hôte (PENDING → SUBMITTED avec la référence du PSP)
 CREATE POLICY cmd_hold_request_pay_upd ON core.payment_payment_operation FOR UPDATE
   TO cmd_hold_owner
@@ -300,14 +306,15 @@ CREATE POLICY cmd_hold_request_opevent_ins ON core.payment_payment_operation_eve
 CREATE POLICY cmd_hold_request_command_ins ON core.payment_payment_command FOR INSERT
   TO cmd_hold_owner
   WITH CHECK (operation_kind = 'VOID' AND status = 'PENDING'
-              AND (app.actor_kind() = 'HOST'
-                   OR (app.actor_kind() = 'WORKER'
-                       AND app.worker_name() IN ('hold_expiry', 'booking_conversion')))
               AND EXISTS (SELECT 1 FROM core.payment_payment_operation o
                             JOIN core.booking_checkout_hold h ON h.id = o.hold_id
                            WHERE o.id = payment_payment_command.operation_id
                              AND o.hold_id = payment_payment_command.hold_id
-                             AND o.kind = 'VOID' AND h.kind = 'REQUEST'));
+                             AND o.kind = 'VOID' AND h.kind = 'REQUEST'
+                             AND ((app.actor_kind() = 'HOST' AND h.org_id = app.org_id())
+                                  OR (app.actor_kind() = 'WORKER'
+                                      AND app.worker_name() IN ('hold_expiry',
+                                                                'booking_conversion')))));
 -- événements booking.request.* (17 annexe des événements) ; refus d'accès de l'hôte journalisé
 CREATE POLICY cmd_hold_request_event_ins ON core.outbox_outbox_event FOR INSERT TO cmd_hold_owner
   WITH CHECK (aggregate_type = 'checkout_hold'
@@ -318,11 +325,17 @@ CREATE POLICY cmd_hold_request_event_ins ON core.outbox_outbox_event FOR INSERT 
                 OR (app.actor_kind() = 'WORKER' AND actor_role = 'SYSTEM'
                     AND app.worker_name() IN ('hold_expiry', 'booking_conversion')
                     AND type IN ('booking.request.received', 'booking.request.expired',
-                                 'booking.request.void_requested'))));
+                                 'booking.request.void_requested',
+                                 'booking.request.capture_unconfirmed'))));
+-- limiteur du journal des refus d'accès (un événement par personne et par minute) : la porte lit
+-- seulement ses propres événements booking.request.access_denied
+GRANT SELECT (type, actor_user_id, created_at) ON core.outbox_outbox_event TO cmd_hold_owner;
+CREATE POLICY cmd_hold_request_event_sel ON core.outbox_outbox_event FOR SELECT TO cmd_hold_owner
+  USING (type = 'booking.request.access_denied' AND actor_user_id = app.actor_id());
 
 -- lecture de la supervision : commandes VOID en attente (escalade, exigence d'argent c) ; ajouté
 -- à la liste des travailleurs de la politique EXISTANTE (comme 0045), plutôt qu'une politique de
--- plus (matrice d'US-043 inchangée)
+-- plus (matrice d'US-043 : entrée ops_monitor ajoutée)
 ALTER POLICY worker_select ON core.payment_payment_command
   USING (app.actor_kind() = 'WORKER' AND app.worker_name() IN
          ('payment_command', 'booking_conversion', 'disposition_sweeper', 'payment_intent_sweeper',
@@ -1265,14 +1278,18 @@ BEGIN
       USING ERRCODE = 'insufficient_privilege', CONSTRAINT = 'hold_forbidden';
   END IF;
   SELECT o.id, o.psp_account_id, o.country_code, o.provider, o.method, o.amount_minor, o.currency,
-         o.attempt_no
+         o.attempt_no, o.status, h.status AS hold_status, h.payment_attempts
     INTO r_auth
     FROM core.payment_payment_operation AS o
     JOIN core.booking_checkout_hold AS h ON h.id = o.hold_id
    WHERE o.id = p_auth_op AND o.hold_id = p_hold_id AND o.purpose = 'RENT' AND o.kind = 'AUTH'
      AND h.kind = 'REQUEST';
-  IF r_auth.id IS NULL THEN
-    RAISE EXCEPTION 'request: authorization of another hold'
+  -- seulement une autorisation SUCCEEDED, et jamais celle qui porte une demande encore vivante
+  -- (en attente, en capture ou convertie) : celle-là est capturée ou annulée par sa sortie
+  IF r_auth.id IS NULL OR r_auth.status IS DISTINCT FROM 'SUCCEEDED'
+     OR (r_auth.hold_status IN ('AWAITING_HOST', 'PAYMENT_IN_FLIGHT', 'CONVERTED')
+         AND r_auth.attempt_no = r_auth.payment_attempts + 1) THEN
+    RAISE EXCEPTION 'request: authorization not voidable'
       USING ERRCODE = 'integrity_constraint_violation', CONSTRAINT = 'request_void_authorization';
   END IF;
   v_key := pg_catalog.format('hold:%s:VOID:a%s', p_hold_id, r_auth.attempt_no);
@@ -1346,12 +1363,47 @@ BEGIN
   PERFORM pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended('guest:' || v_guest::text, 0));
   PERFORM pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended('veh:' || v_vehicle::text, 0));
   SELECT h.status, h.request_respond_by, h.payment_attempts, h.occupancy_id, h.org_id,
-         h.country_code
+         h.country_code, h.release_requested_at
     INTO r_hold
     FROM core.booking_checkout_hold AS h
    WHERE h.id = r_op.hold_id;
   IF r_hold.request_respond_by IS NOT NULL THEN
-    RETURN pg_catalog.jsonb_build_object('outcome', 'REPLAY');
+    IF r_op.attempt_no = r_hold.payment_attempts + 1 THEN
+      RETURN pg_catalog.jsonb_build_object('outcome', 'REPLAY');
+    END IF;
+    -- autorisation d'une autre tentative prouvée après le passage en attente : une seule
+    -- autorisation vivante par demande, les autres sont annulées
+    PERFORM core.booking_request_void(r_op.hold_id, p_operation_id);
+    INSERT INTO core.outbox_outbox_event
+           (type, schema_version, aggregate_type, aggregate_id, aggregate_version, country_code,
+            actor_role, correlation_id, payload, partition_key)
+    VALUES ('booking.request.void_requested', 1, 'checkout_hold', r_op.hold_id, 2,
+            r_hold.country_code, 'SYSTEM', pg_catalog.gen_random_uuid(),
+            pg_catalog.jsonb_build_object('hold_id', r_op.hold_id, 'operation_id', p_operation_id,
+                                          'reason', 'SECOND_AUTHORIZATION'),
+            r_op.hold_id::text);
+    RETURN pg_catalog.jsonb_build_object('outcome', 'VOID_REQUESTED');
+  END IF;
+  -- le voyageur a abandonné sa demande pendant l'autorisation (libération différée) : la demande
+  -- n'est jamais ouverte à l'hôte ; libérée, autorisation annulée
+  IF r_hold.status = 'PAYMENT_IN_FLIGHT' AND r_op.attempt_no = r_hold.payment_attempts + 1
+     AND r_hold.release_requested_at IS NOT NULL THEN
+    UPDATE core.booking_checkout_hold
+       SET status = 'RELEASED', released_at = platform.now()
+     WHERE id = r_op.hold_id AND status = 'PAYMENT_IN_FLIGHT';
+    UPDATE core.booking_vehicle_occupancy
+       SET active = false, deactivated_reason = 'HOLD_RELEASED'
+     WHERE id = r_hold.occupancy_id AND kind = 'HOLD' AND active;
+    PERFORM core.booking_request_void(r_op.hold_id, p_operation_id);
+    INSERT INTO core.outbox_outbox_event
+           (type, schema_version, aggregate_type, aggregate_id, aggregate_version, country_code,
+            actor_role, correlation_id, payload, partition_key)
+    VALUES ('booking.request.void_requested', 1, 'checkout_hold', r_op.hold_id, 2,
+            r_hold.country_code, 'SYSTEM', pg_catalog.gen_random_uuid(),
+            pg_catalog.jsonb_build_object('hold_id', r_op.hold_id, 'operation_id', p_operation_id,
+                                          'reason', 'GUEST_ABANDON'),
+            r_op.hold_id::text);
+    RETURN pg_catalog.jsonb_build_object('outcome', 'VOID_REQUESTED', 'reason', 'GUEST_ABANDON');
   END IF;
   IF r_hold.status = 'PAYMENT_IN_FLIGHT' AND r_op.attempt_no = r_hold.payment_attempts + 1 THEN
     v_hours := core.booking_param_int('booking_request_expiry_hours', r_hold.country_code);
@@ -1439,7 +1491,13 @@ BEGIN
      OR NOT EXISTS (SELECT 1 FROM core.booking_checkout_hold AS h
                      WHERE h.id = p_hold_id AND h.kind = 'REQUEST' AND h.org_id = p_org
                        AND h.country_code = v_country) THEN
-    IF p_hold_id IS NOT NULL THEN
+    -- limiteur : au plus un événement par personne et par minute (une session authentifiée ne
+      -- remplit pas l'outbox) ; le refus lui-même est toujours rendu
+    IF p_hold_id IS NOT NULL
+       AND NOT EXISTS (SELECT 1 FROM core.outbox_outbox_event AS e
+                        WHERE e.type = 'booking.request.access_denied'
+                          AND e.actor_user_id = v_user
+                          AND e.created_at > platform.now() - interval '1 minute') THEN
       INSERT INTO core.outbox_outbox_event
              (type, schema_version, aggregate_type, aggregate_id, aggregate_version, country_code,
               actor_user_id, actor_role, correlation_id, payload, partition_key)
@@ -1528,9 +1586,14 @@ BEGIN
        WHERE o.hold_id = p_hold_id AND o.purpose = 'RENT' AND o.kind = 'CAPTURE'
        ORDER BY o.attempt_no DESC, o.created_at DESC
        LIMIT 1;
+      -- N-108 : reprise sous la même clé seulement si le PSP permet de chercher l'ordre par NOTRE
+      -- clé (lecture d'abord) ou garantit l'idempotence de la clé (en-tête) ; sinon aucun envoi,
+      -- la capture non confirmée sort par l'expiration (ADR-146 §6 bis)
       IF r_cap.id IS NOT NULL AND r_cap.status = 'PENDING' AND r_cap.provider_reference IS NULL
-         AND core.payment_capability_bool(r_cap.provider, v_country, r_cap.method,
-                                          'SUPPORTS_LOOKUP_BY_MERCHANT_REF') THEN
+         AND (core.payment_capability_bool(r_cap.provider, v_country, r_cap.method,
+                                           'SUPPORTS_LOOKUP_BY_MERCHANT_REF')
+              OR core.payment_capability_bool(r_cap.provider, v_country, r_cap.method,
+                                              'SUPPORTS_IDEMPOTENCY_HEADER')) THEN
         SELECT t.legs INTO r_terms FROM core.booking_hold_payment_terms(p_hold_id) AS t;
         SELECT o.provider_reference INTO r_auth
           FROM core.payment_payment_operation AS o
@@ -1542,7 +1605,9 @@ BEGIN
           'outcome', 'RETRY_SAME_KEY', 'operationId', r_cap.id, 'idemSent', r_cap.idem_sent,
           'amountMinor', r_cap.amount_minor::text, 'currency', r_cap.currency,
           'legs', r_terms.legs, 'provider', r_cap.provider, 'method', r_cap.method,
-          'authorizationReference', r_auth.provider_reference);
+          'authorizationReference', r_auth.provider_reference,
+          'lookup', core.payment_capability_bool(r_cap.provider, v_country, r_cap.method,
+                                                'SUPPORTS_LOOKUP_BY_MERCHANT_REF'));
       END IF;
       RETURN pg_catalog.jsonb_build_object('outcome', 'CAPTURING');
     END IF;
@@ -1655,6 +1720,7 @@ BEGIN
     'provider', r_auth.provider,
     'method', r_auth.method,
     'authorizationReference', r_auth.provider_reference,
+    'lookup', false,
     'paymentInFlightUntil', v_bound);
 END
 $fn$;
@@ -1854,12 +1920,71 @@ BEGIN
             r.id::text);
     v_n := v_n + 1;
   END LOOP;
+
+  -- ADR-146 §6 bis : capture de l'acceptation jamais confirmée (ordre resté PENDING sans référence
+  -- : panne du PSP ou de l'API après la transition, reprise impossible ; ou UNKNOWN) au-delà de sa
+  -- borne + sweep_grace_s ⇒ sortie fail-closed : RELEASED (CAPTURE_UNCONFIRMED), créneau libéré,
+  -- VOID de l'autorisation, alerte P1 (OPS_P1_EVENT). Si le PSP avait capturé quand même, la preuve
+  -- tardive suit la conversion gardée (ré-acquisition ou compensation intégrale) et le VOID refusé
+  -- est escaladé (OPS_REQUEST_VOID_PENDING) : jamais un débit sans réservation non signalé.
+  FOR r IN
+    WITH due AS (
+      SELECT h.id
+        FROM core.booking_checkout_hold AS h
+       WHERE h.kind = 'REQUEST' AND h.status = 'PAYMENT_IN_FLIGHT'
+         AND h.request_respond_by IS NOT NULL
+         AND h.payment_in_flight_until IS NOT NULL
+         AND h.payment_in_flight_until
+             + pg_catalog.make_interval(secs => COALESCE(core.booking_param_int('sweep_grace_s',
+                                                                                h.country_code),
+                                                         0)) <= v_now
+         AND EXISTS (SELECT 1 FROM core.payment_payment_operation AS o
+                      WHERE o.hold_id = h.id AND o.purpose = 'RENT' AND o.kind = 'CAPTURE'
+                        AND (o.status = 'UNKNOWN'
+                             OR (o.status = 'PENDING' AND o.provider_reference IS NULL)))
+         AND NOT EXISTS (SELECT 1 FROM core.payment_payment_operation AS o
+                          WHERE o.hold_id = h.id AND o.purpose = 'RENT' AND o.kind = 'CAPTURE'
+                            AND o.status IN ('SUBMITTED', 'SUCCEEDED'))
+       ORDER BY h.payment_in_flight_until, h.id
+       LIMIT p_limit
+         FOR UPDATE OF h SKIP LOCKED
+    )
+    UPDATE core.booking_checkout_hold AS h
+       SET status = 'RELEASED', released_at = v_now, release_reason = 'CAPTURE_UNCONFIRMED'
+      FROM due
+     WHERE h.id = due.id AND h.status = 'PAYMENT_IN_FLIGHT'
+    RETURNING h.id, h.occupancy_id, h.vehicle_id, h.org_id, h.country_code
+  LOOP
+    UPDATE core.booking_vehicle_occupancy
+       SET active = false, deactivated_reason = 'HOLD_RELEASED'
+     WHERE id = r.occupancy_id AND kind = 'HOLD' AND active;
+    v_auth := NULL;
+    SELECT o.id INTO v_auth
+      FROM core.payment_payment_operation AS o
+     WHERE o.hold_id = r.id AND o.purpose = 'RENT' AND o.kind = 'AUTH' AND o.status = 'SUCCEEDED'
+     ORDER BY o.attempt_no DESC
+     LIMIT 1;
+    IF v_auth IS NOT NULL THEN
+      PERFORM core.booking_request_void(r.id, v_auth);
+    END IF;
+    INSERT INTO core.outbox_outbox_event
+           (type, schema_version, aggregate_type, aggregate_id, aggregate_version, country_code,
+            actor_role, correlation_id, payload, partition_key)
+    VALUES ('booking.request.capture_unconfirmed', 1, 'checkout_hold', r.id, 2, r.country_code,
+            'SYSTEM', pg_catalog.gen_random_uuid(),
+            pg_catalog.jsonb_build_object('hold_id', r.id, 'vehicle_id', r.vehicle_id,
+                                          'org_id', r.org_id, 'severity', 'P1'),
+            r.id::text);
+    v_n := v_n + 1;
+  END LOOP;
   RETURN v_n;
 END
 $fn$;
 COMMENT ON FUNCTION core.booking_cmd_expire_booking_requests(integer) IS
   'Expiration des demandes AWAITING_HOST échues (horloge de la base) : EXPIRED, créneau libéré, '
-  'VOID total. Travailleur hold_expiry (SECURITY DEFINER, EXECUTE app_worker). US-223 (ADR-146).';
+  'VOID total ; capture d''une acceptation jamais confirmée après sa borne : RELEASED '
+  '(CAPTURE_UNCONFIRMED), VOID, alerte P1. Travailleur hold_expiry (SECURITY DEFINER, EXECUTE '
+  'app_worker). US-223 (ADR-146).';
 
 -- 11. Lecture de la demande par le voyageur (S05 « demande envoyée », S06) --------------------------
 -- Type du hold, état de la demande, heure limite ; aucun montant ni référence du PSP.
@@ -1903,7 +2028,8 @@ BEGIN
            WHEN h.status = 'PAYMENT_IN_FLIGHT' THEN 'CAPTURING'
            WHEN h.status = 'CONVERTED' THEN 'ACCEPTED'
            WHEN h.status = 'RELEASED' AND h.release_reason = 'REQUEST_DECLINED' THEN 'DECLINED'
-           WHEN h.status = 'RELEASED' AND h.release_reason = 'PAYMENT_DECLINED' THEN 'CAPTURE_FAILED'
+           WHEN h.status = 'RELEASED'
+                AND h.release_reason IN ('PAYMENT_DECLINED', 'CAPTURE_UNCONFIRMED') THEN 'CAPTURE_FAILED'
            WHEN h.status = 'EXPIRED' THEN 'EXPIRED'
            WHEN h.status = 'COMPENSATED' THEN 'COMPENSATED'
            ELSE 'ENDED'

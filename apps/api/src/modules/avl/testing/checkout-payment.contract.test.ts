@@ -400,6 +400,39 @@ describe('US-223b — contrat du paiement du hold du checkout', () => {
     }
   });
 
+  it('US-223c : demande à l’hôte : GET rend `request` (état, heure limite) conforme au contrat ; en attente ⇒ VERIFYING, refusée ⇒ ENDED ; absent pour une réservation immédiate', async () => {
+    const { hold, read } = await app();
+    const respondBy = '2036-11-30T19:10:00.000Z';
+    hold({
+      holdStatus: 'AWAITING_HOST',
+      operationStatus: 'SUCCEEDED',
+      request: { status: 'AWAITING_HOST', respondBy },
+    });
+    const waiting = await read();
+    expect(waiting.status).toBe(200);
+    expect(waiting.json).toMatchObject({
+      payment: {
+        holdId: HOLD,
+        state: 'VERIFYING',
+        holdStatus: 'AWAITING_HOST',
+        request: { status: 'AWAITING_HOST', respondBy },
+      },
+    });
+    hold({
+      holdStatus: 'RELEASED',
+      operationStatus: 'PENDING',
+      request: { status: 'DECLINED', respondBy },
+    });
+    expect((await read()).json).toMatchObject({
+      payment: { state: 'ENDED', request: { status: 'DECLINED', respondBy } },
+    });
+    hold({});
+    const instant = await read();
+    expect((instant.json as { payment: Record<string, unknown> }).payment).not.toHaveProperty(
+      'request',
+    );
+  });
+
   it('couverture : chaque statut déclaré pour /checkout/holds/{holdId}/payment est exercé', () => {
     expect(
       missingCoverage(contract, '/checkout/holds/{holdId}/payment', coverageOf(...apps)),

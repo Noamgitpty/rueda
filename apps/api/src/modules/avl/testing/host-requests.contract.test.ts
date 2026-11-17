@@ -69,6 +69,7 @@ const captureOf = (
     currency: v.currency,
     legs: { ...v.legsMinor },
     authorizationReference: 'fake-auth-1',
+    lookup: outcome === 'RETRY_SAME_KEY',
   },
 });
 
@@ -175,6 +176,16 @@ describe('US-223c — contrat des demandes de réservation de l’hôte', () => 
     expect((await post(`${base(ORG_A)}/${HOLD}/accept`)).status).toBe(200);
     expect(psp.captures).toHaveLength(1);
     expect(psp.captures[0]?.idempotencyKey).toBe(`hold:${HOLD}:CAPTURE:a1`);
+    // sans recherche par clé, la base n'a rendu la reprise que si l'en-tête d'idempotence est validé :
+    // même clé, sans lecture
+    const noLookup = captureOf(TJ01, 'RETRY_SAME_KEY');
+    if (noLookup.kind !== 'CAPTURE') throw new Error('capture attendue');
+    store.accepts.set(HOLD, { kind: 'CAPTURE', capture: { ...noLookup.capture, lookup: false } });
+    const lookups = psp.lookups.length;
+    expect((await post(`${base(ORG_A)}/${HOLD}/accept`)).status).toBe(200);
+    expect(psp.lookups).toHaveLength(lookups);
+    expect(psp.captures).toHaveLength(2);
+    expect(psp.captures[1]?.idempotencyKey).toBe(`hold:${HOLD}:CAPTURE:a1`);
   });
 
   it('capture en cours ou trip né ⇒ 200 sans nouvel envoi ; refus de la base ⇒ 409 ou 404 sans capture', async () => {
@@ -206,7 +217,7 @@ describe('US-223c — contrat des demandes de réservation de l’hôte', () => 
     expect((await post(`${base(ORG_A)}/${HOLD}/accept`, null)).status).toBe(401);
   });
 
-  it('LEG_SUM_MISMATCH : jambes rendues dont la somme diffère du montant ⇒ 409, aucun appel au PSP', async () => {
+  it('invariant : jambes rendues par la base dont la somme diffère du montant ⇒ 503 BOOKING_UNAVAILABLE (défaut grave journalisé, jamais un conseil de refus), aucun appel au PSP', async () => {
     const { store, psp, post } = await app();
     const bad = captureOf(TJ01, 'CAPTURE_ORDER');
     if (bad.kind !== 'CAPTURE') throw new Error('capture attendue');
@@ -215,8 +226,8 @@ describe('US-223c — contrat des demandes de réservation de l’hôte', () => 
       capture: { ...bad.capture, amountMinor: TJ01.totalMinor + 1n },
     });
     const r = await post(`${base(ORG_A)}/${HOLD}/accept`);
-    expect(r.status).toBe(409);
-    expect(r.json).toMatchObject({ code: 'LEG_SUM_MISMATCH' });
+    expect(r.status).toBe(503);
+    expect(r.json).toMatchObject({ code: 'BOOKING_UNAVAILABLE' });
     expect(psp.captures).toHaveLength(0);
     expect(store.recorded).toHaveLength(0);
   });

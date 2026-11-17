@@ -2082,9 +2082,18 @@ export const ES_MESSAGES = {
   // US-223c (ADR-146) : demandes de réservation de l'hôte (mode REQUEST, 17 §2.5 ; 16 HDB-002)
   'common.request.notFound': 'No encontramos esta solicitud.',
   'common.request.expired': 'Esta solicitud ya venció. No se le cobró nada al viajero.',
-  'common.request.alreadyAnswered': 'Ya respondiste esta solicitud.',
+  'common.request.alreadyAnswered':
+    'Esta solicitud ya no se puede responder: ya fue respondida o se está procesando.',
   'common.request.guestNotEligible':
     'El viajero ya no puede reservar. Rechaza la solicitud: no se le cobrará nada.',
+  'common.request.startPassed':
+    'El viaje ya empezó: esta solicitud no se puede aceptar. Recházala; no se cobrará nada al viajero.',
+  'common.request.hostTermsRequired':
+    'Para aceptar solicitudes, lee y acepta la versión vigente de las Condiciones del anfitrión.',
+  'common.request.paymentUnavailable':
+    'No podemos cobrar esta reserva por ahora. La solicitud sigue abierta: inténtalo más tarde.',
+  'common.request.unavailable':
+    'No pudimos procesar tu respuesta. Inténtalo de nuevo en unos minutos.',
   'common.request.amountMismatch':
     'No pudimos confirmar el monto de esta reserva. No se cobró nada. Rechaza la solicitud o escribe a soporte.',
   'common.payment.payoutRailUnavailable':
