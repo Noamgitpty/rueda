@@ -233,6 +233,10 @@ describe('configuration pays : structure et droits', () => {
             ...(t === 'config_country'
               ? [{ t, pol: 'cmd_money_sel', cmd: 'r', roles: 'cmd_money_owner' }]
               : []),
+            // contrat de location (US-211, 0122) : tolérance de retard (grace_minutes) seulement
+            ...(t === 'config_param_value'
+              ? [{ t, pol: 'cmd_hold_contract_param_read', cmd: 'r', roles: 'cmd_hold_owner' }]
+              : []),
             // commandes d'occupation (0032, US-022) : clé buffer_minutes seulement, en lecture ;
             // checkout (US-208, 0108) : interrupteurs de l'hôte activable (définition et valeur)
             ...(t === 'config_param_definition' || t === 'config_param_value'
@@ -242,7 +246,7 @@ describe('configuration pays : structure et droits', () => {
             ...(t === 'config_param_value'
               ? [{ t, pol: 'cmd_hold_risk_read', cmd: 'r', roles: 'cmd_hold_owner' }]
               : []),
-            // avance de Kmino (US-224b, 0122) : plafond par hôte host_advance_cap_minor seulement
+            // avance de Kmino (US-224b, 0123) : plafond par hôte host_advance_cap_minor seulement
             ...(t === 'config_param_value'
               ? [{ t, pol: 'cmd_money_advance_cap_read', cmd: 'r', roles: 'cmd_money_owner' }]
               : []),

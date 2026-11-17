@@ -1274,7 +1274,7 @@ describe('money_no_delete / money_no_truncate — aucune suppression, même par 
           t,
         ).rejects.toMatchObject({ code: '23000', constraint: 'money_no_delete' });
       }
-      // US-224b (0122) : settlement_platform_advance est désormais référencée par
+      // US-224b (0123) : settlement_platform_advance est désormais référencée par
       // payment_refund_instance (advance_id) : TRUNCATE y est refusé par PostgreSQL avant le
       // déclencheur (0A000), toujours refusé
       await expect(

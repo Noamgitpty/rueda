@@ -1,5 +1,5 @@
 /**
- * US-224 (partie 224b, migration 0122, ADR-147) — décision FINANCE à deux personnes sur l'avance de
+ * US-224 (partie 224b, migration 0123, ADR-147) — décision FINANCE à deux personnes sur l'avance de
  * Kmino (19 US-224, critère 4 et DoR (2) ; BOARD N-119) : `DECIDE_ADVANCE` sur une avance PLANNED
  * (sujet que crée l'instance de remboursement, règle 3 bis) ; le conflit du DEMANDEUR est rejugé à
  * l'approbation (il est devenu co-hôte du compte de l'avance, ou compte lié à son titulaire, depuis
@@ -42,7 +42,7 @@ describe.each(byCountry)(
       return outcomeOf(tx, sql, [who.hash, ...params]);
     };
 
-    /** Avance PLANNED (fixture 9963, comme la crée l'instance) sur un trip du compte `org`. */
+    /** Avance PLANNED (fixture 9955, comme la crée l'instance) sur un trip du compte `org`. */
     async function plannedAdvance(tx: Tx, org: string): Promise<string> {
       const trip = uuid();
       const advance = uuid();

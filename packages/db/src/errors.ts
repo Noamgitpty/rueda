@@ -47,7 +47,9 @@
  *   opération sans preuve rattachée (S-02, RC-5) ;
  * - `REFUND_EXCEEDS_COLLECTED` : 16 fiche PAY-021 ; `SETTLEMENT_SUPERSEDED` (ordre d'une version
  *   de règlement remplacée) et `FIN_REVIEW_REQUIRED` (règlement à jambe négative : décision FIN
- *   avant tout ordre, 08 E7 règle 5) : PROPOSÉS par US-224 (migration 0121, ADR-145, S-02).
+ *   avant tout ordre, 08 E7 règle 5) : PROPOSÉS par US-224 (migration 0121, ADR-145, S-02) ;
+ * - `CONTRACT_NOT_SIGNED` : 16 fiche BKG-019 (remise refusée tant que la dernière version du contrat
+ *   de location n'est pas signée par le voyageur ; migration 0122, US-211, ADR-143).
  *   US-224b (ADR-147) : `FIN_REVIEW_REQUIRED` couvre aussi l'avance de Kmino non décidée par
  *   deux personnes (`advance_decision_required`) ; aucun nouveau code.
  */
@@ -107,6 +109,8 @@ export const DB_BUSINESS_CODES = [
   'REFUND_EXCEEDS_COLLECTED',
   'SETTLEMENT_SUPERSEDED',
   'FIN_REVIEW_REQUIRED',
+  // US-211 (0122, ADR-143) : remise sans contrat de location signé (16 BKG-019)
+  'CONTRACT_NOT_SIGNED',
 ] as const;
 
 export type DbBusinessCode = (typeof DB_BUSINESS_CODES)[number];
@@ -356,6 +360,10 @@ export const CONSTRAINT_CODES: Readonly<Record<string, readonly [string, DbBusin
   trip_transition_unlogged: [SQLSTATE.integrityConstraintViolation, 'INVARIANT_VIOLATION'],
   trip_segment_missing: [SQLSTATE.integrityConstraintViolation, 'INVARIANT_VIOLATION'],
   trip_state_log_immutable: [SQLSTATE.integrityConstraintViolation, 'IMMUTABLE_RECORD'],
+  // contrat de location et signature (0122, US-211 ; 16 BKG-018, BKG-019)
+  trip_contract_not_signed: [SQLSTATE.objectNotInPrerequisiteState, 'CONTRACT_NOT_SIGNED'],
+  contract_record_immutable: [SQLSTATE.integrityConstraintViolation, 'IMMUTABLE_RECORD'],
+  contract_command_forbidden: [SQLSTATE.insufficientPrivilege, 'FORBIDDEN'],
 };
 
 const own = (value: object, key: string): unknown =>

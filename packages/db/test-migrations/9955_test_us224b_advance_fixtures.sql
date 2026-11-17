@@ -1,4 +1,4 @@
--- 9963 — Fixtures de TEST d'US-224b (ADR-147) : avance de Kmino PLANNED posée directement (sujet
+-- 9955 — Fixtures de TEST d'US-224b (ADR-147) : avance de Kmino PLANNED posée directement (sujet
 -- d'une décision FINANCE, comme la crée core.payment_cmd_plan_refund) et passage forcé à OPEN sous
 -- migrator, sans décision, que la garde advance_transition_guard doit refuser à TOUS les rôles
 -- (advance_decision_required). Jamais en production (test-migrations/ seulement). SECURITY DEFINER

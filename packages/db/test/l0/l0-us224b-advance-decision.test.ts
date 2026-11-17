@@ -1,5 +1,5 @@
 /**
- * US-224 (partie 224b, migration 0122, ADR-147) — avance de Kmino de bout en bout (19 US-224,
+ * US-224 (partie 224b, migration 0123, ADR-147) — avance de Kmino de bout en bout (19 US-224,
  * critère 4 ; 08 E7 règle 3 bis, TJ18b / TJ18d ; 17 §2.9) : la jambe HOST retenue par la version 1
  * est déjà versée à l'hôte ; la requalification FULL (T08) planifie le complément aux jambes de
  * l'ordre exécuté, l'avance attend la décision FINANCE à deux personnes (vraies commandes, deux

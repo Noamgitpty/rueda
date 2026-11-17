@@ -97,7 +97,7 @@ const PAY_PORT_TABLES = [
   // port de place de marché (US-061, 0039) : preuves dans test/l0/l0-pay-marketplace.test.ts
   'payment_psp_capability_catalog',
   'payment_psp_submerchant',
-  // instance de remboursement (US-224b, 0122) : preuves dans test/l0/l0-us224b-*.test.ts
+  // instance de remboursement (US-224b, 0123) : preuves dans test/l0/l0-us224b-*.test.ts
   'payment_refund_instance',
 ] as const;
 

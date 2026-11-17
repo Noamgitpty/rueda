@@ -198,7 +198,7 @@
       "justification": "US-209b (ADR-141) : REVIEW_FLAGGED_BOOKING porte sur l'évaluation RISK_ASSESSMENT (sujet de l'élément RISK_BOOKING) au lieu de TRIP (aucun trip avant le débit, UXQ-08) ; une ligne de référence écrite par migration seulement ; permission, mode et saisie inchangés ; aucune ligne manual_action n'en dépend (l'action était indisponible, sans commande liée) ; la version N, qui n'envoie jamais cette action, est inchangée"
     },
     {
-      "path": "packages/db/migrations/0122_settlement_refund_instances_advance.sql",
+      "path": "packages/db/migrations/0123_settlement_refund_instances_advance.sql",
       "line": 1517,
       "kind": "drop-function",
       "justification": "US-224b (ADR-147, suite des revues de la PR #198) : la surcharge à 13 arguments de core.payment_cmd_record_operation n'a aucun appelant dans la version N : PgOperationRecorder (PAY) appelle la commande à 15 arguments depuis US-224a (ADR-145) ; la surcharge ne servait plus qu'à refuser tout ordre de règlement sans règlement, refus que la commande à 15 arguments garde (règlement NULL). Retirée pour qu'aucun appelant futur ne contourne le rattachement au règlement"

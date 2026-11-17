@@ -868,11 +868,11 @@ Migration `0121_settlement_refund_orders`. Fixture `9965_test_us224_refund_fixtu
 - **Rejeu** : `core.settlement_cmd_record` rend le règlement existant pour la même version au même contenu (S-02).
 - **Preuve** : webhook `SUCCEEDED` sans montant ⇒ `UNPROVEN` pour tout ordre qui déplace des fonds (N-196).
 - **Preuves** : `test/l0/l0-us224-refund-orders.test.ts`, `test/l0/l0-us224-refund-race.test.ts` (isolé, deux sessions), PA USD et PY PYG ; tests existants adaptés (passation US-224).
-- **US-224b** : la commande à 13 arguments est retirée (0122, ADR-147) ; tout appel passe par celle à 15 arguments (règlement NULL hors ordres de règlement).
+- **US-224b** : la commande à 13 arguments est retirée (0123, ADR-147) ; tout appel passe par celle à 15 arguments (règlement NULL hors ordres de règlement).
 
 ## Instance de remboursement et avance de Kmino (US-224 partie 224b ; 08 E7 règle 3 bis, SM-8 ; 17 §2.9, §3.2.7, §3.2.8 ; ADR-147)
 
-Migration `0122_settlement_refund_instances_advance` (corps de 0036, 0097 et 0116 recopiés, blocs « US-224b »). Fixture `9963_test_us224b_advance_fixtures.sql` (avance PLANNED posée directement ; passage forcé à OPEN, refusé).
+Migration `0123_settlement_refund_instances_advance` (corps de 0036, 0097 et 0116 recopiés, blocs « US-224b »). Fixture `9955_test_us224b_advance_fixtures.sql` (avance PLANNED posée directement ; passage forcé à OPEN, refusé).
 
 - **Table** `core.payment_refund_instance` (SM-8) : origine `SETTLEMENT` (bêta), exécutant `PLATFORM_API`, rail natif ; `requested_legs` (jambes du règlement), `operation_id` (ordre `REFUND`, clé étrangère différée), `advance_id`, `blocked_reason` ; RLS : FINANCE / ADMIN du pays (`fin_read`), travailleurs `settlement`, `payment_command`, `reconciliation` ; écriture par les commandes seulement ; ni DELETE ni TRUNCATE.
 - **Commandes** (`cmd_money_owner`, EXECUTE `app_worker`, travailleur `payment_command`) : `core.payment_cmd_plan_refund` (instance, avance attendue, ordre PENDING gardé ; rejeu ⇒ existante ; `refund_credit_cash_closed`, `refund_rail_unavailable`, `refund_instance_origin_invalid`, `refund_instance_idempotency_conflict`) et `core.payment_cmd_submit_refund` (`SUBMITTED`, `DUPLICATE`, `SUPERSEDED`, `BLOCKED` + motif).
@@ -881,3 +881,12 @@ Migration `0122_settlement_refund_instances_advance` (corps de 0036, 0097 et 011
 - **État des jambes** `core.payment_trip_leg_state` (SECURITY INVOKER) commun à la garde des ordres et à la planification ; versement borné à l'enregistrement (`leg_release_exceeds_retained`).
 - **FINANCE** : `DECIDE_ADVANCE` sur une avance PLANNED ; conflit du demandeur rejugé à l'approbation (N-119, `SELF_FORBIDDEN`).
 - **Preuves** : `test/l0/l0-us224b-refund-instances.test.ts`, `test/l0/l0-us224b-finance-decision.test.ts`, `test/l0/l0-us224b-advance-decision.test.ts` (isolé, décision réelle à deux personnes), PA USD et PY PYG.
+
+## Contrat de location hôte–voyageur et signature (US-211 partie 211a ; 16 BKG-018, BKG-019 ; 17 §2.7, §3.2.6 ; ADR-143)
+
+Migration `0122_ctr_rental_contract`, fixture `9963_test_us211_rental_contract_fixtures.sql` (monde d'un trip BOOKED dans une transaction annulée, version et signature posées sans le travailleur, relectures brutes), preuves `test/l0/l0-us211-rental-contract.test.ts` (PA et PY, rôles de production).
+
+- **Tables** (RLS `ENABLE` + `FORCE`, aucun droit applicatif ; politiques `cmd_hold_contract_*` de `cmd_hold_owner`) : `core.contract_generated_document` (classe A, immuable : `contract_record_immutable` donne `IMMUTABLE_RECORD`) ; `core.contract_document_party` (classe B : identité minimisée et texte rendu [C2], pseudonymisables) ; `core.contract_signature` (classe A : IP et user-agent [C2] retenus, `c2_withheld`) ; colonne `booking_trip_segment.contract_document_id` (dernière version, N-131). Gabarit `RENTAL_CONTRACT` v1 BROUILLON commun (es, en, fr, pt), GL-23.
+- **Commandes** (`SECURITY DEFINER`, `cmd_hold_owner`) : `core.booking_contract_source(trip)` et `core.booking_cmd_record_contract(trip, clé, faits, derived, texte, gabarit es, gabarit de courtoisie, rendu, empreinte)` (EXECUTE `app_worker`, travailleur `booking_contract` seul ; issues `RECORDED`, `ALREADY_RECORDED`, `TRIP_UNKNOWN`, `NOT_CONTRACTABLE`, `SOURCE_CHANGED`, `REQUEST_INVALID`) ; `core.booking_trip_contract(jeton, trip, version)` (EXECUTE `app_api` ; voyageur ou titulaire du compte d'hôte, sinon `NOT_FOUND`) ; `core.booking_cmd_sign_contract(jeton, trip, document, empreinte présentée)` (EXECUTE `app_api` ; `SIGNED`, `ALREADY_SIGNED`, `NOT_FOUND`, `CONTRACT_SUPERSEDED`, `NOT_SIGNABLE`, `CONTRACT_HASH_MISMATCH`, `REQUEST_INVALID`). Internes : `core.booking_contract_facts`, `core.booking_contract_template`, `core.booking_contract_courtesy_locale`, `core.booking_trip_contract_signed`.
+- **Remise** : `core.booking_cmd_trip_transition` (corps de 0099, bloc US-211) refuse `IN_PROGRESS` sans dernière version signée par le voyageur (`trip_contract_not_signed`, code `CONTRACT_NOT_SIGNED`).
+- **Lectures ajoutées à `cmd_hold_owner`** (au plus juste) : noms légaux et langue des comptes, marque et modèle du référentiel, contrat de l'assureur et assureur, caution du pays, gabarits, `grace_minutes` ; événements `contract.document.generated` (SYSTEM) et `contract.document.signed` (voyageur).

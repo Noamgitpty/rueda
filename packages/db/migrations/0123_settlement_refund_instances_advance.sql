@@ -1,4 +1,4 @@
--- 0122 — PAY / STL : instance de remboursement (SM-8), avance de Kmino sur une jambe déjà versée,
+-- 0123 — PAY / STL : instance de remboursement (SM-8), avance de Kmino sur une jambe déjà versée,
 -- décision FINANCE à deux personnes rejugée à l'approbation, versement borné à l'enregistrement.
 -- US-224 (partie 224b, argent / back-end) ; 19 US-224 (critères 1 et 4, notes techniques) ;
 -- 16 PAY-021 ; 08 E1, E4, E7 (règles 3 bis, 5, 6), SM-8, BR-PAY-08 ; 17 v6 §2.8, §2.9 (avance de

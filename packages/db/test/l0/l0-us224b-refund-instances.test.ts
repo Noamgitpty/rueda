@@ -1,5 +1,5 @@
 /**
- * US-224 (partie 224b, migration 0122, ADR-147) — instance de remboursement (SM-8), avance de Kmino
+ * US-224 (partie 224b, migration 0123, ADR-147) — instance de remboursement (SM-8), avance de Kmino
  * sur une jambe déjà versée (08 E7 règle 3 bis, TJ18), versement borné dès l'enregistrement. Sous
  * app_worker (rôle de PRODUCTION, assertion L0-05 en tête : withRole), en USD (PA) et en PYG sans
  * décimale (PY), transactions annulées.
