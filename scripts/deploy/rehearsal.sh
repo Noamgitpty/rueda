@@ -71,7 +71,7 @@ code="$(http POST "/webhooks/fake/wh_$(printf '%024d' 0)" '{}')"
 say 'API saine ; route de webhook FAKE absente (404)'
 local_compose logs --no-color worker | grep -q '"event":"worker.started"' ||
   fail 'travailleur : démarrage non journalisé'
-local_compose logs --no-color worker | grep -q '"queues":\["booking_contract","booking_conversion","booking_oracle","disposition_sweeper","hold_expiry","iam_otp_pruner","iam_otp_sender","kyc_score_pruner","ntf_dispatcher","ntf_sender","ops_monitor","privacy_request","reconciliation","review_sla_watch","risk_pruner","security_incident_watch","trip_lifecycle","webhook_ingest"\]' ||
+local_compose logs --no-color worker | grep -q '"queues":\["booking_contract","booking_conversion","booking_oracle","disposition_sweeper","hold_expiry","iam_otp_pruner","iam_otp_sender","kyc_score_pruner","ntf_dispatcher","ntf_sender","ops_monitor","privacy_request","reconciliation","refund_scheduler","review_sla_watch","risk_pruner","security_incident_watch","trip_lifecycle","webhook_ingest"\]' ||
   fail 'travailleur : files attendues absentes'
 say 'travailleur en marche, dix-huit files déclarées (dont booking_contract, US-211, booking_conversion et webhook_ingest, US-223, ops_monitor, US-004, reconciliation, US-047, iam_otp_sender, iam_otp_pruner, US-104, kyc_score_pruner, US-105, review_sla_watch, US-106, et privacy_request, US-111)'
 

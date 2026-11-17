@@ -95,6 +95,8 @@ describe('tâches du travailleur (US-003)', () => {
       'ops_monitor',
       'privacy_request',
       'reconciliation',
+      // US-224c (ADR-150) : remboursements planifiés (aucun connecteur en production)
+      'refund_scheduler',
       'review_sla_watch',
       'risk_pruner',
       'security_incident_watch',
@@ -114,6 +116,7 @@ describe('tâches du travailleur (US-003)', () => {
       ['ops_monitor', 60, 5],
       ['privacy_request', 3_600, 5],
       ['reconciliation', 86_400, 5],
+      ['refund_scheduler', 10, 5],
       ['review_sla_watch', 60, 5],
       ['risk_pruner', 3_600, 5],
       ['security_incident_watch', 300, 5],

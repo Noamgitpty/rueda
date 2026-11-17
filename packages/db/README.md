@@ -916,3 +916,11 @@ Migration `0124_booking_trip_cancellation_settled`. Fixture `9956_test_us215_tri
 - **Codes** : `CANCELLATION_PENDING`, `CANCELLATION_NOT_PENDING` (PROPOSÉS) ; `trip_cancellation_settlement_mismatch`, `trip_cancellation_uncaptured`, `trip_cancellation_unrefunded` ⇒ `INVARIANT_VIOLATION`.
 - `core.booking_trip_apply_transition` (0099) : corps recopié, règlement lu dans `p_extra` (absent ⇒ NULL comme avant).
 - **Preuves** : `test/l0/l0-us215-trip-cancellation.test.ts` (PA USD, PY PYG ; préparation et demande validées, transaction du travailleur annulée après `SET CONSTRAINTS ALL IMMEDIATE`) ; tests existants adaptés (passation US-215).
+
+## Ordonnanceur des remboursements et états SM-8 après l'envoi (US-224 partie 224c ; 08 SM-8 ; ADR-150)
+
+Migration `0127_payment_refund_scheduler`. Fixture `9961_test_us224c_refund_matrix_fixtures.sql` (instance posée dans le monde de la matrice d'autorisations).
+
+- **SM-8** : `SUBMITTED → SENT | FAILED`, `SENT → CONFIRMED | FAILED`, `FAILED → SUPERSEDED` (garde `payment_refund_instance_guard` ; supersession étendue aux instances `FAILED`) ; l'instance suit le statut de son ordre `REFUND` par le déclencheur `refund_instance_sync` (`core.payment_refund_instance_sync`, SECURITY DEFINER, cmd_money_owner ; politique `cmd_money_sync` pour `webhook_ingest`) ; `UNKNOWN` laisse l'instance inchangée ; CHECK `refund_instance_issued_shape` élargi (instance remplacée après un échec : date d'émission gardée).
+- **Commandes** (cmd_money_owner, EXECUTE app_worker, travailleur `payment_command`) : `core.payment_refunds_due(limit)` (file de l'ordonnanceur), `core.payment_cmd_refund_order_for_send(instance)` (verrous du trip puis de l'ordre gardés jusqu'à la fin de la transaction ; refus `NOT_SUBMITTED`, `FINAL`, `SUPERSEDED_UNSENT`, `NO_TARGET`), `core.payment_cmd_refund_mark_alerted(instance, clé)` (colonne `fin_alert`, format fermé).
+- **Preuves** : `test/l0/l0-us224c-refund-scheduler.test.ts` (PA USD, PY PYG) ; matrice d'autorisations peuplée (`l0-us043-authorization-matrix`, exception `sans_donnees` retirée).

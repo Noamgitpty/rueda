@@ -1988,7 +1988,6 @@
     },
     "core.payment_refund_instance": {
       "type": "table",
-      "sans_donnees": "US-224b (ADR-147) : une instance n'existe qu'avec un règlement enregistré par le travailleur settlement et un encaissement prouvé (core.payment_cmd_plan_refund sous app_worker) ; le monde de la matrice n'a aucun règlement. Lectures des travailleurs prouvées par l0-us224b-refund-instances ; lecture FINANCE / ADMIN par fin_read, même prédicat que settlement_platform_advance (suite : peupler la matrice avec un règlement, 224c)",
       "droits": {
         "app_api": {
           "SELECT": "*"

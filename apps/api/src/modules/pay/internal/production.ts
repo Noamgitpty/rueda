@@ -11,7 +11,7 @@
  * - `assertPaymentStartup` refuse de démarrer si un compte PSP FAKE existe en base de production,
  *   ou si une variable `*_ADAPTER=FAKE` est posée en production.
  */
-import type { WebhookVerifier } from './port.js';
+import type { PaymentProvider, WebhookVerifier } from './port.js';
 import { PgWebhookInboxStore } from './pg-stores.js';
 import type { SqlExecutor } from './pg-stores.js';
 import { assertPaymentStartup } from './startup-guard.js';
@@ -25,6 +25,19 @@ import type {
 
 /** Fournisseurs compilés dans l'image de production (lot C : connecteurs réels seulement). */
 export const PRODUCTION_PROVIDERS: readonly string[] = [];
+
+/**
+ * Connecteurs PSP par fournisseur (`payment_operation.provider`) qui EXÉCUTENT un ordre (US-224c,
+ * ADR-150 : ordonnanceur des remboursements). Un fournisseur sans connecteur ⇒ rien n'est envoyé.
+ */
+export interface PaymentConnectorRegistry {
+  get(provider: string): PaymentProvider | undefined;
+}
+
+/** Production : aucun connecteur avant le lot C (le FAKE n'est jamais dans l'image). */
+export const PRODUCTION_PAYMENT_CONNECTORS: PaymentConnectorRegistry = {
+  get: (): PaymentProvider | undefined => undefined,
+};
 
 // aucun connecteur réel avant le lot C : tout fournisseur est inconnu (404 sans écriture)
 const productionRegistry: WebhookVerifierRegistry = {

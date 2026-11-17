@@ -4,8 +4,12 @@
 export { PayModule } from './pay.module.js';
 export { PayWebhookModule } from './internal/pay-webhook.module.js';
 export type { PayWebhookOptions } from './internal/pay-webhook.module.js';
-export { postgresPayAdapters, PRODUCTION_PROVIDERS } from './internal/production.js';
-export type { PostgresPayAdapters } from './internal/production.js';
+export {
+  postgresPayAdapters,
+  PRODUCTION_PAYMENT_CONNECTORS,
+  PRODUCTION_PROVIDERS,
+} from './internal/production.js';
+export type { PaymentConnectorRegistry, PostgresPayAdapters } from './internal/production.js';
 
 // Port PaymentProvider (17 §2.8)
 export {
@@ -121,14 +125,20 @@ export { containsPan, maskPan } from './internal/pan.js';
 // Persistance (commandes core.payment_cmd_*, migration 0028) et démarrage (C19)
 export {
   PgOperationRecorder,
+  PgRefundOrders,
   PgRefundPlanner,
+  REFUND_INSTANCE_STATUSES,
   PgWebhookInboxStore,
   PgWebhookWorkStore,
   withPaymentWorker,
 } from './internal/pg-stores.js';
 export type {
+  DueRefund,
   PaymentWorkerName,
   PlannedRefund,
+  RefundInstanceStatus,
+  RefundOrderForSend,
+  RefundSendRefusal,
   PlanRefundInput,
   RecordOperationInput,
   RefundBlockedReason,
