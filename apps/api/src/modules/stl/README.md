@@ -10,7 +10,7 @@ STL ne déplace aucun fonds lui-même. Il planifie des commandes que PAY exécut
 
 État réel du code :
 
-- Le module Nest de ce dossier est un **squelette** : `internal/` ne contient que `settlement-review.ts` (US-224) et `index.ts` exporte `StlModule` et `settleOrFinReview`.
+- Le module Nest de ce dossier est un **squelette** : `internal/` contient `settlement-review.ts` (US-224) et `trip-cancellation.ts` (US-215) ; `index.ts` exporte `StlModule`, `settleOrFinReview` et le règlement des annulations (`TripCancellationProcessor`, `registerTripCancellations`, `planCancellation`).
 - Le **moteur pur** vit dans `packages/money` (US-017 : moteur des annulations ; US-018 : règlement persistable, versions, jambes). Voir [`packages/money/README.md`](../../../../../packages/money/README.md), sections « Moteur de règlement » et « Règlements persistés ».
 - La **persistance** vit en base (US-018, US-062, US-061). Voir [`packages/db/README.md`](../../../../../packages/db/README.md), sections « Règlements et jambes », « Rôle P2P_HOST, tables d'argent et minimisation » et « Port de place de marché ».
 - Restent à venir : le grand livre en partie double (US-530), le service qui ordonne les remboursements et alerte FIN sur un envoi retenu (US-224 partie 224c, US-215 ; l'instance et l'avance sont en base depuis 224b, ADR-147), le recouvrement des avances (US-709), l'assureur et les bordereaux (US-227), le moteur complet (US-518).
@@ -105,3 +105,7 @@ pnpm --filter @rueda/db exec vitest run --config vitest.int.config.ts test/int/s
 ```
 
 Les tests L0 et d'intégration demandent PostgreSQL : guide `docs/ops/INSTALL.md` (compose de dev) ou `RUEDA_PG_TESTCONTAINERS=1`.
+
+## Annulations déclenchées par l'ops (US-215, ADR-148)
+
+`TripCancellationProcessor` (`internal/trip-cancellation.ts`), tâche périodique `trip_lifecycle` (10 s, 50 demandes par passage, une par transaction) déclarée par `registerTripCancellations` (`worker-tasks.ts`). Pour chaque demande `PENDING` de la console : faits lus sous verrous (`core.booking_trip_cancellation_begin`), trip tiré du devis figé **rejoué** (PRC : `replayFrozenQuote`, `quoteSettlementTrip` ; départ et réservation de la base), paramètres du pays lus en base (`cancellationParams`, aucun défaut), moteur unique (`buildSettlementRecord`, `cxl-beta/1`) dans `settleOrFinReview`, ordres de `settlementOrders` (réaffectation puis remboursement du moyen d'origine, montant explicite de chaque jambe) ; puis, dans la MÊME transaction, `core.settlement_cmd_record` (travailleur `settlement`), `core.booking_cmd_trip_settle_cancellation` (`trip_lifecycle`) et la commande PAY à 15 arguments (`payment_command`, capture d'origine du loyer). Refus déterministes garés (`FAILED`, alerte `TRIP_CANCELLATION_FAILED` ; `FIN_REVIEW`, alerte `FIN_SETTLEMENT_REVIEW`), interblocage repris au passage suivant ; seuls des comptes et des codes sont journalisés.

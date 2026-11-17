@@ -30,6 +30,9 @@ export const ALERT_CODES = [
   // règlement refusé par le moteur (REFUND_OUT_OF_RANGE, ADR-090) : revue FIN, rien d'envoyé
   // (US-224, BOARD N-13, ADR-145)
   'FIN_SETTLEMENT_REVIEW',
+  // annulation demandée par l'ops refusée de façon déterministe (paramètre, devis, état du trip,
+  // liaison du règlement) : demande garée FAILED, trip inchangé (US-215, ADR-148)
+  'TRIP_CANCELLATION_FAILED',
   // files de revue (US-106, ADR-106) : élément en retard (16 ADM-002, P2) ; dossier KYC en revue
   // qui ne peut pas être mis en file (P1 : personne ne le verrait)
   'OPS_REVIEW_SLA_BREACH',

@@ -1708,6 +1708,55 @@
       "owner": "cmd_hold_owner",
       "execute": ["app_api"],
       "story": "US-211"
+    },
+    {
+      "signature": "core.booking_manual_action_cancel_trip(bytea,uuid,text,uuid,jsonb,text,uuid,text)",
+      "family": "cmd_hold",
+      "owner": "cmd_hold_owner",
+      "execute": ["iam_staff_owner"],
+      "story": "US-215"
+    },
+    {
+      "signature": "core.booking_trip_cancellations_pending(integer)",
+      "family": "cmd_hold",
+      "owner": "cmd_hold_owner",
+      "execute": ["app_worker"],
+      "story": "US-215"
+    },
+    {
+      "signature": "core.booking_trip_cancellation_begin(uuid)",
+      "family": "cmd_hold",
+      "owner": "cmd_hold_owner",
+      "execute": ["app_worker"],
+      "story": "US-215"
+    },
+    {
+      "signature": "core.booking_cmd_trip_settle_cancellation(uuid,uuid)",
+      "family": "cmd_hold",
+      "owner": "cmd_hold_owner",
+      "execute": ["app_worker"],
+      "story": "US-215"
+    },
+    {
+      "signature": "core.booking_cmd_trip_park_cancellation(uuid,text,text)",
+      "family": "cmd_hold",
+      "owner": "cmd_hold_owner",
+      "execute": ["app_worker"],
+      "story": "US-215"
+    },
+    {
+      "signature": "core.settlement_cancellation_of(uuid)",
+      "family": "cmd_money",
+      "owner": "cmd_money_owner",
+      "execute": ["cmd_hold_owner"],
+      "story": "US-215"
+    },
+    {
+      "signature": "core.settlement_assert_cancellation_refunded()",
+      "family": "cmd_money",
+      "owner": "cmd_money_owner",
+      "execute": [],
+      "story": "US-215"
     }
   ]
 }

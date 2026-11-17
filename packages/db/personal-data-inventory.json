@@ -2872,6 +2872,33 @@
         "created_at": "C1"
       }
     },
+    "core.booking_trip_cancellation": {
+      "lifecycle": "B",
+      "subjects": [
+        {
+          "column": "requested_by",
+          "type": "USER"
+        }
+      ],
+      "export": "controller",
+      "columns": {
+        "id": "C1",
+        "trip_id": "C1",
+        "country_code": "C1",
+        "action_code": "C1",
+        "requested_reason": "C1",
+        "initiator": "C1",
+        "sub_reason": "C1",
+        "requested_at": "C1",
+        "requested_by": "C1",
+        "status": "C1",
+        "settlement_id": "C1",
+        "cost_bearer": "C1",
+        "outcome_code": "C1",
+        "decided_at": "C1",
+        "created_at": "C1"
+      }
+    },
     "core.booking_trip_state_log": {
       "lifecycle": "A",
       "subjects": [

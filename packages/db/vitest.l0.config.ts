@@ -33,6 +33,9 @@ const ISOLATED = [
   // US-224b : avance de Kmino décidée par deux personnes, mise en place et décision commitées sur
   // le compte PSP ACTIVE partagé du pays
   'test/l0/l0-us224b-advance-decision.test.ts',
+  // US-215 : préparation et demandes de la console commitées (deux rôles), compte PSP ACTIVE du pays
+  // partagé (fixture 9800, un seul compte ACTIVE par pays)
+  'test/l0/l0-us215-trip-cancellation.test.ts',
 ];
 const C11 = ['test/l0/l0-c11-fuzz.test.ts'];
 // US-049 : les attaques de la red team (test/redteam/<axe>/) tournent seules, après tous les autres

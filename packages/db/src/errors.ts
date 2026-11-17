@@ -52,6 +52,9 @@
  *   de location n'est pas signée par le voyageur ; migration 0122, US-211, ADR-143).
  *   US-224b (ADR-147) : `FIN_REVIEW_REQUIRED` couvre aussi l'avance de Kmino non décidée par
  *   deux personnes (`advance_decision_required`) ; aucun nouveau code.
+ * - `CANCELLATION_PENDING` (une demande d'annulation vivante existe déjà pour le trip) et
+ *   `CANCELLATION_NOT_PENDING` (demande déjà réglée ou garée) : PROPOSÉS par US-215 (migration
+ *   0124, ADR-148).
  */
 
 /** Codes métier produits par la traduction. */
@@ -111,6 +114,9 @@ export const DB_BUSINESS_CODES = [
   'FIN_REVIEW_REQUIRED',
   // US-211 (0122, ADR-143) : remise sans contrat de location signé (16 BKG-019)
   'CONTRACT_NOT_SIGNED',
+  // US-215 (0124, ADR-148) : annulations déclenchées par l'ops, réglées dans la transition
+  'CANCELLATION_PENDING',
+  'CANCELLATION_NOT_PENDING',
 ] as const;
 
 export type DbBusinessCode = (typeof DB_BUSINESS_CODES)[number];
@@ -364,6 +370,15 @@ export const CONSTRAINT_CODES: Readonly<Record<string, readonly [string, DbBusin
   trip_contract_not_signed: [SQLSTATE.objectNotInPrerequisiteState, 'CONTRACT_NOT_SIGNED'],
   contract_record_immutable: [SQLSTATE.integrityConstraintViolation, 'IMMUTABLE_RECORD'],
   contract_command_forbidden: [SQLSTATE.insufficientPrivilege, 'FORBIDDEN'],
+  // annulations déclenchées par l'ops, réglées dans la transition (0124, US-215, ADR-148)
+  trip_cancellation_closed: [SQLSTATE.objectNotInPrerequisiteState, 'CANCELLATION_NOT_PENDING'],
+  trip_cancellation_live_unique: [SQLSTATE.uniqueViolation, 'CANCELLATION_PENDING'],
+  trip_cancellation_settlement_mismatch: [
+    SQLSTATE.integrityConstraintViolation,
+    'INVARIANT_VIOLATION',
+  ],
+  trip_cancellation_uncaptured: [SQLSTATE.integrityConstraintViolation, 'INVARIANT_VIOLATION'],
+  trip_cancellation_unrefunded: [SQLSTATE.integrityConstraintViolation, 'INVARIANT_VIOLATION'],
 };
 
 const own = (value: object, key: string): unknown =>

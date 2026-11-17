@@ -98,6 +98,8 @@ describe('tâches du travailleur (US-003)', () => {
       'review_sla_watch',
       'risk_pruner',
       'security_incident_watch',
+      // US-215 (ADR-148) : annulations demandées par l'ops, réglées dans la transition
+      'trip_lifecycle',
       'webhook_ingest',
     ]);
     expect(
@@ -115,6 +117,7 @@ describe('tâches du travailleur (US-003)', () => {
       ['review_sla_watch', 60, 5],
       ['risk_pruner', 3_600, 5],
       ['security_incident_watch', 300, 5],
+      ['trip_lifecycle', 10, 5],
       ['webhook_ingest', 10, 5],
     ]);
     // aucun travailleur qui lirait ou appellerait le PSP (lot C, US-061) ; booking_conversion ne lit
