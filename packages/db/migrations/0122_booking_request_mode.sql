@@ -198,10 +198,13 @@ GRANT SELECT (request_respond_by, payment_attempts, released_at, released_by)
   ON core.booking_checkout_hold TO cmd_hold_owner;
 GRANT UPDATE (request_respond_by, expires_at, payment_in_flight_until)
   ON core.booking_checkout_hold TO cmd_hold_owner;
+-- (droits accordés par leur propriétaire, iam_auth_owner, comme 0075 et 0101)
+SET LOCAL ROLE iam_auth_owner;
 GRANT EXECUTE ON FUNCTION core.iam_host_accounts(bytea), core.ctr_host_terms_required(uuid, text)
   TO cmd_hold_owner;
+RESET ROLE;
 -- autorisation de la demande : compte marchand, preuve et clé de l'AUTH (capture rattachée, VOID)
-GRANT SELECT (psp_account_id, proof_type, idem_plain) ON core.payment_payment_operation
+GRANT SELECT (psp_account_id, proof_type, idem_plain, country_code) ON core.payment_payment_operation
   TO cmd_hold_owner;
 GRANT SELECT (operation_kind) ON core.payment_payment_command TO cmd_hold_owner;
 
@@ -319,7 +322,9 @@ CREATE POLICY worker_ops_monitor_read ON core.payment_payment_command FOR SELECT
 -- lecture des demandes par l'hôte (host_view_owner, comme les trips de l'hôte, 0101)
 GRANT SELECT (kind, status, org_id, country_code, vehicle_id, guest_user_id, request_respond_by)
   ON core.booking_checkout_hold TO host_view_owner;
+SET LOCAL ROLE cmd_hold_owner;
 GRANT EXECUTE ON FUNCTION core.booking_checkout_capture_terms(uuid) TO host_view_owner;
+RESET ROLE;
 
 
 -- 5. Commandes et lectures sous cmd_hold_owner (SECURITY DEFINER, liste blanche RLS-15) ------------
