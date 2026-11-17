@@ -1508,18 +1508,13 @@ export const EN_MESSAGES = {
   'common.trip.noShowTooEarly':
     "It's too early to report that the guest didn't show up. Try again once the waiting time shown in the booking is over.",
   // US-211 : contrat de location hôte–voyageur (16 BKG-018, BKG-019), texte figé dans le PDF
-  'ctr.contract.draft': 'DRAFT — pending legal review. This is not a final agreement.',
   'ctr.contract.ref': 'Agreement {ref}, version {version}',
   'ctr.contract.parties': 'Parties',
   'ctr.contract.host': 'Host: {name}, {capacity}',
   'ctr.contract.hostCapacity.owner': 'owner of the vehicle',
   'ctr.contract.hostCapacity.authorized':
     'authorized by the vehicle owner through a notarized power of attorney',
-  'ctr.contract.hostIdentity':
-    'Host identity verified by the platform; their document number is not shown.',
   'ctr.contract.guest': 'Driver (guest): {name}',
-  'ctr.contract.intermediary':
-    '{brand} acts only as a peer-to-peer intermediary platform and as merchant of record for the payment; it is not a party to this agreement nor a rental company.',
   'ctr.contract.vehicleHeading': 'Vehicle and period',
   'ctr.contract.vehicle': 'Vehicle: {make} {model} ({year}), plate {plate}',
   'ctr.contract.period': 'From {start} to {end} ({timezone} time)',
@@ -1527,6 +1522,8 @@ export const EN_MESSAGES = {
   'ctr.contract.priceHeading': 'Price and conditions',
   'ctr.contract.total': 'Total paid, taxes included: {amount}',
   'ctr.contract.priceLine': '{label}: {amount}',
+  'ctr.contract.platform': 'Intermediary platform: {brand}',
+  'ctr.contract.priceLineTax': '{label}: {amount} (taxes: {tax})',
   'ctr.contract.line.tripPrice': 'Rental',
   'ctr.contract.line.tripFee': 'Trip fee',
   'ctr.contract.line.protection': 'Protection',
@@ -1551,7 +1548,6 @@ export const EN_MESSAGES = {
   'ctr.contract.lateReturn':
     'Return: {minutes} min grace period; after that, late return is charged under the published policy.',
   'ctr.contract.lateReturnPolicy': 'Return: late return is charged under the published policy.',
-  'ctr.contract.territory': 'Leaving the territory of the trip country ({country}) is forbidden.',
   'ctr.contract.clauses': 'Clauses',
   'ctr.contract.signatureHeading': 'Guest electronic signature',
   'ctr.contract.signedBy': 'Signature: {value}',

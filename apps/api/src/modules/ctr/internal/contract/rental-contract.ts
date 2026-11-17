@@ -170,7 +170,6 @@ function part(
   const tr: Translator = createTranslator(profile);
   const money = (minor: string) => moneyText(profile, minor, t.currency, input.exponent);
   const lines: ContractLine[] = [{ s: 'title', t: template.title }];
-  if (template.isDraft) lines.push({ s: 'note', t: tr.t('ctr.contract.draft') });
   lines.push({
     s: 'kv',
     t: tr.t('ctr.contract.ref', { ref: t.tripRef, version: input.version }),
@@ -188,9 +187,8 @@ function part(
       ),
     }),
   });
-  lines.push({ s: 'kv', t: tr.t('ctr.contract.hostIdentity') });
   lines.push({ s: 'kv', t: tr.t('ctr.contract.guest', { name: who.guestName }) });
-  lines.push({ s: 'kv', t: tr.t('ctr.contract.intermediary', { brand: derived.brand }) });
+  lines.push({ s: 'kv', t: tr.t('ctr.contract.platform', { brand: derived.brand }) });
 
   lines.push({ s: 'h', t: tr.t('ctr.contract.vehicleHeading') });
   lines.push({
@@ -220,10 +218,17 @@ function part(
   for (const l of t.priceLines) {
     lines.push({
       s: 'kv',
-      t: tr.t('ctr.contract.priceLine', {
-        label: tr.t(LINE_KEYS[l.type] ?? 'ctr.contract.line.other'),
-        amount: money(l.amountMinor),
-      }),
+      t:
+        l.taxMinor === '0'
+          ? tr.t('ctr.contract.priceLine', {
+              label: tr.t(LINE_KEYS[l.type] ?? 'ctr.contract.line.other'),
+              amount: money(l.amountMinor),
+            })
+          : tr.t('ctr.contract.priceLineTax', {
+              label: tr.t(LINE_KEYS[l.type] ?? 'ctr.contract.line.other'),
+              amount: money(l.amountMinor),
+              tax: money(l.taxMinor),
+            }),
     });
   }
   const levelKey = LEVEL_KEYS[t.protection.level];
@@ -246,16 +251,7 @@ function part(
         ? tr.t('ctr.contract.depositGeneric')
         : tr.t('ctr.contract.deposit', { amount: money(t.depositMinor) }),
   });
-  lines.push({
-    s: 'kv',
-    t:
-      t.mileage.mode === 'INCLUDED' && t.mileage.includedKm !== null
-        ? tr.t('ctr.contract.mileageIncluded', {
-            km: tr.number(t.mileage.includedKm),
-            price: money(t.mileage.extraKmPriceMinor ?? '0'),
-          })
-        : tr.t('ctr.contract.mileageUnlimited'),
-  });
+  lines.push({ s: 'kv', t: mileageText(tr, t.mileage, money) });
   const c = derived.cancellation;
   lines.push({
     s: 'kv',
@@ -277,7 +273,6 @@ function part(
         ? tr.t('ctr.contract.lateReturnPolicy')
         : tr.t('ctr.contract.lateReturn', { minutes: t.lateGraceMinutes }),
   });
-  lines.push({ s: 'kv', t: tr.t('ctr.contract.territory', { country: t.country }) });
 
   lines.push({ s: 'h', t: tr.t('ctr.contract.clauses') });
   for (const clause of template.body.split('\n')) {
@@ -285,12 +280,38 @@ function part(
   }
 
   lines.push({ s: 'h', t: tr.t('ctr.contract.signatureHeading') });
-  lines.push({ s: 'kv', t: tr.t('ctr.contract.signedBy', { value: who.guestName }) });
-  lines.push({ s: 'kv', t: tr.t('ctr.contract.signedAt', { value: SIGNED_AT }) });
-  lines.push({ s: 'kv', t: tr.t('ctr.contract.documentHash', { value: DOCUMENT_SHA }) });
-  lines.push({ s: 'kv', t: tr.t('ctr.contract.seal', { value: SEAL }) });
-  lines.push({ s: 'kv', t: tr.t('ctr.contract.signatureId', { value: SIGNATURE_ID }) });
+  lines.push({ s: 'sig', t: tr.t('ctr.contract.signedBy', { value: who.guestName }) });
+  lines.push({ s: 'sig', t: tr.t('ctr.contract.signedAt', { value: SIGNED_AT }) });
+  lines.push({ s: 'sig', t: tr.t('ctr.contract.documentHash', { value: DOCUMENT_SHA }) });
+  lines.push({ s: 'sig', t: tr.t('ctr.contract.seal', { value: SEAL }) });
+  lines.push({ s: 'sig', t: tr.t('ctr.contract.signatureId', { value: SIGNATURE_ID }) });
   return lines;
+}
+
+/**
+ * Distance du devis : illimitée, ou km inclus ET prix du km supplémentaire ; des faits incohérents
+ * (mode inconnu, km ou prix absent) font échouer la génération, jamais un texte deviné.
+ */
+function mileageText(
+  tr: Translator,
+  m: ContractTerms['mileage'],
+  money: (minor: string) => string,
+): string {
+  if (m.mode === 'UNLIMITED' && m.includedKm === null && m.extraKmPriceMinor === null) {
+    return tr.t('ctr.contract.mileageUnlimited');
+  }
+  if (
+    m.mode === 'INCLUDED' &&
+    m.includedKm !== null &&
+    m.includedKm >= 1 &&
+    m.extraKmPriceMinor !== null
+  ) {
+    return tr.t('ctr.contract.mileageIncluded', {
+      km: tr.number(m.includedKm),
+      price: money(m.extraKmPriceMinor),
+    });
+  }
+  throw new ContractInputError('distance du devis incohérente');
 }
 
 /** Texte du contrat : partie espagnole (fait foi), puis traduction de courtoisie. */
@@ -344,9 +365,13 @@ export function renderContractPdf(
         [SIGNATURE_ID]: signature.signatureId,
       }
     : { [SIGNED_AT]: '-', [DOCUMENT_SHA]: '-', [SEAL]: '-', [SIGNATURE_ID]: '-' };
+  // marqueurs remplacés dans les SEULES lignes du bloc de signature (jamais dans le texte libre)
   const filled = body.map((l) => ({
     s: l.s,
-    t: l.t.replace(/\{\{(signedAt|documentSha256|seal|signatureId)\}\}/g, (m) => values[m] ?? m),
+    t:
+      l.s !== 'sig'
+        ? l.t
+        : l.t.replace(/\{\{(signedAt|documentSha256|seal|signatureId)\}\}/g, (m) => values[m] ?? m),
   }));
   return renderPdf(filled, footer);
 }

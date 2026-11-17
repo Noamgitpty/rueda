@@ -1553,18 +1553,13 @@ export const PT_MESSAGES = {
   'common.trip.noShowTooEarly':
     'Ainda é cedo para avisar que o viajante não apareceu. Tente de novo quando terminar o tempo de espera indicado na reserva.',
   // US-211 : contrat de location hôte–voyageur (16 BKG-018, BKG-019), texte figé dans le PDF
-  'ctr.contract.draft': 'RASCUNHO — pendente de validação jurídica. Não é um contrato definitivo.',
   'ctr.contract.ref': 'Contrato {ref}, versão {version}',
   'ctr.contract.parties': 'Partes',
   'ctr.contract.host': 'Anfitrião: {name}, {capacity}',
   'ctr.contract.hostCapacity.owner': 'proprietário do veículo',
   'ctr.contract.hostCapacity.authorized':
     'autorizado pelo titular do veículo por procuração em cartório',
-  'ctr.contract.hostIdentity':
-    'Identidade do anfitrião verificada pela plataforma; o número do documento não é mostrado.',
   'ctr.contract.guest': 'Condutor (viajante): {name}',
-  'ctr.contract.intermediary':
-    '{brand} atua apenas como plataforma intermediária entre particulares e como comerciante de referência do pagamento; não é parte deste contrato nem locadora.',
   'ctr.contract.vehicleHeading': 'Veículo e período',
   'ctr.contract.vehicle': 'Veículo: {make} {model} ({year}), placa {plate}',
   'ctr.contract.period': 'De {start} a {end} (horário de {timezone})',
@@ -1572,6 +1567,8 @@ export const PT_MESSAGES = {
   'ctr.contract.priceHeading': 'Preço e condições',
   'ctr.contract.total': 'Total pago, com impostos: {amount}',
   'ctr.contract.priceLine': '{label}: {amount}',
+  'ctr.contract.platform': 'Plataforma intermediária: {brand}',
+  'ctr.contract.priceLineTax': '{label}: {amount} (impostos: {tax})',
   'ctr.contract.line.tripPrice': 'Aluguel',
   'ctr.contract.line.tripFee': 'Taxa da viagem',
   'ctr.contract.line.protection': 'Proteção',
@@ -1596,8 +1593,6 @@ export const PT_MESSAGES = {
   'ctr.contract.lateReturn':
     'Devolução: tolerância de {minutes} min; depois, o atraso é cobrado conforme a política publicada.',
   'ctr.contract.lateReturnPolicy': 'Devolução: o atraso é cobrado conforme a política publicada.',
-  'ctr.contract.territory':
-    'É proibido sair do território nacional onde a viagem ocorre ({country}).',
   'ctr.contract.clauses': 'Cláusulas',
   'ctr.contract.signatureHeading': 'Assinatura eletrônica do viajante',
   'ctr.contract.signedBy': 'Assinatura: {value}',

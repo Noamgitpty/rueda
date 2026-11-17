@@ -13,7 +13,8 @@
 
 export const PDF_RENDERER_V1 = 'ctr.pdf/1';
 
-export type ContractLineStyle = 'title' | 'h' | 'p' | 'kv' | 'note';
+/** `sig` : ligne du bloc de signature (seules lignes où les marqueurs de signature sont remplacés). */
+export type ContractLineStyle = 'title' | 'h' | 'p' | 'kv' | 'note' | 'sig';
 
 /** Une ligne logique du contrat (style, texte) ; le rendu la coupe à la largeur de la page. */
 export interface ContractLine {
@@ -43,6 +44,7 @@ const STYLES: Readonly<Record<ContractLineStyle, StyleSpec>> = {
   p: { face: 'F1', size: 8.5, leading: 11, before: 2 },
   kv: { face: 'F1', size: 8.5, leading: 11, before: 0 },
   note: { face: 'F2', size: 8.5, leading: 11, before: 2 },
+  sig: { face: 'F1', size: 8.5, leading: 11, before: 0 },
 };
 
 /** Caractères WinAnsi de 0x80 à 0x9F (les autres positions de cp1252 sont celles de Latin-1). */
@@ -83,6 +85,20 @@ function winAnsi(ch: string): number {
   if (code >= 0x20 && code <= 0x7e) return code;
   if (code >= 0xa0 && code <= 0xff) return code;
   return CP1252_HIGH[ch] ?? 0x3f;
+}
+
+/**
+ * Nombre de caractères hors WinAnsi (rendus « ? ») : le travailleur le journalise (compte seul,
+ * jamais le texte) pour qu'un nom mal rendu se voie, sans bloquer le contrat d'une personne.
+ */
+export function nonWinAnsiCount(lines: readonly ContractLine[]): number {
+  let n = 0;
+  for (const l of lines) {
+    for (const ch of l.t.normalize('NFC')) {
+      if (ch !== '?' && winAnsi(ch) === 0x3f) n++;
+    }
+  }
+  return n;
 }
 
 /** Chaîne littérale PDF : ASCII seulement (octets hors ASCII imprimable en octal). */

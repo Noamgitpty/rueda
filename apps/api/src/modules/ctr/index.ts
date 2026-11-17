@@ -53,4 +53,5 @@ export type {
   CourtesyLocale,
   RentalContractInput,
 } from './internal/contract/rental-contract.js';
+export { nonWinAnsiCount } from './internal/contract/pdf.js';
 export type { ContractLine, ContractLineStyle } from './internal/contract/pdf.js';

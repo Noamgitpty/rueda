@@ -22,13 +22,20 @@ import {
   buildContractBody,
   contractFooter,
   contractSha256,
+  nonWinAnsiCount,
   parseContractFacts,
   renderContractPdf,
   RENTAL_CONTRACT_RENDERER,
   type ContractCancellation,
   type CourtesyLocale,
 } from '../../../ctr/index.js';
-import { FROZEN_QUOTE_FORMAT, lateCancellationOf, replayFrozenQuote } from '../../../prc/index.js';
+import {
+  FROZEN_QUOTE_FORMAT,
+  isQuoteError,
+  lateCancellationOf,
+  penaltyDaysLabel,
+  replayFrozenQuote,
+} from '../../../prc/index.js';
 
 export const BOOKING_CONTRACT_WORKER = 'booking_contract';
 export const TRIP_BOOKED_EVENT = 'booking.trip.booked';
@@ -42,7 +49,7 @@ export type ContractOutcome =
 
 export interface ContractLogEntry {
   readonly event: 'booking.contract';
-  readonly outcome: ContractOutcome | 'NO_CANCELLATION_TERMS';
+  readonly outcome: ContractOutcome | 'NON_WINANSI_TEXT';
   readonly country: string | null;
   readonly reason: string | null;
 }
@@ -74,6 +81,20 @@ function text(o: Rec, k: string): string {
   const v = o[k];
   if (typeof v !== 'string') throw new ContractGenerationError(`source : ${k} attendu`);
   return v;
+}
+
+/**
+ * Motif court d'un échec, sans donnée personnelle : SQLSTATE d'une erreur de la base, code d'une
+ * erreur de devis, sinon le nom de la classe d'erreur.
+ */
+export function failureReason(error: unknown): string {
+  if (typeof error === 'object' && error !== null) {
+    const code = (error as { code?: unknown }).code;
+    if (typeof code === 'string' && /^[0-9A-Z]{5}$/.test(code)) return `SQLSTATE_${code}`;
+    if (isQuoteError(error)) return `QUOTE_${error.code}`;
+    if (error instanceof Error) return error.name;
+  }
+  return 'UNKNOWN';
 }
 
 /** Heure locale « AAAA-MM-JJ HH:MM » d'un instant dans un fuseau (figée dans le document). */
@@ -165,6 +186,16 @@ export class RentalContractGenerator {
         exponent,
         localeConfig: this.#deps.localeConfig,
       });
+      const odd = nonWinAnsiCount(body);
+      if (odd > 0) {
+        // compte seul (jamais le texte) : un nom rendu « ? » se voit à l'exploitation
+        this.#log({
+          event: 'booking.contract',
+          outcome: 'NON_WINANSI_TEXT',
+          country: cc,
+          reason: String(odd),
+        });
+      }
       const pdf = renderContractPdf(
         body,
         contractFooter(facts.terms.tripRef, version),
@@ -200,7 +231,7 @@ export class RentalContractGenerator {
       throw new ContractGenerationError(`enregistrement : ${String(recorded)}`);
     } catch (error) {
       if (error instanceof ContractGenerationError) throw error;
-      return this.#failed(cc, error instanceof Error ? error.name : 'UNKNOWN');
+      return this.#failed(cc, failureReason(error));
     }
   }
 
@@ -214,44 +245,42 @@ export class RentalContractGenerator {
     throw new ContractGenerationError(`CONTRACT_GENERATION_FAILED (${reason})`);
   }
 
-  /** Retenue hors fenêtre gratuite (moteur de règlement unique, devis figé rejoué). */
+  /**
+   * Retenue hors fenêtre gratuite (moteur de règlement unique, devis figé rejoué), fail-closed :
+   * `null` seulement quand le moteur ne prévoit aucune retenue applicable (annulation tardive
+   * impossible avant le no-show, ou jours retenus ni 1 ni ½) ; toute autre erreur (devis illisible,
+   * rejeu refusé, paramètres absents, bogue) fait échouer la génération : jamais un contrat signable
+   * sans la retenue qu'il doit porter.
+   */
   #cancellation(source: Rec, timeZone: string, country: string): ContractCancellation | null {
-    try {
-      const q = source['quote'];
-      const facts = source['facts'];
-      if (!isRec(q) || !isRec(facts) || !isRec(facts['terms'])) return null;
-      const quote = replayFrozenQuote({
-        format: FROZEN_QUOTE_FORMAT,
-        engineVersion: text(q, 'engineVersion'),
-        inputs: text(q, 'inputs'),
-        inputsHash: text(q, 'inputsHash'),
-        outputs: text(q, 'outputs'),
-        outputsHash: text(q, 'outputsHash'),
-        totalMinor: text(facts['terms'], 'priceTotalMinor'),
-        currency: text(source, 'currency'),
-      });
-      const bookedAtMs = Date.parse(text(source, 'bookedAt'));
-      const params = this.#deps.cancellationParamsOf({ country, at: new Date(bookedAtMs) });
-      const late = lateCancellationOf(quote, params, Math.min(bookedAtMs, quote.startAtMs));
-      if (late === null) return null;
-      const d = late.penaltyDays;
-      const penaltyDays = d.num === d.den ? '1' : d.num * 2n === d.den ? '1/2' : null;
-      if (penaltyDays === null) return null;
-      return {
-        freeUntilLocal: localMinute(late.freeUntilMs, timeZone),
-        penaltyDays,
-        retainedMinor: late.retained.amountMinor.toString(),
-        engineVersion: late.engineVersion,
-      };
-    } catch (error) {
-      this.#log({
-        event: 'booking.contract',
-        outcome: 'NO_CANCELLATION_TERMS',
-        country,
-        reason: error instanceof Error ? error.name : 'UNKNOWN',
-      });
-      return null;
+    const q = source['quote'];
+    const facts = source['facts'];
+    if (!isRec(q) || !isRec(facts) || !isRec(facts['terms'])) {
+      throw new TypeError('devis canonique absent de la source');
     }
+    const quote = replayFrozenQuote({
+      format: FROZEN_QUOTE_FORMAT,
+      engineVersion: text(q, 'engineVersion'),
+      inputs: text(q, 'inputs'),
+      inputsHash: text(q, 'inputsHash'),
+      outputs: text(q, 'outputs'),
+      outputsHash: text(q, 'outputsHash'),
+      totalMinor: text(facts['terms'], 'priceTotalMinor'),
+      currency: text(source, 'currency'),
+    });
+    const bookedAtMs = Date.parse(text(source, 'bookedAt'));
+    if (!Number.isFinite(bookedAtMs)) throw new TypeError('instant de réservation illisible');
+    const params = this.#deps.cancellationParamsOf({ country, at: new Date(bookedAtMs) });
+    const late = lateCancellationOf(quote, params, Math.min(bookedAtMs, quote.startAtMs));
+    if (late === null) return null;
+    const penaltyDays = penaltyDaysLabel(late.penaltyDays);
+    if (penaltyDays === null) return null;
+    return {
+      freeUntilLocal: localMinute(late.freeUntilMs, timeZone),
+      penaltyDays,
+      retainedMinor: late.retained.amountMinor.toString(),
+      engineVersion: late.engineVersion,
+    };
   }
 }
 

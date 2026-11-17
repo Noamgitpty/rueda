@@ -7,7 +7,8 @@
  * → SUPERSEDED, « l'ancienne version reste consultable », « refus de la remise d'un contrat non
  * signé », CONTRACT_HASH_MISMATCH, horodatage serveur), de 17 §2.7 / §3.1.3 (C2 retenues,
  * registre immuable), de 17 §7.2 (`grace_minutes` = 29, graine US-013), de 08 BR-CXL-06 (retenue
- * de TA01 : 42,80 ; D2 en PYG : 421 667, retenue écrite par le travailleur) et du pré-mortem du
+ * de TA01 : 42,80 ; au PY, 08 BR-CXL-06 sur le devis de la partie A : j = 1 sur 3 jours, (1 000 000
+ * + 71 000) / 3 = 357 000 ; retenue écrite par le travailleur, bornée par le total) et du pré-mortem du
  * lot 2 (L2-PM-26, L2-PM-33, L2-PM-35), jamais du code testé.
  *
  * Partie A (transaction ANNULÉE, `app_worker`) : monde complet d'un trip BOOKED (fixture 9963),
@@ -33,7 +34,12 @@ type Json = Record<string, unknown>;
 /** 17 §7.2 : `grace_minutes` = 29 au PA et au PY (graine US-013). */
 const GRACE_MIN = 29;
 
-/** Montants de TEST (unités mineures) ; retenues de 08 BR-CXL-06 (TA01 ; D2 en PYG). */
+/**
+ * Montants de TEST (unités mineures) ; retenues de 08 BR-CXL-06 sur CES devis (3 jours, j = 1 :
+ * un tiers du loyer et des frais, aucune taxe) : PA (12 000 + 840) / 3 = 4 280 (TA01) ; PY
+ * (1 000 000 + 71 000) / 3 = 357 000. La retenue réelle d'un devis figé de l'oracle est prouvée par
+ * apps/api/src/modules/avl/internal/contract/contract-generator.test.ts.
+ */
 const AMOUNTS: Readonly<Record<string, Json>> = {
   PA: {
     lines: [
@@ -57,7 +63,7 @@ const AMOUNTS: Readonly<Record<string, Json>> = {
     rc: '750000000',
     deposit: '1750000',
     extraKm: '2500',
-    retained: '421667',
+    retained: '357000',
   },
 };
 
@@ -191,6 +197,33 @@ describe.each(COUNTRIES)('US-211 — contrat de location ($country, $currency)',
         expect(String(tpl['body'])).toMatch(/^BORRADOR/);
         expect(String(tpl['body']).toLowerCase()).not.toContain('inapelable');
 
+        // gabarit BROUILLON dans les quatre langues : marqueur, onze clauses, jamais « inapelable »
+        const tpls = (
+          await tx.query<{
+            locale: string;
+            body_md: string;
+            draft: boolean;
+            authoritative: boolean;
+          }>('SELECT * FROM test_fixture.us211_templates()')
+        ).rows;
+        expect(tpls.map((r) => r.locale).sort()).toEqual(['en', 'es', 'fr', 'pt']);
+        const MARK: Readonly<Record<string, RegExp>> = {
+          es: /^BORRADOR/,
+          en: /^DRAFT/,
+          fr: /^BROUILLON/,
+          pt: /^RASCUNHO/,
+        };
+        for (const r of tpls) {
+          expect(r.draft, r.locale).toBe(true);
+          expect(r.authoritative, r.locale).toBe(r.locale === 'es');
+          expect(r.body_md, r.locale).toMatch(MARK[r.locale]!);
+          expect(r.body_md.toLowerCase(), r.locale).not.toContain('inapelable');
+          expect(
+            r.body_md.split('\n').filter((l) => /^\d{1,2}\. /.test(l)),
+            r.locale,
+          ).toHaveLength(11);
+        }
+
         const derived = JSON.stringify({
           brand: 'Marca',
           cancellation: {
@@ -233,6 +266,19 @@ describe.each(COUNTRIES)('US-211 — contrat de location ($country, $currency)',
         expect(
           await record('evt:C', facts, JSON.stringify({ brand: 'Marca', extra: 1 })),
         ).toMatchObject({ rows: [{ outcome: 'REQUEST_INVALID' }] });
+        // retenue supérieure au total payé ⇒ refus (08 E4 : jamais plus que l'encaissé)
+        const tooMuch = JSON.stringify({
+          brand: 'Marca',
+          cancellation: {
+            freeUntilLocal: '2034-02-09 10:00',
+            penaltyDays: '1',
+            retainedMinor: (BigInt(a['total'] as string) + 1n).toString(),
+            engineVersion: 'cxl-beta/1',
+          },
+        });
+        expect(await record('evt:C', facts, tooMuch)).toMatchObject({
+          rows: [{ outcome: 'REQUEST_INVALID' }],
+        });
         expect(await record('evt:C', facts, derived, sha('x').subarray(0, 16))).toMatchObject({
           rows: [{ outcome: 'REQUEST_INVALID' }],
         });
@@ -481,6 +527,29 @@ describe.each(COUNTRIES)('US-211 — contrat de location ($country, $currency)',
       ]);
       expect(await read(guest!, 3)).toEqual([expect.objectContaining({ outcome: 'NOT_FOUND' })]);
       expect(await sign(guest!, v2, doc1)).toMatchObject({ outcome: 'CONTRACT_HASH_MISMATCH' });
+      // troisième version avant toute signature de la v2 : la v2 n'est plus signable
+      const doc3 = sha(`doc3-${trip}`);
+      const v3 = await inTx(
+        api,
+        { virtualNow: T2, commit: true },
+        async (tx) =>
+          (
+            await tx.query<{ document_id: string }>(
+              'SELECT * FROM test_fixture.us211_document($1, $2, $3)',
+              [trip, doc3, 'fixture:3'],
+            )
+          ).rows[0]!.document_id,
+      );
+      expect(await sign(guest!, v2, doc2)).toMatchObject({
+        outcome: 'CONTRACT_SUPERSEDED',
+        signature_id: null,
+      });
+      // entrées mal formées ; document inconnu du trip
+      expect(await sign(guest!, v3, doc3.subarray(0, 31))).toMatchObject({
+        outcome: 'REQUEST_INVALID',
+      });
+      expect(await sign(guest!, uuid(), doc3)).toMatchObject({ outcome: 'NOT_FOUND' });
+      expect((await signatures()).map((x) => x['document_id'])).toEqual([v1]);
 
       const pickup = () =>
         inTx(worker, { worker: 'trip_lifecycle', virtualNow: at(slot.start, 5) }, async (tx) => {
@@ -488,8 +557,34 @@ describe.each(COUNTRIES)('US-211 — contrat de location ($country, $currency)',
           return attempt(tx, TRANSITION, [trip, 'IN_PROGRESS', 'CHECKIN_VALIDATED']);
         });
       expect(await pickup()).toEqual({ ok: false, code: 'CONTRACT_NOT_SIGNED' });
-      expect(await sign(guest!, v2, doc2)).toMatchObject({ outcome: 'SIGNED' });
+      expect(await sign(guest!, v3, doc3)).toMatchObject({ outcome: 'SIGNED' });
       expect(await pickup()).toMatchObject({ ok: true });
+
+      // trip remis (remise VALIDÉE) puis nouvelle version : plus de signature possible
+      await inTx(
+        worker,
+        { worker: 'trip_lifecycle', virtualNow: at(slot.start, 5), commit: true },
+        async (tx) => {
+          await tx.query(TRANSITION, [trip, 'CHECKIN_OPEN', 'CHECKIN_WINDOW_OPENED']);
+          await tx.query(TRANSITION, [trip, 'IN_PROGRESS', 'CHECKIN_VALIDATED']);
+        },
+      );
+      const doc4 = sha(`doc4-${trip}`);
+      const v4 = await inTx(
+        api,
+        { virtualNow: T2, commit: true },
+        async (tx) =>
+          (
+            await tx.query<{ document_id: string }>(
+              'SELECT * FROM test_fixture.us211_document($1, $2, $3)',
+              [trip, doc4, 'fixture:4'],
+            )
+          ).rows[0]!.document_id,
+      );
+      expect(await sign(guest!, v4, doc4)).toMatchObject({
+        outcome: 'NOT_SIGNABLE',
+        signature_id: null,
+      });
     } finally {
       await releaseClient(worker);
       await releaseClient(api);

@@ -10,10 +10,11 @@ import { parseLocaleConfig } from '@rueda/i18n';
 import locales from '@rueda/i18n/config/locales.json' with { type: 'json' };
 import { describe, expect, it } from 'vitest';
 import { repoConfig } from '../../../../../test/support/quote.js';
-import { renderPdf } from './pdf.js';
+import { nonWinAnsiCount, renderPdf } from './pdf.js';
 import {
   buildContractBody,
   contractFooter,
+  ContractInputError,
   contractSha256,
   parseContractFacts,
   renderContractPdf,
@@ -162,11 +163,11 @@ describe.each(CASES)('US-211 — contrat de location ($country, $currency)', (c)
     const t = textOf(input(c));
     const es = t.split('Traducción de cortesía')[0] ?? '';
     expect(es).toContain('Anfitrión: María Gómez, propietario del vehículo');
-    // pièce masquée : jamais un numéro de document (16 BKG-018)
-    expect(es).toContain('el número de su documento no se muestra');
     expect(es).toContain('Conductor (viajero): Ana P.');
-    expect(es).toContain('Marca actúa solo como plataforma intermediaria');
-    expect(es).toContain('no es parte de este contrato ni empresa de alquiler');
+    // la plateforme est nommée ; ce qu'elle est (intermédiaire, non partie), la pièce masquée et
+    // l'interdiction de sortie du territoire sont dans les clauses du gabarit soumis à l'avocat
+    expect(es).toContain('Plataforma intermediaria: Marca');
+    expect(es).toContain('1. Partes.');
     expect(es).not.toMatch(/Marca (es|como) (el )?arrendador/);
     expect(es).toContain(`Total pagado, impuestos incluidos: ${c.expected.total} ${c.currency}`);
     expect(es).toContain(`franquicia de ${c.expected.deductible} ${c.currency}`);
@@ -178,13 +179,55 @@ describe.each(CASES)('US-211 — contrat de location ($country, $currency)', (c)
       `después se retiene 1 día de alquiler: ${c.expected.retained} ${c.currency}`,
     );
     expect(es).toContain('tolerancia de 29 min');
-    expect(es).toContain(
-      `Está prohibido salir del territorio nacional donde se realiza el viaje (${c.country}).`,
-    );
     expect(es).toContain('Vehículo: Toyota Yaris (2022), placa AB1234');
     expect(es).toContain('BORRADOR');
     // jamais « definitiva e inapelable » tant qu'OQ-BR-24 est ouverte
     expect(t.toLowerCase()).not.toContain('inapelable');
+  });
+
+  it('lignes du prix : la taxe de chaque ligne taxée est visible', () => {
+    const base = input(c);
+    const t = textOf({
+      ...base,
+      terms: {
+        ...base.terms,
+        priceLines: [{ type: 'TRIP_PRICE', amountMinor: c.deductible, taxMinor: c.deposit }],
+      },
+    });
+    expect(t).toContain(
+      `Alquiler: ${c.expected.deductible} ${c.currency} (impuestos: ${c.expected.deposit} ${c.currency})`,
+    );
+  });
+
+  it('distance incohérente (mode inconnu, km ou prix absent) ⇒ refus, jamais « illimité » ni un prix à 0 deviné', () => {
+    const base = input(c);
+    for (const mileage of [
+      { mode: 'INCLUDED', includedKm: null, extraKmPriceMinor: c.extraKm },
+      { mode: 'INCLUDED', includedKm: 600, extraKmPriceMinor: null },
+      { mode: 'UNLIMITED', includedKm: 600, extraKmPriceMinor: null },
+    ] as const) {
+      expect(() => buildContractBody({ ...base, terms: { ...base.terms, mileage } })).toThrow(
+        ContractInputError,
+      );
+    }
+  });
+
+  it('marqueurs de signature remplacés dans le seul bloc de signature, jamais dans le texte libre', () => {
+    const base = input(c);
+    const body = buildContractBody({
+      ...base,
+      es: { ...base.es, body: 'Cláusula con {{seal}} escrito.' },
+    });
+    const pdf = Buffer.from(
+      renderContractPdf(body, 'K v1', RENTAL_CONTRACT_RENDERER, {
+        signatureId: 'sig-1',
+        signedAt: new Date('2034-03-02T12:00:00.000Z'),
+        documentSha256: 'b'.repeat(64),
+        sealSha256: 'a'.repeat(64),
+      }),
+    ).toString('latin1');
+    expect(pdf).toContain('{{seal}} escrito.');
+    expect(pdf).toContain('a'.repeat(64));
   });
 
   it('mandataire : titre d’un tiers ⇒ « autorisé par procuration notariée »', () => {
@@ -254,6 +297,10 @@ describe('US-211 — rendu PDF', () => {
       'K-REF v1',
     );
     expect(contractSha256(pdf)).toBe(REFERENCE_SHA256);
+  });
+
+  it('caractères hors WinAnsi comptés (journalisés par le travailleur), jamais silencieux', () => {
+    expect(nonWinAnsiCount([{ s: 'p', t: 'Łukasz ₲ ok é?' }])).toBe(2);
   });
 
   it('pagination : un texte long tient sur plusieurs pages numérotées', () => {

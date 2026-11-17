@@ -293,6 +293,21 @@ AS $fn$
    WHERE s.trip_id = p_trip AND s.seq = 1
 $fn$;
 
+-- Gabarits RENTAL_CONTRACT en vigueur de la portée commune (quatre langues)
+CREATE FUNCTION test_fixture.us211_templates()
+  RETURNS TABLE (locale text, body_md text, draft boolean, authoritative boolean)
+  LANGUAGE sql
+  SECURITY DEFINER
+  SET search_path = pg_catalog, pg_temp
+AS $fn$
+  SELECT t.locale, t.body_md, t.legal_review_ref IS NULL, t.is_authoritative
+    FROM core.contract_document_template AS t
+   WHERE t.kind = 'RENTAL_CONTRACT' AND t.country_code IS NULL
+     AND t.version = (SELECT max(x.version) FROM core.contract_document_template AS x
+                       WHERE x.kind = 'RENTAL_CONTRACT' AND x.country_code IS NULL)
+   ORDER BY t.locale
+$fn$;
+
 -- Titulaire du compte d'hôte d'un trip (session de l'hôte ouverte par le test)
 CREATE FUNCTION test_fixture.us211_holder(p_trip uuid)
   RETURNS uuid
@@ -323,11 +338,13 @@ REVOKE ALL ON FUNCTION test_fixture.us211_world(text, uuid, text, text, text, te
   test_fixture.us211_document(uuid, bytea, text), test_fixture.us211_sign(uuid),
   test_fixture.us211_documents(uuid), test_fixture.us211_signatures(uuid),
   test_fixture.us211_events(uuid), test_fixture.us211_segment_contract(uuid),
-  test_fixture.us211_holder(uuid), test_fixture.us211_try_update(uuid) FROM PUBLIC;
+  test_fixture.us211_holder(uuid), test_fixture.us211_templates(), test_fixture.us211_try_update(uuid)
+  FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION test_fixture.us211_world(text, uuid, text, text, text, text, text, text,
                                                    text, timestamptz, timestamptz, jsonb, text,
                                                    integer, bigint, jsonb, bigint, bigint),
   test_fixture.us211_document(uuid, bytea, text), test_fixture.us211_sign(uuid),
   test_fixture.us211_documents(uuid), test_fixture.us211_signatures(uuid),
   test_fixture.us211_events(uuid), test_fixture.us211_segment_contract(uuid),
-  test_fixture.us211_holder(uuid), test_fixture.us211_try_update(uuid) TO app_api, app_worker;
+  test_fixture.us211_holder(uuid), test_fixture.us211_templates(), test_fixture.us211_try_update(uuid)
+  TO app_api, app_worker;

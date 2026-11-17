@@ -74,7 +74,7 @@ SELECT 'RENTAL_CONTRACT', NULL, d.locale, 1, true, d.title, d.body,
   FROM (VALUES
     ('es', 'Contrato de alquiler de vehículo entre particulares',
      E'BORRADOR — pendiente de validación jurídica. Este texto es provisional.\n' ||
-     E'1. Partes. El anfitrión, persona particular, alquila al viajero un vehículo propio, o uno cuyo titular le autorizó por poder notarial. La plataforma pone en contacto a las partes y cobra el pago como comerciante de referencia; no es parte de este contrato ni empresa de alquiler.\n' ||
+     E'1. Partes. El anfitrión, persona particular, alquila al viajero un vehículo propio, o uno cuyo titular le autorizó por poder notarial. La plataforma pone en contacto a las partes y cobra el pago como comerciante de referencia; no es parte de este contrato ni empresa de alquiler. La plataforma verificó la identidad del anfitrión; el número de su documento no se muestra.\n' ||
      E'2. Objeto. Vehículo, período y lugar de entrega indicados en las condiciones del viaje.\n' ||
      E'3. Precio. El viajero paga a la plataforma el total indicado, impuestos incluidos; la plataforma reparte el pago según las reglas publicadas.\n' ||
      E'4. Protección. El plan de protección elegido y su franquicia son los indicados; los presta la aseguradora asociada según sus condiciones.\n' ||
@@ -87,7 +87,7 @@ SELECT 'RENTAL_CONTRACT', NULL, d.locale, 1, true, d.title, d.body,
      E'11. Ley aplicable. La del Estado donde se realiza el viaje. El texto en español hace fe.'),
     ('en', 'Peer-to-peer vehicle rental agreement',
      E'DRAFT — pending legal review. This text is provisional.\n' ||
-     E'1. Parties. The host, a private individual, rents to the guest a vehicle they own, or one whose owner authorized them by notarized power of attorney. The platform connects the parties and collects payment as merchant of record; it is not a party to this agreement nor a rental company.\n' ||
+     E'1. Parties. The host, a private individual, rents to the guest a vehicle they own, or one whose owner authorized them by notarized power of attorney. The platform connects the parties and collects payment as merchant of record; it is not a party to this agreement nor a rental company. The platform verified the host''s identity; their document number is not shown.\n' ||
      E'2. Subject. Vehicle, period and handover place as shown in the trip conditions.\n' ||
      E'3. Price. The guest pays the platform the total shown, taxes included; the platform splits the payment under the published rules.\n' ||
      E'4. Protection. The chosen protection plan and its deductible are as shown; they are provided by the partner insurer under its conditions.\n' ||
@@ -100,7 +100,7 @@ SELECT 'RENTAL_CONTRACT', NULL, d.locale, 1, true, d.title, d.body,
      E'11. Governing law. That of the trip country. The Spanish text prevails.'),
     ('fr', 'Contrat de location de véhicule entre particuliers',
      E'BROUILLON — à valider par le juridique. Ce texte est provisoire.\n' ||
-     E'1. Parties. L''hôte, particulier, loue au voyageur un véhicule qui lui appartient, ou dont le titulaire l''a autorisé par procuration notariée. La plateforme met les parties en relation et encaisse le paiement comme marchand de référence ; elle n''est ni partie à ce contrat ni loueur.\n' ||
+     E'1. Parties. L''hôte, particulier, loue au voyageur un véhicule qui lui appartient, ou dont le titulaire l''a autorisé par procuration notariée. La plateforme met les parties en relation et encaisse le paiement comme marchand de référence ; elle n''est ni partie à ce contrat ni loueur. La plateforme a vérifié l''identité de l''hôte ; le numéro de sa pièce n''est pas affiché.\n' ||
      E'2. Objet. Véhicule, période et lieu de remise indiqués dans les conditions du trajet.\n' ||
      E'3. Prix. Le voyageur paie à la plateforme le total indiqué, taxes comprises ; la plateforme répartit le paiement selon les règles publiées.\n' ||
      E'4. Protection. Le plan de protection choisi et sa franchise sont ceux indiqués ; ils sont fournis par l''assureur partenaire selon ses conditions.\n' ||
@@ -113,7 +113,7 @@ SELECT 'RENTAL_CONTRACT', NULL, d.locale, 1, true, d.title, d.body,
      E'11. Loi applicable. Celle du pays du trajet. Le texte espagnol fait foi.'),
     ('pt', 'Contrato de aluguel de veículo entre particulares',
      E'RASCUNHO — pendente de validação jurídica. Este texto é provisório.\n' ||
-     E'1. Partes. O anfitrião, pessoa física, aluga ao viajante um veículo próprio, ou um cujo titular o autorizou por procuração em cartório. A plataforma conecta as partes e recebe o pagamento como comerciante de referência; não é parte deste contrato nem locadora.\n' ||
+     E'1. Partes. O anfitrião, pessoa física, aluga ao viajante um veículo próprio, ou um cujo titular o autorizou por procuração em cartório. A plataforma conecta as partes e recebe o pagamento como comerciante de referência; não é parte deste contrato nem locadora. A plataforma verificou a identidade do anfitrião; o número do documento não é mostrado.\n' ||
      E'2. Objeto. Veículo, período e local de entrega indicados nas condições da viagem.\n' ||
      E'3. Preço. O viajante paga à plataforma o total indicado, com impostos; a plataforma reparte o pagamento conforme as regras publicadas.\n' ||
      E'4. Proteção. O plano de proteção escolhido e sua franquia são os indicados; são prestados pela seguradora parceira conforme suas condições.\n' ||
@@ -689,7 +689,7 @@ BEGIN
      OR EXISTS (SELECT 1 FROM pg_catalog.jsonb_array_elements(p_body) AS e(x)
                  WHERE pg_catalog.jsonb_typeof(e.x) <> 'object'
                     OR (e.x - ARRAY['s', 't']) <> '{}'::jsonb
-                    OR COALESCE(e.x ->> 's', '') NOT IN ('title', 'h', 'p', 'kv', 'note')
+                    OR COALESCE(e.x ->> 's', '') NOT IN ('title', 'h', 'p', 'kv', 'note', 'sig')
                     OR pg_catalog.jsonb_typeof(e.x -> 't') IS DISTINCT FROM 'string'
                     OR pg_catalog.length(e.x ->> 't') > 2000)
      OR p_template_id IS NULL OR p_courtesy_template_id IS NULL
@@ -725,6 +725,13 @@ BEGIN
   SELECT * INTO ct
     FROM core.booking_contract_template(t.country_code,
                                         core.booking_contract_courtesy_locale(t.guest_user_id));
+  -- retenue écrite au contrat bornée par le total payé (08 E4 : jamais plus que l'encaissé)
+  IF v_canc IS NOT NULL AND pg_catalog.jsonb_typeof(v_canc) = 'object'
+     AND (p_facts #>> '{terms,priceTotalMinor}') ~ '^(0|[1-9][0-9]{0,17})$'
+     AND (v_canc ->> 'retainedMinor')::numeric > (p_facts #>> '{terms,priceTotalMinor}')::numeric THEN
+    RETURN QUERY SELECT 'REQUEST_INVALID'::text, NULL::uuid, NULL::integer;
+    RETURN;
+  END IF;
   IF v_facts IS NULL OR v_facts IS DISTINCT FROM p_facts
      OR es.id IS DISTINCT FROM p_template_id OR ct.id IS DISTINCT FROM p_courtesy_template_id
      OR ct.version IS DISTINCT FROM es.version THEN
