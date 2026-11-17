@@ -177,12 +177,16 @@ describe.each(COUNTRIES)('US-213 — parties d’une réservation ($country, $cu
     for (const role of ['app_api', 'app_anon'] as const) {
       const client = await connectAs(role);
       try {
-        await inTx(client, {}, async (tx) => {
-          await as(tx, 'WORKER', 'ntf_dispatcher');
-          const r = await call(tx, 'TRIP', uuid());
+        // transaction simple : app_anon n'a aucun droit sur le schéma platform (horloge virtuelle)
+        await client.query('BEGIN');
+        try {
+          await as(client, 'WORKER', 'ntf_dispatcher');
+          const r = await call(client, 'TRIP', uuid());
           expect(r.ok, role).toBe(false);
           if (!r.ok) expect(r.state, role).toBe('42501');
-        });
+        } finally {
+          await client.query('ROLLBACK');
+        }
       } finally {
         await releaseClient(client);
       }
