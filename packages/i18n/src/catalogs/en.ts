@@ -2155,4 +2155,51 @@ export const EN_MESSAGES = {
   'web.s04.entry.savedTourist': 'Declared entry date: {date}.',
   'web.s04.entry.savedResident': 'You declared that you’re a resident.',
   'web.s04.entry.back': 'Back to identity verification',
+  // US-223d (ADR-152) : écrans du mode sur demande (S05, S07 « demande envoyée », S06, A05)
+  'web.s05.request.title': 'Send your request',
+  'web.s05.request.authorize':
+    'You’ll authorize {amount} on a secure page from our payment processor. You’re only charged if {host_name} accepts.',
+  'web.s05.ctaRequest': 'Send request',
+  'web.s07.request.title': 'Request sent',
+  'web.s07.request.pending':
+    '{host_name} has until {time} to reply. You won’t be charged unless they accept.',
+  'web.s07.request.authorized': 'Your payment is authorized, not charged.',
+  'web.s07.request.hostFallback': 'The host',
+  'web.s07.request.capturing.title': 'Request accepted',
+  'web.s07.request.capturing.body':
+    '{host_name} accepted your request. We’re confirming the charge with your bank. Don’t pay again.',
+  'web.s06.request.declined.title': 'Request declined',
+  'web.s06.request.expired.title': 'Request expired',
+  'web.s06.request.captureFailed.title': 'We couldn’t complete your booking',
+  'web.s06.request.captureFailed.body':
+    'The charge couldn’t be completed and the booking wasn’t made. We’re cancelling the authorization on your card; if you see a charge, we’ll refund it in full.',
+  'web.s06.request.searchCta': 'See available cars',
+  'web.error.requestDeclined':
+    '{host_name} can’t host you on these dates. You weren’t charged. Here are cars available for your dates.',
+  'web.error.requestExpired':
+    '{host_name} didn’t reply in time. You weren’t charged. Here are cars available for your dates.',
+  'web.a05.accept': 'Accept request',
+  'web.a05.decline': 'Decline request',
+  'web.a05.requests.title': 'Requests to answer',
+  'web.a05.requests.loadError': 'We couldn’t load your requests.',
+  'web.a05.request.pageTitle': 'Booking request',
+  'web.a05.request.heading': 'Request #{ref}',
+  'web.a05.request.awaiting': 'Awaiting your reply',
+  'web.a05.request.capturing': 'Accepted: charge in progress',
+  'web.a05.request.respondBy': 'Reply by: {date}',
+  'web.a05.request.total': 'Trip total: {amount}',
+  'web.a05.request.open': 'View request',
+  'web.a05.request.confirmAccept.title': 'Accept this request?',
+  'web.a05.request.confirmAccept.body':
+    'We’ll charge the guest {amount} and the booking will be confirmed.',
+  'web.a05.request.confirmDecline.title': 'Decline this request?',
+  'web.a05.request.confirmDecline.body':
+    'The guest won’t be charged and your dates will be free again.',
+  'web.a05.request.cancel': 'Go back without answering',
+  'web.a05.request.capturingBody':
+    'You accepted this request. We’re confirming the guest’s payment; the booking will appear under Upcoming.',
+  'web.a05.request.done.CAPTURING':
+    'You accepted the request. We’re confirming the guest’s payment.',
+  'web.a05.request.done.ACCEPTED': 'You accepted the request: the booking is confirmed.',
+  'web.a05.request.done.DECLINED': 'You declined the request. The guest wasn’t charged.',
 } as const satisfies Readonly<Record<MessageKey, Message>>;

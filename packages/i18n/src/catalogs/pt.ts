@@ -2219,4 +2219,51 @@ export const PT_MESSAGES = {
   'web.s04.entry.savedTourist': 'Data de entrada declarada: {date}.',
   'web.s04.entry.savedResident': 'Você declarou que é residente.',
   'web.s04.entry.back': 'Voltar à verificação de identidade',
+  // US-223d (ADR-152) : écrans du mode sur demande (S05, S07 « demande envoyée », S06, A05)
+  'web.s05.request.title': 'Envie seu pedido',
+  'web.s05.request.authorize':
+    'Você vai autorizar {amount} em uma página segura do nosso processador de pagamentos. Você só paga se {host_name} aceitar.',
+  'web.s05.ctaRequest': 'Enviar pedido',
+  'web.s07.request.title': 'Pedido enviado',
+  'web.s07.request.pending':
+    '{host_name} tem até {time} para responder. Você não paga nada se o pedido não for aceito.',
+  'web.s07.request.authorized': 'Seu pagamento está autorizado, não cobrado.',
+  'web.s07.request.hostFallback': 'O anfitrião',
+  'web.s07.request.capturing.title': 'Pedido aceito',
+  'web.s07.request.capturing.body':
+    '{host_name} aceitou seu pedido. Estamos confirmando a cobrança com seu banco. Não pague de novo.',
+  'web.s06.request.declined.title': 'Pedido recusado',
+  'web.s06.request.expired.title': 'Pedido expirado',
+  'web.s06.request.captureFailed.title': 'Não conseguimos concluir sua reserva',
+  'web.s06.request.captureFailed.body':
+    'A cobrança não foi concluída e a reserva não foi feita. Estamos cancelando a autorização no seu cartão; se você vir uma cobrança, devolvemos o valor integral.',
+  'web.s06.request.searchCta': 'Ver carros disponíveis',
+  'web.error.requestDeclined':
+    '{host_name} não pode receber você nessas datas. Você não pagou nada. Veja estes carros disponíveis nas suas datas.',
+  'web.error.requestExpired':
+    '{host_name} não respondeu a tempo. Você não pagou nada. Veja estes carros disponíveis nas suas datas.',
+  'web.a05.accept': 'Aceitar o pedido',
+  'web.a05.decline': 'Recusar o pedido',
+  'web.a05.requests.title': 'Pedidos para responder',
+  'web.a05.requests.loadError': 'Não conseguimos carregar seus pedidos.',
+  'web.a05.request.pageTitle': 'Pedido de reserva',
+  'web.a05.request.heading': 'Pedido nº {ref}',
+  'web.a05.request.awaiting': 'Aguardando sua resposta',
+  'web.a05.request.capturing': 'Aceito: cobrança em andamento',
+  'web.a05.request.respondBy': 'Responda até: {date}',
+  'web.a05.request.total': 'Total da viagem: {amount}',
+  'web.a05.request.open': 'Ver o pedido',
+  'web.a05.request.confirmAccept.title': 'Aceitar este pedido?',
+  'web.a05.request.confirmAccept.body':
+    'Vamos cobrar {amount} do viajante e a reserva será confirmada.',
+  'web.a05.request.confirmDecline.title': 'Recusar este pedido?',
+  'web.a05.request.confirmDecline.body':
+    'O viajante não pagará nada e suas datas ficarão livres de novo.',
+  'web.a05.request.cancel': 'Voltar sem responder',
+  'web.a05.request.capturingBody':
+    'Você aceitou este pedido. Estamos confirmando o pagamento do viajante; a reserva aparecerá em Próximas.',
+  'web.a05.request.done.CAPTURING':
+    'Você aceitou o pedido. Estamos confirmando o pagamento do viajante.',
+  'web.a05.request.done.ACCEPTED': 'Você aceitou o pedido: a reserva está confirmada.',
+  'web.a05.request.done.DECLINED': 'Você recusou o pedido. Nada foi cobrado do viajante.',
 } as const satisfies Readonly<Record<MessageKey, Message>>;
