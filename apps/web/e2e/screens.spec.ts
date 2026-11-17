@@ -295,7 +295,11 @@ async function openTripContract(
 }
 
 /** A10 (lieu et auto) → A02 → A05 → A03 · contrat de l'hôte (US-211 partie 211b), non signé. */
-async function openHostContract(page: Page, context: BrowserContext): Promise<void> {
+async function openHostContract(
+  page: Page,
+  context: BrowserContext,
+  plate = `e2e-${randomBytes(3).toString('hex')}`,
+): Promise<void> {
   await signInHost(context);
   await page.goto('/host');
   await page.locator('#a10-place-label').fill('Casa');
@@ -304,7 +308,7 @@ async function openHostContract(page: Page, context: BrowserContext): Promise<vo
   await page.locator('#a10-place-form button[type="submit"]').click();
   await expect(page).toHaveURL(/saved=1/);
   // plaque unique (le double refuse une plaque déjà saisie) ; elle n'apparaît pas sur A03
-  await page.locator('#a10-car-plate').fill(`e2e-${randomBytes(3).toString('hex')}`);
+  await page.locator('#a10-car-plate').fill(plate);
   await page.locator('#a10-car-make').fill('Toyota');
   await page.locator('#a10-car-model').fill('Yaris');
   await page.locator('#a10-car-year').fill('2021');
@@ -339,9 +343,21 @@ async function openTripRefund(
   await expect(page.locator('[data-testid="refund-issued"]')).toBeVisible();
 }
 
-/** A10 → A02 → A05 de l'hôte avec le remboursement du voyageur planifié (US-224 partie 224d). */
-async function openHostRefund(page: Page, context: BrowserContext): Promise<void> {
-  await openHostContract(page, context);
+/**
+ * A10 → A02 → A05 de l'hôte avec le remboursement du voyageur planifié (US-224 partie 224d). La
+ * plaque paraît sur A05 : FIXE par projet et par langue (unique dans le double, capture stable).
+ */
+async function openHostRefund(
+  page: Page,
+  context: BrowserContext,
+  language: Language,
+  project: string,
+): Promise<void> {
+  const code = project
+    .replace(/[^a-z0-9]/gi, '')
+    .slice(-4)
+    .toUpperCase();
+  await openHostContract(page, context, `RF${code}${language.toUpperCase()}`);
   const tripId = /\/host\/trips\/([0-9a-f-]{36})\/contract/.exec(page.url())?.[1] ?? '';
   expect((await fetch(`${API}/__e2e/refund/cancel?trip=${tripId}&state=preparing`)).status).toBe(
     200,
@@ -697,7 +713,7 @@ export const SCREENS: readonly Screen[] = [
   {
     name: 'hote-remboursement',
     source: 'A05, US-224',
-    open: (page, context) => openHostRefund(page, context),
+    open: (page, context, language, project) => openHostRefund(page, context, language, project),
   },
   { name: 'vitrine-composants', source: 'US-032', open: at('/ui?width=mobile') },
 ];
