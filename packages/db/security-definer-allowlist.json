@@ -1819,6 +1819,27 @@
       "owner": "cmd_money_owner",
       "execute": [],
       "story": "US-215"
+    },
+    {
+      "signature": "core.settlement_staff_cancellation_summary(uuid)",
+      "family": "cmd_money",
+      "owner": "cmd_money_owner",
+      "execute": ["iam_staff_owner"],
+      "story": "US-215"
+    },
+    {
+      "signature": "core.booking_staff_trip_cancellation(uuid)",
+      "family": "cmd_hold",
+      "owner": "cmd_hold_owner",
+      "execute": ["iam_staff_owner"],
+      "story": "US-215"
+    },
+    {
+      "signature": "core.support_staff_trip_cancellation(bytea,uuid,uuid)",
+      "family": "iam_staff",
+      "owner": "iam_staff_owner",
+      "execute": ["app_api"],
+      "story": "US-215"
     }
   ]
 }

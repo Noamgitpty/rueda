@@ -162,6 +162,13 @@
       "portee": "pays",
       "idor": "élément de l’autre pays : 403 journalisé ; non assigné ou autre file : 403 STAFF_CASE_REQUIRED, aucune donnée, aucune ligne d’accès (preuve L0 l0-us209-risk-checkout)"
     },
+    "GET /console/trips/{id}/cancellation": {
+      "acces": "staff",
+      "permission": "ops.platform_cancel (permission des trois actions d’annulation CANCEL_TRIP_*, dans le pays du trip), garde ADR-122, refus journalisés",
+      "roles": ["OPS_AGENT", "ADMIN"],
+      "portee": "pays",
+      "idor": "trip de l’autre pays ou inconnu : 403 FORBIDDEN journalisé, aucune donnée ; trip qui concerne l’agent : 403 STAFF_SELF_FORBIDDEN (preuve L0 l0-us215-trip-cancellation)"
+    },
     "POST /console/queues/items/{id}/catalog-addition": {
       "acces": "staff",
       "permission": "ops.review_listing_host (file CATALOG_ADDITION, élément pris en charge ; ADMIN : sa portée)",

@@ -34,6 +34,8 @@
  * |      decide (US-118)                    | clos                             | LISTING_NOT_PUBLISHABLE ; 422    |
  * | POST /console/queues/items/:id/files/   | 200 pièce (base64, journalisée)  | 404 VEHICLE_FILE_NOT_FOUND ; 503 |
  * |      :fileId (US-124)                   |                                  |                                  |
+ * | GET /console/trips/:id/cancellation     | 200 { cancellation } : dernière  | 403 STAFF_SELF_FORBIDDEN         |
+ * |      (US-215b)                          | demande d'annulation ou null     |                                  |
  *
  * Toutes : StaffGuard (401 AUTH_REQUIRED, 403 FORBIDDEN / 2FA_REQUIRED), 400 REQUEST_INVALID. La
  * base juge chaque droit (permission EN COURS dans le pays du sujet, couverture) et journalise
@@ -43,6 +45,7 @@
  * sujet concerne l'agent (son compte, son véhicule, sa contestation, sa demande, un compte lié)
  * rend 403 STAFF_SELF_FORBIDDEN, journalisé.
  */
+import { randomUUID } from 'node:crypto';
 import {
   Body,
   Controller,
@@ -209,9 +212,10 @@ function actorOf(request: object): StaffActor {
 /** Champs d'horodatage rendus par la base (noms de 0064, 0076) ; aucun texte libre n'en fait partie. */
 // US-108 : instants du dossier de l'hôte (screenedAt, decidedAt, activatedAt)
 // US-209b : instants du dossier d'une réservation signalée (flaggedAt, reviewedAt, expiresAt,
-// declaredAt ; la date d'entrée déclarée reste une date)
+// declaredAt ; la date d'entrée déclarée reste une date) ; US-215b : heure de la demande d'annulation
+// (requestedAt ; decidedAt déjà là)
 const DATE_FIELD =
-  /^(createdAt|slaDueAt|liftedAt|scheduledStart|scheduledEnd|updatedAt|startsAt|endsAt|screenedAt|decidedAt|activatedAt|flaggedAt|reviewedAt|expiresAt|declaredAt)$/;
+  /^(createdAt|slaDueAt|liftedAt|scheduledStart|scheduledEnd|updatedAt|startsAt|endsAt|screenedAt|decidedAt|activatedAt|flaggedAt|reviewedAt|expiresAt|declaredAt|requestedAt)$/;
 
 /** Décision de la file d'ajout (US-114) : la forme est jugée ici, les valeurs par la base. */
 function resolutionOf(b: Record<string, unknown>): CatalogResolution {
@@ -673,6 +677,21 @@ export class OpsConsoleController {
       bytes: opened.body.length,
       dataBase64: opened.body.toString('base64'),
     };
+  }
+
+  // US-215b (ADR-151) : état de la dernière demande d'annulation du trip (CANCEL_TRIP_*), lu après
+  // l'action de la console (le règlement est fait par le travailleur trip_lifecycle) ; permission
+  // ops.platform_cancel dans le pays du trip ; aucune donnée personnelle ; refus journalisés
+  @Get('trips/:id/cancellation')
+  @UseGuards(StaffGuard)
+  async tripCancellation(@Req() request: object, @Param('id') id: string) {
+    const actor = actorOf(request);
+    const tripId = uuidOf(id);
+    const r = await run(
+      () => this.store.tripCancellation(actor, randomUUID(), tripId),
+      ['OK', 'NONE'],
+    );
+    return { cancellation: r.outcome === 'OK' ? r.body : null };
   }
 
   @Post('users/search')
