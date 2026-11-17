@@ -48,6 +48,8 @@
  * - `REFUND_EXCEEDS_COLLECTED` : 16 fiche PAY-021 ; `SETTLEMENT_SUPERSEDED` (ordre d'une version
  *   de règlement remplacée) et `FIN_REVIEW_REQUIRED` (règlement à jambe négative : décision FIN
  *   avant tout ordre, 08 E7 règle 5) : PROPOSÉS par US-224 (migration 0121, ADR-145, S-02).
+ *   US-224b (ADR-147) : `FIN_REVIEW_REQUIRED` couvre aussi l'avance de Kmino non décidée par
+ *   deux personnes (`advance_decision_required`) ; aucun nouveau code.
  */
 
 /** Codes métier produits par la traduction. */
@@ -298,6 +300,24 @@ export const CONSTRAINT_CODES: Readonly<Record<string, readonly [string, DbBusin
   leg_reallocation_mismatch: [SQLSTATE.objectNotInPrerequisiteState, 'INVARIANT_VIOLATION'],
   leg_reallocation_pending: [SQLSTATE.objectNotInPrerequisiteState, 'INVARIANT_VIOLATION'],
   payment_operation_settlement_shape: [SQLSTATE.checkViolation, 'INVARIANT_VIOLATION'],
+  // US-224b (ADR-147) : instance de remboursement (SM-8), avance de Kmino (08 E7 règle 3 bis),
+  // versement borné par la jambe retenue
+  refund_credit_cash_closed: [SQLSTATE.objectNotInPrerequisiteState, 'PAYMENT_METHOD_UNAVAILABLE'],
+  refund_rail_unavailable: [SQLSTATE.objectNotInPrerequisiteState, 'PAYMENT_METHOD_UNAVAILABLE'],
+  refund_instance_idempotency_conflict: [
+    SQLSTATE.integrityConstraintViolation,
+    'IDEMPOTENCY_CONFLICT',
+  ],
+  refund_instance_key: [SQLSTATE.uniqueViolation, 'IDEMPOTENCY_CONFLICT'],
+  refund_instance_operation_unique: [SQLSTATE.uniqueViolation, 'IDEMPOTENCY_CONFLICT'],
+  refund_instance_origin_invalid: [SQLSTATE.objectNotInPrerequisiteState, 'INVARIANT_VIOLATION'],
+  refund_instance_unknown: [SQLSTATE.objectNotInPrerequisiteState, 'INVARIANT_VIOLATION'],
+  refund_instance_not_submitted: [SQLSTATE.objectNotInPrerequisiteState, 'INVALID_TRANSITION'],
+  refund_instance_transition: [SQLSTATE.integrityConstraintViolation, 'INVALID_TRANSITION'],
+  refund_instance_immutable: [SQLSTATE.integrityConstraintViolation, 'IMMUTABLE_RECORD'],
+  advance_decision_required: [SQLSTATE.objectNotInPrerequisiteState, 'FIN_REVIEW_REQUIRED'],
+  advance_exceeds_released_leg: [SQLSTATE.objectNotInPrerequisiteState, 'INVARIANT_VIOLATION'],
+  leg_release_exceeds_retained: [SQLSTATE.objectNotInPrerequisiteState, 'INVARIANT_VIOLATION'],
   payment_operation_settlement_kind: [SQLSTATE.checkViolation, 'INVARIANT_VIOLATION'],
   leg_release_trip_not_completed: [SQLSTATE.objectNotInPrerequisiteState, 'INVALID_TRANSITION'],
   leg_release_not_due: [SQLSTATE.objectNotInPrerequisiteState, 'INVALID_TRANSITION'],

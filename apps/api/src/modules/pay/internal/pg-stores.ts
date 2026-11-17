@@ -180,6 +180,103 @@ export class PgOperationRecorder {
   }
 }
 
+/**
+ * US-224b (ADR-147, 08 SM-8) : remboursement d'un règlement planifié par Kmino. `legs` sont les
+ * jambes que donne le règlement (`settlementOrders`) ; la base y applique la règle 3 bis (part HOST
+ * déjà versée portée sur PLATFORM, avance de Kmino attendue) et écrit l'ordre REFUND PENDING.
+ */
+export interface PlanRefundInput {
+  readonly instanceId: string;
+  readonly operationId: string;
+  readonly settlementId: string;
+  /** Encaissement réussi du loyer du trip remboursé (capture), dont le compte et le moyen servent. */
+  readonly refundedOperationId: string;
+  readonly instanceSeq: number;
+  /** Bêta : `NATIVE_PARTIAL` ou `ROLLBACK_AND_RECHARGE` ; crédit cash et virement refusés. */
+  readonly rail: 'NATIVE_PARTIAL' | 'ROLLBACK_AND_RECHARGE' | 'BANK_TRANSFER' | 'CREDIT_CASH';
+  readonly legs: LegAmounts;
+  readonly idemPlain: string;
+  readonly idemSent: string;
+}
+
+/** Motif d'un envoi retenu (avance de Kmino sans décision FINANCE à deux personnes). */
+export type RefundBlockedReason =
+  'ADVANCE_CAP_UNSET' | 'HOST_ADVANCE_CAP' | 'PLATFORM_BALANCE_UNKNOWN';
+
+export interface PlannedRefund {
+  readonly instanceId: string;
+  readonly operationId: string;
+  readonly advanceId: string | null;
+  readonly status: string;
+  readonly blockedReason: RefundBlockedReason | null;
+  readonly replayed: boolean;
+}
+
+export type SubmitRefundOutcome =
+  | { readonly outcome: 'SUBMITTED' | 'DUPLICATE' | 'SUPERSEDED' }
+  | { readonly outcome: 'BLOCKED'; readonly blockedReason: RefundBlockedReason };
+
+/**
+ * Travailleur `payment_command` : instance de remboursement (`core.payment_cmd_plan_refund`) et
+ * envoi autorisé (`core.payment_cmd_submit_refund`) ; l'appel au PSP ne suit que `SUBMITTED`.
+ */
+export class PgRefundPlanner {
+  readonly #tx: SqlExecutor;
+
+  constructor(tx: SqlExecutor) {
+    this.#tx = tx;
+  }
+
+  async plan(input: PlanRefundInput): Promise<PlannedRefund> {
+    const { rows } = await this.#tx.query<{
+      instance_id: string;
+      operation_id: string;
+      advance_id: string | null;
+      status: string;
+      blocked_reason: RefundBlockedReason | null;
+      replayed: boolean;
+    }>(
+      `SELECT instance_id, operation_id, advance_id, status, blocked_reason, replayed
+         FROM core.payment_cmd_plan_refund($1, $2, $3, $4, $5, $6, $7::jsonb, $8, $9)`,
+      [
+        input.instanceId,
+        input.operationId,
+        input.settlementId,
+        input.refundedOperationId,
+        input.instanceSeq,
+        input.rail,
+        JSON.stringify(legsToJson(input.legs)),
+        input.idemPlain,
+        input.idemSent,
+      ],
+    );
+    const row = rows[0];
+    if (row === undefined) throw new Error('PAY : planification sans résultat');
+    return {
+      instanceId: row.instance_id,
+      operationId: row.operation_id,
+      advanceId: row.advance_id,
+      status: row.status,
+      blockedReason: row.blocked_reason,
+      replayed: row.replayed,
+    };
+  }
+
+  async submit(instanceId: string): Promise<SubmitRefundOutcome> {
+    const { rows } = await this.#tx.query<{
+      outcome: 'SUBMITTED' | 'DUPLICATE' | 'SUPERSEDED' | 'BLOCKED';
+      blocked_reason: RefundBlockedReason | null;
+    }>('SELECT outcome, blocked_reason FROM core.payment_cmd_submit_refund($1)', [instanceId]);
+    const row = rows[0];
+    if (row === undefined) throw new Error('PAY : envoi sans résultat');
+    if (row.outcome === 'BLOCKED') {
+      if (row.blocked_reason === null) throw new Error('PAY : envoi retenu sans motif');
+      return { outcome: 'BLOCKED', blockedReason: row.blocked_reason };
+    }
+    return { outcome: row.outcome };
+  }
+}
+
 async function applyStatus(db: SqlExecutor, input: ApplyStatusInput): Promise<ApplyOutcome> {
   const { rows } = await db.query<{ outcome: ApplyOutcome }>(
     `SELECT core.payment_cmd_apply_operation_status($1, $2, $3, $4, $5) AS outcome`,

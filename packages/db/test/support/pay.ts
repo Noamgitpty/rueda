@@ -125,8 +125,9 @@ export interface RecordInput {
   readonly idemSent?: string;
   readonly legs: Legs | null;
   /**
-   * US-224 (0121, S-02) : règlement et version de l'ordre (commande à 15 arguments). Absent : la
-   * commande à 13 arguments (aucun règlement : un ordre REFUND / LEG_* de trip est refusé).
+   * US-224 (0121, S-02) : règlement et version de l'ordre. Absent : règlement NULL (un ordre
+   * REFUND / LEG_* de trip est refusé). US-224b (ADR-147) : la commande à 13 arguments est retirée,
+   * tout appel passe par celle à 15 arguments.
    */
   readonly settlement?: SettlementRef | null;
 }
@@ -166,15 +167,10 @@ export async function recordOperation(
   tx: pg.ClientBase,
   r: RecordInput,
 ): Promise<{ operation_id: string; replayed: boolean }> {
-  const withSettlement = r.settlement !== undefined;
   const { rows } = await tx.query<{ operation_id: string; replayed: boolean }>(
-    withSettlement
-      ? `SELECT operation_id, replayed
-           FROM core.payment_cmd_record_operation($1, NULL, $2, $3, 'CARD', $4, $5, $6, $7, $8, $9,
-                                                  $10, $11::jsonb, $12::uuid, $13::integer)`
-      : `SELECT operation_id, replayed
-           FROM core.payment_cmd_record_operation($1, NULL, $2, $3, 'CARD', $4, $5, $6, $7, $8, $9,
-                                                  $10, $11::jsonb)`,
+    `SELECT operation_id, replayed
+       FROM core.payment_cmd_record_operation($1, NULL, $2, $3, 'CARD', $4, $5, $6, $7, $8, $9,
+                                              $10, $11::jsonb, $12::uuid, $13::integer)`,
     [
       r.id ?? uuid(),
       r.tripId,
@@ -187,7 +183,8 @@ export async function recordOperation(
       r.idemPlain,
       r.idemSent ?? r.idemPlain,
       r.legs === null ? null : legsJson(r.legs),
-      ...(withSettlement ? [r.settlement?.id ?? null, r.settlement?.version ?? null] : []),
+      r.settlement?.id ?? null,
+      r.settlement?.version ?? null,
     ],
   );
   const row = rows[0];

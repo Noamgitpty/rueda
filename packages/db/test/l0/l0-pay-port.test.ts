@@ -339,7 +339,7 @@ describe.each(COUNTRIES)('US-019 — $country ($currency)', (c) => {
           const missing = await caught(tx, () =>
             tx.query(
               `SELECT * FROM core.payment_cmd_record_operation($1, NULL, $2, $3, 'CARD', 'CAPTURE', 'RENT', $4, $5, 1,
-                                                                $6, $6, $7::jsonb)`,
+                                                                $6, $6, $7::jsonb, NULL, NULL)`,
               [
                 uuid(),
                 trip,

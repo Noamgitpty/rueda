@@ -121,13 +121,18 @@ export { containsPan, maskPan } from './internal/pan.js';
 // Persistance (commandes core.payment_cmd_*, migration 0028) et démarrage (C19)
 export {
   PgOperationRecorder,
+  PgRefundPlanner,
   PgWebhookInboxStore,
   PgWebhookWorkStore,
   withPaymentWorker,
 } from './internal/pg-stores.js';
 export type {
   PaymentWorkerName,
+  PlannedRefund,
+  PlanRefundInput,
   RecordOperationInput,
+  RefundBlockedReason,
+  SubmitRefundOutcome,
   SqlExecutor,
   SqlPool,
 } from './internal/pg-stores.js';

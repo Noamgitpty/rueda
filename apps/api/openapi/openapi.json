@@ -1713,7 +1713,24 @@
             "$ref": "#/components/responses/StaffAuthRequired"
           },
           "403": {
-            "$ref": "#/components/responses/StaffForbidden"
+            "description": "Sans rôle interne ou sans la permission (FORBIDDEN, journalisé) ; session non élevée (2FA_REQUIRED) ; sujet qui concerne l'approbateur ou le demandeur : titulaire, co-hôte du compte de l'avance ou compte lié (STAFF_SELF_FORBIDDEN, journalisé ; US-122, US-224 N-119)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "enum": ["FORBIDDEN", "2FA_REQUIRED", "STAFF_SELF_FORBIDDEN"]
+                    }
+                  }
+                }
+              }
+            }
           },
           "409": {
             "description": "Le demandeur ne peut pas approuver (STAFF_SELF_APPROVAL) ; demande plus en attente ou sujet changé (STAFF_ACTION_REFUSED)",
