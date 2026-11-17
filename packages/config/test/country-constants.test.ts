@@ -70,7 +70,17 @@ describe('jetons tirés des données CFG', () => {
     expect(findCountryConstants('PAYMENT PAYOUT PYGMY usdt oracle.py', tokens)).toEqual([]);
     expect(findCountryConstants('es-PY', tokens).map((f) => f.token)).toEqual(['es-PY']);
   });
+
+  it('expression compilée une fois par liste : appels répétés stables, listes distinctes isolées', () => {
+    for (let i = 0; i < 3; i++) {
+      expect(findCountryConstants("'PYG' 'PYG'", tokens).map((f) => f.offset)).toEqual([1, 7]);
+    }
+    expect(findCountryConstants('ZZZ PYG', ['ZZZ']).map((f) => f.token)).toEqual(['ZZZ']);
+    expect(findCountryConstants('ZZZ PYG', tokens).map((f) => f.token)).toEqual(['PYG']);
+  });
 });
+
+const COUNTRY_RULE = 'rueda/no-country-constants';
 
 async function lintFixture(name: string): Promise<string[]> {
   const eslint = new ESLint({
@@ -83,6 +93,28 @@ async function lintFixture(name: string): Promise<string[]> {
   return result.messages
     .filter((m) => m.ruleId === 'rueda/no-country-constants')
     .map((m) => `${m.line}:${m.message}`);
+}
+
+/**
+ * Options du contrôle « dépôt » : configuration réelle, mais seule `rueda/no-country-constants`
+ * s'exécute (`ruleFilter`). Les autres règles sont déjà contrôlées par `pnpm lint` ; les exécuter
+ * ici doublait le coût du test sans rien ajouter à ce contrôle (lenteur en CI, PR #221).
+ */
+function countryOnlyOptions(): ESLint.Options {
+  return {
+    cwd: repoRoot,
+    overrideConfigFile: join(repoRoot, 'eslint.config.mjs'),
+    ruleFilter: ({ ruleId }) => ruleId === COUNTRY_RULE,
+  };
+}
+
+async function countryHits(eslint: ESLint, patterns: string[]): Promise<string[]> {
+  const results = await eslint.lintFiles(patterns);
+  return results.flatMap((r) =>
+    r.messages
+      .filter((m) => m.ruleId === COUNTRY_RULE)
+      .map((m) => `${r.filePath}:${m.line} ${m.message}`),
+  );
 }
 
 describe('rueda/no-country-constants (configuration réelle)', () => {
@@ -118,17 +150,25 @@ describe('rueda/no-country-constants (configuration réelle)', () => {
   });
 
   it('le code du dépôt passe (aucune constante pays)', async () => {
-    const eslint = new ESLint({
-      cwd: repoRoot,
-      overrideConfigFile: join(repoRoot, 'eslint.config.mjs'),
-    });
-    const results = await eslint.lintFiles(['apps', 'packages']);
-    const hits = results.flatMap((r) =>
-      r.messages
-        .filter((m) => m.ruleId === 'rueda/no-country-constants')
-        .map((m) => `${r.filePath}:${m.line} ${m.message}`),
-    );
+    // Même périmètre que toujours (apps/ et packages/), configuration réelle (fichiers, ignores,
+    // exemptions déclarées, options de la règle) ; seule la règle contrôlée s'exécute.
+    const hits = await countryHits(new ESLint(countryOnlyOptions()), ['apps', 'packages']);
     expect(hits).toEqual([]);
+    // Délai explicite, mesuré : 8,1 s en local, 39,8 s en CI (run 44154988141) ; le reste est
+    // l'analyse syntaxique des ~1 200 sources, nécessaire à la règle, et la CI fait tourner les
+    // tests des autres paquets en même temps (facteur 3 à 5 ; jusqu'à 60,1 s avant ce correctif).
+  }, 120_000);
+
+  it('le filtre de règle du test précédent ne coupe pas la règle : la fixture fautive est signalée', async () => {
+    // Preuve négative du contrôle « dépôt » : mêmes options, appliquées à une constante plantée.
+    const hits = await countryHits(new ESLint({ ...countryOnlyOptions(), ignore: false }), [
+      join(fixturesDir, 'country-in-ts', 'bad.ts'),
+    ]);
+    // Exactement les constats de la configuration complète (premier test de ce bloc).
+    expect(hits.map((h) => h.slice(h.indexOf('bad.ts:') + 'bad.ts:'.length))).toEqual(
+      (await lintFixture('bad.ts')).map((m) => m.replace(':', ' ')),
+    );
+    expect(hits).toHaveLength(15);
   });
 });
 
