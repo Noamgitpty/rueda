@@ -105,11 +105,14 @@ export class RefundScheduler {
   async process(due: DueRefund): Promise<RefundOutcome> {
     let outcome: RefundOutcome;
     try {
-      outcome = await this.#deps.transactions.run(PAYMENT_COMMAND_WORKER, (db) =>
-        this.#step(db, due),
-      );
+      outcome =
+        (await this.#precheck(due)) ??
+        (await this.#deps.transactions.run(PAYMENT_COMMAND_WORKER, (db) => this.#step(db, due)));
     } catch (error) {
-      outcome = classifyRefundError(error, due.status === 'CONFIRMED' ? 'REPORT' : 'SEND');
+      outcome =
+        error instanceof NotSent
+          ? error.outcome
+          : classifyRefundError(error, due.status === 'CONFIRMED' ? 'REPORT' : 'SEND');
       if (outcome.alert?.errorCode === UNEXPECTED_CODE) {
         this.#log({ level: 'error', event: 'unexpected', error_class: errorClass(error) });
       }
@@ -134,6 +137,23 @@ export class RefundScheduler {
     return outcome;
   }
 
+  /**
+   * Avant toute transaction : sans connecteur, rien (aucune transaction ouverte) ; encaissement
+   * sans référence PSP, rien ne peut partir : l'envoi n'est jamais autorisé (revue FIN).
+   */
+  #precheck(due: DueRefund): Promise<RefundOutcome | null> {
+    if (due.status !== 'PLANNED' && due.status !== 'SUBMITTED' && due.status !== 'SENT') {
+      return Promise.resolve(null);
+    }
+    if (this.#deps.connectors.get(due.provider) === undefined) {
+      return Promise.resolve({ step: 'NO_CONNECTOR' });
+    }
+    if (due.status === 'PLANNED' && !due.targetKnown) {
+      return Promise.resolve(attention('FIN_REFUND_FAILED', 'SEND:NO_TARGET', 'NO_TARGET'));
+    }
+    return Promise.resolve(null);
+  }
+
   async #step(db: SqlClient, due: DueRefund): Promise<RefundOutcome> {
     switch (due.status) {
       case 'PLANNED': {
@@ -151,14 +171,18 @@ export class RefundScheduler {
           };
         }
         if (submitted.outcome !== 'SUBMITTED') return { step: submitted.outcome };
-        // même transaction : l'envoi autorisé et l'appel au PSP sous les mêmes verrous
-        return this.#send(db, due.instanceId, connector);
+        // même transaction : l'envoi autorisé et l'appel au PSP sous les mêmes verrous. Rien n'a
+        // atteint le PSP (injoignable, aucune lecture possible, ordre non envoyable) ⇒ la
+        // transaction est ANNULÉE : l'instance reste PLANNED, sans date d'émission (ADR-150)
+        const sent = await this.#send(db, due.instanceId, connector);
+        if (sent.unsent) throw new NotSent(sent.outcome);
+        return sent.outcome;
       }
       case 'SUBMITTED':
       case 'SENT': {
         const connector = this.#deps.connectors.get(due.provider);
         if (connector === undefined) return { step: 'NO_CONNECTOR' };
-        return this.#send(db, due.instanceId, connector);
+        return (await this.#send(db, due.instanceId, connector)).outcome;
       }
       case 'CONFIRMED': {
         const orders = new PgRefundOrders(db);
@@ -176,13 +200,16 @@ export class RefundScheduler {
     db: SqlClient,
     instanceId: string,
     connector: PaymentProvider,
-  ): Promise<RefundOutcome> {
+  ): Promise<{ readonly outcome: RefundOutcome; readonly unsent: boolean }> {
     const order = await new PgRefundOrders(db).orderForSend(instanceId);
     if (!order.sendable) {
       if (order.reason === 'SUPERSEDED_UNSENT' || order.reason === 'NO_TARGET') {
-        return attention('FIN_REFUND_FAILED', `SEND:${order.reason}`, order.reason);
+        return {
+          outcome: attention('FIN_REFUND_FAILED', `SEND:${order.reason}`, order.reason),
+          unsent: true,
+        };
       }
-      return { step: 'DUPLICATE' };
+      return { outcome: { step: 'DUPLICATE' }, unsent: true };
     }
     const sender = new MoneyCommandSender(connector, new PgOperationRecorder(db));
     const sent = await sender.send({
@@ -199,25 +226,47 @@ export class RefundScheduler {
     switch (sent.outcome) {
       case 'SUCCEEDED':
       case 'SUBMITTED':
-        return { step: 'SENT' };
+        return { outcome: { step: 'SENT' }, unsent: false };
       case 'FAILED':
-        return { step: 'FAILED' };
+        // refus REÇU du PSP : l'ordre est parti (l'instance passe FAILED)
+        return { outcome: { step: 'FAILED' }, unsent: false };
       case 'UNKNOWN':
+        // issue inconnue : l'ordre a pu partir ; lu au passage suivant, jamais renvoyé sans lecture
+        return { outcome: { step: 'WAITING' }, unsent: false };
       case 'NOT_SENT':
+        // PSP injoignable : rien n'est parti
+        return { outcome: { step: 'WAITING' }, unsent: true };
       case 'ALREADY_FINAL':
-        return { step: 'WAITING' };
+        return { outcome: { step: 'DUPLICATE' }, unsent: false };
       case 'ESCALATE':
-        return attention('FIN_REFUND_FAILED', `SEND:${sent.reason}`, sent.reason);
+        // aucune lecture possible : rien n'est envoyé
+        return {
+          outcome: attention('FIN_REFUND_FAILED', `SEND:${sent.reason}`, sent.reason),
+          unsent: true,
+        };
       case 'AWAITING_PROOF':
-        // UNPROVEN : la preuve signée (webhook) décide ; MISMATCH : montant reçu ≠ ordre
-        return sent.refused === 'MISMATCH'
-          ? attention('FIN_REFUND_FAILED', 'SEND:MISMATCH', 'MISMATCH')
-          : { step: 'WAITING' };
+        // le PSP a répondu : UNPROVEN, la preuve signée (webhook) décide ; MISMATCH : montant
+        // reçu ≠ ordre
+        return {
+          outcome:
+            sent.refused === 'MISMATCH'
+              ? attention('FIN_REFUND_FAILED', 'SEND:MISMATCH', 'MISMATCH')
+              : { step: 'WAITING' },
+          unsent: false,
+        };
     }
   }
 
   #log(fields: Record<string, string>): void {
     this.#deps.log?.(JSON.stringify({ worker: REFUND_SCHEDULER_WORKER, ...fields }));
+  }
+}
+
+/** Rien n'a atteint le PSP après l'envoi autorisé : la transaction est annulée (instance PLANNED). */
+class NotSent extends Error {
+  override readonly name = 'NotSent';
+  constructor(readonly outcome: RefundOutcome) {
+    super('remboursement non envoyé : envoi autorisé annulé');
   }
 }
 

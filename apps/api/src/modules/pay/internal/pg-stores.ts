@@ -326,6 +326,8 @@ export interface DueRefund {
   readonly blockedReason: RefundBlockedReason | null;
   /** Dernière alerte FIN levée pour l'instance (un état n'est signalé qu'une fois). */
   readonly finAlert: string | null;
+  /** Référence PSP de l'encaissement remboursé connue (sinon rien ne peut partir : `NO_TARGET`). */
+  readonly targetKnown: boolean;
 }
 
 /** Motif pour lequel l'ordre d'une instance ne part pas (relu sous les verrous). */
@@ -398,9 +400,10 @@ export class PgRefundOrders {
       provider: string;
       blocked_reason: string | null;
       fin_alert: string | null;
+      target_known: boolean;
     }>(
       `SELECT instance_id, country_code, status, operation_status, provider, blocked_reason,
-              fin_alert
+              fin_alert, target_known
          FROM core.payment_refunds_due($1)`,
       [limit],
     );
@@ -412,6 +415,7 @@ export class PgRefundOrders {
       provider: r.provider,
       blockedReason: blockedReason(r.blocked_reason),
       finAlert: r.fin_alert,
+      targetKnown: r.target_known,
     }));
   }
 

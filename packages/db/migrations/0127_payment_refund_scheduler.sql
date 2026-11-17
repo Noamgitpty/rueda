@@ -19,8 +19,10 @@
 --      attendue (`CANCELLED`) ; le CHECK de la date d'émission admet une instance `SUPERSEDED` déjà
 --      émise (passée par `FAILED`) ;
 --   3. `core.payment_refunds_due` : file de l'ordonnanceur (travailleur `payment_command`) —
---      instances `PLANNED` à envoyer (les non bloquées d'abord), `SUBMITTED` / `SENT` dont l'ordre
---      attend le PSP, `CONFIRMED` prouvées non encore reportées, `FAILED` non encore signalées ;
+--      instances `PLANNED` à envoyer, `SUBMITTED` / `SENT` dont l'ordre attend le PSP, `CONFIRMED`
+--      prouvées non encore reportées, `FAILED` non encore signalées ; les instances déjà signalées
+--      et les bloquées en dernier ; référence PSP de l'encaissement connue ou non (`target_known`,
+--      lue AVANT l'envoi autorisé) ;
 --   4. `core.payment_cmd_refund_order_for_send` : sous le verrou du trip PUIS de l'ordre (gardés
 --      jusqu'à la fin de la transaction, donc PENDANT l'appel au PSP), relit l'instance, l'ordre et la
 --      version en tête ; refuse l'envoi d'un ordre jamais envoyé dont la version est remplacée
@@ -194,7 +196,7 @@ SET LOCAL ROLE cmd_money_owner;
 -- avance sans décision FINANCE ne prive jamais les autres de leur passage)
 CREATE FUNCTION core.payment_refunds_due(p_limit integer)
   RETURNS TABLE (instance_id uuid, country_code text, status text, operation_status text,
-                 provider text, blocked_reason text, fin_alert text)
+                 provider text, blocked_reason text, fin_alert text, target_known boolean)
   LANGUAGE plpgsql
   STABLE
   SECURITY DEFINER
@@ -211,16 +213,20 @@ BEGIN
     RAISE EXCEPTION 'payment: limit must be between 1 and 500' USING ERRCODE = 'invalid_parameter_value';
   END IF;
   RETURN QUERY
-  SELECT ri.id, ri.country_code, ri.status, o.status, o.provider, ri.blocked_reason, ri.fin_alert
+  SELECT ri.id, ri.country_code, ri.status, o.status, o.provider, ri.blocked_reason, ri.fin_alert,
+         src.provider_reference IS NOT NULL
     FROM core.payment_refund_instance AS ri
     JOIN core.payment_payment_operation AS o ON o.id = ri.operation_id
+    JOIN core.payment_payment_operation AS src ON src.id = ri.refunded_operation_id
    WHERE ri.status = 'PLANNED'
       OR (ri.status IN ('SUBMITTED', 'SENT') AND o.status IN ('PENDING', 'UNKNOWN', 'SUBMITTED'))
       OR (ri.status = 'CONFIRMED' AND o.proof_type IS NOT NULL
           AND NOT EXISTS (SELECT 1 FROM core.settlement_leg_movement AS m
                            WHERE m.operation_id = ri.operation_id))
       OR (ri.status = 'FAILED' AND ri.fin_alert IS DISTINCT FROM 'FAILED')
-   ORDER BY (ri.blocked_reason IS NOT NULL), ri.created_at, ri.id
+   -- une instance déjà signalée (coincée : bloquée, escaladée, report refusé) passe après les
+   -- autres : un lot de 50 instances coincées n'affame jamais les suivantes
+   ORDER BY (ri.fin_alert IS NOT NULL), (ri.blocked_reason IS NOT NULL), ri.created_at, ri.id
    LIMIT p_limit;
 END
 $fn$;

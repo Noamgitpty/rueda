@@ -22,7 +22,7 @@ import type pg from 'pg';
 import { afterEach, describe, expect, it } from 'vitest';
 import { countryCases } from '../../../../test/support/countries.js';
 import type { AlertChannel, OpsAlert, SqlClient, WorkerTransactions } from '../../bus/index.js';
-import { PgRefundOrders } from '../../pay/index.js';
+import { PaymentError, PgRefundOrders } from '../../pay/index.js';
 import type {
   OperationResult,
   PaymentConnectorRegistry,
@@ -330,5 +330,42 @@ describe.each([
     expect(done.due).toBeUndefined();
     expect(alerts.sent).toEqual([]);
     expect(connector.refunds).toHaveLength(1);
+  });
+});
+
+describe('US-224c — ADR-150 sur base réelle : jamais SUBMITTED sans envoi', () => {
+  it('PSP injoignable après l’envoi autorisé : transaction annulée, l’instance reste PLANNED sans date d’émission, ordre PENDING, toujours en file', async () => {
+    const w = await world('T03', 'TJ01');
+    const id = await request(w);
+    expect(
+      await new TripCancellationProcessor({
+        transactions: committing(REQUESTED_AT_MS + MINUTE),
+        alerts: new Alerts(),
+        tripOf: tripOf('T03'),
+      }).process(id),
+    ).toMatchObject({ outcome: 'SETTLED' });
+    const before = await observe(w.trip);
+    const due = before.due;
+    if (due === undefined) throw new Error('instance absente de la file');
+    let calls = 0;
+    const down = {
+      capabilities: () => ({ bool: (name: string) => name === 'SUPPORTS_IDEMPOTENCY_HEADER' }),
+      refund: (): Promise<OperationResult> => {
+        calls++;
+        return Promise.reject(new PaymentError('PROVIDER_UNAVAILABLE', 'injoignable'));
+      },
+    };
+    const scheduler = new RefundScheduler({
+      transactions: committing(REQUESTED_AT_MS + 2 * MINUTE),
+      alerts: new Alerts(),
+      connectors: {
+        get: (p) => (p === 'FAKE' ? (down as unknown as PaymentProvider) : undefined),
+      },
+    });
+    expect(await scheduler.process(due)).toEqual({ step: 'WAITING' });
+    expect(calls).toBe(1);
+    const after = await observe(w.trip);
+    expect(after.instance).toMatchObject({ status: 'PLANNED', issued: false });
+    expect(after.due).toMatchObject({ status: 'PLANNED', operationStatus: 'PENDING' });
   });
 });

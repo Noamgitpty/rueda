@@ -6412,7 +6412,7 @@ Chacune a un propriétaire `NOLOGIN` dédié (ADR-053) et un `search_path` figé
 | `core.payment_cmd_submit_refund(p_instance_id uuid)` | `TABLE(outcome text, blocked_reason text)` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; cmd_money_owner: EXECUTE |
 | `core.payment_refund_instance_gate()` | `trigger` | `integrity_owner` | search_path=pg_catalog, pg_temp | integrity_owner: EXECUTE |
 | `core.payment_refund_instance_sync()` | `trigger` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | cmd_money_owner: EXECUTE |
-| `core.payment_refunds_due(p_limit integer)` | `TABLE(instance_id uuid, country_code text, status text, operation_status text, provider text, blocked_reason text, fin_alert text)` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; cmd_money_owner: EXECUTE |
+| `core.payment_refunds_due(p_limit integer)` | `TABLE(instance_id uuid, country_code text, status text, operation_status text, provider text, blocked_reason text, fin_alert text, target_known boolean)` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; cmd_money_owner: EXECUTE |
 | `core.payment_resolve_webhook_account(p_provider text, p_public_webhook_id text)` | `TABLE(account_id uuid, webhook_secret_ref text)` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; cmd_money_owner: EXECUTE |
 | `core.payment_startup_guard()` | `TABLE(deployment_env text, fake_accounts integer)` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; app_worker: EXECUTE ; cmd_money_owner: EXECUTE |
 | `core.pricing_bind_checkout_trip(p_trip_id uuid)` | `integer` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; cmd_money_owner: EXECUTE |

@@ -77,14 +77,25 @@ class FakeDb implements SqlClient {
   }
 }
 
-function transactionsOf(db: FakeDb): WorkerTransactions & { runs: string[] } {
+function transactionsOf(
+  db: FakeDb,
+): WorkerTransactions & { runs: string[]; outcomes: ('COMMIT' | 'ROLLBACK')[] } {
   const runs: string[] = [];
+  const outcomes: ('COMMIT' | 'ROLLBACK')[] = [];
   return {
     runs,
+    outcomes,
     async run<T>(workerName: string, fn: (tx: SqlClient) => Promise<T>): Promise<T> {
       runs.push(workerName);
       db.worker = workerName;
-      return fn(db);
+      try {
+        const out = await fn(db);
+        outcomes.push('COMMIT');
+        return out;
+      } catch (error) {
+        outcomes.push('ROLLBACK');
+        throw error;
+      }
     },
   };
 }
@@ -136,6 +147,7 @@ const due = (over: Partial<DueRefund> = {}): DueRefund => ({
   provider: 'FAKE',
   blockedReason: null,
   finAlert: null,
+  targetKnown: true,
   ...over,
 });
 
@@ -498,6 +510,108 @@ describe('ordonnanceur — états et refus', () => {
   });
 });
 
+describe('ADR-150 : jamais SUBMITTED (date d’émission) sans envoi', () => {
+  it('PSP injoignable après l’envoi autorisé : transaction ANNULÉE (instance PLANNED), repris au passage suivant', async () => {
+    const db = new FakeDb(answers());
+    const tx = transactionsOf(db);
+    const connector = new StubConnector(
+      HONEST,
+      () => new PaymentError('PROVIDER_UNAVAILABLE', 'injoignable'),
+    );
+    const s = new RefundScheduler({
+      transactions: tx,
+      alerts: new Alerts(),
+      connectors: registryOf(connector),
+    });
+    expect(await s.process(due())).toEqual({ step: 'WAITING' });
+    expect(db.called('payment_cmd_submit_refund')).toHaveLength(1);
+    expect(connector.refunds).toHaveLength(1);
+    expect(db.called('payment_cmd_apply_operation_status')).toEqual([]);
+    expect(tx.outcomes).toEqual(['ROLLBACK']);
+  });
+
+  it('aucune lecture possible (ni en-tête d’idempotence ni recherche) : rien envoyé, transaction annulée, escalade FIN', async () => {
+    const db = new FakeDb(answers());
+    const tx = transactionsOf(db);
+    const alerts = new Alerts();
+    const connector = new StubConnector(new Set(), () => new Error('jamais appelé'));
+    const s = new RefundScheduler({ transactions: tx, alerts, connectors: registryOf(connector) });
+    expect(await s.process(due())).toMatchObject({
+      step: 'ATTENTION',
+      alert: { key: 'SEND:NO_LOOKUP_POSSIBLE' },
+    });
+    expect(connector.refunds).toEqual([]);
+    // envoi autorisé annulé, puis marque de l'alerte dans sa propre transaction
+    expect(tx.outcomes).toEqual(['ROLLBACK', 'COMMIT']);
+    expect(alerts.sent.map((a) => a.labels?.error_code)).toEqual(['NO_LOOKUP_POSSIBLE']);
+  });
+
+  it('ordre non envoyable relu après l’envoi autorisé : transaction annulée', async () => {
+    const db = new FakeDb(
+      answers({
+        payment_cmd_refund_order_for_send: [
+          orderRow('TJ02b', { sendable: false, reason: 'SUPERSEDED_UNSENT' }),
+        ],
+      }),
+    );
+    const tx = transactionsOf(db);
+    const s = new RefundScheduler({
+      transactions: tx,
+      alerts: new Alerts(),
+      connectors: registryOf(new StubConnector(HONEST, () => new Error('jamais appelé'))),
+    });
+    expect((await s.process(due())).alert?.key).toBe('SEND:SUPERSEDED_UNSENT');
+    expect(tx.outcomes[0]).toBe('ROLLBACK');
+  });
+
+  it('encaissement sans référence PSP : lu AVANT l’envoi autorisé, aucune transaction d’envoi, revue FIN', async () => {
+    const db = new FakeDb(answers());
+    const tx = transactionsOf(db);
+    const alerts = new Alerts();
+    const s = new RefundScheduler({
+      transactions: tx,
+      alerts,
+      connectors: registryOf(new StubConnector(HONEST, () => new Error('jamais appelé'))),
+    });
+    expect(await s.process(due({ targetKnown: false }))).toMatchObject({
+      step: 'ATTENTION',
+      alert: { key: 'SEND:NO_TARGET', errorCode: 'NO_TARGET' },
+    });
+    expect(db.called('payment_cmd_submit_refund')).toEqual([]);
+    expect(db.calls.map((c) => c.sql.match(/core\.(\w+)/)?.[1])).toEqual([
+      'payment_cmd_refund_mark_alerted',
+    ]);
+  });
+
+  it('sans connecteur : aucune transaction ouverte', async () => {
+    const db = new FakeDb(answers());
+    const tx = transactionsOf(db);
+    const s = new RefundScheduler({
+      transactions: tx,
+      alerts: new Alerts(),
+      connectors: registryOf(undefined),
+    });
+    expect(await s.process(due())).toEqual({ step: 'NO_CONNECTOR' });
+    expect(tx.runs).toEqual([]);
+  });
+
+  it('ordre déjà final côté envoyeur : DUPLICATE', async () => {
+    const db = new FakeDb(
+      answers({
+        payment_cmd_refund_order_for_send: [orderRow('TJ02b', { operation_status: 'SUCCEEDED' })],
+      }),
+    );
+    const s = new RefundScheduler({
+      transactions: transactionsOf(db),
+      alerts: new Alerts(),
+      connectors: registryOf(new StubConnector(HONEST, () => new Error('jamais appelé'))),
+    });
+    expect(await s.process(due({ status: 'SENT', operationStatus: 'SUCCEEDED' }))).toEqual({
+      step: 'DUPLICATE',
+    });
+  });
+});
+
 describe('classement des erreurs', () => {
   it('interblocage ⇒ reprise ; contrainte ⇒ son nom ; PAY ⇒ son code ; autre ⇒ UNEXPECTED_ERROR', () => {
     expect(classifyRefundError({ code: '40P01' }, 'SEND')).toEqual({ step: 'RETRY' });
@@ -531,6 +645,7 @@ describe('tâche périodique refund_scheduler', () => {
       provider: 'FAKE',
       blocked_reason: null,
       fin_alert: null,
+      target_known: true,
     }));
     const db = new FakeDb((sql, p) => {
       if (sql.includes('payment_refunds_due')) return dueRows;

@@ -69,6 +69,7 @@ const asWorker = (tx: Tx, workerName: string): Promise<void> =>
 interface World {
   readonly trip: string;
   readonly capture: string;
+  readonly account: string;
 }
 
 async function applyMovement(tx: Tx, operationId: string): Promise<string> {
@@ -80,9 +81,15 @@ async function applyMovement(tx: Tx, operationId: string): Promise<string> {
 }
 
 /** Trip capturé (jambes du vecteur) par la vraie commande, prouvé et reporté. */
-async function captured(tx: Tx, c: CountryCase, capture: Legs): Promise<World> {
+async function captured(
+  tx: Tx,
+  c: CountryCase,
+  capture: Legs,
+  existingAccount?: string,
+): Promise<World> {
   const trip = await insertTrip(tx, c);
-  const account = await insertAccount(tx, { country: c.country });
+  // un seul compte PSP ACTIVE par pays (psp_account_one_active) : réutilisé dans la transaction
+  const account = existingAccount ?? (await insertAccount(tx, { country: c.country }));
   const { operation_id: op } = await recordOperation(tx, {
     tripId: trip,
     accountId: account,
@@ -94,7 +101,7 @@ async function captured(tx: Tx, c: CountryCase, capture: Legs): Promise<World> {
   });
   expect(await applySignedStatus(tx, op, 'SUCCEEDED')).toBe('APPLIED');
   expect(await applyMovement(tx, op)).toBe('APPLIED');
-  return { trip, capture: op };
+  return { trip, capture: op, account };
 }
 
 /** Version enregistrée par le travailleur `settlement`, puis retour à payment_command. */
@@ -161,6 +168,7 @@ interface DueRow {
   readonly provider: string;
   readonly blocked_reason: string | null;
   readonly fin_alert: string | null;
+  readonly target_known: boolean;
 }
 
 /** File de l'ordonnanceur restreinte à une instance (la base de test est partagée). */
@@ -243,6 +251,7 @@ describe.each(COUNTRIES)(
           provider: 'FAKE',
           blocked_reason: null,
           fin_alert: null,
+          target_known: true,
         });
         // ordre d'une instance non autorisée : jamais envoyable
         expect(await forSend(tx, p.instance_id)).toMatchObject({
@@ -377,6 +386,64 @@ describe.each(COUNTRIES)(
           sendable: false,
           reason: 'SUPERSEDED_UNSENT',
         });
+      });
+    });
+
+    it('politique cmd_money_sync : webhook_ingest fait suivre l’instance (SUBMITTED → SENT, SUBMITTED → FAILED) ; un travailleur sans politique ne la change pas', async () => {
+      await asPayments(async (tx) => {
+        const w = await captured(tx, c, capture);
+        const v1 = await settle(tx, w.trip, 1, recordOfVector(r.settlement));
+        const sent = await plan(tx, w, v1, refund);
+        expect(await submit(tx, sent.instance_id)).toBe('SUBMITTED');
+        await asWorker(tx, 'webhook_ingest');
+        expect(
+          await applyStatus(tx, sent.operation_id, 'SUBMITTED', 'WEBHOOK', `psp-${uuid()}`),
+        ).toBe('APPLIED');
+        await asWorker(tx, 'payment_command');
+        expect((await instance(tx, sent.instance_id))?.status).toBe('SENT');
+
+        const w2 = await captured(tx, c, capture, w.account);
+        const v2 = await settle(tx, w2.trip, 1, recordOfVector(r.settlement));
+        const failed = await plan(tx, w2, v2, refund);
+        expect(await submit(tx, failed.instance_id)).toBe('SUBMITTED');
+        await asWorker(tx, 'webhook_ingest');
+        expect(await applySignedStatus(tx, failed.operation_id, 'FAILED')).toBe('APPLIED');
+        await asWorker(tx, 'payment_command');
+        expect((await instance(tx, failed.instance_id))?.status).toBe('FAILED');
+
+        // un travailleur sans politique sur l'instance (booking_conversion) : l'écriture directe du
+        // statut de l'ordre est refusée ou sans effet sur l'instance, qui reste SUBMITTED
+        const w3 = await captured(tx, c, capture, w.account);
+        const v3 = await settle(tx, w3.trip, 1, recordOfVector(r.settlement));
+        const other = await plan(tx, w3, v3, refund);
+        expect(await submit(tx, other.instance_id)).toBe('SUBMITTED');
+        await asWorker(tx, 'booking_conversion');
+        await caught(tx, () =>
+          tx.query(`UPDATE core.payment_payment_operation SET status = 'SUBMITTED' WHERE id = $1`, [
+            other.operation_id,
+          ]),
+        );
+        await asWorker(tx, 'payment_command');
+        expect((await instance(tx, other.instance_id))?.status).toBe('SUBMITTED');
+      });
+    });
+
+    it('file : une instance déjà signalée passe après les autres (un lot d’instances coincées n’affame pas les suivantes) ; encaissement visé connu', async () => {
+      await asPayments(async (tx) => {
+        const w1 = await captured(tx, c, capture);
+        const v1 = await settle(tx, w1.trip, 1, recordOfVector(r.settlement));
+        const stuck = await plan(tx, w1, v1, refund);
+        const w2 = await captured(tx, c, capture, w1.account);
+        const v2 = await settle(tx, w2.trip, 1, recordOfVector(r.settlement));
+        const fresh = await plan(tx, w2, v2, refund);
+        expect(await markAlerted(tx, stuck.instance_id, 'SEND:NO_LOOKUP_POSSIBLE')).toBe(true);
+        const { rows } = await tx.query<{ instance_id: string; target_known: boolean }>(
+          'SELECT instance_id, target_known FROM core.payment_refunds_due(500)',
+        );
+        const ids = rows.map((x) => x.instance_id);
+        expect(ids.indexOf(fresh.instance_id)).toBeGreaterThanOrEqual(0);
+        expect(ids.indexOf(stuck.instance_id)).toBeGreaterThan(ids.indexOf(fresh.instance_id));
+        expect(rows.find((x) => x.instance_id === fresh.instance_id)?.target_known).toBe(true);
       });
     });
 
