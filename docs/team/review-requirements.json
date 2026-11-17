@@ -502,6 +502,10 @@
     "US-222": {
       "require": ["code", "architecture", "securite", "argent", "qa"],
       "why": "porte du lot 2 : red team réservation / paiement par jambes / protections, RLS-21 à RLS-28 ; même périmètre de revue que US-122 ; PROPOSÉ (L2-PM-38, L2-PM-39, L2-PM-40)"
+    },
+    "US-709": {
+      "require": ["code", "architecture", "securite", "argent", "qa"],
+      "why": "US-709a host_ledger (N-219, avancée du lot 3) : grand livre de l hôte en unités mineures, commande SECURITY DEFINER appelée par déclencheur dans la transaction du règlement, RLS, lecture FINANCE / ADMIN : argent, sécurité, concurrence, schéma ; Revue design : NON (aucun texte visible) ; décision de l orchestrateur 2026-11-17"
     }
   },
   "pathOwners": {
@@ -611,7 +615,8 @@
       "US-704",
       "US-514",
       "US-221",
-      "US-222"
+      "US-222",
+      "US-709"
     ],
     "packages/money/": [
       "US-015",
