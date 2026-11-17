@@ -1023,6 +1023,50 @@ describe.each(COUNTRIES.map((c) => [c.country, c] as const))(
       });
     });
 
+    /** État de revue lu par le voyageur de la session (0120, US-209c) ; `null` : aucune ligne. */
+    const reviewState = async (tx: Tx, hash: Buffer, holdId: string | null) =>
+      (
+        await tx.query<{ review_state: string }>(
+          'SELECT review_state FROM core.booking_checkout_review_state($1, $2)',
+          [hash, holdId],
+        )
+      ).rows[0]?.review_state ?? null;
+
+    it('US-209c (ADR-144, N-203) : état de revue lu par le voyageur ⇒ hold signalé PENDING (avant toute décision), APPROVED après l’approbation, REJECTED après le refus ou une revue non faite dans le délai ; hold ordinaire NONE ; hold d’un autre voyageur ⇒ aucune ligne', async () => {
+      await run(async (tx, w) => {
+        const fresh = await guest(tx, cc);
+        const plain = await book(tx, cc, w, fresh, await listing(tx, cc));
+        expect(plain.outcome).toBe('DONE');
+        expect(await reviewState(tx, fresh.hash, plain.hold_id)).toBe('NONE');
+
+        const f = await flagged(tx, w);
+        expect(await reviewState(tx, f.p.hash, f.holdId)).toBe('PENDING');
+        // autre voyageur : même réponse qu'un hold inconnu (aucune ligne)
+        expect(await reviewState(tx, fresh.hash, f.holdId)).toBeNull();
+        expect(await reviewState(tx, f.p.hash, uuid())).toBeNull();
+        const ops = await staffNow(tx, cc);
+        expect(await claimItem(tx, ops, f.rv.item_id)).toBe('CLAIMED');
+        expect((await decide(tx, ops, f.rv.assessment_id, 'APPROVED')).outcome).toBe('DONE');
+        expect(await reviewState(tx, f.p.hash, f.holdId)).toBe('APPROVED');
+
+        const g = await flagged(tx, w);
+        expect(await claimItem(tx, ops, g.rv.item_id)).toBe('CLAIMED');
+        expect((await decide(tx, ops, g.rv.assessment_id, 'REJECTED', REASON_KO)).outcome).toBe(
+          'DONE',
+        );
+        expect(await reviewState(tx, g.p.hash, g.holdId)).toBe('REJECTED');
+
+        // revue non faite dans le délai : libéré REVIEW_REJECTED, même état pour le voyageur
+        const l = await flagged(tx, w);
+        const late = plus(NOW, REVIEW_HOLD_MIN + 1);
+        await setClock(tx, late);
+        const other = await guest(tx, cc);
+        expect((await book(tx, cc, w, other, l.listingId, START, late)).outcome).toBe('DONE');
+        expect(await holdRow(tx, l.holdId)).toMatchObject({ status: 'RELEASED' });
+        expect(await reviewState(tx, l.p.hash, l.holdId)).toBe('REJECTED');
+      });
+    });
+
     it('hold de revue non revu dans le délai (17 §2.5) ⇒ RELEASED / REVIEW_REJECTED (jamais EXPIRED), sans débit, élément de file clos CANCELLED ; une décision tardive est refusée', async () => {
       await run(async (tx, w) => {
         const f = await flagged(tx, w);
@@ -1346,6 +1390,15 @@ describe('US-209b rôles', () => {
         await expect(
           client.query('SELECT core.booking_staff_review_dossier($1)', [uuid()]),
         ).rejects.toMatchObject({ code: '42501' });
+        // état de revue du voyageur (0120, US-209c) : app_api seul
+        if (role !== 'app_api') {
+          await expect(
+            client.query('SELECT * FROM core.booking_checkout_review_state($1, $2)', [
+              Buffer.alloc(32),
+              uuid(),
+            ]),
+          ).rejects.toMatchObject({ code: '42501' });
+        }
         await expect(
           client.query('SELECT core.kyc_staff_entry_declaration($1, $2)', [
             uuid(),

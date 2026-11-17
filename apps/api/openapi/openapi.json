@@ -15691,6 +15691,7 @@
           "endAt",
           "totalMinor",
           "manualConfirmed",
+          "reviewState",
           "documents"
         ],
         "additionalProperties": false,
@@ -15732,6 +15733,10 @@
           },
           "manualConfirmed": {
             "type": "boolean"
+          },
+          "reviewState": {
+            "description": "État de revue du hold (US-209c, ADR-144) : PENDING = revue avant le débit en cours (aucun paiement) ; APPROVED = revu, payable jusqu'à expiresAt ; REJECTED = libéré par la revue ; NONE = aucune revue avant le débit.",
+            "enum": ["NONE", "PENDING", "APPROVED", "REJECTED"]
           },
           "documents": {
             "type": "array",

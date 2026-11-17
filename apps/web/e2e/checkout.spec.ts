@@ -513,13 +513,22 @@ test.describe('checkout S05 · es', () => {
     };
     // le 8 : code inconnu du site ⇒ message générique (témoin)
     const generic = await shown(8);
+    const link = page.locator('[data-testid="s05-identity-link"]');
+    await expect(link).toHaveCount(0);
     const texts: string[] = [];
     for (const day of [4, 5, 6, 7]) {
       const text = await shown(day);
       expect(text, `jour ${day}`).not.toBe(generic);
       texts.push(text);
+      // US-209c (10b UXQ-12) : vérification, consentement et permis se règlent sur S04 ; l'âge non
+      if (day === 7) await expect(link).toHaveCount(0);
+      else await expect(link, `jour ${day}`).toHaveAttribute('href', '/verify-identity');
     }
     expect(new Set(texts).size).toBe(texts.length);
+    // le lien mène à la vérification d'identité (S04)
+    await shown(4);
+    await link.click();
+    await expect(page).toHaveURL(/\/(verify-identity|login)$/);
   });
 
   test('critère 1 : devis expiré à la pose (409 QUOTE_EXPIRED) ⇒ nouveau devis affiché, cases à recocher, puis hold', async ({

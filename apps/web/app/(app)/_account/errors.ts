@@ -50,6 +50,8 @@ const KEYS: Readonly<Record<string, MessageKey>> = {
   KYC_PROVIDER_UNAVAILABLE: 'common.kyc.providerUnavailable',
   // registre Ley 81 du pays non validé en production (US-111) : même texte, aucun détail juridique
   KYC_PRODUCTION_BLOCKED_NO_REGISTER: 'common.kyc.providerUnavailable',
+  // déclaration d'entrée (US-209 partie 209c, 16 VER-007)
+  KYC_ENTRY_DATE_INVALID: 'common.kyc.entryDateInvalid',
   // vérification de l'hôte et profil fiscal (US-123)
   HOST_ACCOUNT_NOT_FOUND: 'common.listing.hostNotFound',
   HOST_ENTITY_NOT_ALLOWED: 'common.host.entityNotAllowed',

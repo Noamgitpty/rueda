@@ -9,7 +9,8 @@
  */
 import { useActionState } from 'react';
 import { createTranslator, getProfile } from '@rueda/i18n';
-import { Banner, Button } from '@rueda/ui';
+import { Banner, Button, ButtonLink } from '@rueda/ui';
+import { IDENTITY_HREF, IDENTITY_REFUSAL_KEYS } from '../../../../../account/checkout.ts';
 import { LOCALE_CONFIG } from '../../../../../locale-config.ts';
 import accountStyles from '../../../_account/account.module.css';
 import { payHoldAction } from '../../payment-actions.ts';
@@ -35,6 +36,16 @@ export function PayForm({ localeTag, holdId, label, testId }: PayFormProps) {
         <Banner tone="danger" live="assertive">
           {i18n.t(state.error)}
         </Banner>
+      )}
+      {/* refus du conducteur relu au paiement, levé depuis S04 (UXQ-12, US-209c) */}
+      {state.error !== null && IDENTITY_REFUSAL_KEYS.has(state.error) && (
+        <ButtonLink
+          variant="secondary"
+          href={IDENTITY_HREF}
+          data-testid={`${testId}-identity-link`}
+        >
+          {i18n.t('web.s05.kyc.link')}
+        </ButtonLink>
       )}
       <Button
         type="submit"

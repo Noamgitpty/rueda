@@ -126,6 +126,62 @@ async function openPayment(
   await expect(page.locator('[data-testid="s06-title"]')).toHaveAttribute('data-state', state);
 }
 
+/**
+ * S05 d'une réservation signalée (US-209 partie 209c) : départ le 19 décembre du double (hold de
+ * revue avant le débit), décision de l'ops jouée par `GET /__e2e/review` ; sans décision : S05 « en
+ * revue » ; APPROVED : S05 approuvée ; REJECTED : S06 « Reserva no aprobada ».
+ */
+async function openReview(
+  page: Page,
+  context: BrowserContext,
+  language: Language,
+  decision: 'APPROVED' | 'REJECTED' | null,
+): Promise<void> {
+  await openCheckout(page, context, language, PUBLIC_ID, 19);
+  await page.locator('#s05-driver-first').fill('Lucía');
+  await page.locator('#s05-driver-last').fill('Gómez');
+  for (const kind of ['TOS_GUEST', 'CANCELLATION_POLICY', 'GEO_TERMS']) {
+    await page.locator(`#s05-doc-${kind}`).check();
+  }
+  await submitAndSettle(
+    page,
+    page.locator('[data-testid="s05-submit"]'),
+    /\/checkout\/hold\/[0-9a-f-]{36}$/,
+  );
+  const holdId = /\/checkout\/hold\/([0-9a-f-]{36})$/.exec(new URL(page.url()).pathname)?.[1];
+  if (holdId === undefined) throw new Error('hold non posé');
+  if (decision === null) {
+    await expect(page.locator('[data-testid="s05-review"]')).toHaveAttribute(
+      'data-state',
+      'PENDING',
+    );
+    return;
+  }
+  const r = await fetch(`${API}/__e2e/review?hold=${holdId}&decision=${decision}`);
+  expect(r.status).toBe(200);
+  await page.goto(`/checkout/hold/${holdId}`);
+  if (decision === 'APPROVED') {
+    await expect(page.locator('[data-testid="s05-review"]')).toHaveAttribute(
+      'data-state',
+      'APPROVED',
+    );
+  } else {
+    await expect(page.locator('[data-testid="s06-title"]')).toHaveAttribute('data-state', 'ENDED');
+  }
+}
+
+/** Compte d'identité du double (`identity-…@example.test`), connecté, puis déclaration d'entrée. */
+async function openEntryDeclaration(page: Page, language: Language, project: string) {
+  const email = `identity-${language}-screen-${project.replace(/[^a-z0-9]+/gi, '-').toLowerCase()}@example.test`;
+  await page.goto('/login');
+  await page.locator('#s15-login-email').fill(email);
+  await page.locator('#s15-login-password').fill('Correct-Horse-9');
+  await page.locator('main form button[type="submit"]').click();
+  await expect(page).toHaveURL(/\/login\/done$/);
+  await page.goto('/verify-identity/entry');
+  await expect(page.locator('[data-testid="s04-entry-form"]')).toBeVisible();
+}
+
 /** Lieu de remise et auto saisis sur le compte d'hôte affiché (A10), pour ouvrir A11 (US-226b). */
 async function placeAndCar(page: Page): Promise<void> {
   await page.locator('#a10-place-label').fill('Casa');
@@ -161,7 +217,13 @@ interface Screen {
   readonly name: string;
   /** Écran de 10b ou story qui le livre (lecture humaine seulement). */
   readonly source: string;
-  readonly open: (page: Page, context: BrowserContext, language: Language) => Promise<void>;
+  /** `project` : projet Playwright (compte du double propre à chaque projet, US-209c). */
+  readonly open: (
+    page: Page,
+    context: BrowserContext,
+    language: Language,
+    project: string,
+  ) => Promise<void>;
   /**
    * Capture sous la feuille `e2e/capture-sans-calques.css` (calques composés neutralisés pendant la
    * capture seulement ; axe voit la page réelle) : écran dont le tramage du texte variait d'une
@@ -352,6 +414,28 @@ export const SCREENS: readonly Screen[] = [
     open: (page, context, language) =>
       openPayment(page, context, language, ['PAY', 'EXPIRE', 'SUCCEEDED'], 'REFUND_DUE'),
   },
+  // US-209 partie 209c : réservation signalée (S05 en revue, S05 approuvée, S06 revue refusée) et
+  // déclaration d'entrée du voyageur (S04)
+  {
+    name: 'checkout-revue',
+    source: 'S05, US-209',
+    open: (page, context, language) => openReview(page, context, language, null),
+  },
+  {
+    name: 'checkout-revue-approuvee',
+    source: 'S05, US-209',
+    open: (page, context, language) => openReview(page, context, language, 'APPROVED'),
+  },
+  {
+    name: 'paiement-revue-refusee',
+    source: 'S06, US-209',
+    open: (page, context, language) => openReview(page, context, language, 'REJECTED'),
+  },
+  {
+    name: 'identite-entree',
+    source: 'S04, US-209',
+    open: (page, _context, language, project) => openEntryDeclaration(page, language, project),
+  },
   // US-226 partie 226b : choix de la protection sur S05 (le 25 du double : BASICA présélectionnée,
   // TOTAL grisé sans âge) ; TOTAL validé à 25 ans (nouveau devis, nouveau total) ; contrat de
   // l'assureur fermé après le gel (le 28) ; plan de gains d'A11 (un plan, puis deux plans)
@@ -431,7 +515,7 @@ for (const screen of SCREENS) {
       test.use({ locale: tagOf(language) });
 
       test(`axe, mobile d'abord et capture (${screen.source})`, async ({ page, context }, info) => {
-        await screen.open(page, context, language);
+        await screen.open(page, context, language, info.project.name);
         await expect(page.locator('html')).toHaveAttribute('lang', tagOf(language));
         await expect(page.locator('h1').first()).toBeVisible();
         // Écran ouvert par une navigation côté client (redirection d'une action serveur, lien) :

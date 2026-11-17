@@ -4,7 +4,7 @@ import { redirect } from 'next/navigation';
 import { Banner, ButtonLink, EmptyState, ErrorState } from '@rueda/ui';
 import type { MessageKey } from '@rueda/i18n';
 import { callApi, codeOf } from '../../../../../account/api-client.ts';
-import { checkoutHoldOf, isUuid } from '../../../../../account/checkout.ts';
+import { checkoutHoldOf, holdPayable, isUuid } from '../../../../../account/checkout.ts';
 import { paymentHref } from '../../../../../account/checkout-payment.ts';
 import { publicListingOf } from '../../../../../account/host-listings.ts';
 import { clientContext } from '../../../../../account/request.ts';
@@ -13,6 +13,8 @@ import accountStyles from '../../../_account/account.module.css';
 import { MAIN_ID } from '../../../_shell/main-id.ts';
 import styles from '../../../host/host.module.css';
 import { PayForm } from './pay-form.tsx';
+import { StateAnnouncer } from './payment/state-announcer.tsx';
+import { ReviewWatch } from './review-watch.tsx';
 
 export async function generateMetadata(): Promise<Metadata> {
   const i18n = await getRequestI18n();
@@ -26,6 +28,9 @@ function Shell({ children }: { readonly children: ReactNode }) {
     </main>
   );
 }
+
+/** Titre de la revue (S05, US-209c) : reçoit le focus quand l'état de revue change. */
+const REVIEW_TITLE_ID = 's05-review-title';
 
 const DOC_LABEL: Readonly<Record<string, MessageKey>> = {
   TOS_GUEST: 'web.s05.doc.TOS_GUEST',
@@ -42,6 +47,13 @@ const DOC_LABEL: Readonly<Record<string, MessageKey>> = {
  * US-223 partie 223b (ADR-142 ; 10b S05, UX-26) : bouton « Pagar {amount} » (total rendu par l'API)
  * et pré-écran court (« Vas a pagar {amount} en una página segura… ») ; un hold qui n'est plus
  * ACTIVE (paiement en cours, payé, échu, libéré) ouvre S06, dont l'état fait foi (N-169).
+ *
+ * US-209 partie 209c (ADR-144 ; 10b S05, UX-35 ; N-203) : un hold en revue avant le débit
+ * (`reviewState` = PENDING) dit « Reserva en revisión: no se te cobró nada » et l'heure de la
+ * réponse (échéance du hold de revue, lue dans l'API : aucune durée écrite), se relit seul et
+ * n'offre AUCUN bouton « Pagar » ; approuvé (APPROVED), il dit la fenêtre de paiement réelle
+ * (échéance prolongée par la décision) et « Pagar » revient. Le passage d'un état à l'autre est
+ * annoncé par une région vive persistante et le focus passe au titre de la revue.
  */
 export default async function HoldPage({
   params,
@@ -100,6 +112,14 @@ export default async function HoldPage({
     );
   }
   const tz = listing.timezone;
+  // heure limite rendue par l'API : réponse de la revue, ou fin de la fenêtre de paiement
+  const until = i18n.time(hold.expiresAt, tz);
+  const announce =
+    hold.reviewState === 'PENDING'
+      ? `${t('web.s05.review.title')}. ${t('web.s05.review.until', { time: until })}`
+      : hold.reviewState === 'APPROVED'
+        ? `${t('web.s05.review.approvedTitle')}. ${t('web.s05.review.approvedBody', { time: until })}`
+        : '';
   // total du devis engagé, tel que la base l'a rejoué (jamais recalculé ici)
   const amount = i18n.money({
     amountMinor: hold.totalMinor,
@@ -108,12 +128,56 @@ export default async function HoldPage({
   });
   return (
     <Shell>
+      <StateAnnouncer
+        state={hold.reviewState}
+        message={announce}
+        focusId={REVIEW_TITLE_ID}
+        testId="s05-live"
+      />
       <header className={accountStyles['stackTight']}>
         <h1 className={accountStyles['h1']}>{t('web.s05.hold.title')}</h1>
       </header>
-      <Banner tone="success" live="polite">
-        {t('web.s05.hold.until', { time: i18n.time(hold.expiresAt, tz) })}
-      </Banner>
+      {hold.reviewState === 'PENDING' ? (
+        // revue avant le débit (UXQ-08) : aucun paiement possible, réponse à l'heure lue dans l'API
+        <section
+          className={styles['section']}
+          aria-labelledby={REVIEW_TITLE_ID}
+          data-testid="s05-review"
+          data-state="PENDING"
+        >
+          <h2 id={REVIEW_TITLE_ID} tabIndex={-1} className={accountStyles['h2']}>
+            {t('web.s05.review.title')}
+          </h2>
+          <p className={accountStyles['text']}>{t('web.s05.review.until', { time: until })}</p>
+          <p className={accountStyles['muted']}>{t('web.s05.review.comeBack')}</p>
+          <ReviewWatch until={hold.expiresAt} />
+          <ButtonLink variant="secondary" href={`/checkout/hold/${hold.holdId}`}>
+            {t('web.s06.refresh')}
+          </ButtonLink>
+          <p className={accountStyles['muted']}>{t('web.s05.review.entryHint')}</p>
+          <ButtonLink variant="quiet" href="/verify-identity/entry">
+            {t('web.s04.entry.open')}
+          </ButtonLink>
+        </section>
+      ) : hold.reviewState === 'APPROVED' ? (
+        <section
+          className={styles['section']}
+          aria-labelledby={REVIEW_TITLE_ID}
+          data-testid="s05-review"
+          data-state="APPROVED"
+        >
+          <h2 id={REVIEW_TITLE_ID} tabIndex={-1} className={accountStyles['h2']}>
+            {t('web.s05.review.approvedTitle')}
+          </h2>
+          <Banner tone="success" live="off">
+            {t('web.s05.review.approvedBody', { time: until })}
+          </Banner>
+        </section>
+      ) : (
+        <Banner tone="success" live="polite">
+          {t('web.s05.hold.until', { time: until })}
+        </Banner>
+      )}
       <section className={styles['section']} aria-labelledby="s05-hold-trip">
         <h2 id="s05-hold-trip" className={accountStyles['h2']}>
           {t('web.s05.summary.title')}
@@ -150,19 +214,22 @@ export default async function HoldPage({
           ))}
         </ul>
       </section>
-      {/* US-223b : paiement sur la page hébergée du PSP (10b UX-26), montant rendu par l'API */}
-      <section className={styles['section']} aria-labelledby="s05-pay-title">
-        <h2 id="s05-pay-title" className={accountStyles['h2']}>
-          {t('web.s05.pay.title')}
-        </h2>
-        <p className={accountStyles['text']}>{t('web.s06.pre.leaving', { amount })}</p>
-        <PayForm
-          localeTag={localeTag}
-          holdId={hold.holdId}
-          label={t('web.s05.cta', { amount })}
-          testId="s05-pay"
-        />
-      </section>
+      {/* US-223b : paiement sur la page hébergée du PSP (10b UX-26), montant rendu par l'API ;
+          jamais pendant une revue avant le débit (US-209c, N-203) */}
+      {holdPayable(hold) && (
+        <section className={styles['section']} aria-labelledby="s05-pay-title">
+          <h2 id="s05-pay-title" className={accountStyles['h2']}>
+            {t('web.s05.pay.title')}
+          </h2>
+          <p className={accountStyles['text']}>{t('web.s06.pre.leaving', { amount })}</p>
+          <PayForm
+            localeTag={localeTag}
+            holdId={hold.holdId}
+            label={t('web.s05.cta', { amount })}
+            testId="s05-pay"
+          />
+        </section>
+      )}
       <ButtonLink variant="quiet" href={`/listings/${hold.listingId}`}>
         {t('web.s05.back')}
       </ButtonLink>

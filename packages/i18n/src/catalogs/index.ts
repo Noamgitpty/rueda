@@ -169,8 +169,15 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  `web.s05.hold.payment` et `web.s05.hold.ended` retirées (le paiement en ligne existe ; un hold
  non `ACTIVE` ouvre S06) ; `web.s06.interrupted.*` (page de paiement non ouverte, reprise sans
  second débit) ; `web.error.paidAfterRelease` sans liste de voitures proches (la page n'en montre pas).
+ Version 64 (la 63 est réservée à US-211) : écrans du voyageur de la revue d'une réservation
+ signalée, partie 209c (US-209, ADR-144) : `web.s05.review.*` (S05 d'un hold en revue, heure de la
+ réponse lue dans l'API, aucune durée écrite ; réservation approuvée avec la fenêtre de paiement
+ réelle ; aide vers la déclaration d'entrée), `web.s05.kyc.link` (lien vers S04 depuis les refus du
+ conducteur, UXQ-12), `web.s06.reviewRejected.*` (hold libéré par la revue), `web.s04.entry.*`
+ (déclaration d'entrée : statut, date mise en forme par langue) ; `common.payment.underReview` ne
+ promet plus d'avis (aucune notification du voyageur avant GL-17).
  */
-export const CATALOG_VERSION = 62;
+export const CATALOG_VERSION = 64;
 
 /** Catalogues de base par langue ; la langue d'un profil de locale choisit le sien. */
 export const CATALOGS: Readonly<Record<CatalogLanguage, VersionedCatalog<MessageKey>>> = {
