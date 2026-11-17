@@ -113,7 +113,10 @@ jobs:
     # externe). Image du runner épinglée : les polices du système font partie des références.
     name: e2e web (Playwright, mobiles et PWA)
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    # Durée mesurée (docs/ops/CI.md, « e2e web ») : 12 à 19 min sur main les 16 et 17 novembre,
+    # en hausse avec chaque écran ; la limite de 20 min a coupé la PR #206 (job 134039453617). 30 min,
+    # comme base-de-donnees : marge durable, y compris pour le rejeu des captures en échec.
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
