@@ -275,10 +275,11 @@ BEGIN
   SELECT pg_catalog.jsonb_object_agg(l.leg, l.amount_minor::text) INTO v_legs
     FROM core.payment_payment_operation_leg AS l WHERE l.operation_id = v_o.id;
 
-  IF v_i.status NOT IN ('SUBMITTED', 'SENT') THEN
-    v_reason := 'NOT_SUBMITTED';
-  ELSIF v_o.status NOT IN ('PENDING', 'UNKNOWN', 'SUBMITTED') THEN
-    v_reason := 'FINAL';
+  IF v_i.status = 'PLANNED' THEN
+    v_reason := 'NOT_SUBMITTED';                 -- envoi jamais autorisé
+  ELSIF v_i.status NOT IN ('SUBMITTED', 'SENT')
+        OR v_o.status NOT IN ('PENDING', 'UNKNOWN', 'SUBMITTED') THEN
+    v_reason := 'FINAL';                         -- confirmé, échoué ou remplacé
   ELSIF v_o.status = 'PENDING'
         AND EXISTS (SELECT 1 FROM core.settlement_settlement AS s
                      WHERE s.supersedes_id = v_i.settlement_id) THEN
