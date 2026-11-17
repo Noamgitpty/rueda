@@ -19,7 +19,7 @@ SUP ne décide pas les règles des autres modules : une action de console appell
 - **US-101** (ADR-092) : cadre des actions de console.
   - `POST /console/actions` admet `evidence` (UUID des pièces) et `input` (chaînes seulement, jamais un montant). Réponses : 201 `STAFF_ACTION_RECORDED`, `STAFF_ACTION_DONE` ou `STAFF_ACTION_REQUESTED` (avec `approvalId`) ; 200 si déjà reçue (même `requestId`) ; 403 `FORBIDDEN` ou `2FA_REQUIRED` ; 409 `STAFF_ACTION_UNAVAILABLE` (commande de domaine pas encore livrée) ou `STAFF_ACTION_REFUSED` (refus du domaine, `values.reason`) ; 400.
   - `GET /console/finance/approvals` : demandes FINANCE en attente (FINANCE et ADMIN du pays, RLS `fin_read`).
-  - `POST /console/finance/approvals/{id}/approve` : approbation par une seconde personne distincte ; 200 `STAFF_ACTION_DONE`, 409 `STAFF_SELF_APPROVAL` ou `STAFF_ACTION_REFUSED`.
+  - `POST /console/finance/approvals/{id}/approve` : approbation par une seconde personne distincte ; 200 `STAFF_ACTION_DONE`, 409 `STAFF_SELF_APPROVAL` ou `STAFF_ACTION_REFUSED` ; 403 `STAFF_SELF_FORBIDDEN` quand l'approbateur, ou le demandeur (rejugé à l'approbation, US-224 N-119), est titulaire, co-hôte ou compte lié du sujet.
   - Le contexte STAFF (`app.*`) est posé dans la même instruction que la commande (`internal/staff-context.ts`), avec la portée pays des rôles de la session.
 - **US-034** : routes `/console/brand/*` et `/console/content/*` de la console « Apparence / Marque » (`internal/brand-console.controller.ts`, `SupBrandConsoleModule`). La logique et les tables sont dans CFG (`BrandConsoleService`).
 - Les deux modules sont montés par le seul processus API (`apps/api/src/api.module.ts`). `SupModule` reste vide.

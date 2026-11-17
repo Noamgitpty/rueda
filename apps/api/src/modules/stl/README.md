@@ -13,7 +13,7 @@ STL ne déplace aucun fonds lui-même. Il planifie des commandes que PAY exécut
 - Le module Nest de ce dossier est un **squelette** : `internal/` ne contient que `settlement-review.ts` (US-224) et `index.ts` exporte `StlModule` et `settleOrFinReview`.
 - Le **moteur pur** vit dans `packages/money` (US-017 : moteur des annulations ; US-018 : règlement persistable, versions, jambes). Voir [`packages/money/README.md`](../../../../../packages/money/README.md), sections « Moteur de règlement » et « Règlements persistés ».
 - La **persistance** vit en base (US-018, US-062, US-061). Voir [`packages/db/README.md`](../../../../../packages/db/README.md), sections « Règlements et jambes », « Rôle P2P_HOST, tables d'argent et minimisation » et « Port de place de marché ».
-- Restent à venir : le grand livre en partie double (US-530), les avances et remboursements par jambe (US-224, US-709), l'assureur et les bordereaux (US-227), le moteur complet (US-518).
+- Restent à venir : le grand livre en partie double (US-530), le service qui ordonne les remboursements et alerte FIN sur un envoi retenu (US-224 partie 224c, US-215 ; l'instance et l'avance sont en base depuis 224b, ADR-147), le recouvrement des avances (US-709), l'assureur et les bordereaux (US-227), le moteur complet (US-518).
 
 ## Entités
 
