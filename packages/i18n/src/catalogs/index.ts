@@ -180,7 +180,11 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  (US-211, ADR-143) : `ctr.contract.*` (libellés du PDF du contrat, figés dans le document à sa
  génération : parties, plateforme intermédiaire, véhicule, période, prix, protection, caution,
  distance, annulation, retard, territoire, bloc de signature, traduction de courtoisie).
- Version 68 (la 66 et la 67 sont réservées à des stories parallèles) : routes et écrans du contrat
+ Version 67 (la 66 est réservée à US-224) : réservation sur demande, partie
+ serveur 223c (US-223, ADR-146) : `common.request.*` (demande inconnue, échue, déjà traitée, voyageur
+ devenu inéligible, montant non confirmé ; aucun débit dans chaque cas), messages des routes des
+ demandes de l'hôte.
+ Version 68 (la 66 est réservée à US-224, la 67 est celle d’US-223c) : routes et écrans du contrat
  de location, partie 211b (US-211, ADR-149) : `common.contract.*` (réponses des routes
  `/trips/{id}/contract` : introuvable, en préparation, version remplacée, plus signable, empreinte
  différente, texte effacé, indisponible), `web.contract.*` (résumé, équivalent HTML du PDF, PDF,

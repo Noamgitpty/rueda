@@ -2071,6 +2071,17 @@
       "decision": "PROPOSED",
       "decisionRef": "ADR-140 PROPOSÉ (US-205b) ; COMME_TURO",
       "values": { "PA": 60, "PY": 60 }
+    },
+    {
+      "key": "booking_request_mode_enabled",
+      "type": "BOOL",
+      "scopes": ["COUNTRY"],
+      "failMode": "FALSE",
+      "source": "08 BR-BOOK-01 (mode REQUEST au choix de l’hôte) ; 17 §2.5 « Hold de demande REQUEST » ; 19 US-223 DoR 2 ; absent ou faux : une annonce sur demande reste refusée au checkout (REQUEST_MODE_UNAVAILABLE), jamais réservée en INSTANT",
+      "status": "PROPOSÉ (US-223c, ADR-146 : faux tant que les écrans du mode sur demande, partie 223c-écrans, ne sont pas livrés ; vrai ensuite, comme Turo)",
+      "decision": "PROPOSED",
+      "decisionRef": "ADR-146 PROPOSÉ (US-223c) ; COMME_TURO",
+      "values": { "PA": false, "PY": false }
     }
   ]
 }

@@ -22,6 +22,8 @@ export const ALERT_CODES = [
   'BUS_DEAD_LETTER',
   'OPS_OUTBOX_STALE',
   'OPS_PAYMENT_UNKNOWN',
+  // VOID d'une demande non confirmé (US-223c, ADR-146) : escalade au support
+  'OPS_REQUEST_VOID_PENDING',
   'OPS_WEBHOOK_FAILING',
   'OPS_WEBHOOK_SIGNATURE',
   'OPS_P1_EVENT',

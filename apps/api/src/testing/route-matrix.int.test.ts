@@ -702,6 +702,23 @@ async function requestOf(
       return { method: 'GET', path: `/host/accounts/${id}/trips` };
     case 'GET /host/accounts/{orgId}/trips/{tripId}':
       return { method: 'GET', path: `/host/accounts/${id}/trips/${randomUUID()}` };
+    // demandes de l'hôte (US-223c) : compte d'aucun acteur de la cellule, demande inconnue ⇒ 404
+    case 'GET /host/accounts/{orgId}/requests':
+      return { method: 'GET', path: `/host/accounts/${id}/requests` };
+    case 'GET /host/accounts/{orgId}/requests/{holdId}':
+      return { method: 'GET', path: `/host/accounts/${id}/requests/${randomUUID()}` };
+    case 'POST /host/accounts/{orgId}/requests/{holdId}/accept':
+      return {
+        method: 'POST',
+        path: `/host/accounts/${id}/requests/${randomUUID()}/accept`,
+        body: {},
+      };
+    case 'POST /host/accounts/{orgId}/requests/{holdId}/decline':
+      return {
+        method: 'POST',
+        path: `/host/accounts/${id}/requests/${randomUUID()}/decline`,
+        body: {},
+      };
     // calendrier de l'hôte (US-119) : véhicule, lieu et blocage inconnus du compte ⇒ 404
     case 'GET /host/accounts/{orgId}/vehicles/{vehicleId}/calendar':
       return { method: 'GET', path: `/host/accounts/${id}/vehicles/${randomUUID()}/calendar` };

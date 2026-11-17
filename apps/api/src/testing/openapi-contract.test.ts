@@ -7,7 +7,11 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { hygienicCode } from '../http-hardening.js';
-import { CHECKOUT_MESSAGES, PAYMENT_MESSAGES } from '../modules/avl/index.js';
+import {
+  CHECKOUT_MESSAGES,
+  HOST_REQUEST_MESSAGES,
+  PAYMENT_MESSAGES,
+} from '../modules/avl/index.js';
 import { HOST_LISTING_MESSAGES, SEARCH_MESSAGES } from '../modules/cat/index.js';
 import { BRAND_MESSAGES } from '../modules/cfg/index.js';
 import { CONTRACT_MESSAGES, LEGAL_MESSAGES } from '../modules/ctr/index.js';
@@ -233,6 +237,7 @@ const CATALOG: ReadonlyMap<string, ReadonlySet<number>> = (() => {
     KYC_MESSAGES,
     CHECKOUT_MESSAGES,
     PAYMENT_MESSAGES,
+    HOST_REQUEST_MESSAGES,
     QUOTE_MESSAGES,
     CONTRACT_MESSAGES,
   ] as const) {
