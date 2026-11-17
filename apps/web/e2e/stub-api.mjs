@@ -673,6 +673,8 @@ async function checkoutRoute(req, res, path) {
       id: `${HOLD_ID_PREFIX}${uuid().slice(8)}`,
       quote: q,
       manual: q.listingId === MANUAL_ID,
+      // US-223d : le 23, demande à l'hôte (hold REQUEST, voir « Demande à l'hôte » plus bas)
+      ...(q.startAt.includes(REQUEST_DAY) ? { kind: 'REQUEST' } : {}),
     };
     // US-209c : réservation signalée (revue avant le débit, hold de revue de 120 min)
     if (q.startAt.includes(REVIEW_DAY)) {
@@ -721,8 +723,39 @@ const REVIEW_DAY = '-12-19T';
 const REVIEW_EXPIRES_AT = '2036-11-30T17:00:00.000Z';
 const APPROVED_EXPIRES_AT = '2036-11-30T15:40:00.000Z';
 const PAYMENT_IN_FLIGHT_UNTIL = '2036-11-30T15:16:00.000Z';
+// ---- Demande à l'hôte (US-223 partie 223d ; mode REQUEST de 223c, ADR-146) -------------------
+// Le 23 décembre : hold de DEMANDE (`kind` REQUEST). Le parcours S03 / S05 d'une annonce sur
+// demande reste fermé tant que le mode n'est pas ouvert (suite de 223d) : le double pose donc la
+// demande depuis le checkout ordinaire, pour exercer les écrans qui suivent la pose. Événements de
+// `GET /__e2e/payment/webhook` sur une demande : PAY (autorisation en vol), SUCCEEDED (autorisation
+// prouvée ⇒ AWAITING_HOST, heure limite REQUEST_RESPOND_BY ; après l'acceptation : capture prouvée
+// ⇒ trip né), FAILED (capture refusée ⇒ RELEASED / PAYMENT_DECLINED), EXPIRE (heure limite passée
+// ⇒ EXPIRED), DECLINE (refus de l'hôte joué sans A05, captures du voyageur).
+// `GET /__e2e/request/assign?hold=&host=<jeton>&refuse=` rattache la demande au premier
+// compte de l'hôte (refus forcé de l'acceptation : REQUEST_EXPIRED, PAYMENT_UNAVAILABLE).
+// État de la demande calculé comme `core.booking_checkout_request` (0126).
+const REQUEST_DAY = '-12-23T';
+const REQUEST_RESPOND_BY = '2036-11-30T19:10:00.000Z';
+const REQUEST_ENDED = ['DECLINED', 'EXPIRED', 'CAPTURE_FAILED', 'ENDED'];
+const requestStatusOf = (h) => {
+  const status = h.status ?? 'ACTIVE';
+  if (status === 'AWAITING_HOST') return 'AWAITING_HOST';
+  if (h.respondBy === undefined) {
+    return status === 'ACTIVE' || status === 'PAYMENT_IN_FLIGHT' ? 'AUTHORIZING' : 'ENDED';
+  }
+  if (status === 'PAYMENT_IN_FLIGHT') return 'CAPTURING';
+  if (status === 'CONVERTED') return 'ACCEPTED';
+  if (status === 'RELEASED' && h.reason === 'REQUEST_DECLINED') return 'DECLINED';
+  if (status === 'RELEASED' && h.reason === 'PAYMENT_DECLINED') return 'CAPTURE_FAILED';
+  if (status === 'EXPIRED') return 'EXPIRED';
+  if (status === 'COMPENSATED') return 'COMPENSATED';
+  return 'ENDED';
+};
 const paymentStateOf = (h) => {
   const status = h.status ?? 'ACTIVE';
+  // comme `paymentStateOf` de l'API (US-223c) : demande terminée ⇒ ENDED ; attente ⇒ VERIFYING
+  if (h.kind === 'REQUEST' && REQUEST_ENDED.includes(requestStatusOf(h))) return 'ENDED';
+  if (status === 'AWAITING_HOST') return 'VERIFYING';
   if (status === 'CONVERTED') return h.tripId ? 'CONFIRMED' : 'VERIFYING';
   if (status === 'PAYMENT_IN_FLIGHT') return h.op === 'PENDING' ? 'INTERRUPTED' : 'VERIFYING';
   if (status === 'ACTIVE') return !h.op ? 'PAYABLE' : h.op === 'FAILED' ? 'DECLINED' : 'VERIFYING';
@@ -737,6 +770,9 @@ const paymentJson = (h, redirectUrl) => ({
   expiresAt: h.expiresAt ?? HOLD_EXPIRES_AT,
   paymentInFlightUntil: h.status === 'PAYMENT_IN_FLIGHT' ? PAYMENT_IN_FLIGHT_UNTIL : null,
   ...(redirectUrl === undefined ? {} : { redirectUrl }),
+  ...(h.kind === 'REQUEST'
+    ? { request: { status: requestStatusOf(h), respondBy: h.respondBy ?? null } }
+    : {}),
 });
 
 async function paymentRoute(req, res, url) {
@@ -772,6 +808,32 @@ async function paymentRoute(req, res, url) {
       // T1 passée, PSP sans réponse avant T2 : opération PENDING sans référence
       h.status = 'PAYMENT_IN_FLIGHT';
       h.op = 'PENDING';
+    } else if (
+      event === 'SUCCEEDED' &&
+      h.kind === 'REQUEST' &&
+      status === 'PAYMENT_IN_FLIGHT' &&
+      h.respondBy === undefined
+    ) {
+      // demande : autorisation prouvée (rien n'est capturé), l'hôte a jusqu'à l'heure limite
+      h.status = 'AWAITING_HOST';
+      h.op = 'SUCCEEDED';
+      h.respondBy = REQUEST_RESPOND_BY;
+      h.expiresAt = REQUEST_RESPOND_BY;
+    } else if (
+      event === 'FAILED' &&
+      h.kind === 'REQUEST' &&
+      status === 'PAYMENT_IN_FLIGHT' &&
+      h.respondBy !== undefined
+    ) {
+      // demande acceptée : capture refusée ⇒ demande terminée, autorisation annulée (VOID)
+      h.status = 'RELEASED';
+      h.reason = 'PAYMENT_DECLINED';
+    } else if (event === 'EXPIRE' && status === 'AWAITING_HOST') {
+      h.status = 'EXPIRED';
+    } else if (event === 'DECLINE' && status === 'AWAITING_HOST') {
+      // refus de l'hôte joué sans passer par A05 (captures du voyageur)
+      h.status = 'RELEASED';
+      h.reason = 'REQUEST_DECLINED';
     } else if (event === 'SUCCEEDED' && status === 'PAYMENT_IN_FLIGHT') {
       h.status = 'CONVERTED';
       h.op = 'SUCCEEDED';
@@ -825,6 +887,85 @@ async function paymentRoute(req, res, url) {
   h.status = 'PAYMENT_IN_FLIGHT';
   h.op = 'SUBMITTED';
   return json(res, 201, { payment: paymentJson(h, `${PSP_PAGE}${h.id}`) });
+}
+
+// ---- Demandes de l'hôte (routes de 223c, ADR-146 §10 ; écrans de 223d) -------------------------
+// `GET /host/accounts/{orgId}/requests[/{holdId}]` : demandes rattachées au compte (`/__e2e/request/
+// assign`), en attente ou acceptées dont la capture attend sa preuve ; `POST …/accept` : capture
+// demandée (CAPTURING), sauf refus forcé ; `POST …/decline` : RELEASED (REQUEST_DECLINED). Compte
+// d'un autre hôte, demande inconnue ou sortie de l'attente ⇒ 404 REQUEST_NOT_FOUND (même réponse).
+// Montants en unités mineures (chaînes), jambe HOST de forme (3/4 du loyer), devise du marché.
+const hostRequestJson = (h) => ({
+  holdId: h.id,
+  status: h.status === 'AWAITING_HOST' ? 'AWAITING_HOST' : 'CAPTURING',
+  vehicleId: h.requestVehicleId,
+  scheduledStart: h.quote.startAt,
+  scheduledEnd: h.quote.endAt,
+  timezone: 'UTC',
+  respondBy: h.respondBy,
+  currency: MARKET.currency,
+  totalMinor: String(h.quote.rent + h.quote.tax + h.quote.protection),
+  hostLegMinor: String(Math.floor((h.quote.rent * 3) / 4)),
+  guest: { firstName: 'Lucía', ageYears: 29, rating: 4.8, verified: true },
+});
+const openRequest = (h) =>
+  h.kind === 'REQUEST' &&
+  (h.status === 'AWAITING_HOST' || (h.status === 'PAYMENT_IN_FLIGHT' && h.respondBy !== undefined));
+
+async function hostRequestRoute(req, res, url) {
+  const path = url.pathname;
+  if (req.method === 'GET' && path === '/__e2e/request/assign') {
+    const h = holds.get(url.searchParams.get('hold') ?? '');
+    const owner = hosts.get(url.searchParams.get('host') ?? '');
+    if (h === undefined || h.kind !== 'REQUEST' || owner === undefined) {
+      return err(res, 404, 'REQUEST_NOT_FOUND', 'common.request.notFound');
+    }
+    const a = owner.accounts[0];
+    h.requestOrg = a.orgId;
+    h.requestVehicleId = a.vehicles[0]?.id ?? uuid();
+    h.refuse = url.searchParams.get('refuse') ?? undefined;
+    return json(res, 200, { orgId: a.orgId });
+  }
+  const m =
+    /^\/host\/accounts\/([0-9a-f-]{36})\/requests(?:\/([0-9a-f-]{36})(?:\/(accept|decline))?)?$/.exec(
+      path,
+    );
+  if (m === null) return false;
+  const owner = hostOf(req);
+  if (owner === undefined) return err(res, 401, 'AUTH_REQUIRED', 'common.auth.sessionRequired');
+  const a = owner === null ? undefined : owner.accounts.find((x) => x.orgId === m[1]);
+  const notFound = () => err(res, 404, 'REQUEST_NOT_FOUND', 'common.request.notFound');
+  if (a === undefined) return notFound();
+  const mine = [...holds.values()].filter((h) => h.requestOrg === a.orgId && openRequest(h));
+  const [, , holdId, verb] = m;
+  if (holdId === undefined) {
+    if (req.method !== 'GET') return notFound();
+    return json(res, 200, { requests: mine.map(hostRequestJson) });
+  }
+  const h = mine.find((x) => x.id === holdId);
+  if (h === undefined) return notFound();
+  if (verb === undefined) {
+    if (req.method !== 'GET') return notFound();
+    return json(res, 200, { request: hostRequestJson(h) });
+  }
+  if (req.method !== 'POST') return notFound();
+  if (h.status !== 'AWAITING_HOST') {
+    return err(res, 409, 'INVALID_TRANSITION', 'common.request.alreadyAnswered');
+  }
+  if (verb === 'decline') {
+    h.status = 'RELEASED';
+    h.reason = 'REQUEST_DECLINED';
+    return json(res, 200, { decision: { holdId: h.id, status: 'DECLINED' } });
+  }
+  if (h.refuse === 'REQUEST_EXPIRED') {
+    return err(res, 409, 'REQUEST_EXPIRED', 'common.request.expired');
+  }
+  if (h.refuse === 'PAYMENT_UNAVAILABLE') {
+    return err(res, 503, 'PAYMENT_UNAVAILABLE', 'common.request.paymentUnavailable');
+  }
+  h.status = 'PAYMENT_IN_FLIGHT';
+  h.op = 'SUBMITTED';
+  return json(res, 200, { decision: { holdId: h.id, status: 'CAPTURING' } });
 }
 
 // ---- Vérification de l'hôte (US-123) : liste de tâches A07 -----------------------------------
@@ -1935,6 +2076,7 @@ createServer(async (req, res) => {
   const url = new URL(req.url ?? '/', 'http://127.0.0.1');
   const path = url.pathname;
   if ((await paymentRoute(req, res, url)) !== false) return;
+  if ((await hostRequestRoute(req, res, url)) !== false) return;
   if ((await contractRoute(req, res, url)) !== false) return;
   if ((await checkoutRoute(req, res, path)) !== false) return;
   if ((await hostRoute(req, res, url)) !== false) return;

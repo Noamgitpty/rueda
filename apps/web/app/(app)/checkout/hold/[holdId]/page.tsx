@@ -5,7 +5,7 @@ import { Banner, ButtonLink, EmptyState, ErrorState } from '@rueda/ui';
 import type { MessageKey } from '@rueda/i18n';
 import { callApi, codeOf } from '../../../../../account/api-client.ts';
 import { checkoutHoldOf, holdPayable, isUuid } from '../../../../../account/checkout.ts';
-import { paymentHref } from '../../../../../account/checkout-payment.ts';
+import { checkoutPaymentOf, paymentHref } from '../../../../../account/checkout-payment.ts';
 import { publicListingOf } from '../../../../../account/host-listings.ts';
 import { clientContext } from '../../../../../account/request.ts';
 import { getRequestI18n, getRequestLocaleTag } from '../../../../../i18n.ts';
@@ -88,17 +88,25 @@ export default async function HoldPage({
   const hold = checkoutHoldOf(reply);
   // paiement en cours, payé, échu ou libéré : l'état du paiement (S06) fait foi
   if (hold !== null && hold.status !== 'ACTIVE') redirect(paymentHref(hold.holdId));
-  const listing =
+  // US-223d (ADR-152) : un hold payable est-il une demande à l'hôte ? Seul le paiement le dit
+  // (`request`, hold REQUEST) ; lu avec la fiche, jamais déduit du mode actuel de l'annonce
+  const payable = hold !== null && holdPayable(hold);
+  const [listingReply, paymentReply] =
     hold === null
-      ? null
-      : publicListingOf(
-          await callApi('GET', `/listings/${hold.listingId}`, { ...ctx, sessionToken: null }),
-        );
+      ? [null, null]
+      : await Promise.all([
+          callApi('GET', `/listings/${hold.listingId}`, { ...ctx, sessionToken: null }),
+          payable ? callApi('GET', `/checkout/holds/${holdId}/payment`, ctx) : null,
+        ]);
+  const listing = listingReply === null ? null : publicListingOf(listingReply);
+  const payment = paymentReply === null ? null : checkoutPaymentOf(paymentReply);
   if (
     hold === null ||
     listing === null ||
     listing.currency !== hold.currency ||
-    listing.timezone === null
+    listing.timezone === null ||
+    // type du hold illisible : ni « Pagar » ni « Enviar solicitud » (fail-closed)
+    (payable && payment === null)
   ) {
     return (
       <Shell>
@@ -216,7 +224,7 @@ export default async function HoldPage({
       </section>
       {/* US-223b : paiement sur la page hébergée du PSP (10b UX-26), montant rendu par l'API ;
           jamais pendant une revue avant le débit (US-209c, N-203) */}
-      {holdPayable(hold) && (
+      {payable && payment?.request === null && (
         <section className={styles['section']} aria-labelledby="s05-pay-title">
           <h2 id="s05-pay-title" className={accountStyles['h2']}>
             {t('web.s05.pay.title')}
@@ -226,6 +234,31 @@ export default async function HoldPage({
             localeTag={localeTag}
             holdId={hold.holdId}
             label={t('web.s05.cta', { amount })}
+            testId="s05-pay"
+          />
+        </section>
+      )}
+      {/* US-223d : demande à l'hôte (10b S05 `web.s05.ctaRequest`) : le paiement est autorisé sur
+          la page du PSP, débité seulement si l'hôte accepte (ADR-146) */}
+      {payable && payment !== null && payment.request !== null && (
+        <section
+          className={styles['section']}
+          aria-labelledby="s05-pay-title"
+          data-testid="s05-request"
+        >
+          <h2 id="s05-pay-title" className={accountStyles['h2']}>
+            {t('web.s05.request.title')}
+          </h2>
+          <p className={accountStyles['text']}>
+            {t('web.s05.request.authorize', {
+              amount,
+              host_name: listing.hostFirstName ?? t('web.s07.request.hostFallback'),
+            })}
+          </p>
+          <PayForm
+            localeTag={localeTag}
+            holdId={hold.holdId}
+            label={t('web.s05.ctaRequest')}
             testId="s05-pay"
           />
         </section>

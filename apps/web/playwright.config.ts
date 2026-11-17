@@ -50,6 +50,11 @@ const PAYMENT = /checkout-payment\.spec\.ts$/;
 const REVIEW = /checkout-review\.spec\.ts$/;
 /** Plan de gains d'un véhicule, A10 → A11 (US-226 partie 226b) : téléphones 360 et 390 px. */
 const HOST_EARNINGS = /host-earnings-plan\.spec\.ts$/;
+/**
+ * Mode sur demande, S05 → S07 « demande envoyée » → A05 → S06 (US-223 partie 223d) : 360 px
+ * seulement (durée du job e2e ; le balayage des écrans couvre 390 px et la tablette).
+ */
+const REQUEST_MODE = /request-mode\.spec\.ts$/;
 /** Contrat de location : S09 · contrat du voyageur, A03 · contrat de l'hôte (US-211 partie 211b) : 360 px. */
 const CONTRACT = /trip-contract\.spec\.ts$/;
 /** Balayage axe + captures de chaque écran du site (US-044). */
@@ -131,6 +136,7 @@ export default defineConfig({
         PAYMENT,
         REVIEW,
         HOST_EARNINGS,
+        REQUEST_MODE,
         CONTRACT,
         SCREENS,
       ],

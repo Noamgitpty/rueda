@@ -2,13 +2,20 @@ import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
 import { Banner, Button, ButtonLink, EmptyState, ErrorState } from '@rueda/ui';
 import { callApi } from '../../../../account/api-client.ts';
-import { hostAccountsOf, vehiclesOf } from '../../../../account/host-listings.ts';
+import { hostAccountsOf, listingsOf, vehiclesOf } from '../../../../account/host-listings.ts';
+import {
+  DECISION_STATUSES,
+  hostRequestsOf,
+  requestHref,
+} from '../../../../account/host-requests.ts';
+import type { DecisionStatus } from '../../../../account/host-requests.ts';
 import { hostTripsOf, TRIP_TABS, tripFilterQuery } from '../../../../account/host-trips.ts';
 import { clientContext } from '../../../../account/request.ts';
 import { getRequestI18n } from '../../../../i18n.ts';
 import accountStyles from '../../_account/account.module.css';
 import { MAIN_ID } from '../../_shell/main-id.ts';
 import styles from '../host.module.css';
+import { RequestCard } from '../requests/request-card.tsx';
 import { TripCard } from './trip-card.tsx';
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -25,7 +32,13 @@ const orgOf = (q: Readonly<Record<string, string | string[] | undefined>>): stri
  * cartes des trips (voyageur minimisé, statut du paiement, gains estimés relus de l'API). Le
  * serveur lit l'API avec la session de l'hôte ; un compte d'un autre hôte n'est jamais lisible
  * (404). États : sans session, sans compte d'hôte, vide, filtres invalides, erreur, chargement
- * (`loading.tsx`). Lecture seule : le mode `REQUEST` (accepter, refuser) n'est pas livré (ADR-128).
+ * (`loading.tsx`).
+ *
+ * US-223 partie 223d (ADR-152 ; 10b A05 « en mode REQUEST boutons `web.a05.accept` /
+ * `web.a05.decline` avec heure limite ») : bloc « Solicitudes por responder » en tête, seulement
+ * s'il y a des demandes (en attente, ou acceptées dont la capture attend sa preuve) ; chaque carte
+ * mène à la demande (accepter ou refuser, avec confirmation). Issue d'une décision annoncée au
+ * retour (`?request=CAPTURING|ACCEPTED|DECLINED`). Liste illisible : message, sans bloquer les trips.
  */
 export default async function HostTripsPage({
   searchParams,
@@ -78,11 +91,32 @@ export default async function HostTripsPage({
   if (account === undefined) return error;
   const { tab, params } = tripFilterQuery(query);
   const base = `/host/accounts/${account.orgId}`;
-  const [tripsReply, vehReply] = await Promise.all([
+  const [tripsReply, vehReply, reqReply, lstReply] = await Promise.all([
     callApi('GET', `${base}/trips?${params.toString()}`, ctx),
     callApi('GET', `${base}/vehicles`, ctx),
+    callApi('GET', `${base}/requests`, ctx),
+    callApi('GET', `${base}/listings`, ctx),
   ]);
   const vehicles = vehiclesOf(vehReply) ?? [];
+  // US-223d : demandes du compte ; devise du compte = devise de chaque demande, sinon illisible
+  const market = listingsOf(lstReply)?.market ?? null;
+  const requestsRead = hostRequestsOf(reqReply);
+  const requests =
+    requestsRead === null ||
+    (requestsRead.length > 0 &&
+      (market === null || requestsRead.some((r) => r.currency !== market.currency)))
+      ? null
+      : requestsRead;
+  const carOf = (vehicleId: string): string | null => {
+    const v = vehicles.find((x) => x.id === vehicleId);
+    return v === undefined
+      ? null
+      : `${[v.makeText, v.modelText].filter(Boolean).join(' ')} ${v.year} · ${v.plate}`;
+  };
+  const doneRaw = typeof query['request'] === 'string' ? query['request'] : '';
+  const done = (DECISION_STATUSES as readonly string[]).includes(doneRaw)
+    ? (doneRaw as DecisionStatus)
+    : null;
   // période inversée (ou autre filtre refusé par l'API) : message, sans liste
   const invalid = tripsReply.status === 400;
   const read = invalid ? null : hostTripsOf(tripsReply);
@@ -95,6 +129,40 @@ export default async function HostTripsPage({
   };
   return shell(
     <>
+      {done !== null && (
+        <Banner tone="success" live="polite">
+          {t(`web.a05.request.done.${done}`)}
+        </Banner>
+      )}
+      {requests === null ? (
+        <Banner tone="danger">{t('web.a05.requests.loadError')}</Banner>
+      ) : (
+        market !== null &&
+        requests.length > 0 && (
+          <section
+            className={styles['section']}
+            aria-labelledby="a05-requests"
+            data-testid="a05-requests"
+          >
+            <h2 id="a05-requests" className={accountStyles['h2']}>
+              {t('web.a05.requests.title')}
+            </h2>
+            <ul className={styles['rows']}>
+              {requests.map((r) => (
+                <li key={r.holdId}>
+                  <RequestCard
+                    i18n={i18n}
+                    request={r}
+                    car={carOf(r.vehicleId)}
+                    exponent={market.currencyExponent}
+                    href={requestHref(account.orgId, r.holdId)}
+                  />
+                </li>
+              ))}
+            </ul>
+          </section>
+        )
+      )}
       <nav aria-label={t('web.a05.tabs')}>
         <ul className={styles['accounts']}>
           {TRIP_TABS.map((x) => (
