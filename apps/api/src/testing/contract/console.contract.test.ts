@@ -168,7 +168,7 @@ const OPS_BODIES: Readonly<Record<string, Record<string, unknown>>> = {
       },
     ],
   },
-  // US-215b : dernière demande d'annulation d'un trip et son règlement (forme de 0127)
+  // US-215b : dernière demande d'annulation d'un trip et son règlement (forme de 0128)
   tripCancellation: {
     cancellationId: ID,
     tripId: ID,

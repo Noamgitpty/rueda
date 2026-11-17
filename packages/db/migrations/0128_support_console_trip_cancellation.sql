@@ -1,4 +1,4 @@
--- 0127 — SUP / AVL / STL : état d'une demande d'annulation lu par la console (O01).
+-- 0128 — SUP / AVL / STL : état d'une demande d'annulation lu par la console (O01).
 -- US-215 (partie 215b, console) ; 19 US-215 (critères 1 à 4 vus par l'agent : remboursement par
 -- jambe, porteur du coût, qualification) ; 16 ADM-006, BKG-035 ; 17 §2.3 (permission
 -- ops.platform_cancel, portée pays), §3.2.4 ; ADR-092 (cadre des actions de console), ADR-122

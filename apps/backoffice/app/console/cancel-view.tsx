@@ -60,7 +60,7 @@ export interface CancelDraft {
   readonly evidence: readonly string[];
 }
 
-/** Règlement lié à une demande réglée (GET /console/cancellations/{id}, 0127). */
+/** Règlement lié à une demande réglée (GET /console/cancellations/{id}, 0128). */
 export interface CancellationSettlementView {
   readonly currency: string;
   readonly exponent: number;
@@ -71,7 +71,7 @@ export interface CancellationSettlementView {
   readonly refunds: readonly { readonly status: string; readonly amountMinor: string }[];
 }
 
-/** Dernière demande d'annulation d'un trip (0127). */
+/** Dernière demande d'annulation d'un trip (0128). */
 export interface CancellationView {
   readonly cancellationId: string;
   readonly tripId: string;

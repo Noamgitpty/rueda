@@ -7,7 +7,7 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 
 ## Synthèse
 
-- 128 migrations ; 125 tables ; 2 vues ; 705 politiques RLS ; 261 fonctions `SECURITY DEFINER` ; 246 autres fonctions.
+- 129 migrations ; 125 tables ; 2 vues ; 706 politiques RLS ; 265 fonctions `SECURITY DEFINER` ; 246 autres fonctions.
 - Tables sans RLS `ENABLE` + `FORCE` : aucune.
 - Rôles applicatifs avec `SUPERUSER` ou `BYPASSRLS` : aucun.
 
@@ -142,7 +142,8 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 | `0124_booking_trip_cancellation_settled` | AVL / STL / SUP : annulations du voyageur, de l'hôte et de la plateforme déclenchées par |
 | `0125_config_booking_request_mode_params` | graine complémentaire : paramètres « booking_request_mode* » (US-223 ; 17 §7.2). |
 | `0126_booking_request_mode` | AVL / PAY : réservation sur demande (hold REQUEST), autorisation à l'envoi, capture par |
-| `0127_support_console_trip_cancellation` | SUP / AVL / STL : état d'une demande d'annulation lu par la console (O01). |
+| `0127_payment_refund_scheduler` | PAY / STL : ordonnancement des remboursements planifiés et états SM-8 après l'envoi. |
+| `0128_support_console_trip_cancellation` | SUP / AVL / STL : état d'une demande d'annulation lu par la console (O01). |
 
 ## Rôles
 
@@ -4286,6 +4287,7 @@ Déclencheurs :
 
 - `payment_operation_legs_check` : `CREATE CONSTRAINT TRIGGER payment_operation_legs_check AFTER INSERT ON core.payment_payment_operation DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION core.payment_assert_operation_legs()`
 - `refund_instance_gate` : `CREATE TRIGGER refund_instance_gate BEFORE UPDATE OF status ON core.payment_payment_operation FOR EACH ROW EXECUTE FUNCTION core.payment_refund_instance_gate()`
+- `refund_instance_sync` : `CREATE TRIGGER refund_instance_sync AFTER UPDATE OF status ON core.payment_payment_operation FOR EACH ROW WHEN (new.kind = 'REFUND'::text) EXECUTE FUNCTION core.payment_refund_instance_sync()`
 - `touch_row` : `CREATE TRIGGER touch_row BEFORE UPDATE ON core.payment_payment_operation FOR EACH ROW EXECUTE FUNCTION platform.touch_row()`
 
 ### `core.payment_payment_operation_event`
@@ -4586,6 +4588,7 @@ Déclencheurs :
 | `created_at` | `timestamp with time zone` | oui | `platform.now()` |
 | `updated_at` | `timestamp with time zone` | oui | `platform.now()` |
 | `row_version` | `integer` | oui | `0` |
+| `fin_alert` | `text` | non | — |
 
 Contraintes :
 
@@ -4598,7 +4601,8 @@ Contraintes :
 - `refund_instance_country_format` : `CHECK (country_code ~ '^[A-Z]{2}$'::text)`
 - `refund_instance_currency_format` : `CHECK (currency ~ '^[A-Z]{3}$'::text)`
 - `refund_instance_executor_platform` : `CHECK (executor = 'PLATFORM_API'::text)`
-- `refund_instance_issued_shape` : `CHECK (((status <> ALL (ARRAY['PLANNED'::text, 'SUPERSEDED'::text])) OR issued_at IS NULL) AND ((status <> ALL (ARRAY['SUBMITTED'::text, 'SENT'::text, 'CONFIRMED'::text])) OR issued_at IS NOT NULL))`
+- `refund_instance_fin_alert_format` : `CHECK (fin_alert ~ '^[A-Z][A-Z0-9_:]{0,79}$'::text)`
+- `refund_instance_issued_shape` : `CHECK ((status <> 'PLANNED'::text OR issued_at IS NULL) AND ((status <> ALL (ARRAY['SUBMITTED'::text, 'SENT'::text, 'CONFIRMED'::text, 'FAILED'::text])) OR issued_at IS NOT NULL))`
 - `refund_instance_key` : `UNIQUE (origin_type, origin_id, refunded_operation_id, instance_seq)`
 - `refund_instance_operation_fk` : `FOREIGN KEY (operation_id) REFERENCES core.payment_payment_operation(id) DEFERRABLE INITIALLY DEFERRED`
 - `refund_instance_operation_unique` : `UNIQUE (operation_id)`
@@ -4621,6 +4625,7 @@ Politiques RLS :
 
 - `cmd_money_ins` (INSERT, PERMISSIVE, cmd_money_owner) WITH CHECK `((app.actor_kind() = 'WORKER'::text) AND (app.worker_name() = 'payment_command'::text) AND (status = 'PLANNED'::text))`
 - `cmd_money_sel` (SELECT, PERMISSIVE, cmd_money_owner) USING `true`
+- `cmd_money_sync` (UPDATE, PERMISSIVE, cmd_money_owner) USING `((app.actor_kind() = 'WORKER'::text) AND (app.worker_name() = 'webhook_ingest'::text) AND (status = ANY (ARRAY['SUBMITTED'::text, 'SENT'::text])))` WITH CHECK `((app.actor_kind() = 'WORKER'::text) AND (app.worker_name() = 'webhook_ingest'::text) AND (status = ANY (ARRAY['SENT'::text, 'CONFIRMED'::text, 'FAILED'::text])))`
 - `cmd_money_upd` (UPDATE, PERMISSIVE, cmd_money_owner) USING `((app.actor_kind() = 'WORKER'::text) AND (app.worker_name() = ANY (ARRAY['settlement'::text, 'payment_command'::text])))` WITH CHECK `((app.actor_kind() = 'WORKER'::text) AND (app.worker_name() = ANY (ARRAY['settlement'::text, 'payment_command'::text])))`
 - `fin_read` (SELECT, PERMISSIVE, app_api) USING `((app.actor_kind() = 'STAFF'::text) AND (country_code = ANY (app.country_scope())) AND (app.has_staff_role('FINANCE'::text, country_code) OR app.has_staff_role('ADMIN'::text, country_code)))`
 - `integrity_read` (SELECT, PERMISSIVE, integrity_owner) USING `true`
@@ -6403,9 +6408,13 @@ Chacune a un propriétaire `NOLOGIN` dédié (ADR-053) et un `search_path` figé
 | `core.payment_cmd_receive_webhook(p_account_id uuid, p_provider_event_id text, p_dedup_key bytea, p_signature_valid boolean, p_signed_at timestamp with time zone, p_headers jsonb, p_normalized jsonb)` | `TABLE(outcome text, inbox_id uuid)` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; cmd_money_owner: EXECUTE |
 | `core.payment_cmd_record_operation(p_id uuid, p_hold_id uuid, p_trip_id uuid, p_psp_account_id uuid, p_method text, p_kind text, p_purpose text, p_amount_minor bigint, p_currency text, p_attempt_no integer, p_idem_plain text, p_idem_sent text, p_legs jsonb, p_settlement_id uuid, p_settlement_version integer)` | `TABLE(operation_id uuid, replayed boolean)` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; cmd_money_owner: EXECUTE |
 | `core.payment_cmd_record_submerchant_status(p_submerchant_id uuid, p_status text, p_provider_ref text, p_reason text)` | `text` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; cmd_money_owner: EXECUTE |
+| `core.payment_cmd_refund_mark_alerted(p_instance_id uuid, p_key text)` | `boolean` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; cmd_money_owner: EXECUTE |
+| `core.payment_cmd_refund_order_for_send(p_instance_id uuid)` | `TABLE(operation_id uuid, operation_status text, idem_sent text, amount_minor bigint, currency text, legs jsonb, target_reference text, provider_reference text, provider text, sendable boolean, reason text)` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; cmd_money_owner: EXECUTE |
 | `core.payment_cmd_register_submerchant(p_id uuid, p_org_id uuid, p_psp_account_id uuid, p_attempt_no integer)` | `TABLE(submerchant_id uuid, idem_plain text, replayed boolean)` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; cmd_money_owner: EXECUTE |
 | `core.payment_cmd_submit_refund(p_instance_id uuid)` | `TABLE(outcome text, blocked_reason text)` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; cmd_money_owner: EXECUTE |
 | `core.payment_refund_instance_gate()` | `trigger` | `integrity_owner` | search_path=pg_catalog, pg_temp | integrity_owner: EXECUTE |
+| `core.payment_refund_instance_sync()` | `trigger` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | cmd_money_owner: EXECUTE |
+| `core.payment_refunds_due(p_limit integer)` | `TABLE(instance_id uuid, country_code text, status text, operation_status text, provider text, blocked_reason text, fin_alert text, target_known boolean)` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; cmd_money_owner: EXECUTE |
 | `core.payment_resolve_webhook_account(p_provider text, p_public_webhook_id text)` | `TABLE(account_id uuid, webhook_secret_ref text)` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; cmd_money_owner: EXECUTE |
 | `core.payment_startup_guard()` | `TABLE(deployment_env text, fake_accounts integer)` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; app_worker: EXECUTE ; cmd_money_owner: EXECUTE |
 | `core.pricing_bind_checkout_trip(p_trip_id uuid)` | `integer` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; cmd_money_owner: EXECUTE |

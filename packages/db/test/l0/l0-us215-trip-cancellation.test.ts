@@ -1090,7 +1090,7 @@ describe('variante PY des critères 3 et 4 (oracle indépendant)', () => {
 });
 
 /**
- * US-215b (migration 0127, ADR-151) : lecture de l'état d'une demande par la console, sous app_api
+ * US-215b (migration 0128, ADR-151) : lecture de l'état d'une demande par la console, sous app_api
  * (`core.support_staff_trip_cancellation`), à l'instant virtuel de la lecture. Rien n'est validé.
  */
 async function readState(
@@ -1120,7 +1120,7 @@ async function readState(
   });
 }
 
-describe('console (215b) : état réel de la demande lu par l’agent (0127)', () => {
+describe('console (215b) : état réel de la demande lu par l’agent (0128)', () => {
   it('PA T03 : en attente, puis réglée ⇒ porteur du coût, remboursement et variation par jambe du vecteur (TJ02b), ordres REFUND', async () => {
     await withRole('app_api', async (api) => {
       await withRole('app_worker', async (worker) => {
