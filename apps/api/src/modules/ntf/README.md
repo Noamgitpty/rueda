@@ -6,7 +6,9 @@
 
 D'après 17 §2.2 et §2.13 : moteur unique de notifications (NTF-001) ; canaux e-mail transactionnel, SMS, WhatsApp (BSP), in-app, push (P1) ; repli automatique ; idempotence `(event_id, destinataire, canal)` ; réessais ; journal d'envoi ; préférences. NTF ne lit pas les tables d'IAM : les coordonnées viennent d'un port fourni par IAM.
 
-État du code : **livré pour la bêta e-mail et SMS** par US-020 (port `MessagingChannel`, ADR-058) et US-021 (moteur, ADR-061). Catalogue réduit de huit gabarits (deux de la file d'ajout au catalogue, US-114), textes en es, en, fr et pt (pt-BR, DEC-FONDATEUR-18).
+État du code : **livré pour la bêta e-mail et SMS** par US-020 (port `MessagingChannel`, ADR-058) et US-021 (moteur, ADR-061). Le catalogue réduit compte quinze gabarits (deux de la file d'ajout au catalogue, US-114 ; la confirmation de l'hôte et les demandes de réservation, US-213). Textes en es, en, fr et pt (pt-BR, DEC-FONDATEUR-18).
+
+US-213 (ADR-157) : les parties d'une réservation (voyageur, titulaire du compte d'hôte) sont lues **en base** par le port `NotificationParties`. AVL fournit l'adaptateur (`core.booking_notification_parties`, 0131). Les producteurs de `booking.trip.booked`, `trip.status_changed` et `booking.request.*` ne portent en effet aucun identifiant de personne.
 
 Non câblé (reports) : processus `worker.ts` (US-003), accusés de remise, préférences et désinscription, WhatsApp (US-526), rappels de trip, e-mail de vérification d'IAM, habillage de marque, purge à 13 mois.
 
@@ -36,12 +38,18 @@ Déjà émis par le code (`internal/sender.ts`, par l'outbox du module BUS) :
 Déjà consommés par le code (travailleur `ntf_dispatcher`, `RULES` de `internal/catalog.ts`) :
 
 - `kyc.verification.status_changed` (`to` = `APPROVED`) ;
-- `booking.trip.booked` ;
-- `trip.status_changed` (`to` commençant par `CANCELLED_`) ;
+- `booking.trip.booked` (voyageur : `EVT_BOOKING_CONFIRMED` ; hôte : `EVT_BOOKING_CONFIRMED_HOST` ; parties lues en base, US-213) ;
+- `trip.status_changed` (`to` commençant par `CANCELLED_` ; parties lues en base après la condition, US-213) ;
 - `trip.overdue.detected` ;
 - `payout.batch.status_changed` (`status` = `INITIATED` ou `ON_HOLD`) ;
 - `catalog.addition_request.resolved` (`status` = `APPROVED` ou `MERGED` : ajout ; `REJECTED` : refus ; hôte demandeur `host_user_id`, US-114).
 - `booking.trip.host_restricted` (voyageur `guest_user_id` d'un trip à venir dont l'hôte est restreint, gabarit `EVT_TRIP_HOST_RESTRICTED` ; US-122, ADR-124).
+- Demandes de réservation (US-213, ADR-157 ; parties du hold lues en base) :
+  - `booking.request.received` (hôte, avec l'heure limite) ;
+  - `booking.request.declined` et `booking.request.expired` (voyageur) ;
+  - `booking.request.capture_unconfirmed` (voyageur et hôte) ;
+  - `booking.hold.released`, seulement pour la capture refusée d'une demande acceptée (hold `REQUEST` autorisé, `RELEASED`, `PAYMENT_DECLINED`, lu en base ; voyageur et hôte).
+  - `booking.request.accepted` n'a pas de message : la confirmation suit au passage `BOOKED`.
 
 Cible (17 §4.5) : NTF consomme aussi, entre autres, `iam.user.registered`, `iam.restriction.applied` / `.lifted`, `kyc.host_verification.decided`, `catalog.listing.status_changed`, `booking.hold.*`, `booking.request.*`, `settlement.computed`, `refund.instance.status_changed`, `deposit.decision.executed`, `contract.document.generated` / `.signed`, `trip.checkin.validated`, `trip.checkout.completed`, `claim.status_changed`, `invoice.status_changed`, `message.posted` / `.flagged`, `finance.statement.issued`, `fiscal.document.status_changed`, `host_ledger.state_changed`.
 
@@ -49,8 +57,17 @@ Cible (17 §4.5) : NTF consomme aussi, entre autres, `iam.user.registered`, `iam
 
 - `MessagingChannel` (`internal/messaging-channel.port.ts`, US-020) : `channel`, `send` (texte déjà rendu) ; échecs en valeurs (`OK`, `REFUSED`, `UNAVAILABLE`, `TIMEOUT`). FAKE : `FakeMessagingChannel` (`EMAIL`, `SMS`) de `@rueda/fake-adapters/messaging`, jamais en production.
 - `RecipientDirectory` (`internal/recipient-directory.port.ts`, US-021) : `contactOf` ; adaptateur `postgresNotificationContacts` exporté par IAM.
+- `NotificationParties` (`internal/parties.port.ts`, US-213, ADR-157) : `partiesOf(tx, 'TRIP' | 'HOLD', id)`, lu dans la transaction du reçu. L'adaptateur `postgresNotificationParties` est exporté par AVL, avec la même forme et sans dépendance AVL --> NTF. Il est injecté par `registerNotifications(registry, sender, { parties })`. Sans lui, les règles `parties` échouent en erreur de contrat.
 
-API publique (`index.ts`) : `NtfModule` ; types du port `MessagingChannel` ; catalogue `RULES`, `TEMPLATES`, `TEMPLATE_KEYS`, `subscribedEventTypes` ; `planDispatches`, `dispatchEvent`, `NTF_DISPATCHER_WORKER`, `NTF_SENDER_WORKER`, `NotificationContractError` ; `NotificationSender`, `MAX_SEND_ATTEMPTS`, `RETRY_BASE_SECONDS` ; `registerNotifications`, `notificationCountryData`, `repositoryLocaleConfig` ; types `RecipientDirectory`, `RecipientContact`.
+API publique (`index.ts`) :
+
+- `NtfModule` ;
+- types du port `MessagingChannel` ;
+- catalogue : `RULES`, `TEMPLATES`, `TEMPLATE_KEYS`, `subscribedEventTypes`, `isDeclinedRequestCapture` ;
+- résolution : `planDispatches`, `requiredParties`, `partyKey`, `dispatchEvent`, `NTF_DISPATCHER_WORKER`, `NTF_SENDER_WORKER`, `NotificationContractError` ;
+- envoi : `NotificationSender`, `MAX_SEND_ATTEMPTS`, `RETRY_BASE_SECONDS` ;
+- montage : `registerNotifications` (options `rules`, `parties`), `notificationCountryData`, `repositoryLocaleConfig` ;
+- types : `RecipientDirectory`, `RecipientContact`, `NotificationParties`, `PartyFacts`, `PartySubject`, `PartiesSpec`, `NotificationRegistration`.
 
 ## Commandes de test
 

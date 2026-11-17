@@ -905,6 +905,21 @@ Migration `0122_ctr_rental_contract`, fixture `9963_test_us211_rental_contract_f
 - **Remise** : `core.booking_cmd_trip_transition` (corps de 0099, bloc US-211) refuse `IN_PROGRESS` sans dernière version signée par le voyageur (`trip_contract_not_signed`, code `CONTRACT_NOT_SIGNED`).
 - **Lectures ajoutées à `cmd_hold_owner`** (au plus juste) : noms légaux et langue des comptes, marque et modèle du référentiel, contrat de l'assureur et assureur, caution du pays, gabarits, `grace_minutes` ; événements `contract.document.generated` (SYSTEM) et `contract.document.signed` (voyageur).
 
+## Parties d'une réservation pour les notifications (US-213 ; 16 BKG-022, NTF-007 ; 17 §2.2, §4.5 ; ADR-157)
+
+Migration `0131_booking_notification_parties` : une fonction de lecture AJOUTÉE. Aucune table, aucun droit sur une table : `cmd_hold_owner` lisait déjà les colonnes lues.
+
+- `core.booking_notification_parties(text, uuid)` (`cmd_hold_owner`, EXECUTE `app_worker`) :
+  - **Appelant** : le seul travailleur `ntf_dispatcher` (`app.actor_kind` = WORKER) ; tout autre appelant reçoit `notification_parties_forbidden` (42501 → `FORBIDDEN`).
+  - **`TRIP`** : `guestUserId` et `hostUserId` (titulaire du compte d'hôte).
+  - **`HOLD`** : les mêmes, plus `holdKind`, `holdStatus`, `releaseReason` et `requestAuthorized` (heure limite de réponse posée).
+  - **Sujet inconnu** : NULL. Identifiants et codes seulement.
+- **Lecteur** : l'adaptateur `postgresNotificationParties` d'AVL, injecté dans NTF (port `NotificationParties`).
+- **Preuves** :
+  - `test/l0/l0-us213-notification-parties.test.ts` (PA USD, PY PYG ; monde de la fixture 9963 dans une transaction annulée) : faits exacts, minimisation, sujets inconnus, refus des autres travailleurs, d'`app_worker` sans contexte, d'`app_api` et d'`app_anon` ;
+  - assertions ajoutées à `l0-us223-request.test.ts` (capture refusée et capture jamais confirmée d'une demande acceptée : faits lus du hold) ;
+  - `apps/api/test/int/ntf.int.test.ts` (charge utile réelle de `booking.trip.booked`, trip réel, rejeu sans doublon).
+
 ## Remboursement lu par le voyageur, l'hôte et la console (US-224 partie 224d ; 19 US-224 critère 1 ; 08 SM-8, BR-PAY-08 ; ADR-154)
 
 Migration `0130_payment_refund_read` : trois fonctions de lecture AJOUTÉES, aucune table, aucun droit sur une table.
