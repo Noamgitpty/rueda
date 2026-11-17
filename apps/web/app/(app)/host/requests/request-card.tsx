@@ -69,7 +69,7 @@ export function RequestCard({
         <p className={accountStyles['text']}>
           {g.rating === null
             ? t('web.a05.guest.noRating')
-            : t('web.a05.guest.rating', { rating: i18n.number(g.rating) })}
+            : t('web.a05.guest.rating', { rating: i18n.number(g.rating, { fractionDigits: 1 }) })}
         </p>
         <Badge tone={g.verified ? 'success' : 'warning'}>
           {g.verified ? t('web.host.guest.verified') : t('web.a05.guest.unverified')}

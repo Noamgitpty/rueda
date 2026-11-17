@@ -178,6 +178,8 @@ for (const language of LANGUAGES) {
         t.dateTime(RESPOND_BY, 'UTC'),
       );
       await expect(card).toContainText('Lucía');
+      // note du voyageur avec sa décimale (4,8 rendue par l'API, jamais arrondie à 5)
+      await expect(card).toContainText(t.number(4.8, { fractionDigits: 1 }));
       await expect(page.locator('main img')).toHaveCount(0);
       await expectAccessible(page);
       await expectMobileFriendly(page);
