@@ -309,8 +309,9 @@ describe('demandes FINANCE à deux personnes (US-101, RLS-24)', () => {
     ['NOT_PENDING', 409, 'STAFF_ACTION_REFUSED'],
     ['SUBJECT_CHANGED', 409, 'STAFF_ACTION_REFUSED'],
     ['FORBIDDEN', 403, 'FORBIDDEN'],
-    // US-122 (ADR-124, F2-C-04) : approbateur titulaire, co-hôte ou lié au compte de l'avance
-    ['SELF_FORBIDDEN', 403, 'FORBIDDEN'],
+    // US-122 (ADR-124, F2-C-04) : approbateur titulaire, co-hôte ou lié au compte de l'avance ;
+    // US-224b (N-119) : ou demandeur devenu l'un d'eux ; code unifié STAFF_SELF_FORBIDDEN
+    ['SELF_FORBIDDEN', 403, 'STAFF_SELF_FORBIDDEN'],
     ['MFA_REQUIRED', 403, '2FA_REQUIRED'],
   ] as const)('approbation %s => %i %s', async (outcome, status, code) => {
     access = 'ELEVATED';
