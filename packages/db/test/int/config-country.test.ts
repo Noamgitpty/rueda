@@ -238,13 +238,13 @@ describe('configuration pays : structure et droits', () => {
             ...(t === 'config_param_definition' || t === 'config_param_value'
               ? [{ t, pol: 'cmd_hold_read', cmd: 'r', roles: 'cmd_hold_owner' }]
               : []),
-            // contrôles bloquants du checkout (US-209, 0112) : âge minimum du conducteur seulement
-            ...(t === 'config_param_value'
-              ? [{ t, pol: 'cmd_hold_risk_read', cmd: 'r', roles: 'cmd_hold_owner' }]
-              : []),
             // demandes de réservation (US-223c, 0122) : mode sur demande ouvert et heure limite
             ...(t === 'config_param_value'
               ? [{ t, pol: 'cmd_hold_request_param_read', cmd: 'r', roles: 'cmd_hold_owner' }]
+              : []),
+            // contrôles bloquants du checkout (US-209, 0112) : âge minimum du conducteur seulement
+            ...(t === 'config_param_value'
+              ? [{ t, pol: 'cmd_hold_risk_read', cmd: 'r', roles: 'cmd_hold_owner' }]
               : []),
             // devis figés (US-202, 0100) : paramètres du rejeu (tolérance, durée, parts) et taxes
             ...(t === 'config_param_value'

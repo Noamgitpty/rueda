@@ -162,6 +162,12 @@ describe('schéma outbox (US-008)', () => {
           expect(r).toMatchObject({ roles: 'cmd_hold_owner', cmd: 'a' });
           continue;
         }
+        // demandes de réservation (0122, US-223c, ADR-146) : booking.request.* seulement, acteur
+        // HOST du compte (titulaire) ou SYSTEM (hold_expiry, booking_conversion)
+        if (r.pol === 'outbox_outbox_event.cmd_hold_request_event_ins') {
+          expect(r).toMatchObject({ roles: 'cmd_hold_owner', cmd: 'a' });
+          continue;
+        }
         // commandes de l'OTP (0066, US-104) : insertion de leurs seuls événements
         // iam.otp.requested et iam.phone.verified
         if (r.pol === 'outbox_outbox_event.iam_auth_otp_event_ins') {
