@@ -49,7 +49,8 @@ export async function submitAndSettle(
   navigatesTo?: RegExp,
   // US-215b : envoi par `fetch` vers l'API (console interne, sans action serveur) : la réponse
   // attendue est celle du POST dont l'URL correspond
-  options: { readonly api?: RegExp } = {},
+  // `settled` : élément qui remplace le bouton quand l'envoi est fini (le bouton disparaît alors)
+  options: { readonly api?: RegExp; readonly settled?: Locator } = {},
 ): Promise<void> {
   const reply = page.waitForResponse((r) => {
     const request = r.request();
@@ -66,6 +67,7 @@ export async function submitAndSettle(
   // envoi qui ouvre un autre écran (redirection de l'action, US-208) : le bouton n'existe plus,
   // la fin de l'envoi est l'arrivée sur l'écran attendu
   if (navigatesTo !== undefined) await expect(page).toHaveURL(navigatesTo);
+  else if (options.settled !== undefined) await expect(options.settled).toBeVisible();
   else await expect(button).not.toHaveAttribute('aria-busy', 'true');
 }
 

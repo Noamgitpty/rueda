@@ -276,6 +276,7 @@ for (const language of LANGUAGES) {
       await expect(confirm).toContainText(t.t('backoffice.cancel.platform.PLATFORM_TRUST_SAFETY'));
       await submitAndSettle(page, page.getByTestId('cancel-send'), undefined, {
         api: /\/api\/console\/actions$/,
+        settled: page.getByTestId('cancel-state'),
       });
       await expect(page.getByTestId('cancel-status')).toHaveText(
         t.t('backoffice.cancel.state.FIN_REVIEW'),
