@@ -118,7 +118,15 @@ BEGIN
             credentials_ref)
     VALUES (v_id, 'FAKE', p_country_code, 'SANDBOX', 'ACTIVE',
             'us024-' || pg_catalog.replace(v_id::text, '-', ''), 'vault:psp/test/webhook',
-            'vault:psp/test/api');
+            'vault:psp/test/api')
+    -- US-122 (ci-stable-3) : deux fichiers de test parallèles qui VALIDENT (refund-scheduler,
+    -- trip-cancellation, pg-stores) pouvaient tous deux ne rien trouver puis insérer :
+    -- 23505 sur psp_account_one_active. Le perdant attend le gagnant, n'insère rien et relit.
+    ON CONFLICT (provider, country_code, environment) WHERE (status = 'ACTIVE') DO NOTHING;
+    SELECT a.id INTO STRICT v_id
+      FROM core.payment_psp_account a
+     WHERE a.provider = 'FAKE' AND a.country_code = p_country_code AND a.environment = 'SANDBOX'
+       AND a.status = 'ACTIVE';
   END IF;
   RETURN v_id;
 END
@@ -246,7 +254,13 @@ BEGIN
             credentials_ref, gate_decision_ref)
     VALUES (v_id, p_provider, p_country_code, p_environment, 'ACTIVE',
             'us024-' || pg_catalog.replace(v_id::text, '-', ''), 'vault:psp/test/webhook',
-            'vault:psp/test/api', CASE WHEN p_environment = 'LIVE' THEN 'test US-024' END);
+            'vault:psp/test/api', CASE WHEN p_environment = 'LIVE' THEN 'test US-024' END)
+    -- US-122 (ci-stable-3) : même course que us024_psp_account (23505 entre fichiers parallèles)
+    ON CONFLICT (provider, country_code, environment) WHERE (status = 'ACTIVE') DO NOTHING;
+    SELECT a.id INTO STRICT v_id
+      FROM core.payment_psp_account a
+     WHERE a.provider = p_provider AND a.country_code = p_country_code
+       AND a.environment = p_environment AND a.status = 'ACTIVE';
   END IF;
   RETURN v_id;
 END
