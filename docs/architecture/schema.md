@@ -4830,10 +4830,7 @@ Déclencheurs :
 - RLS : ENABLE + FORCE ; propriétaire `migrator`
 - Droits : aucun
 
-| Colonne | Type | NOT NULL | Défaut ❯ test/int/schema-doc.test.ts (1 test | 1 failed) 198ms
-   ❯ document du schéma (docs/architecture/schema.md) (1)
-     × est à jour : régénéré depuis la base migrée, identique au fichier commité 196ms
- |
+| Colonne | Type | NOT NULL | Défaut |
 | ------- | ---- | -------- | ------ |
 | `id` | `uuid` | oui | — |
 | `subject_type` | `text` | oui | — |

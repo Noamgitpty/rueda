@@ -242,13 +242,13 @@ describe('configuration pays : structure et droits', () => {
             ...(t === 'config_param_value'
               ? [{ t, pol: 'cmd_hold_risk_read', cmd: 'r', roles: 'cmd_hold_owner' }]
               : []),
-            // devis figés (US-202, 0100) : paramètres du rejeu (tolérance, durée, parts) et taxes
-            ...(t === 'config_param_value'
-              ? [{ t, pol: 'cmd_money_quote_read', cmd: 'r', roles: 'cmd_money_owner' }]
-              : []),
             // avance de Kmino (US-224b, 0122) : plafond par hôte host_advance_cap_minor seulement
             ...(t === 'config_param_value'
               ? [{ t, pol: 'cmd_money_advance_cap_read', cmd: 'r', roles: 'cmd_money_owner' }]
+              : []),
+            // devis figés (US-202, 0100) : paramètres du rejeu (tolérance, durée, parts) et taxes
+            ...(t === 'config_param_value'
+              ? [{ t, pol: 'cmd_money_quote_read', cmd: 'r', roles: 'cmd_money_owner' }]
               : []),
             ...(t === 'pricing_tax_line_config'
               ? [{ t, pol: 'cmd_money_read', cmd: 'r', roles: 'cmd_money_owner' }]
