@@ -20,3 +20,18 @@ export type {
   CancellationOutcome,
   CancellationPlan,
 } from './internal/trip-cancellation.js';
+// Ordonnanceur des remboursements planifiés (US-224c, ADR-150)
+export {
+  REFUND_SCHEDULER_BATCH,
+  REFUND_SCHEDULER_PERIOD_SECONDS,
+  REFUND_SCHEDULER_WORKER,
+  RefundScheduler,
+  classifyRefundError,
+  registerRefundScheduler,
+} from './internal/refund-scheduler.js';
+export type {
+  RefundAlertCode,
+  RefundOutcome,
+  RefundSchedulerDeps,
+  RefundStep,
+} from './internal/refund-scheduler.js';
