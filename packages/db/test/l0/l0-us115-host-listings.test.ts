@@ -345,7 +345,7 @@ describe('socle (0067) : RLS, droits, propriétaires', () => {
         expect(rows.map((r) => r.relname)).toEqual([...TABLES]);
         const expected: Record<(typeof TABLES)[number], string[]> = {
           // US-203 (0105) : caution lue par les cartes de la recherche publique (catalog_cmd_owner)
-          // US-211 (0120) : caution à la réservation lue par le contrat de location (cmd_hold_owner)
+          // US-211 (0121) : caution à la réservation lue par le contrat de location (cmd_hold_owner)
           catalog_deposit_policy: [
             'catalog_cmd_search_read:catalog_cmd_owner',
             'cmd_hold_contract_read:cmd_hold_owner',

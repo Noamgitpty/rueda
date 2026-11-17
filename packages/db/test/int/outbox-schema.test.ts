@@ -162,7 +162,7 @@ describe('schéma outbox (US-008)', () => {
           expect(r).toMatchObject({ roles: 'cmd_hold_owner', cmd: 'a' });
           continue;
         }
-        // contrat de location (0120, US-211, ADR-143) : contract.document.generated (SYSTEM) et
+        // contrat de location (0121, US-211, ADR-143) : contract.document.generated (SYSTEM) et
         // contract.document.signed (voyageur) seulement
         if (r.pol === 'outbox_outbox_event.cmd_hold_contract_event_ins') {
           expect(r).toMatchObject({ roles: 'cmd_hold_owner', cmd: 'a' });

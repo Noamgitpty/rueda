@@ -1,6 +1,6 @@
 /**
  * US-211 (partie 211a) — contrat de location hôte–voyageur par trip et signature horodatée
- * (migration 0120, ADR-143 ; fixture 9965). Rôles de production seulement (assertion L0-05 par
+ * (migration 0121, ADR-143 ; fixture 9965). Rôles de production seulement (assertion L0-05 par
  * `connectAs`), au Panama (USD) et au Paraguay (PYG sans décimale).
  *
  * Attendus tirés de 19 US-211 (critères 1 à 3), de 16 BKG-018 / BKG-019 (états GENERATED → SIGNED

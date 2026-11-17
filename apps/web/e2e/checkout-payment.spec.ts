@@ -14,7 +14,8 @@
  * l'échéance renvoie au support ; un paiement après la libération annonce le remboursement intégral.
  * Relecture toutes les 5 s, attente lente à 2 min et support à 10 min : horloge de Playwright
  * avancée (`clock.fastForward`), aucune attente réelle. Refus avant le paiement : capacité bloquante
- * du PSP (critère 6), revue avant débit, aucun compte marchand.
+ * du PSP (critère 6), aucun compte marchand ; la revue avant le débit n'offre aucun bouton
+ * « Pagar » (US-209c, `checkout-review.spec.ts`).
  */
 import { randomBytes } from 'node:crypto';
 import type { BrowserContext, Page } from '@playwright/test';
@@ -324,7 +325,7 @@ for (const language of LANGUAGES) {
 
     for (const [day, key] of [
       [18, 'common.payment.payoutRailUnavailable'],
-      [19, 'common.payment.underReview'],
+      // le 19 (réservation en revue) : aucun bouton « Pagar » (US-209c, checkout-review.spec.ts)
       [21, 'common.payment.unavailable'],
     ] as const) {
       test(`refus avant le paiement (${key}) : son message sur S05, aucune sortie vers le PSP, bouton toujours actif`, async ({

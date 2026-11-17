@@ -169,12 +169,19 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  `web.s05.hold.payment` et `web.s05.hold.ended` retirées (le paiement en ligne existe ; un hold
  non `ACTIVE` ouvre S06) ; `web.s06.interrupted.*` (page de paiement non ouverte, reprise sans
  second débit) ; `web.error.paidAfterRelease` sans liste de voitures proches (la page n'en montre pas).
- Version 63 (la 62 est celle d’US-223b) : contrat de location hôte–voyageur, partie 211a
+ Version 64 (la 63 est réservée à US-211) : écrans du voyageur de la revue d'une réservation
+ signalée, partie 209c (US-209, ADR-144) : `web.s05.review.*` (S05 d'un hold en revue, heure de la
+ réponse lue dans l'API, aucune durée écrite ; réservation approuvée avec la fenêtre de paiement
+ réelle ; aide vers la déclaration d'entrée), `web.s05.kyc.link` (lien vers S04 depuis les refus du
+ conducteur, UXQ-12), `web.s06.reviewRejected.*` (hold libéré par la revue), `web.s04.entry.*`
+ (déclaration d'entrée : statut, date mise en forme par langue) ; `common.payment.underReview` ne
+ promet plus d'avis (aucune notification du voyageur avant GL-17).
+ Version 66 (la 63 était la réservation d’origine ; la 64 est celle d’US-209c, la 65 est réservée à US-224) : contrat de location hôte–voyageur, partie 211a
  (US-211, ADR-143) : `ctr.contract.*` (libellés du PDF du contrat, figés dans le document à sa
  génération : parties, plateforme intermédiaire, véhicule, période, prix, protection, caution,
  distance, annulation, retard, territoire, bloc de signature, traduction de courtoisie).
  */
-export const CATALOG_VERSION = 63;
+export const CATALOG_VERSION = 66;
 
 /** Catalogues de base par langue ; la langue d'un profil de locale choisit le sien. */
 export const CATALOGS: Readonly<Record<CatalogLanguage, VersionedCatalog<MessageKey>>> = {

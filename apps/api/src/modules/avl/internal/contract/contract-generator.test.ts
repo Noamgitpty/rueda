@@ -2,7 +2,7 @@
  * US-211 (partie 211a) — travailleur `booking_contract` (ADR-143 ; 16 BKG-018 « déclencheur :
  * passage BOOKED », « CONTRACT_GENERATION_FAILED (bloque la confirmation, alerte ops) » ; pré-mortem
  * du lot 2 : L2-PM-33 « une version de contrat par génération demandée »). Base simulée : les
- * commandes de 0120 sont prouvées par `packages/db/test/l0/l0-us211-rental-contract.test.ts`.
+ * commandes de 0121 sont prouvées par `packages/db/test/l0/l0-us211-rental-contract.test.ts`.
  * Attendus tirés de 16 BKG-018 et de 19 US-211, jamais du code testé.
  */
 import { createHash } from 'node:crypto';

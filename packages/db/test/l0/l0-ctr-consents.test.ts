@@ -688,7 +688,7 @@ describe('documents en vigueur, empreintes et droits', () => {
           // US-106 (0076) : pays du compte (CGU acceptées, genre TOS_GUEST) pour la file KYC
           pols: 'iam_auth_insert:iam_auth_owner;iam_auth_select:iam_auth_owner;iam_staff_select:iam_staff_owner;kyc_cmd_insert:kyc_cmd_owner;kyc_cmd_read:kyc_cmd_owner;kyc_cmd_read_tos:kyc_cmd_owner;migrator_all:migrator',
         },
-        // US-211 (0120) : contrat de location (registres et partie nominative) sous cmd_hold_owner
+        // US-211 (0121) : contrat de location (registres et partie nominative) sous cmd_hold_owner
         {
           t: 'contract_document_party',
           rls: true,
@@ -701,7 +701,7 @@ describe('documents en vigueur, empreintes et droits', () => {
           rls: true,
           force: true,
           owner: 'migrator',
-          // US-211 (0120) : gabarit du contrat de location lu par cmd_hold_owner
+          // US-211 (0121) : gabarit du contrat de location lu par cmd_hold_owner
           pols: 'cmd_hold_contract_read:cmd_hold_owner;iam_auth_select:iam_auth_owner;iam_staff_insert:iam_staff_owner;iam_staff_select:iam_staff_owner;kyc_cmd_read:kyc_cmd_owner;migrator_all:migrator',
         },
         {

@@ -31,7 +31,8 @@ export const SPEC_TEXT: Readonly<
     | 'priceChanged'
     | 'kmIncluded'
     | 'verifyingTitle'
-    | 'verifyingBody',
+    | 'verifyingBody'
+    | 'reviewTitle',
     Readonly<Partial<Record<Language, string>>>
   >
 > = {
@@ -160,5 +161,12 @@ export const SPEC_TEXT: Readonly<
     es: 'Esto suele tardar menos de un minuto. No pagues de nuevo.',
     en: "This usually takes less than a minute. Don't pay again.",
     fr: 'Cela prend en général moins d’une minute. Ne paie pas une seconde fois.',
+  },
+  // 10b §4.3, ligne `web.s05.review.title` (S05, UX-35 ; US-209 partie 209c) ; pt : aucune colonne
+  // dans 10b (texte vérifié depuis le catalogue officiel)
+  reviewTitle: {
+    es: 'Reserva en revisión: no se te cobró nada',
+    en: "Booking under review: you haven't been charged",
+    fr: 'Réservation en cours d’examen : tu n’as rien payé',
   },
 };

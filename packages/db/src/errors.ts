@@ -46,7 +46,7 @@
  * - `PAYMENT_UNPROVEN` : PROPOSÉ par US-223 (migration 0116, ADR-139) : mouvement de jambe d'une
  *   opération sans preuve rattachée (S-02, RC-5) ;
  * - `CONTRACT_NOT_SIGNED` : 16 fiche BKG-019 (remise refusée tant que la dernière version du contrat
- *   de location n'est pas signée par le voyageur ; migration 0120, US-211, ADR-143).
+ *   de location n'est pas signée par le voyageur ; migration 0121, US-211, ADR-143).
  */
 
 /** Codes métier produits par la traduction. */
@@ -100,7 +100,7 @@ export const DB_BUSINESS_CODES = [
   'AGE_CLASS_MISMATCH',
   // US-223 (0116, ADR-139) : mouvement de jambe sans preuve rattachée (S-02, RC-5)
   'PAYMENT_UNPROVEN',
-  // US-211 (0120, ADR-143) : remise sans contrat de location signé (16 BKG-019)
+  // US-211 (0121, ADR-143) : remise sans contrat de location signé (16 BKG-019)
   'CONTRACT_NOT_SIGNED',
 ] as const;
 
@@ -322,7 +322,7 @@ export const CONSTRAINT_CODES: Readonly<Record<string, readonly [string, DbBusin
   trip_transition_unlogged: [SQLSTATE.integrityConstraintViolation, 'INVARIANT_VIOLATION'],
   trip_segment_missing: [SQLSTATE.integrityConstraintViolation, 'INVARIANT_VIOLATION'],
   trip_state_log_immutable: [SQLSTATE.integrityConstraintViolation, 'IMMUTABLE_RECORD'],
-  // contrat de location et signature (0120, US-211 ; 16 BKG-018, BKG-019)
+  // contrat de location et signature (0121, US-211 ; 16 BKG-018, BKG-019)
   trip_contract_not_signed: [SQLSTATE.objectNotInPrerequisiteState, 'CONTRACT_NOT_SIGNED'],
   contract_record_immutable: [SQLSTATE.integrityConstraintViolation, 'IMMUTABLE_RECORD'],
   contract_command_forbidden: [SQLSTATE.insufficientPrivilege, 'FORBIDDEN'],

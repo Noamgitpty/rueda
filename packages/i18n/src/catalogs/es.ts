@@ -2088,7 +2088,7 @@ export const ES_MESSAGES = {
   'common.payment.payoutRailUnavailable':
     'Todavía no podemos cobrar reservas de este auto. No se te cobró nada.',
   'common.payment.underReview':
-    'Estamos revisando tu reserva antes de cualquier cobro. Te avisaremos cuando puedas pagar.',
+    'Estamos revisando tu reserva antes de cualquier cobro. Vuelve a tu reserva para ver cuándo puedes pagar.',
   'common.payment.holdExpired':
     'Ya no guardamos este auto para ti. No se te cobró nada: vuelve a buscar.',
   'common.payment.holdNotPayable': 'Esta reserva ya no se puede pagar. Revisa su estado.',
@@ -2173,6 +2173,37 @@ export const ES_MESSAGES = {
     'Cuando la protección de la aseguradora aliada esté activa donde publicas, tu auto estará cubierto durante el periodo de cada reserva.',
   'web.a11.coverage.contract':
     'Las exclusiones y tu franquicia vienen del contrato de la aseguradora aliada: te las mostraremos aquí, palabra por palabra, antes de que puedas recibir viajes.',
+  // US-209 partie 209c (ADR-144) : S05 d'un hold en revue (délai lu dans l'API, aucune durée
+  // écrite), lien vers la vérification d'identité, S06 d'une revue refusée, déclaration d'entrée
+  'web.s05.review.title': 'Reserva en revisión: no se te cobró nada',
+  'web.s05.review.until':
+    'La revisamos antes de las {time}. Si no la aprobamos para entonces, liberamos el auto sin cobrarte nada.',
+  'web.s05.review.comeBack':
+    'Esta página se actualiza sola; también puedes volver más tarde para ver nuestra respuesta. Si la aprobamos, pagas aquí mismo.',
+  'web.s05.review.entryHint':
+    '¿Manejas con una licencia extranjera? Dinos tu fecha de entrada: nos ayuda a revisar tu reserva.',
+  'web.s05.review.approvedTitle': 'Reserva aprobada',
+  'web.s05.review.approvedBody': 'Ya puedes pagar. Guardamos el auto para ti hasta las {time}.',
+  'web.s05.kyc.link': 'Ir a la verificación de identidad',
+  'web.s06.reviewRejected.title': 'Reserva no aprobada',
+  'web.s06.reviewRejected.body':
+    'No pudimos aprobar tu reserva y liberamos el auto. No se te cobró nada: puedes buscar otro auto.',
+  'web.s04.entry.open': 'Declarar mi fecha de entrada',
+  'web.s04.entry.title': 'Tu fecha de entrada',
+  'web.s04.entry.intro':
+    'Si manejas con una licencia extranjera, dinos si eres turista o residente y, si eres turista, tu fecha de entrada. Nuestro equipo solo la revisa si tu reserva lo necesita.',
+  'web.s04.entry.country': 'Dónde vas a manejar',
+  'web.s04.entry.status': 'Tu situación migratoria',
+  'web.s04.entry.TOURIST': 'Turista',
+  'web.s04.entry.RESIDENT': 'Residente',
+  'web.s04.entry.date': 'Fecha de entrada',
+  'web.s04.entry.dateHint': 'Obligatoria si eres turista: la del sello de tu pasaporte.',
+  'web.s04.entry.dateRequired': 'Escribe tu fecha de entrada: es obligatoria para un turista.',
+  'web.s04.entry.statusRequired': 'Elige si eres turista o residente.',
+  'web.s04.entry.submit': 'Guardar mi declaración',
+  'web.s04.entry.savedTourist': 'Fecha de entrada declarada: {date}.',
+  'web.s04.entry.savedResident': 'Declaraste que eres residente.',
+  'web.s04.entry.back': 'Volver a la verificación de identidad',
 } as const satisfies Catalog;
 
 export type MessageKey = keyof typeof ES_MESSAGES;

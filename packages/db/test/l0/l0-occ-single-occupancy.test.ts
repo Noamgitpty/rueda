@@ -427,7 +427,7 @@ describe.each(COUNTRIES)('US-022 — table d’occupation unique ($country, $cur
           await tx.query(`SELECT pg_advisory_xact_lock(hashtextextended('veh:' || $1::text, 0))`, [
             slot.vehicleId,
           ]);
-          // US-211 (0120) : la remise exige le contrat de location signé par le voyageur
+          // US-211 (0121) : la remise exige le contrat de location signé par le voyageur
           await tx.query('SELECT test_fixture.us211_sign($1)', [tripId]);
           // US-207 (0099) : l'état ne s'écrit que par la commande de SM-1 (BOOKED → CHECKIN_OPEN →
           // IN_PROGRESS → RETURNED), qui libère les deux occupations à l'entrée dans RETURNED

@@ -16,7 +16,9 @@ import {
   checkoutInputErrors,
   checkoutInputOf,
   checkoutQuoteOf,
+  holdPayable,
   holdRequestOf,
+  IDENTITY_REFUSAL_KEYS,
   protectionChanged,
   protectionInputErrors,
   protectionInputOf,
@@ -325,6 +327,7 @@ describe('hold posé', () => {
         endAt: '2036-12-13T10:00:00.000Z',
         totalMinor: '12840',
         manualConfirmed: false,
+        reviewState: 'NONE',
         documents: [
           { kind: 'CANCELLATION_POLICY', version: 1, locale: 'es' },
           { kind: 'GEO_TERMS', version: 1, locale: 'es' },
@@ -348,9 +351,27 @@ describe('hold posé', () => {
       { totalMinor: 12840 },
       { documents: [{ kind: 'PRIVACY', version: 1 }] },
       { manualConfirmed: 'non' },
+      // US-209c (N-203) : état de revue absent ou inconnu ⇒ refusé (fail-closed)
+      { reviewState: undefined },
+      { reviewState: 'UNDER_REVIEW' },
+      { reviewState: null },
     ]) {
       expect(checkoutHoldOf(hold(e)), JSON.stringify(e)).toBeNull();
     }
+  });
+
+  it('US-209c (N-203) : « Pagar » seulement pour un hold ACTIVE sans revue ou revu ; jamais en revue, refusé ou hors ACTIVE', () => {
+    const payable = (status: string, reviewState: string) => {
+      const h = checkoutHoldOf(hold({ status, reviewState }));
+      if (h === null) throw new Error('hold mal lu');
+      return holdPayable(h);
+    };
+    expect(payable('ACTIVE', 'NONE')).toBe(true);
+    expect(payable('ACTIVE', 'APPROVED')).toBe(true);
+    expect(payable('ACTIVE', 'PENDING')).toBe(false);
+    expect(payable('RELEASED', 'REJECTED')).toBe(false);
+    expect(payable('PAYMENT_IN_FLIGHT', 'APPROVED')).toBe(false);
+    expect(payable('EXPIRED', 'NONE')).toBe(false);
   });
 });
 
@@ -514,5 +535,17 @@ describe('messages des refus', () => {
       from: 'checkout',
       quote: Q,
     });
+  });
+});
+
+describe('US-209c (UXQ-12) : refus du conducteur levés depuis S04', () => {
+  it('KYC_NOT_APPROVED, KYC_BIOMETRIC_CONSENT_MISSING, KYC_LICENSE_EXPIRED ⇒ lien vers S04 ; AGE_CLASS_MISMATCH et autres ⇒ aucun', () => {
+    const linked = (code: string) =>
+      IDENTITY_REFUSAL_KEYS.has(checkoutErrorKey(reply(403, { code, messageKey: 'x' })));
+    expect(linked('KYC_NOT_APPROVED')).toBe(true);
+    expect(linked('KYC_BIOMETRIC_CONSENT_MISSING')).toBe(true);
+    expect(linked('KYC_LICENSE_EXPIRED')).toBe(true);
+    expect(linked('AGE_CLASS_MISMATCH')).toBe(false);
+    expect(linked('DRIVER_CHECK_UNKNOWN')).toBe(false);
   });
 });

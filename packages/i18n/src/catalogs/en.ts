@@ -2031,7 +2031,7 @@ export const EN_MESSAGES = {
   'common.payment.payoutRailUnavailable':
     'We can’t take payments for this car yet. You haven’t been charged.',
   'common.payment.underReview':
-    'We’re reviewing your booking before any charge. We’ll let you know when you can pay.',
+    'We’re reviewing your booking before any charge. Go back to your booking to see when you can pay.',
   'common.payment.holdExpired':
     'We’re no longer holding this car for you. You haven’t been charged: search again.',
   'common.payment.holdNotPayable': 'This booking can no longer be paid. Check its status.',
@@ -2115,4 +2115,33 @@ export const EN_MESSAGES = {
     "Once the partner insurer's protection is active where you list, your car will be covered during each booking period.",
   'web.a11.coverage.contract':
     "Exclusions and your deductible come from the partner insurer's contract: we'll show them here, word for word, before you can receive trips.",
+  'web.s05.review.title': "Booking under review: you haven't been charged",
+  'web.s05.review.until':
+    'We’ll review it by {time}. If we haven’t approved it by then, we release the car and you aren’t charged.',
+  'web.s05.review.comeBack':
+    'This page updates on its own; you can also come back later to see our answer. If we approve it, you pay right here.',
+  'web.s05.review.entryHint':
+    'Driving on a foreign license? Tell us when you entered the country: it helps us review your booking.',
+  'web.s05.review.approvedTitle': 'Booking approved',
+  'web.s05.review.approvedBody': 'You can pay now. We’re holding the car for you until {time}.',
+  'web.s05.kyc.link': 'Go to identity verification',
+  'web.s06.reviewRejected.title': 'Booking not approved',
+  'web.s06.reviewRejected.body':
+    'We couldn’t approve your booking and released the car. You haven’t been charged: you can look for another car.',
+  'web.s04.entry.open': 'Declare my entry date',
+  'web.s04.entry.title': 'Your entry date',
+  'web.s04.entry.intro':
+    'If you drive on a foreign license, tell us whether you’re a tourist or a resident and, if you’re a tourist, when you entered the country. Our team only checks it if your booking needs it.',
+  'web.s04.entry.country': 'Country where you’ll drive',
+  'web.s04.entry.status': 'Your status in the country',
+  'web.s04.entry.TOURIST': 'Tourist',
+  'web.s04.entry.RESIDENT': 'Resident',
+  'web.s04.entry.date': 'Entry date',
+  'web.s04.entry.dateHint': 'Required if you’re a tourist: the date on your passport stamp.',
+  'web.s04.entry.dateRequired': 'Enter your entry date: it’s required for a tourist.',
+  'web.s04.entry.statusRequired': 'Choose whether you’re a tourist or a resident.',
+  'web.s04.entry.submit': 'Save my declaration',
+  'web.s04.entry.savedTourist': 'Declared entry date: {date}.',
+  'web.s04.entry.savedResident': 'You declared that you’re a resident.',
+  'web.s04.entry.back': 'Back to identity verification',
 } as const satisfies Readonly<Record<MessageKey, Message>>;
