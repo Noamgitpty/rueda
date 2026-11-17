@@ -107,7 +107,6 @@ export const PT_PROTO = {
   'web.s05.contract': 'Aceito o contrato de aluguel com {host_name}',
   'web.s05.mitConsent':
     'Autorizo cobranças depois da viagem neste cartão apenas por despesas da viagem, minha franquia ou danos, sempre com aviso e comprovação.',
-  'web.s05.ctaRequest': 'Enviar pedido',
   'web.s05.review.notice':
     'Analisamos cada reserva. Se não pudermos aprovar, devolvemos tudo a você.',
   'web.s06.pre.title': 'Na sua fatura vai aparecer: {merchant_name}',
@@ -116,8 +115,6 @@ export const PT_PROTO = {
   'web.s07.checkinOpens': 'O check-in com fotos abre em {date}.',
   'web.s07.safety':
     'Para sua segurança: encontrem-se em um lugar público e iluminado, avise alguém de confiança onde você vai estar e converse só pela {brand}.',
-  'web.s07.request.pending':
-    '{host_name} tem até {time} para responder. Você não paga nada se o pedido não for aceito.',
   'web.s08.tabs.upcoming': 'Próximas',
   'web.s08.tabs.past': 'Anteriores',
   'web.s08.empty': 'Você ainda não tem viagens',
@@ -131,8 +128,6 @@ export const PT_PROTO = {
   'web.checkin.queue.savedOnDevice': 'Salvo neste celular',
   'web.error.datesUnavailable':
     'Este carro não está disponível em {date_unavailable}. Sugerimos devolver em {date_suggested}. Usar essa data?',
-  'web.error.requestExpired':
-    '{host_name} não respondeu a tempo. Você não pagou nada. Veja estes carros disponíveis nas suas datas.',
   'web.error.hostNoShow':
     '{host_name} não chegou. Você pode cancelar sem custo e receber tudo de volta, ou esperar mais um pouco.',
   'web.error.offlinePhotos':
@@ -331,8 +326,6 @@ export const PT_PROTO = {
   'web.a03.check.restrictions': 'As restrições permitem dirigir este carro',
   'web.a04.addFee': 'Adicionar um custo com comprovante',
   'web.a04.claimUntil': 'Você pode informar danos até {date}',
-  'web.a05.accept': 'Aceitar o pedido',
-  'web.a05.decline': 'Recusar o pedido',
   'web.a05.cancel': 'Cancelar a reserva',
   'web.a05.cancelWarning':
     'O viajante recebe o reembolso total. Vamos descontar {amount} dos seus próximos ganhos e seu calendário ficará bloqueado nessas datas.',

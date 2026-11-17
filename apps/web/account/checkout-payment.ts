@@ -29,6 +29,29 @@ const INSTANT = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,3})?Z$/;
 const HOSTED = /^https:\/\/[^\s"'<>]+$/;
 const HOSTED_MAX = 500;
 
+/**
+ * États d'une demande à l'hôte rendus par l'API (US-223c, ADR-146 §9,
+ * `core.booking_checkout_request`) ; un autre état ⇒ réponse refusée (fail-closed).
+ */
+export const REQUEST_STATUSES = [
+  'AUTHORIZING',
+  'AWAITING_HOST',
+  'CAPTURING',
+  'ACCEPTED',
+  'DECLINED',
+  'EXPIRED',
+  'CAPTURE_FAILED',
+  'COMPENSATED',
+  'ENDED',
+] as const;
+export type RequestStatusView = (typeof REQUEST_STATUSES)[number];
+
+export interface PaymentRequestView {
+  readonly status: RequestStatusView;
+  /** Heure limite de réponse de l'hôte (base) ; `null` avant la preuve de l'autorisation. */
+  readonly respondBy: string | null;
+}
+
 export interface CheckoutPaymentView {
   readonly holdId: string;
   readonly state: PaymentStateView;
@@ -37,12 +60,96 @@ export interface CheckoutPaymentView {
   readonly paymentInFlightUntil: string | null;
   /** Page hébergée du PSP (POST seulement) ; `null` : aucun ordre créé par cet appel. */
   readonly redirectUrl: string | null;
+  /** Demande à l'hôte (hold `REQUEST`, US-223c) ; `null` : réservation immédiate. */
+  readonly request: PaymentRequestView | null;
 }
 
 const isObj = (v: unknown): v is Record<string, unknown> =>
   typeof v === 'object' && v !== null && !Array.isArray(v);
 const instantOrNull = (v: unknown): string | null | undefined =>
   v === null ? null : typeof v === 'string' && INSTANT.test(v) ? v : undefined;
+
+/** Champ `request` du paiement : absent ⇒ `null` (réservation immédiate), mal formé ⇒ `undefined`. */
+function requestOf(v: unknown): PaymentRequestView | null | undefined {
+  if (v === undefined) return null;
+  if (!isObj(v) || !(REQUEST_STATUSES as readonly unknown[]).includes(v['status'])) {
+    return undefined;
+  }
+  const respondBy = instantOrNull(v['respondBy']);
+  if (respondBy === undefined) return undefined;
+  const status = v['status'] as RequestStatusView;
+  // la base pose l'heure limite à la preuve de l'autorisation : jamais d'attente sans elle
+  if ((status === 'AWAITING_HOST' || status === 'CAPTURING') && respondBy === null) {
+    return undefined;
+  }
+  return { status, respondBy };
+}
+
+/**
+ * Écrans dédiés du voyageur pour une demande à l'hôte (US-223 partie 223d, ADR-152 ; 10b S07
+ * « Mode REQUEST : état `web.s07.request.pending` », S06, §4.3) ; `null` : l'état du paiement fait
+ * foi (autorisation en cours ou refusée, réservation confirmée, remboursement, sortie avant
+ * l'envoi).
+ *
+ * - `REQUEST_SENT` : autorisation prouvée, l'hôte n'a pas répondu (10b S07 « demande envoyée ») ;
+ * - `REQUEST_CAPTURING` : acceptée, capture en attente de sa preuve (jamais « confirmé » avant le
+ *   webhook) ;
+ * - `REQUEST_DECLINED`, `REQUEST_EXPIRED` : autorisation annulée, aucun débit ;
+ * - `REQUEST_CAPTURE_FAILED` : capture refusée ou non confirmée (`CAPTURE_UNCONFIRMED`), demande
+ *   terminée, autorisation annulée.
+ * Croisement fail-closed avec l'état du paiement : une demande n'est dite « envoyée » ou
+ * « acceptée » que si l'API rend `VERIFYING` (aucun paiement possible), terminée que si elle rend
+ * `ENDED` (aucun débit) ; toute autre combinaison garde l'écran de l'état du paiement.
+ */
+export type RequestScreen =
+  | 'REQUEST_SENT'
+  | 'REQUEST_CAPTURING'
+  | 'REQUEST_DECLINED'
+  | 'REQUEST_EXPIRED'
+  | 'REQUEST_CAPTURE_FAILED';
+
+export function requestScreenOf(payment: CheckoutPaymentView): RequestScreen | null {
+  const r = payment.request;
+  if (r === null) return null;
+  if (payment.state === 'VERIFYING') {
+    if (r.status === 'AWAITING_HOST') return 'REQUEST_SENT';
+    if (r.status === 'CAPTURING') return 'REQUEST_CAPTURING';
+    return null;
+  }
+  if (payment.state === 'ENDED') {
+    if (r.status === 'DECLINED') return 'REQUEST_DECLINED';
+    if (r.status === 'EXPIRED') return 'REQUEST_EXPIRED';
+    if (r.status === 'CAPTURE_FAILED') return 'REQUEST_CAPTURE_FAILED';
+  }
+  return null;
+}
+
+/**
+ * Créneau local `AAAA-MM-JJTHH:MM` d'un instant dans le fuseau du véhicule : dates d'une demande
+ * refusée ou expirée reprises dans la recherche (10b §4.3 « Mira estos autos disponibles en tus
+ * fechas ») ; `null` si l'instant ou le fuseau est invalide.
+ */
+export function localSlotOf(instant: string, timeZone: string): string | null {
+  const ms = Date.parse(instant);
+  if (Number.isNaN(ms)) return null;
+  let parts: Intl.DateTimeFormatPart[];
+  try {
+    parts = new Intl.DateTimeFormat('en-CA', {
+      timeZone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      hourCycle: 'h23',
+    }).formatToParts(new Date(ms));
+  } catch {
+    return null;
+  }
+  const v = (type: string) => parts.find((p) => p.type === type)?.value ?? '';
+  const slot = `${v('year')}-${v('month')}-${v('day')}T${v('hour')}:${v('minute')}`;
+  return /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(slot) ? slot : null;
+}
 
 /** Réponse 200 / 201 de la route du paiement ; `null` si mal formée. */
 export function checkoutPaymentOf(reply: ApiResult): CheckoutPaymentView | null {
@@ -60,6 +167,8 @@ export function checkoutPaymentOf(reply: ApiResult): CheckoutPaymentView | null 
   if (typeof expiresAt !== 'string' || inFlight === undefined) return null;
   // « confirmé » exige un trip né (jamais l'inverse)
   if (state === 'CONFIRMED' && tripId === null) return null;
+  const request = requestOf(p['request']);
+  if (request === undefined) return null;
   const redirectUrl =
     typeof url === 'string' && HOSTED.test(url) && url.length <= HOSTED_MAX ? url : null;
   return {
@@ -69,6 +178,7 @@ export function checkoutPaymentOf(reply: ApiResult): CheckoutPaymentView | null 
     expiresAt,
     paymentInFlightUntil: inFlight,
     redirectUrl,
+    request,
   };
 }
 

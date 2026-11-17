@@ -104,8 +104,21 @@ async function openPayment(
   language: Language,
   events: readonly string[],
   state: string,
+  day = 10,
 ): Promise<void> {
-  await openCheckout(page, context, language);
+  await placePayment(page, context, language, events, state, day);
+}
+
+/** Comme `openPayment`, rend l'identifiant du hold (demande rattachée ensuite à un hôte). */
+async function placePayment(
+  page: Page,
+  context: BrowserContext,
+  language: Language,
+  events: readonly string[],
+  state: string,
+  day: number,
+): Promise<string> {
+  await openCheckout(page, context, language, PUBLIC_ID, day);
   await page.locator('#s05-driver-first').fill('Lucía');
   await page.locator('#s05-driver-last').fill('Gómez');
   for (const kind of ['TOS_GUEST', 'CANCELLATION_POLICY', 'GEO_TERMS']) {
@@ -124,6 +137,51 @@ async function openPayment(
   }
   await page.goto(`/checkout/hold/${holdId}/payment`);
   await expect(page.locator('[data-testid="s06-title"]')).toHaveAttribute('data-state', state);
+  return holdId;
+}
+
+/** Demande à l'hôte du double (le 23 décembre ; US-223 partie 223d). */
+const REQUEST_DAY = 23;
+
+/**
+ * A05 — confirmation de l'acceptation d'une demande (US-223 partie 223d) : demande envoyée par un
+ * voyageur, rattachée à un hôte neuf (`GET /__e2e/request/assign`), ouverte puis « Aceptar la
+ * solicitud ». Aucune auto saisie : la carte ne porte pas de libellé d'auto (capture stable).
+ */
+async function openHostRequest(
+  page: Page,
+  context: BrowserContext,
+  language: Language,
+): Promise<void> {
+  const holdId = await placePayment(
+    page,
+    context,
+    language,
+    ['PAY', 'SUCCEEDED'],
+    'REQUEST_SENT',
+    REQUEST_DAY,
+  );
+  const token = `H0st${randomBytes(30).toString('base64url').slice(0, 39)}`;
+  await context.clearCookies();
+  await context.addCookies([
+    {
+      name: '__Host-session',
+      value: token,
+      domain: 'localhost',
+      path: '/',
+      httpOnly: true,
+      secure: true,
+      sameSite: 'Lax',
+    },
+  ]);
+  await page.goto('/host');
+  await expect(page.locator('main h1').first()).toBeVisible();
+  const r = await fetch(`${API}/__e2e/request/assign?hold=${holdId}&host=${token}`);
+  expect(r.status).toBe(200);
+  await page.goto('/host/trips');
+  await page.locator(`[data-testid="a05-requests"] a[href*="/host/requests/${holdId}"]`).click();
+  await page.locator('[data-testid="a05-open-accept"]').click();
+  await expect(page.locator('[data-testid="a05-confirm"]')).toBeVisible();
 }
 
 /**
@@ -210,6 +268,56 @@ async function openEarningsPlan(page: Page, context: BrowserContext, second: boo
   await page.locator('main a[href*="/earnings-plan?org="]').first().click();
   await expect(page).toHaveURL(/\/earnings-plan\?org=/);
   await expect(page.locator('#a11-current')).toBeVisible();
+}
+
+/**
+ * S06 confirmé → S09 · contrat du voyageur (US-211 partie 211b) ; `signed` : contrat signé (case
+ * cochée, signature du double : heure et sceau fixes).
+ */
+async function openTripContract(
+  page: Page,
+  context: BrowserContext,
+  language: Language,
+  signed: boolean,
+): Promise<void> {
+  await openPayment(page, context, language, ['PAY', 'SUCCEEDED'], 'CONFIRMED');
+  await page.locator('[data-testid="s06-contract"]').click();
+  await expect(page).toHaveURL(/\/trips\/[0-9a-f-]{36}\/contract$/);
+  await expect(page.locator('[data-testid="contract-summary"]')).toBeVisible();
+  if (!signed) return;
+  await page.locator('#s09-contract-accept').check();
+  await submitAndSettle(
+    page,
+    page.locator('[data-testid="s09-contract-sign"]'),
+    /\/contract\?signed=1$/,
+  );
+  await expect(page.locator('[data-testid="s09-contract-signed"]')).toBeVisible();
+}
+
+/** A10 (lieu et auto) → A02 → A05 → A03 · contrat de l'hôte (US-211 partie 211b), non signé. */
+async function openHostContract(page: Page, context: BrowserContext): Promise<void> {
+  await signInHost(context);
+  await page.goto('/host');
+  await page.locator('#a10-place-label').fill('Casa');
+  await page.locator('#a10-place-address').fill('Calle Secreta 123');
+  await page.locator('#a10-place-city').fill('Ciudad Ficticia');
+  await page.locator('#a10-place-form button[type="submit"]').click();
+  await expect(page).toHaveURL(/saved=1/);
+  // plaque unique (le double refuse une plaque déjà saisie) ; elle n'apparaît pas sur A03
+  await page.locator('#a10-car-plate').fill(`e2e-${randomBytes(3).toString('hex')}`);
+  await page.locator('#a10-car-make').fill('Toyota');
+  await page.locator('#a10-car-model').fill('Yaris');
+  await page.locator('#a10-car-year').fill('2021');
+  await page.locator('#a10-car-form button[type="submit"]').click();
+  await expect(page.locator('#a10-new')).toBeVisible();
+  await page.goto('/host');
+  await page
+    .locator('section[aria-labelledby="a02-upcoming"] li a[href^="/host/trips/"]')
+    .first()
+    .click();
+  await page.locator('[data-testid="a05-contract"]').click();
+  await expect(page).toHaveURL(/\/host\/trips\/[0-9a-f-]{36}\/contract\?org=/);
+  await expect(page.locator('[data-testid="a03-contract-state"]')).toBeVisible();
 }
 
 interface Screen {
@@ -414,6 +522,34 @@ export const SCREENS: readonly Screen[] = [
     open: (page, context, language) =>
       openPayment(page, context, language, ['PAY', 'EXPIRE', 'SUCCEEDED'], 'REFUND_DUE'),
   },
+  // US-223 partie 223d : mode sur demande (10b S07 « demande envoyée », S06 demande refusée, A05
+  // confirmation de l'acceptation)
+  {
+    name: 'demande-envoyee',
+    source: 'S07, US-223',
+    open: async (page, context, language) => {
+      await openPayment(page, context, language, ['PAY', 'SUCCEEDED'], 'REQUEST_SENT', REQUEST_DAY);
+    },
+  },
+  {
+    name: 'demande-refusee',
+    source: 'S06, US-223',
+    open: async (page, context, language) => {
+      await openPayment(
+        page,
+        context,
+        language,
+        ['PAY', 'SUCCEEDED', 'DECLINE'],
+        'REQUEST_DECLINED',
+        REQUEST_DAY,
+      );
+    },
+  },
+  {
+    name: 'hote-demande-acceptation',
+    source: 'A05, US-223',
+    open: (page, context, language) => openHostRequest(page, context, language),
+  },
   // US-209 partie 209c : réservation signalée (S05 en revue, S05 approuvée, S06 revue refusée) et
   // déclaration d'entrée du voyageur (S04)
   {
@@ -505,6 +641,22 @@ export const SCREENS: readonly Screen[] = [
     name: 'hote-plan-gains-choix',
     source: 'A10, A11, US-226',
     open: (page, context) => openEarningsPlan(page, context, true),
+  },
+  // US-211 partie 211b : contrat de location (S09 à signer, S09 signé, A03 de l'hôte)
+  {
+    name: 'contrat-a-signer',
+    source: 'S09, US-211',
+    open: (page, context, language) => openTripContract(page, context, language, false),
+  },
+  {
+    name: 'contrat-signe',
+    source: 'S09, US-211',
+    open: (page, context, language) => openTripContract(page, context, language, true),
+  },
+  {
+    name: 'hote-contrat',
+    source: 'A03, US-211',
+    open: (page, context) => openHostContract(page, context),
   },
   { name: 'vitrine-composants', source: 'US-032', open: at('/ui?width=mobile') },
 ];

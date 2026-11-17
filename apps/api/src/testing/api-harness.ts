@@ -328,7 +328,8 @@ export async function startApiHarness(overrides: ApiHarnessOverrides = {}): Prom
   };
   const config = new CountryConfigService().config;
   const wide: RateLimitPolicy = {
-    limit: () => 1_000_000,
+    // poids d'un client soupçonné = graine de production (4) : jamais la fenêtre saturée d'un coup
+    limit: (param) => (param === 'botWeight' ? 4 : 1_000_000),
     isCountry: (c) => config.countries.has(c),
   };
   const risk: RiskHttpOptions = {

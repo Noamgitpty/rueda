@@ -50,6 +50,13 @@ const PAYMENT = /checkout-payment\.spec\.ts$/;
 const REVIEW = /checkout-review\.spec\.ts$/;
 /** Plan de gains d'un véhicule, A10 → A11 (US-226 partie 226b) : téléphones 360 et 390 px. */
 const HOST_EARNINGS = /host-earnings-plan\.spec\.ts$/;
+/**
+ * Mode sur demande, S05 → S07 « demande envoyée » → A05 → S06 (US-223 partie 223d) : 360 px
+ * seulement (durée du job e2e ; le balayage des écrans couvre 390 px et la tablette).
+ */
+const REQUEST_MODE = /request-mode\.spec\.ts$/;
+/** Contrat de location : S09 · contrat du voyageur, A03 · contrat de l'hôte (US-211 partie 211b) : 360 px. */
+const CONTRACT = /trip-contract\.spec\.ts$/;
 /** Balayage axe + captures de chaque écran du site (US-044). */
 const SCREENS = /screens\.spec\.ts$/;
 /** Balayage des écrans de la console interne (US-044). */
@@ -65,12 +72,19 @@ const CHROME_ARGS = ['--disable-lcd-text'] as const;
  * garde alors l'ajustement pour toute la page (décalage vertical d'environ un demi-pixel, encre
  * ±5 %, gras et 14 px intacts) ; une capture de téléphone échouait au hasard sous charge
  * (docs/qa/REGRESSION_VISUELLE.md, « Ajustement des glyphes selon l'échelle de l'écran »).
+ * L'écart est revenu malgré ce drapeau (run 44071319010, `accueil · fr`, même signature) : les
+ * téléphones demandent aussi `--font-render-hinting=none`, qui fixe l'ajustement à « aucun »
+ * quelle que soit l'échelle de la requête, soit l'état que l'échelle 2 donne déjà (références
+ * inchangées) ; la branche « ajustée » de la course disparaît. La tablette (échelle 1, ajustement
+ * « slight » dans ses références) n'en reçoit pas.
  */
 const phone = {
   isMobile: true,
   hasTouch: true,
   deviceScaleFactor: 2,
-  launchOptions: { args: [...CHROME_ARGS, '--force-device-scale-factor=2'] },
+  launchOptions: {
+    args: [...CHROME_ARGS, '--force-device-scale-factor=2', '--font-render-hinting=none'],
+  },
 };
 
 export default defineConfig({
@@ -122,6 +136,8 @@ export default defineConfig({
         PAYMENT,
         REVIEW,
         HOST_EARNINGS,
+        REQUEST_MODE,
+        CONTRACT,
         SCREENS,
       ],
       use: { ...phone, viewport: { width: 360, height: 780 } },
@@ -143,6 +159,8 @@ export default defineConfig({
         PAYMENT,
         REVIEW,
         HOST_EARNINGS,
+        // CONTRACT : 360 px seulement ; ses trois écrans passent à 390 px par SCREENS (axe, mobile
+        // d'abord) : job e2e proche de sa limite de 20 min (suite à la passation d'US-211b)
         SCREENS,
       ],
       use: { ...phone, viewport: { width: 390, height: 844 } },

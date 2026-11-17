@@ -113,7 +113,6 @@ export const ES_PROTO = {
   'web.s05.contract': 'Acepto el contrato de alquiler con {host_name}',
   'web.s05.mitConsent':
     'Autorizo cargos posteriores al viaje en esta tarjeta solo por gastos del viaje, mi franquicia o daños, siempre con aviso y prueba.',
-  'web.s05.ctaRequest': 'Enviar solicitud',
   'web.s05.review.notice': 'Revisamos cada reserva. Si no podemos aprobarla, te devolvemos todo.',
   'web.s06.pre.title': 'En tu estado de cuenta verás: {merchant_name}',
   'web.s07.title': '¡Reserva confirmada!',
@@ -121,8 +120,6 @@ export const ES_PROTO = {
   'web.s07.checkinOpens': 'El check-in con fotos se abre el {date}.',
   'web.s07.safety':
     'Para tu seguridad: encuéntrense en un lugar público e iluminado, avisa a alguien de confianza dónde estarás y escribe solo por {brand}.',
-  'web.s07.request.pending':
-    '{host_name} tiene hasta las {time} para responder. No se te cobra nada si no acepta.',
   'web.s08.tabs.upcoming': 'Próximos',
   'web.s08.tabs.past': 'Anteriores',
   'web.s08.empty': 'Aún no tienes viajes',
@@ -136,8 +133,6 @@ export const ES_PROTO = {
   'web.checkin.queue.savedOnDevice': 'Guardado en este teléfono',
   'web.error.datesUnavailable':
     'Este auto no está disponible el {date_unavailable}. Te proponemos devolverlo el {date_suggested}. ¿Usar esta fecha?',
-  'web.error.requestExpired':
-    '{host_name} no respondió a tiempo. No se te cobró nada. Mira estos autos disponibles en tus fechas.',
   'web.error.hostNoShow':
     '{host_name} no llegó. Puedes cancelar sin costo y te reembolsamos todo, o esperar un poco más.',
   'web.error.offlinePhotos':
@@ -335,8 +330,6 @@ export const ES_PROTO = {
   'web.a03.check.restrictions': 'Sus restricciones permiten manejar este auto',
   'web.a04.addFee': 'Agregar un gasto con prueba',
   'web.a04.claimUntil': 'Puedes reportar daños hasta el {date}',
-  'web.a05.accept': 'Aceptar la solicitud',
-  'web.a05.decline': 'Rechazar la solicitud',
   'web.a05.cancel': 'Cancelar reserva',
   'web.a05.cancelWarning':
     'El viajero recibe el reembolso completo. Se te descontará {amount} de tus próximas ganancias y tu calendario quedará bloqueado en esas fechas.',

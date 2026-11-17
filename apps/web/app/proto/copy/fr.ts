@@ -109,7 +109,6 @@ export const FR_PROTO = {
   'web.s05.contract': 'J’accepte le contrat de location avec {host_name}',
   'web.s05.mitConsent':
     'J’autorise des débits après le voyage sur cette carte, uniquement pour des frais du voyage, ma franchise ou des dommages, toujours avec un avis et une preuve.',
-  'web.s05.ctaRequest': 'Envoyer la demande',
   'web.s05.review.notice':
     'Nous examinons chaque réservation. Si nous ne pouvons pas l’accepter, nous te remboursons tout.',
   'web.s06.pre.title': 'Sur ton relevé, tu verras : {merchant_name}',
@@ -118,8 +117,6 @@ export const FR_PROTO = {
   'web.s07.checkinOpens': 'Le check-in avec photos ouvre le {date}.',
   'web.s07.safety':
     'Pour ta sécurité : retrouvez-vous dans un lieu public et éclairé, dis à une personne de confiance où tu seras et échange uniquement sur {brand}.',
-  'web.s07.request.pending':
-    '{host_name} a jusqu’à {time} pour répondre. Tu ne paies rien si la demande n’est pas acceptée.',
   'web.s08.tabs.upcoming': 'À venir',
   'web.s08.tabs.past': 'Passés',
   'web.s08.empty': 'Tu n’as encore aucun voyage',
@@ -133,8 +130,6 @@ export const FR_PROTO = {
   'web.checkin.queue.savedOnDevice': 'Enregistré sur ce téléphone',
   'web.error.datesUnavailable':
     'Cette voiture n’est pas disponible le {date_unavailable}. Nous te proposons de la rendre le {date_suggested}. Utiliser cette date ?',
-  'web.error.requestExpired':
-    '{host_name} n’a pas répondu à temps. Tu n’as rien payé. Voici des voitures disponibles à tes dates.',
   'web.error.hostNoShow':
     '{host_name} n’est pas encore là. Tu peux annuler sans frais et obtenir un remboursement intégral, ou attendre encore un peu.',
   'web.error.offlinePhotos':
@@ -336,8 +331,6 @@ export const FR_PROTO = {
   'web.a03.check.restrictions': 'Ses restrictions permettent de conduire cette voiture',
   'web.a04.addFee': 'Ajouter des frais avec justificatif',
   'web.a04.claimUntil': 'Tu peux déclarer des dommages jusqu’au {date}',
-  'web.a05.accept': 'Accepter la demande',
-  'web.a05.decline': 'Refuser la demande',
   'web.a05.cancel': 'Annuler la réservation',
   'web.a05.cancelWarning':
     'Le voyageur est remboursé intégralement. {amount} sera déduit de tes prochains gains et ton calendrier sera bloqué à ces dates.',

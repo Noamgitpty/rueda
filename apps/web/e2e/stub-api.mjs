@@ -18,7 +18,7 @@
 // connexion, documents à jour, téléphone vérifié) parcourt S04 : consentement biométrique v1
 // (texte BROUILLON), ouverture du parcours hébergé (adresse `https://identity.fake.invalid/…`,
 // jamais résolue : le test l'intercepte), décision posée par `GET /__e2e/identity/approve`.
-import { randomBytes } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 
@@ -673,6 +673,8 @@ async function checkoutRoute(req, res, path) {
       id: `${HOLD_ID_PREFIX}${uuid().slice(8)}`,
       quote: q,
       manual: q.listingId === MANUAL_ID,
+      // US-223d : le 23, demande à l'hôte (hold REQUEST, voir « Demande à l'hôte » plus bas)
+      ...(q.startAt.includes(REQUEST_DAY) ? { kind: 'REQUEST' } : {}),
     };
     // US-209c : réservation signalée (revue avant le débit, hold de revue de 120 min)
     if (q.startAt.includes(REVIEW_DAY)) {
@@ -721,8 +723,39 @@ const REVIEW_DAY = '-12-19T';
 const REVIEW_EXPIRES_AT = '2036-11-30T17:00:00.000Z';
 const APPROVED_EXPIRES_AT = '2036-11-30T15:40:00.000Z';
 const PAYMENT_IN_FLIGHT_UNTIL = '2036-11-30T15:16:00.000Z';
+// ---- Demande à l'hôte (US-223 partie 223d ; mode REQUEST de 223c, ADR-146) -------------------
+// Le 23 décembre : hold de DEMANDE (`kind` REQUEST). Le parcours S03 / S05 d'une annonce sur
+// demande reste fermé tant que le mode n'est pas ouvert (suite de 223d) : le double pose donc la
+// demande depuis le checkout ordinaire, pour exercer les écrans qui suivent la pose. Événements de
+// `GET /__e2e/payment/webhook` sur une demande : PAY (autorisation en vol), SUCCEEDED (autorisation
+// prouvée ⇒ AWAITING_HOST, heure limite REQUEST_RESPOND_BY ; après l'acceptation : capture prouvée
+// ⇒ trip né), FAILED (capture refusée ⇒ RELEASED / PAYMENT_DECLINED), EXPIRE (heure limite passée
+// ⇒ EXPIRED), DECLINE (refus de l'hôte joué sans A05, captures du voyageur).
+// `GET /__e2e/request/assign?hold=&host=<jeton>&refuse=` rattache la demande au premier
+// compte de l'hôte (refus forcé de l'acceptation : REQUEST_EXPIRED, PAYMENT_UNAVAILABLE).
+// État de la demande calculé comme `core.booking_checkout_request` (0126).
+const REQUEST_DAY = '-12-23T';
+const REQUEST_RESPOND_BY = '2036-11-30T19:10:00.000Z';
+const REQUEST_ENDED = ['DECLINED', 'EXPIRED', 'CAPTURE_FAILED', 'ENDED'];
+const requestStatusOf = (h) => {
+  const status = h.status ?? 'ACTIVE';
+  if (status === 'AWAITING_HOST') return 'AWAITING_HOST';
+  if (h.respondBy === undefined) {
+    return status === 'ACTIVE' || status === 'PAYMENT_IN_FLIGHT' ? 'AUTHORIZING' : 'ENDED';
+  }
+  if (status === 'PAYMENT_IN_FLIGHT') return 'CAPTURING';
+  if (status === 'CONVERTED') return 'ACCEPTED';
+  if (status === 'RELEASED' && h.reason === 'REQUEST_DECLINED') return 'DECLINED';
+  if (status === 'RELEASED' && h.reason === 'PAYMENT_DECLINED') return 'CAPTURE_FAILED';
+  if (status === 'EXPIRED') return 'EXPIRED';
+  if (status === 'COMPENSATED') return 'COMPENSATED';
+  return 'ENDED';
+};
 const paymentStateOf = (h) => {
   const status = h.status ?? 'ACTIVE';
+  // comme `paymentStateOf` de l'API (US-223c) : demande terminée ⇒ ENDED ; attente ⇒ VERIFYING
+  if (h.kind === 'REQUEST' && REQUEST_ENDED.includes(requestStatusOf(h))) return 'ENDED';
+  if (status === 'AWAITING_HOST') return 'VERIFYING';
   if (status === 'CONVERTED') return h.tripId ? 'CONFIRMED' : 'VERIFYING';
   if (status === 'PAYMENT_IN_FLIGHT') return h.op === 'PENDING' ? 'INTERRUPTED' : 'VERIFYING';
   if (status === 'ACTIVE') return !h.op ? 'PAYABLE' : h.op === 'FAILED' ? 'DECLINED' : 'VERIFYING';
@@ -737,6 +770,9 @@ const paymentJson = (h, redirectUrl) => ({
   expiresAt: h.expiresAt ?? HOLD_EXPIRES_AT,
   paymentInFlightUntil: h.status === 'PAYMENT_IN_FLIGHT' ? PAYMENT_IN_FLIGHT_UNTIL : null,
   ...(redirectUrl === undefined ? {} : { redirectUrl }),
+  ...(h.kind === 'REQUEST'
+    ? { request: { status: requestStatusOf(h), respondBy: h.respondBy ?? null } }
+    : {}),
 });
 
 async function paymentRoute(req, res, url) {
@@ -772,10 +808,43 @@ async function paymentRoute(req, res, url) {
       // T1 passée, PSP sans réponse avant T2 : opération PENDING sans référence
       h.status = 'PAYMENT_IN_FLIGHT';
       h.op = 'PENDING';
+    } else if (
+      event === 'SUCCEEDED' &&
+      h.kind === 'REQUEST' &&
+      status === 'PAYMENT_IN_FLIGHT' &&
+      h.respondBy === undefined
+    ) {
+      // demande : autorisation prouvée (rien n'est capturé), l'hôte a jusqu'à l'heure limite
+      h.status = 'AWAITING_HOST';
+      h.op = 'SUCCEEDED';
+      h.respondBy = REQUEST_RESPOND_BY;
+      h.expiresAt = REQUEST_RESPOND_BY;
+    } else if (
+      event === 'FAILED' &&
+      h.kind === 'REQUEST' &&
+      status === 'PAYMENT_IN_FLIGHT' &&
+      h.respondBy !== undefined
+    ) {
+      // demande acceptée : capture refusée ⇒ demande terminée, autorisation annulée (VOID)
+      h.status = 'RELEASED';
+      h.reason = 'PAYMENT_DECLINED';
+    } else if (event === 'EXPIRE' && status === 'AWAITING_HOST') {
+      h.status = 'EXPIRED';
+    } else if (event === 'DECLINE' && status === 'AWAITING_HOST') {
+      // refus de l'hôte joué sans passer par A05 (captures du voyageur)
+      h.status = 'RELEASED';
+      h.reason = 'REQUEST_DECLINED';
     } else if (event === 'SUCCEEDED' && status === 'PAYMENT_IN_FLIGHT') {
       h.status = 'CONVERTED';
       h.op = 'SUCCEEDED';
       h.tripId = uuid();
+      // contrat de location du trip né (US-211 partie 211b), partie : le voyageur du hold
+      newContract(
+        h.tripId,
+        h.quote.token,
+        null,
+        guestOf({ headers: { cookie: `__Host-session=${h.quote.token}` } })?.lang ?? 'es',
+      );
     } else if (event === 'SUCCEEDED' && status === 'EXPIRED') {
       // payé après la libération du créneau : compensation (remboursement intégral)
       h.status = 'COMPENSATED';
@@ -818,6 +887,85 @@ async function paymentRoute(req, res, url) {
   h.status = 'PAYMENT_IN_FLIGHT';
   h.op = 'SUBMITTED';
   return json(res, 201, { payment: paymentJson(h, `${PSP_PAGE}${h.id}`) });
+}
+
+// ---- Demandes de l'hôte (routes de 223c, ADR-146 §10 ; écrans de 223d) -------------------------
+// `GET /host/accounts/{orgId}/requests[/{holdId}]` : demandes rattachées au compte (`/__e2e/request/
+// assign`), en attente ou acceptées dont la capture attend sa preuve ; `POST …/accept` : capture
+// demandée (CAPTURING), sauf refus forcé ; `POST …/decline` : RELEASED (REQUEST_DECLINED). Compte
+// d'un autre hôte, demande inconnue ou sortie de l'attente ⇒ 404 REQUEST_NOT_FOUND (même réponse).
+// Montants en unités mineures (chaînes), jambe HOST de forme (3/4 du loyer), devise du marché.
+const hostRequestJson = (h) => ({
+  holdId: h.id,
+  status: h.status === 'AWAITING_HOST' ? 'AWAITING_HOST' : 'CAPTURING',
+  vehicleId: h.requestVehicleId,
+  scheduledStart: h.quote.startAt,
+  scheduledEnd: h.quote.endAt,
+  timezone: 'UTC',
+  respondBy: h.respondBy,
+  currency: MARKET.currency,
+  totalMinor: String(h.quote.rent + h.quote.tax + h.quote.protection),
+  hostLegMinor: String(Math.floor((h.quote.rent * 3) / 4)),
+  guest: { firstName: 'Lucía', ageYears: 29, rating: 4.8, verified: true },
+});
+const openRequest = (h) =>
+  h.kind === 'REQUEST' &&
+  (h.status === 'AWAITING_HOST' || (h.status === 'PAYMENT_IN_FLIGHT' && h.respondBy !== undefined));
+
+async function hostRequestRoute(req, res, url) {
+  const path = url.pathname;
+  if (req.method === 'GET' && path === '/__e2e/request/assign') {
+    const h = holds.get(url.searchParams.get('hold') ?? '');
+    const owner = hosts.get(url.searchParams.get('host') ?? '');
+    if (h === undefined || h.kind !== 'REQUEST' || owner === undefined) {
+      return err(res, 404, 'REQUEST_NOT_FOUND', 'common.request.notFound');
+    }
+    const a = owner.accounts[0];
+    h.requestOrg = a.orgId;
+    h.requestVehicleId = a.vehicles[0]?.id ?? uuid();
+    h.refuse = url.searchParams.get('refuse') ?? undefined;
+    return json(res, 200, { orgId: a.orgId });
+  }
+  const m =
+    /^\/host\/accounts\/([0-9a-f-]{36})\/requests(?:\/([0-9a-f-]{36})(?:\/(accept|decline))?)?$/.exec(
+      path,
+    );
+  if (m === null) return false;
+  const owner = hostOf(req);
+  if (owner === undefined) return err(res, 401, 'AUTH_REQUIRED', 'common.auth.sessionRequired');
+  const a = owner === null ? undefined : owner.accounts.find((x) => x.orgId === m[1]);
+  const notFound = () => err(res, 404, 'REQUEST_NOT_FOUND', 'common.request.notFound');
+  if (a === undefined) return notFound();
+  const mine = [...holds.values()].filter((h) => h.requestOrg === a.orgId && openRequest(h));
+  const [, , holdId, verb] = m;
+  if (holdId === undefined) {
+    if (req.method !== 'GET') return notFound();
+    return json(res, 200, { requests: mine.map(hostRequestJson) });
+  }
+  const h = mine.find((x) => x.id === holdId);
+  if (h === undefined) return notFound();
+  if (verb === undefined) {
+    if (req.method !== 'GET') return notFound();
+    return json(res, 200, { request: hostRequestJson(h) });
+  }
+  if (req.method !== 'POST') return notFound();
+  if (h.status !== 'AWAITING_HOST') {
+    return err(res, 409, 'INVALID_TRANSITION', 'common.request.alreadyAnswered');
+  }
+  if (verb === 'decline') {
+    h.status = 'RELEASED';
+    h.reason = 'REQUEST_DECLINED';
+    return json(res, 200, { decision: { holdId: h.id, status: 'DECLINED' } });
+  }
+  if (h.refuse === 'REQUEST_EXPIRED') {
+    return err(res, 409, 'REQUEST_EXPIRED', 'common.request.expired');
+  }
+  if (h.refuse === 'PAYMENT_UNAVAILABLE') {
+    return err(res, 503, 'PAYMENT_UNAVAILABLE', 'common.request.paymentUnavailable');
+  }
+  h.status = 'PAYMENT_IN_FLIGHT';
+  h.op = 'SUBMITTED';
+  return json(res, 200, { decision: { holdId: h.id, status: 'CAPTURING' } });
 }
 
 // ---- Vérification de l'hôte (US-123) : liste de tâches A07 -----------------------------------
@@ -1215,6 +1363,8 @@ async function hostRoute(req, res, url) {
     const trips = a.vehicles.flatMap((v, i) => {
       const ids = a.tripIds.get(v.id) ?? [uuid(), uuid()];
       a.tripIds.set(v.id, ids);
+      // contrat du trip à venir (US-211 partie 211b), partie : l'hôte de la session
+      newContract(ids[0], null, tokenOf(req), 'es');
       const base = {
         status: 'BOOKED',
         vehicle: {
@@ -1715,10 +1865,219 @@ async function hostRoute(req, res, url) {
   return err(res, 404, 'NOT_FOUND', 'common.error.notFound');
 }
 
+// ---- Contrat de location d'un trip (US-211 partie 211b) : lecture, PDF, signature -------------
+// Un contrat naît avec le trip : celui du voyageur au webhook SUCCEEDED (session `G0st…` du hold,
+// courtoisie dans sa langue, l'anglais pour l'espagnol), celui de l'hôte pour chaque trip à venir
+// de ses autos (session `H0st…`, voyageur fictif). Lecture : la seule partie de la session ; toute
+// autre session ⇒ 404 CONTRACT_NOT_FOUND (comme l'API). Texte fictif, BROUILLON, faits fixes
+// (captures stables) ; empreinte = SHA-256 du PDF fictif de la version. `GET /__e2e/contract/
+// regenerate?trip=` crée la version suivante (critère 2) ; `GET /__e2e/contract/sign?trip=` signe
+// au nom du voyageur (vue de l'hôte). Heure de signature et sceau fixes.
+const contracts = new Map();
+const CONTRACT_SIGNED_AT = '2036-11-30T15:20:00.000Z';
+const CONTRACT_SEAL = 'c'.repeat(64);
+const COURTESY = { es: 'en', en: 'en', fr: 'fr', pt: 'pt' };
+const CONTRACT_COUNTRY = COUNTRIES[0].code;
+// octets indépendants du trip : empreinte affichée identique d'une exécution à l'autre (captures)
+const contractPdf = (_tripId, version, signed) =>
+  Buffer.from(`%PDF-1.4\n% contrat fictif v${version}${signed ? ' signé' : ''}\n%%EOF\n`, 'latin1');
+const sha256hex = (b) => createHash('sha256').update(b).digest('hex');
+const newContract = (tripId, guest, host, lang) => {
+  if (contracts.has(tripId)) return;
+  contracts.set(tripId, {
+    guest,
+    host,
+    courtesy: COURTESY[lang] ?? 'en',
+    status: 'BOOKED',
+    docs: [{ id: uuid(), sha256: sha256hex(contractPdf(tripId, 1, false)), signature: null }],
+  });
+};
+const contractLines = (lang, version, sig) => {
+  const t = {
+    es: [
+      'Contrato de alquiler de vehículo entre particulares',
+      'Partes',
+      'Anfitrión: María G., propietaria del vehículo',
+      'Conductor (viajero): Lucía G.',
+      'Cláusulas',
+      '1. Partes. El anfitrión alquila al viajero un vehículo propio.',
+      'Firma electrónica del viajero',
+      'Firma: Lucía G.',
+      'Fecha y hora del servidor (UTC)',
+      'Sello',
+    ],
+    en: [
+      'Peer-to-peer vehicle rental agreement',
+      'Parties',
+      'Host: María G., owner of the vehicle',
+      'Driver (guest): Lucía G.',
+      'Clauses',
+      '1. Parties. The host rents to the guest a vehicle they own.',
+      'Guest electronic signature',
+      'Signature: Lucía G.',
+      'Server date and time (UTC)',
+      'Seal',
+    ],
+    fr: [
+      'Contrat de location de véhicule entre particuliers',
+      'Parties',
+      'Hôte : María G., propriétaire du véhicule',
+      'Conducteur (voyageur) : Lucía G.',
+      'Clauses',
+      '1. Parties. L’hôte loue au voyageur un véhicule qui lui appartient.',
+      'Signature électronique du voyageur',
+      'Signature : Lucía G.',
+      'Date et heure du serveur (UTC)',
+      'Sceau',
+    ],
+    pt: [
+      'Contrato de aluguel de veículo entre particulares',
+      'Partes',
+      'Anfitrião: María G., proprietária do veículo',
+      'Condutor (viajante): Lucía G.',
+      'Cláusulas',
+      '1. Partes. O anfitrião aluga ao viajante um veículo próprio.',
+      'Assinatura eletrônica do viajante',
+      'Assinatura: Lucía G.',
+      'Data e hora do servidor (UTC)',
+      'Selo',
+    ],
+  }[lang];
+  return [
+    { style: 'title', text: t[0] },
+    { style: 'note', text: MARK[lang] },
+    { style: 'kv', text: `KM-2110 v${version}` },
+    { style: 'h', text: t[1] },
+    { style: 'kv', text: t[2] },
+    { style: 'kv', text: t[3] },
+    { style: 'h', text: t[4] },
+    { style: 'p', text: t[5] },
+    { style: 'h', text: t[6] },
+    { style: 'kv', text: t[7] },
+    { style: 'sig', text: `${t[8]}: ${sig === null ? '-' : '2036-11-30 15:20:00 UTC'}` },
+    { style: 'sig', text: `${t[9]}: ${sig === null ? '-' : CONTRACT_SEAL}` },
+  ];
+};
+const contractView = (tripId, c, role, d, n) => ({
+  tripId,
+  viewerRole: role,
+  documentId: d.id,
+  version: n,
+  latestVersion: c.docs.length,
+  courtesyLocale: c.courtesy,
+  generatedAt: '2036-11-30T15:15:00.000Z',
+  sha256: d.sha256,
+  renderer: 'ctr.pdf/1',
+  draft: true,
+  summary: {
+    tripRef: 'KM-2110',
+    country: CONTRACT_COUNTRY,
+    currency: 'XXX',
+    currencyExponent: 0,
+    timezone: 'UTC',
+    startLocal: '2036-12-10 10:00',
+    endLocal: '2036-12-13 10:00',
+    vehicle: { make: 'Toyota', model: 'Yaris', year: 2021 },
+    hostCapacity: 'OWNER',
+    priceTotalMinor: '128400',
+    protection: { level: 'BASICA', deductibleMinor: '500000', insurer: 'Aseguradora ficticia' },
+    depositMinor: '250000',
+    mileage: { mode: 'INCLUDED', includedKm: 600, extraKmPriceMinor: '350' },
+    lateGraceMinutes: 30,
+    cancellation: { freeUntilLocal: '2036-12-09 10:00', penaltyDays: '1', retainedMinor: '42800' },
+  },
+  parts: [
+    { lang: 'es', authoritative: true, lines: contractLines('es', n, d.signature) },
+    { lang: c.courtesy, authoritative: false, lines: contractLines(c.courtesy, n, d.signature) },
+  ],
+  signature:
+    d.signature === null ? null : { signedAt: CONTRACT_SIGNED_AT, sealSha256: CONTRACT_SEAL },
+  signable: role === 'GUEST' && n === c.docs.length && d.signature === null,
+});
+const signDoc = (d) => {
+  d.signature ??= { signedAt: CONTRACT_SIGNED_AT, sealSha256: CONTRACT_SEAL };
+};
+
+async function contractRoute(req, res, url) {
+  const path = url.pathname;
+  if (req.method === 'GET' && path === '/__e2e/contract/regenerate') {
+    const tripId = url.searchParams.get('trip') ?? '';
+    const c = contracts.get(tripId);
+    if (c === undefined) return err(res, 404, 'CONTRACT_NOT_FOUND', 'common.contract.notFound');
+    const n = c.docs.length + 1;
+    c.docs.push({ id: uuid(), sha256: sha256hex(contractPdf(tripId, n, false)), signature: null });
+    return json(res, 200, { version: n });
+  }
+  if (req.method === 'GET' && path === '/__e2e/contract/sign') {
+    const c = contracts.get(url.searchParams.get('trip') ?? '');
+    if (c === undefined) return err(res, 404, 'CONTRACT_NOT_FOUND', 'common.contract.notFound');
+    signDoc(c.docs[c.docs.length - 1]);
+    return json(res, 200, {});
+  }
+  const m = /^\/trips\/([^/]+)\/contract(\/pdf|\/sign)?$/.exec(path);
+  if (m === null) return false;
+  const token = tokenOf(req);
+  if (token === undefined) return err(res, 401, 'AUTH_REQUIRED', 'common.auth.sessionRequired');
+  const c = contracts.get(m[1]);
+  const role =
+    c === undefined ? null : token === c.guest ? 'GUEST' : token === c.host ? 'HOST' : null;
+  if (c === undefined || role === null) {
+    return err(res, 404, 'CONTRACT_NOT_FOUND', 'common.contract.notFound');
+  }
+  if (m[2] === '/sign' && req.method === 'POST') {
+    const b = (await readBody(req)) ?? {};
+    if (
+      b.accepted !== true ||
+      typeof b.documentId !== 'string' ||
+      typeof b.sha256 !== 'string' ||
+      !/^[0-9a-f]{64}$/.test(b.sha256)
+    ) {
+      return err(res, 400, 'REQUEST_INVALID', 'common.auth.requestInvalid');
+    }
+    const i = c.docs.findIndex((d) => d.id === b.documentId);
+    if (role !== 'GUEST' || i < 0) {
+      return err(res, 404, 'CONTRACT_NOT_FOUND', 'common.contract.notFound');
+    }
+    const d = c.docs[i];
+    if (d.signature === null && i !== c.docs.length - 1) {
+      return err(res, 409, 'CONTRACT_SUPERSEDED', 'common.contract.superseded');
+    }
+    if (d.signature === null && b.sha256 !== d.sha256) {
+      return err(res, 409, 'CONTRACT_HASH_MISMATCH', 'common.contract.hashMismatch');
+    }
+    const outcome = d.signature === null ? 'SIGNED' : 'ALREADY_SIGNED';
+    signDoc(d);
+    return json(res, 200, { outcome, ...d.signature });
+  }
+  if (req.method !== 'GET' || m[2] === '/sign') return false;
+  const raw = url.searchParams.get('version');
+  if (raw !== null && !/^[1-9][0-9]{0,3}$/.test(raw)) {
+    return err(res, 400, 'REQUEST_INVALID', 'common.auth.requestInvalid');
+  }
+  const n = raw === null ? c.docs.length : Number(raw);
+  const d = c.docs[n - 1];
+  if (d === undefined) return err(res, 404, 'CONTRACT_NOT_FOUND', 'common.contract.notFound');
+  if (m[2] === '/pdf') {
+    const bytes = contractPdf(m[1], n, d.signature !== null);
+    res.writeHead(200, {
+      'content-type': 'application/pdf',
+      'content-disposition': `attachment; filename="contract-KM-2110-v${n}${d.signature === null ? '' : '-signed'}.pdf"`,
+      'cache-control': 'no-store',
+      'x-content-type-options': 'nosniff',
+      'x-contract-sha256': sha256hex(bytes),
+    });
+    res.end(bytes);
+    return true;
+  }
+  return json(res, 200, contractView(m[1], c, role, d, n));
+}
+
 createServer(async (req, res) => {
   const url = new URL(req.url ?? '/', 'http://127.0.0.1');
   const path = url.pathname;
   if ((await paymentRoute(req, res, url)) !== false) return;
+  if ((await hostRequestRoute(req, res, url)) !== false) return;
+  if ((await contractRoute(req, res, url)) !== false) return;
   if ((await checkoutRoute(req, res, path)) !== false) return;
   if ((await hostRoute(req, res, url)) !== false) return;
   if (req.method === 'GET' && path === '/__e2e/signups') return json(res, 200, signups);

@@ -7,10 +7,16 @@ import { checkoutHoldOf, isUuid } from '../../../../../../account/checkout.ts';
 import {
   bookingReference,
   checkoutPaymentOf,
+  localSlotOf,
   paymentHref,
+  requestScreenOf,
 } from '../../../../../../account/checkout-payment.ts';
-import type { PaymentStateView } from '../../../../../../account/checkout-payment.ts';
+import type {
+  PaymentStateView,
+  RequestScreen,
+} from '../../../../../../account/checkout-payment.ts';
 import { publicListingOf } from '../../../../../../account/host-listings.ts';
+import { searchHref } from '../../../../../../account/search.ts';
 import { clientContext } from '../../../../../../account/request.ts';
 import { getRequestI18n, getRequestLocaleTag } from '../../../../../../i18n.ts';
 import accountStyles from '../../../../_account/account.module.css';
@@ -53,6 +59,18 @@ const BODY_ID = 's06-body';
  * - `REFUND_DUE` : payé après la libération (`web.error.paidAfterRelease`, montant rendu par l'API).
  * `PAYABLE` (aucun ordre) : retour à S05. Le passage d'un état à l'autre est annoncé par une région
  * vive persistante et le focus passe au titre (`StateAnnouncer`).
+ *
+ * Demande à l'hôte (hold `REQUEST`, US-223 partie 223d, ADR-152 ; 10b S07 « Mode REQUEST », §4.3) :
+ * le champ `request` du paiement choisit un écran dédié (`requestScreenOf`, fail-closed) :
+ * - « Solicitud enviada » (10b S07, `web.s07.request.pending`) : l'heure limite est celle de la base
+ *   (`respondBy`), au fuseau du véhicule ; aucune durée écrite ; aucune relecture automatique (la
+ *   réponse peut prendre des heures : bouton « Actualizar el estado ») ;
+ * - acceptée, capture en attente de sa preuve : relecture comme `VERIFYING`, jamais « confirmé »
+ *   avant le webhook ;
+ * - refusée (`web.error.requestDeclined`), expirée (`web.error.requestExpired`), capture non
+ *   aboutie : aucun débit, recherche aux mêmes dates.
+ * L'écran « demande envoyée » est numéroté S07 dans 10b ; il est servi par la route de S06 (le
+ * retour du PSP), comme la confirmation (PROPOSÉ, ADR-152).
  */
 export default async function PaymentPage({
   params,
@@ -110,7 +128,12 @@ export default async function PaymentPage({
       <p className={accountStyles['text']}>{t('web.s06.supportBody')}</p>
     </section>
   );
-  const page = (state: PaymentStateView, title: string, announce: string, body: ReactNode) => (
+  const page = (
+    state: PaymentStateView | RequestScreen,
+    title: string,
+    announce: string,
+    body: ReactNode,
+  ) => (
     <Shell>
       <StateAnnouncer state={state} message={announce} />
       <header className={accountStyles['stackTight']}>
@@ -128,8 +151,10 @@ export default async function PaymentPage({
     </Shell>
   );
 
+  // US-223d : demande à l'hôte dans un état dédié (lit le hold et la fiche plus bas)
+  const requestScreen = requestScreenOf(payment);
   // en attente de la preuve : une seule lecture de l'API à chaque relecture
-  if (payment.state === 'VERIFYING') {
+  if (payment.state === 'VERIFYING' && requestScreen === null) {
     const title = t('web.s06.verifying.title');
     return page(
       'VERIFYING',
@@ -213,6 +238,112 @@ export default async function PaymentPage({
     <p className={styles['strong']}>{`${listing.makeName} ${listing.modelName} ${listing.year}`}</p>
   );
   const search = <ButtonLink href="/">{t('web.listing.search')}</ButtonLink>;
+  if (requestScreen !== null) {
+    const host = listing.hostFirstName ?? t('web.s07.request.hostFallback');
+    const tz = listing.timezone;
+    switch (requestScreen) {
+      case 'REQUEST_SENT': {
+        // 10b S07 : heure limite de la base, jamais une durée écrite
+        const title = t('web.s07.request.title');
+        const body = t('web.s07.request.pending', {
+          host_name: host,
+          time: i18n.time(payment.request?.respondBy ?? payment.expiresAt, tz),
+        });
+        return page(
+          requestScreen,
+          title,
+          `${title}. ${body}`,
+          <>
+            <Banner tone="info" live="off">
+              {body}
+            </Banner>
+            <p className={accountStyles['text']}>{t('web.s07.request.authorized')}</p>
+            {car}
+            {reference}
+            <ButtonLink variant="secondary" href={paymentHref(payment.holdId)}>
+              {t('web.s06.refresh')}
+            </ButtonLink>
+          </>,
+        );
+      }
+      case 'REQUEST_CAPTURING': {
+        // acceptée : la capture attend sa preuve (webhook), relecture comme `VERIFYING`
+        const title = t('web.s07.request.capturing.title');
+        const body = t('web.s07.request.capturing.body', { host_name: host });
+        return page(
+          requestScreen,
+          title,
+          `${title}. ${body}`,
+          <>
+            <LoadingState i18n={i18n} label={title} />
+            <p id={BODY_ID} className={accountStyles['text']}>
+              {body}
+            </p>
+            {car}
+            {reference}
+            <VerifyingWatch
+              slow={`${t('web.s06.verifying.slow')} ${t('web.s06.verifying.notify')}`}
+              supportTitle={t('web.s06.support')}
+              supportBody={t('web.s06.supportBody')}
+            />
+            <ButtonLink variant="secondary" href={paymentHref(payment.holdId)}>
+              {t('web.s06.refresh')}
+            </ButtonLink>
+          </>,
+        );
+      }
+      default: {
+        // refusée, expirée, capture non aboutie : aucun débit ; recherche aux mêmes dates
+        const start = localSlotOf(hold.startAt, tz);
+        const end = localSlotOf(hold.endAt, tz);
+        const again =
+          start === null || end === null ? (
+            search
+          ) : (
+            <ButtonLink
+              href={searchHref({
+                country: listing.country,
+                city: listing.city,
+                area: null,
+                start,
+                end,
+              })}
+            >
+              {t('web.s06.request.searchCta')}
+            </ButtonLink>
+          );
+        const [titleKey, body] =
+          requestScreen === 'REQUEST_DECLINED'
+            ? ([
+                'web.s06.request.declined.title',
+                t('web.error.requestDeclined', { host_name: host }),
+              ] as const)
+            : requestScreen === 'REQUEST_EXPIRED'
+              ? ([
+                  'web.s06.request.expired.title',
+                  t('web.error.requestExpired', { host_name: host }),
+                ] as const)
+              : ([
+                  'web.s06.request.captureFailed.title',
+                  t('web.s06.request.captureFailed.body'),
+                ] as const);
+        const title = t(titleKey);
+        return page(
+          requestScreen,
+          title,
+          `${title}. ${body}`,
+          <>
+            <Banner tone="warning" live="off">
+              {body}
+            </Banner>
+            {car}
+            {reference}
+            {again}
+          </>,
+        );
+      }
+    }
+  }
   switch (payment.state) {
     case 'CONFIRMED': {
       const title = t('web.s06.confirmed.title');
@@ -227,7 +358,15 @@ export default async function PaymentPage({
           </Banner>
           {car}
           {reference}
-          <ButtonLink href={`/listings/${hold.listingId}`}>{t('web.s06.confirmed.cta')}</ButtonLink>
+          {/* contrat de location du trip né de la conversion (S09 · contrat, US-211 partie 211b) */}
+          {payment.tripId !== null && (
+            <ButtonLink href={`/trips/${payment.tripId}/contract`} data-testid="s06-contract">
+              {t('web.s06.confirmed.contract')}
+            </ButtonLink>
+          )}
+          <ButtonLink variant="secondary" href={`/listings/${hold.listingId}`}>
+            {t('web.s06.confirmed.cta')}
+          </ButtonLink>
         </>,
       );
     }

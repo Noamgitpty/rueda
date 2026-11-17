@@ -9,7 +9,7 @@
  * `translateDbError` de `@rueda/db` côté appelant, ou rendues sous forme de code.
  */
 import type { LegAmounts } from './legs.js';
-import { legsToJson } from './legs.js';
+import { LEGS, legsToJson } from './legs.js';
 import type { NormalizedPaymentEvent, OperationStatus } from './port.js';
 import type {
   ApplyOutcome,
@@ -203,11 +203,48 @@ export interface PlanRefundInput {
 export type RefundBlockedReason =
   'ADVANCE_CAP_UNSET' | 'HOST_ADVANCE_CAP' | 'PLATFORM_BALANCE_UNKNOWN';
 
+/** États d'une instance de remboursement (08 SM-8, CHECK de 0123). */
+export const REFUND_INSTANCE_STATUSES = [
+  'PLANNED',
+  'BLOCKED_CHARGEBACK',
+  'PENDING_CUSTOMER_CHOICE',
+  'PENDING_BANK_DETAILS',
+  'SUBMITTED',
+  'SENT',
+  'CONFIRMED',
+  'FAILED',
+  'CREDITED',
+  'CANCELLED',
+  'SUPERSEDED',
+] as const;
+export type RefundInstanceStatus = (typeof REFUND_INSTANCE_STATUSES)[number];
+
+function refundStatus(value: unknown): RefundInstanceStatus {
+  if (!(REFUND_INSTANCE_STATUSES as readonly unknown[]).includes(value)) {
+    throw new Error('PAY : état d’instance de remboursement inconnu');
+  }
+  return value as RefundInstanceStatus;
+}
+
+const BLOCKED_REASONS: readonly RefundBlockedReason[] = [
+  'ADVANCE_CAP_UNSET',
+  'HOST_ADVANCE_CAP',
+  'PLATFORM_BALANCE_UNKNOWN',
+];
+
+function blockedReason(value: unknown): RefundBlockedReason | null {
+  if (value === null) return null;
+  if (!(BLOCKED_REASONS as readonly unknown[]).includes(value)) {
+    throw new Error('PAY : motif de blocage inconnu');
+  }
+  return value as RefundBlockedReason;
+}
+
 export interface PlannedRefund {
   readonly instanceId: string;
   readonly operationId: string;
   readonly advanceId: string | null;
-  readonly status: string;
+  readonly status: RefundInstanceStatus;
   readonly blockedReason: RefundBlockedReason | null;
   readonly replayed: boolean;
 }
@@ -256,8 +293,8 @@ export class PgRefundPlanner {
       instanceId: row.instance_id,
       operationId: row.operation_id,
       advanceId: row.advance_id,
-      status: row.status,
-      blockedReason: row.blocked_reason,
+      status: refundStatus(row.status),
+      blockedReason: blockedReason(row.blocked_reason),
       replayed: row.replayed,
     };
   }
@@ -274,6 +311,189 @@ export class PgRefundPlanner {
       return { outcome: 'BLOCKED', blockedReason: row.blocked_reason };
     }
     return { outcome: row.outcome };
+  }
+}
+
+/** Instance de remboursement qui attend l'ordonnanceur (`core.payment_refunds_due`, 0127). */
+export interface DueRefund {
+  readonly instanceId: string;
+  /** Pays de l'instance (étiquette d'alerte : un code, jamais un identifiant). */
+  readonly country: string;
+  readonly status: RefundInstanceStatus;
+  readonly operationStatus: OperationStatus;
+  /** Fournisseur de l'ordre (`payment_operation.provider`) : connecteur qui l'exécute. */
+  readonly provider: string;
+  readonly blockedReason: RefundBlockedReason | null;
+  /** Dernière alerte FIN levée pour l'instance (un état n'est signalé qu'une fois). */
+  readonly finAlert: string | null;
+  /** Référence PSP de l'encaissement remboursé connue (sinon rien ne peut partir : `NO_TARGET`). */
+  readonly targetKnown: boolean;
+}
+
+/** Motif pour lequel l'ordre d'une instance ne part pas (relu sous les verrous). */
+export type RefundSendRefusal = 'NOT_SUBMITTED' | 'FINAL' | 'SUPERSEDED_UNSENT' | 'NO_TARGET';
+
+/** Ordre STOCKÉ d'une instance envoyée, verrouillé (trip puis ordre) jusqu'à la fin de la transaction. */
+export type RefundOrderForSend =
+  | {
+      readonly sendable: true;
+      readonly operationId: string;
+      readonly status: OperationStatus;
+      readonly idemSent: string;
+      readonly amountMinor: bigint;
+      readonly currency: string;
+      readonly legs: LegAmounts;
+      /** Référence PSP de l'encaissement remboursé. */
+      readonly targetReference: string;
+      readonly providerReference: string | null;
+      readonly provider: string;
+    }
+  | { readonly sendable: false; readonly reason: RefundSendRefusal };
+
+const SEND_REFUSALS: readonly RefundSendRefusal[] = [
+  'NOT_SUBMITTED',
+  'FINAL',
+  'SUPERSEDED_UNSENT',
+  'NO_TARGET',
+];
+
+function operationStatus(value: unknown): OperationStatus {
+  if (!(STATUSES as readonly unknown[]).includes(value)) {
+    throw new Error('PAY : statut d’ordre inconnu');
+  }
+  return value as OperationStatus;
+}
+
+const MINOR = /^-?\d{1,19}$/;
+
+/** Jambes stockées (texte d'unités mineures), exactement les quatre jambes. */
+function storedLegs(value: unknown): LegAmounts {
+  if (typeof value !== 'object' || value === null) throw new Error('PAY : jambes absentes');
+  const raw = value as Record<string, unknown>;
+  if (Object.keys(raw).length !== LEGS.length) throw new Error('PAY : jambe inattendue');
+  const out: Partial<Record<(typeof LEGS)[number], bigint>> = {};
+  for (const leg of LEGS) {
+    const v = raw[leg];
+    if (typeof v !== 'string' || !MINOR.test(v)) throw new Error('PAY : jambe illisible');
+    out[leg] = BigInt(v);
+  }
+  return out as LegAmounts;
+}
+
+/**
+ * US-224c (ADR-150) : file de l'ordonnanceur des remboursements et ordre à envoyer, travailleur
+ * `payment_command`. Aucun montant n'est calculé : l'ordre envoyé est celui que la base a gardé.
+ */
+export class PgRefundOrders {
+  readonly #tx: SqlExecutor;
+
+  constructor(tx: SqlExecutor) {
+    this.#tx = tx;
+  }
+
+  async due(limit: number): Promise<readonly DueRefund[]> {
+    const { rows } = await this.#tx.query<{
+      instance_id: string;
+      country_code: string;
+      status: string;
+      operation_status: string;
+      provider: string;
+      blocked_reason: string | null;
+      fin_alert: string | null;
+      target_known: boolean;
+    }>(
+      `SELECT instance_id, country_code, status, operation_status, provider, blocked_reason,
+              fin_alert, target_known
+         FROM core.payment_refunds_due($1)`,
+      [limit],
+    );
+    return rows.map((r) => ({
+      instanceId: r.instance_id,
+      country: r.country_code,
+      status: refundStatus(r.status),
+      operationStatus: operationStatus(r.operation_status),
+      provider: r.provider,
+      blockedReason: blockedReason(r.blocked_reason),
+      finAlert: r.fin_alert,
+      targetKnown: r.target_known,
+    }));
+  }
+
+  async orderForSend(instanceId: string): Promise<RefundOrderForSend> {
+    const { rows } = await this.#tx.query<{
+      operation_id: string;
+      operation_status: string;
+      idem_sent: string;
+      amount_minor: string;
+      currency: string;
+      legs: unknown;
+      target_reference: string | null;
+      provider_reference: string | null;
+      provider: string;
+      sendable: boolean;
+      reason: string | null;
+    }>(
+      `SELECT operation_id, operation_status, idem_sent, amount_minor::text AS amount_minor,
+              currency, legs, target_reference, provider_reference, provider, sendable, reason
+         FROM core.payment_cmd_refund_order_for_send($1)`,
+      [instanceId],
+    );
+    const row = rows[0];
+    if (row === undefined) throw new Error('PAY : ordre de remboursement sans résultat');
+    if (!row.sendable) {
+      if (!(SEND_REFUSALS as readonly unknown[]).includes(row.reason)) {
+        throw new Error('PAY : refus d’envoi sans motif connu');
+      }
+      return { sendable: false, reason: row.reason as RefundSendRefusal };
+    }
+    if (row.target_reference === null || !MINOR.test(row.amount_minor)) {
+      throw new Error('PAY : ordre de remboursement illisible');
+    }
+    return {
+      sendable: true,
+      operationId: row.operation_id,
+      status: operationStatus(row.operation_status),
+      idemSent: row.idem_sent,
+      amountMinor: BigInt(row.amount_minor),
+      currency: row.currency,
+      legs: storedLegs(row.legs),
+      targetReference: row.target_reference,
+      providerReference: row.provider_reference,
+      provider: row.provider,
+    };
+  }
+
+  /** Pose la dernière alerte FIN levée ; `false` si elle l'était déjà. */
+  async markAlerted(instanceId: string, key: string): Promise<boolean> {
+    const { rows } = await this.#tx.query<{ changed: boolean }>(
+      'SELECT core.payment_cmd_refund_mark_alerted($1, $2) AS changed',
+      [instanceId, key],
+    );
+    return rows[0]?.changed === true;
+  }
+
+  /** Opération d'une instance (report après confirmation). */
+  async operationOf(instanceId: string): Promise<string> {
+    const { rows } = await this.#tx.query<{ operation_id: string }>(
+      'SELECT operation_id FROM core.payment_refund_instance WHERE id = $1',
+      [instanceId],
+    );
+    const id = rows[0]?.operation_id;
+    if (id === undefined) throw new Error('PAY : instance de remboursement introuvable');
+    return id;
+  }
+
+  /** Report d'un remboursement confirmé et prouvé sur les soldes des jambes (0123). */
+  async applyLegMovement(operationId: string): Promise<'APPLIED' | 'DUPLICATE'> {
+    const { rows } = await this.#tx.query<{ outcome: string }>(
+      'SELECT core.settlement_cmd_apply_leg_movement($1) AS outcome',
+      [operationId],
+    );
+    const outcome = rows[0]?.outcome;
+    if (outcome !== 'APPLIED' && outcome !== 'DUPLICATE') {
+      throw new Error('PAY : report sans issue connue');
+    }
+    return outcome;
   }
 }
 

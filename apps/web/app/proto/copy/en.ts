@@ -102,7 +102,6 @@ export const EN_PROTO = {
   'web.s05.contract': 'I accept the rental agreement with {host_name}',
   'web.s05.mitConsent':
     'I authorize post-trip charges to this card only for trip costs, my deductible or damage, always with notice and proof.',
-  'web.s05.ctaRequest': 'Send request',
   'web.s05.review.notice':
     "We review every booking. If we can't approve it, you get a full refund.",
   'web.s06.pre.title': 'Your statement will show: {merchant_name}',
@@ -111,8 +110,6 @@ export const EN_PROTO = {
   'web.s07.checkinOpens': 'Photo check-in opens on {date}.',
   'web.s07.safety':
     "For your safety: meet in a public, well-lit place, tell someone you trust where you'll be, and keep all messages on {brand}.",
-  'web.s07.request.pending':
-    "{host_name} has until {time} to reply. You won't be charged unless they accept.",
   'web.s08.tabs.upcoming': 'Upcoming',
   'web.s08.tabs.past': 'Past',
   'web.s08.empty': "You don't have any trips yet",
@@ -126,8 +123,6 @@ export const EN_PROTO = {
   'web.checkin.queue.savedOnDevice': 'Saved on this phone',
   'web.error.datesUnavailable':
     "This car isn't available on {date_unavailable}. We suggest returning it on {date_suggested}. Use this date?",
-  'web.error.requestExpired':
-    "{host_name} didn't reply in time. You weren't charged. Here are cars available for your dates.",
   'web.error.hostNoShow':
     "{host_name} didn't show up. You can cancel at no cost for a full refund, or wait a little longer.",
   'web.error.offlinePhotos':
@@ -324,8 +319,6 @@ export const EN_PROTO = {
   'web.a03.check.restrictions': 'Its restrictions allow driving this car',
   'web.a04.addFee': 'Add a cost with proof',
   'web.a04.claimUntil': 'You can report damage until {date}',
-  'web.a05.accept': 'Accept request',
-  'web.a05.decline': 'Decline request',
   'web.a05.cancel': 'Cancel booking',
   'web.a05.cancelWarning':
     'The guest gets a full refund. {amount} will be deducted from your next earnings and your calendar will be blocked for those dates.',
