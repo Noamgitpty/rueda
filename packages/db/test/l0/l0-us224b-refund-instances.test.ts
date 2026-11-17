@@ -113,9 +113,15 @@ async function applyMovement(tx: Tx, operationId: string): Promise<string> {
 }
 
 /** Trip capturé (jambes du vecteur) par la vraie commande, prouvé et reporté. */
-async function captured(tx: Tx, c: CountryCase, capture: Legs): Promise<World> {
+async function captured(
+  tx: Tx,
+  c: CountryCase,
+  capture: Legs,
+  existingAccount?: string,
+): Promise<World> {
   const trip = await insertTrip(tx, c);
-  const account = await insertAccount(tx, { country: c.country });
+  // un seul compte PSP ACTIVE par pays (psp_account_one_active) : réutilisé dans la transaction
+  const account = existingAccount ?? (await insertAccount(tx, { country: c.country }));
   const { operation_id: op } = await recordOperation(tx, {
     tripId: trip,
     accountId: account,
@@ -583,10 +589,12 @@ describe.each(COUNTRIES)(
         payTx(client, { worker: 'payment_command', virtualNow: inside }, async (tx) => {
           expect(await goLive(tx, 'payouts_enabled', c.country)).toBe(true);
           // le règlement est enregistré AVANT la fin du trajet (sa version optimiste du trip)
+          let account: string | undefined;
           const payable = async (
             settled: boolean,
           ): Promise<{ w: World; v: SettlementRef | null }> => {
-            const w = await captured(tx, c, capture);
+            const w = await captured(tx, c, capture, account);
+            account = w.account;
             const v = settled ? await settle(tx, w.trip, 1, recordOfVector(r.settlement)) : null;
             await tx.query(`SELECT test_fixture.us049_set_trip_status($1, 'COMPLETED')`, [w.trip]);
             for (const leg of LEGS) {
