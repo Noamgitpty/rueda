@@ -104,6 +104,8 @@ export default defineConfig({
     trace: 'off',
   },
   // Les parcours de la coquille tournent sur les trois viewports ; ceux de la PWA sur « pwa » seul.
+  // TEMPORAIRE (reprise des références US-048) : seules les captures des projets touchés.
+  grep: /écran /,
   projects: [
     {
       name: 'mobile-360',
@@ -169,7 +171,7 @@ export default defineConfig({
       testMatch: /pwa\.spec\.ts$/,
       use: { ...phone, viewport: { width: 390, height: 844 }, serviceWorkers: 'allow' },
     },
-  ],
+  ].filter((project) => project.name === 'mobile-360' || project.name === 'console-360'),
   webServer: [
     {
       command: 'node e2e/stub-api.mjs',
