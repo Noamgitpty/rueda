@@ -196,6 +196,20 @@
       "kind": "data-update",
       "dataTables": ["core.support_manual_action_catalog"],
       "justification": "US-209b (ADR-141) : REVIEW_FLAGGED_BOOKING porte sur l'évaluation RISK_ASSESSMENT (sujet de l'élément RISK_BOOKING) au lieu de TRIP (aucun trip avant le débit, UXQ-08) ; une ligne de référence écrite par migration seulement ; permission, mode et saisie inchangés ; aucune ligne manual_action n'en dépend (l'action était indisponible, sans commande liée) ; la version N, qui n'envoie jamais cette action, est inchangée"
+    },
+    {
+      "path": "packages/db/migrations/0122_booking_trip_cancellation_settled.sql",
+      "line": 214,
+      "kind": "data-update",
+      "dataTables": ["core.support_manual_action_catalog"],
+      "justification": "US-215 (ADR-148) : CANCEL_TRIP_HOST reçoit ses clés de saisie fermées (subReason, liste de mots, jamais un montant ni un chiffre) ; une ligne de référence écrite par migration seulement ; permission, mode et sujet inchangés ; aucune ligne manual_action n'en dépend (l'action était indisponible, sans commande liée) ; la version N, qui n'envoie jamais cette action, est inchangée"
+    },
+    {
+      "path": "packages/db/migrations/0122_booking_trip_cancellation_settled.sql",
+      "line": 219,
+      "kind": "data-update",
+      "dataTables": ["core.support_manual_action_catalog"],
+      "justification": "US-215 (ADR-148) : CANCEL_TRIP_PLATFORM reçoit ses clés de saisie fermées (platformReason, liste de mots, jamais un montant ni un chiffre) ; une ligne de référence écrite par migration seulement ; permission, mode et sujet inchangés ; aucune ligne manual_action n'en dépend (l'action était indisponible, sans commande liée) ; la version N, qui n'envoie jamais cette action, est inchangée"
     }
   ]
 }

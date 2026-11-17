@@ -47,7 +47,10 @@
  *   opération sans preuve rattachée (S-02, RC-5) ;
  * - `REFUND_EXCEEDS_COLLECTED` : 16 fiche PAY-021 ; `SETTLEMENT_SUPERSEDED` (ordre d'une version
  *   de règlement remplacée) et `FIN_REVIEW_REQUIRED` (règlement à jambe négative : décision FIN
- *   avant tout ordre, 08 E7 règle 5) : PROPOSÉS par US-224 (migration 0121, ADR-145, S-02).
+ *   avant tout ordre, 08 E7 règle 5) : PROPOSÉS par US-224 (migration 0121, ADR-145, S-02) ;
+ * - `CANCELLATION_PENDING` (une demande d'annulation vivante existe déjà pour le trip) et
+ *   `CANCELLATION_NOT_PENDING` (demande déjà réglée ou garée) : PROPOSÉS par US-215 (migration
+ *   0122, ADR-148).
  */
 
 /** Codes métier produits par la traduction. */
@@ -105,6 +108,9 @@ export const DB_BUSINESS_CODES = [
   'REFUND_EXCEEDS_COLLECTED',
   'SETTLEMENT_SUPERSEDED',
   'FIN_REVIEW_REQUIRED',
+  // US-215 (0122, ADR-148) : annulations déclenchées par l'ops, réglées dans la transition
+  'CANCELLATION_PENDING',
+  'CANCELLATION_NOT_PENDING',
 ] as const;
 
 export type DbBusinessCode = (typeof DB_BUSINESS_CODES)[number];
@@ -336,6 +342,15 @@ export const CONSTRAINT_CODES: Readonly<Record<string, readonly [string, DbBusin
   trip_transition_unlogged: [SQLSTATE.integrityConstraintViolation, 'INVARIANT_VIOLATION'],
   trip_segment_missing: [SQLSTATE.integrityConstraintViolation, 'INVARIANT_VIOLATION'],
   trip_state_log_immutable: [SQLSTATE.integrityConstraintViolation, 'IMMUTABLE_RECORD'],
+  // annulations déclenchées par l'ops, réglées dans la transition (0122, US-215, ADR-148)
+  trip_cancellation_closed: [SQLSTATE.objectNotInPrerequisiteState, 'CANCELLATION_NOT_PENDING'],
+  trip_cancellation_live_unique: [SQLSTATE.uniqueViolation, 'CANCELLATION_PENDING'],
+  trip_cancellation_settlement_mismatch: [
+    SQLSTATE.integrityConstraintViolation,
+    'INVARIANT_VIOLATION',
+  ],
+  trip_cancellation_uncaptured: [SQLSTATE.integrityConstraintViolation, 'INVARIANT_VIOLATION'],
+  trip_cancellation_unrefunded: [SQLSTATE.integrityConstraintViolation, 'INVARIANT_VIOLATION'],
 };
 
 const own = (value: object, key: string): unknown =>

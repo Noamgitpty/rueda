@@ -137,6 +137,7 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 | `0119_booking_flagged_review_decision` | AVL / RISK / SUP / KYC : décision de l'ops sur une réservation signalée, hold de revue |
 | `0120_booking_checkout_review_state` | AVL : état de revue d'un hold de checkout, lu par le voyageur (S05). |
 | `0121_settlement_refund_orders` | STL / PAY : ordres de remboursement et de jambe rattachés à la version du règlement, |
+| `0122_booking_trip_cancellation_settled` | AVL / STL / SUP : annulations du voyageur, de l'hôte et de la plateforme déclenchées par l'ops, réglées par |
 
 ## Rôles
 
@@ -1088,6 +1089,29 @@ Déclencheurs :
 - `trip_has_active_occupancy` : `CREATE CONSTRAINT TRIGGER trip_has_active_occupancy AFTER INSERT OR UPDATE OF status, vehicle_id, scheduled_start, scheduled_end ON core.booking_trip DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION core.booking_assert_trip_occupancy('trip_has_active_occupancy')`
 - `trip_period_sync` : `CREATE TRIGGER trip_period_sync AFTER UPDATE OF scheduled_start, scheduled_end ON core.booking_trip FOR EACH ROW WHEN (old.scheduled_start IS DISTINCT FROM new.scheduled_start OR old.scheduled_end IS DISTINCT FROM new.scheduled_end) EXECUTE FUNCTION core.booking_trip_period_sync()`
 - `trip_transition_guard` : `CREATE TRIGGER trip_transition_guard BEFORE UPDATE OF status ON core.booking_trip FOR EACH ROW WHEN (old.status IS DISTINCT FROM new.status) EXECUTE FUNCTION core.booking_trip_transition_guard()`
+
+### `core.booking_trip_cancellation`
+
+- RLS : ENABLE + FORCE ; propriétaire `migrator`
+- Droits : cmd_hold_owner: INSERT, SELECT, UPDATE ; cmd_money_owner: SELECT ; migrator: DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE
+
+| Colonne | Type | NOT NULL | Défaut |
+| ------- | ---- | -------- | ------ |
+| `id` | `uuid` | oui | — |
+| `trip_id` | `uuid` | oui | — |
+| `country_code` | `text` | oui | — |
+| `action_code` | `text` | oui | — |
+| `requested_reason` | `text` | oui | — |
+| `initiator` | `text` | oui | — |
+| `sub_reason` | `text` | non | — |
+| `requested_at` | `timestamp with time zone` | oui | — |
+| `requested_by` | `uuid` | oui | — |
+| `status` | `text` | oui | `'PENDING'::text` |
+| `settlement_id` | `uuid` | non | — |
+| `cost_bearer` | `text` | non | — |
+| `outcome_code` | `text` | non | — |
+| `decided_at` | `timestamp with time zone` | non | — |
+| `created_at` | `timestamp with time zone` | oui | `platform.now()` |
 
 ### `core.booking_trip_driver`
 

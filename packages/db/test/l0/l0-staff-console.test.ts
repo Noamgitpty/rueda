@@ -109,6 +109,10 @@ describe('critère 1 — rôle sans droit d’annulation plateforme : 403 journa
     },
   );
 
+  // US-215 (0122, ADR-148) : CANCEL_TRIP_PLATFORM est désormais liée à sa commande (preuves dans
+  // l0-us215-trip-cancellation) ; la règle « droit détenu, commande pas encore livrée ⇒
+  // UNAVAILABLE journalisé » est prouvée sur DECLARE_NO_SHOW (trip.declare_no_show, OPS et ADMIN,
+  // matrice de 0034), toujours sans commande liée
   it('OPS et ADMIN ont le droit : la commande de domaine n’existe pas encore => UNAVAILABLE, journalisé (aucun faux changement d’état)', async () => {
     await withRole('app_api', async (client) => {
       for (const [role, scope] of [
@@ -116,7 +120,7 @@ describe('critère 1 — rôle sans droit d’annulation plateforme : 403 journa
         ['ADMIN', ALL],
       ] as const) {
         const s = await elevatedStaff(client, role, scope);
-        expect((await act(client, s.hash, 'CANCEL_TRIP_PLATFORM', trip(0))).outcome, role).toBe(
+        expect((await act(client, s.hash, 'DECLARE_NO_SHOW', trip(0))).outcome, role).toBe(
           'UNAVAILABLE',
         );
         expect((await auditOf(client, s.userId)).at(-1)?.action_code, role).toBe(

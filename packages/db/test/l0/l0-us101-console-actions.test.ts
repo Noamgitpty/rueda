@@ -183,6 +183,10 @@ const RESTRICTION_KINDS = { kind: ['TS_HOLD', 'POLICY_VIOLATION'] };
 // US-209 (0119, ADR-141) : décision de l'ops sur une réservation signalée liée à sa commande
 const REVIEW_FLAGGED_HANDLER =
   'core.booking_manual_action_review_flagged(bytea,uuid,text,uuid,jsonb,text,uuid,text)';
+// US-215 (0122, ADR-148) : les trois annulations liées à leur commande (demande réglée par le
+// travailleur trip_lifecycle) ; saisies fermées du sous-motif et du motif plateforme
+const CANCEL_TRIP_HANDLER =
+  'core.booking_manual_action_cancel_trip(bytea,uuid,text,uuid,jsonb,text,uuid,text)';
 const KYC_DECISION_HANDLER =
   'core.kyc_manual_action_decision(bytea,uuid,text,uuid,jsonb,text,uuid,text)';
 // 19 US-106 : décision (SM-3 MANUAL_REVIEW → APPROVED | REJECTED | MORE_INFO_REQUIRED) et les
@@ -280,25 +284,47 @@ const MATRIX: Readonly<Record<string, Expected>> = {
     keys: [],
     values: {},
     approval: false,
-    source: 'ADR-092 §1 (PROPOSÉ ; 17 §10 NN3 « l’ops déclenche »)',
+    handler: CANCEL_TRIP_HANDLER,
+    source: 'ADR-092 §1 (PROPOSÉ ; 17 §10 NN3 « l’ops déclenche ») ; 19 US-215, ADR-148',
   },
   CANCEL_TRIP_HOST: {
     permission: 'ops.platform_cancel',
     subject: 'TRIP',
     mode: 'DOMAIN_COMMAND',
-    keys: [],
-    values: {},
+    // 08 règle 2 : sous-motif « à cause du voyageur » (absent ⇒ HOST_CANCELLED) ; aucun chiffre
+    // dans une valeur du catalogue : LICENSE_NOT_UPLOADED = LICENSE_NOT_UPLOADED_1H de 08
+    keys: ['subReason'],
+    values: {
+      subReason: [
+        'INVALID_LICENSE',
+        'IDENTITY_NOT_VERIFIED',
+        'OTHER_DRIVER_SENT',
+        'LICENSE_NOT_UPLOADED',
+      ],
+    },
     approval: false,
-    source: 'ADR-092 §1 (PROPOSÉ)',
+    handler: CANCEL_TRIP_HANDLER,
+    source: 'ADR-092 §1 (PROPOSÉ) ; 08 BR-CXL règle 2 ; 19 US-215 critère 4, ADR-148',
   },
   CANCEL_TRIP_PLATFORM: {
     permission: 'ops.platform_cancel',
     subject: 'TRIP',
     mode: 'DOMAIN_COMMAND',
-    keys: [],
-    values: {},
+    // 16 BKG-035 : motifs plateforme du sous-ensemble bêta (17 NN3), motif obligatoire
+    keys: ['platformReason'],
+    values: {
+      platformReason: [
+        'PLATFORM_TRUST_SAFETY',
+        'PLATFORM_INCOMPLETE_STEPS',
+        'GUEST_FRAUD_PROVEN',
+        'HOST_ACCOUNT_CLOSED',
+        'PLATFORM_REVIEW_DELAY',
+        'PSP_FAILURE',
+      ],
+    },
     approval: false,
-    source: '17 §2.3 « ops.platform_cancel (motif plateforme) »',
+    handler: CANCEL_TRIP_HANDLER,
+    source: '17 §2.3 « ops.platform_cancel (motif plateforme) » ; 16 BKG-035 ; 19 US-215, ADR-148',
   },
   DECLARE_NO_SHOW: {
     permission: 'trip.declare_no_show',
@@ -966,13 +992,16 @@ describe('critère 1 — action d’état : commande de domaine liée, dans la m
         PUBLISH_LISTING: uuid(),
       };
       // KYC_DECISION (US-106, l0-us106-kyc-decision), HOST_VERIFICATION_DECISION (US-123,
-      // l0-us123-host-verification) et REVIEW_FLAGGED_BOOKING (US-209, l0-us209-risk-checkout)
-      // sont liées
+      // l0-us123-host-verification), REVIEW_FLAGGED_BOOKING (US-209, l0-us209-risk-checkout) et
+      // les trois annulations (US-215, l0-us215-trip-cancellation) sont liées
       for (const a of STATE_ACTIONS.filter(
         (x) =>
           x !== 'KYC_DECISION' &&
           x !== 'HOST_VERIFICATION_DECISION' &&
-          x !== 'REVIEW_FLAGGED_BOOKING',
+          x !== 'REVIEW_FLAGGED_BOOKING' &&
+          x !== 'CANCEL_TRIP_GUEST' &&
+          x !== 'CANCEL_TRIP_HOST' &&
+          x !== 'CANCEL_TRIP_PLATFORM',
       )) {
         const input = {};
         const subject = subjects[a] ?? trip(0);

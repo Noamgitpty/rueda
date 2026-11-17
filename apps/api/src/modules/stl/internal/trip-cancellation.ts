@@ -1,0 +1,550 @@
+/**
+ * Règlement des annulations déclenchées par l'ops (US-215, partie 215a ; ADR-148 ; 19 US-215
+ * critères 1 à 5 et DoR du recalage du lot 2 ; 08 BR-CXL, E7 règle 7, SM-1 invariant 4 ; 16
+ * BKG-028, BKG-032, BKG-035, ADM-006).
+ *
+ * L'ops demande l'annulation par la console (`CANCEL_TRIP_GUEST`, `CANCEL_TRIP_HOST`,
+ * `CANCEL_TRIP_PLATFORM`) : la base écrit une demande `PENDING` (motif demandé et initiateur
+ * dérivés de l'action, heure serveur de la demande). Ce processeur règle chaque demande en UNE
+ * transaction du travailleur `trip_lifecycle` :
+ *
+ * 1. `core.booking_trip_cancellation_begin` : verrous voyageur → véhicule → trip, faits du trip,
+ *    preuve validée dérivée des pièces de l'action, devis figé, paramètres du pays ;
+ * 2. moteur UNIQUE de `@rueda/money` (`buildSettlementRecord`, `cxl-beta/1`) sur le trip tiré du
+ *    devis figé REJOUÉ (`replayFrozenQuote`, `quoteSettlementTrip` de PRC), instants et paramètres
+ *    de la base ; `REFUND_OUT_OF_RANGE` ⇒ revue FIN (`settleOrFinReview`), rien d'écrit ;
+ * 3. `core.settlement_cmd_record` (travailleur `settlement`), version 1 ;
+ * 4. `core.booking_cmd_trip_cancel_settle` (travailleur `trip_lifecycle`) : la base requalifie,
+ *    LIE le règlement à la demande et applique la transition avec `settlement_id` ;
+ * 5. ordres du règlement (`settlementOrders` : réaffectation d'abord, puis remboursement du moyen
+ *    d'origine, montants explicites par jambe, jamais un prorata), enregistrés par la commande PAY
+ *    à 15 arguments (travailleur `payment_command`), rattachés à la version 1 et bornés par 0121 ;
+ *    la contrainte différée de 0122 exige Σ REFUND = remboursement du voyageur à la validation.
+ *
+ * Un refus déterministe (moteur, paramètre, devis, état du trip, ordre refusé) annule la
+ * transaction ; la demande est alors garée dans une transaction à part (`FIN_REVIEW` ou `FAILED`,
+ * code seul) et une alerte part (comptes et codes seulement, 17 §6.3). Un interblocage ou une
+ * sérialisation laisse la demande en attente : elle est reprise au passage suivant.
+ *
+ * Aucun montant n'est jamais saisi par l'ops ni écrit ici : tout montant vient du moteur et du
+ * devis figé, et la base le rejoue (0054) avant de l'accepter.
+ */
+import { randomUUID } from 'node:crypto';
+import { translateDbError } from '@rueda/db';
+import {
+  LEGS,
+  buildSettlementRecord,
+  isSettlementError,
+  money,
+  settlementOrders,
+  settlementRecordPayload,
+  type CancellationEvent,
+  type Currency,
+  type HostPenaltySchedule,
+  type Leg,
+  type Legs,
+  type Money,
+  type SettlementParams,
+  type SettlementRecord,
+  type SettlementTrip,
+} from '@rueda/money';
+import type { AlertChannel, BusRegistry, SqlClient, WorkerTransactions } from '../../bus/index.js';
+import {
+  PgOperationRecorder,
+  idempotencyKeyToSend,
+  settlementOperationKey,
+  type LegAmounts,
+} from '../../pay/index.js';
+import {
+  FROZEN_QUOTE_FORMAT,
+  isQuoteError,
+  quoteSettlementTrip,
+  replayFrozenQuote,
+  type FrozenQuote,
+} from '../../prc/index.js';
+import { settleOrFinReview } from './settlement-review.js';
+
+/** Travailleur des transitions du trip (0099) : propriétaire de la transaction d'annulation. */
+export const TRIP_LIFECYCLE_WORKER = 'trip_lifecycle';
+const SETTLEMENT_WORKER = 'settlement';
+const PAYMENT_COMMAND_WORKER = 'payment_command';
+
+/**
+ * Longueur de clé d'idempotence transmise au PSP (FAKE seulement avant le lot C) : au-delà, le
+ * SHA-256 hexadécimal (08 E4). PROPOSÉ : la capacité du PSP réel la fixera (lot C).
+ */
+export const PSP_IDEMPOTENCY_MAX_LENGTH = 64;
+
+/** Faits d'une demande, lus par `core.booking_trip_cancellation_begin` sous verrous. */
+export interface CancellationFacts {
+  readonly cancellationId: string;
+  readonly tripId: string;
+  readonly segmentId: string;
+  readonly country: string;
+  readonly currency: string;
+  readonly tripRowVersion: number;
+  readonly startAtMs: number;
+  readonly bookedAtMs: number;
+  readonly requestedReason: string;
+  readonly subReason: string | null;
+  readonly evidenceValidated: boolean;
+  readonly checkinValidated: boolean;
+  readonly requestedAtMs: number;
+  readonly frozen: FrozenQuote | null;
+  /** Paramètres du pays dans la forme canonique des entrées du règlement (0122), ou `null`. */
+  readonly params: unknown;
+}
+
+/** Refus déterministe d'un calcul d'annulation (code seul, jamais un montant). */
+export class CancellationPlanError extends Error {
+  constructor(readonly code: string) {
+    super(`annulation : ${code}`);
+    this.name = 'CancellationPlanError';
+  }
+}
+
+/** Un ordre du règlement, montant et jambes explicites (jamais un prorata). */
+export interface CancellationOrder {
+  readonly kind: 'REFUND' | 'LEG_REALLOCATION';
+  readonly amountMinor: bigint;
+  readonly legs: LegAmounts;
+  /** Rang de l'ordre de cette nature dans le règlement (clé d'idempotence, 08 E4). */
+  readonly instanceSeq: number;
+}
+
+export interface CancellationPlan {
+  readonly record: SettlementRecord;
+  readonly orders: readonly CancellationOrder[];
+}
+
+const INT = /^[0-9]{1,6}$/;
+const MINOR = /^[0-9]{1,18}$/;
+
+/** Événement d'annulation des faits de la base, dans la forme que la base contrôle (0122). */
+export function cancellationEvent(f: CancellationFacts): CancellationEvent {
+  return {
+    reason: f.requestedReason,
+    requestedAtMs: f.requestedAtMs,
+    ...(f.subReason === null ? {} : { subReason: f.subReason }),
+    ...(f.requestedReason === 'HOST_CANCELLED_DUE_TO_GUEST'
+      ? { evidenceValidated: f.evidenceValidated }
+      : {}),
+    checkinValidated: f.checkinValidated,
+  };
+}
+
+const record = (value: unknown): Record<string, unknown> | null =>
+  typeof value === 'object' && value !== null && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+
+function count(json: Record<string, unknown>, key: string): number {
+  const v = json[key];
+  if (typeof v !== 'number' || !Number.isSafeInteger(v) || !INT.test(String(v))) {
+    throw new CancellationPlanError('PARAM_MISSING');
+  }
+  return v;
+}
+
+function penaltyAmount(value: unknown, currency: Currency): Money {
+  const m = record(value);
+  const big = m === null ? null : record(m['amountMinor']);
+  const digits = big?.['$bigint'];
+  if (typeof digits !== 'string' || !MINOR.test(digits) || m?.['currency'] !== currency.code) {
+    throw new CancellationPlanError('PARAM_MISSING');
+  }
+  return money(BigInt(digits), currency);
+}
+
+/**
+ * Paramètres du moteur lus en base (forme canonique de 0122) : aucune valeur par défaut. Absents
+ * ou mal formés ⇒ `PARAM_MISSING` (BLOCK). `platformFundedHostCompensation` est recopié tel quel
+ * (seul `true` exact active l'option A, DEC-FONDATEUR-01 ; absent ⇒ option B).
+ */
+export function cancellationParams(json: unknown, currency: Currency): SettlementParams {
+  const p = record(json);
+  if (p === null) throw new CancellationPlanError('PARAM_MISSING');
+  const hp = p['hostPenalty'] === undefined ? undefined : record(p['hostPenalty']);
+  if (hp === null) throw new CancellationPlanError('PARAM_MISSING');
+  const hostPenalty: HostPenaltySchedule | undefined =
+    hp === undefined
+      ? undefined
+      : {
+          cxlEarly: penaltyAmount(hp['cxlEarly'], currency),
+          cxlLate: penaltyAmount(hp['cxlLate'], currency),
+          hostNoShow: penaltyAmount(hp['hostNoShow'], currency),
+          cleanliness: penaltyAmount(hp['cleanliness'], currency),
+        };
+  return {
+    noShowGraceMinutes: count(p, 'noShowGraceMinutes'),
+    lastMinuteThresholdHours: count(p, 'lastMinuteThresholdHours'),
+    freeCancelLeadHours: count(p, 'freeCancelLeadHours'),
+    ...(hostPenalty === undefined ? {} : { hostPenalty }),
+    ...('platformFundedHostCompensation' in p
+      ? { platformFundedHostCompensation: p['platformFundedHostCompensation'] }
+      : {}),
+  };
+}
+
+/**
+ * Trip du moteur tiré du devis figé REJOUÉ (16 PRC-025 : le règlement part du devis figé) ;
+ * départ et réservation : instants de la base (BR-CXL-03 : l'heure de la réservation d'origine).
+ * Devis absent ou qui ne se rejoue plus ⇒ `QUOTE_UNAVAILABLE` (jamais un montant deviné).
+ */
+export function cancellationTrip(f: CancellationFacts): SettlementTrip {
+  if (f.frozen === null) throw new CancellationPlanError('QUOTE_UNAVAILABLE');
+  try {
+    const quote = replayFrozenQuote(f.frozen);
+    if (quote.currency.code !== f.currency) throw new CancellationPlanError('QUOTE_UNAVAILABLE');
+    return { ...quoteSettlementTrip(quote), startAtMs: f.startAtMs, bookedAtMs: f.bookedAtMs };
+  } catch (cause) {
+    if (cause instanceof CancellationPlanError) throw cause;
+    if (isQuoteError(cause)) throw new CancellationPlanError('QUOTE_UNAVAILABLE');
+    throw cause;
+  }
+}
+
+const legAmounts = (legs: Legs): LegAmounts =>
+  Object.fromEntries(LEGS.map((leg) => [leg, legs[leg].amountMinor])) as Record<Leg, bigint>;
+
+/**
+ * Règlement version 1 et ordres d'une demande (fonction pure) : moteur unique, puis
+ * `settlementOrders` sur la variation signée des jambes et le remboursement du moyen d'origine
+ * (carte : `NATIVE`). Les erreurs du moteur remontent telles quelles (`SettlementError`).
+ */
+export function planCancellation(f: CancellationFacts, trip: SettlementTrip): CancellationPlan {
+  const params = cancellationParams(f.params, trip.currency);
+  const rec = buildSettlementRecord(trip, cancellationEvent(f), params);
+  const currency = trip.currency;
+  const variationRow = Object.fromEntries(
+    rec.legs.map((l) => [l.leg, money(l.variationMinor, currency)]),
+  ) as Record<Leg, Money>;
+  const variation: Legs = Object.freeze({
+    ...variationRow,
+    total: money(-rec.guestRefundMinor, currency),
+  });
+  const refund = money(rec.guestRefundMinor, currency);
+  const orders = settlementOrders(
+    variation,
+    rec.guestRefundMinor > 0n ? [{ kind: 'NATIVE', amount: refund }] : [],
+  );
+  const out: CancellationOrder[] = [];
+  if (orders.reallocation !== null) {
+    const legs = legAmounts(orders.reallocation);
+    const amount = LEGS.reduce((s, leg) => (legs[leg] > 0n ? s + legs[leg] : s), 0n);
+    out.push({ kind: 'LEG_REALLOCATION', amountMinor: amount, legs, instanceSeq: 1 });
+  }
+  orders.refunds.forEach((r, i) => {
+    out.push({
+      kind: 'REFUND',
+      amountMinor: r.legs.total.amountMinor,
+      legs: legAmounts(r.legs),
+      instanceSeq: i + 1,
+    });
+  });
+  return { record: rec, orders: out };
+}
+
+// ------------------------------------------------------------------ accès à la base (production)
+
+const asWorker = async (db: SqlClient, worker: string): Promise<void> => {
+  await db.query(`SELECT pg_catalog.set_config('app.worker_name', $1, true)`, [worker]);
+};
+
+const text = (v: unknown): string => {
+  if (typeof v !== 'string') throw new Error('annulation : texte attendu');
+  return v;
+};
+const textOrNull = (v: unknown): string | null => (v === null ? null : text(v));
+const int = (v: unknown): number => {
+  const n = typeof v === 'string' ? Number(v) : v;
+  if (typeof n !== 'number' || !Number.isSafeInteger(n)) {
+    throw new Error('annulation : entier attendu');
+  }
+  return n;
+};
+const bool = (v: unknown): boolean => {
+  if (typeof v !== 'boolean') throw new Error('annulation : booléen attendu');
+  return v;
+};
+
+/** Lecture des faits d'une demande en attente (aucune ligne : demande déjà traitée). */
+export async function beginCancellation(
+  db: SqlClient,
+  cancellationId: string,
+): Promise<CancellationFacts | null> {
+  const { rows } = await db.query<Record<string, unknown>>(
+    `SELECT cancellation_id, trip_id, segment_id, country_code, currency, trip_row_version,
+            start_at_ms::text AS start_at_ms, booked_at_ms::text AS booked_at_ms,
+            requested_reason, sub_reason, evidence_validated, checkin_validated,
+            requested_at_ms::text AS requested_at_ms, quote_engine_version, quote_inputs,
+            quote_inputs_hash, quote_outputs, quote_outputs_hash, quote_total_minor,
+            quote_currency, params
+       FROM core.booking_trip_cancellation_begin($1::uuid)`,
+    [cancellationId],
+  );
+  const r = rows[0];
+  if (r === undefined) return null;
+  const frozen: FrozenQuote | null =
+    r['quote_inputs'] === null || r['quote_inputs'] === undefined
+      ? null
+      : {
+          format: FROZEN_QUOTE_FORMAT,
+          engineVersion: text(r['quote_engine_version']),
+          inputs: text(r['quote_inputs']),
+          inputsHash: text(r['quote_inputs_hash']),
+          outputs: text(r['quote_outputs']),
+          outputsHash: text(r['quote_outputs_hash']),
+          totalMinor: text(r['quote_total_minor']),
+          currency: text(r['quote_currency']),
+        };
+  return {
+    cancellationId: text(r['cancellation_id']),
+    tripId: text(r['trip_id']),
+    segmentId: text(r['segment_id']),
+    country: text(r['country_code']),
+    currency: text(r['currency']),
+    tripRowVersion: int(r['trip_row_version']),
+    startAtMs: int(r['start_at_ms']),
+    bookedAtMs: int(r['booked_at_ms']),
+    requestedReason: text(r['requested_reason']),
+    subReason: textOrNull(r['sub_reason']),
+    evidenceValidated: bool(r['evidence_validated']),
+    checkinValidated: bool(r['checkin_validated']),
+    requestedAtMs: int(r['requested_at_ms']),
+    frozen,
+    params: r['params'] ?? null,
+  };
+}
+
+export type CancellationOutcome =
+  | { readonly outcome: 'SETTLED'; readonly costBearer: string; readonly orders: number }
+  | { readonly outcome: 'SKIPPED' }
+  | { readonly outcome: 'FIN_REVIEW' | 'FAILED'; readonly code: string }
+  | { readonly outcome: 'RETRY'; readonly code: string };
+
+/** Codes de la base qui renvoient à la décision FINANCE d'US-224b (08 E7 règle 5). */
+const FIN_CODES = new Set(['FIN_REVIEW_REQUIRED', 'REFUND_EXCEEDS_COLLECTED']);
+
+export interface TripCancellationDeps {
+  readonly transactions: WorkerTransactions;
+  readonly alerts: AlertChannel;
+  /**
+   * Trip du moteur d'une demande (production : `cancellationTrip`, devis figé rejoué) ; remplacé
+   * dans les tests par un trip des vecteurs de 08.
+   */
+  readonly tripOf?: (f: CancellationFacts) => SettlementTrip;
+}
+
+/**
+ * Processeur du travailleur `trip_lifecycle` : une demande par transaction ; les refus
+ * déterministes garent la demande, les erreurs passagères la laissent en attente.
+ */
+export class TripCancellationProcessor {
+  readonly #deps: TripCancellationDeps;
+
+  constructor(deps: TripCancellationDeps) {
+    this.#deps = deps;
+  }
+
+  /** Demandes en attente (500 au plus par passage). */
+  async pending(limit: number): Promise<readonly string[]> {
+    return this.#deps.transactions.run(TRIP_LIFECYCLE_WORKER, async (db) => {
+      const { rows } = await db.query<{ id: string }>(
+        'SELECT id FROM core.booking_trip_cancellations_pending($1)',
+        [limit],
+      );
+      return rows.map((r) => r.id);
+    });
+  }
+
+  async process(cancellationId: string): Promise<CancellationOutcome> {
+    let country = 'XX';
+    let result: CancellationOutcome;
+    try {
+      result = await this.#deps.transactions.run(TRIP_LIFECYCLE_WORKER, async (db) => {
+        const f = await beginCancellation(db, cancellationId);
+        if (f === null) return { outcome: 'SKIPPED' } as const;
+        country = f.country;
+        const trip = (this.#deps.tripOf ?? cancellationTrip)(f);
+        const attempt = await settleOrFinReview(
+          () => planCancellation(f, trip),
+          f.country,
+          this.#deps.alerts,
+        );
+        if (attempt.outcome === 'FIN_REVIEW') {
+          return { outcome: 'FIN_REVIEW', code: attempt.code } as const;
+        }
+        return this.#apply(db, f, attempt.result);
+      });
+    } catch (error) {
+      result = classify(error);
+    }
+    if (result.outcome === 'FIN_REVIEW' || result.outcome === 'FAILED') {
+      await this.#park(cancellationId, result.outcome, result.code);
+      await this.#deps.alerts.send({
+        code:
+          result.outcome === 'FIN_REVIEW' ? 'FIN_SETTLEMENT_REVIEW' : 'TRIP_CANCELLATION_FAILED',
+        severity: 'P1',
+        counts: { cancellations: 1 },
+        labels: /^[A-Z]{2}$/.test(country)
+          ? { country, error_code: result.code }
+          : { error_code: result.code },
+      });
+    }
+    return result;
+  }
+
+  async #apply(db: SqlClient, f: CancellationFacts, plan: CancellationPlan) {
+    await asWorker(db, SETTLEMENT_WORKER);
+    const { rows: recorded } = await db.query<{ id: string }>(
+      `SELECT core.settlement_cmd_record($1::uuid, $2::uuid, 1, 1, NULL, $3, $4::jsonb) AS id`,
+      [
+        randomUUID(),
+        f.tripId,
+        f.tripRowVersion,
+        JSON.stringify(settlementRecordPayload(plan.record)),
+      ],
+    );
+    const settlementId = text(recorded[0]?.id);
+    await asWorker(db, TRIP_LIFECYCLE_WORKER);
+    const { rows: settled } = await db.query<{ r: { costBearer?: unknown } }>(
+      'SELECT core.booking_cmd_trip_cancel_settle($1::uuid, $2::uuid) AS r',
+      [f.cancellationId, settlementId],
+    );
+    const costBearer = text(settled[0]?.r.costBearer);
+    if (plan.orders.length > 0) {
+      await asWorker(db, PAYMENT_COMMAND_WORKER);
+      const capture = await captureOf(db, f.tripId);
+      const recorder = new PgOperationRecorder(db);
+      for (const o of plan.orders) {
+        const idemPlain = orderKey(f, o, capture.operationId);
+        await recorder.record({
+          id: randomUUID(),
+          holdId: null,
+          tripId: f.tripId,
+          pspAccountId: capture.accountId,
+          method: capture.method,
+          kind: o.kind,
+          purpose: 'RENT',
+          amountMinor: o.amountMinor,
+          currency: f.currency,
+          attemptNo: 1,
+          idemPlain,
+          idemSent: idempotencyKeyToSend(idemPlain, PSP_IDEMPOTENCY_MAX_LENGTH),
+          legs: o.legs,
+          settlement: { id: settlementId, version: 1 },
+        });
+      }
+    }
+    return { outcome: 'SETTLED', costBearer, orders: plan.orders.length } as const;
+  }
+
+  async #park(cancellationId: string, status: 'FIN_REVIEW' | 'FAILED', code: string) {
+    await this.#deps.transactions.run(TRIP_LIFECYCLE_WORKER, (db) =>
+      db.query('SELECT core.booking_cmd_trip_cancel_park($1::uuid, $2, $3) AS r', [
+        cancellationId,
+        status,
+        code,
+      ]),
+    );
+  }
+}
+
+/** Capture réussie du loyer du trip (moyen et compte d'origine du remboursement). */
+async function captureOf(
+  db: SqlClient,
+  tripId: string,
+): Promise<{ operationId: string; accountId: string; method: string | null }> {
+  const { rows } = await db.query<{ id: string; psp_account_id: string; method: string | null }>(
+    `SELECT o.id, o.psp_account_id, o.method
+       FROM core.payment_payment_operation AS o
+      WHERE o.kind = 'CAPTURE' AND o.purpose = 'RENT' AND o.status = 'SUCCEEDED'
+        AND (o.trip_id = $1::uuid
+             OR o.hold_id = (SELECT t.source_hold_id FROM core.booking_trip AS t
+                              WHERE t.id = $1::uuid))`,
+    [tripId],
+  );
+  // bêta : une seule capture du loyer ; aucune ou plusieurs ⇒ refus (jamais un moyen deviné)
+  if (rows.length !== 1 || rows[0] === undefined) {
+    throw new CancellationPlanError('TRIP_NOT_CAPTURED');
+  }
+  return { operationId: rows[0].id, accountId: rows[0].psp_account_id, method: rows[0].method };
+}
+
+/**
+ * Clé d'idempotence d'un ordre (08 E4) : `{trip}:{segment}:v1:{opération}:{moyen}:i{n}:a1`, le
+ * moyen étant la capture d'origine. La réaffectation n'est pas une opération du PSP de 08 E4 : sa
+ * clé suit la même forme avec `LEG_REALLOCATION` (PROPOSÉ, ADR-148).
+ */
+export function orderKey(f: CancellationFacts, o: CancellationOrder, tenderId: string): string {
+  if (o.kind === 'REFUND') {
+    return settlementOperationKey({
+      tripId: f.tripId,
+      segmentId: f.segmentId,
+      settlementVersion: 1,
+      operationType: 'REFUND',
+      tenderId,
+      instanceSeq: o.instanceSeq,
+      attemptNo: 1,
+    });
+  }
+  return [
+    f.tripId,
+    f.segmentId,
+    'v1',
+    'LEG_REALLOCATION',
+    tenderId,
+    `i${o.instanceSeq}`,
+    'a1',
+  ].join(':');
+}
+
+/** Refus déterministe (garé) ou erreur passagère (reprise au passage suivant). */
+export function classify(error: unknown): CancellationOutcome {
+  if (error instanceof CancellationPlanError) return { outcome: 'FAILED', code: error.code };
+  if (isSettlementError(error)) return { outcome: 'FAILED', code: error.code };
+  const db = translateDbError(error);
+  if (db.retryable) return { outcome: 'RETRY', code: db.code };
+  if (typeof error !== 'object' || error === null || !('code' in error)) throw error;
+  if (FIN_CODES.has(db.code)) return { outcome: 'FIN_REVIEW', code: db.code };
+  return { outcome: 'FAILED', code: db.code };
+}
+
+/** Période du travailleur (PROPOSÉ, ADR-148) : une demande réglée en ~10 s, comme la conversion. */
+export const TRIP_CANCELLATION_PERIOD_SECONDS = 10;
+/** Demandes traitées par passage, une par transaction. */
+export const TRIP_CANCELLATION_BATCH = 50;
+
+/**
+ * Tâche périodique `trip_lifecycle` : chaque demande en attente est réglée dans sa propre
+ * transaction ; les comptes seulement sont journalisés (aucun identifiant, 17 §6.3).
+ */
+export function registerTripCancellations(
+  registry: BusRegistry,
+  transactions: WorkerTransactions,
+  alerts: AlertChannel,
+  log: (line: string) => void,
+): void {
+  const processor = new TripCancellationProcessor({ transactions, alerts });
+  registry.registerPeriodic(
+    TRIP_LIFECYCLE_WORKER,
+    TRIP_CANCELLATION_PERIOD_SECONDS,
+    async (_payload, tx) => {
+      const { rows } = await tx.query<{ id: string }>(
+        'SELECT id FROM core.booking_trip_cancellations_pending($1)',
+        [TRIP_CANCELLATION_BATCH],
+      );
+      const counts = { settled: 0, skipped: 0, fin_review: 0, failed: 0, retry: 0 };
+      for (const row of rows) {
+        const r = await processor.process(row.id);
+        if (r.outcome === 'SETTLED') counts.settled++;
+        else if (r.outcome === 'SKIPPED') counts.skipped++;
+        else if (r.outcome === 'FIN_REVIEW') counts.fin_review++;
+        else if (r.outcome === 'FAILED') counts.failed++;
+        else counts.retry++;
+      }
+      log(JSON.stringify({ level: 'info', worker: TRIP_LIFECYCLE_WORKER, ...counts }));
+    },
+  );
+}

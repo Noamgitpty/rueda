@@ -41,6 +41,9 @@ const TRIP_SM_TABLES = [
   // test/l0/l0-us208-checkout
   'booking_checkout_acceptance',
   'booking_checkout_terms',
+  // US-215 (0122) : demandes d'annulation de la console, réglées par le travailleur trip_lifecycle ;
+  // preuves : test/l0/l0-us215-trip-cancellation
+  'booking_trip_cancellation',
 ] as const;
 
 // Tables de configuration pays (US-013, 0008) : même socle RLS (ENABLE + FORCE, migrator_all),
