@@ -7,7 +7,7 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 
 ## Synthèse
 
-- 123 migrations ; 123 tables ; 2 vues ; 678 politiques RLS ; 241 fonctions `SECURITY DEFINER` ; 230 autres fonctions.
+- 124 migrations ; 124 tables ; 2 vues ; 685 politiques RLS ; 248 fonctions `SECURITY DEFINER` ; 233 autres fonctions.
 - Tables sans RLS `ENABLE` + `FORCE` : aucune.
 - Rôles applicatifs avec `SUPERUSER` ou `BYPASSRLS` : aucun.
 
@@ -138,6 +138,7 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 | `0120_booking_checkout_review_state` | AVL : état de revue d'un hold de checkout, lu par le voyageur (S05). |
 | `0121_settlement_refund_orders` | STL / PAY : ordres de remboursement et de jambe rattachés à la version du règlement, |
 | `0122_ctr_rental_contract` | CTR / AVL : contrat de location hôte–voyageur par trip et signature horodatée (bêta). |
+| `0123_booking_trip_cancellation_settled` | AVL / STL / SUP : annulations du voyageur, de l'hôte et de la plateforme déclenchées par |
 
 ## Rôles
 
@@ -2542,6 +2543,7 @@ Politiques RLS :
 - `catalog_cmd_upload_read` (SELECT, PERMISSIVE, catalog_cmd_owner) USING `(key = ANY (ARRAY['upload_photo_max_kb'::text, 'upload_gallery_photos_max'::text, 'upload_documents_per_minute'::text]))`
 - `cmd_golive_ins` (INSERT, PERMISSIVE, cmd_golive_owner) WITH CHECK `((app.actor_kind() = 'STAFF'::text) AND (go_live_request_id IS NOT NULL) AND (approved_by IS NOT NULL) AND (scope_type = 'COUNTRY'::text))`
 - `cmd_golive_sel` (SELECT, PERMISSIVE, cmd_golive_owner) USING `((go_live_request_id IS NOT NULL) OR (key IN ( SELECT d.key FROM core.config_param_definition d WHERE d.go_live_switch)))`
+- `cmd_hold_cancel_read` (SELECT, PERMISSIVE, cmd_hold_owner) USING `(key = ANY (ARRAY['free_cancel_lead'::text, 'last_minute_threshold'::text, 'host_penalty'::text, 'platform_funded_host_compensation'::text]))`
 - `cmd_hold_contract_param_read` (SELECT, PERMISSIVE, cmd_hold_owner) USING `(key = 'grace_minutes'::text)`
 - `cmd_hold_read` (SELECT, PERMISSIVE, cmd_hold_owner) USING `(key = ANY (ARRAY['buffer_minutes'::text, 'hold_ttl_minutes'::text, 'hold_max_total_minutes'::text, 'max_active_holds_per_guest'::text, 'hold_creations_per_guest_vehicle_hour'::text, 'sweep_grace_s'::text, 'flagged_booking_payment_order'::text, 'review_hold_minutes'::text, 'payment_in_flight_margin_s'::text, 'psp_call_timeout_s'::text, 'conversion_start_tolerance_minutes'::text, 'payment_attempts_per_hold'::text, 'max_trip_days'::text, 'advance_notice_minutes'::text, 'no_show_grace_minutes'::text, 'overdue_detection_minutes'::text, 'p2p_private_hosts_enabled'::text, 'insurer_contract_active'::text]))`
 - `cmd_hold_risk_read` (SELECT, PERMISSIVE, cmd_hold_owner) USING `(key = ANY (ARRAY['min_driver_age'::text, 'foreign_license_review_enabled'::text]))`
@@ -6145,6 +6147,8 @@ Chacune a un propriétaire `NOLOGIN` dédié (ADR-053) et un `search_path` figé
 | `core.booking_staff_review_dossier(p_assessment uuid)` | `jsonb` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | cmd_hold_owner: EXECUTE ; iam_staff_owner: EXECUTE |
 | `core.booking_trip_birth_defaults()` | `trigger` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | cmd_hold_owner: EXECUTE |
 | `core.booking_trip_birth_records()` | `trigger` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | cmd_hold_owner: EXECUTE |
+| `core.booking_trip_cancellation_begin(p_cancellation_id uuid)` | `TABLE(cancellation_id uuid, trip_id uuid, segment_id uuid, country_code text, currency text, trip_status text, trip_row_version integer, start_at_ms bigint, booked_at_ms bigint, requested_reason text, initiator text, sub_reason text, evidence_validated boolean, checkin_validated boolean, requested_at_ms bigint, quote_engine_version text, quote_inputs text, quote_inputs_hash text, quote_outputs text, quote_outputs_hash text, quote_total_minor text, quote_currency text, params jsonb)` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; cmd_hold_owner: EXECUTE |
+| `core.booking_trip_cancellations_pending(p_limit integer)` | `TABLE(id uuid)` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; cmd_hold_owner: EXECUTE |
 | `core.booking_trip_contract(p_token_hash bytea, p_trip_id uuid, p_version integer)` | `TABLE(outcome text, viewer_role text, document_id uuid, version integer, latest_version integer, locale text, generated_at timestamp with time zone, sha256 text, renderer_version text, terms jsonb, derived jsonb, body jsonb, is_draft boolean, signature_id uuid, signed_at timestamp with time zone, seal_sha256 text)` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; cmd_hold_owner: EXECUTE |
 | `core.booking_trip_period_sync()` | `trigger` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | cmd_hold_owner: EXECUTE |
 | `core.catalog_addition_detail(p_addition_id uuid, p_country text)` | `jsonb` | `catalog_cmd_owner` | search_path=pg_catalog, pg_temp | catalog_cmd_owner: EXECUTE ; iam_staff_owner: EXECUTE |
