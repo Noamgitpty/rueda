@@ -266,13 +266,23 @@ describe('US-018 — supersession : version n+1 par contre-passation, sans perte
         expect(await codeOf(run(tx, s)), label).toBe(code);
       });
     }
-    // v2 enregistrée, puis une seconde v2 (autre événement) ⇒ SETTLEMENT_EXISTS
+    // v2 enregistrée, puis une seconde v2 : US-224 (0120, S-02 phrase 2) : la MÊME v2 rejouée rend
+    // la v2 existante (avant : SETTLEMENT_EXISTS) ; une v2 d'un autre événement (T03) ⇒
+    // SETTLEMENT_EXISTS
     await worker(async (tx) => {
       const s = await setup(tx);
-      await recordAsSettlementWorker(tx, { tripId: s.trip, version: 2, supersedesId: s.v1 }, r2);
+      const v2 = await recordAsSettlementWorker(
+        tx,
+        { tripId: s.trip, version: 2, supersedesId: s.v1 },
+        r2,
+      );
+      expect(
+        await recordAsSettlementWorker(tx, { tripId: s.trip, version: 2, supersedesId: s.v1 }, r2),
+      ).toBe(v2);
+      const other = recordOf(tripOfVector('T08'), eventOfVector('T03'), r1);
       expect(
         await codeOf(
-          recordAsSettlementWorker(tx, { tripId: s.trip, version: 2, supersedesId: s.v1 }, r2),
+          recordAsSettlementWorker(tx, { tripId: s.trip, version: 2, supersedesId: s.v1 }, other),
         ),
       ).toBe('SETTLEMENT_EXISTS');
     });
