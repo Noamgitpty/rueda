@@ -13,7 +13,7 @@ import { settlementVectors } from '@rueda/money/golden-vectors';
 import { testParams } from '@rueda/money/testing';
 import { describe, expect, it } from 'vitest';
 import { resolveParam } from '../../../cfg/index.js';
-import { lateCancellationOf } from './cancellation.js';
+import { lateCancellationOf, penaltyDaysLabel } from './cancellation.js';
 import { resolveCancellationParams } from './params.js';
 import { assembleQuote } from './engine.js';
 import { isQuoteError } from './errors.js';
@@ -128,4 +128,18 @@ describe('US-205b (revues argent n° 6, architecture n° 5) : fenêtre de derni�
       expect(late?.freeUntilMs).toBe(bookedAt + (window as number) * MINUTE_MS);
     },
   );
+});
+
+// US-211 partie 211b (revues argent n° 6, qa n° 7, code n° 5 de #195) : seuls 1 et ½ jour ont un
+// libellé (08 BR-CXL-06) ; toute autre fraction rend `null`, que le contrat refuse (fail-closed)
+describe('penaltyDaysLabel (08 BR-CXL-06 : 1 ou ½ jour)', () => {
+  it('1 et ½ (fractions réduites ou non) ; 2/1, 3/4, 1/3 ⇒ null', () => {
+    expect(penaltyDaysLabel(ratio(1n, 1n))).toBe('1');
+    expect(penaltyDaysLabel(ratio(2n, 2n))).toBe('1');
+    expect(penaltyDaysLabel(ratio(1n, 2n))).toBe('1/2');
+    expect(penaltyDaysLabel(ratio(2n, 4n))).toBe('1/2');
+    expect(penaltyDaysLabel(ratio(2n, 1n))).toBeNull();
+    expect(penaltyDaysLabel(ratio(3n, 4n))).toBeNull();
+    expect(penaltyDaysLabel(ratio(1n, 3n))).toBeNull();
+  });
 });

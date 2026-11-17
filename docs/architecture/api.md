@@ -187,6 +187,14 @@ Chaque statut ci-dessous est exercé par un test de contrat sur l’application 
 | `POST` | `/staff/mfa/enroll` | `staffMfaEnroll` | Enrôlement TOTP, étape 1 : le code remis hors bande ouvre le secret (affiché une fois) | **200** application/json<br>**400** REQUEST_INVALID / AUTH_TOTP_INVALID<br>**401** AUTH_REQUIRED<br>**415** REQUEST_INVALID<br>**429** RATE_LIMITED / AUTH_TOTP_LOCKED<br>**503** STAFF_MFA_UNAVAILABLE |
 | `POST` | `/staff/mfa/verify` | `staffMfaVerify` | Code TOTP : fin d'enrôlement ou élévation de la session | **200** application/json<br>**400** REQUEST_INVALID / AUTH_TOTP_INVALID<br>**401** AUTH_REQUIRED<br>**403** FORBIDDEN / 2FA_REQUIRED<br>**415** REQUEST_INVALID<br>**429** RATE_LIMITED / AUTH_TOTP_LOCKED<br>**503** STAFF_MFA_UNAVAILABLE |
 
+## `/trips`
+
+| Méthode | Chemin | operationId | Résumé | Statuts et codes |
+| ------- | ------ | ----------- | ------ | ---------------- |
+| `GET` | `/trips/{tripId}/contract` | `tripContract` | Contrat de location d'un trip pour sa partie de la session (S09 voyageur, A03 hôte) : résumé, équivalent HTML du PDF, empreinte, signature (US-211) | **200** application/json<br>**400** REQUEST_INVALID<br>**401** AUTH_REQUIRED<br>**404** CONTRACT_NOT_FOUND<br>**409** CONTRACT_NOT_GENERATED<br>**503** CONTRACT_UNAVAILABLE |
+| `GET` | `/trips/{tripId}/contract/pdf` | `tripContractPdf` | PDF du contrat (ctr.pdf/1), rendu de nouveau à chaque demande et servi sans cache : signé (bloc de signature rempli) ou à signer (US-211) | **200** application/pdf<br>**400** REQUEST_INVALID<br>**401** AUTH_REQUIRED<br>**404** CONTRACT_NOT_FOUND<br>**409** CONTRACT_NOT_GENERATED / CONTRACT_TEXT_ERASED<br>**503** CONTRACT_UNAVAILABLE |
+| `POST` | `/trips/{tripId}/contract/sign` | `signTripContract` | Signature électronique simple de la dernière version par le voyageur de la session : case cochée, empreinte présentée, heure serveur, sceau (16 BKG-019 bêta SIMPLIFIÉ) | **200** application/json<br>**400** REQUEST_INVALID<br>**401** AUTH_REQUIRED<br>**404** CONTRACT_NOT_FOUND<br>**409** CONTRACT_SUPERSEDED / CONTRACT_NOT_SIGNABLE / CONTRACT_HASH_MISMATCH<br>**415** REQUEST_INVALID<br>**503** CONTRACT_UNAVAILABLE |
+
 ## `/webhooks`
 
 | Méthode | Chemin | operationId | Résumé | Statuts et codes |
