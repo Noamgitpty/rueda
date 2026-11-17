@@ -76,6 +76,14 @@ export default async function HostTripPage({
   return shell(
     <>
       <TripCard i18n={i18n} trip={read.trip} market={read.market} href={null} headingLevel={2} />
+      {/* contrat du trip et état de la signature du voyageur (A03 · contrat, US-211 partie 211b) */}
+      <a
+        className={styles['link']}
+        href={`/host/trips/${tripId}/contract?org=${account.orgId}`}
+        data-testid="a05-contract"
+      >
+        {t('web.a05.contract')}
+      </a>
       <p className={styles['hint']}>{t('web.a05.earnings.note')}</p>
       <p className={styles['hint']}>{t('web.a05.privacy')}</p>
     </>,

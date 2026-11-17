@@ -101,6 +101,11 @@ export interface RentalContractInput {
   /** Exposant de la devise (CFG : 2 ou 0 pour les devises de premier rang). */
   readonly exponent: number;
   readonly localeConfig: LocaleConfig;
+  /**
+   * Nom du pays du trip dans chaque langue du contrat (configuration des pays, `names`), au lieu
+   * du code du pays et du fuseau IANA (US-211 partie 211b, revue ux de #195 n° 5).
+   */
+  readonly countryNames: Readonly<Partial<Record<'es' | CourtesyLocale, string>>>;
 }
 
 /** Bloc de signature (ligne de `contract_signature`). */
@@ -169,7 +174,16 @@ function part(
   const profile = profileOf(input.localeConfig, language, t.country);
   const tr: Translator = createTranslator(profile);
   const money = (minor: string) => moneyText(profile, minor, t.currency, input.exponent);
+  const countryName = input.countryNames[language];
+  if (countryName === undefined || countryName.trim() === '') {
+    throw new ContractInputError(`nom du pays absent (${language})`);
+  }
+  // gabarit BROUILLON : sa première ligne (le bandeau) est imprimée en tête du document, sous le
+  // titre, et n'est pas répétée dans les clauses (211b ; revue ux de #195 n° 4)
+  const clauses = template.body.split('\n').filter((c) => c.trim() !== '');
+  const banner = template.isDraft ? clauses.shift() : undefined;
   const lines: ContractLine[] = [{ s: 'title', t: template.title }];
+  if (banner !== undefined) lines.push({ s: 'note', t: banner });
   lines.push({
     s: 'kv',
     t: tr.t('ctr.contract.ref', { ref: t.tripRef, version: input.version }),
@@ -202,7 +216,7 @@ function part(
   });
   lines.push({
     s: 'kv',
-    t: tr.t('ctr.contract.period', { start: t.startLocal, end: t.endLocal, timezone: t.timezone }),
+    t: tr.t('ctr.contract.period', { start: t.startLocal, end: t.endLocal, country: countryName }),
   });
   lines.push({
     s: 'kv',
@@ -275,12 +289,12 @@ function part(
   });
 
   lines.push({ s: 'h', t: tr.t('ctr.contract.clauses') });
-  for (const clause of template.body.split('\n')) {
-    if (clause.trim() !== '') lines.push({ s: 'p', t: clause });
-  }
+  for (const clause of clauses) lines.push({ s: 'p', t: clause });
 
   lines.push({ s: 'h', t: tr.t('ctr.contract.signatureHeading') });
-  lines.push({ s: 'sig', t: tr.t('ctr.contract.signedBy', { value: who.guestName }) });
+  // nom du voyageur hors du bloc `sig` : un nom ne peut jamais porter un marqueur remplacé
+  // (revue sécurité de #195 n° 5)
+  lines.push({ s: 'kv', t: tr.t('ctr.contract.signedBy', { value: who.guestName }) });
   lines.push({ s: 'sig', t: tr.t('ctr.contract.signedAt', { value: SIGNED_AT }) });
   lines.push({ s: 'sig', t: tr.t('ctr.contract.documentHash', { value: DOCUMENT_SHA }) });
   lines.push({ s: 'sig', t: tr.t('ctr.contract.seal', { value: SEAL }) });
@@ -357,6 +371,17 @@ export function renderContractPdf(
   if (renderer !== PDF_RENDERER_V1) {
     throw new ContractInputError(`version de rendu inconnue : ${renderer}`);
   }
+  return renderPdf(fillSignatureBlock(body, signature), footer);
+}
+
+/**
+ * Texte du contrat tel que le PDF l'imprime : bloc de signature rempli (signé) ou « - » (à
+ * signer). Sert aussi l'équivalent HTML de l'écran S09 (10b UX-51 : même texte que le PDF).
+ */
+export function fillSignatureBlock(
+  body: readonly ContractLine[],
+  signature?: ContractSignatureBlock,
+): ContractLine[] {
   const values: Readonly<Record<string, string>> = signature
     ? {
         [SIGNED_AT]: iso(signature.signedAt),
@@ -366,14 +391,13 @@ export function renderContractPdf(
       }
     : { [SIGNED_AT]: '-', [DOCUMENT_SHA]: '-', [SEAL]: '-', [SIGNATURE_ID]: '-' };
   // marqueurs remplacés dans les SEULES lignes du bloc de signature (jamais dans le texte libre)
-  const filled = body.map((l) => ({
+  return body.map((l) => ({
     s: l.s,
     t:
       l.s !== 'sig'
         ? l.t
         : l.t.replace(/\{\{(signedAt|documentSha256|seal|signatureId)\}\}/g, (m) => values[m] ?? m),
   }));
-  return renderPdf(filled, footer);
 }
 
 /** Empreinte SHA-256 (hexadécimal minuscule) d'un PDF. */
@@ -438,8 +462,24 @@ export interface ContractFacts {
 
 export function parseContractFacts(raw: unknown): ContractFacts {
   if (!isRec(raw)) throw new ContractInputError('faits attendus');
-  const t = rec(raw, 'terms');
   const who = rec(raw, 'identity');
+  return {
+    terms: parseContractTerms(raw['terms']),
+    identity: {
+      hostName: str(who, 'hostName'),
+      guestName: str(who, 'guestName'),
+      plate: str(who, 'plate'),
+      handoverPlace: strOrNull(who, 'handoverPlace'),
+      handoverAddress: strOrNull(who, 'handoverAddress'),
+      handoverCity: str(who, 'handoverCity'),
+    },
+  };
+}
+
+/** Faits non nominatifs d'un document (`terms`, classe A) : forme stricte, jamais devinée. */
+export function parseContractTerms(raw: unknown): ContractTerms {
+  if (!isRec(raw)) throw new ContractInputError('objet terms attendu');
+  const t = raw;
   const vehicle = rec(t, 'vehicle');
   const protection = rec(t, 'protection');
   const mileage = rec(t, 'mileage');
@@ -455,48 +495,92 @@ export function parseContractFacts(raw: unknown): ContractFacts {
   const year = intOrNull(vehicle, 'year');
   if (year === null) throw new ContractInputError('année du véhicule attendue');
   return {
-    terms: {
-      schema: str(t, 'schema'),
-      tripRef: str(t, 'tripRef'),
-      country: str(t, 'country'),
-      currency: str(t, 'currency'),
-      timezone: str(t, 'timezone'),
-      startLocal: str(t, 'startLocal'),
-      endLocal: str(t, 'endLocal'),
-      bookedAtLocal: str(t, 'bookedAtLocal'),
-      vehicle: { make: str(vehicle, 'make'), model: str(vehicle, 'model'), year },
-      hostCapacity: capacity,
-      priceTotalMinor: minor(t, 'priceTotalMinor'),
-      priceLines: lines.map((l: unknown) => {
-        if (!isRec(l)) throw new ContractInputError('ligne de prix attendue');
-        return {
-          type: str(l, 'type'),
-          amountMinor: minor(l, 'amountMinor'),
-          taxMinor: minor(l, 'taxMinor'),
-        };
-      }),
-      protection: {
-        level: str(protection, 'level'),
-        deductibleMinor: minor(protection, 'deductibleMinor'),
-        rcMinor: minor(protection, 'rcMinor'),
-        insurer: str(protection, 'insurer'),
-        broker: strOrNull(protection, 'broker'),
-      },
-      depositMinor: minorOrNull(t, 'depositMinor'),
-      mileage: {
-        mode,
-        includedKm: intOrNull(mileage, 'includedKm'),
-        extraKmPriceMinor: minorOrNull(mileage, 'extraKmPriceMinor'),
-      },
-      lateGraceMinutes: intOrNull(t, 'lateGraceMinutes'),
+    schema: str(t, 'schema'),
+    tripRef: str(t, 'tripRef'),
+    country: str(t, 'country'),
+    currency: str(t, 'currency'),
+    timezone: str(t, 'timezone'),
+    startLocal: str(t, 'startLocal'),
+    endLocal: str(t, 'endLocal'),
+    bookedAtLocal: str(t, 'bookedAtLocal'),
+    vehicle: { make: str(vehicle, 'make'), model: str(vehicle, 'model'), year },
+    hostCapacity: capacity,
+    priceTotalMinor: minor(t, 'priceTotalMinor'),
+    priceLines: lines.map((l: unknown) => {
+      if (!isRec(l)) throw new ContractInputError('ligne de prix attendue');
+      return {
+        type: str(l, 'type'),
+        amountMinor: minor(l, 'amountMinor'),
+        taxMinor: minor(l, 'taxMinor'),
+      };
+    }),
+    protection: {
+      level: str(protection, 'level'),
+      deductibleMinor: minor(protection, 'deductibleMinor'),
+      rcMinor: minor(protection, 'rcMinor'),
+      insurer: str(protection, 'insurer'),
+      broker: strOrNull(protection, 'broker'),
     },
-    identity: {
-      hostName: str(who, 'hostName'),
-      guestName: str(who, 'guestName'),
-      plate: str(who, 'plate'),
-      handoverPlace: strOrNull(who, 'handoverPlace'),
-      handoverAddress: strOrNull(who, 'handoverAddress'),
-      handoverCity: str(who, 'handoverCity'),
+    depositMinor: minorOrNull(t, 'depositMinor'),
+    mileage: {
+      mode,
+      includedKm: intOrNull(mileage, 'includedKm'),
+      extraKmPriceMinor: minorOrNull(mileage, 'extraKmPriceMinor'),
+    },
+    lateGraceMinutes: intOrNull(t, 'lateGraceMinutes'),
+  };
+}
+
+/** Valeurs calculées d'un document (`derived`, classe A) : marque et retenue du moteur. */
+export function parseContractDerived(raw: unknown): ContractDerived {
+  if (!isRec(raw)) throw new ContractInputError('objet derived attendu');
+  const c = raw['cancellation'];
+  if (c === null || c === undefined) return { brand: str(raw, 'brand'), cancellation: null };
+  if (!isRec(c)) throw new ContractInputError('objet cancellation attendu');
+  const days = str(c, 'penaltyDays');
+  if (days !== '1' && days !== '1/2') throw new ContractInputError('jours de retenue inconnus');
+  return {
+    brand: str(raw, 'brand'),
+    cancellation: {
+      freeUntilLocal: str(c, 'freeUntilLocal'),
+      penaltyDays: days,
+      retainedMinor: minor(c, 'retainedMinor'),
+      engineVersion: str(c, 'engineVersion'),
     },
   };
+}
+
+const LINE_STYLES: ReadonlySet<string> = new Set(['title', 'h', 'p', 'kv', 'note', 'sig']);
+
+/** Texte figé d'un document (lignes `{ s, t }`) : style connu et texte, sinon refus. */
+export function parseContractBody(raw: unknown): ContractLine[] {
+  if (!Array.isArray(raw) || raw.length === 0) throw new ContractInputError('lignes attendues');
+  return raw.map((l: unknown) => {
+    if (!isRec(l) || typeof l['t'] !== 'string' || !LINE_STYLES.has(String(l['s']))) {
+      throw new ContractInputError('ligne de contrat illisible');
+    }
+    return { s: l['s'] as ContractLine['s'], t: l['t'] };
+  });
+}
+
+/**
+ * Le PDF SIGNÉ présenté est-il celui de cette signature ? Le PDF signé est une fonction pure du
+ * texte figé et du bloc de signature enregistrés (ADR-143 n° 7) : il est rendu de nouveau et son
+ * empreinte comparée à celle du PDF présenté ; tout octet modifié ⇒ `CONTRACT_HASH_MISMATCH`.
+ * Le texte rendu sans signature doit d'abord redonner l'empreinte enregistrée du document (sinon
+ * le texte figé ne serait pas celui qui a été signé : même refus).
+ */
+export function verifySignedContractPdf(
+  presented: Uint8Array,
+  body: readonly ContractLine[],
+  footer: string,
+  renderer: string,
+  signature: ContractSignatureBlock,
+): ContractVerification {
+  const unsigned = renderContractPdf(body, footer, renderer);
+  if (verifyContractPdf(unsigned, signature.documentSha256).ok !== true) {
+    return { ok: false, code: 'CONTRACT_HASH_MISMATCH' };
+  }
+  const expected = renderContractPdf(body, footer, renderer, signature);
+  return verifyContractPdf(presented, contractSha256(expected));
 }
