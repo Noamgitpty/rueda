@@ -663,8 +663,8 @@
       "signature": "core.ctr_host_terms_required(uuid,text)",
       "family": "iam_auth",
       "owner": "iam_auth_owner",
-      "execute": ["catalog_cmd_owner", "kyc_cmd_owner"],
-      "story": "US-126, US-123"
+      "execute": ["catalog_cmd_owner", "cmd_hold_owner", "kyc_cmd_owner"],
+      "story": "US-126, US-123, US-223"
     },
     {
       "signature": "core.ctr_host_terms(bytea,uuid,text)",
@@ -705,8 +705,14 @@
       "signature": "core.iam_host_accounts(bytea)",
       "family": "iam_auth",
       "owner": "iam_auth_owner",
-      "execute": ["app_api", "catalog_cmd_owner", "host_view_owner", "kyc_cmd_owner"],
-      "story": "US-107, US-115, US-123, US-219"
+      "execute": [
+        "app_api",
+        "catalog_cmd_owner",
+        "cmd_hold_owner",
+        "host_view_owner",
+        "kyc_cmd_owner"
+      ],
+      "story": "US-107, US-115, US-123, US-219, US-223"
     },
     {
       "signature": "core.iam_phone_otp_state(bytea)",
@@ -1608,7 +1614,7 @@
       "signature": "core.booking_checkout_capture_terms(uuid)",
       "family": "cmd_hold",
       "owner": "cmd_hold_owner",
-      "execute": ["app_worker"],
+      "execute": ["app_worker", "host_view_owner"],
       "story": "US-223"
     },
     {
@@ -1680,6 +1686,62 @@
       "owner": "iam_staff_owner",
       "execute": ["app_api"],
       "story": "US-209"
+    },
+    {
+      "signature": "core.booking_request_void(uuid,uuid)",
+      "family": "cmd_hold",
+      "owner": "cmd_hold_owner",
+      "execute": ["app_worker"],
+      "story": "US-223"
+    },
+    {
+      "signature": "core.booking_request_authorized(uuid)",
+      "family": "cmd_hold",
+      "owner": "cmd_hold_owner",
+      "execute": ["app_worker"],
+      "story": "US-223"
+    },
+    {
+      "signature": "core.booking_cmd_accept_booking_request(bytea,uuid,uuid)",
+      "family": "cmd_hold",
+      "owner": "cmd_hold_owner",
+      "execute": ["app_api"],
+      "story": "US-223"
+    },
+    {
+      "signature": "core.booking_cmd_request_record_capture(bytea,uuid,uuid,uuid,text)",
+      "family": "cmd_hold",
+      "owner": "cmd_hold_owner",
+      "execute": ["app_api"],
+      "story": "US-223"
+    },
+    {
+      "signature": "core.booking_cmd_decline_booking_request(bytea,uuid,uuid)",
+      "family": "cmd_hold",
+      "owner": "cmd_hold_owner",
+      "execute": ["app_api"],
+      "story": "US-223"
+    },
+    {
+      "signature": "core.booking_cmd_expire_booking_requests(integer)",
+      "family": "cmd_hold",
+      "owner": "cmd_hold_owner",
+      "execute": ["app_worker"],
+      "story": "US-223"
+    },
+    {
+      "signature": "core.booking_checkout_request(bytea,uuid)",
+      "family": "cmd_hold",
+      "owner": "cmd_hold_owner",
+      "execute": ["app_api"],
+      "story": "US-223"
+    },
+    {
+      "signature": "core.booking_host_requests(bytea,uuid,uuid,integer)",
+      "family": "host_view",
+      "owner": "host_view_owner",
+      "execute": ["app_api"],
+      "story": "US-223"
     },
     {
       "signature": "core.booking_contract_source(uuid)",

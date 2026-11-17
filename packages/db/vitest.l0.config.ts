@@ -27,6 +27,9 @@ const ISOLATED = [
   // US-223 : paiement prouvé puis conversion, à deux sessions, données commitées et expiration sur
   // toute la base (comme US-024)
   'test/l0/l0-us223-conversion.test.ts',
+  // US-223c : cycle d'une demande (autorisation, acceptation, refus, expiration) à deux sessions,
+  // données commitées et expiration des demandes sur toute la base (comme US-223a)
+  'test/l0/l0-us223-request.test.ts',
   // US-224 : ordres de règlement à deux sessions, données commitées, compte PSP ACTIVE le temps de
   // la course (un seul compte ACTIVE par pays)
   'test/l0/l0-us224-refund-race.test.ts',

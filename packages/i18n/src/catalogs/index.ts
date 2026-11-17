@@ -180,8 +180,12 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  (US-211, ADR-143) : `ctr.contract.*` (libellés du PDF du contrat, figés dans le document à sa
  génération : parties, plateforme intermédiaire, véhicule, période, prix, protection, caution,
  distance, annulation, retard, territoire, bloc de signature, traduction de courtoisie).
+ Version 67 (la 66 est réservée à US-224) : réservation sur demande, partie
+ serveur 223c (US-223, ADR-146) : `common.request.*` (demande inconnue, échue, déjà traitée, voyageur
+ devenu inéligible, montant non confirmé ; aucun débit dans chaque cas), messages des routes des
+ demandes de l'hôte.
  */
-export const CATALOG_VERSION = 65;
+export const CATALOG_VERSION = 67;
 
 /** Catalogues de base par langue ; la langue d'un profil de locale choisit le sien. */
 export const CATALOGS: Readonly<Record<CatalogLanguage, VersionedCatalog<MessageKey>>> = {

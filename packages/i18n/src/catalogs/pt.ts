@@ -2084,6 +2084,23 @@ export const PT_MESSAGES = {
   // du paiement rendus par l'API (common.payment.*) ; aucune durée écrite (heures lues dans l'API)
   'common.payment.unavailable':
     'O pagamento on-line não está disponível no momento. Nada foi cobrado.',
+  // US-223c (ADR-146) : demandes de réservation de l'hôte (mode REQUEST, 17 §2.5 ; 16 HDB-002)
+  'common.request.notFound': 'Não encontramos esta solicitação.',
+  'common.request.expired': 'Esta solicitação expirou. Nada foi cobrado do viajante.',
+  'common.request.alreadyAnswered':
+    'Esta solicitação não pode mais ser respondida: já foi respondida ou está em processamento.',
+  'common.request.guestNotEligible':
+    'O viajante não pode mais reservar. Recuse a solicitação: nada será cobrado.',
+  'common.request.startPassed':
+    'A viagem já começou: não é possível aceitar esta solicitação. Recuse-a; nada será cobrado do viajante.',
+  'common.request.hostTermsRequired':
+    'Para aceitar solicitações, leia e aceite a versão vigente dos Termos do anfitrião.',
+  'common.request.paymentUnavailable':
+    'Não conseguimos cobrar esta reserva agora. A solicitação continua aberta: tente mais tarde.',
+  'common.request.unavailable':
+    'Não conseguimos processar sua resposta. Tente novamente em alguns minutos.',
+  'common.request.amountMismatch':
+    'Não conseguimos confirmar o valor desta reserva. Nada foi cobrado. Recuse a solicitação ou fale com o suporte.',
   'common.payment.payoutRailUnavailable':
     'Ainda não podemos receber pagamentos por este carro. Nada foi cobrado.',
   'common.payment.underReview':
