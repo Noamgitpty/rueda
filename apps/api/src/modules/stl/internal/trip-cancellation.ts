@@ -30,7 +30,6 @@
  * devis figé, et la base le rejoue (0054) avant de l'accepter.
  */
 import { randomUUID } from 'node:crypto';
-import { translateDbError } from '@rueda/db';
 import {
   LEGS,
   buildSettlementRecord,
@@ -323,9 +322,6 @@ export type CancellationOutcome =
   | { readonly outcome: 'FIN_REVIEW' | 'FAILED'; readonly code: string }
   | { readonly outcome: 'RETRY'; readonly code: string };
 
-/** Codes de la base qui renvoient à la décision FINANCE d'US-224b (08 E7 règle 5). */
-const FIN_CODES = new Set(['FIN_REVIEW_REQUIRED', 'REFUND_EXCEEDS_COLLECTED']);
-
 export interface TripCancellationDeps {
   readonly transactions: WorkerTransactions;
   readonly alerts: AlertChannel;
@@ -500,17 +496,37 @@ export function orderKey(f: CancellationFacts, o: CancellationOrder, tenderId: s
   ].join(':');
 }
 
-/** Refus déterministe (garé) ou erreur passagère (reprise au passage suivant). */
+/** Contraintes de la base qui renvoient à la décision FINANCE d'US-224b (08 E7 règle 5). */
+const FIN_CONSTRAINTS = new Set(['operation_settlement_fin_review', 'refund_exceeds_collected']);
+/** Interblocage, sérialisation : reprise au passage suivant. */
+const RETRY_STATES = new Set(['40P01', '40001']);
+const SQLSTATE = /^[0-9A-Z]{5}$/;
+const CONSTRAINT = /^[a-z][a-z0-9_]{1,62}$/;
+
+/**
+ * Refus déterministe (garé) ou erreur passagère (reprise au passage suivant). Le code garé est le
+ * nom de la contrainte de la base en majuscules (jamais un message ni une valeur), à défaut le
+ * SQLSTATE (`DB_<état>`) ; une erreur sans SQLSTATE (réseau, programme) est relancée.
+ */
 export function classify(error: unknown): CancellationOutcome {
   if (error instanceof CancellationPlanError) return { outcome: 'FAILED', code: error.code };
   if (isSettlementError(error)) return { outcome: 'FAILED', code: error.code };
-  const db = translateDbError(error);
-  if (db.retryable) return { outcome: 'RETRY', code: db.code };
-  if (typeof error !== 'object' || error === null || !('code' in error)) throw error;
-  if (FIN_CODES.has(db.code)) return { outcome: 'FIN_REVIEW', code: db.code };
-  return { outcome: 'FAILED', code: db.code };
+  const e = typeof error === 'object' && error !== null ? (error as Record<string, unknown>) : {};
+  const state = typeof e['code'] === 'string' && SQLSTATE.test(e['code']) ? e['code'] : null;
+  if (state === null) throw error;
+  if (RETRY_STATES.has(state)) return { outcome: 'RETRY', code: 'RETRY' };
+  const constraint =
+    typeof e['constraint'] === 'string' && CONSTRAINT.test(e['constraint'])
+      ? e['constraint']
+      : null;
+  if (constraint !== null && FIN_CONSTRAINTS.has(constraint)) {
+    return { outcome: 'FIN_REVIEW', code: constraint.toUpperCase() };
+  }
+  return {
+    outcome: 'FAILED',
+    code: constraint === null ? `DB_${state}` : constraint.toUpperCase(),
+  };
 }
-
 /** Période du travailleur (PROPOSÉ, ADR-148) : une demande réglée en ~10 s, comme la conversion. */
 export const TRIP_CANCELLATION_PERIOD_SECONDS = 10;
 /** Demandes traitées par passage, une par transaction. */

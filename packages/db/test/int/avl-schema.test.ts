@@ -381,6 +381,8 @@ describe('schéma core (US-006)', () => {
           'payment_operation_legs_check',
           'payment_operation_legs_check',
           'settlement_balanced', // invariants des règlements (0027, US-018)
+          // US-215 (0122) : une annulation réglée porte ses remboursements, à la validation
+          'trip_cancellation_refunded',
           'trip_has_active_occupancy',
         ].map((tgname) => ({ tgname, deferrable: true, deferred: true })),
       );

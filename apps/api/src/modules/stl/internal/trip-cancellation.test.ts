@@ -189,7 +189,7 @@ describe('classement des refus', () => {
     });
     expect(classify({ code: '55000', constraint: 'operation_settlement_fin_review' })).toEqual({
       outcome: 'FIN_REVIEW',
-      code: 'FIN_REVIEW_REQUIRED',
+      code: 'OPERATION_SETTLEMENT_FIN_REVIEW',
     });
     expect(classify({ code: '55000', constraint: 'trip_transition_forbidden' })).toEqual({
       outcome: 'FAILED',
@@ -362,7 +362,7 @@ describe('processeur trip_lifecycle', () => {
     });
     expect(await p.process(CANCELLATION_ID)).toEqual({
       outcome: 'FIN_REVIEW',
-      code: 'FIN_REVIEW_REQUIRED',
+      code: 'OPERATION_SETTLEMENT_FIN_REVIEW',
     });
     expect(alerts.sent.map((a) => a.code)).toEqual(['FIN_SETTLEMENT_REVIEW']);
   });
