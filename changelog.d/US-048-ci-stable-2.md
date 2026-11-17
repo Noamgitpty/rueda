@@ -1,0 +1,1 @@
+exemption: US-048 — stabilité de la CI seule : ordre de verrouillage de la fixture de test 9957 (table du journal d'audit avant la tête de chaîne), diagnostic d'échec et clés complètes de l'instant M dans l0-hold-commands, `--font-render-hinting=none` pour les téléphones des e2e ; aucun comportement livré ne change

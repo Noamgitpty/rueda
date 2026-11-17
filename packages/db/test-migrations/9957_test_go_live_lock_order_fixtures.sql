@@ -22,6 +22,17 @@
 -- consultatif). Aucune écriture : un FOR UPDATE ne déclenche pas `audit_chain_head_guard`, et le
 -- verrou tombe à la fin de la transaction (validée ou annulée), jamais un verrou de session.
 --
+-- Ordre complet (interblocage du run 44059396848, job « guide d'installation », 40P01 entre
+-- l0-us205b-quote-mileage et l0-aud-01-audit-chain ; même cause au run 44059889606) : une écriture
+-- d'audit ordinaire prend d'abord le verrou de table ROW EXCLUSIVE de `core.audit_audit_log` (son
+-- INSERT), PUIS la tête. Les preuves d'altération du journal (fixture 9150) prennent ACCESS
+-- EXCLUSIVE sur la table avant d'écrire, donc avant la tête : même ordre (table, puis tête). Une
+-- première version de cette fonction prenait la tête SEULE : la preuve qui l'appelait tenait la
+-- tête et attendait ROW EXCLUSIVE, pendant que l'altération tenait ACCESS EXCLUSIVE et attendait
+-- la tête. La fonction prend donc ROW EXCLUSIVE sur `core.audit_audit_log` AVANT la tête : ordre
+-- unique table, tête, consultatif. ROW EXCLUSIVE n'entre en conflit qu'avec les verrous forts
+-- (SHARE et au-delà) : il n'ajoute aucune attente entre écrivains ordinaires.
+--
 -- Retour arrière : DROP FUNCTION test_fixture.audit_chain_head_lock();
 
 CREATE FUNCTION test_fixture.audit_chain_head_lock()
@@ -32,6 +43,9 @@ CREATE FUNCTION test_fixture.audit_chain_head_lock()
   SET search_path = pg_catalog, pg_temp
 AS $fn$
 BEGIN
+  -- verrou de table d'un INSERT d'audit, pris avant la tête (ordre des écritures ordinaires et de
+  -- test_fixture.lock_audit_log, 9150)
+  LOCK TABLE core.audit_audit_log IN ROW EXCLUSIVE MODE;
   PERFORM 1 FROM core.audit_chain_head AS h WHERE h.chain = 'audit_log' FOR UPDATE;
   IF NOT FOUND THEN
     RAISE EXCEPTION 'audit_chain_head : tête de chaîne absente' USING ERRCODE = 'no_data_found';

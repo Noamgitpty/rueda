@@ -65,12 +65,19 @@ const CHROME_ARGS = ['--disable-lcd-text'] as const;
  * garde alors l'ajustement pour toute la page (décalage vertical d'environ un demi-pixel, encre
  * ±5 %, gras et 14 px intacts) ; une capture de téléphone échouait au hasard sous charge
  * (docs/qa/REGRESSION_VISUELLE.md, « Ajustement des glyphes selon l'échelle de l'écran »).
+ * L'écart est revenu malgré ce drapeau (run 44071319010, `accueil · fr`, même signature) : les
+ * téléphones demandent aussi `--font-render-hinting=none`, qui fixe l'ajustement à « aucun »
+ * quelle que soit l'échelle de la requête, soit l'état que l'échelle 2 donne déjà (références
+ * inchangées) ; la branche « ajustée » de la course disparaît. La tablette (échelle 1, ajustement
+ * « slight » dans ses références) n'en reçoit pas.
  */
 const phone = {
   isMobile: true,
   hasTouch: true,
   deviceScaleFactor: 2,
-  launchOptions: { args: [...CHROME_ARGS, '--force-device-scale-factor=2'] },
+  launchOptions: {
+    args: [...CHROME_ARGS, '--force-device-scale-factor=2', '--font-render-hinting=none'],
+  },
 };
 
 export default defineConfig({

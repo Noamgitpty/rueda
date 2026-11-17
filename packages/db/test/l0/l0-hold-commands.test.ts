@@ -73,6 +73,23 @@ const outcomeOf = (error: unknown): Outcome => {
   return { code: translateDbError(error).code, raw: { code: e.code, constraint: e.constraint } };
 };
 
+/**
+ * Diagnostic d'un refus inattendu de la pose (N-207, PR #208 : `PARAM_MISSING` au critère 1, PA et
+ * PY, à l'instant M seulement) : versions de portée pays des clés lues par la pose, telles que
+ * `app_api` les voit, avec leur état à `when`. Lecture seule ; ne sert qu'au message d'échec.
+ */
+async function paramVersions(api: pg.ClientBase, c: CountryCase, when: string): Promise<string> {
+  const { rows } = await api.query<{ key: string; value: unknown; f: string; t: string | null }>(
+    `SELECT key, value, to_char(valid_from AT TIME ZONE 'UTC', 'HH24:MI:SS.US') AS f,
+            to_char(valid_to AT TIME ZONE 'UTC', 'HH24:MI:SS.US') AS t
+       FROM core.config_param_value
+      WHERE scope_type = 'COUNTRY' AND country_code = $1 AND key = ANY ($2::text[])
+      ORDER BY key, valid_from`,
+    [c.country, HOLD_PARAM_KEYS],
+  );
+  return `à ${when} : ${JSON.stringify(rows)}`;
+}
+
 /** Pose par la commande réelle, validée ; erreur traduite (sans DETAIL). */
 async function pose(
   api: pg.ClientBase,
@@ -226,6 +243,23 @@ async function holdEvents(worker: pg.ClientBase, holdId: string): Promise<string
 }
 
 /**
+ * Clés de pays lues par la pose (`core.booking_place_hold_kind`, 0126 : contrôle « hold: parameter
+ * missing ») : toutes, y compris `max_trip_days` (US-049) et `advance_notice_minutes` (US-119, lu
+ * par `core.catalog_effective_notice_minutes`), absentes de la liste d'origine.
+ */
+const HOLD_PARAM_KEYS = [
+  'buffer_minutes',
+  'hold_ttl_minutes',
+  'hold_max_total_minutes',
+  'max_active_holds_per_guest',
+  'hold_creations_per_guest_vehicle_hour',
+  'sweep_grace_s',
+  'review_hold_minutes',
+  'max_trip_days',
+  'advance_notice_minutes',
+];
+
+/**
  * Instant M (seconde supérieure) d'entrée en vigueur des paramètres de hold du pays : le plus tôt
  * où une pose réussit, et où aucun hold d'un autre fichier de test n'est encore échu.
  */
@@ -234,19 +268,7 @@ async function paramsEra(api: pg.ClientBase, c: CountryCase): Promise<string> {
     `SELECT max(valid_from) AS m FROM core.config_param_value
       WHERE scope_type = 'COUNTRY' AND country_code = $1 AND valid_from <= $3::timestamptz
         AND key = ANY ($2::text[])`,
-    [
-      c.country,
-      [
-        'buffer_minutes',
-        'hold_ttl_minutes',
-        'hold_max_total_minutes',
-        'max_active_holds_per_guest',
-        'hold_creations_per_guest_vehicle_hour',
-        'sweep_grace_s',
-        'review_hold_minutes',
-      ],
-      new Date().toISOString(),
-    ],
+    [c.country, HOLD_PARAM_KEYS, new Date().toISOString()],
   );
   const m = rows[0]?.m;
   if (!(m instanceof Date)) throw new Error('paramètres de hold absents');
@@ -277,7 +299,10 @@ describe.each(COUNTRIES)('US-023 — holds de checkout ($country, $currency)', (
     const [a, b] = w.guests as [string, string];
     const slot = slotOf(w.vehicles[0] as string, w.orgId, T0);
     const placed = await pose(api, a, slot, T0);
-    expect(placed.code).toBeUndefined();
+    expect(
+      placed.code,
+      placed.code === undefined ? '' : await paramVersions(api, c, T0),
+    ).toBeUndefined();
     const holdId = placed.holdId as string;
 
     const row = await holdRow(worker, holdId);
