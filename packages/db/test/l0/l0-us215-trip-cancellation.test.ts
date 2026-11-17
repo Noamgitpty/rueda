@@ -1088,3 +1088,179 @@ describe('variante PY des critères 3 et 4 (oracle indépendant)', () => {
     });
   });
 });
+
+/**
+ * US-215b (migration 0128, ADR-151) : lecture de l'état d'une demande par la console, sous app_api
+ * (`core.support_staff_trip_cancellation`), à l'instant virtuel de la lecture. Rien n'est validé.
+ */
+async function readState(
+  api: Tx,
+  staff: Staff,
+  c: CountryCase,
+  trip: string,
+  atMs: number,
+  options: { readonly elevated?: boolean } = {},
+): Promise<{ outcome: string; body: Record<string, unknown> | null }> {
+  return withTestTransaction(api, { virtualNow: iso(atMs) }, async (tx) => {
+    const hash = newHash();
+    if (options.elevated !== false) {
+      await tx.query('SELECT test_fixture.iam_open_elevated_session($1, $2)', [staff.userId, hash]);
+    }
+    await setSessionContext(tx, {
+      kind: 'STAFF',
+      actorId: staff.userId,
+      countryScope: [c.country],
+      sessionTokenHash: hash.toString('hex'),
+    });
+    const { rows } = await tx.query<{ outcome: string; body: Record<string, unknown> | null }>(
+      'SELECT outcome, body FROM core.support_staff_trip_cancellation($1, $2, $3)',
+      [hash, uuid(), trip],
+    );
+    return rows[0] ?? { outcome: '', body: null };
+  });
+}
+
+describe('console (215b) : état réel de la demande lu par l’agent (0128)', () => {
+  it('PA T03 : en attente, puis réglée ⇒ porteur du coût, remboursement et variation par jambe du vecteur (TJ02b), ordres REFUND', async () => {
+    await withRole('app_api', async (api) => {
+      await withRole('app_worker', async (worker) => {
+        const w = await world(worker, PA, 'T03', 'TJ01');
+        const ops = await staffOf(api, PA);
+        const r = await act(api, ops, 'CANCEL_TRIP_GUEST', w);
+        const id = r.domain_ref ?? '';
+        const pending = await readState(api, ops, PA, w.trip, w.requestedAtMs + MINUTE);
+        expect(pending.outcome).toBe('OK');
+        expect(pending.body).toMatchObject({
+          cancellationId: id,
+          tripId: w.trip,
+          country: PA.country,
+          action: 'CANCEL_TRIP_GUEST',
+          requestedReason: 'GUEST_CANCELLED',
+          initiator: 'GUEST',
+          subReason: null,
+          status: 'PENDING',
+          outcomeCode: null,
+          costBearer: null,
+          settlementId: null,
+          settlement: null,
+        });
+        // jamais l'agent demandeur
+        expect(JSON.stringify(pending.body)).not.toContain(ops.userId);
+
+        let settlement = '';
+        await withTestTransaction(
+          worker,
+          { virtualNow: iso(w.requestedAtMs + MINUTE), commit: true },
+          async (tx) => {
+            settlement = (await settleFully(tx, w, id, legsVector('TJ02b'))).settlement;
+          },
+        );
+        const settled = await readState(api, ops, PA, w.trip, w.requestedAtMs + 2 * MINUTE);
+        expect(settled.outcome).toBe('OK');
+        expect(settled.body).toMatchObject({
+          status: 'SETTLED',
+          costBearer: 'GUEST',
+          settlementId: settlement,
+          tripStatus: 'CANCELLED_BY_GUEST',
+          settlement: {
+            settlementId: settlement,
+            currency: PA.currency,
+            reason: 'GUEST_CANCELLED',
+            guestRefundMinor: String(expected('T03').guestRefundMinor),
+          },
+        });
+        const stl = settled.body?.['settlement'] as {
+          legs: { leg: string; variationMinor: string }[];
+          refunds: { status: string; amountMinor: string }[];
+        };
+        expect(Object.fromEntries(stl.legs.map((l) => [l.leg, BigInt(l.variationMinor)]))).toEqual(
+          legsVector('TJ02b'),
+        );
+        expect(stl.refunds.length).toBeGreaterThan(0);
+        expect(stl.refunds.reduce((s, x) => s + BigInt(x.amountMinor), 0n)).toBe(
+          expected('T03').guestRefundMinor,
+        );
+      });
+    });
+  });
+
+  it('PY : aucune demande ⇒ NONE ; demande garée FIN_REVIEW ⇒ code rendu, aucun règlement', async () => {
+    await withRole('app_api', async (api) => {
+      await withRole('app_worker', async (worker) => {
+        const w = await world(worker, PY, 'T27', 'TJ08a');
+        const ops = await staffOf(api, PY);
+        expect(await readState(api, ops, PY, w.trip, w.requestedAtMs)).toEqual({
+          outcome: 'NONE',
+          body: null,
+        });
+        const r = await act(api, ops, 'CANCEL_TRIP_PLATFORM', w, {
+          input: { platformReason: 'PLATFORM_TRUST_SAFETY' },
+        });
+        await withTestTransaction(
+          worker,
+          { virtualNow: iso(w.requestedAtMs + MINUTE), commit: true },
+          async (tx) => {
+            await setSessionContext(tx, { kind: 'WORKER', workerName: 'trip_lifecycle' });
+            const p = await tx.query<{ r: string }>(
+              `SELECT core.booking_cmd_trip_park_cancellation($1, 'FIN_REVIEW', 'OPERATION_SETTLEMENT_FIN_REVIEW') AS r`,
+              [r.domain_ref],
+            );
+            expect(p.rows[0]?.r).toBe('PARKED');
+          },
+        );
+        const parked = await readState(api, ops, PY, w.trip, w.requestedAtMs + 2 * MINUTE);
+        expect(parked).toMatchObject({
+          outcome: 'OK',
+          body: {
+            action: 'CANCEL_TRIP_PLATFORM',
+            initiator: 'PLATFORM',
+            requestedReason: 'PLATFORM_TRUST_SAFETY',
+            status: 'FIN_REVIEW',
+            outcomeCode: 'OPERATION_SETTLEMENT_FIN_REVIEW',
+            settlementId: null,
+            settlement: null,
+          },
+        });
+      });
+    });
+  });
+
+  it('refus : FINANCE, OPS d’un autre pays, trip inconnu ⇒ FORBIDDEN ; jeton sans session ⇒ AUTH_REQUIRED ; aucune donnée ; EXECUTE refusé à app_worker', async () => {
+    await withRole('app_api', async (api) => {
+      await withRole('app_worker', async (worker) => {
+        const w = await world(worker, PA, 'T03', 'TJ01');
+        const ops = await staffOf(api, PA);
+        expect((await act(api, ops, 'CANCEL_TRIP_GUEST', w)).outcome).toBe('DONE');
+        const at = w.requestedAtMs + MINUTE;
+        const finance = await staffOf(api, PA, 'FINANCE');
+        expect(await readState(api, finance, PA, w.trip, at)).toEqual({
+          outcome: 'FORBIDDEN',
+          body: null,
+        });
+        const other = await staffOf(api, PY);
+        expect(await readState(api, other, PY, w.trip, at)).toEqual({
+          outcome: 'FORBIDDEN',
+          body: null,
+        });
+        expect(await readState(api, ops, PA, uuid(), at)).toEqual({
+          outcome: 'FORBIDDEN',
+          body: null,
+        });
+        expect(await readState(api, ops, PA, w.trip, at, { elevated: false })).toEqual({
+          outcome: 'AUTH_REQUIRED',
+          body: null,
+        });
+        // EXECUTE au seul app_api
+        await withTestTransaction(worker, { virtualNow: iso(at) }, async (tx) => {
+          await expect(
+            tx.query('SELECT * FROM core.support_staff_trip_cancellation($1, $2, $3)', [
+              newHash(),
+              uuid(),
+              w.trip,
+            ]),
+          ).rejects.toMatchObject({ code: '42501' });
+        });
+      });
+    });
+  });
+});

@@ -1,5 +1,5 @@
 /**
- * US-709a (migration 0128, ADR-153) — `host_ledger` minimal : la pénalité de l'hôte qui annule est
+ * US-709a (migration 0129, ADR-153) — `host_ledger` minimal : la pénalité de l'hôte qui annule est
  * portée au grand livre de l'hôte comme ajustement de versement, jamais comme jambe (19 US-215
  * critère 2 ; 08 BR-CXL-13, E5, E7 règle 7), dans la MÊME transaction que le règlement et la
  * transition d'annulation (SM-1 invariant 4), en USD (PA) et en PYG sans décimale (PY).

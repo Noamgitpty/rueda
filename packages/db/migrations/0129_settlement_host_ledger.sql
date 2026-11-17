@@ -1,4 +1,4 @@
--- 0128 — STL : grand livre minimal de l'hôte (`host_ledger`) ; pénalité d'annulation de l'hôte.
+-- 0129 — STL : grand livre minimal de l'hôte (`host_ledger`) ; pénalité d'annulation de l'hôte.
 -- US-709a (partie minimale d'US-709 avancée au lot 2, BOARD N-219 ; agent argent / back-end) ;
 -- 19 US-215 critère 2 (« pénalité de l'hôte portée au `host_ledger` comme ajustement de versement,
 -- jamais comme jambe ») et US-709 ; 08 BR-CXL-13 (« la pénalité est débitée au `host_ledger` à

@@ -28,7 +28,7 @@ const US062_TABLES = [
  */
 const US108_TABLES = ['settlement_insurer', 'settlement_insurer_contract'] as const;
 /**
- * host_ledger minimal d'US-709a (0128, ADR-153) : lecture FINANCE / ADMIN, écriture par la seule
+ * host_ledger minimal d'US-709a (0129, ADR-153) : lecture FINANCE / ADMIN, écriture par la seule
  * commande de cmd_money_owner ; prouvés par l0-us709a-host-ledger.test.ts et la matrice d'US-043.
  */
 const US709_TABLES = ['settlement_host_ledger_entry'] as const;

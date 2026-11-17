@@ -29,4 +29,4 @@ Le critère 2 d'US-215 exige une pénalité de l'hôte « portée au `host_ledge
 - Contre-passation d'une version n+1 (requalification SM-7) : la commande refuse une version > 1 ; aucune version n+1 n'est écrite en production aujourd'hui.
 - Autres motifs : pénalité de no-show de l'hôte (150 $), reprises de chargeback (E5), créances de la règle 3 bis (TJ18) : US-709.
 - Lecture par l'hôte de sa dette (vue sans identifiant du personnel, RLS-26) : US-709.
-- Commentaire de 0124 (l. 59-62) périmé : corrigé par la note d'en-tête de 0128 (0124 n'est pas réécrite).
+- Commentaire de 0124 (l. 59-62) périmé : corrigé par la note d'en-tête de 0129 (0124 n'est pas réécrite).

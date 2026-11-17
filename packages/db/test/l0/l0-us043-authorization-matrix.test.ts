@@ -807,7 +807,7 @@ beforeAll(async () => {
         }
       }
     });
-    // US-709a (0128, ADR-153) : une écriture du host_ledger sur le règlement en tête des trips a1
+    // US-709a (0129, ADR-153) : une écriture du host_ledger sur le règlement en tête des trips a1
     // et a2 (même compte d'hôte : un solde de deux écritures) et b1 (autre compte d'hôte), pour
     // éprouver chaque cellule de la table et de sa vue de solde sur des lignes réelles, par pays
     await withTestTransaction(client, { commit: true }, async (tx) => {

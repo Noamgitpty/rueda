@@ -171,6 +171,12 @@ export interface OpsConsoleStore {
     fileId: string,
     purpose: string,
   ): Promise<OpsResult>;
+  /**
+   * US-215b (ADR-151) : état de la dernière demande d'annulation d'un trip (OK ou NONE), règlement
+   * et remboursements par jambe ; permission ops.platform_cancel dans le pays du trip, garde ADR-122,
+   * refus journalisés ; aucune donnée personnelle.
+   */
+  tripCancellation(actor: StaffActor, requestId: string, tripId: string): Promise<OpsResult>;
 }
 
 /** Décision sur une annonce en revue (US-118 ; revue exigée par le pays seulement). */
@@ -222,6 +228,16 @@ export const DECIDE_LISTING_SQL =
   'SELECT outcome, body FROM core.support_staff_decide_listing($1, $2, $3, $4, $5)';
 export const VEHICLE_FILE_SQL =
   'SELECT outcome, body FROM core.support_staff_vehicle_file($1, $2, $3, $4, $5, $6)';
+/**
+ * US-215b : état d'une demande d'annulation ; l'exposant de la devise du règlement (config, lisible
+ * par app_api) est joint dans la MÊME instruction, pour l'affichage des montants (jamais un calcul).
+ */
+export const TRIP_CANCELLATION_SQL = `SELECT r.outcome,
+       CASE WHEN pg_catalog.jsonb_typeof(r.body -> 'settlement') = 'object'
+            THEN pg_catalog.jsonb_set(r.body, '{settlement,exponent}', pg_catalog.to_jsonb(c.exponent))
+            ELSE r.body END AS body
+  FROM core.support_staff_trip_cancellation($1, $2, $3) AS r
+  LEFT JOIN core.config_currency AS c ON c.code::text = r.body #>> '{settlement,currency}'`;
 export const RESOLVE_CATALOG_ADDITION_SQL =
   'SELECT outcome, body FROM core.support_staff_resolve_catalog_addition($1, $2, $3, $4, $5, $6::jsonb, $7)';
 
@@ -413,5 +429,9 @@ export class PgOpsConsoleStore implements OpsConsoleStore {
       input.bytes,
       input.sha256,
     ]);
+  }
+
+  tripCancellation(actor: StaffActor, requestId: string, tripId: string) {
+    return one(this.#db, TRIP_CANCELLATION_SQL, [actor.tokenHash, requestId, tripId]);
   }
 }

@@ -379,7 +379,7 @@ export const CONSTRAINT_CODES: Readonly<Record<string, readonly [string, DbBusin
   ],
   trip_cancellation_uncaptured: [SQLSTATE.integrityConstraintViolation, 'INVARIANT_VIOLATION'],
   trip_cancellation_unrefunded: [SQLSTATE.integrityConstraintViolation, 'INVARIANT_VIOLATION'],
-  // host_ledger minimal : pénalité d'annulation de l'hôte (0128, US-709a, ADR-153)
+  // host_ledger minimal : pénalité d'annulation de l'hôte (0129, US-709a, ADR-153)
   host_ledger_command_forbidden: [SQLSTATE.insufficientPrivilege, 'FORBIDDEN'],
   host_ledger_settlement_unknown: [SQLSTATE.integrityConstraintViolation, 'INVARIANT_VIOLATION'],
   host_ledger_version_unsupported: [SQLSTATE.objectNotInPrerequisiteState, 'INVARIANT_VIOLATION'],

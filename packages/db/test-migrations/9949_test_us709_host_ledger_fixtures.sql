@@ -1,4 +1,4 @@
--- 9949 — Fixtures de TEST d'US-709a (0128, ADR-153) : host_ledger minimal. Jamais en production
+-- 9949 — Fixtures de TEST d'US-709a (0129, ADR-153) : host_ledger minimal. Jamais en production
 -- (test-migrations/ seulement). SECURITY DEFINER sous migrator (politique migrator_all) ;
 -- l'appelant reste sous un rôle de production (L0-05).
 --
@@ -6,7 +6,7 @@
 --     (l0-us043-authorization-matrix), pour que chaque cellule de lecture de
 --     core.settlement_host_ledger_entry et de sa vue de solde soit éprouvée sur des lignes réelles.
 --     Elle porte sur le règlement en tête du trip (même hôte, pays, devise et version : clé
---     étrangère de 0128) ; son montant est une donnée de test, jamais un attendu ;
+--     étrangère de 0129) ; son montant est une donnée de test, jamais un attendu ;
 --   - us709_entries : lecture des écritures d'un trip (les travailleurs n'ont aucun droit de
 --     lecture sur la table) ;
 --   - us709_call_post : appel de la commande de production sous le contexte de session de

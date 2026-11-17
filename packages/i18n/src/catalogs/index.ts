@@ -192,8 +192,13 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  voyageur : case, bouton, effet sur la remise), `web.a03.contract.*` (état de la signature vu par
  l'hôte), `web.a05.contract` et `web.s06.confirmed.contract` (liens vers le contrat) ;
  `ctr.contract.period` dit le nom du pays et l'heure locale au lieu du fuseau IANA.
+ Version 69 (la 68 est celle d’US-211b) : annulation d’un voyage déclenchée par l’ops, partie
+ 215b (US-215, ADR-151) : `backoffice.cancel.*` (console O01 : demandeur, motif qualifié en liste
+ fermée, confirmation avant envoi, état réel de la demande — en attente, réglée avec le porteur du
+ coût et le remboursement par partie, en revue FINANCE, en échec — et la suite à donner ; refus de la
+ commande et codes d’une demande garée expliqués).
  */
-export const CATALOG_VERSION = 68;
+export const CATALOG_VERSION = 69;
 
 /** Catalogues de base par langue ; la langue d'un profil de locale choisit le sien. */
 export const CATALOGS: Readonly<Record<CatalogLanguage, VersionedCatalog<MessageKey>>> = {

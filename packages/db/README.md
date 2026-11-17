@@ -905,6 +905,15 @@ Migration `0122_ctr_rental_contract`, fixture `9963_test_us211_rental_contract_f
 - **Remise** : `core.booking_cmd_trip_transition` (corps de 0099, bloc US-211) refuse `IN_PROGRESS` sans dernière version signée par le voyageur (`trip_contract_not_signed`, code `CONTRACT_NOT_SIGNED`).
 - **Lectures ajoutées à `cmd_hold_owner`** (au plus juste) : noms légaux et langue des comptes, marque et modèle du référentiel, contrat de l'assureur et assureur, caution du pays, gabarits, `grace_minutes` ; événements `contract.document.generated` (SYSTEM) et `contract.document.signed` (voyageur).
 
+## État d'une annulation lu par la console (US-215 partie 215b ; 16 ADM-006 ; ADR-151)
+
+Migration `0128_support_console_trip_cancellation` : trois fonctions de lecture AJOUTÉES, aucun droit sur une table.
+
+- `core.support_staff_trip_cancellation(bytea, uuid, uuid)` (iam_staff_owner, EXECUTE app_api) : session élevée, permission `ops.platform_cancel` dans le pays du trip, garde ADR-122, refus journalisés ; issues `OK`, `NONE`, `AUTH_REQUIRED`, `MFA_REQUIRED`, `FORBIDDEN` (trip inconnu compris), `SELF_FORBIDDEN`.
+- `core.booking_staff_trip_cancellation(uuid)` (cmd_hold_owner, EXECUTE iam_staff_owner) : dernière demande du trip, jamais l'agent demandeur.
+- `core.settlement_staff_cancellation_summary(uuid)` (cmd_money_owner, EXECUTE iam_staff_owner) : règlement d'annulation, variation par jambe, ordres REFUND ; montants en texte.
+- **Preuves** : `test/l0/l0-us215-trip-cancellation.test.ts`, bloc « console (215b) » (en attente puis réglée sur T03 / TJ02b en PA, aucune demande et `FIN_REVIEW` en PY, refus FINANCE, autre pays, trip inconnu, sans session, EXECUTE refusé à app_worker).
+
 ## Annulations déclenchées par l'ops, réglées dans la transition (US-215 partie 215a ; 16 BKG-028, BKG-032, BKG-035, ADM-006 ; 08 BR-CXL, SM-1 invariant 4 ; ADR-148)
 
 Migration `0124_booking_trip_cancellation_settled`. Fixture `9956_test_us215_trip_cancellation_fixtures.sql` (lecture d'une demande et des occupations d'un trip).
@@ -927,7 +936,7 @@ Migration `0127_payment_refund_scheduler`. Fixture `9961_test_us224c_refund_matr
 
 ## `host_ledger` minimal : pénalité de l'hôte qui annule (US-709a ; 08 BR-CXL-13, E5, E7 règle 7 ; ADR-153)
 
-Migration `0128_settlement_host_ledger`. Fixture `9949_test_us709_host_ledger_fixtures.sql` (écriture posée dans le monde de la matrice d'autorisations, lecture des écritures d'un trip, appel de la commande, essais d'immuabilité).
+Migration `0129_settlement_host_ledger`. Fixture `9949_test_us709_host_ledger_fixtures.sql` (écriture posée dans le monde de la matrice d'autorisations, lecture des écritures d'un trip, appel de la commande, essais d'immuabilité).
 
 - **Table** `core.settlement_host_ledger_entry` (classe C1, sujet ORG) : écriture signée en unités mineures de la devise du trip (négatif = dette de l'hôte), motif fermé `HOST_CANCELLATION_PENALTY`, rattachée au compte d'hôte, au trip, au règlement et à sa version par la clé étrangère `host_ledger_settlement_fk` (contrainte `settlement_ledger_scope_unique` ajoutée à `settlement_settlement`) ; unique par (règlement, motif) ; immuable (`settlement_immutable`).
 - **Écriture** : `core.settlement_cmd_post_host_penalty(uuid)` (cmd_money_owner, aucun EXECUTE), appelée par le déclencheur `trip_cancellation_penalty_posted` de `core.booking_trip_cancellation` (`PENDING` → `SETTLED`, `core.settlement_post_cancellation_penalty`) : montant `−host_penalty_minor` du règlement, travailleur `trip_lifecycle`, version 1 seulement.

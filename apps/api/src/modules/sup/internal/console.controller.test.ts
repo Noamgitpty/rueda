@@ -41,6 +41,7 @@ const ops: OpsConsoleStore = {
   kycDossier: neverCalled,
   hostDossier: neverCalled,
   bookingReview: neverCalled,
+  tripCancellation: neverCalled,
   findUser: neverCalled,
   profile: neverCalled,
   addNote: neverCalled,

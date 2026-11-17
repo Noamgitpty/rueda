@@ -474,6 +474,9 @@ async function requestOf(
         path: `/console/queues/items/${await riskItem(country)}/risk-review`,
         body: { requestId: id, purpose: 'Matrice US-043 : dossier de test' },
       };
+    // US-215b : état de la demande d'annulation du trip du pays (aucune demande ⇒ 200, null)
+    case 'GET /console/cancellations/{id}':
+      return { method: 'GET', path: `/console/cancellations/${tripOf.get(country) ?? id}` };
     // US-114 : file d'ajout au catalogue (élément du pays de l'acteur)
     case 'POST /console/queues/items/{id}/catalog-addition':
       return {
