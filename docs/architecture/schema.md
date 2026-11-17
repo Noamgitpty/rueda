@@ -5659,6 +5659,7 @@ Contraintes :
 - `settlement_inputs_hash_match` : `CHECK (sha256(convert_to(('rueda.settlement.inputs/1'::text \|\| chr(10)) \|\| inputs, 'UTF8'::name)) = inputs_hash)`
 - `settlement_inputs_hash_sha256` : `CHECK (octet_length(inputs_hash) = 32)`
 - `settlement_kind_valid` : `CHECK (kind = ANY (ARRAY['CANCELLATION'::text, 'TERMINATION'::text, 'COMPLETION'::text]))`
+- `settlement_ledger_scope_unique` : `UNIQUE (id, trip_id, segment_no, version, org_id, country_code, currency)`
 - `settlement_org_country_fk` : `FOREIGN KEY (org_id, country_code) REFERENCES core.iam_organization(id, country_code)`
 - `settlement_origin_format` : `CHECK (origin ~ '^[A-Z][A-Z0-9_]{1,63}$'::text)`
 - `settlement_param_hash_sha256` : `CHECK (octet_length(param_snapshot_hash) = 32)`
@@ -5666,7 +5667,6 @@ Contraintes :
 - `settlement_qualification_valid` : `CHECK (qualification = ANY (ARRAY['VOLUNTARY'::text, 'FAULT_PRE_START'::text, 'NO_SHOW'::text, 'FULL'::text]))`
 - `settlement_reason_format` : `CHECK (reason ~ '^[A-Z][A-Z0-9_]{1,63}$'::text)`
 - `settlement_requested_reason_format` : `CHECK (requested_reason ~ '^[A-Z][A-Z0-9_]{1,63}$'::text)`
-- `settlement_ledger_scope_unique` : `UNIQUE (id, trip_id, segment_no, version, org_id, country_code, currency)`
 - `settlement_scope_unique` : `UNIQUE (id, trip_id, segment_no, org_id, country_code)`
 - `settlement_segment_beta` : `CHECK (segment_no = 1)`
 - `settlement_segment_unique` : `UNIQUE (id, trip_id, segment_no)`
