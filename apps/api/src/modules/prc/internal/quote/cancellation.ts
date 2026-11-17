@@ -79,3 +79,17 @@ export function lateCancellationOf(
     throw cause;
   }
 }
+
+/** Jours retenus tels que les écrans et le contrat les disent (08 BR-CXL-06 : 1 ou ½). */
+export type PenaltyDaysLabel = '1' | '1/2';
+
+/**
+ * Jours retenus d'une retenue du moteur sous forme lisible : `1` ou `1/2`, sinon `null` (le moteur
+ * n'en connaît pas d'autre en bêta). Seul point de conversion, partagé par le checkout (S05) et le
+ * contrat de location (US-211).
+ */
+export function penaltyDaysLabel(days: Ratio): PenaltyDaysLabel | null {
+  if (days.num === days.den) return '1';
+  if (days.num * 2n === days.den) return '1/2';
+  return null;
+}

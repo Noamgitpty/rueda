@@ -30,6 +30,9 @@ const ISOLATED = [
   // US-223c : cycle d'une demande (autorisation, acceptation, refus, expiration) à deux sessions,
   // données commitées et expiration des demandes sur toute la base (comme US-223a)
   'test/l0/l0-us223-request.test.ts',
+  // US-224 : ordres de règlement à deux sessions, données commitées, compte PSP ACTIVE le temps de
+  // la course (un seul compte ACTIVE par pays)
+  'test/l0/l0-us224-refund-race.test.ts',
 ];
 const C11 = ['test/l0/l0-c11-fuzz.test.ts'];
 // US-049 : les attaques de la red team (test/redteam/<axe>/) tournent seules, après tous les autres

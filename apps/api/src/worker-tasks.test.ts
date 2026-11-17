@@ -82,6 +82,7 @@ describe('tâches du travailleur (US-003)', () => {
       now: () => AT,
     });
     expect(registry.queueNames()).toEqual([
+      'booking_contract',
       'booking_conversion',
       'booking_oracle',
       'disposition_sweeper',

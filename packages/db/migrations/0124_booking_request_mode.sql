@@ -1,10 +1,10 @@
--- 0122 — AVL / PAY : réservation sur demande (hold REQUEST), autorisation à l'envoi, capture par
+-- 0124 — AVL / PAY : réservation sur demande (hold REQUEST), autorisation à l'envoi, capture par
 -- jambes à l'acceptation de l'hôte, VOID total au refus ou à l'expiration (partie serveur 223c).
 -- US-223 ; 19 US-223 (DoR 1 et 2, critères US-060), US-219 (critères 4 à 6) ; 16 HDB-002,
 -- BKG-011 ; 08 BR-BOOK-01, E7 (règles 1, 2), TJ03 ; 17 §2.5 « Hold de demande REQUEST » (table,
 -- deltas SQL, exigences de sécurité 1 à 4, exigences d'argent a à c), §3.2.4, §4.3, §7.2 ;
 -- ADR-063, ADR-133, ADR-139, ADR-142 ; ADR-146 (cette migration). Suites fermées : N-127, reste de
--- N-128 (côté base), N-198. Appliquée sous `migrator`, après 0121 (paramètre
+-- N-128 (côté base), N-198. Appliquée sous `migrator`, après 0123 (paramètre
 -- booking_request_mode_enabled, faux dans chaque pays).
 --
 -- Cette migration :

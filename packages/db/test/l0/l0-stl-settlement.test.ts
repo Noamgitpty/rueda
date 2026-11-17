@@ -218,8 +218,10 @@ describe('US-018 — supersession : version n+1 par contre-passation, sans perte
       string,
     ][] = [
       [
-        'v1 une seconde fois',
-        (tx, s) => recordAsSettlementWorker(tx, { tripId: s.trip, version: 1 }, r1),
+        // US-224 (0121, S-02 phrase 2) : la v1 rejouée au MÊME contenu rend la v1 existante (rejeu,
+        // rien d'écrit : l0-us224-refund-orders) ; une autre v1 (autre contenu) reste refusée
+        'v1 une seconde fois, autre contenu',
+        (tx, s) => recordAsSettlementWorker(tx, { tripId: s.trip, version: 1 }, r2),
         'SETTLEMENT_EXISTS',
       ],
       [
@@ -264,13 +266,23 @@ describe('US-018 — supersession : version n+1 par contre-passation, sans perte
         expect(await codeOf(run(tx, s)), label).toBe(code);
       });
     }
-    // v2 enregistrée, puis une seconde v2 (autre événement) ⇒ SETTLEMENT_EXISTS
+    // v2 enregistrée, puis une seconde v2 : US-224 (0121, S-02 phrase 2) : la MÊME v2 rejouée rend
+    // la v2 existante (avant : SETTLEMENT_EXISTS) ; une v2 d'un autre événement (T03) ⇒
+    // SETTLEMENT_EXISTS
     await worker(async (tx) => {
       const s = await setup(tx);
-      await recordAsSettlementWorker(tx, { tripId: s.trip, version: 2, supersedesId: s.v1 }, r2);
+      const v2 = await recordAsSettlementWorker(
+        tx,
+        { tripId: s.trip, version: 2, supersedesId: s.v1 },
+        r2,
+      );
+      expect(
+        await recordAsSettlementWorker(tx, { tripId: s.trip, version: 2, supersedesId: s.v1 }, r2),
+      ).toBe(v2);
+      const other = recordOf(tripOfVector('T08'), eventOfVector('T03'), r1);
       expect(
         await codeOf(
-          recordAsSettlementWorker(tx, { tripId: s.trip, version: 2, supersedesId: s.v1 }, r2),
+          recordAsSettlementWorker(tx, { tripId: s.trip, version: 2, supersedesId: s.v1 }, other),
         ),
       ).toBe('SETTLEMENT_EXISTS');
     });

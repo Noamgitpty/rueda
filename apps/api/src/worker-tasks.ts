@@ -5,7 +5,7 @@
  *
  * | Travailleur           | Période (PROPOSÉ)                          | Appel                                                     |
  * | --------------------- | ------------------------------------------ | --------------------------------------------------------- |
- * | `hold_expiry`         | 60 s (handoff US-023)                      | `core.booking_expire_due_holds`, `core.booking_release_cancelled_holds` (0037, 0040), `core.booking_cmd_expire_booking_requests` (0122, US-223c : demandes échues ⇒ EXPIRED, créneau libéré, VOID par la boîte d'envoi) |
+ * | `hold_expiry`         | 60 s (handoff US-023)                      | `core.booking_expire_due_holds`, `core.booking_release_cancelled_holds` (0037, 0040), `core.booking_cmd_expire_booking_requests` (0124, US-223c : demandes échues ⇒ EXPIRED, créneau libéré, VOID par la boîte d'envoi) |
  * | `webhook_ingest`      | 10 s (US-223, ADR-139)                     | `WebhookProcessor` de PAY sur `PgWebhookWorkStore` : webhooks reçus rattachés et statuts appliqués par `core.payment_cmd_apply_operation_status` (preuve signée seulement ; aucune lecture du PSP : aucun adaptateur dans le travailleur avant le lot C) |
  * | `booking_conversion`  | 10 s (US-223, ADR-139)                     | `core.booking_conversion_due` (0116) puis, une opération par transaction, `core.booking_convert_payment` (preuve exigée) ou `core.booking_record_payment_failure` (0041) |
  * | `disposition_sweeper` | `disposition_sweeper_period_s` (min. pays) | `core.booking_disposition_candidates` puis, une opération par transaction, `core.booking_disposition_repair` (0041, C17) |
@@ -15,6 +15,7 @@
  * | `ntf_dispatcher`, `ntf_sender` | événements, minuterie             | NTF (US-021) ; plafond SMS du pays (`ntfSmsBudget`, US-052) |
  * | `ops_monitor`         | 60 s (ADR-080)                             | `core.ops_monitor_metrics` (0051) ; alertes sur le port `AlertChannel` (US-004) |
  * | `iam_otp_sender`      | événement `iam.otp.requested`              | `core.iam_worker_otp_issue` (0066, US-104) puis SMS ; aucun canal SMS avant le lot C |
+ * | `booking_contract`    | événement `booking.trip.booked`            | `core.booking_contract_source` puis `core.booking_cmd_record_contract` (0122, US-211) : contrat de location hôte–voyageur, retenue du moteur de règlement, PDF déterministe et empreinte ; idempotent par événement |
  * | `iam_otp_pruner`      | 1 h                                        | `core.iam_worker_otp_prune` (0066) : défis OTP de plus de 30 jours (17 §3.2.1) |
  * | `kyc_score_pruner`    | 1 h                                        | `core.kyc_worker_prune` (0072, US-105) : scores [C3] à `retention_until`, rejets de rappels de plus de 90 jours |
  * | `privacy_request`     | 1 h                                        | `core.privacy_worker_retention_sweep`, `core.privacy_worker_dsr_overdue` puis `core.privacy_worker_stale_kyc_erasures` (0090, US-111) : trips clos sans litige pseudonymisés à l'échéance (`evidence_retention_months`), purge journalisée ; demandes des personnes en retard signalées une fois ; demandes d'effacement KYC en attente ou en échec ; alertes `PRIVACY_DSR_OVERDUE` (P1, par pays), `PRIVACY_KYC_ERASURE_STALE` (P1) |
@@ -36,7 +37,11 @@ import type {
   SqlClient,
   WorkerTransactions,
 } from './modules/bus/index.js';
-import { registerProductionOracle } from './modules/avl/index.js';
+import {
+  registerProductionOracle,
+  registerRentalContracts,
+  RentalContractGenerator,
+} from './modules/avl/index.js';
 import { resolveParam } from './modules/cfg/index.js';
 import { registerMoneyReconciliation } from './modules/fin/index.js';
 import { PgWebhookWorkStore, WebhookProcessor } from './modules/pay/index.js';
@@ -49,6 +54,7 @@ import {
   registerNotifications,
   repositoryLocaleConfig,
 } from './modules/ntf/index.js';
+import { resolveCancellationParams } from './modules/prc/index.js';
 import { ntfSmsBudget } from './modules/risk/index.js';
 
 export const HOLD_EXPIRY_WORKER = 'hold_expiry';
@@ -194,7 +200,7 @@ export function registerWorkerTasks(registry: BusRegistry, deps: WorkerTaskDeps)
       'SELECT core.booking_release_cancelled_holds($1) AS n',
       [d.holdExpiryBatch],
     );
-    // US-223c (0122) : demandes sans réponse de l'hôte à l'heure limite de la base
+    // US-223c (0124) : demandes sans réponse de l'hôte à l'heure limite de la base
     const requests = await tx.query<{ n: unknown }>(
       'SELECT core.booking_cmd_expire_booking_requests($1) AS n',
       [d.holdExpiryBatch],
@@ -500,6 +506,20 @@ export function registerWorkerTasks(registry: BusRegistry, deps: WorkerTaskDeps)
   );
 
   const countryData = notificationCountryData(deps.config);
+  // Contrat de location hôte–voyageur (US-211) : généré au passage BOOKED, dans la transaction du
+  // reçu de l'événement ; aucune donnée personnelle dans les journaux
+  registerRentalContracts(
+    registry,
+    new RentalContractGenerator({
+      brand: deps.brandName,
+      localeConfig: repositoryLocaleConfig(),
+      exponentOf: countryData.exponentOf,
+      cancellationParamsOf: (ctx) => resolveCancellationParams(deps.config, ctx),
+      log: (entry) => {
+        deps.log(JSON.stringify({ level: 'info', ...entry }));
+      },
+    }),
+  );
   registerNotifications(
     registry,
     new NotificationSender({

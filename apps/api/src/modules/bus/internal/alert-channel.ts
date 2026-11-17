@@ -29,6 +29,9 @@ export const ALERT_CODES = [
   'OPS_P1_EVENT',
   // rapprochement de l'argent (FIN, US-047, ADR-087) : une alerte P1 par pays en écart
   'FIN_MONEY_RECONCILIATION',
+  // règlement refusé par le moteur (REFUND_OUT_OF_RANGE, ADR-090) : revue FIN, rien d'envoyé
+  // (US-224, BOARD N-13, ADR-145)
+  'FIN_SETTLEMENT_REVIEW',
   // files de revue (US-106, ADR-106) : élément en retard (16 ADM-002, P2) ; dossier KYC en revue
   // qui ne peut pas être mis en file (P1 : personne ne le verrait)
   'OPS_REVIEW_SLA_BREACH',

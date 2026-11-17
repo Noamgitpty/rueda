@@ -457,6 +457,13 @@
       "story": "US-019"
     },
     {
+      "signature": "core.payment_cmd_record_operation(uuid,uuid,uuid,uuid,text,text,text,bigint,text,integer,text,text,jsonb,uuid,integer)",
+      "family": "cmd_money",
+      "owner": "cmd_money_owner",
+      "execute": ["app_worker"],
+      "story": "US-224"
+    },
+    {
       "signature": "core.payment_cmd_record_submerchant_status(uuid,text,text,text)",
       "family": "cmd_money",
       "owner": "cmd_money_owner",
@@ -1721,6 +1728,34 @@
       "owner": "host_view_owner",
       "execute": ["app_api"],
       "story": "US-223"
+    },
+    {
+      "signature": "core.booking_contract_source(uuid)",
+      "family": "cmd_hold",
+      "owner": "cmd_hold_owner",
+      "execute": ["app_worker"],
+      "story": "US-211"
+    },
+    {
+      "signature": "core.booking_cmd_record_contract(uuid,text,jsonb,jsonb,jsonb,uuid,uuid,text,bytea)",
+      "family": "cmd_hold",
+      "owner": "cmd_hold_owner",
+      "execute": ["app_worker"],
+      "story": "US-211"
+    },
+    {
+      "signature": "core.booking_trip_contract(bytea,uuid,integer)",
+      "family": "cmd_hold",
+      "owner": "cmd_hold_owner",
+      "execute": ["app_api"],
+      "story": "US-211"
+    },
+    {
+      "signature": "core.booking_cmd_sign_contract(bytea,uuid,uuid,bytea)",
+      "family": "cmd_hold",
+      "owner": "cmd_hold_owner",
+      "execute": ["app_api"],
+      "story": "US-211"
     }
   ]
 }

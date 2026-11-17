@@ -1,9 +1,9 @@
 /**
- * US-223 (partie 223c) — réservation sur demande au checkout (migrations 0121, 0122, ADR-146), sous
+ * US-223 (partie 223c) — réservation sur demande au checkout (migrations 0123, 0124, ADR-146), sous
  * les rôles de production (assertion L0-05 : `withRole`), en USD (PA) et en PYG sans décimale (PY).
  * Personnes, sessions, devis figés et checkout par les VRAIES commandes (US-208, US-209, US-226) ;
  * interrupteurs `p2p_private_hosts_enabled` et `insurer_contract_active` ouverts par la procédure à
- * deux personnes d'US-125, et `booking_request_mode_enabled` posé par la fixture 9957, dans une
+ * deux personnes d'US-125, et `booking_request_mode_enabled` posé par la fixture 9956, dans une
  * transaction ANNULÉE ; compte marchand FAKE de bac à sable et capacités du PSP posés dans la même
  * transaction.
  *
@@ -15,7 +15,7 @@
  * et des vecteurs du checkout d'US-208 / US-226 (en-tête de l0-us223-checkout-payment) :
  * - PA : total 158,40 ; HOST 90,00 ; INSURER 21,00 ; TAX 0 ; PLATFORM 47,40 ;
  * - PY : total 1 415 002 ; HOST 750 001 ; INSURER 105 000 ; TAX 0 ; PLATFORM 560 001.
- * Paramètre de 0121 (PROPOSÉ, ADR-146) : booking_request_mode_enabled = faux dans chaque pays.
+ * Paramètre de 0123 (PROPOSÉ, ADR-146) : booking_request_mode_enabled = faux dans chaque pays.
  */
 import type pg from 'pg';
 import { describe, expect, it } from 'vitest';
@@ -188,7 +188,7 @@ describe.each(COUNTRIES)(
       PLATFORM: String(v.platform),
     };
 
-    it('DoR 2 : mode sur demande fermé (booking_request_mode_enabled = faux, 0121) ⇒ REQUEST_MODE_UNAVAILABLE, aucun hold, jamais une réservation INSTANT', async () => {
+    it('DoR 2 : mode sur demande fermé (booking_request_mode_enabled = faux, 0123) ⇒ REQUEST_MODE_UNAVAILABLE, aucun hold, jamais une réservation INSTANT', async () => {
       await scenario(
         cc,
         false,

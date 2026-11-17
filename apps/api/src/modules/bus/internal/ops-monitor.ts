@@ -8,7 +8,7 @@
  * | `outbox_oldest_age_s`        | `OPS_OUTBOX_STALE`      | P1       | > 120 s (17 §6.3)                   |
  * | `webhook_failing`            | `OPS_WEBHOOK_FAILING`   | P1       | ≥ 1 webhook en échec 3 fois (ADM-032)|
  * | `payment_unknown_30m`        | `OPS_PAYMENT_UNKNOWN`   | P1       | ≥ 1 opération UNKNOWN > 30 min      |
- * | `request_void_pending_30m`   | `OPS_REQUEST_VOID_PENDING` | P1    | ≥ 1 VOID de demande non confirmé > 30 min (US-223c, 0122) |
+ * | `request_void_pending_30m`   | `OPS_REQUEST_VOID_PENDING` | P1    | ≥ 1 VOID de demande non confirmé > 30 min (US-223c, 0124) |
  * | `webhook_signature_rejected` | `OPS_WEBHOOK_SIGNATURE` | P2       | ≥ 1 depuis la passe précédente      |
  * | `p1_event`                   | `OPS_P1_EVENT`          | P1       | ≥ 1 depuis la passe précédente      |
  *

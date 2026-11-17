@@ -176,7 +176,11 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  conducteur, UXQ-12), `web.s06.reviewRejected.*` (hold libéré par la revue), `web.s04.entry.*`
  (déclaration d'entrée : statut, date mise en forme par langue) ; `common.payment.underReview` ne
  promet plus d'avis (aucune notification du voyageur avant GL-17).
- Version 67 (les 65 et 66 sont réservées à US-211 et US-224) : réservation sur demande, partie
+ Version 65 (la 63 était la réservation d’origine ; la 64 est celle d’US-209c ; US-224a n’a pas ajouté de version) : contrat de location hôte–voyageur, partie 211a
+ (US-211, ADR-143) : `ctr.contract.*` (libellés du PDF du contrat, figés dans le document à sa
+ génération : parties, plateforme intermédiaire, véhicule, période, prix, protection, caution,
+ distance, annulation, retard, territoire, bloc de signature, traduction de courtoisie).
+ Version 67 (la 66 est réservée à US-224) : réservation sur demande, partie
  serveur 223c (US-223, ADR-146) : `common.request.*` (demande inconnue, échue, déjà traitée, voyageur
  devenu inéligible, montant non confirmé ; aucun débit dans chaque cas), messages des routes des
  demandes de l'hôte.

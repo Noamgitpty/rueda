@@ -93,6 +93,9 @@ async function openSwitch(key: string, country: string): Promise<void> {
     });
   const requester = await staff('ADMIN', country);
   const approver = await staff('SUPERADMIN', country);
+  // tête de chaîne d'audit AVANT le verrou consultatif de la commande (fixture 9957) : même ordre
+  // que test/support/golive.ts, jamais l'ordre inverse d'une autre transaction (40P01)
+  await client.query('SELECT test_fixture.audit_chain_head_lock()');
   await as(requester);
   const r = await client.query<{ outcome: string; request_id: string | null }>(
     'SELECT outcome, request_id FROM core.config_cmd_request_go_live_switch($1, $2, $3, $4, $5, $6)',
