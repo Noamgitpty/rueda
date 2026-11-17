@@ -1776,7 +1776,8 @@
         "issued_at": "C1",
         "created_at": "C1",
         "updated_at": "C1",
-        "row_version": "C1"
+        "row_version": "C1",
+        "fin_alert": "C1"
       }
     },
     "core.payment_webhook_inbox": {
