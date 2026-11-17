@@ -3436,7 +3436,7 @@
         }
       }
     },
-    "/console/trips/{id}/cancellation": {
+    "/console/cancellations/{id}": {
       "get": {
         "operationId": "consoleTripCancellation",
         "tags": ["sup"],

@@ -227,7 +227,7 @@ const CANCEL: Api = {
       actionId: '04400000-0000-4000-8000-0000000000f6',
     },
   },
-  [`/console/trips/${TRIP}/cancellation`]: {
+  [`/console/cancellations/${TRIP}`]: {
     status: 200,
     body: {
       cancellation: {

@@ -34,7 +34,7 @@
  * |      decide (US-118)                    | clos                             | LISTING_NOT_PUBLISHABLE ; 422    |
  * | POST /console/queues/items/:id/files/   | 200 pièce (base64, journalisée)  | 404 VEHICLE_FILE_NOT_FOUND ; 503 |
  * |      :fileId (US-124)                   |                                  |                                  |
- * | GET /console/trips/:id/cancellation     | 200 { cancellation } : dernière  | 403 STAFF_SELF_FORBIDDEN         |
+ * | GET /console/cancellations/:id     | 200 { cancellation } : dernière  | 403 STAFF_SELF_FORBIDDEN         |
  * |      (US-215b)                          | demande d'annulation ou null     |                                  |
  *
  * Toutes : StaffGuard (401 AUTH_REQUIRED, 403 FORBIDDEN / 2FA_REQUIRED), 400 REQUEST_INVALID. La
@@ -679,10 +679,10 @@ export class OpsConsoleController {
     };
   }
 
-  // US-215b (ADR-151) : état de la dernière demande d'annulation du trip (CANCEL_TRIP_*), lu après
+  // US-215b (ADR-151) : état de la dernière demande d'annulation du trip `:id` (CANCEL_TRIP_*), lu après
   // l'action de la console (le règlement est fait par le travailleur trip_lifecycle) ; permission
   // ops.platform_cancel dans le pays du trip ; aucune donnée personnelle ; refus journalisés
-  @Get('trips/:id/cancellation')
+  @Get('cancellations/:id')
   @UseGuards(StaffGuard)
   async tripCancellation(@Req() request: object, @Param('id') id: string) {
     const actor = actorOf(request);

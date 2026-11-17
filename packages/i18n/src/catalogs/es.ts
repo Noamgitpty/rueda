@@ -2295,7 +2295,7 @@ export const ES_MESSAGES = {
   'backoffice.cancel.trip.CANCELLED_BY_PLATFORM': 'Cancelado por la plataforma',
   'backoffice.cancel.trip.NO_SHOW_GUEST': 'El viajero no se presentó',
   'backoffice.cancel.leg.HOST': 'Anfitrión',
-  'backoffice.cancel.leg.INSURER': 'Aseguradora',
+  'backoffice.cancel.leg.INSURER': 'Compañía de seguros',
   'backoffice.cancel.leg.TAX_THIRD_PARTY': 'Impuesto',
   'backoffice.cancel.leg.PLATFORM': 'Plataforma',
   'backoffice.cancel.refund.PENDING': 'Por enviar al proveedor de pagos',

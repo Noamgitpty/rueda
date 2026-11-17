@@ -60,7 +60,7 @@ export interface CancelDraft {
   readonly evidence: readonly string[];
 }
 
-/** Règlement lié à une demande réglée (GET /console/trips/{id}/cancellation, 0127). */
+/** Règlement lié à une demande réglée (GET /console/cancellations/{id}, 0127). */
 export interface CancellationSettlementView {
   readonly currency: string;
   readonly exponent: number;

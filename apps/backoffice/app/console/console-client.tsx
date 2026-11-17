@@ -397,7 +397,7 @@ export function ConsoleClient({ localeTag }: { readonly localeTag: string }) {
     for (let n = 0; n < CANCEL_POLLS; n += 1) {
       const r = await call<{ cancellation: CancellationView | null }>(
         'GET',
-        `/console/trips/${tripId}/cancellation`,
+        `/console/cancellations/${tripId}`,
       );
       if (cancelGen.current !== gen) return;
       const view = r.ok ? r.body.cancellation : ('error' as const);

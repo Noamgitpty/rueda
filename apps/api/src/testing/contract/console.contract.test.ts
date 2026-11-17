@@ -1055,7 +1055,7 @@ describe('contrat HTTP — /console', () => {
 
     // état d'une demande d'annulation (US-215b) : 200 (instants en ISO, montants en texte), aucune
     // demande (null), 400, 403 (dont STAFF_SELF_FORBIDDEN)
-    const cxl = `/console/trips/${ID}/cancellation`;
+    const cxl = `/console/cancellations/${ID}`;
     const cxlRead = await a.api.request('GET', cxl, { headers: a.cookie('staff') });
     expect(cxlRead.status).toBe(200);
     expect(cxlRead.json).toMatchObject({
@@ -1071,7 +1071,7 @@ describe('contrat HTTP — /console', () => {
       cancellation: null,
     });
     expect(
-      (await a.api.request('GET', '/console/trips/x/cancellation', { headers: a.cookie('staff') }))
+      (await a.api.request('GET', '/console/cancellations/x', { headers: a.cookie('staff') }))
         .status,
     ).toBe(400);
     ops.outcome['tripCancellation'] = 'SELF_FORBIDDEN';

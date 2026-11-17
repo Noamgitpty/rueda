@@ -162,7 +162,7 @@
       "portee": "pays",
       "idor": "élément de l’autre pays : 403 journalisé ; non assigné ou autre file : 403 STAFF_CASE_REQUIRED, aucune donnée, aucune ligne d’accès (preuve L0 l0-us209-risk-checkout)"
     },
-    "GET /console/trips/{id}/cancellation": {
+    "GET /console/cancellations/{id}": {
       "acces": "staff",
       "permission": "ops.platform_cancel (permission des trois actions d’annulation CANCEL_TRIP_*, dans le pays du trip), garde ADR-122, refus journalisés",
       "roles": ["OPS_AGENT", "ADMIN"],
