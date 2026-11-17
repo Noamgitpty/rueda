@@ -50,9 +50,11 @@
  *   avant tout ordre, 08 E7 règle 5) : PROPOSÉS par US-224 (migration 0121, ADR-145, S-02) ;
  * - `CONTRACT_NOT_SIGNED` : 16 fiche BKG-019 (remise refusée tant que la dernière version du contrat
  *   de location n'est pas signée par le voyageur ; migration 0122, US-211, ADR-143).
+ *   US-224b (ADR-147) : `FIN_REVIEW_REQUIRED` couvre aussi l'avance de Kmino non décidée par
+ *   deux personnes (`advance_decision_required`) ; aucun nouveau code.
  * - `CANCELLATION_PENDING` (une demande d'annulation vivante existe déjà pour le trip) et
  *   `CANCELLATION_NOT_PENDING` (demande déjà réglée ou garée) : PROPOSÉS par US-215 (migration
- *   0123, ADR-148).
+ *   0124, ADR-148).
  */
 
 /** Codes métier produits par la traduction. */
@@ -112,7 +114,7 @@ export const DB_BUSINESS_CODES = [
   'FIN_REVIEW_REQUIRED',
   // US-211 (0122, ADR-143) : remise sans contrat de location signé (16 BKG-019)
   'CONTRACT_NOT_SIGNED',
-  // US-215 (0123, ADR-148) : annulations déclenchées par l'ops, réglées dans la transition
+  // US-215 (0124, ADR-148) : annulations déclenchées par l'ops, réglées dans la transition
   'CANCELLATION_PENDING',
   'CANCELLATION_NOT_PENDING',
 ] as const;
@@ -308,6 +310,24 @@ export const CONSTRAINT_CODES: Readonly<Record<string, readonly [string, DbBusin
   leg_reallocation_mismatch: [SQLSTATE.objectNotInPrerequisiteState, 'INVARIANT_VIOLATION'],
   leg_reallocation_pending: [SQLSTATE.objectNotInPrerequisiteState, 'INVARIANT_VIOLATION'],
   payment_operation_settlement_shape: [SQLSTATE.checkViolation, 'INVARIANT_VIOLATION'],
+  // US-224b (ADR-147) : instance de remboursement (SM-8), avance de Kmino (08 E7 règle 3 bis),
+  // versement borné par la jambe retenue
+  refund_credit_cash_closed: [SQLSTATE.objectNotInPrerequisiteState, 'PAYMENT_METHOD_UNAVAILABLE'],
+  refund_rail_unavailable: [SQLSTATE.objectNotInPrerequisiteState, 'PAYMENT_METHOD_UNAVAILABLE'],
+  refund_instance_idempotency_conflict: [
+    SQLSTATE.integrityConstraintViolation,
+    'IDEMPOTENCY_CONFLICT',
+  ],
+  refund_instance_key: [SQLSTATE.uniqueViolation, 'IDEMPOTENCY_CONFLICT'],
+  refund_instance_operation_unique: [SQLSTATE.uniqueViolation, 'IDEMPOTENCY_CONFLICT'],
+  refund_instance_origin_invalid: [SQLSTATE.objectNotInPrerequisiteState, 'INVARIANT_VIOLATION'],
+  refund_instance_unknown: [SQLSTATE.objectNotInPrerequisiteState, 'INVARIANT_VIOLATION'],
+  refund_instance_not_submitted: [SQLSTATE.objectNotInPrerequisiteState, 'INVALID_TRANSITION'],
+  refund_instance_transition: [SQLSTATE.integrityConstraintViolation, 'INVALID_TRANSITION'],
+  refund_instance_immutable: [SQLSTATE.integrityConstraintViolation, 'IMMUTABLE_RECORD'],
+  advance_decision_required: [SQLSTATE.objectNotInPrerequisiteState, 'FIN_REVIEW_REQUIRED'],
+  advance_exceeds_released_leg: [SQLSTATE.objectNotInPrerequisiteState, 'INVARIANT_VIOLATION'],
+  leg_release_exceeds_retained: [SQLSTATE.objectNotInPrerequisiteState, 'INVARIANT_VIOLATION'],
   payment_operation_settlement_kind: [SQLSTATE.checkViolation, 'INVARIANT_VIOLATION'],
   leg_release_trip_not_completed: [SQLSTATE.objectNotInPrerequisiteState, 'INVALID_TRANSITION'],
   leg_release_not_due: [SQLSTATE.objectNotInPrerequisiteState, 'INVALID_TRANSITION'],
@@ -350,7 +370,7 @@ export const CONSTRAINT_CODES: Readonly<Record<string, readonly [string, DbBusin
   trip_contract_not_signed: [SQLSTATE.objectNotInPrerequisiteState, 'CONTRACT_NOT_SIGNED'],
   contract_record_immutable: [SQLSTATE.integrityConstraintViolation, 'IMMUTABLE_RECORD'],
   contract_command_forbidden: [SQLSTATE.insufficientPrivilege, 'FORBIDDEN'],
-  // annulations déclenchées par l'ops, réglées dans la transition (0123, US-215, ADR-148)
+  // annulations déclenchées par l'ops, réglées dans la transition (0124, US-215, ADR-148)
   trip_cancellation_closed: [SQLSTATE.objectNotInPrerequisiteState, 'CANCELLATION_NOT_PENDING'],
   trip_cancellation_live_unique: [SQLSTATE.uniqueViolation, 'CANCELLATION_PENDING'],
   trip_cancellation_settlement_mismatch: [

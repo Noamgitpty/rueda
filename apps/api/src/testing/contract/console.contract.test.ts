@@ -700,6 +700,8 @@ describe('contrat HTTP — /console', () => {
       ['SELF_APPROVAL', 409, 'STAFF_SELF_APPROVAL'],
       ['NOT_PENDING', 409, 'STAFF_ACTION_REFUSED'],
       ['FORBIDDEN', 403, 'FORBIDDEN'],
+      // US-224b (N-119) : demandeur ou approbateur concerné par l'avance
+      ['SELF_FORBIDDEN', 403, 'STAFF_SELF_FORBIDDEN'],
     ] as const) {
       approval = outcome;
       const r = await a.api.request('POST', path, { headers, body: {} });

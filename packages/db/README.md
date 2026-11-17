@@ -868,6 +868,19 @@ Migration `0121_settlement_refund_orders`. Fixture `9965_test_us224_refund_fixtu
 - **Rejeu** : `core.settlement_cmd_record` rend le règlement existant pour la même version au même contenu (S-02).
 - **Preuve** : webhook `SUCCEEDED` sans montant ⇒ `UNPROVEN` pour tout ordre qui déplace des fonds (N-196).
 - **Preuves** : `test/l0/l0-us224-refund-orders.test.ts`, `test/l0/l0-us224-refund-race.test.ts` (isolé, deux sessions), PA USD et PY PYG ; tests existants adaptés (passation US-224).
+- **US-224b** : la commande à 13 arguments est retirée (0123, ADR-147) ; tout appel passe par celle à 15 arguments (règlement NULL hors ordres de règlement).
+
+## Instance de remboursement et avance de Kmino (US-224 partie 224b ; 08 E7 règle 3 bis, SM-8 ; 17 §2.9, §3.2.7, §3.2.8 ; ADR-147)
+
+Migration `0123_settlement_refund_instances_advance` (corps de 0036, 0097 et 0116 recopiés, blocs « US-224b »). Fixture `9955_test_us224b_advance_fixtures.sql` (avance PLANNED posée directement ; passage forcé à OPEN, refusé).
+
+- **Table** `core.payment_refund_instance` (SM-8) : origine `SETTLEMENT` (bêta), exécutant `PLATFORM_API`, rail natif ; `requested_legs` (jambes du règlement), `operation_id` (ordre `REFUND`, clé étrangère différée), `advance_id`, `blocked_reason` ; RLS : FINANCE / ADMIN du pays (`fin_read`), travailleurs `settlement`, `payment_command`, `reconciliation` ; écriture par les commandes seulement ; ni DELETE ni TRUNCATE.
+- **Commandes** (`cmd_money_owner`, EXECUTE `app_worker`, travailleur `payment_command`) : `core.payment_cmd_plan_refund` (instance, avance attendue, ordre PENDING gardé ; rejeu ⇒ existante ; `refund_credit_cash_closed`, `refund_rail_unavailable`, `refund_instance_origin_invalid`, `refund_instance_idempotency_conflict`) et `core.payment_cmd_submit_refund` (`SUBMITTED`, `DUPLICATE`, `SUPERSEDED`, `BLOCKED` + motif).
+- **Gardes** : `payment_refund_instance_guard` (création PLANNED, crédit cash fermé, identité figée, transitions de 224b) ; `payment_refund_instance_gate` (`integrity_owner`, SECURITY DEFINER : l'ordre d'une instance PLANNED / SUPERSEDED ne change d'état que vers FAILED) ; `payment_refund_instance_supersede` (version n+1 : instances PLANNED ⇒ SUPERSEDED, avances attendues ⇒ CANCELLED).
+- **Avance** : `platform_advance` gagne `PLANNED` et `CANCELLED` ; `PLANNED → OPEN` exige la décision FINANCE à deux personnes (`advance_decision_required`, tous rôles) ; motif d'envoi retenu `core.payment_refund_advance_block` (`ADVANCE_CAP_UNSET`, `HOST_ADVANCE_CAP`, `PLATFORM_BALANCE_UNKNOWN`) ; `host_advance_v` ne montre que les avances effectives.
+- **État des jambes** `core.payment_trip_leg_state` (SECURITY INVOKER) commun à la garde des ordres et à la planification ; versement borné à l'enregistrement (`leg_release_exceeds_retained`).
+- **FINANCE** : `DECIDE_ADVANCE` sur une avance PLANNED ; conflit du demandeur rejugé à l'approbation (N-119, `SELF_FORBIDDEN`).
+- **Preuves** : `test/l0/l0-us224b-refund-instances.test.ts`, `test/l0/l0-us224b-finance-decision.test.ts`, `test/l0/l0-us224b-advance-decision.test.ts` (isolé, décision réelle à deux personnes), PA USD et PY PYG.
 
 ## Contrat de location hôte–voyageur et signature (US-211 partie 211a ; 16 BKG-018, BKG-019 ; 17 §2.7, §3.2.6 ; ADR-143)
 
@@ -880,7 +893,7 @@ Migration `0122_ctr_rental_contract`, fixture `9963_test_us211_rental_contract_f
 
 ## Annulations déclenchées par l'ops, réglées dans la transition (US-215 partie 215a ; 16 BKG-028, BKG-032, BKG-035, ADM-006 ; 08 BR-CXL, SM-1 invariant 4 ; ADR-148)
 
-Migration `0123_booking_trip_cancellation_settled`. Fixture `9956_test_us215_trip_cancellation_fixtures.sql` (lecture d'une demande et des occupations d'un trip).
+Migration `0124_booking_trip_cancellation_settled`. Fixture `9956_test_us215_trip_cancellation_fixtures.sql` (lecture d'une demande et des occupations d'un trip).
 
 - **Table** `core.booking_trip_cancellation` (classe C1, aucun droit applicatif) : demande de la console (`CANCEL_TRIP_GUEST` / `HOST` / `PLATFORM`), motif demandé et initiateur dérivés de l'action, sous-motif, heure serveur de la demande, agent ; statut `PENDING` → `SETTLED` (règlement, `cost_bearer`) | `FIN_REVIEW` | `FAILED` (code seul) ; une demande vivante par trip (`trip_cancellation_live_unique`).
 - **Commande liée** `core.booking_manual_action_cancel_trip` (cmd_hold_owner, EXECUTE iam_staff_owner) ; saisies fermées `subReason` et `platformReason` au catalogue.

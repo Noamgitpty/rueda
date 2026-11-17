@@ -15,6 +15,7 @@ import type pg from 'pg';
 import { afterEach, describe, expect, it } from 'vitest';
 import {
   PgOperationRecorder,
+  PgRefundPlanner,
   PgWebhookInboxStore,
   PgWebhookWorkStore,
   WebhookIngestService,
@@ -275,6 +276,64 @@ describe.each(CASES)('PAY de bout en bout — $country ($currency)', (c) => {
         code: '23503',
         constraint: 'payment_operation_settlement_fk',
       });
+    } finally {
+      await worker.query('ROLLBACK');
+    }
+  });
+
+  it('US-224b : PgRefundPlanner transmet ses neuf arguments et son identifiant : règlement inconnu ⇒ refus sans écriture ; instance inconnue ⇒ refus', async () => {
+    const worker = await open('app_worker');
+    const executor = {
+      query: async <R extends Record<string, unknown>>(
+        text: string,
+        values?: readonly unknown[],
+      ) => {
+        const result = await worker.query<R>(text, values as unknown[] | undefined);
+        return { rows: result.rows };
+      },
+    };
+    const planner = new PgRefundPlanner(executor);
+    const refused = async (run: () => Promise<unknown>) => {
+      await worker.query('SAVEPOINT us224b');
+      try {
+        await run();
+      } catch (error) {
+        await worker.query('ROLLBACK TO SAVEPOINT us224b');
+        return error as { code?: string; constraint?: string };
+      }
+      return null;
+    };
+    await worker.query('BEGIN');
+    try {
+      await worker.query(
+        `SELECT pg_catalog.set_config('app.actor_kind', 'WORKER', true),
+                pg_catalog.set_config('app.worker_name', 'payment_command', true)`,
+      );
+      const idem = `refund:${randomUUID()}`;
+      expect(
+        await refused(() =>
+          planner.plan({
+            instanceId: randomUUID(),
+            operationId: randomUUID(),
+            settlementId: randomUUID(),
+            refundedOperationId: randomUUID(),
+            instanceSeq: 1,
+            rail: 'NATIVE_PARTIAL',
+            legs: { ...capture.legsMinor },
+            idemPlain: idem,
+            idemSent: idem,
+          }),
+        ),
+      ).toMatchObject({ code: '55000', constraint: 'leg_refund_without_settlement' });
+      expect(await refused(() => planner.submit(randomUUID()))).toMatchObject({
+        code: '55000',
+        constraint: 'refund_instance_unknown',
+      });
+      const { rows } = await worker.query<{ n: number }>(
+        'SELECT count(*)::int AS n FROM core.payment_payment_operation WHERE idem_plain = $1',
+        [idem],
+      );
+      expect(rows[0]?.n).toBe(0);
     } finally {
       await worker.query('ROLLBACK');
     }

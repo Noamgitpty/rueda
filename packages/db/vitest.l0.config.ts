@@ -30,6 +30,9 @@ const ISOLATED = [
   // US-224 : ordres de règlement à deux sessions, données commitées, compte PSP ACTIVE le temps de
   // la course (un seul compte ACTIVE par pays)
   'test/l0/l0-us224-refund-race.test.ts',
+  // US-224b : avance de Kmino décidée par deux personnes, mise en place et décision commitées sur
+  // le compte PSP ACTIVE partagé du pays
+  'test/l0/l0-us224b-advance-decision.test.ts',
   // US-215 : préparation et demandes de la console commitées (deux rôles), compte PSP ACTIVE du pays
   // partagé (fixture 9800, un seul compte ACTIVE par pays)
   'test/l0/l0-us215-trip-cancellation.test.ts',

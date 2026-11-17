@@ -109,7 +109,7 @@ describe('critère 1 — rôle sans droit d’annulation plateforme : 403 journa
     },
   );
 
-  // US-215 (0123, ADR-148) : CANCEL_TRIP_PLATFORM est désormais liée à sa commande (preuves dans
+  // US-215 (0124, ADR-148) : CANCEL_TRIP_PLATFORM est désormais liée à sa commande (preuves dans
   // l0-us215-trip-cancellation) ; la règle « droit détenu, commande pas encore livrée ⇒
   // UNAVAILABLE journalisé » est prouvée sur DECLARE_NO_SHOW (trip.declare_no_show, OPS et ADMIN,
   // matrice de 0034), toujours sans commande liée

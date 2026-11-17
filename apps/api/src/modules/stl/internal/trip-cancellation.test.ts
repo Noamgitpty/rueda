@@ -60,7 +60,7 @@ function factsOf(
     checkinValidated: false,
     requestedAtMs: event.requestedAtMs,
     frozen: null,
-    // forme canonique que rend la base (0123, core.booking_cancellation_params)
+    // forme canonique que rend la base (0124, core.booking_cancellation_params)
     params: JSON.parse(canonicalJson(testParams(trip.currency))) as unknown,
     ...over,
   };
@@ -279,8 +279,17 @@ describe('processeur trip_lifecycle', () => {
         return [{ r: { costBearer: 'GUEST' } }];
       if (sql.includes('payment_payment_operation'))
         return [{ id: 'cap-1', psp_account_id: 'acc-1', method: 'CARD' }];
-      if (sql.includes('payment_cmd_record_operation'))
-        return [{ operation_id: 'op-1', replayed: false }];
+      if (sql.includes('payment_cmd_plan_refund'))
+        return [
+          {
+            instance_id: 'ri-1',
+            operation_id: 'op-1',
+            advance_id: null,
+            status: 'PLANNED',
+            blocked_reason: null,
+            replayed: false,
+          },
+        ];
       return new Error(`requête inattendue : ${sql}`);
     });
     const tx = transactionsOf(db);
@@ -297,7 +306,7 @@ describe('processeur trip_lifecycle', () => {
       ['settlement', 'settlement_cmd_record'],
       ['trip_lifecycle', 'booking_cmd_trip_settle_cancellation'],
       ['payment_command', 'payment_payment_operation'],
-      ['payment_command', 'payment_cmd_record_operation'],
+      ['payment_command', 'payment_cmd_plan_refund'],
     ]);
     expect(alerts.sent).toEqual([]);
   });
@@ -348,7 +357,7 @@ describe('processeur trip_lifecycle', () => {
         return [{ r: { costBearer: 'GUEST' } }];
       if (sql.includes('payment_payment_operation'))
         return [{ id: 'cap-1', psp_account_id: 'acc-1', method: 'CARD' }];
-      if (sql.includes('payment_cmd_record_operation'))
+      if (sql.includes('payment_cmd_plan_refund'))
         return Object.assign(new Error('fin'), {
           code: '55000',
           constraint: 'operation_settlement_fin_review',

@@ -1,5 +1,5 @@
 /**
- * US-215 (partie 215a, migration 0123, ADR-148) — annulations du voyageur, de l'hôte et de la
+ * US-215 (partie 215a, migration 0124, ADR-148) — annulations du voyageur, de l'hôte et de la
  * plateforme déclenchées par l'ops : demande par la console (cadre d'US-101), règlement par le
  * moteur unique DANS la transaction de la transition (invariant 4 de SM-1), remboursements par les
  * ordres bornés d'US-224a (0121), en USD (PA) et en PYG sans décimale (PY).
@@ -27,16 +27,16 @@ import {
 import { legVector, settlementVector } from '@rueda/money/golden-vectors';
 import { testParams } from '@rueda/money/testing';
 import type pg from 'pg';
-import { beforeAll, describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { setSessionContext, translateDbError } from '../../src/index.ts';
 import { withRole, withTestTransaction } from '../../src/testing/index.ts';
 import { COUNTRIES } from '../support/avl.ts';
 import type { CountryCase } from '../support/avl.ts';
-import { applySignedStatus, caught, recordOperation, uuid } from '../support/pay.ts';
+import { applySignedStatus, caught, legsJson, recordOperation, uuid } from '../support/pay.ts';
 import type { Legs } from '../support/pay.ts';
 import { golden, legsOf, recordAsSettlementWorker, tripOfVector } from '../support/settlement.ts';
 import { newHash } from '../support/golive.ts';
-import { elevatedStaff, installTestProofKey } from '../support/staff.ts';
+import { createStaff } from '../support/staff.ts';
 
 type Tx = pg.ClientBase;
 const LEGS = ['HOST', 'INSURER', 'TAX_THIRD_PARTY', 'PLATFORM'] as const;
@@ -54,13 +54,8 @@ const neg = (l: Legs): Legs => Object.fromEntries(LEGS.map((k) => [k, -l[k]])) a
 const expected = (id: string) => settlementVector(golden, id).expected;
 const iso = (ms: number): string => new Date(ms).toISOString();
 
-beforeAll(async () => {
-  await withRole('app_api', (client) => installTestProofKey(client));
-});
-
 interface Staff {
   readonly userId: string;
-  readonly hash: Buffer;
 }
 
 interface World {
@@ -71,6 +66,8 @@ interface World {
   readonly requestedAtMs: number;
   readonly startAtMs: number;
   readonly vector: string;
+  /** Capture réussie du loyer (moyen d'origine des remboursements). */
+  readonly capture: string;
 }
 
 /**
@@ -98,6 +95,7 @@ async function worldAt(
   const capLegs = legsVector(capture);
   const total = LEGS.reduce((s, k) => s + capLegs[k], 0n);
   let account = '';
+  let captureId = '';
   await withTestTransaction(worker, { virtualNow: iso(bookedAtMs), commit: true }, async (tx) => {
     await setSessionContext(tx, { kind: 'WORKER', workerName: 'payment_command' });
     await tx.query(`SELECT test_fixture.rls_insert_trip($1, $2, $3, $4, $5, $6, $7, $8, $9)`, [
@@ -126,6 +124,7 @@ async function worldAt(
       idemPlain: `trip:${trip}:capture:${uuid()}`,
       legs: capLegs,
     });
+    captureId = op.operation_id;
     expect(await applySignedStatus(tx, op.operation_id, 'SUCCEEDED')).toBe('APPLIED');
     const moved = await tx.query<{ r: string }>(
       'SELECT core.settlement_cmd_apply_leg_movement($1) AS r',
@@ -143,7 +142,15 @@ async function worldAt(
       await tx.query('SELECT test_fixture.us207_force_status($1, $2)', [trip, options.status]);
     }
   });
-  return { c, trip, account, requestedAtMs: REQUESTED_AT_MS, startAtMs, vector };
+  return {
+    c,
+    trip,
+    account,
+    requestedAtMs: REQUESTED_AT_MS,
+    startAtMs,
+    vector,
+    capture: captureId,
+  };
 }
 
 /** Trip du vecteur : la demande tombe au décalage du vecteur avant (ou après) le départ. */
@@ -277,23 +284,28 @@ async function settle(tx: Tx, cancellation: string, settlement: string): Promise
   return rows[0]?.r;
 }
 
+/**
+ * Remboursement du règlement : instance `PLANNED` d'US-224b (`core.payment_cmd_plan_refund`, rail du
+ * moyen d'origine), qui enregistre l'ordre REFUND borné de 0121. Travailleur payment_command.
+ */
 async function refund(
   tx: Tx,
   w: World,
   settlement: string,
   legs: Legs,
+  seq = 1,
 ): Promise<{ operation_id: string }> {
   await setSessionContext(tx, { kind: 'WORKER', workerName: 'payment_command' });
-  return recordOperation(tx, {
-    tripId: w.trip,
-    accountId: w.account,
-    kind: 'REFUND',
-    amountMinor: LEGS.reduce((s, k) => s + legs[k], 0n),
-    currency: w.c.currency,
-    idemPlain: `${w.trip}:refund:${uuid()}`,
-    legs,
-    settlement: { id: settlement, version: 1 },
-  });
+  const idem = `${w.trip}:refund:${uuid()}`;
+  const { rows } = await tx.query<{ operation_id: string; status: string }>(
+    `SELECT operation_id, status
+       FROM core.payment_cmd_plan_refund($1, $2, $3, $4, $5, 'NATIVE_PARTIAL', $6::jsonb, $7, $7)`,
+    [uuid(), uuid(), settlement, w.capture, seq, legsJson(legs), idem],
+  );
+  const row = rows[0];
+  if (row === undefined) throw new Error('plan_refund sans résultat');
+  expect(row.status).toBe('PLANNED');
+  return row;
 }
 
 const constraintOf = (e: { constraint?: string } | null): string | undefined => e?.constraint;
@@ -343,8 +355,10 @@ async function settleFully(
 }
 
 async function staffOf(api: Tx, c: CountryCase, role = 'OPS_AGENT'): Promise<Staff> {
-  const s = await elevatedStaff(api, role, [c.country]);
-  return { userId: s.userId, hash: s.hash };
+  // aucune clé de preuve TOTP validée dans un fichier isolé (passation US-224b) : la session élevée
+  // est ouverte à l'instant de la demande par la fixture 9650 (voir act)
+  const s = await createStaff(api, role, [c.country], { withFactor: false });
+  return { userId: s.userId };
 }
 
 describe('critère 1 — annulation du voyageur (T03, PA) et variante PYG (T27, critère 5)', () => {

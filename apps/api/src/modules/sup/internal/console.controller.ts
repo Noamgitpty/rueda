@@ -11,7 +11,8 @@
  * |                                             |            | (refus de la commande de domaine, `values.reason`) ; 400   |
  * | GET /console/finance/approvals              | StaffGuard | 200 `{ approvals }` : demandes FINANCE en attente (RLS)    |
  * | POST /console/finance/approvals/:id/approve | StaffGuard | 200 STAFF_ACTION_DONE ; 409 STAFF_SELF_APPROVAL ; 409      |
- * |                                             |            | STAFF_ACTION_REFUSED ; 403 FORBIDDEN / 2FA_REQUIRED        |
+ * |                                             |            | STAFF_ACTION_REFUSED ; 403 FORBIDDEN / 2FA_REQUIRED ;      |
+ * |                                             |            | 403 STAFF_SELF_FORBIDDEN (US-122, US-224 N-119)            |
  *
  * Corps d'une action : `{ requestId (UUID, idempotence), action, subjectId, reason (10 à 1000),
  * input?, evidence? (UUID des pièces, 20 au plus) }`. `input` n'admet que des chaînes : l'agent ne
@@ -34,6 +35,7 @@ import {
 import { AuthHttpError, StaffGuard, staffPrincipalOf } from '../../iam/index.js';
 import type { ApprovalOutcome, FinanceApprovalStore } from './finance-approval-store.js';
 import type { ManualActionResult, ManualActionStore } from './manual-action-store.js';
+import { OpsHttpError } from './ops-errors.js';
 import { staffActorOf } from './staff-context.js';
 import type { StaffActor } from './staff-context.js';
 import { FINANCE_APPROVAL_STORE, MANUAL_ACTION_STORE } from './tokens.js';
@@ -227,8 +229,9 @@ export class ConsoleController {
       case 'SELF_APPROVAL':
         throw new AuthHttpError('STAFF_SELF_APPROVAL');
       case 'SELF_FORBIDDEN':
-        // US-122 (ADR-124) : sujet qui concerne l'approbateur ; même réponse qu'un refus d'accès
-        throw new AuthHttpError('FORBIDDEN');
+        // US-122 (ADR-124) : sujet qui concerne l'approbateur ; US-224b (N-119) : ou le demandeur,
+        // rejugé à l'approbation ; même code que les autres entrées de la console (ADR-122)
+        throw new OpsHttpError('STAFF_SELF_FORBIDDEN');
       case 'NOT_PENDING':
       case 'SUBJECT_CHANGED':
         throw new AuthHttpError('STAFF_ACTION_REFUSED', { reason: outcome });

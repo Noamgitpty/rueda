@@ -41,7 +41,7 @@ const TRIP_SM_TABLES = [
   // test/l0/l0-us208-checkout
   'booking_checkout_acceptance',
   'booking_checkout_terms',
-  // US-215 (0123) : demandes d'annulation de la console, réglées par le travailleur trip_lifecycle ;
+  // US-215 (0124) : demandes d'annulation de la console, réglées par le travailleur trip_lifecycle ;
   // preuves : test/l0/l0-us215-trip-cancellation
   'booking_trip_cancellation',
 ] as const;
@@ -100,6 +100,8 @@ const PAY_PORT_TABLES = [
   // port de place de marché (US-061, 0039) : preuves dans test/l0/l0-pay-marketplace.test.ts
   'payment_psp_capability_catalog',
   'payment_psp_submerchant',
+  // instance de remboursement (US-224b, 0123) : preuves dans test/l0/l0-us224b-*.test.ts
+  'payment_refund_instance',
 ] as const;
 
 // Socle de marque (US-034, 0042) : même socle RLS ; lecture publique d'app_api et commandes sous
@@ -381,7 +383,7 @@ describe('schéma core (US-006)', () => {
           'payment_operation_legs_check',
           'payment_operation_legs_check',
           'settlement_balanced', // invariants des règlements (0027, US-018)
-          // US-215 (0123) : une annulation réglée porte ses remboursements, à la validation
+          // US-215 (0124) : une annulation réglée porte ses remboursements, à la validation
           'trip_cancellation_refunded',
           'trip_has_active_occupancy',
         ].map((tgname) => ({ tgname, deferrable: true, deferred: true })),

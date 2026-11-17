@@ -233,7 +233,7 @@ describe('configuration pays : structure et droits', () => {
             ...(t === 'config_country'
               ? [{ t, pol: 'cmd_money_sel', cmd: 'r', roles: 'cmd_money_owner' }]
               : []),
-            // annulations réglées (US-215, 0123) : fenêtre gratuite, seuil de dernière minute,
+            // annulations réglées (US-215, 0124) : fenêtre gratuite, seuil de dernière minute,
             // barème des pénalités de l'hôte et compensation (DEC-FONDATEUR-01) seulement
             ...(t === 'config_param_value'
               ? [{ t, pol: 'cmd_hold_cancel_read', cmd: 'r', roles: 'cmd_hold_owner' }]
@@ -250,6 +250,10 @@ describe('configuration pays : structure et droits', () => {
             // contrôles bloquants du checkout (US-209, 0112) : âge minimum du conducteur seulement
             ...(t === 'config_param_value'
               ? [{ t, pol: 'cmd_hold_risk_read', cmd: 'r', roles: 'cmd_hold_owner' }]
+              : []),
+            // avance de Kmino (US-224b, 0123) : plafond par hôte host_advance_cap_minor seulement
+            ...(t === 'config_param_value'
+              ? [{ t, pol: 'cmd_money_advance_cap_read', cmd: 'r', roles: 'cmd_money_owner' }]
               : []),
             // devis figés (US-202, 0100) : paramètres du rejeu (tolérance, durée, parts) et taxes
             ...(t === 'config_param_value'

@@ -264,8 +264,16 @@ describe.each(COUNTRIES)('US-224 — ordres de règlement — $country ($currenc
     });
   });
 
-  it('S-02 : un ordre de trip REFUND / LEG_REALLOCATION sans règlement (commande à 13 arguments) est refusé, même quand un règlement existe', async () => {
+  it('S-02 : un ordre de trip REFUND / LEG_REALLOCATION sans règlement (règlement NULL) est refusé, même quand un règlement existe ; la commande à 13 arguments n’existe plus (US-224b)', async () => {
     await asPayments(async (tx) => {
+      // US-224b (ADR-147) : surcharge sans règlement retirée, aucun appel ne peut l'omettre
+      const overloads = await tx.query<{ n: number }>(
+        `SELECT count(*)::int AS n FROM pg_catalog.pg_proc p
+           JOIN pg_catalog.pg_namespace s ON s.oid = p.pronamespace
+          WHERE s.nspname = 'core' AND p.proname = 'payment_cmd_record_operation'
+            AND p.pronargs = 13`,
+      );
+      expect(overloads.rows[0]?.n).toBe(0);
       const w = await captured(tx, c, capture);
       await settle(tx, w.trip, 1, recordOfVector(r.settlement));
       const noRef = await caught(tx, () => order(tx, w, 'REFUND', refund));

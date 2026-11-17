@@ -1,4 +1,4 @@
--- 0123 — AVL / STL / SUP : annulations du voyageur, de l'hôte et de la plateforme déclenchées par
+-- 0124 — AVL / STL / SUP : annulations du voyageur, de l'hôte et de la plateforme déclenchées par
 -- l'ops, réglées par le moteur unique dans la transaction de la transition, remboursées par les
 -- ordres bornés d'US-224a.
 -- US-215 (partie 215a, serveur) ; 19 US-215 (critères 1 à 5, DoR du recalage du lot 2 : « le

@@ -17,9 +17,10 @@
  * 4. `core.booking_cmd_trip_settle_cancellation` (travailleur `trip_lifecycle`) : la base requalifie,
  *    LIE le règlement à la demande et applique la transition avec `settlement_id` ;
  * 5. ordres du règlement (`settlementOrders` : réaffectation d'abord, puis remboursement du moyen
- *    d'origine, montants explicites par jambe, jamais un prorata), enregistrés par la commande PAY
- *    à 15 arguments (travailleur `payment_command`), rattachés à la version 1 et bornés par 0121 ;
- *    la contrainte différée de 0123 exige Σ REFUND = remboursement du voyageur à la validation.
+ *    d'origine, montants explicites par jambe, jamais un prorata), rattachés à la version 1 et
+ *    bornés par 0121 (travailleur `payment_command`) : réaffectation par la commande PAY à 15
+ *    arguments, remboursement par l'instance `PLANNED` d'US-224b (`PgRefundPlanner.plan`) ;
+ *    la contrainte différée de 0124 exige Σ REFUND = remboursement du voyageur à la validation.
  *
  * Un refus déterministe (moteur, paramètre, devis, état du trip, ordre refusé) annule la
  * transaction ; la demande est alors garée dans une transaction à part (`FIN_REVIEW` ou `FAILED`,
@@ -50,6 +51,7 @@ import {
 import type { AlertChannel, BusRegistry, SqlClient, WorkerTransactions } from '../../bus/index.js';
 import {
   PgOperationRecorder,
+  PgRefundPlanner,
   idempotencyKeyToSend,
   settlementOperationKey,
   type LegAmounts,
@@ -90,7 +92,7 @@ export interface CancellationFacts {
   readonly checkinValidated: boolean;
   readonly requestedAtMs: number;
   readonly frozen: FrozenQuote | null;
-  /** Paramètres du pays dans la forme canonique des entrées du règlement (0123), ou `null`. */
+  /** Paramètres du pays dans la forme canonique des entrées du règlement (0124), ou `null`. */
   readonly params: unknown;
 }
 
@@ -119,7 +121,7 @@ export interface CancellationPlan {
 const INT = /^[0-9]{1,6}$/;
 const MINOR = /^[0-9]{1,18}$/;
 
-/** Événement d'annulation des faits de la base, dans la forme que la base contrôle (0123). */
+/** Événement d'annulation des faits de la base, dans la forme que la base contrôle (0124). */
 export function cancellationEvent(f: CancellationFacts): CancellationEvent {
   return {
     reason: f.requestedReason,
@@ -156,7 +158,7 @@ function penaltyAmount(value: unknown, currency: Currency): Money {
 }
 
 /**
- * Paramètres du moteur lus en base (forme canonique de 0123) : aucune valeur par défaut. Absents
+ * Paramètres du moteur lus en base (forme canonique de 0124) : aucune valeur par défaut. Absents
  * ou mal formés ⇒ `PARAM_MISSING` (BLOCK). `platformFundedHostCompensation` est recopié tel quel
  * (seul `true` exact active l'option A, DEC-FONDATEUR-01 ; absent ⇒ option B).
  */
@@ -413,8 +415,26 @@ export class TripCancellationProcessor {
       await asWorker(db, PAYMENT_COMMAND_WORKER);
       const capture = await captureOf(db, f.tripId);
       const recorder = new PgOperationRecorder(db);
+      const refunds = new PgRefundPlanner(db);
       for (const o of plan.orders) {
         const idemPlain = orderKey(f, o, capture.operationId);
+        const idemSent = idempotencyKeyToSend(idemPlain, PSP_IDEMPOTENCY_MAX_LENGTH);
+        if (o.kind === 'REFUND') {
+          // US-224b (ADR-147) : un remboursement naît d'une instance PLANNED (SM-8), rail du moyen
+          // d'origine ; son envoi au PSP est le service d'US-224 (aucun PSP réel avant le lot C)
+          await refunds.plan({
+            instanceId: randomUUID(),
+            operationId: randomUUID(),
+            settlementId,
+            refundedOperationId: capture.operationId,
+            instanceSeq: o.instanceSeq,
+            rail: 'NATIVE_PARTIAL',
+            legs: o.legs,
+            idemPlain,
+            idemSent,
+          });
+          continue;
+        }
         await recorder.record({
           id: randomUUID(),
           holdId: null,
@@ -427,7 +447,7 @@ export class TripCancellationProcessor {
           currency: f.currency,
           attemptNo: 1,
           idemPlain,
-          idemSent: idempotencyKeyToSend(idemPlain, PSP_IDEMPOTENCY_MAX_LENGTH),
+          idemSent,
           legs: o.legs,
           settlement: { id: settlementId, version: 1 },
         });
@@ -497,7 +517,11 @@ export function orderKey(f: CancellationFacts, o: CancellationOrder, tenderId: s
 }
 
 /** Contraintes de la base qui renvoient à la décision FINANCE d'US-224b (08 E7 règle 5). */
-const FIN_CONSTRAINTS = new Set(['operation_settlement_fin_review', 'refund_exceeds_collected']);
+const FIN_CONSTRAINTS = new Set([
+  'operation_settlement_fin_review',
+  'refund_exceeds_collected',
+  'advance_decision_required',
+]);
 /** Interblocage, sérialisation : reprise au passage suivant. */
 const RETRY_STATES = new Set(['40P01', '40001']);
 const SQLSTATE = /^[0-9A-Z]{5}$/;
