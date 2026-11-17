@@ -108,3 +108,16 @@ GRANT EXECUTE ON FUNCTION
   test_fixture.us709_call_post(uuid), test_fixture.us709_try_update(uuid),
   test_fixture.us709_try_delete(uuid), test_fixture.us709_try_truncate()
   TO app_worker;
+
+-- La commande de production n'a AUCUN EXECUTE (appelée par son déclencheur seulement) et migrator
+-- n'hérite pas des droits de cmd_money_owner : us709_call_post est cédée à cmd_money_owner,
+-- propriétaire de la commande (comme us049_receive_signed, fixture 9940) ; l'EXECUTE d'app_worker
+-- est rendu par le nouveau propriétaire. Aucun droit de la commande de production n'est modifié.
+GRANT CREATE ON SCHEMA test_fixture TO cmd_money_owner;
+ALTER FUNCTION test_fixture.us709_call_post(uuid) OWNER TO cmd_money_owner;
+REVOKE CREATE ON SCHEMA test_fixture FROM cmd_money_owner;
+GRANT USAGE ON SCHEMA test_fixture TO cmd_money_owner;
+SET LOCAL ROLE cmd_money_owner;
+GRANT EXECUTE ON FUNCTION test_fixture.us709_call_post(uuid) TO app_worker;
+RESET ROLE;
+REVOKE USAGE ON SCHEMA test_fixture FROM cmd_money_owner;
