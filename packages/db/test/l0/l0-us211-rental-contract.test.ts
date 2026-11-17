@@ -259,7 +259,9 @@ describe.each(COUNTRIES)('US-211 — contrat de location ($country, $currency)',
         expect(await record('evt:C', altered)).toMatchObject({
           rows: [{ outcome: 'SOURCE_CHANGED' }],
         });
-        const cheaper = { ...facts, terms: { ...facts.terms, priceTotalMinor: '1' } };
+        // total altéré (au-dessus de la retenue, pour que seule la comparaison des faits refuse)
+        const altTotal = (BigInt(a['total'] as string) + 1n).toString();
+        const cheaper = { ...facts, terms: { ...facts.terms, priceTotalMinor: altTotal } };
         expect(await record('evt:C', cheaper)).toMatchObject({
           rows: [{ outcome: 'SOURCE_CHANGED' }],
         });
