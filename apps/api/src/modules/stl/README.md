@@ -35,6 +35,7 @@ Bêta (17 §10 point 3) : schéma unique `core`, tables préfixées `settlement_
 | `journal_line`                             | cible 17, pas encore créée                                      |
 | `account_balance`                          | cible 17, pas encore créée                                      |
 | `host_ledger_state`                        | cible 17, pas encore créée                                      |
+| `host_ledger[hôte][devise]` (17 §2.9)      | table `core.settlement_host_ledger_entry` (migration 0129)      |
 | `insurer`, `insurer_contract` (17 §3.2.13) | cible 17, pas encore créées (US-227)                            |
 
 Tables présentes en base mais absentes des listes d'entités de 17 :
@@ -113,3 +114,7 @@ Les tests L0 et d'intégration demandent PostgreSQL : guide `docs/ops/INSTALL.md
 ## Ordonnanceur des remboursements (US-224 partie 224c, ADR-150)
 
 `RefundScheduler` (`internal/refund-scheduler.ts`), tâche périodique `refund_scheduler` (10 s, 50 instances par passage, une par transaction sous le nom `payment_command`) déclarée par `registerRefundScheduler` (`worker-tasks.ts`, registre `PRODUCTION_PAYMENT_CONNECTORS` de PAY : vide avant le lot C). File `core.payment_refunds_due` (0127) : `PLANNED` ⇒ envoi autorisé (`PgRefundPlanner.submit`) puis, dans la MÊME transaction, ordre stocké relu sous les verrous du trip et de l'ordre (`PgRefundOrders.orderForSend`) et envoyé par `MoneyCommandSender` au connecteur du fournisseur (montant explicite de chaque jambe, clé stockée) ; `SUBMITTED` / `SENT` ⇒ même envoi (lecture d'abord si l'issue est inconnue) ; `CONFIRMED` prouvé ⇒ report (`core.settlement_cmd_apply_leg_movement`) ; `FAILED` ⇒ alerte. Sans connecteur : rien n'est autorisé ni envoyé. Alertes `FIN_REFUND_BLOCKED` (avance sans décision FINANCE, critère 4) et `FIN_REFUND_FAILED` (P1, une fois par état : `refund_instance.fin_alert`). L'instance suit l'ordre (déclencheur `refund_instance_sync` : `SENT`, `CONFIRMED`, `FAILED`). Preuves : `refund-scheduler.test.ts` (unitaires, TJ02b / TJ08b), `refund-scheduler.int.test.ts` (PostgreSQL réel, annulation réglée par le vrai processeur puis envoyée, prouvée et reportée, T03 / T27), `packages/db/test/l0/l0-us224c-refund-scheduler.test.ts`.
+
+## `host_ledger` minimal (US-709a, ADR-153)
+
+La pénalité de l'hôte qui annule (`host_penalty_minor` du règlement, 08 E7 règle 7) est écrite au `host_ledger` (`core.settlement_host_ledger_entry`, migration 0129) par la base elle-même, dans la transaction de `TripCancellationProcessor` : la liaison du règlement à la demande (`core.booking_cmd_trip_settle_cancellation`) déclenche `core.settlement_cmd_post_host_penalty`. Aucun code de l'API n'écrit ni ne lit le `host_ledger` ; FINANCE et ADMIN du pays lisent le solde par hôte et par devise (`core.settlement_host_ledger_balance_v`). Aucune retenue sur un versement (GL-33, suite US-709 / US-314).

@@ -264,7 +264,7 @@ export const RULES: readonly RuleSpec[] = [
   },
   // `booking.trip.host_restriction_lifted` (PROPOSÉ, à reporter dans 17 §4.5 ; US-215c, ADR-156) :
   // un événement par trip à venir quand la DERNIÈRE restriction de l'hôte est levée, même charge
-  // que la pose, posé par la commande de restriction de 0129
+  // que la pose, posé par la commande de restriction de 0130
   {
     eventType: 'booking.trip.host_restriction_lifted',
     template: 'EVT_TRIP_HOST_RESTRICTION_LIFTED',

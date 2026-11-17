@@ -27,6 +27,11 @@ const US062_TABLES = [
  * lecture par catalog_cmd_owner seulement ; prouvés par l0-us108-host-ops-verification.test.ts.
  */
 const US108_TABLES = ['settlement_insurer', 'settlement_insurer_contract'] as const;
+/**
+ * host_ledger minimal d'US-709a (0129, ADR-153) : lecture FINANCE / ADMIN, écriture par la seule
+ * commande de cmd_money_owner ; prouvés par l0-us709a-host-ledger.test.ts et la matrice d'US-043.
+ */
+const US709_TABLES = ['settlement_host_ledger_entry'] as const;
 /** Tables en ajout seul : un règlement n'est jamais modifié (08 E4). */
 const APPEND_ONLY = STL_TABLES.filter((t) => t !== 'settlement_trip_leg_balance');
 
@@ -49,7 +54,7 @@ describe('schéma STL (US-018, 0027)', () => {
           ORDER BY 1`,
       );
       expect(rows.map((r) => r.t)).toEqual(
-        [...STL_TABLES, ...US062_TABLES, ...US108_TABLES].sort(),
+        [...STL_TABLES, ...US062_TABLES, ...US108_TABLES, ...US709_TABLES].sort(),
       );
       for (const r of rows) {
         expect(r, r.t).toMatchObject({ rls: true, force: true, owner: 'migrator', m: true });
