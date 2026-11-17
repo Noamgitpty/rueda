@@ -429,9 +429,9 @@ describe.each(COUNTRIES)(
             return r.request_id as string;
           });
           const outcomes = await race2(
-            (tx) => freshSession(tx, superC).then((s) => approveSwitch(tx, s, id)),
+            (tx) => freshSession(tx, superC).then((s) => approveSwitch(tx, s, id, undefined, RACE)),
             t,
-            (tx) => freshSession(tx, superD).then((s) => approveSwitch(tx, s, id)),
+            (tx) => freshSession(tx, superD).then((s) => approveSwitch(tx, s, id, undefined, RACE)),
             t,
           );
           expect(outcomes.map((o) => o.outcome).sort()).toEqual(['APPLIED', 'NOT_PENDING']);
@@ -469,11 +469,11 @@ describe.each(COUNTRIES)(
             return r.request_id as string;
           });
           const [approve, close] = await race2(
-            (tx) => freshSession(tx, superC).then((s) => approveSwitch(tx, s, id)),
+            (tx) => freshSession(tx, superC).then((s) => approveSwitch(tx, s, id, undefined, RACE)),
             t,
             (tx) =>
               freshSession(tx, superD).then((s) =>
-                requestSwitch(tx, s, 'payouts_enabled', c.country, false),
+                requestSwitch(tx, s, 'payouts_enabled', c.country, false, RACE),
               ),
             plusMinutes(t, 1),
           );
@@ -494,6 +494,14 @@ describe.each(COUNTRIES)(
     );
   },
 );
+
+/**
+ * Ordre de verrouillage des deux concurrents de RT-CONC-25 et 26 : la commande seule, SANS la tête
+ * de chaîne d'audit prise d'abord par l'aide (test/support/golive.ts). La prendre avant la
+ * commande sérialiserait les deux transactions avant même la lecture de la demande : la course ne
+ * prouverait plus la sérialisation propre des commandes d'US-125.
+ */
+const RACE = { chainFirst: false } as const;
 
 /** Deux transactions validées sur deux connexions app_api, lâchées ensemble (barrière). */
 async function race2<A, B>(
