@@ -72,6 +72,8 @@ describe('translateDbError (17 §2.5 2d, §4.4, L0-08)', () => {
     ['23505', 'payment_operation_leg_pkey', 'INVARIANT_VIOLATION'],
     // US-224 (0121) : ordres de règlement gardés à l'enregistrement (S-02, 16 PAY-021)
     ['55000', 'refund_exceeds_collected', 'REFUND_EXCEEDS_COLLECTED'],
+    ['55000', 'leg_reallocation_mismatch', 'INVARIANT_VIOLATION'],
+    ['55000', 'leg_reallocation_pending', 'INVARIANT_VIOLATION'],
     ['55000', 'operation_settlement_superseded', 'SETTLEMENT_SUPERSEDED'],
     ['55000', 'operation_settlement_fin_review', 'FIN_REVIEW_REQUIRED'],
     ['55000', 'operation_settlement_required', 'INVARIANT_VIOLATION'],

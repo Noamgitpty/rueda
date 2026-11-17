@@ -11,7 +11,8 @@
  *
  * Suites : S-02 (phrases 1 et 2), N-196 (preuve sans montant), L2-PM-04, L2-PM-05.
  */
-import { settlementRecordPayload } from '@rueda/money';
+import { money, settlementOrders, settlementRecordPayload } from '@rueda/money';
+import type { Currency, Legs as MoneyLegs, Tender } from '@rueda/money';
 import { legVector } from '@rueda/money/golden-vectors';
 import type { GoldenLegVector } from '@rueda/money/golden-vectors';
 import { J } from '@rueda/money/testing';
@@ -27,6 +28,7 @@ import {
   caught,
   insertAccount,
   insertTrip,
+  legsJson,
   payTx,
   recordOperation,
   uuid,
@@ -39,6 +41,7 @@ import {
   callRecord,
   eventOfVector,
   golden,
+  payloadOf,
   recordAsSettlementWorker,
   recordOf,
   recordOfVector,
@@ -165,6 +168,48 @@ async function settle(
   await setSessionContext(tx, { kind: 'WORKER', workerName: 'payment_command' });
   return { id, version };
 }
+
+/** Ordre réussi et prouvé écrit SANS la garde d'enregistrement (fixture 9965) : défense du report. */
+async function provenOrder(
+  tx: Tx,
+  w: World,
+  legs: Legs,
+  settlement: SettlementRef | null,
+): Promise<string> {
+  const id = uuid();
+  await tx.query(
+    `SELECT test_fixture.us224_insert_proven_order($1, $2, $3, 'REFUND', $4::jsonb, $5, $6)`,
+    [id, w.trip, w.account, legsJson(legs), settlement?.id ?? null, settlement?.version ?? null],
+  );
+  return id;
+}
+
+/** Jambes signées de la chaîne de versions du trip (lues en base, jamais recalculées ici). */
+async function chainVariation(tx: Tx, trip: string, currency: Currency): Promise<MoneyLegs> {
+  const { rows } = await tx.query<{ leg: string; v: string }>(
+    `SELECT leg, sum(variation_minor)::text AS v FROM core.settlement_settlement_leg
+      WHERE trip_id = $1 AND segment_no = 1 GROUP BY leg`,
+    [trip],
+  );
+  const of = (leg: string): bigint => BigInt(rows.find((x) => x.leg === leg)?.v ?? '0');
+  return Object.freeze({
+    HOST: money(of('HOST'), currency),
+    INSURER: money(of('INSURER'), currency),
+    TAX_THIRD_PARTY: money(of('TAX_THIRD_PARTY'), currency),
+    PLATFORM: money(of('PLATFORM'), currency),
+    total: money(
+      LEGS.reduce((s, k) => s + of(k), 0n),
+      currency,
+    ),
+  });
+}
+
+const minorOf = (l: MoneyLegs): Legs => ({
+  HOST: l.HOST.amountMinor,
+  INSURER: l.INSURER.amountMinor,
+  TAX_THIRD_PARTY: l.TAX_THIRD_PARTY.amountMinor,
+  PLATFORM: l.PLATFORM.amountMinor,
+});
 
 describe.each(COUNTRIES)('US-224 — ordres de règlement — $country ($currency)', (c) => {
   const r = refOf(c);
@@ -411,6 +456,104 @@ describe.each(COUNTRIES)('US-224 — ordres de règlement — $country ($currenc
       expect(await applyStatus(tx, op, 'SUCCEEDED', 'WEBHOOK', null, paid)).toBe('APPLIED');
     });
   });
+
+  it('report (défense en profondeur, fixture 9965) : sans règlement ⇒ leg_refund_without_settlement ; au-delà du règlement ⇒ leg_refund_exceeds_settlement ; au-delà du solde ⇒ leg_movement_exceeds_balance ; soldes intacts', async () => {
+    await asPayments(async (tx) => {
+      const w = await captured(tx, c, capture);
+      const none = await provenOrder(tx, w, refund, null);
+      expect(await caught(tx, () => applyMovement(tx, none))).toMatchObject({
+        code: '55000',
+        constraint: 'leg_refund_without_settlement',
+      });
+      const v1 = await settle(tx, w.trip, 1, recordOfVector(r.settlement));
+      // la capture entière sous la v1 : tient dans le solde, dépasse la variation de la v1
+      const over = await provenOrder(tx, w, capture, v1);
+      expect(await caught(tx, () => applyMovement(tx, over))).toMatchObject({
+        code: '55000',
+        constraint: 'leg_refund_exceeds_settlement',
+      });
+      // le remboursement exact passe ; le même une seconde fois dépasse le solde de la jambe
+      await settleOrder(tx, (await order(tx, w, 'REFUND', refund, v1)).operation_id);
+      const twice = await provenOrder(tx, w, refund, v1);
+      expect(await caught(tx, () => applyMovement(tx, twice))).toMatchObject({
+        code: '55000',
+        constraint: 'leg_movement_exceeds_balance',
+      });
+      expect(await balance(tx, w.trip, 'refunded_minor')).toEqual(refund);
+    });
+  });
+
+  it('settlementOrders ↔ garde SQL : les ordres calculés par @rueda/money depuis les jambes en base (TJ16 : deux moyens) sont acceptés et reportés ; Σ = variation', async () => {
+    await asPayments(async (tx) => {
+      const w = await captured(tx, c, capture);
+      const ref = await settle(tx, w.trip, 1, recordOfVector(r.settlement));
+      const currency = tripOfVector(r.settlement).currency;
+      const variation = await chainVariation(tx, w.trip, currency);
+      // remboursement réparti par E2 entre deux moyens (TJ16a / TJ16b, TJ16c / TJ16d de l'export)
+      const usd = legVector(golden, 'TJ16a').currency === c.currency;
+      const [first, second] = (usd ? ['TJ16a', 'TJ16b'] : ['TJ16c', 'TJ16d']).map((id) =>
+        legVector(golden, id),
+      );
+      if (first === undefined || second === undefined) throw new Error('vecteurs TJ16 absents');
+      const tenders: Tender[] = [
+        { kind: 'NATIVE', amount: money(-first.totalMinor, currency) },
+        { kind: usd ? 'NON_NATIVE' : 'CASH_CREDIT', amount: money(-second.totalMinor, currency) },
+      ];
+      const orders = settlementOrders(variation, tenders);
+      expect(orders.reallocation).toBeNull();
+      expect(orders.refunds.map((o) => minorOf(o.legs))).toEqual([
+        negate(legsOf(first)),
+        negate(legsOf(second)),
+      ]);
+      for (const o of orders.refunds) {
+        await settleOrder(tx, (await order(tx, w, 'REFUND', minorOf(o.legs), ref)).operation_id);
+      }
+      expect(await balance(tx, w.trip, 'refunded_minor')).toEqual(refund);
+    });
+  });
+
+  it('rejeu de settlement_cmd_record à entrées égales : un montant différent ou une variation de jambe différente ⇒ SETTLEMENT_EXISTS, rien d’écrit', async () => {
+    await asPayments(async (tx) => {
+      const trip = await insertTrip(tx, c);
+      const r1 = recordOfVector(r.settlement);
+      await settle(tx, trip, 1, r1);
+      await setSessionContext(tx, { kind: 'WORKER', workerName: 'settlement' });
+      const amount = payloadOf(r1);
+      amount.retainedTaxMinor = (BigInt(String(amount.retainedTaxMinor)) + 1n).toString();
+      const leg = payloadOf(r1);
+      const host = (leg.legs as Record<string, string>[]).find((l) => l.leg === 'HOST');
+      if (host === undefined) throw new Error('jambe HOST absente');
+      host.variationMinor = (BigInt(host.variationMinor ?? '0') + 1n).toString();
+      for (const payload of [amount, leg]) {
+        const err = await caught(tx, () => callRecord(tx, { tripId: trip, version: 1 }, payload));
+        expect(translateDbError(err).code).toBe('SETTLEMENT_EXISTS');
+      }
+      const { rows } = await tx.query<{ n: number }>(
+        'SELECT count(*)::int AS n FROM core.settlement_settlement WHERE trip_id = $1',
+        [trip],
+      );
+      expect(rows[0]?.n).toBe(1);
+    });
+  });
+
+  it('rejeu d’un ordre : un ordre jamais envoyé (PENDING) d’une version remplacée depuis ne revient pas comme rejeu ⇒ SETTLEMENT_SUPERSEDED', async () => {
+    await asPayments(async (tx) => {
+      const w = await captured(tx, c, capture);
+      const r1 = recordOfVector(r.settlement);
+      const v1 = await settle(tx, w.trip, 1, r1);
+      const key = `trip:${w.trip}:1:v1:REFUND:card:i1:a1`;
+      await order(tx, w, 'REFUND', refund, v1, key);
+      await settle(
+        tx,
+        w.trip,
+        2,
+        recordOf(tripOfVector(r.settlement), eventOfVector('T08'), r1),
+        v1.id,
+      );
+      const err = await caught(tx, () => order(tx, w, 'REFUND', refund, v1, key));
+      expect(err).toMatchObject({ code: '55000', constraint: 'operation_settlement_superseded' });
+    });
+  });
 });
 
 describe('US-224 — critère 2 : ventilation au prorata (TJ10c) refusée, seuls les montants de TJ10b passent (PYG)', () => {
@@ -434,6 +577,63 @@ describe('US-224 — critère 2 : ventilation au prorata (TJ10c) refusée, seuls
       expect(await refundCount(tx, w.trip)).toBe(0);
       await settleOrder(tx, (await order(tx, w, 'REFUND', exact, s)).operation_id);
       expect(await balance(tx, w.trip, 'refunded_minor')).toEqual(exact);
+    });
+  });
+});
+
+describe('US-224 — 08 E7 règle 3 : réaffectation exacte et passée avant le remboursement (TJ05b, T39, USD)', () => {
+  const pa = COUNTRIES.find((x) => x.currency === legVector(golden, 'TJ05b').currency);
+  if (pa === undefined) throw new Error('aucun pays dans la devise de TJ05b');
+
+  it('ventilation fautive (HOST 131,25 + INSURER 6,97) ⇒ leg_reallocation_pending ; réaffectation prise sur INSURER ⇒ leg_reallocation_mismatch ; ordres de settlementOrders acceptés ; la fautive après ⇒ refusée', async () => {
+    await asPayments(async (tx) => {
+      const w = await captured(tx, pa, legsOf(legVector(golden, 'TJ01')));
+      const s = await settle(tx, w.trip, 1, recordOfVector('T39'));
+      const tj05b = legVector(golden, 'TJ05b');
+      // contre-exemple de la revue argent #198 n° 2 : même total que le remboursement (138,22)
+      const faulty: Legs = { ...ZERO, HOST: -tj05b.legsMinor.HOST, INSURER: 697n };
+      expect(sum(faulty)).toBe(-tj05b.totalMinor);
+      const pending = await caught(tx, () => order(tx, w, 'REFUND', faulty, s));
+      expect(pending).toMatchObject({ code: '55000', constraint: 'leg_reallocation_pending' });
+      expect(translateDbError(pending).code).toBe('INVARIANT_VIOLATION');
+      // la variation positive de PLATFORM prise sur INSURER au lieu de HOST (08 E7 règle 3)
+      const moved = tj05b.legsMinor.PLATFORM;
+      const wrong: Legs = { ...ZERO, INSURER: -moved, PLATFORM: moved };
+      expect(await caught(tx, () => order(tx, w, 'LEG_REALLOCATION', wrong, s))).toMatchObject({
+        code: '55000',
+        constraint: 'leg_reallocation_mismatch',
+      });
+      // ordres calculés par @rueda/money depuis les jambes en base : acceptés, dans l'ordre
+      const currency = tripOfVector('T39').currency;
+      const orders = settlementOrders(await chainVariation(tx, w.trip, currency), [
+        { kind: 'NATIVE', amount: money(-tj05b.totalMinor, currency) },
+      ]);
+      if (orders.reallocation === null) throw new Error('réaffectation attendue (TJ05b)');
+      await settleOrder(
+        tx,
+        (await order(tx, w, 'LEG_REALLOCATION', minorOf(orders.reallocation), s)).operation_id,
+      );
+      // la ventilation fautive reste refusée après la réaffectation : HOST au-delà de sa variation
+      expect(await caught(tx, () => order(tx, w, 'REFUND', faulty, s))).toMatchObject({
+        code: '55000',
+        constraint: 'leg_refund_exceeds_settlement',
+      });
+      const [refundOrder] = orders.refunds;
+      if (refundOrder === undefined) throw new Error('remboursement attendu');
+      await settleOrder(
+        tx,
+        (await order(tx, w, 'REFUND', minorOf(refundOrder.legs), s)).operation_id,
+      );
+      // 08 E7 règle 3 : 112,72 sur HOST et 25,50 sur INSURER ; 18,53 réaffectés à PLATFORM
+      expect(await balance(tx, w.trip, 'refunded_minor')).toEqual({
+        ...ZERO,
+        HOST: 11272n,
+        INSURER: 2550n,
+      });
+      expect(await balance(tx, w.trip, 'reallocated_in_minor')).toEqual({
+        ...ZERO,
+        PLATFORM: 1853n,
+      });
     });
   });
 });

@@ -162,6 +162,24 @@ describe('refus (fail-closed, aucun prorata)', () => {
     expect(settlementOrders(zero, [])).toEqual({ reallocation: null, refunds: [] });
   });
 
+  it('devise de jambe différente de celle du total, ou Σ variations ≠ total ⇒ SETTLEMENT_INPUT_INVALID (revues #198)', () => {
+    const mixed: Legs = Object.freeze({
+      ...variation,
+      INSURER: money(variation.INSURER.amountMinor, PYG),
+    });
+    expect(
+      caught(() =>
+        settlementOrders(mixed, [{ kind: 'NATIVE', amount: money(-tj02b.totalMinor, USD) }]),
+      ),
+    ).toBe('SETTLEMENT_INPUT_INVALID');
+    const off: Legs = Object.freeze({ ...variation, total: money(tj02b.totalMinor + 1n, USD) });
+    expect(
+      caught(() =>
+        settlementOrders(off, [{ kind: 'NATIVE', amount: money(-tj02b.totalMinor, USD) }]),
+      ),
+    ).toBe('SETTLEMENT_INPUT_INVALID');
+  });
+
   it('variation positive plus grande que les jambes en baisse ⇒ SETTLEMENT_INPUT_INVALID', () => {
     const bad: Legs = Object.freeze({
       HOST: money(-1n, USD),

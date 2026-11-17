@@ -485,7 +485,8 @@ describe.each(COUNTRIES)(
           const second = await succeeded(tx, trip, account, 'REFUND', kept, c.currency);
           await applyMovement(tx, second);
         });
-        expect(outcome).not.toBe('OK');
+        // US-224 (revues #198) : code exact (refus du règlement à l'enregistrement, ADR-145)
+        expect(outcome).toBe('INVARIANT_VIOLATION');
         // le guest ne doit jamais avoir été remboursé au-delà de Σ des jambes du règlement
         const refunded = await column(tx, trip, 'refunded_minor');
         expect(sum(refunded)).toBeLessThanOrEqual(sum(refund));
@@ -513,7 +514,8 @@ describe.each(COUNTRIES)(
             const op = await succeeded(tx, trip, account, 'REFUND', prorata, c.currency);
             await applyMovement(tx, op);
           });
-          expect(outcome).not.toBe('OK');
+          // US-224 (revues #198) : code exact (leg_refund_exceeds_settlement, ADR-145)
+          expect(outcome).toBe('INVARIANT_VIOLATION');
           expect(await column(tx, trip, 'refunded_minor')).not.toEqual(prorata);
         });
       },
@@ -574,7 +576,8 @@ describe.each(COUNTRIES)(
         });
         // 08 E7 / BR-PAYOUT : la jambe HOST reste chez le PSP jusqu'à payout_at ; aucun versement si
         // payouts_enabled[pays] = false (graine 0009 : false pour PA et PY)
-        expect(outcome).not.toBe('OK');
+        // US-224 (revues #198) : code exact (trajet seulement réservé, garde de versement 0054)
+        expect(outcome).toBe('INVALID_TRANSITION');
         expect(await column(tx, trip, 'released_minor')).toEqual(ZERO);
       });
     });

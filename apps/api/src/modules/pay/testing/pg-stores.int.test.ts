@@ -200,6 +200,86 @@ describe.each(CASES)('PAY de bout en bout — $country ($currency)', (c) => {
     expect(inbox.rows.map((r) => r.processing_status)).toEqual(['PROCESSED', 'PROCESSED']);
   });
 
+  it('US-224 (revues #198) : PgOperationRecorder.record transmet le règlement ($14, $15) : sans lui un REFUND de trip est refusé, avec un règlement inconnu la clé étrangère refuse', async () => {
+    const worker = await open('app_worker');
+    const tripId = randomUUID();
+    const legs = { ...capture.legsMinor };
+    const executor = {
+      query: async <R extends Record<string, unknown>>(
+        text: string,
+        values?: readonly unknown[],
+      ) => {
+        const result = await worker.query<R>(text, values as unknown[] | undefined);
+        return { rows: result.rows };
+      },
+    };
+    const refundOf = (settlement?: { id: string; version: number }) => {
+      const idem = `${tripId}:1:v1:REFUND:card:i1:${randomUUID()}`;
+      return new PgOperationRecorder(executor).record({
+        id: randomUUID(),
+        holdId: null,
+        tripId,
+        pspAccountId: accountId,
+        method: 'CARD',
+        kind: 'REFUND',
+        purpose: 'RENT',
+        amountMinor: capture.totalMinor,
+        currency: c.currency,
+        attemptNo: 1,
+        idemPlain: idem,
+        idemSent: idem,
+        legs,
+        ...(settlement === undefined ? {} : { settlement }),
+      });
+    };
+    let accountId = '';
+    await worker.query('BEGIN');
+    try {
+      await worker.query(
+        `SELECT pg_catalog.set_config('app.actor_kind', 'WORKER', true),
+                pg_catalog.set_config('app.worker_name', 'payment_command', true)`,
+      );
+      await worker.query(
+        `SELECT test_fixture.rls_insert_trip($1, $2, $3, $4, $5, $6, 'UTC', $7, $8)`,
+        [
+          tripId,
+          randomUUID(),
+          randomUUID(),
+          randomUUID(),
+          c.country,
+          c.currency,
+          '2031-10-01T10:00:00Z',
+          '2031-10-03T10:00:00Z',
+        ],
+      );
+      const a = await worker.query<{ id: string }>(
+        'SELECT test_fixture.us024_psp_account($1) AS id',
+        [c.country],
+      );
+      accountId = a.rows[0]?.id ?? '';
+      const refused = async (settlement?: { id: string; version: number }) => {
+        await worker.query('SAVEPOINT us224');
+        try {
+          await refundOf(settlement);
+        } catch (error) {
+          await worker.query('ROLLBACK TO SAVEPOINT us224');
+          return error as { code?: string; constraint?: string };
+        }
+        return null;
+      };
+      expect(await refused()).toMatchObject({
+        code: '55000',
+        constraint: 'leg_refund_without_settlement',
+      });
+      expect(await refused({ id: randomUUID(), version: 1 })).toMatchObject({
+        code: '23503',
+        constraint: 'payment_operation_settlement_fk',
+      });
+    } finally {
+      await worker.query('ROLLBACK');
+    }
+  });
+
   it('C19 : base en production ⇒ webhook FAKE 404, aucune ligne', async () => {
     const worker = await open('app_worker');
     const api = await open('app_api');

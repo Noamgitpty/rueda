@@ -294,6 +294,9 @@ export const CONSTRAINT_CODES: Readonly<Record<string, readonly [string, DbBusin
   operation_settlement_superseded: [SQLSTATE.objectNotInPrerequisiteState, 'SETTLEMENT_SUPERSEDED'],
   operation_settlement_fin_review: [SQLSTATE.objectNotInPrerequisiteState, 'FIN_REVIEW_REQUIRED'],
   refund_exceeds_collected: [SQLSTATE.objectNotInPrerequisiteState, 'REFUND_EXCEEDS_COLLECTED'],
+  // revues #198 : réaffectation du règlement exacte et passée avant le remboursement (08 E7 règle 3)
+  leg_reallocation_mismatch: [SQLSTATE.objectNotInPrerequisiteState, 'INVARIANT_VIOLATION'],
+  leg_reallocation_pending: [SQLSTATE.objectNotInPrerequisiteState, 'INVARIANT_VIOLATION'],
   payment_operation_settlement_shape: [SQLSTATE.checkViolation, 'INVARIANT_VIOLATION'],
   payment_operation_settlement_kind: [SQLSTATE.checkViolation, 'INVARIANT_VIOLATION'],
   leg_release_trip_not_completed: [SQLSTATE.objectNotInPrerequisiteState, 'INVALID_TRANSITION'],

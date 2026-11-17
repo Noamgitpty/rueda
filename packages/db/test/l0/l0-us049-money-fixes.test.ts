@@ -385,15 +385,6 @@ describe.each(COUNTRIES)(
     const r = refOf(c);
     const capture: Legs = { ...legVector(golden, r.capture).legsMinor };
     const hostOnly: Legs = { ...ZERO, HOST: capture.HOST };
-    /**
-     * Refus d'un débit au-delà du remboursable : solde de la jambe ou chaîne de versions ; US-224
-     * (0121) : à l'enregistrement, au-delà de l'encaissé de la jambe (`refund_exceeds_collected`).
-     */
-    const REFUSED = [
-      'leg_movement_exceeds_balance',
-      'leg_refund_exceeds_settlement',
-      'refund_exceeds_collected',
-    ];
     const rest: Legs = { ...capture, HOST: 0n };
 
     /** Trip capturé, réglé v1 (no-show) puis requalifié FULL (T08) : capture remboursable. */
@@ -431,9 +422,9 @@ describe.each(COUNTRIES)(
           const err = await caught(tx, () =>
             succeeded(tx, trip, account, 'REFUND', { ...ZERO, PLATFORM: 1n }, c.currency),
           );
-          // refus par le solde de la jambe ou par la chaîne de versions : jamais appliqué
-          expect(err?.code).toBe('55000');
-          expect(REFUSED).toContain(err?.constraint);
+          // US-224 (0121) : refus exact à l'enregistrement, au-delà de l'encaissé de la jambe
+          // (avant : au report, solde de la jambe ou chaîne de versions) : jamais appliqué
+          expect(err).toMatchObject({ code: '55000', constraint: 'refund_exceeds_collected' });
           expect(await refundedOf(tx, trip)).toEqual(capture);
         });
       },
@@ -441,8 +432,9 @@ describe.each(COUNTRIES)(
 
     // US-224 (0121, S-02) : le second ordre est refusé dès son ENREGISTREMENT (en-cours compté sous
     // le verrou du trip) ; il n'existe donc plus deux ordres réussis à reporter en concurrence. La
-    // course sur deux connexions porte désormais sur l'enregistrement : l0-us224-refund-race.test.ts
-    // (fichier isolé, données validées). Avant : deux ordres réussis, un seul reporté sur les soldes.
+    // course sur deux connexions est rejouée dans l0-us224-refund-race.test.ts (fichier isolé) À
+    // L'ENREGISTREMENT et AU REPORT (deux ordres réussis écrits par la fixture 9965 sans la garde,
+    // reportés sur deux connexions : un seul appliqué, refunded = capture, comme l'ancien test).
     it('second remboursement de la capture entière : refusé dès l’enregistrement, un seul ordre, rien de reporté en double', async () => {
       await asPayments(async (tx) => {
         const { trip, account } = await settledFull(tx);
@@ -450,8 +442,7 @@ describe.each(COUNTRIES)(
         const err = await caught(tx, () =>
           succeeded(tx, trip, account, 'REFUND', capture, c.currency),
         );
-        expect(err?.code).toBe('55000');
-        expect(REFUSED).toContain(err?.constraint);
+        expect(err).toMatchObject({ code: '55000', constraint: 'refund_exceeds_collected' });
         expect(translateDbError(err).code).toBe('REFUND_EXCEEDS_COLLECTED');
         const { rows } = await tx.query<{ n: number }>(
           `SELECT count(*)::int AS n FROM core.payment_payment_operation

@@ -104,7 +104,14 @@ DECLARE
   v_negative boolean;
   v_total    numeric := 0;
   v_debit    numeric;
+  v_credit   numeric;
+  v_take     numeric;
   r          record;
+  v_legs     text[] := ARRAY['HOST', 'INSURER', 'TAX_THIRD_PARTY', 'PLATFORM'];
+  v_var      numeric[] := ARRAY[0, 0, 0, 0];
+  v_moved    numeric[] := ARRAY[0, 0, 0, 0];
+  v_expected numeric[] := ARRAY[0, 0, 0, 0];
+  i          integer;
 BEGIN
   SELECT o.trip_id, o.kind, o.settlement_id, o.settlement_version
     INTO v_trip, v_kind, v_stl, v_version
@@ -156,6 +163,47 @@ BEGIN
     RAISE EXCEPTION 'payment: settlement of operation % awaits a FIN decision', p_operation_id
       USING ERRCODE = 'object_not_in_prerequisite_state',
             CONSTRAINT = 'operation_settlement_fin_review';
+  END IF;
+
+  -- 08 E7 règle 3 (revue argent #198 n° 2) : la réaffectation du règlement est passée AVANT tout
+  -- remboursement, et elle est exactement celle du règlement : chaque variation positive est prise
+  -- sur les jambes en baisse dans l'ordre HOST → INSURER → TAX_THIRD_PARTY → PLATFORM (même règle
+  -- que `settlementOrders` de @rueda/money, comparée ici, aucun montant produit). Sans cela, un
+  -- remboursement à la ventilation fautive (TJ05b : HOST 131,25 + INSURER 6,97) tiendrait dans les
+  -- plafonds par jambe et bloquerait ensuite la réaffectation due à PLATFORM.
+  FOR i IN 1..4 LOOP
+    SELECT COALESCE(sum(sl.variation_minor), 0) INTO v_var[i]
+      FROM core.settlement_settlement_leg AS sl
+     WHERE sl.trip_id = v_trip AND sl.segment_no = 1 AND sl.leg = v_legs[i];
+    SELECT COALESCE(sum(l.amount_minor), 0) INTO v_moved[i]
+      FROM core.payment_payment_operation AS o
+      JOIN core.payment_payment_operation_leg AS l ON l.operation_id = o.id
+     WHERE o.trip_id = v_trip AND o.kind = 'LEG_REALLOCATION' AND o.status <> 'FAILED'
+       AND o.purpose IN ('RENT', 'RENT_SHORTFALL', 'NO_SHOW_RETENTION') AND l.leg = v_legs[i];
+  END LOOP;
+  v_credit := 0;
+  FOR i IN 1..4 LOOP
+    IF v_var[i] > 0 THEN
+      v_expected[i] := v_var[i];
+      v_credit := v_credit + v_var[i];
+    END IF;
+  END LOOP;
+  FOR i IN 1..4 LOOP
+    IF v_var[i] < 0 AND v_credit > 0 THEN
+      v_take := LEAST(-v_var[i], v_credit);
+      v_expected[i] := -v_take;
+      v_credit := v_credit - v_take;
+    END IF;
+  END LOOP;
+  IF v_moved IS DISTINCT FROM v_expected THEN
+    IF v_kind = 'LEG_REALLOCATION' THEN
+      RAISE EXCEPTION 'payment: reallocation of operation % differs from the settlement', p_operation_id
+        USING ERRCODE = 'object_not_in_prerequisite_state',
+              CONSTRAINT = 'leg_reallocation_mismatch';
+    END IF;
+    RAISE EXCEPTION 'payment: refund of operation % before the settlement reallocation', p_operation_id
+      USING ERRCODE = 'object_not_in_prerequisite_state',
+            CONSTRAINT = 'leg_reallocation_pending';
   END IF;
 
   FOR r IN
@@ -445,6 +493,12 @@ BEGIN
         USING ERRCODE = 'integrity_constraint_violation',
               CONSTRAINT = 'payment_operation_idempotency_conflict';
     END IF;
+    -- revues #198 : un ordre de règlement jamais envoyé (PENDING) rejoué repasse la garde : celui
+    -- d'une version remplacée entre-temps ne revient pas comme rejeu (operation_settlement_superseded)
+    IF v_existing.status = 'PENDING' AND p_trip_id IS NOT NULL
+       AND p_kind IN ('REFUND', 'LEG_REALLOCATION', 'LEG_RELEASE') THEN
+      PERFORM core.payment_assert_settlement_order(v_existing.id);
+    END IF;
     operation_id := v_existing.id;
     replayed := true;
     RETURN NEXT;
@@ -593,6 +647,39 @@ BEGIN
      AND s.platform_net_minor::text = (p_record ->> 'platformNetMinor')
      AND s.host_penalty_minor::text = (p_record ->> 'hostPenaltyMinor')
      AND s.negative_leg::text = (p_record ->> 'negativeLeg')
+     -- revues #198 : aussi chaque montant affiché ou déclaré (lignes, taxes, gains) et l'état
+     AND s.total_paid_minor::text = (p_record ->> 'totalPaidMinor')
+     AND s.retained_tax_minor::text = (p_record ->> 'retainedTaxMinor')
+     AND s.host_from_guest_minor::text = (p_record ->> 'hostFromGuestMinor')
+     AND s.host_compensation_minor::text = (p_record ->> 'hostCompensationMinor')
+     AND s.origin = (p_record ->> 'origin')
+     AND s.requested_reason = (p_record ->> 'requestedReason')
+     AND s.target_state = (p_record ->> 'targetState')
+     AND s.host_eligible::text = (p_record ->> 'hostEligible')
+     AND pg_catalog.jsonb_array_length(p_record -> 'lines')
+         = (SELECT count(*) FROM core.settlement_settlement_line AS sl WHERE sl.settlement_id = s.id)
+     AND NOT EXISTS (
+           SELECT 1
+             FROM pg_catalog.jsonb_array_elements(p_record -> 'lines') AS e
+            WHERE NOT EXISTS (
+                    SELECT 1 FROM core.settlement_settlement_line AS sl
+                     WHERE sl.settlement_id = s.id AND sl.line_type = (e ->> 'line')
+                       AND sl.amount_minor::text = (e ->> 'amountMinor')
+                       AND sl.refund_minor::text = (e ->> 'refundMinor')
+                       AND sl.retained_minor::text = (e ->> 'retainedMinor')))
+     AND pg_catalog.jsonb_array_length(p_record -> 'taxGroups')
+         = (SELECT count(*) FROM core.settlement_settlement_tax_line AS st
+             WHERE st.settlement_id = s.id)
+     AND NOT EXISTS (
+           SELECT 1
+             FROM pg_catalog.jsonb_array_elements(p_record -> 'taxGroups') AS e
+            WHERE NOT EXISTS (
+                    SELECT 1 FROM core.settlement_settlement_tax_line AS st
+                     WHERE st.settlement_id = s.id AND st.tax_group = (e ->> 'groupId')
+                       AND st.third_party::text = (e ->> 'thirdParty')
+                       AND st.tax_paid_minor::text = (e ->> 'taxPaidMinor')
+                       AND st.tax_refund_minor::text = (e ->> 'taxRefundMinor')
+                       AND st.retained_tax_minor::text = (e ->> 'retainedTaxMinor')))
      AND pg_catalog.jsonb_array_length(p_record -> 'legs') = 4
      AND NOT EXISTS (
            SELECT 1
@@ -769,9 +856,10 @@ BEGIN
                         OR (v_event ->> 'currency') IS DISTINCT FROM v_currency;
         -- US-224 (N-196) : tout ordre qui déplace des fonds exige le montant reçu (avant :
         -- AUTH / CAPTURE du loyer seulement ; MIT_CHARGE, REFUND, LEG_* étaient prouvables sans
-        -- montant). Sans montant ni devise ⇒ aucune preuve ⇒ UNPROVEN.
-        ELSIF v_kind IN ('AUTH', 'CAPTURE', 'MIT_CHARGE', 'DEBT_COLLECTION', 'REFUND',
-                         'LEG_REALLOCATION', 'LEG_RELEASE', 'DEPOSIT_CAPTURE') THEN
+        -- montant). Sans montant ni devise ⇒ aucune preuve ⇒ UNPROVEN. Liste BLANCHE (revues de
+        -- la PR #198) : seules VOID, DEPOSIT_VOID, DEPOSIT_AUTH et CHARGEBACK, qui ne déplacent
+        -- aucun fonds par l'ordre, en restent dispensées ; toute nature future exige le montant.
+        ELSIF v_kind NOT IN ('VOID', 'DEPOSIT_VOID', 'DEPOSIT_AUTH', 'CHARGEBACK') THEN
           v_event := NULL;
         END IF;
       END IF;
