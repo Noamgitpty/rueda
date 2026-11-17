@@ -176,8 +176,12 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  conducteur, UXQ-12), `web.s06.reviewRejected.*` (hold libéré par la revue), `web.s04.entry.*`
  (déclaration d'entrée : statut, date mise en forme par langue) ; `common.payment.underReview` ne
  promet plus d'avis (aucune notification du voyageur avant GL-17).
+ Version 67 (les 65 et 66 sont réservées à US-211 et US-224) : réservation sur demande, partie
+ serveur 223c (US-223, ADR-146) : `common.request.*` (demande inconnue, échue, déjà traitée, voyageur
+ devenu inéligible, montant non confirmé ; aucun débit dans chaque cas), messages des routes des
+ demandes de l'hôte.
  */
-export const CATALOG_VERSION = 64;
+export const CATALOG_VERSION = 67;
 
 /** Catalogues de base par langue ; la langue d'un profil de locale choisit le sien. */
 export const CATALOGS: Readonly<Record<CatalogLanguage, VersionedCatalog<MessageKey>>> = {

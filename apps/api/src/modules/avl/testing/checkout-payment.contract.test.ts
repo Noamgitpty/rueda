@@ -47,6 +47,8 @@ const ROW: CheckoutPaymentRow = {
   expiresAt: EXPIRES,
   paymentInFlightUntil: null,
   operationStatus: null,
+  // US-223c : hold CHECKOUT (aucune demande à l'hôte)
+  request: null,
 };
 
 const startOf = (v: GoldenLegVector, outcome: PaymentStart['outcome'] = 'NEW_ORDER') => ({
@@ -60,6 +62,8 @@ const startOf = (v: GoldenLegVector, outcome: PaymentStart['outcome'] = 'NEW_ORD
     amountMinor: v.totalMinor,
     currency: v.currency,
     legs: { ...v.legsMinor },
+    // US-223c : réservation immédiate (hold CHECKOUT) ⇒ capture AUTO décidée par la base
+    capture: 'AUTO' as const,
   },
 });
 

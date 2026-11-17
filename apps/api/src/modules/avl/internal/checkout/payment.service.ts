@@ -28,7 +28,12 @@ import { isUuid } from './model.js';
 import { PaymentHttpError } from './payment-errors.js';
 import type { PaymentHttpCode } from './payment-errors.js';
 import { paymentRefusalOf } from './payment-store.js';
-import type { CheckoutPaymentRow, CheckoutPaymentStore, PaymentStart } from './payment-store.js';
+import type {
+  CheckoutPaymentRow,
+  CheckoutPaymentStore,
+  PaymentStart,
+  RequestStatus,
+} from './payment-store.js';
 
 /** Ce que l'API demande au connecteur d'un PSP pour le paiement du checkout. */
 export type HostedPaymentProvider = Pick<PaymentProvider, 'createHostedPayment' | 'getOperation'>;
@@ -68,7 +73,24 @@ export interface CheckoutPayment {
   readonly tripId: string | null;
   readonly expiresAt: string;
   readonly paymentInFlightUntil: string | null;
+  /**
+   * Demande à l'hôte (US-223c, ADR-146) : état et heure limite de réponse ; `null` pour une
+   * Absent pour une réservation immédiate (forme de 223b inchangée). Lu par S05 « demande
+   * envoyée » et S06 (écrans : partie 223c-écrans).
+   */
+  readonly request?: { readonly status: RequestStatus; readonly respondBy: string | null };
 }
+
+/**
+ * États d'une demande terminée sans débit (US-223c) : refusée, expirée, capture refusée à
+ * l'acceptation, sortie avant l'envoi ; l'autorisation est annulée par VOID total (jamais capturée).
+ */
+const REQUEST_ENDED: ReadonlySet<RequestStatus> = new Set<RequestStatus>([
+  'DECLINED',
+  'EXPIRED',
+  'CAPTURE_FAILED',
+  'ENDED',
+]);
 
 export interface CheckoutPaymentStarted extends CheckoutPayment {
   /** Page hébergée du PSP ; `null` : aucun ordre créé par cet appel (voir `state`). */
@@ -78,7 +100,13 @@ export interface CheckoutPaymentStarted extends CheckoutPayment {
 /** État du paiement d'une lecture de la base (fonction pure, prouvée par les unitaires). */
 export function paymentStateOf(row: CheckoutPaymentRow): PaymentState {
   const failed = row.operationStatus === 'FAILED';
+  // US-223c : demande terminée sans capture (autorisation annulée, aucun débit)
+  if (row.request !== null && REQUEST_ENDED.has(row.request.status)) return 'ENDED';
   switch (row.holdStatus) {
+    // US-223c : autorisation prouvée, la demande attend l'hôte (aucun nouveau paiement ; état
+    // dédié des écrans : partie 223c-écrans, ADR-146)
+    case 'AWAITING_HOST':
+      return 'VERIFYING';
     case 'CONVERTED':
       // jamais « confirmé » sans trip (incohérence : on attend, fail-closed)
       return row.tripId === null ? 'VERIFYING' : 'CONFIRMED';
@@ -106,6 +134,7 @@ const viewOf = (holdId: string, row: CheckoutPaymentRow): CheckoutPayment => ({
   tripId: row.tripId,
   expiresAt: row.expiresAt,
   paymentInFlightUntil: row.paymentInFlightUntil,
+  ...(row.request === null ? {} : { request: row.request }),
 });
 
 /** Corps de `POST …/payment` : seulement le moyen (défaut `CARD`) ; tout autre champ ⇒ refus. */
@@ -222,7 +251,8 @@ export class CheckoutPaymentService {
         currency: start.currency,
         legs: start.legs,
         method: start.method as PaymentMethod,
-        capture: 'AUTO',
+        // US-223c : MANUAL pour une demande (autorisation ; capture par l'hôte à l'acceptation)
+        capture: start.capture,
         tripReference: holdId,
       }),
     );

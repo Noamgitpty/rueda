@@ -2078,6 +2078,14 @@ export const FR_MESSAGES = {
   // du paiement rendus par l'API (common.payment.*) ; aucune durée écrite (heures lues dans l'API)
   'common.payment.unavailable':
     'Le paiement en ligne n’est pas disponible pour le moment. Aucun débit n’a été effectué.',
+  // US-223c (ADR-146) : demandes de réservation de l'hôte (mode REQUEST, 17 §2.5 ; 16 HDB-002)
+  'common.request.notFound': 'Nous n’avons pas trouvé cette demande.',
+  'common.request.expired': 'Cette demande a expiré. Le voyageur n’a pas été débité.',
+  'common.request.alreadyAnswered': 'Tu as déjà répondu à cette demande.',
+  'common.request.guestNotEligible':
+    'Le voyageur ne peut plus réserver. Refuse la demande : il ne sera pas débité.',
+  'common.request.amountMismatch':
+    'Nous n’avons pas pu confirmer le montant de cette réservation. Rien n’a été débité. Refuse la demande ou écris au support.',
   'common.payment.payoutRailUnavailable':
     'Nous ne pouvons pas encore encaisser de réservation pour cette voiture. Aucun débit n’a été effectué.',
   'common.payment.underReview':

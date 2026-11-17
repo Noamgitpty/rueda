@@ -132,6 +132,12 @@ export const POST_SEED_PARAMS: readonly {
     story: 'US-205',
     refs: '08 BR-CXL-01 ; 16 LST-010 ; ADR-140',
   },
+  {
+    prefix: 'booking_request_mode',
+    file: '0121_config_booking_request_mode_params.sql',
+    story: 'US-223',
+    refs: '08 BR-BOOK-01 ; 17 §2.5 ; 19 US-223 DoR 2 ; ADR-146',
+  },
 ];
 
 /** La clé appartient à un groupe de paramètres ajouté après 0009. */

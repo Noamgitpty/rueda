@@ -2029,6 +2029,14 @@ export const ES_MESSAGES = {
   // du paiement rendus par l'API (common.payment.*) ; aucune durée écrite (heures lues dans l'API)
   'common.payment.unavailable':
     'El pago en línea no está disponible por ahora. No se te cobró nada.',
+  // US-223c (ADR-146) : demandes de réservation de l'hôte (mode REQUEST, 17 §2.5 ; 16 HDB-002)
+  'common.request.notFound': 'No encontramos esta solicitud.',
+  'common.request.expired': 'Esta solicitud ya venció. No se le cobró nada al viajero.',
+  'common.request.alreadyAnswered': 'Ya respondiste esta solicitud.',
+  'common.request.guestNotEligible':
+    'El viajero ya no puede reservar. Rechaza la solicitud: no se le cobrará nada.',
+  'common.request.amountMismatch':
+    'No pudimos confirmar el monto de esta reserva. No se cobró nada. Rechaza la solicitud o escribe a soporte.',
   'common.payment.payoutRailUnavailable':
     'Todavía no podemos cobrar reservas de este auto. No se te cobró nada.',
   'common.payment.underReview':

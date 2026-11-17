@@ -5,7 +5,7 @@
  *
  * | Travailleur           | Période (PROPOSÉ)                          | Appel                                                     |
  * | --------------------- | ------------------------------------------ | --------------------------------------------------------- |
- * | `hold_expiry`         | 60 s (handoff US-023)                      | `core.booking_expire_due_holds`, `core.booking_release_cancelled_holds` (0037, 0040) |
+ * | `hold_expiry`         | 60 s (handoff US-023)                      | `core.booking_expire_due_holds`, `core.booking_release_cancelled_holds` (0037, 0040), `core.booking_cmd_expire_booking_requests` (0122, US-223c : demandes échues ⇒ EXPIRED, créneau libéré, VOID par la boîte d'envoi) |
  * | `webhook_ingest`      | 10 s (US-223, ADR-139)                     | `WebhookProcessor` de PAY sur `PgWebhookWorkStore` : webhooks reçus rattachés et statuts appliqués par `core.payment_cmd_apply_operation_status` (preuve signée seulement ; aucune lecture du PSP : aucun adaptateur dans le travailleur avant le lot C) |
  * | `booking_conversion`  | 10 s (US-223, ADR-139)                     | `core.booking_conversion_due` (0116) puis, une opération par transaction, `core.booking_convert_payment` (preuve exigée) ou `core.booking_record_payment_failure` (0041) |
  * | `disposition_sweeper` | `disposition_sweeper_period_s` (min. pays) | `core.booking_disposition_candidates` puis, une opération par transaction, `core.booking_disposition_repair` (0041, C17) |
@@ -194,9 +194,15 @@ export function registerWorkerTasks(registry: BusRegistry, deps: WorkerTaskDeps)
       'SELECT core.booking_release_cancelled_holds($1) AS n',
       [d.holdExpiryBatch],
     );
+    // US-223c (0122) : demandes sans réponse de l'hôte à l'heure limite de la base
+    const requests = await tx.query<{ n: unknown }>(
+      'SELECT core.booking_cmd_expire_booking_requests($1) AS n',
+      [d.holdExpiryBatch],
+    );
     line(HOLD_EXPIRY_WORKER, {
       expired: count(expired.rows[0]?.n),
       released: count(released.rows[0]?.n),
+      requestsExpired: count(requests.rows[0]?.n),
     });
   });
 

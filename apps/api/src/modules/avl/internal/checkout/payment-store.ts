@@ -9,9 +9,13 @@
  * Les refus de T1 / T2 levés par la base (SQLSTATE et contrainte, 0040, 0045, 0112) sont traduits
  * ici en codes stables ; une contrainte inconnue ou un SQLSTATE différent ⇒ panne (503,
  * fail-closed : on ne devine pas). Sans adaptateur : 503 partout.
+ *
+ * US-223c (0122, ADR-146) : T1 rend le mode de capture (`MANUAL` pour une demande à l'hôte :
+ * autorisation seulement, capture à l'acceptation) ; la lecture porte l'état de la demande
+ * (`core.booking_checkout_request`).
  */
 import { LEGS } from '../../../pay/index.js';
-import type { Leg } from '../../../pay/index.js';
+import type { CaptureMode, Leg } from '../../../pay/index.js';
 import type { SqlExecutor } from './store.js';
 
 /** Lecture du paiement du hold (0116), telle que la base la rend. */
@@ -26,6 +30,31 @@ export interface CheckoutPaymentRow {
    * jamais rendu au client.
    */
   readonly operationStatus: string | null;
+  /**
+   * Demande à l'hôte (hold REQUEST, US-223c, 0122) : état et heure limite ; `null` pour un hold de
+   * réservation immédiate (CHECKOUT).
+   */
+  readonly request: CheckoutRequestRow | null;
+}
+
+/** États d'une demande lus en base (`core.booking_checkout_request`, 0122). */
+export const REQUEST_STATUSES = [
+  'AUTHORIZING',
+  'AWAITING_HOST',
+  'CAPTURING',
+  'ACCEPTED',
+  'DECLINED',
+  'EXPIRED',
+  'CAPTURE_FAILED',
+  'COMPENSATED',
+  'ENDED',
+] as const;
+export type RequestStatus = (typeof REQUEST_STATUSES)[number];
+
+export interface CheckoutRequestRow {
+  readonly status: RequestStatus;
+  /** Heure limite de réponse de l'hôte ; `null` avant la preuve de l'autorisation. */
+  readonly respondBy: string | null;
 }
 
 /** Issues rendues par T1 quand un ordre est à créer, à relire ou en cours (0112). */
@@ -72,6 +101,11 @@ export interface PaymentStart {
   readonly amountMinor: bigint;
   readonly currency: string;
   readonly legs: Readonly<Record<Leg, bigint>>;
+  /**
+   * US-223c : `MANUAL` pour une demande à l'hôte (autorisation, capture à l'acceptation), `AUTO`
+   * sinon ; décidé par la base (type du hold), jamais par le client.
+   */
+  readonly capture: CaptureMode;
 }
 
 export type PaymentStartResult =
@@ -198,6 +232,13 @@ function legsOf(value: unknown): Readonly<Record<Leg, bigint>> {
 }
 
 const START_OUTCOMES: ReadonlySet<string> = new Set(PAYMENT_START_OUTCOMES);
+const REQUEST_STATUS_SET: ReadonlySet<string> = new Set(REQUEST_STATUSES);
+
+/** Mode de capture rendu par T1 : exactement AUTO ou MANUAL (sinon panne, fail-closed). */
+function captureOf(value: unknown): CaptureMode {
+  if (value === 'AUTO' || value === 'MANUAL') return value;
+  throw new CheckoutPaymentStoreError('mode de capture illisible');
+}
 const RECORDS: ReadonlySet<string> = new Set(RECORD_OUTCOMES);
 
 /** Commandes et lecture de 0116, sous app_api. */
@@ -227,6 +268,29 @@ export class PgCheckoutPaymentStore implements CheckoutPaymentStore {
       paymentInFlightUntil:
         r['payment_in_flight_until'] === null ? null : iso(r['payment_in_flight_until']),
       operationStatus: textOrNull(r['operation_status']),
+      request: await this.#request(proof, holdId),
+    };
+  }
+
+  /** Demande du hold (0122) ; `null` pour un hold CHECKOUT. Toute autre forme : panne. */
+  async #request(proof: Buffer, holdId: string): Promise<CheckoutRequestRow | null> {
+    const { rows } = await this.db.query(
+      'SELECT * FROM core.booking_checkout_request($1, $2::uuid)',
+      [proof, holdId],
+    );
+    const r = rows[0];
+    if (r === undefined || String(r['outcome']) !== 'DONE') {
+      throw new CheckoutPaymentStoreError('issue inattendue de booking_checkout_request');
+    }
+    const kind = text(r['hold_kind']);
+    if (kind === 'CHECKOUT') return null;
+    const status = r['request_status'];
+    if (kind !== 'REQUEST' || typeof status !== 'string' || !REQUEST_STATUS_SET.has(status)) {
+      throw new CheckoutPaymentStoreError('demande illisible');
+    }
+    return {
+      status: status as RequestStatus,
+      respondBy: r['request_respond_by'] === null ? null : iso(r['request_respond_by']),
     };
   }
 
@@ -273,6 +337,7 @@ export class PgCheckoutPaymentStore implements CheckoutPaymentStore {
         amountMinor: minor(r['amountMinor']),
         currency: text(r['currency']),
         legs: legsOf(r['legs']),
+        capture: captureOf(r['captureMode']),
       },
     };
   }

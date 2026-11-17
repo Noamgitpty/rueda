@@ -11,6 +11,10 @@
  * des PSP servis par l'image, par fournisseur. Production : AUCUN connecteur jusqu'au lot C (le FAKE
  * n'est jamais compilé dans l'image, C19) ⇒ `PAYMENT_UNAVAILABLE` sans toucher au hold ; tests :
  * l'adaptateur FAKE de `pay/testing/`.
+ *
+ * Demandes de réservation de l'hôte (US-223 partie 223c, ADR-146) : magasin des commandes de 0122
+ * et connecteurs de CAPTURE par fournisseur. Production : aucun connecteur (lot C) ⇒ l'acceptation
+ * rend `PAYMENT_UNAVAILABLE` sans toucher à la demande ; le refus et la lecture fonctionnent.
  */
 import { Module } from '@nestjs/common';
 import type { DynamicModule } from '@nestjs/common';
@@ -26,6 +30,11 @@ import { CheckoutPaymentService, LOG_PAYMENT_FAILURE } from './payment.service.j
 import type { HostedPaymentProvider } from './payment.service.js';
 import { PgCheckoutPaymentStore, UnavailableCheckoutPaymentStore } from './payment-store.js';
 import type { CheckoutPaymentStore } from './payment-store.js';
+import { HostRequestsController } from './host-requests.controller.js';
+import { HostRequestService, LOG_HOST_REQUEST_FAILURE } from './host-requests.service.js';
+import type { RequestCaptureProvider } from './host-requests.service.js';
+import { PgHostRequestStore, UnavailableHostRequestStore } from './host-requests-store.js';
+import type { HostRequestStore } from './host-requests-store.js';
 
 /** Paiement du hold du checkout (US-223b) : commandes de 0116 et connecteurs servis. */
 export interface AvlCheckoutPaymentOptions {
@@ -33,6 +42,19 @@ export interface AvlCheckoutPaymentOptions {
   /** Connecteurs par fournisseur (`payment_psp_account.provider`) ; vide : aucun paiement. */
   readonly providers: ReadonlyMap<string, HostedPaymentProvider>;
 }
+
+/** Demandes de réservation de l'hôte (US-223c) : commandes de 0122 et connecteurs de capture. */
+export interface AvlHostRequestOptions {
+  readonly store: HostRequestStore;
+  /** Connecteurs de capture par fournisseur ; vide : aucune acceptation (503). */
+  readonly providers: ReadonlyMap<string, RequestCaptureProvider>;
+}
+
+/** Aucun connecteur, aucun magasin : 503 (fail-closed). */
+export const UNAVAILABLE_HOST_REQUESTS: AvlHostRequestOptions = {
+  store: new UnavailableHostRequestStore(),
+  providers: new Map(),
+};
 
 /** Aucun connecteur, aucun magasin : 503 (fail-closed). */
 export const UNAVAILABLE_CHECKOUT_PAYMENTS: AvlCheckoutPaymentOptions = {
@@ -53,6 +75,8 @@ export interface AvlCheckoutOptions {
   readonly cancellationParamsOf?: CancellationParamsOf;
   /** Paiement du hold (US-223b) ; absent : 503 (aucun paiement). */
   readonly payments?: AvlCheckoutPaymentOptions;
+  /** Demandes de réservation de l'hôte (US-223c) ; absent : 503. */
+  readonly hostRequests?: AvlHostRequestOptions;
 }
 
 /** Aucun adaptateur : 503 partout (fail-closed). */
@@ -77,6 +101,8 @@ export function postgresCheckoutAdapters(
     ...(cancellationParamsOf === undefined ? {} : { cancellationParamsOf }),
     // aucun connecteur de PSP en production avant le lot C (PRODUCTION_PROVIDERS vide)
     payments: { store: new PgCheckoutPaymentStore(db), providers: new Map() },
+    // US-223c : refus et lecture des demandes ; aucune capture avant le lot C
+    hostRequests: { store: new PgHostRequestStore(db), providers: new Map() },
   };
 }
 
@@ -85,7 +111,7 @@ export class AvlCheckoutModule {
   static register(options: AvlCheckoutOptions = UNAVAILABLE_AVL_CHECKOUT): DynamicModule {
     return {
       module: AvlCheckoutModule,
-      controllers: [CheckoutController, CheckoutPaymentController],
+      controllers: [CheckoutController, CheckoutPaymentController, HostRequestsController],
       providers: [
         {
           provide: CheckoutService,
@@ -103,6 +129,14 @@ export class AvlCheckoutModule {
             (options.payments ?? UNAVAILABLE_CHECKOUT_PAYMENTS).store,
             (options.payments ?? UNAVAILABLE_CHECKOUT_PAYMENTS).providers,
             LOG_PAYMENT_FAILURE,
+          ),
+        },
+        {
+          provide: HostRequestService,
+          useValue: new HostRequestService(
+            (options.hostRequests ?? UNAVAILABLE_HOST_REQUESTS).store,
+            (options.hostRequests ?? UNAVAILABLE_HOST_REQUESTS).providers,
+            LOG_HOST_REQUEST_FAILURE,
           ),
         },
       ],

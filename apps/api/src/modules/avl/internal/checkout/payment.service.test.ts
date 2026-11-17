@@ -22,6 +22,8 @@ const ROW: CheckoutPaymentRow = {
   expiresAt: '2036-11-30T15:10:00.000Z',
   paymentInFlightUntil: null,
   operationStatus: null,
+  // US-223c : hold CHECKOUT (aucune demande à l'hôte)
+  request: null,
 };
 
 describe('US-223b — paiement du hold (unitaires)', () => {

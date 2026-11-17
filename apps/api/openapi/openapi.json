@@ -10802,6 +10802,388 @@
         }
       }
     },
+    "/host/accounts/{orgId}/requests": {
+      "get": {
+        "operationId": "hostRequests",
+        "tags": ["avl"],
+        "summary": "Demandes de réservation du compte d'hôte de la session, en attente ou en capture (US-223c ; 16 HDB-002 ; A05)",
+        "description": "Route de réservation : SessionGuard puis TermsGuard. Compte titulaire de la session seulement (iam_host_accounts) ; triées par heure limite. Aucune référence du PSP.",
+        "parameters": [
+          {
+            "name": "orgId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Demandes du compte",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HostRequests"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthRequired"
+          },
+          "404": {
+            "description": "Demande inconnue, d'un autre compte, ou compte qui n'est pas un compte titulaire de la session (même réponse, journalisé en base ; 17 §2.3 point 5, §2.5 exigence 2)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CheckoutError",
+                  "properties": {
+                    "code": {
+                      "const": "REQUEST_NOT_FOUND"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Base indisponible (fail-closed)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CheckoutError",
+                  "properties": {
+                    "code": {
+                      "const": "BOOKING_UNAVAILABLE"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/host/accounts/{orgId}/requests/{holdId}": {
+      "get": {
+        "operationId": "hostRequest",
+        "tags": ["avl"],
+        "summary": "Une demande de réservation du compte d'hôte de la session (US-223c)",
+        "parameters": [
+          {
+            "name": "orgId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "holdId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Demande du compte",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HostRequestReply"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthRequired"
+          },
+          "404": {
+            "description": "Demande inconnue, d'un autre compte, ou compte qui n'est pas un compte titulaire de la session (même réponse, journalisé en base ; 17 §2.3 point 5, §2.5 exigence 2)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CheckoutError",
+                  "properties": {
+                    "code": {
+                      "const": "REQUEST_NOT_FOUND"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Base indisponible (fail-closed)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CheckoutError",
+                  "properties": {
+                    "code": {
+                      "const": "BOOKING_UNAVAILABLE"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/host/accounts/{orgId}/requests/{holdId}/accept": {
+      "post": {
+        "operationId": "hostAcceptRequest",
+        "tags": ["avl"],
+        "summary": "Accepter une demande (web.a05.accept) : capture par jambes de l'autorisation (US-223c ; 17 §2.5 « Acceptation »)",
+        "description": "Hôte titulaire seulement. Avant l'heure limite de la base : opération CAPTURE rattachée à l'autorisation, montant du devis engagé et montant explicite de chaque jambe (Σ jambes = total ≤ autorisation, sinon LEG_SUM_MISMATCH et aucune capture), capture(amount, legs) chez le PSP puis affinage ; le trip naît de la preuve (webhook signé). Aucun corps lu. Aucun connecteur servi (production jusqu'au lot C) : 503 PAYMENT_UNAVAILABLE avant toute écriture.",
+        "parameters": [
+          {
+            "name": "orgId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "holdId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Demande acceptée : capture en cours (CAPTURING) ou trip né (ACCEPTED)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HostRequestDecision"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthRequired"
+          },
+          "404": {
+            "description": "Demande inconnue, d'un autre compte, ou compte qui n'est pas un compte titulaire de la session (même réponse, journalisé en base ; 17 §2.3 point 5, §2.5 exigence 2)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CheckoutError",
+                  "properties": {
+                    "code": {
+                      "const": "REQUEST_NOT_FOUND"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Heure limite passée (REQUEST_EXPIRED), demande déjà traitée, CGU de l'hôte à accepter, voyageur devenu inéligible, début dépassé, montant du devis incohérent avec l'autorisation (aucune capture)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CheckoutError",
+                  "properties": {
+                    "code": {
+                      "enum": [
+                        "REQUEST_EXPIRED",
+                        "INVALID_TRANSITION",
+                        "TERMS_REACCEPT_REQUIRED",
+                        "GUEST_NOT_ELIGIBLE",
+                        "START_PASSED",
+                        "LEG_SUM_MISMATCH"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Aucun connecteur de capture servi, PSP ou base indisponibles (fail-closed)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CheckoutError",
+                  "properties": {
+                    "code": {
+                      "enum": ["PAYMENT_UNAVAILABLE", "BOOKING_UNAVAILABLE"]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/host/accounts/{orgId}/requests/{holdId}/decline": {
+      "post": {
+        "operationId": "hostDeclineRequest",
+        "tags": ["avl"],
+        "summary": "Refuser une demande (web.a05.decline) : créneau libéré, autorisation annulée (VOID total), rien n'est débité (US-223c ; 17 §2.5 « Refus »)",
+        "description": "Hôte titulaire seulement. Le VOID est écrit dans la boîte d'envoi monétaire et exécuté après le COMMIT (aucun appel au PSP depuis la route). Rejeu : DECLINED. Aucun corps lu.",
+        "parameters": [
+          {
+            "name": "orgId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "holdId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Demande refusée",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HostRequestDecision"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthRequired"
+          },
+          "404": {
+            "description": "Demande inconnue, d'un autre compte, ou compte qui n'est pas un compte titulaire de la session (même réponse, journalisé en base ; 17 §2.3 point 5, §2.5 exigence 2)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CheckoutError",
+                  "properties": {
+                    "code": {
+                      "const": "REQUEST_NOT_FOUND"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Heure limite passée ou demande déjà acceptée",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CheckoutError",
+                  "properties": {
+                    "code": {
+                      "enum": ["REQUEST_EXPIRED", "INVALID_TRANSITION"]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Base indisponible (fail-closed)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CheckoutError",
+                  "properties": {
+                    "code": {
+                      "const": "BOOKING_UNAVAILABLE"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/host/accounts/{orgId}/trips": {
       "get": {
         "operationId": "hostTrips",
@@ -15794,6 +16176,7 @@
             "type": "string",
             "enum": [
               "ACTIVE",
+              "AWAITING_HOST",
               "PAYMENT_IN_FLIGHT",
               "CONVERTED",
               "COMPENSATED",
@@ -15805,7 +16188,8 @@
           "expiresAt": { "$ref": "#/components/schemas/DateTime" },
           "paymentInFlightUntil": {
             "oneOf": [{ "type": "null" }, { "$ref": "#/components/schemas/DateTime" }]
-          }
+          },
+          "request": { "$ref": "#/components/schemas/CheckoutRequestState" }
         }
       },
       "CheckoutPaymentStart": {
@@ -15829,6 +16213,7 @@
             "type": "string",
             "enum": [
               "ACTIVE",
+              "AWAITING_HOST",
               "PAYMENT_IN_FLIGHT",
               "CONVERTED",
               "COMPENSATED",
@@ -15841,6 +16226,7 @@
           "paymentInFlightUntil": {
             "oneOf": [{ "type": "null" }, { "$ref": "#/components/schemas/DateTime" }]
           },
+          "request": { "$ref": "#/components/schemas/CheckoutRequestState" },
           "redirectUrl": {
             "type": ["string", "null"],
             "description": "Page hébergée du PSP (https), seulement si un ordre vient d'être créé"
@@ -17540,6 +17926,155 @@
           },
           "dataBase64": {
             "type": "string"
+          }
+        }
+      },
+      "CheckoutRequestState": {
+        "type": "object",
+        "description": "Demande à l'hôte (hold REQUEST, US-223c, ADR-146 ; 17 §2.5) : absente pour une réservation immédiate. AWAITING_HOST : autorisation prouvée, l'hôte répond avant respondBy ; CAPTURING / ACCEPTED : acceptée ; DECLINED, EXPIRED, CAPTURE_FAILED, ENDED : terminée sans débit (autorisation annulée) ; AUTHORIZING : autorisation pas encore prouvée.",
+        "required": ["status", "respondBy"],
+        "additionalProperties": false,
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "AUTHORIZING",
+              "AWAITING_HOST",
+              "CAPTURING",
+              "ACCEPTED",
+              "DECLINED",
+              "EXPIRED",
+              "CAPTURE_FAILED",
+              "COMPENSATED",
+              "ENDED"
+            ]
+          },
+          "respondBy": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/DateTime"
+              }
+            ]
+          }
+        }
+      },
+      "HostRequest": {
+        "type": "object",
+        "description": "Demande de réservation du compte d'hôte de la session (US-223c ; 16 HDB-002) : heure limite de la base, période et fuseau du devis engagé, total et gains (jambe HOST, 08 E7) ; du voyageur, prénom, âge, note et vérification seulement (host_guest_v, 17 §2.3).",
+        "required": [
+          "holdId",
+          "status",
+          "vehicleId",
+          "scheduledStart",
+          "scheduledEnd",
+          "timezone",
+          "respondBy",
+          "currency",
+          "totalMinor",
+          "hostLegMinor",
+          "guest"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "holdId": {
+            "$ref": "#/components/schemas/Uuid"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["AWAITING_HOST", "CAPTURING"]
+          },
+          "vehicleId": {
+            "$ref": "#/components/schemas/Uuid"
+          },
+          "scheduledStart": {
+            "$ref": "#/components/schemas/DateTime"
+          },
+          "scheduledEnd": {
+            "$ref": "#/components/schemas/DateTime"
+          },
+          "timezone": {
+            "type": "string"
+          },
+          "respondBy": {
+            "$ref": "#/components/schemas/DateTime"
+          },
+          "currency": {
+            "type": "string",
+            "pattern": "^[A-Z]{3}$"
+          },
+          "totalMinor": {
+            "type": "string",
+            "pattern": "^(0|[1-9][0-9]{0,17})$"
+          },
+          "hostLegMinor": {
+            "type": ["string", "null"],
+            "pattern": "^(0|[1-9][0-9]{0,17})$"
+          },
+          "guest": {
+            "type": "object",
+            "required": ["firstName", "ageYears", "rating", "verified"],
+            "additionalProperties": false,
+            "properties": {
+              "firstName": {
+                "type": ["string", "null"]
+              },
+              "ageYears": {
+                "type": ["integer", "null"]
+              },
+              "rating": {
+                "type": ["number", "null"]
+              },
+              "verified": {
+                "type": "boolean"
+              }
+            }
+          }
+        }
+      },
+      "HostRequests": {
+        "type": "object",
+        "required": ["requests"],
+        "additionalProperties": false,
+        "properties": {
+          "requests": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/HostRequest"
+            }
+          }
+        }
+      },
+      "HostRequestReply": {
+        "type": "object",
+        "required": ["request"],
+        "additionalProperties": false,
+        "properties": {
+          "request": {
+            "$ref": "#/components/schemas/HostRequest"
+          }
+        }
+      },
+      "HostRequestDecision": {
+        "type": "object",
+        "required": ["decision"],
+        "additionalProperties": false,
+        "properties": {
+          "decision": {
+            "type": "object",
+            "required": ["holdId", "status"],
+            "additionalProperties": false,
+            "properties": {
+              "holdId": {
+                "$ref": "#/components/schemas/Uuid"
+              },
+              "status": {
+                "type": "string",
+                "enum": ["CAPTURING", "ACCEPTED", "DECLINED"]
+              }
+            }
           }
         }
       },
