@@ -379,7 +379,9 @@ describe.each(COUNTRIES)('US-224 — ordres de règlement — $country ($currenc
   });
 
   it('08 E7 règle 5 : règlement à jambe PLATFORM retenue négative (promo maximale, annulation tardive) ⇒ FIN_REVIEW_REQUIRED, aucun ordre', async () => {
-    const trip = c.currency === 'USD' ? N_MAX : NP_MAX;
+    // trip de promo maximale dans la devise du pays (N_MAX : TJ13b, NP_MAX : TJ13d de l'export)
+    const trip = [N_MAX, NP_MAX].find((x) => x.currency.code === c.currency);
+    if (trip === undefined) throw new Error(`aucun trip de promo maximale en ${c.currency}`);
     const rec = recordOf(trip, { reason: 'GUEST_CANCELLED', requestedAtMs: at(-600) });
     expect(rec.negativeLeg).toBe(true);
     await asPayments(async (tx) => {
@@ -454,6 +456,46 @@ describe.each(COUNTRIES)('US-224 — ordres de règlement — $country ($currenc
       expect(rows[0]).toEqual({ status: 'PENDING', proof_type: null });
       const paid = await receive({ amountMinor: total.toString(), currency: c.currency });
       expect(await applyStatus(tx, op, 'SUCCEEDED', 'WEBHOOK', null, paid)).toBe('APPLIED');
+      // liste blanche (revues de la PR 198) : CREDIT_REISSUE et CHARGEBACK_REVERSAL déplacent des
+      // fonds, donc ne sont pas prouvables sans montant
+      await setSessionContext(tx, { kind: 'WORKER', workerName: 'payment_command' });
+      const others: [string, Legs | null, bigint][] = [
+        ['CREDIT_REISSUE', { ...ZERO, PLATFORM: 1n }, 1n],
+        ['CHARGEBACK_REVERSAL', null, 1n],
+      ];
+      for (const [kind, legs, amount] of others) {
+        const key = `trip:${w.trip}:${kind}:${uuid()}`;
+        const { operation_id: other } = await recordOperation(tx, {
+          tripId: w.trip,
+          accountId: w.account,
+          kind,
+          amountMinor: amount,
+          currency: c.currency,
+          idemPlain: key,
+          legs,
+        });
+        await setSessionContext(tx, { kind: 'WORKER', workerName: 'webhook_ingest' });
+        const { rows: inbox } = await tx.query<{ inbox_id: string | null }>(
+          `SELECT inbox_id FROM test_fixture.us049_receive_custom($1, $2::jsonb, true, platform.now())`,
+          [
+            w.account,
+            JSON.stringify([
+              {
+                type: 'payment.captured',
+                providerReference: `ref-${other}`,
+                merchantReference: key,
+                status: 'SUCCEEDED',
+                occurredAt: '2031-08-01T10:00:00Z',
+              },
+            ]),
+          ],
+        );
+        expect(
+          await applyStatus(tx, other, 'SUCCEEDED', 'WEBHOOK', null, inbox[0]?.inbox_id ?? null),
+          kind,
+        ).toBe('UNPROVEN');
+        await setSessionContext(tx, { kind: 'WORKER', workerName: 'payment_command' });
+      }
     });
   });
 
@@ -628,6 +670,20 @@ describe('US-224 — 08 E7 règle 3 : réaffectation exacte et passée avant le 
       expect(await caught(tx, () => order(tx, w, 'REFUND', faulty, s))).toMatchObject({
         code: '55000',
         constraint: 'refund_exceeds_collected',
+      });
+      // revue argent finale #198 : HOST 112,72 + INSURER 6,97 + PLATFORM 18,53 (= 138,22) tient dans
+      // l'encaissé et dans [min(0, V) ; max(0, V)] de chaque jambe, mais rembourse PLATFORM (variation
+      // positive : rien à rembourser) et INSURER au-delà de sa part ⇒ refusé
+      const drained: Legs = {
+        ...ZERO,
+        HOST: -tj05b.legsMinor.HOST - moved,
+        INSURER: 697n,
+        PLATFORM: moved,
+      };
+      expect(sum(drained)).toBe(-tj05b.totalMinor);
+      expect(await caught(tx, () => order(tx, w, 'REFUND', drained, s))).toMatchObject({
+        code: '55000',
+        constraint: 'leg_refund_exceeds_settlement',
       });
       const [refundOrder] = orders.refunds;
       if (refundOrder === undefined) throw new Error('remboursement attendu');

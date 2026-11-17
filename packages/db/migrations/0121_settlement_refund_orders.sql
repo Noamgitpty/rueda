@@ -241,7 +241,7 @@ BEGIN
              FROM core.settlement_settlement_leg AS sl
             WHERE sl.trip_id = v_trip AND sl.segment_no = 1
             GROUP BY sl.leg)
-    SELECT legs.leg,
+    SELECT legs.leg, legs.rank,
            COALESCE(n.amount_minor, 0)::numeric AS amount,
            COALESCE(mv.moved, 0)::numeric AS moved,
            COALESCE(mv.refunded, 0)::numeric AS refunded,
@@ -285,6 +285,16 @@ BEGIN
     IF r.amount <> 0
        AND (r.moved < LEAST(0, r.variation) OR r.moved > GREATEST(0, r.variation)) THEN
       RAISE EXCEPTION 'payment: operation % exceeds leg % of the settlement', p_operation_id, r.leg
+        USING ERRCODE = 'object_not_in_prerequisite_state',
+              CONSTRAINT = 'leg_refund_exceeds_settlement';
+    END IF;
+    -- revue argent finale #198 : remboursement cumulé de la jambe plafonné à EXACTEMENT ce que lui
+    -- donne le règlement après la réaffectation (`settlementOrders`) : − V + réaffectation attendue
+    -- pour une jambe en baisse, 0 pour une jambe à variation positive ou nulle (elle ne rembourse
+    -- jamais : TJ05b, PLATFORM garde ses 18,53 retenus et INSURER ne garde rien de plus)
+    IF r.refunded > CASE WHEN v_var[r.rank] < 0 THEN -v_var[r.rank] + v_expected[r.rank] ELSE 0 END
+    THEN
+      RAISE EXCEPTION 'payment: refunds of leg % exceed the settlement', r.leg
         USING ERRCODE = 'object_not_in_prerequisite_state',
               CONSTRAINT = 'leg_refund_exceeds_settlement';
     END IF;

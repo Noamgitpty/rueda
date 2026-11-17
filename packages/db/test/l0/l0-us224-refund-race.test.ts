@@ -6,7 +6,7 @@
  * - report (`settlement_cmd_apply_leg_movement`, défense en profondeur) : deux ordres réussis et
  *   prouvés écrits par la fixture 9965 SANS la garde d'enregistrement (cas que l'enregistrement ne
  *   peut plus produire), reportés en même temps : un seul passe, l'autre relit les soldes validés ;
- *   remboursement contre versement de la jambe HOST, dans les deux ordres (revues de la PR de la PR 198).
+ *   remboursement contre versement de la jambe HOST, dans les deux ordres (revues de la PR 198).
  * L'attente de la seconde session sur le verrou est OBSERVÉE (pg_stat_activity : `wait_event_type`
  * = `Lock`), jamais supposée par un délai.
  *
