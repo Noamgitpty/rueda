@@ -135,6 +135,34 @@
     {
       "text": "aaaaaaaa-aaaa-aaaa-aaaa-aaaa4111111111111111",
       "note": "bord avant de l'UUID : PAN collé après une forme d'UUID"
+    },
+    {
+      "text": "g2eedc6ee6c885aadeb30752707115706043d924d52e5e3cfc8aeca1a1843fcf3",
+      "note": "empreinte hex de 64 collée à une lettre : analysée (0129)"
+    },
+    {
+      "text": "2EEDC6EE6C885AADEB30752707115706043D924D52E5E3CFC8AECA1A1843FCF3",
+      "note": "empreinte hex de 64 en capitales : analysée (0129)"
+    },
+    {
+      "text": "eedc6ee6c885aadeb30752707115706043d924d52e5e3cfc8aeca1a1843fcf3",
+      "note": "63 hexadécimaux : analysés (0129)"
+    },
+    {
+      "text": "2eedc6ee6c885aadeb30752707115706043d924d52e5e3cfc8aeca1a1843fcf3a",
+      "note": "65 hexadécimaux : analysés (0129)"
+    },
+    {
+      "text": "{\"merchantReference\": \"2eedc6ee6c885aadeb30752707115706043d924d52e5e3cfc8aeca1a1843fcf3\", \"card\": \"4111 1111 1111 1111\"}",
+      "note": "empreinte écartée, PAN voisin refusé (0129)"
+    },
+    {
+      "text": "2eedc6ee6c885aadeb30752707115706043d924d52e5e3cfc8aeca1a1843fcf3-4111111111111111",
+      "note": "PAN après une empreinte, joint par un tiret (0129)"
+    },
+    {
+      "text": "4111111111111111-2eedc6ee6c885aadeb30752707115706043d924d52e5e3cfc8aeca1a1843fcf3",
+      "note": "PAN avant une empreinte, joint par un tiret (0129)"
     }
   ],
   "notPans": [
@@ -205,6 +233,18 @@
     {
       "text": "411111******1111",
       "note": "PAN masqué"
+    },
+    {
+      "text": "2eedc6ee6c885aadeb30752707115706043d924d52e5e3cfc8aeca1a1843fcf3",
+      "note": "empreinte hex(sha256) d'une clé de remboursement, refusée par 0029 (0129)"
+    },
+    {
+      "text": "{\"merchantReference\": \"2eedc6ee6c885aadeb30752707115706043d924d52e5e3cfc8aeca1a1843fcf3\"}",
+      "note": "empreinte dans le webhook de preuve (0129)"
+    },
+    {
+      "text": "4111111111111111aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "note": "limite ADR-155 : PAN placé à dessein dans un jeton de 64 hexadécimaux"
     }
   ]
 }

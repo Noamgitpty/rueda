@@ -144,6 +144,7 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 | `0126_booking_request_mode` | AVL / PAY : réservation sur demande (hold REQUEST), autorisation à l'envoi, capture par |
 | `0127_payment_refund_scheduler` | PAY / STL : ordonnancement des remboursements planifiés et états SM-8 après l'envoi. |
 | `0128_support_console_trip_cancellation` | SUP / AVL / STL : état d'une demande d'annulation lu par la console (O01). |
+| `0129_payment_pan_detector_hex_digest` | PAY : le détecteur de PAN écarte les empreintes hexadécimales de 64 caractères (clé |
 
 ## Rôles
 

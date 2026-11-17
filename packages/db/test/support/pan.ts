@@ -4,6 +4,7 @@
  * apps/api/src/modules/pay/internal/pan.test.ts ; corpus `evt-<uuid>` à graine fixe et mutant
  * « définition de 0028 ».
  */
+import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 
 export interface PanVector {
@@ -27,6 +28,15 @@ export const VISA_TEST = '4111111111111111';
 
 /** `evt-<uuid>` refusé par la définition de 0028 (reproduction déterministe du faux positif). */
 export const EVT_FALSE_POSITIVE = 'evt-b6e0d932-76ed-4c01-8373-52880805f175';
+
+/**
+ * Clé d'idempotence réduite (08 E4 : `hex(sha256(idem_plain))`) que la définition de 0029 refusait
+ * (suite « 30752707115706043 », Luhn valide). Antécédent : clé de remboursement
+ * `f32ac183-4791-4f5c-af1f-aabdd0d12b3b:9fb6aea1-3d03-457d-ab48-c3e7564599eb:v1:REFUND:`
+ * `c38fe3d7-830e-49f4-a4a1-72334be7812b:i1:a1` (126 caractères). Corrigé par 0129 (ADR-155).
+ */
+export const HEX_FALSE_POSITIVE =
+  '2eedc6ee6c885aadeb30752707115706043d924d52e5e3cfc8aeca1a1843fcf3';
 
 /** Générateur déterministe (mulberry32). */
 function rng(seed: number): () => number {
@@ -74,4 +84,20 @@ export function containsPan0028(text: string): boolean {
     if (digits.length >= 13 && digits.length <= 19 && luhnValid(digits)) return true;
   }
   return false;
+}
+
+/**
+ * `n` clés de remboursement réduites, reproductibles : `hex(sha256(idem_plain))` d'une clé
+ * `{trip}:{segment}:v{n}:REFUND:{tender}:i1:a{m}` (08 E4, plus de 64 caractères).
+ */
+export function reducedKeyCorpus(n: number, seed = 20261117): string[] {
+  const next = rng(seed);
+  const uuid = (): string => {
+    const h = Array.from({ length: 32 }, () => Math.floor(next() * 16).toString(16)).join('');
+    return `${h.slice(0, 8)}-${h.slice(8, 12)}-4${h.slice(13, 16)}-a${h.slice(17, 20)}-${h.slice(20)}`;
+  };
+  return Array.from({ length: n }, (_, i) => {
+    const plain = `${uuid()}:${uuid()}:v${1 + (i % 3)}:REFUND:${uuid()}:i1:a${1 + (i % 2)}`;
+    return createHash('sha256').update(plain, 'utf8').digest('hex');
+  });
 }

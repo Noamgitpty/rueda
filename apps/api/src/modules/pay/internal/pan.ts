@@ -1,10 +1,17 @@
 /**
  * Détecteur et masque de PAN (17 §1.6 portée SAQ A ; §4.4 point 3, corrigé VERIF_14-F26).
  *
- * Définition (identique à `core.payment_text_has_pan`, migration 0029, qui la vérifie en base par
- * la contrainte `webhook_inbox_no_pan`) :
+ * Définition (identique à `core.payment_text_has_pan`, migrations 0029 et 0129, qui la vérifie en
+ * base par la contrainte `webhook_inbox_no_pan`) :
  * 1. les UUID (8-4-4-4-12 hexadécimaux, non collés à une lettre ou un chiffre) sont écartés : un
  *    identifiant `evt-<uuid>` n'est jamais un PAN (faux positif de 0028, environ 0,25 %) ;
+ *    les empreintes `hex(sha256(…))` sont écartées aussi (0129, ADR-155) : jeton d'EXACTEMENT 64
+ *    caractères `[0-9a-f]` en minuscules, non collé à une lettre ou un chiffre. C'est la clé
+ *    d'idempotence réduite (08 E4, `idempotencyKeyToSend`) que le PSP renvoie en
+ *    `merchantReference` ; environ 0,32 % de ces clés contenaient 13 à 19 chiffres valides au
+ *    contrôle de Luhn (faux positif signalé par US-122). Capitales ou casse mêlée, 63 ou 65
+ *    caractères, jeton collé : toujours analysés (fail-closed). Limite acceptée (ADR-155) : un PAN
+ *    placé à dessein dans un tel jeton n'est plus vu ;
  * 2. suites maximales de groupes de chiffres séparés par UN espace ou UN tiret ;
  * 3. fenêtre de groupes consécutifs (tout groupage : 4-4-4-4, 4-6-5, 8-8, 3-3-3-3-4…) de 13 à 19
  *    chiffres au total ;
@@ -21,9 +28,13 @@
 
 const UUID_SOURCE =
   '(?<![0-9A-Za-z])[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}(?![0-9A-Za-z])';
-const UUID_ANY = new RegExp(UUID_SOURCE, 'g');
-/** Découpe en conservant les UUID (indices impairs du résultat de `split`). */
-const UUID_SPLIT = new RegExp(`(${UUID_SOURCE})`);
+/** Empreinte `hex(sha256(…))` : exactement 64 hexadécimaux minuscules, isolés. */
+const HEX64_SOURCE = '(?<![0-9A-Za-z])[0-9a-f]{64}(?![0-9A-Za-z])';
+/** Identifiants structurés écartés du détecteur : UUID et empreintes hexadécimales de 64. */
+const ID_SOURCE = `(?:${UUID_SOURCE}|${HEX64_SOURCE})`;
+const ID_ANY = new RegExp(ID_SOURCE, 'g');
+/** Découpe en conservant ces identifiants (indices impairs du résultat de `split`). */
+const ID_SPLIT = new RegExp(`(${ID_SOURCE})`);
 const RUN = /[0-9]+(?:[ -][0-9]+)*/g;
 const MAX_PAN = 19;
 const MIN_PAN = 13;
@@ -127,10 +138,10 @@ function scanRun(
   }
 }
 
-const withoutUuids = (text: string): string => text.replace(UUID_ANY, ' ');
+const withoutIds = (text: string): string => text.replace(ID_ANY, ' ');
 
 export function containsPan(text: string): boolean {
-  for (const m of withoutUuids(text).matchAll(RUN)) {
+  for (const m of withoutIds(text).matchAll(RUN)) {
     let found = false;
     scanRun(m[0].split(/[ -]/), () => {
       found = true;
@@ -144,13 +155,13 @@ export function containsPan(text: string): boolean {
 /** Étapes de la détection sur `text` (tests de complexité seulement). */
 export function panScanStats(text: string): PanScanStats {
   const stats: PanScanStats = { groups: 0, steps: 0 };
-  for (const m of withoutUuids(text).matchAll(RUN)) {
+  for (const m of withoutIds(text).matchAll(RUN)) {
     scanRun(m[0].split(/[ -]/), () => 'continue', stats);
   }
   return stats;
 }
 
-/** Une passe de masque sur un texte sans UUID. */
+/** Une passe de masque sur un texte sans identifiant écarté. */
 function maskOnce(text: string): { text: string; masked: number } {
   let masked = 0;
   const out = text.replace(RUN, (run) => {
@@ -178,11 +189,14 @@ function maskOnce(text: string): { text: string; masked: number } {
   return { text: out, masked };
 }
 
-/** Masque chaque PAN détecté (les UUID restent intacts) ; rend aussi le nombre de masques posés. */
+/**
+ * Masque chaque PAN détecté (UUID et empreintes hexadécimales de 64 restent intacts) ; rend aussi
+ * le nombre de masques posés.
+ */
 export function maskPan(text: string): { readonly text: string; readonly masked: number } {
   let masked = 0;
-  const parts = text.split(UUID_SPLIT).map((part, i) => {
-    if (i % 2 === 1) return part; // UUID conservé tel quel
+  const parts = text.split(ID_SPLIT).map((part, i) => {
+    if (i % 2 === 1) return part; // UUID ou empreinte conservé tel quel
     let cur = part;
     // un masque peut accoler ses 4 derniers chiffres à des groupes voisins : on repasse, au plus
     // MASK_PASSES fois, puis on masque tous les chiffres du segment (fail-closed, temps borné)
