@@ -111,6 +111,7 @@ DECLARE
   v_var      numeric[] := ARRAY[0, 0, 0, 0];
   v_moved    numeric[] := ARRAY[0, 0, 0, 0];
   v_expected numeric[] := ARRAY[0, 0, 0, 0];
+  v_one      numeric;
   i          integer;
 BEGIN
   SELECT o.trip_id, o.kind, o.settlement_id, o.settlement_version
@@ -172,14 +173,16 @@ BEGIN
   -- remboursement à la ventilation fautive (TJ05b : HOST 131,25 + INSURER 6,97) tiendrait dans les
   -- plafonds par jambe et bloquerait ensuite la réaffectation due à PLATFORM.
   FOR i IN 1..4 LOOP
-    SELECT COALESCE(sum(sl.variation_minor), 0) INTO v_var[i]
+    SELECT COALESCE(sum(sl.variation_minor), 0) INTO v_one
       FROM core.settlement_settlement_leg AS sl
      WHERE sl.trip_id = v_trip AND sl.segment_no = 1 AND sl.leg = v_legs[i];
-    SELECT COALESCE(sum(l.amount_minor), 0) INTO v_moved[i]
+    v_var[i] := v_one;
+    SELECT COALESCE(sum(l.amount_minor), 0) INTO v_one
       FROM core.payment_payment_operation AS o
       JOIN core.payment_payment_operation_leg AS l ON l.operation_id = o.id
      WHERE o.trip_id = v_trip AND o.kind = 'LEG_REALLOCATION' AND o.status <> 'FAILED'
        AND o.purpose IN ('RENT', 'RENT_SHORTFALL', 'NO_SHOW_RETENTION') AND l.leg = v_legs[i];
+    v_moved[i] := v_one;
   END LOOP;
   v_credit := 0;
   FOR i IN 1..4 LOOP

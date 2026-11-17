@@ -162,7 +162,7 @@ describe('refus (fail-closed, aucun prorata)', () => {
     expect(settlementOrders(zero, [])).toEqual({ reallocation: null, refunds: [] });
   });
 
-  it('devise de jambe différente de celle du total, ou Σ variations ≠ total ⇒ SETTLEMENT_INPUT_INVALID (revues #198)', () => {
+  it('devise de jambe différente de celle du total, ou Σ variations ≠ total ⇒ SETTLEMENT_INPUT_INVALID (revues de la PR 198)', () => {
     const mixed: Legs = Object.freeze({
       ...variation,
       INSURER: money(variation.INSURER.amountMinor, PYG),

@@ -590,7 +590,7 @@ describe('US-224 — 08 E7 règle 3 : réaffectation exacte et passée avant le 
       const w = await captured(tx, pa, legsOf(legVector(golden, 'TJ01')));
       const s = await settle(tx, w.trip, 1, recordOfVector('T39'));
       const tj05b = legVector(golden, 'TJ05b');
-      // contre-exemple de la revue argent #198 n° 2 : même total que le remboursement (138,22)
+      // contre-exemple de la revue argent de la PR 198 n° 2 : même total que le remboursement (138,22)
       const faulty: Legs = { ...ZERO, HOST: -tj05b.legsMinor.HOST, INSURER: 697n };
       expect(sum(faulty)).toBe(-tj05b.totalMinor);
       const pending = await caught(tx, () => order(tx, w, 'REFUND', faulty, s));

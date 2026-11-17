@@ -200,7 +200,7 @@ describe.each(CASES)('PAY de bout en bout — $country ($currency)', (c) => {
     expect(inbox.rows.map((r) => r.processing_status)).toEqual(['PROCESSED', 'PROCESSED']);
   });
 
-  it('US-224 (revues #198) : PgOperationRecorder.record transmet le règlement ($14, $15) : sans lui un REFUND de trip est refusé, avec un règlement inconnu la clé étrangère refuse', async () => {
+  it('US-224 (revues de la PR 198) : PgOperationRecorder.record transmet le règlement ($14, $15) : sans lui un REFUND de trip est refusé, avec un règlement inconnu la clé étrangère refuse', async () => {
     const worker = await open('app_worker');
     const tripId = randomUUID();
     const legs = { ...capture.legsMinor };
