@@ -2072,12 +2072,67 @@ async function contractRoute(req, res, url) {
   return json(res, 200, contractView(m[1], c, role, d, n));
 }
 
+// ---- Remboursement d'un trip (US-224 partie 224d) : lecture par la partie du trip ---------------
+// La partie est celle du contrat du trip (voyageur du hold, hôte du premier trip à venir) ; toute
+// autre session ⇒ 404 REFUND_NOT_FOUND (comme l'API). `GET /__e2e/refund/cancel?trip=&state=`
+// pose un remboursement (annulation réglée) : `issued` (envoyé au PSP, date d'émission fixe) ou
+// `preparing` (planifié, aucune date). Montants de −TJ02b (08 E7 : 187,44 remboursés, jambe HOST
+// 86,25), devise et exposant du marché fictif ; heures fixes (captures stables).
+const refundsByTrip = new Map();
+const REFUND_PLANNED_AT = '2036-12-05T14:00:00.000Z';
+const REFUND_ISSUED_AT = '2036-12-05T14:00:10.000Z';
+
+function refundRoute(req, res, url) {
+  const path = url.pathname;
+  if (req.method === 'GET' && path === '/__e2e/refund/cancel') {
+    const tripId = url.searchParams.get('trip') ?? '';
+    if (!contracts.has(tripId)) return err(res, 404, 'REFUND_NOT_FOUND', 'common.refund.notFound');
+    refundsByTrip.set(
+      tripId,
+      url.searchParams.get('state') === 'preparing' ? 'preparing' : 'issued',
+    );
+    return json(res, 200, {});
+  }
+  const m = /^\/trips\/([^/]+)\/refunds$/.exec(path);
+  if (m === null || req.method !== 'GET') return false;
+  const token = tokenOf(req);
+  if (token === undefined) return err(res, 401, 'AUTH_REQUIRED', 'common.auth.sessionRequired');
+  const c = contracts.get(m[1]);
+  const role =
+    c === undefined ? null : token === c.guest ? 'GUEST' : token === c.host ? 'HOST' : null;
+  if (role === null) return err(res, 404, 'REFUND_NOT_FOUND', 'common.refund.notFound');
+  const state = refundsByTrip.get(m[1]);
+  const issued = state === 'issued';
+  const one = {
+    status: issued ? 'SENT' : 'PLANNED',
+    plannedAt: REFUND_PLANNED_AT,
+    issuedAt: issued ? REFUND_ISSUED_AT : null,
+  };
+  return json(res, 200, {
+    tripId: m[1],
+    viewerRole: role,
+    tripStatus: state === undefined ? 'BOOKED' : 'CANCELLED_BY_GUEST',
+    currency: MARKET.currency,
+    currencyExponent: MARKET.currencyExponent,
+    timezone: 'UTC',
+    refunds:
+      state === undefined
+        ? []
+        : [
+            role === 'GUEST'
+              ? { ...one, amountMinor: '18744', rail: 'NATIVE_PARTIAL' }
+              : { ...one, hostLegMinor: '8625' },
+          ],
+  });
+}
+
 createServer(async (req, res) => {
   const url = new URL(req.url ?? '/', 'http://127.0.0.1');
   const path = url.pathname;
   if ((await paymentRoute(req, res, url)) !== false) return;
   if ((await hostRequestRoute(req, res, url)) !== false) return;
   if ((await contractRoute(req, res, url)) !== false) return;
+  if (refundRoute(req, res, url) !== false) return;
   if ((await checkoutRoute(req, res, path)) !== false) return;
   if ((await hostRoute(req, res, url)) !== false) return;
   if (req.method === 'GET' && path === '/__e2e/signups') return json(res, 200, signups);

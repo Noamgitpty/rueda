@@ -57,6 +57,8 @@ const HOST_EARNINGS = /host-earnings-plan\.spec\.ts$/;
 const REQUEST_MODE = /request-mode\.spec\.ts$/;
 /** Contrat de location : S09 · contrat du voyageur, A03 · contrat de l'hôte (US-211 partie 211b) : 360 px. */
 const CONTRACT = /trip-contract\.spec\.ts$/;
+/** Remboursement d'un trip : S10 · remboursement du voyageur, A05 de l'hôte (US-224 partie 224d) : 360 px. */
+const REFUND = /trip-refund\.spec\.ts$/;
 /** Balayage axe + captures de chaque écran du site (US-044). */
 const SCREENS = /screens\.spec\.ts$/;
 /** Balayage des écrans de la console interne (US-044). */
@@ -138,6 +140,7 @@ export default defineConfig({
         HOST_EARNINGS,
         REQUEST_MODE,
         CONTRACT,
+        REFUND,
         SCREENS,
       ],
       use: { ...phone, viewport: { width: 360, height: 780 } },
@@ -160,7 +163,8 @@ export default defineConfig({
         REVIEW,
         HOST_EARNINGS,
         // CONTRACT : 360 px seulement ; ses trois écrans passent à 390 px par SCREENS (axe, mobile
-        // d'abord) : job e2e proche de sa limite de 20 min (suite à la passation d'US-211b)
+        // d'abord) : job e2e proche de sa limite de 20 min (suite à la passation d'US-211b) ; REFUND
+        // (US-224d) : 360 px seulement, ses deux écrans passent à 390 px par SCREENS
         SCREENS,
       ],
       use: { ...phone, viewport: { width: 390, height: 844 } },

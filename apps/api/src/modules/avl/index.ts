@@ -29,6 +29,8 @@ export type { AvlCheckoutOptions } from './internal/checkout/avl-checkout.module
 export { UNAVAILABLE_CHECKOUT_PAYMENTS } from './internal/checkout/avl-checkout.module.js';
 export type { AvlCheckoutPaymentOptions } from './internal/checkout/avl-checkout.module.js';
 export { PAYMENT_MESSAGES, PaymentHttpError } from './internal/checkout/payment-errors.js';
+// remboursements d'un trip lus par sa partie (US-224 partie 224d, ADR-154)
+export { TRIP_REFUND_MESSAGES, TripRefundHttpError } from './internal/checkout/trip-refunds.js';
 export type { PaymentHttpCode } from './internal/checkout/payment-errors.js';
 export {
   CheckoutPaymentService,

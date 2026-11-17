@@ -25,6 +25,8 @@ import {
 import styles from './console.module.css';
 import { CancelPanel } from './cancel-view.tsx';
 import type { CancelHandlers, CancelState } from './cancel-view.tsx';
+import { REFUND_ROLES, RefundsPanel } from './refund-view.tsx';
+import type { RefundsHandlers, RefundsState } from './refund-view.tsx';
 import { OpsPanels, SANCTIONS_LISTS } from './ops-view.tsx';
 import type { OpsHandlers, OpsState, SanctionsList, SanctionsListResult } from './ops-view.tsx';
 
@@ -330,6 +332,7 @@ export function ConsoleView({
   busy = false,
   ops,
   cancel,
+  refunds,
 }: {
   readonly i18n: Translator;
   readonly state: ConsoleState;
@@ -340,6 +343,9 @@ export function ConsoleView({
   readonly ops?: { readonly state: OpsState; readonly handlers: OpsHandlers } | undefined;
   /** US-215b : annulation d'un voyage et état réel de la demande. */
   readonly cancel?: { readonly state: CancelState; readonly handlers: CancelHandlers } | undefined;
+  /** US-224d : remboursements d'un voyage (lecture seule). */
+  readonly refunds?:
+    { readonly state: RefundsState; readonly handlers: RefundsHandlers } | undefined;
 }) {
   switch (state.kind) {
     case 'loading':
@@ -546,6 +552,15 @@ export function ConsoleView({
 
           {cancel !== undefined && state.roles.some((r) => CANCEL_ROLES.has(r.role)) && (
             <CancelPanel i18n={i18n} state={cancel.state} handlers={cancel.handlers} busy={busy} />
+          )}
+
+          {refunds !== undefined && state.roles.some((r) => REFUND_ROLES.has(r.role)) && (
+            <RefundsPanel
+              i18n={i18n}
+              state={refunds.state}
+              handlers={refunds.handlers}
+              busy={busy}
+            />
           )}
 
           <section className={styles['panel']} aria-labelledby="action-heading">

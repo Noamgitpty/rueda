@@ -1,11 +1,11 @@
 /**
- * US-019 (correctifs, migrations 0029 et 0130) — détecteur `core.payment_text_has_pan` et contrainte
+ * US-019 (correctifs, migrations 0029 et 0131) — détecteur `core.payment_text_has_pan` et contrainte
  * `webhook_inbox_no_pan`, sous les rôles de PRODUCTION (assertion L0-05 par withRole / connectAs) :
  * - table partagée avec l'API (`test/support/pan-vectors.json`) : 41 PAN de test publics (Visa,
  *   Mastercard, Amex, Diners, Discover, JCB, UnionPay, Mir ; tout groupage, zéros de tête ; bords
- *   des empreintes de 0130) refusés, 20 non-PAN (UUID, `evt-<uuid>`, empreintes hex(sha256), Luhn
+ *   des empreintes de 0131) refusés, 20 non-PAN (UUID, `evt-<uuid>`, empreintes hex(sha256), Luhn
  *   invalide, 12 ou 20 chiffres, préfixes 1 et 9, limite d'ADR-155) acceptés ;
- * - 0130 / ADR-155 : 20 000 clés d'idempotence réduites (hex(sha256), 08 E4) acceptées, le mutant
+ * - 0131 / ADR-155 : 20 000 clés d'idempotence réduites (hex(sha256), 08 E4) acceptées, le mutant
  *   0029 en refuse ; webhook de preuve PA (USD) et PY (PYG) qui porte l'empreinte en
  *   `merchantReference` accepté, un PAN voisin refusé (23514) ;
  * - 10 000 `evt-<uuid>` générés à graine fixe : acceptés ;
@@ -115,7 +115,7 @@ describe('US-019 / 0029 — détecteur de PAN sans faux positif sur les UUID', (
     }
   });
 
-  it('0130 / ADR-155 : 20 000 clés réduites hex(sha256) acceptées ; le mutant 0029 en refuse', async () => {
+  it('0131 / ADR-155 : 20 000 clés réduites hex(sha256) acceptées ; le mutant 0029 en refuse', async () => {
     const corpus = reducedKeyCorpus(20_000);
     expect(new Set(corpus).size).toBe(20_000);
     expect(corpus.every((k) => /^[0-9a-f]{64}$/.test(k))).toBe(true);
@@ -141,7 +141,7 @@ describe('US-019 / 0029 — détecteur de PAN sans faux positif sur les UUID', (
     { country: 'PA', currency: 'USD', amountMinor: '12550' },
     { country: 'PY', currency: 'PYG', amountMinor: '1250000' },
   ])(
-    '0130 / ADR-155, $country : preuve avec l’empreinte en merchantReference acceptée, PAN voisin refusé',
+    '0131 / ADR-155, $country : preuve avec l’empreinte en merchantReference acceptée, PAN voisin refusé',
     async ({ currency, amountMinor }) => {
       const worker = await connectAs('app_worker');
       try {
@@ -161,7 +161,7 @@ describe('US-019 / 0029 — détecteur de PAN sans faux positif sur les UUID', (
             currency,
             amountMinor,
           };
-          // refusé par 0029 (23514), accepté par 0130 ; identifiant d'événement = empreinte aussi
+          // refusé par 0029 (23514), accepté par 0131 ; identifiant d'événement = empreinte aussi
           expect(await caught(tx, () => insert(`evt-${randomUUID()}`, [event]))).toBeNull();
           expect(await caught(tx, () => insert(HEX_FALSE_POSITIVE, [event]))).toBeNull();
           for (const leak of [

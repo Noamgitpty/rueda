@@ -1,11 +1,11 @@
 /**
  * Détecteur et masque de PAN (17 §1.6 portée SAQ A ; §4.4 point 3, corrigé VERIF_14-F26).
  *
- * Définition (identique à `core.payment_text_has_pan`, migrations 0029 et 0130, qui la vérifie en
+ * Définition (identique à `core.payment_text_has_pan`, migrations 0029 et 0131, qui la vérifie en
  * base par la contrainte `webhook_inbox_no_pan`) :
  * 1. les UUID (8-4-4-4-12 hexadécimaux, non collés à une lettre ou un chiffre) sont écartés : un
  *    identifiant `evt-<uuid>` n'est jamais un PAN (faux positif de 0028, environ 0,25 %) ;
- *    les empreintes `hex(sha256(…))` sont écartées aussi (0130, ADR-155) : jeton d'EXACTEMENT 64
+ *    les empreintes `hex(sha256(…))` sont écartées aussi (0131, ADR-155) : jeton d'EXACTEMENT 64
  *    caractères `[0-9a-f]` en minuscules, non collé à une lettre ou un chiffre. C'est la clé
  *    d'idempotence réduite (08 E4, `idempotencyKeyToSend`) que le PSP renvoie en
  *    `merchantReference` ; environ 0,32 % de ces clés contenaient 13 à 19 chiffres valides au

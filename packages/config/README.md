@@ -41,3 +41,5 @@ pnpm --filter @rueda/config test:unit    # tests des règles (Vitest, sans base)
 ```
 
 Les tests lancent ESLint avec la configuration réelle : délai de 60 s par test (`vitest.config.ts`), car le premier chargement est lent sous Windows.
+
+Le test « le code du dépôt passe » lint `apps/` et `packages/` avec la configuration réelle, mais n'exécute que `rueda/no-country-constants` (`ruleFilter`) : les autres règles relèvent de `pnpm lint`. Un test négatif applique les mêmes options à la fixture fautive et doit retrouver exactement les constats de la configuration complète. L'expression des jetons est compilée une fois par liste (`findCountryConstants`), et non à chaque chaîne.

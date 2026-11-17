@@ -2387,4 +2387,88 @@ export const EN_MESSAGES = {
   'backoffice.cancel.outcome.ADVANCE_DECISION_REQUIRED':
     'A FINANCE decision on a platform advance is needed.',
   'backoffice.cancel.outcome.SETTLEMENT_INPUT_INVALID': 'The settlement data isn’t valid.',
+  // US-224 partie 224d (ADR-154) : remboursement lu par le voyageur (S10), l’hôte (A05) et la console
+  'common.refund.notFound': 'We can’t find this refund.',
+  'common.refund.unavailable':
+    'We can’t show your refund right now. Please try again in a few minutes.',
+  'web.s10.refund.title': 'Your refund',
+  'web.s10.refund.lead':
+    'We refund you ourselves the amount calculated at cancellation, to the payment method you used. Your refund doesn’t depend on the host.',
+  'web.s10.refund.amount': 'Amount refunded',
+  'web.s10.refund.none': 'This trip has no refunds.',
+  'web.s10.refund.noneHint':
+    'If your trip is cancelled, you’ll see the refunded amount and its issue date here.',
+  'web.s10.refund.loadError': 'We couldn’t load your refund.',
+  'web.s10.refund.rail.NATIVE_PARTIAL': 'To your original payment method.',
+  'web.s10.refund.rail.ROLLBACK_AND_RECHARGE':
+    'To your original payment method: we cancel the first payment and charge again only what’s due. You’ll see two entries on your statement.',
+  'web.s10.refund.rail.BANK_TRANSFER': 'By transfer to a bank account in your name.',
+  'web.s10.refund.rail.CREDIT_CASH': 'As a balance in your favor, with your agreement.',
+  'web.refund.status.PREPARING': 'Being prepared',
+  'web.refund.status.ISSUED': 'Issued',
+  'web.refund.status.CONFIRMED': 'Confirmed by the payment provider',
+  'web.refund.status.ATTENTION': 'Under review',
+  'web.refund.issuedOn': 'Issued on {date}',
+  'web.refund.bankDelay': 'Your bank may take a few business days to show it on your statement.',
+  'web.refund.preparing': 'We’re preparing to issue it. The issue date will appear here.',
+  'web.refund.attention':
+    'There was a problem issuing it. Our team is on it; you don’t need to do anything.',
+  'web.a05.refund.title': 'Guest refund',
+  'web.a05.refund.lead':
+    'We refund the guest ourselves. Here you only see the part taken from your earnings for this trip.',
+  'web.a05.refund.hostLeg': 'Taken from your earnings: {amount}',
+  'web.a05.refund.noImpact': 'No effect on your earnings.',
+  'backoffice.refunds.heading': 'Refunds of a trip',
+  'backoffice.refunds.lead':
+    'Read only: status of each refund, parts requested by the settlement, order sent to the payment provider and blocking reason. Nothing is executed from here.',
+  'backoffice.refunds.trip': 'Trip identifier',
+  'backoffice.refunds.tripInvalid': 'The trip identifier isn’t valid.',
+  'backoffice.refunds.read': 'Show the refunds',
+  'backoffice.refunds.none': 'No refund for this trip.',
+  'backoffice.refunds.caption': 'Refunds of the trip',
+  'backoffice.refunds.statusColumn': 'Refund status',
+  'backoffice.refunds.amountColumn': 'Amount refunded to the guest',
+  'backoffice.refunds.issuedColumn': 'Date issued',
+  'backoffice.refunds.detailColumn': 'Refund details',
+  'backoffice.refunds.notIssued': 'Not issued yet',
+  'backoffice.refunds.attempt': 'attempt {n}, settlement version {v}',
+  'backoffice.refunds.requested': 'Parts requested by the settlement: {legs}',
+  'backoffice.refunds.order': 'Order sent to the payment provider: {legs}',
+  'backoffice.refunds.advance': 'Platform advance: {amount}',
+  'backoffice.refunds.status.PLANNED': 'Planned',
+  'backoffice.refunds.status.BLOCKED_CHARGEBACK': 'Blocked by a chargeback',
+  'backoffice.refunds.status.PENDING_CUSTOMER_CHOICE': 'Waiting for the guest’s choice',
+  'backoffice.refunds.status.PENDING_BANK_DETAILS': 'Waiting for the guest’s bank details',
+  'backoffice.refunds.status.SUBMITTED': 'Authorised to issue',
+  'backoffice.refunds.status.SENT': 'Sent to the payment provider',
+  'backoffice.refunds.status.CONFIRMED': 'Confirmed by the payment provider',
+  'backoffice.refunds.status.FAILED': 'Rejected by the payment provider',
+  'backoffice.refunds.status.CREDITED': 'Credited as a balance',
+  'backoffice.refunds.status.CANCELLED': 'Cancelled',
+  'backoffice.refunds.status.SUPERSEDED': 'Replaced by a new version',
+  'backoffice.refunds.rail.NATIVE_PARTIAL': 'Partial refund to the original method',
+  'backoffice.refunds.rail.ROLLBACK_AND_RECHARGE': 'Payment rollback and new charge',
+  'backoffice.refunds.rail.BANK_TRANSFER': 'Bank transfer',
+  'backoffice.refunds.rail.CREDIT_CASH': 'Balance in the guest’s favor',
+  'backoffice.refunds.reason.ADVANCE_CAP_UNSET':
+    'Blocked: the per-host advance cap isn’t set. A two-person FINANCE decision is needed.',
+  'backoffice.refunds.reason.HOST_ADVANCE_CAP':
+    'Blocked: the advance would exceed the host’s cap. A two-person FINANCE decision is needed.',
+  'backoffice.refunds.reason.PLATFORM_BALANCE_UNKNOWN':
+    'Blocked: the platform balance is unknown. A two-person FINANCE decision is needed.',
+  'backoffice.refunds.reason.SUPERSEDED_UNSENT':
+    'Order never sent from a replaced settlement: it won’t be sent. FINANCE review.',
+  'backoffice.refunds.reason.NO_TARGET':
+    'The original payment to refund isn’t known. FINANCE review.',
+  'backoffice.refunds.reason.MISMATCH':
+    'The payment provider returned an amount or currency different from the order. FINANCE review.',
+  'backoffice.refunds.reason.REFUND_FAILED':
+    'The payment provider rejected the refund. FINANCE review.',
+  'backoffice.refunds.reason.REFUND_EXCEEDS_COLLECTED':
+    'The refund would exceed what was collected on one part. Nothing was sent.',
+  'backoffice.refunds.reason.SETTLEMENT_SUPERSEDED':
+    'The settlement was replaced by a new version. Nothing was sent with the old one.',
+  'backoffice.refunds.reason.FIN_REVIEW_REQUIRED':
+    'The settlement needs a FINANCE decision before anything is sent.',
+  'backoffice.refunds.reason.other': 'Technical code {code}. FINANCE review.',
 } as const satisfies Readonly<Record<MessageKey, Message>>;
