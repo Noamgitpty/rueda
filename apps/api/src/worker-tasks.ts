@@ -513,6 +513,7 @@ export function registerWorkerTasks(registry: BusRegistry, deps: WorkerTaskDeps)
       brand: deps.brandName,
       localeConfig: repositoryLocaleConfig(),
       exponentOf: countryData.exponentOf,
+      countryNamesOf: (code) => deps.config.countries.get(code)?.names,
       cancellationParamsOf: (ctx) => resolveCancellationParams(deps.config, ctx),
       log: (entry) => {
         deps.log(JSON.stringify({ level: 'info', ...entry }));

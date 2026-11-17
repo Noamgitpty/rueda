@@ -180,8 +180,16 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  (US-211, ADR-143) : `ctr.contract.*` (libellés du PDF du contrat, figés dans le document à sa
  génération : parties, plateforme intermédiaire, véhicule, période, prix, protection, caution,
  distance, annulation, retard, territoire, bloc de signature, traduction de courtoisie).
+ Version 68 (la 66 et la 67 sont réservées à des stories parallèles) : routes et écrans du contrat
+ de location, partie 211b (US-211, ADR-149) : `common.contract.*` (réponses des routes
+ `/trips/{id}/contract` : introuvable, en préparation, version remplacée, plus signable, empreinte
+ différente, texte effacé, indisponible), `web.contract.*` (résumé, équivalent HTML du PDF, PDF,
+ empreinte, signature, versions : écrans S09 et A03), `web.s09.contract.*` (signature du
+ voyageur : case, bouton, effet sur la remise), `web.a03.contract.*` (état de la signature vu par
+ l'hôte), `web.a05.contract` et `web.s06.confirmed.contract` (liens vers le contrat) ;
+ `ctr.contract.period` dit le nom du pays et l'heure locale au lieu du fuseau IANA.
  */
-export const CATALOG_VERSION = 65;
+export const CATALOG_VERSION = 68;
 
 /** Catalogues de base par langue ; la langue d'un profil de locale choisit le sien. */
 export const CATALOGS: Readonly<Record<CatalogLanguage, VersionedCatalog<MessageKey>>> = {
