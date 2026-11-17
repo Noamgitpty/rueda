@@ -104,8 +104,21 @@ async function openPayment(
   language: Language,
   events: readonly string[],
   state: string,
+  day = 10,
 ): Promise<void> {
-  await openCheckout(page, context, language);
+  await placePayment(page, context, language, events, state, day);
+}
+
+/** Comme `openPayment`, rend l'identifiant du hold (demande rattachée ensuite à un hôte). */
+async function placePayment(
+  page: Page,
+  context: BrowserContext,
+  language: Language,
+  events: readonly string[],
+  state: string,
+  day: number,
+): Promise<string> {
+  await openCheckout(page, context, language, PUBLIC_ID, day);
   await page.locator('#s05-driver-first').fill('Lucía');
   await page.locator('#s05-driver-last').fill('Gómez');
   for (const kind of ['TOS_GUEST', 'CANCELLATION_POLICY', 'GEO_TERMS']) {
@@ -124,6 +137,51 @@ async function openPayment(
   }
   await page.goto(`/checkout/hold/${holdId}/payment`);
   await expect(page.locator('[data-testid="s06-title"]')).toHaveAttribute('data-state', state);
+  return holdId;
+}
+
+/** Demande à l'hôte du double (le 23 décembre ; US-223 partie 223d). */
+const REQUEST_DAY = 23;
+
+/**
+ * A05 — confirmation de l'acceptation d'une demande (US-223 partie 223d) : demande envoyée par un
+ * voyageur, rattachée à un hôte neuf (`GET /__e2e/request/assign`), ouverte puis « Aceptar la
+ * solicitud ». Aucune auto saisie : la carte ne porte pas de libellé d'auto (capture stable).
+ */
+async function openHostRequest(
+  page: Page,
+  context: BrowserContext,
+  language: Language,
+): Promise<void> {
+  const holdId = await placePayment(
+    page,
+    context,
+    language,
+    ['PAY', 'SUCCEEDED'],
+    'REQUEST_SENT',
+    REQUEST_DAY,
+  );
+  const token = `H0st${randomBytes(30).toString('base64url').slice(0, 39)}`;
+  await context.clearCookies();
+  await context.addCookies([
+    {
+      name: '__Host-session',
+      value: token,
+      domain: 'localhost',
+      path: '/',
+      httpOnly: true,
+      secure: true,
+      sameSite: 'Lax',
+    },
+  ]);
+  await page.goto('/host');
+  await expect(page.locator('main h1').first()).toBeVisible();
+  const r = await fetch(`${API}/__e2e/request/assign?hold=${holdId}&host=${token}`);
+  expect(r.status).toBe(200);
+  await page.goto('/host/trips');
+  await page.locator(`[data-testid="a05-requests"] a[href*="/host/requests/${holdId}"]`).click();
+  await page.locator('[data-testid="a05-open-accept"]').click();
+  await expect(page.locator('[data-testid="a05-confirm"]')).toBeVisible();
 }
 
 /**
@@ -493,6 +551,34 @@ export const SCREENS: readonly Screen[] = [
     source: 'S06, US-223',
     open: (page, context, language) =>
       openPayment(page, context, language, ['PAY', 'EXPIRE', 'SUCCEEDED'], 'REFUND_DUE'),
+  },
+  // US-223 partie 223d : mode sur demande (10b S07 « demande envoyée », S06 demande refusée, A05
+  // confirmation de l'acceptation)
+  {
+    name: 'demande-envoyee',
+    source: 'S07, US-223',
+    open: async (page, context, language) => {
+      await openPayment(page, context, language, ['PAY', 'SUCCEEDED'], 'REQUEST_SENT', REQUEST_DAY);
+    },
+  },
+  {
+    name: 'demande-refusee',
+    source: 'S06, US-223',
+    open: async (page, context, language) => {
+      await openPayment(
+        page,
+        context,
+        language,
+        ['PAY', 'SUCCEEDED', 'DECLINE'],
+        'REQUEST_DECLINED',
+        REQUEST_DAY,
+      );
+    },
+  },
+  {
+    name: 'hote-demande-acceptation',
+    source: 'A05, US-223',
+    open: (page, context, language) => openHostRequest(page, context, language),
   },
   // US-209 partie 209c : réservation signalée (S05 en revue, S05 approuvée, S06 revue refusée) et
   // déclaration d'entrée du voyageur (S04)

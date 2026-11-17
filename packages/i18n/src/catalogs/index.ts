@@ -197,7 +197,15 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  fermée, confirmation avant envoi, état réel de la demande — en attente, réglée avec le porteur du
  coût et le remboursement par partie, en revue FINANCE, en échec — et la suite à donner ; refus de la
  commande et codes d’une demande garée expliqués).
- Version 71 (la 70 est réservée à US-223d) : remboursement lu par sa partie, partie 224d (US-224,
+ Version 70 (la 66 reste sautée, réservée à US-224 qui n'a pas livré de texte ; la 68 est celle
+ d’US-211b, la 69 celle d’US-215b) : écrans du mode sur demande, partie 223d (US-223, ADR-152) :
+ `web.s05.request.*` et `web.s05.ctaRequest` (S05 d'un hold de demande : autoriser sans débiter),
+ `web.s07.request.*` (« demande envoyée », heure limite lue dans l'API, jamais une durée écrite ;
+ demande acceptée, capture en cours), `web.s06.request.*` (refus, expiration, capture non aboutie),
+ `web.error.requestDeclined` et `web.error.requestExpired` (10b §4.3), `web.a05.accept`,
+ `web.a05.decline`, `web.a05.requests.*` et `web.a05.request.*` (demandes de l'hôte : liste,
+ détail, confirmation, issue).
+ Version 71 (la 70 est celle d’US-223d) : remboursement lu par sa partie, partie 224d (US-224,
  ADR-154) : `common.refund.*` (réponses de la route `/trips/{id}/refunds` : introuvable,
  indisponible), `web.s10.refund.*` (S10 · remboursement du voyageur : montant, rail sur le moyen
  d’origine, date d’émission, jamais une date de réception), `web.refund.*` (états et date

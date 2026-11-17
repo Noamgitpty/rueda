@@ -2269,6 +2269,53 @@ export const FR_MESSAGES = {
   'web.s04.entry.savedTourist': 'Date d’entrée déclarée : {date}.',
   'web.s04.entry.savedResident': 'Tu as déclaré être résident.',
   'web.s04.entry.back': 'Retour à la vérification d’identité',
+  // US-223d (ADR-152) : écrans du mode sur demande (S05, S07 « demande envoyée », S06, A05)
+  'web.s05.request.title': 'Envoie ta demande',
+  'web.s05.request.authorize':
+    'Tu vas autoriser {amount} sur une page sécurisée de notre prestataire de paiement. Tu ne paies que si {host_name} accepte.',
+  'web.s05.ctaRequest': 'Envoyer la demande',
+  'web.s07.request.title': 'Demande envoyée',
+  'web.s07.request.pending':
+    '{host_name} a jusqu’à {time} pour répondre. Tu ne paies rien si la demande n’est pas acceptée.',
+  'web.s07.request.authorized': 'Ton paiement est autorisé, pas encaissé.',
+  'web.s07.request.hostFallback': 'L’hôte',
+  'web.s07.request.capturing.title': 'Demande acceptée',
+  'web.s07.request.capturing.body':
+    '{host_name} a accepté ta demande. Nous confirmons le paiement avec ta banque. Ne paie pas une seconde fois.',
+  'web.s06.request.declined.title': 'Demande refusée',
+  'web.s06.request.expired.title': 'Demande expirée',
+  'web.s06.request.captureFailed.title': 'Nous n’avons pas pu finaliser ta réservation',
+  'web.s06.request.captureFailed.body':
+    'Le paiement n’a pas pu aboutir et la réservation n’a pas été faite. Nous annulons l’autorisation sur ta carte ; si tu vois un débit, nous te le remboursons intégralement.',
+  'web.s06.request.searchCta': 'Voir les voitures disponibles',
+  'web.error.requestDeclined':
+    '{host_name} ne peut pas te confier sa voiture à ces dates. Tu n’as rien payé. Voici des voitures disponibles à tes dates.',
+  'web.error.requestExpired':
+    '{host_name} n’a pas répondu à temps. Tu n’as rien payé. Voici des voitures disponibles à tes dates.',
+  'web.a05.accept': 'Accepter la demande',
+  'web.a05.decline': 'Refuser la demande',
+  'web.a05.requests.title': 'Demandes à traiter',
+  'web.a05.requests.loadError': 'Nous n’avons pas pu charger tes demandes.',
+  'web.a05.request.pageTitle': 'Demande de réservation',
+  'web.a05.request.heading': 'Demande n° {ref}',
+  'web.a05.request.awaiting': 'En attente de ta réponse',
+  'web.a05.request.capturing': 'Acceptée : paiement en cours',
+  'web.a05.request.respondBy': 'Réponds avant le : {date}',
+  'web.a05.request.total': 'Total du voyage : {amount}',
+  'web.a05.request.open': 'Voir la demande',
+  'web.a05.request.confirmAccept.title': 'Accepter cette demande ?',
+  'web.a05.request.confirmAccept.body':
+    'Nous débiterons {amount} au voyageur et la réservation sera confirmée.',
+  'web.a05.request.confirmDecline.title': 'Refuser cette demande ?',
+  'web.a05.request.confirmDecline.body':
+    'Le voyageur ne paiera rien et tes dates seront de nouveau libres.',
+  'web.a05.request.cancel': 'Revenir sans répondre',
+  'web.a05.request.capturingBody':
+    'Tu as accepté cette demande. Nous confirmons le paiement du voyageur ; la réservation apparaîtra dans À venir.',
+  'web.a05.request.done.CAPTURING':
+    'Tu as accepté la demande. Nous confirmons le paiement du voyageur.',
+  'web.a05.request.done.ACCEPTED': 'Tu as accepté la demande : la réservation est confirmée.',
+  'web.a05.request.done.DECLINED': 'Tu as refusé la demande. Le voyageur n’a rien payé.',
   'common.contract.notFound': 'Nous ne trouvons pas ce contrat.',
   'common.contract.notGenerated': 'Le contrat est en préparation. Reviens dans quelques minutes.',
   'common.contract.superseded':
