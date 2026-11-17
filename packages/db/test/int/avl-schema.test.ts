@@ -423,7 +423,8 @@ describe('schéma core (US-006)', () => {
         'one_live_hold_per_guest_vehicle',
       ]);
       expect(idx[2]?.def).toMatch(
-        /UNIQUE INDEX .* \(guest_user_id, vehicle_id\) WHERE \(status = ANY \(ARRAY\['ACTIVE'::text, 'PAYMENT_IN_FLIGHT'::text\]\)\)/,
+        // US-223c (0126, 17 §2.5 deltas) : une demande AWAITING_HOST est un hold vivant
+        /UNIQUE INDEX .* \(guest_user_id, vehicle_id\) WHERE \(status = ANY \(ARRAY\['ACTIVE'::text, 'AWAITING_HOST'::text, 'PAYMENT_IN_FLIGHT'::text\]\)\)/,
       );
       expect(idx[1]?.def).toMatch(
         /UNIQUE INDEX .* \(hold_id\) WHERE \(disposition = 'CONVERSION'::text\)/,

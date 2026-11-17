@@ -21,13 +21,17 @@
 --      configuration que la graine ne peuple pas encore (férié, entité de Kmino : ADR-013 ouverte ;
 --      capacité PSP de statut UNKNOWN, qui vaut « non » et n'active rien), pour que leurs cellules
 --      « tout » soient éprouvées sur des lignes réelles. ON CONFLICT DO NOTHING : rejouable.
+--   6. us043_seed_payment_command(hold, opération) : une commande CANCEL_ORDER de la boîte d'envoi
+--      (son écrivain réel est la libération du voyageur ou la conversion, US-024), pour que les
+--      cellules des travailleurs de payment_command soient éprouvées sur une ligne réelle (US-223c).
 --   4. us043_enable_totp(compte) : facteur TOTP ACTIF (référence de coffre fictive), pour que la
 --      console reconnaisse une session élevée de test (test:int des routes d'apps/api) ; le
 --      parcours réel d'enrôlement est prouvé par l0-iam-staff-mfa et pg-staff-store.int.test.ts.
 --
 -- Retour arrière : DROP FUNCTION test_fixture.us043_expected(text, text, text, jsonb, text, boolean),
 --   test_fixture.us043_seed_subject_key(text, uuid), test_fixture.us043_seed_submerchant(uuid),
---   test_fixture.us043_enable_totp(uuid), test_fixture.us043_seed_reference(text);
+--   test_fixture.us043_enable_totp(uuid), test_fixture.us043_seed_reference(text),
+--   test_fixture.us043_seed_payment_command(uuid, uuid);
 
 CREATE FUNCTION test_fixture.us043_expected(p_relation text, p_source text, p_predicate text,
                                             p_params jsonb, p_id_column text, p_by_country boolean)
@@ -142,7 +146,23 @@ AS $fn$
   ON CONFLICT DO NOTHING;
 $fn$;
 
+CREATE FUNCTION test_fixture.us043_seed_payment_command(p_hold_id uuid, p_operation_id uuid)
+  RETURNS void
+  LANGUAGE sql
+  SECURITY DEFINER
+  SET search_path = pg_catalog, pg_temp
+AS $fn$
+  INSERT INTO core.payment_payment_command
+         (id, operation_kind, idem_plain, operation_id, hold_id, country_code, partition_key)
+  SELECT pg_catalog.gen_random_uuid(), 'CANCEL_ORDER',
+         'hold:' || p_hold_id::text || ':CANCEL:' || p_operation_id::text || ':a1',
+         p_operation_id, p_hold_id, h.country_code, p_hold_id::text
+    FROM core.booking_checkout_hold AS h WHERE h.id = p_hold_id
+  ON CONFLICT DO NOTHING
+$fn$;
+
 REVOKE ALL ON FUNCTION
+  test_fixture.us043_seed_payment_command(uuid, uuid),
   test_fixture.us043_seed_reference(text),
   test_fixture.us043_enable_totp(uuid),
   test_fixture.us043_expected(text, text, text, jsonb, text, boolean),
@@ -153,6 +173,7 @@ GRANT EXECUTE ON FUNCTION
   test_fixture.us043_expected(text, text, text, jsonb, text, boolean)
   TO app_api, app_worker;
 GRANT EXECUTE ON FUNCTION
+  test_fixture.us043_seed_payment_command(uuid, uuid),
   test_fixture.us043_seed_reference(text),
   test_fixture.us043_enable_totp(uuid),
   test_fixture.us043_seed_subject_key(text, uuid),

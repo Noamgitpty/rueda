@@ -47,6 +47,8 @@ const ROW: CheckoutPaymentRow = {
   expiresAt: EXPIRES,
   paymentInFlightUntil: null,
   operationStatus: null,
+  // US-223c : hold CHECKOUT (aucune demande à l'hôte)
+  request: null,
 };
 
 const startOf = (v: GoldenLegVector, outcome: PaymentStart['outcome'] = 'NEW_ORDER') => ({
@@ -60,6 +62,8 @@ const startOf = (v: GoldenLegVector, outcome: PaymentStart['outcome'] = 'NEW_ORD
     amountMinor: v.totalMinor,
     currency: v.currency,
     legs: { ...v.legsMinor },
+    // US-223c : réservation immédiate (hold CHECKOUT) ⇒ capture AUTO décidée par la base
+    capture: 'AUTO' as const,
   },
 });
 
@@ -394,6 +398,39 @@ describe('US-223b — contrat du paiement du hold du checkout', () => {
       expect(r.json).toMatchObject({ payment: { holdId: HOLD, state } });
       expect(JSON.stringify(r.json)).not.toContain('operationStatus');
     }
+  });
+
+  it('US-223c : demande à l’hôte : GET rend `request` (état, heure limite) conforme au contrat ; en attente ⇒ VERIFYING, refusée ⇒ ENDED ; absent pour une réservation immédiate', async () => {
+    const { hold, read } = await app();
+    const respondBy = '2036-11-30T19:10:00.000Z';
+    hold({
+      holdStatus: 'AWAITING_HOST',
+      operationStatus: 'SUCCEEDED',
+      request: { status: 'AWAITING_HOST', respondBy },
+    });
+    const waiting = await read();
+    expect(waiting.status).toBe(200);
+    expect(waiting.json).toMatchObject({
+      payment: {
+        holdId: HOLD,
+        state: 'VERIFYING',
+        holdStatus: 'AWAITING_HOST',
+        request: { status: 'AWAITING_HOST', respondBy },
+      },
+    });
+    hold({
+      holdStatus: 'RELEASED',
+      operationStatus: 'PENDING',
+      request: { status: 'DECLINED', respondBy },
+    });
+    expect((await read()).json).toMatchObject({
+      payment: { state: 'ENDED', request: { status: 'DECLINED', respondBy } },
+    });
+    hold({});
+    const instant = await read();
+    expect((instant.json as { payment: Record<string, unknown> }).payment).not.toHaveProperty(
+      'request',
+    );
   });
 
   it('couverture : chaque statut déclaré pour /checkout/holds/{holdId}/payment est exercé', () => {

@@ -80,6 +80,10 @@
     {
       "path": "packages/db/migrations/0117_config_last_minute_window_params.sql",
       "justification": "Graine complémentaire du paramètre last_minute_free_window_minutes (08 BR-CXL-01 : fenêtre d'annulation gratuite d'une réservation de dernière minute, freeUntil = min(bookedAt + fenêtre, départ) ; 16 LST-010), valeurs PROPOSÉES PA / PY (60 min, comme Turo), générée par apps/api/src/modules/cfg/internal/seed-sql.ts (renderParamSeedSql) depuis les données CFG ; le test seed-sql.test.ts échoue si le fichier diffère du rendu. 0009 est immuable (ADR-044, ADR-075). US-205, ADR-140."
+    },
+    {
+      "path": "packages/db/migrations/0125_config_booking_request_mode_params.sql",
+      "justification": "Graine complémentaire du paramètre booking_request_mode_enabled (08 BR-BOOK-01 : mode REQUEST au choix de l'hôte ; 17 §2.5 « Hold de demande REQUEST » ; 19 US-223 DoR 2 : une annonce sur demande n'est jamais réservée en INSTANT), valeurs PROPOSÉES PA / PY (faux tant que les écrans du mode sur demande ne sont pas livrés), générée par apps/api/src/modules/cfg/internal/seed-sql.ts (renderParamSeedSql) depuis les données CFG ; le test seed-sql.test.ts échoue si le fichier diffère du rendu. 0009 est immuable (ADR-044, ADR-075). US-223, ADR-146."
     }
   ]
 }
