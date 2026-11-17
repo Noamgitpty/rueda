@@ -458,6 +458,8 @@ describe.each(COUNTRIES)('US-224 — ordres de règlement — $country ($currenc
   });
 
   it('report (défense en profondeur, fixture 9965) : sans règlement ⇒ leg_refund_without_settlement ; au-delà du règlement ⇒ leg_refund_exceeds_settlement ; au-delà du solde ⇒ leg_movement_exceeds_balance ; soldes intacts', async () => {
+    // un trip par cas : un ordre réussi écrit par la fixture reste en vol (jamais reporté) et
+    // serait compté par la garde d'enregistrement des ordres suivants du même trip
     await asPayments(async (tx) => {
       const w = await captured(tx, c, capture);
       const none = await provenOrder(tx, w, refund, null);
@@ -465,6 +467,9 @@ describe.each(COUNTRIES)('US-224 — ordres de règlement — $country ($currenc
         code: '55000',
         constraint: 'leg_refund_without_settlement',
       });
+    });
+    await asPayments(async (tx) => {
+      const w = await captured(tx, c, capture);
       const v1 = await settle(tx, w.trip, 1, recordOfVector(r.settlement));
       // la capture entière sous la v1 : tient dans le solde, dépasse la variation de la v1
       const over = await provenOrder(tx, w, capture, v1);
@@ -472,6 +477,11 @@ describe.each(COUNTRIES)('US-224 — ordres de règlement — $country ($currenc
         code: '55000',
         constraint: 'leg_refund_exceeds_settlement',
       });
+      expect(await balance(tx, w.trip, 'refunded_minor')).toEqual(ZERO);
+    });
+    await asPayments(async (tx) => {
+      const w = await captured(tx, c, capture);
+      const v1 = await settle(tx, w.trip, 1, recordOfVector(r.settlement));
       // le remboursement exact passe ; le même une seconde fois dépasse le solde de la jambe
       await settleOrder(tx, (await order(tx, w, 'REFUND', refund, v1)).operation_id);
       const twice = await provenOrder(tx, w, refund, v1);
@@ -613,10 +623,11 @@ describe('US-224 — 08 E7 règle 3 : réaffectation exacte et passée avant le 
         tx,
         (await order(tx, w, 'LEG_REALLOCATION', minorOf(orders.reallocation), s)).operation_id,
       );
-      // la ventilation fautive reste refusée après la réaffectation : HOST au-delà de sa variation
+      // la ventilation fautive reste refusée après la réaffectation : HOST n'a plus que 112,72
+      // d'encaissé après la réaffectation reportée (131,25 − 18,53) ⇒ REFUND_EXCEEDS_COLLECTED
       expect(await caught(tx, () => order(tx, w, 'REFUND', faulty, s))).toMatchObject({
         code: '55000',
-        constraint: 'leg_refund_exceeds_settlement',
+        constraint: 'refund_exceeds_collected',
       });
       const [refundOrder] = orders.refunds;
       if (refundOrder === undefined) throw new Error('remboursement attendu');
