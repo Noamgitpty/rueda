@@ -1,0 +1,1 @@
+exemption: US-122 — stabilité de la CI seule : politique de débit « large » des bancs HTTP de test (red team RLS, matrice des routes, harnais) avec un poids de client soupçonné égal à la graine de production (4) au lieu de 1 000 000 ; aucun comportement livré ne change
