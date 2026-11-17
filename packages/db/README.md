@@ -868,3 +868,15 @@ Migration `0121_settlement_refund_orders`. Fixture `9965_test_us224_refund_fixtu
 - **Rejeu** : `core.settlement_cmd_record` rend le règlement existant pour la même version au même contenu (S-02).
 - **Preuve** : webhook `SUCCEEDED` sans montant ⇒ `UNPROVEN` pour tout ordre qui déplace des fonds (N-196).
 - **Preuves** : `test/l0/l0-us224-refund-orders.test.ts`, `test/l0/l0-us224-refund-race.test.ts` (isolé, deux sessions), PA USD et PY PYG ; tests existants adaptés (passation US-224).
+
+## Annulations déclenchées par l'ops, réglées dans la transition (US-215 partie 215a ; 16 BKG-028, BKG-032, BKG-035, ADM-006 ; 08 BR-CXL, SM-1 invariant 4 ; ADR-148)
+
+Migration `0122_booking_trip_cancellation_settled`. Fixture `9956_test_us215_trip_cancellation_fixtures.sql` (lecture d'une demande et des occupations d'un trip).
+
+- **Table** `core.booking_trip_cancellation` (classe C1, aucun droit applicatif) : demande de la console (`CANCEL_TRIP_GUEST` / `HOST` / `PLATFORM`), motif demandé et initiateur dérivés de l'action, sous-motif, heure serveur de la demande, agent ; statut `PENDING` → `SETTLED` (règlement, `cost_bearer`) | `FIN_REVIEW` | `FAILED` (code seul) ; une demande vivante par trip (`trip_cancellation_live_unique`).
+- **Commande liée** `core.booking_manual_action_cancel_trip` (cmd_hold_owner, EXECUTE iam_staff_owner) ; saisies fermées `subReason` et `platformReason` au catalogue.
+- **Travailleur `trip_lifecycle`** (EXECUTE app_worker) : `core.booking_trip_cancellations_pending`, `core.booking_trip_cancellation_begin` (verrous voyageur → véhicule → trip, faits, devis figé, paramètres canoniques `core.booking_cancellation_params`), `core.booking_cmd_trip_cancel_settle` (requalification, liaison du règlement aux faits de la base, transition avec `settlement_id` au journal et dans `trip.status_changed`), `core.booking_cmd_trip_cancel_park`. Règlement lu par `core.settlement_cancellation_of` (cmd_money_owner, EXECUTE cmd_hold_owner).
+- **Contrainte différée** `trip_cancellation_refunded` (`core.settlement_assert_cancellation_refunded`, cmd_money_owner) : trip encaissé et Σ ordres `REFUND` non échoués du règlement = remboursement du voyageur, à la validation.
+- **Codes** : `CANCELLATION_PENDING`, `CANCELLATION_NOT_PENDING` (PROPOSÉS) ; `trip_cancellation_settlement_mismatch`, `trip_cancellation_uncaptured`, `trip_cancellation_unrefunded` ⇒ `INVARIANT_VIOLATION`.
+- `core.booking_trip_apply_transition` (0099) : corps recopié, règlement lu dans `p_extra` (absent ⇒ NULL comme avant).
+- **Preuves** : `test/l0/l0-us215-trip-cancellation.test.ts` (PA USD, PY PYG ; préparation et demande validées, transaction du travailleur annulée après `SET CONSTRAINTS ALL IMMEDIATE`) ; tests existants adaptés (passation US-215).
