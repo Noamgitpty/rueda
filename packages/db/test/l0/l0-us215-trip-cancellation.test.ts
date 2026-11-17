@@ -9,6 +9,7 @@
  * settlement, payment_command dans UNE transaction). La préparation (trip, capture) et la demande
  * de la console sont VALIDÉES (deux rôles) sur des trips et des véhicules neufs ; la transaction du
  * travailleur est ANNULÉE après `SET CONSTRAINTS ALL IMMEDIATE` (contrôles différés exécutés).
+ * Fichier isolé (`vitest.l0.config.ts`) : compte PSP FAKE ACTIVE du pays partagé (fixture 9800).
  *
  * Attendus : vecteurs de l'export des oracles (`docs/specs/tools/golden_vectors.json`,
  * `@rueda/money/golden-vectors`) — T03 / TJ02b (critère 1), T14 / TJ06, T15, T76 (critère 2), T19,
@@ -31,7 +32,7 @@ import { setSessionContext, translateDbError } from '../../src/index.ts';
 import { withRole, withTestTransaction } from '../../src/testing/index.ts';
 import { COUNTRIES } from '../support/avl.ts';
 import type { CountryCase } from '../support/avl.ts';
-import { applySignedStatus, caught, insertAccount, recordOperation, uuid } from '../support/pay.ts';
+import { applySignedStatus, caught, recordOperation, uuid } from '../support/pay.ts';
 import type { Legs } from '../support/pay.ts';
 import { golden, legsOf, recordAsSettlementWorker, tripOfVector } from '../support/settlement.ts';
 import { newHash } from '../support/golive.ts';
@@ -110,7 +111,12 @@ async function worldAt(
       iso(startAtMs),
       iso(startAtMs + v.trip.days * 24 * 60 * MINUTE),
     ]);
-    account = await insertAccount(tx, { country: c.country });
+    // compte FAKE ACTIVE du pays partagé par les fichiers isolés (fixture 9800 : réutilisé s'il
+    // existe, un seul compte ACTIVE par pays) ; jamais un nouveau compte ACTIVE validé
+    const a = await tx.query<{ id: string }>('SELECT test_fixture.us024_psp_account($1) AS id', [
+      c.country,
+    ]);
+    account = a.rows[0]?.id ?? '';
     const op = await recordOperation(tx, {
       tripId: trip,
       accountId: account,

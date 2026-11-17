@@ -30,6 +30,9 @@ const ISOLATED = [
   // US-224 : ordres de règlement à deux sessions, données commitées, compte PSP ACTIVE le temps de
   // la course (un seul compte ACTIVE par pays)
   'test/l0/l0-us224-refund-race.test.ts',
+  // US-215 : préparation et demandes de la console commitées (deux rôles), compte PSP ACTIVE du pays
+  // partagé (fixture 9800, un seul compte ACTIVE par pays)
+  'test/l0/l0-us215-trip-cancellation.test.ts',
 ];
 const C11 = ['test/l0/l0-c11-fuzz.test.ts'];
 // US-049 : les attaques de la red team (test/redteam/<axe>/) tournent seules, après tous les autres
