@@ -47,9 +47,15 @@ export async function submitAndSettle(
   page: Page,
   button: Locator,
   navigatesTo?: RegExp,
+  // US-215b : envoi par `fetch` vers l'API (console interne, sans action serveur) : la réponse
+  // attendue est celle du POST dont l'URL correspond
+  options: { readonly api?: RegExp } = {},
 ): Promise<void> {
   const reply = page.waitForResponse((r) => {
     const request = r.request();
+    if (options.api !== undefined) {
+      return request.method() === 'POST' && options.api.test(request.url());
+    }
     return (
       request.method() === 'POST' &&
       (request.headers()['next-action'] !== undefined || request.isNavigationRequest())

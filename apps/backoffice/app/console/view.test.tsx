@@ -140,7 +140,7 @@ describe('console : ce que chaque état montre', () => {
     expect(out).toContain('AA, BB');
     for (const key of [
       'backoffice.action.RECORD_CLAIM',
-      'backoffice.action.CANCEL_TRIP_PLATFORM',
+      'backoffice.action.REFUSE_AT_PICKUP',
       'backoffice.action.DECLARE_NO_SHOW',
     ] as const) {
       expect(out).toContain(es[key]);

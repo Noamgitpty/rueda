@@ -228,8 +228,16 @@ export const DECIDE_LISTING_SQL =
   'SELECT outcome, body FROM core.support_staff_decide_listing($1, $2, $3, $4, $5)';
 export const VEHICLE_FILE_SQL =
   'SELECT outcome, body FROM core.support_staff_vehicle_file($1, $2, $3, $4, $5, $6)';
-export const TRIP_CANCELLATION_SQL =
-  'SELECT outcome, body FROM core.support_staff_trip_cancellation($1, $2, $3)';
+/**
+ * US-215b : état d'une demande d'annulation ; l'exposant de la devise du règlement (config, lisible
+ * par app_api) est joint dans la MÊME instruction, pour l'affichage des montants (jamais un calcul).
+ */
+export const TRIP_CANCELLATION_SQL = `SELECT r.outcome,
+       CASE WHEN pg_catalog.jsonb_typeof(r.body -> 'settlement') = 'object'
+            THEN pg_catalog.jsonb_set(r.body, '{settlement,exponent}', pg_catalog.to_jsonb(c.exponent))
+            ELSE r.body END AS body
+  FROM core.support_staff_trip_cancellation($1, $2, $3) AS r
+  LEFT JOIN core.config_currency AS c ON c.code::text = r.body #>> '{settlement,currency}'`;
 export const RESOLVE_CATALOG_ADDITION_SQL =
   'SELECT outcome, body FROM core.support_staff_resolve_catalog_addition($1, $2, $3, $4, $5, $6::jsonb, $7)';
 

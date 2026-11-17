@@ -2215,6 +2215,125 @@ export const ES_MESSAGES = {
   'web.s04.entry.savedTourist': 'Fecha de entrada declarada: {date}.',
   'web.s04.entry.savedResident': 'Declaraste que eres residente.',
   'web.s04.entry.back': 'Volver a la verificación de identidad',
+  // US-215b (v69) : annulation d’un voyage par l’ops et état réel de la demande (console O01)
+  'backoffice.cancel.heading': 'Cancelar un viaje',
+  'backoffice.cancel.intro':
+    'El viajero o el anfitrión pidió la cancelación al soporte, o la plataforma cancela el viaje. Nunca ingresas un monto: la plataforma calcula el reembolso y la penalidad.',
+  'backoffice.cancel.who': '¿Quién pide la cancelación?',
+  'backoffice.cancel.whoHint': 'Elige primero quién la pide: el formulario se adapta.',
+  'backoffice.cancel.trip': 'Identificador del viaje',
+  'backoffice.cancel.sub': 'Motivo del anfitrión',
+  'backoffice.cancel.sub.none': 'El anfitrión cancela (sin culpa del viajero)',
+  'backoffice.cancel.sub.INVALID_LICENSE': 'Por el viajero: licencia no válida',
+  'backoffice.cancel.sub.IDENTITY_NOT_VERIFIED': 'Por el viajero: identidad no verificada',
+  'backoffice.cancel.sub.OTHER_DRIVER_SENT': 'Por el viajero: llegó otro conductor',
+  'backoffice.cancel.sub.LICENSE_NOT_UPLOADED':
+    'Por el viajero: licencia no enviada en la hora previa al inicio',
+  'backoffice.cancel.subHint':
+    '“Por el viajero” necesita una prueba adjunta: sin prueba, la cancelación cuenta para el anfitrión, con penalidad.',
+  'backoffice.cancel.platform': 'Motivo de la plataforma',
+  'backoffice.cancel.platform.PLATFORM_TRUST_SAFETY': 'Confianza y seguridad',
+  'backoffice.cancel.platform.PLATFORM_INCOMPLETE_STEPS': 'Pasos obligatorios sin completar',
+  'backoffice.cancel.platform.GUEST_FRAUD_PROVEN': 'Fraude del viajero comprobado',
+  'backoffice.cancel.platform.HOST_ACCOUNT_CLOSED': 'Cuenta del anfitrión cerrada',
+  'backoffice.cancel.platform.PLATFORM_REVIEW_DELAY': 'Revisión no hecha a tiempo',
+  'backoffice.cancel.platform.PSP_FAILURE': 'Falla del proveedor de pagos',
+  'backoffice.cancel.review': 'Revisar antes de enviar',
+  'backoffice.cancel.readHeading': 'Estado de una cancelación',
+  'backoffice.cancel.read': 'Ver el estado',
+  'backoffice.cancel.confirmHeading': 'Confirma la cancelación',
+  'backoffice.cancel.confirmIntro':
+    'Revisa antes de enviar. Una vez liquidada, la cancelación no se puede deshacer.',
+  'backoffice.cancel.action': 'Acción',
+  'backoffice.cancel.motive': 'Motivo elegido',
+  'backoffice.cancel.guestMotive': 'Cancelación pedida por el viajero',
+  'backoffice.cancel.evidenceCount': 'Pruebas adjuntas',
+  'backoffice.cancel.evidenceNone': 'Ninguna',
+  'backoffice.cancel.noEvidenceWarning':
+    'Sin prueba adjunta, la cancelación “por el viajero” se recalifica como cancelación del anfitrión, con penalidad.',
+  'backoffice.cancel.confirm': 'Confirmar la cancelación',
+  'backoffice.cancel.edit': 'Corregir',
+  'backoffice.cancel.sent':
+    'Solicitud registrada. La liquidación está en curso: abajo ves su estado real.',
+  'backoffice.cancel.stateHeading': 'Estado de la cancelación',
+  'backoffice.cancel.readError': 'No se pudo leer el estado. Vuelve a intentarlo.',
+  'backoffice.cancel.none': 'Este viaje no tiene ninguna solicitud de cancelación.',
+  'backoffice.cancel.readLive': 'Ver la solicitud en curso',
+  'backoffice.cancel.refresh': 'Actualizar',
+  'backoffice.cancel.restart': 'Nueva cancelación',
+  'backoffice.cancel.state.PENDING': 'Solicitud registrada, liquidación en curso',
+  'backoffice.cancel.state.PENDINGBody':
+    'La plataforma liquida la solicitud en unos segundos. Esta pantalla se actualiza sola.',
+  'backoffice.cancel.state.SETTLED': 'Cancelación liquidada',
+  'backoffice.cancel.state.SETTLEDBody':
+    'El viaje está cancelado y el reembolso del viajero está planificado, monto por monto de cada parte.',
+  'backoffice.cancel.state.FIN_REVIEW': 'Liquidación en revisión por FINANCE',
+  'backoffice.cancel.state.FIN_REVIEWBody':
+    'El viaje no está cancelado. La solicitud espera una decisión de FINANCE: avísale al equipo con el identificador de la solicitud. Mientras siga en revisión, se rechaza otra solicitud para este viaje.',
+  'backoffice.cancel.state.FAILED': 'La liquidación falló: el viaje no está cancelado',
+  'backoffice.cancel.state.FAILEDBody':
+    'No se reembolsó nada. Puedes hacer la solicitud de nuevo; si vuelve a fallar, repórtalo con el identificador de la solicitud.',
+  'backoffice.cancel.slow': 'La liquidación tarda más de lo previsto. Actualiza en un momento.',
+  'backoffice.cancel.requestId': 'Identificador de la solicitud',
+  'backoffice.cancel.requestedAt': 'Pedida el',
+  'backoffice.cancel.why': 'Motivo del bloqueo',
+  'backoffice.cancel.outcome': 'Resultado',
+  'backoffice.cancel.bearer': 'Costo a cargo de',
+  'backoffice.cancel.bearer.GUEST': 'el viajero',
+  'backoffice.cancel.bearer.HOST': 'el anfitrión',
+  'backoffice.cancel.bearer.PLATFORM': 'la plataforma',
+  'backoffice.cancel.refundTotal': 'Reembolso del viajero',
+  'backoffice.cancel.penalty': 'Penalidad del anfitrión (descontada de sus ganancias)',
+  'backoffice.cancel.compensation': 'Compensación del anfitrión',
+  'backoffice.cancel.legsCaption': 'Reembolso por parte',
+  'backoffice.cancel.legColumn': 'Parte',
+  'backoffice.cancel.amountColumn': 'Monto',
+  'backoffice.cancel.refundsCaption': 'Órdenes de reembolso',
+  'backoffice.cancel.refundStatusColumn': 'Estado',
+  'backoffice.cancel.trip.CANCELLED_BY_GUEST': 'Cancelado por el viajero',
+  'backoffice.cancel.trip.CANCELLED_BY_HOST': 'Cancelado por el anfitrión',
+  'backoffice.cancel.trip.CANCELLED_BY_PLATFORM': 'Cancelado por la plataforma',
+  'backoffice.cancel.trip.NO_SHOW_GUEST': 'El viajero no se presentó',
+  'backoffice.cancel.leg.HOST': 'Anfitrión',
+  'backoffice.cancel.leg.INSURER': 'Aseguradora',
+  'backoffice.cancel.leg.TAX_THIRD_PARTY': 'Impuesto',
+  'backoffice.cancel.leg.PLATFORM': 'Plataforma',
+  'backoffice.cancel.refund.PENDING': 'Por enviar al proveedor de pagos',
+  'backoffice.cancel.refund.SUBMITTED': 'Enviada al proveedor de pagos',
+  'backoffice.cancel.refund.SUCCEEDED': 'Reembolsada',
+  'backoffice.cancel.refund.FAILED': 'Fallida',
+  'backoffice.cancel.refund.UNKNOWN': 'Estado desconocido, en verificación',
+  'backoffice.cancel.error.trip': 'Ingresa el identificador completo del viaje.',
+  'backoffice.cancel.error.reason': 'El motivo debe tener entre 10 y 1000 caracteres.',
+  'backoffice.cancel.error.platformReason': 'Elige el motivo de la plataforma.',
+  'backoffice.cancel.refused.CANCEL_REASON_REQUIRED':
+    'Falta el motivo de la plataforma. No se registró nada.',
+  'backoffice.cancel.refused.TRIP_TRANSITION_FORBIDDEN':
+    'Este viaje ya no se puede cancelar aquí: empezó o terminó. No se registró nada.',
+  'backoffice.cancel.refused.CANCELLATION_PENDING':
+    'Ya existe una solicitud de cancelación para este viaje. No se registró nada.',
+  'backoffice.cancel.refused.SELF_FORBIDDEN':
+    'No puedes cancelar un viaje que te concierne. No se registró nada.',
+  'backoffice.cancel.refused.NOT_FOUND': 'No encontramos este viaje. Revisa el identificador.',
+  'backoffice.cancel.outcome.QUOTE_UNAVAILABLE':
+    'El presupuesto fijado del viaje no está disponible.',
+  'backoffice.cancel.outcome.PARAM_MISSING': 'Falta un parámetro de cancelación del país.',
+  'backoffice.cancel.outcome.TRIP_NOT_CAPTURED': 'El pago del viaje no está cobrado por partes.',
+  'backoffice.cancel.outcome.ROW_SHAPE': 'Datos del viaje inesperados.',
+  'backoffice.cancel.outcome.UNEXPECTED_ERROR': 'Error inesperado de la plataforma.',
+  'backoffice.cancel.outcome.RETRY_EXHAUSTED': 'Se agotaron los intentos de liquidación.',
+  'backoffice.cancel.outcome.TRIP_TRANSITION_FORBIDDEN':
+    'El estado del viaje cambió y ya no permite cancelarlo.',
+  'backoffice.cancel.outcome.TRIP_CANCELLATION_SETTLEMENT_MISMATCH':
+    'La liquidación calculada no coincide con los datos del viaje.',
+  'backoffice.cancel.outcome.REFUND_OUT_OF_RANGE': 'Un reembolso supera lo cobrado en una parte.',
+  'backoffice.cancel.outcome.OPERATION_SETTLEMENT_FIN_REVIEW':
+    'Una orden de reembolso necesita una decisión de FINANCE.',
+  'backoffice.cancel.outcome.REFUND_EXCEEDS_COLLECTED': 'El reembolso supera lo cobrado.',
+  'backoffice.cancel.outcome.ADVANCE_DECISION_REQUIRED':
+    'Hace falta una decisión de FINANCE sobre un anticipo de la plataforma.',
+  'backoffice.cancel.outcome.SETTLEMENT_INPUT_INVALID':
+    'Los datos de la liquidación no son válidos.',
 } as const satisfies Catalog;
 
 export type MessageKey = keyof typeof ES_MESSAGES;

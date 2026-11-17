@@ -184,8 +184,13 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  serveur 223c (US-223, ADR-146) : `common.request.*` (demande inconnue, échue, déjà traitée, voyageur
  devenu inéligible, montant non confirmé ; aucun débit dans chaque cas), messages des routes des
  demandes de l'hôte.
+ Version 69 (la 68 est réservée à US-211b) : annulation d’un voyage déclenchée par l’ops, partie
+ 215b (US-215, ADR-151) : `backoffice.cancel.*` (console O01 : demandeur, motif qualifié en liste
+ fermée, confirmation avant envoi, état réel de la demande — en attente, réglée avec le porteur du
+ coût et le remboursement par partie, en revue FINANCE, en échec — et la suite à donner ; refus de la
+ commande et codes d’une demande garée expliqués).
  */
-export const CATALOG_VERSION = 67;
+export const CATALOG_VERSION = 69;
 
 /** Catalogues de base par langue ; la langue d'un profil de locale choisit le sien. */
 export const CATALOGS: Readonly<Record<CatalogLanguage, VersionedCatalog<MessageKey>>> = {
