@@ -52,8 +52,7 @@
 -- Retour arrière (aucun hold REQUEST en base) : réappliquer 0097 (pose), 0112 (checkout, T1),
 --   0040 (T2), 0116 (conditions, conversion, opérations dues), 0041 (refus reçu, candidats),
 --   0045 (oracle), 0037 (garde des colonnes, garde entre hôtes), 0051 (supervision) ;
---   DROP FUNCTION des fonctions créées ci-dessous ; DROP POLICY cmd_hold_request_* et
---   worker_ops_monitor_read ; recréer l'index et les contraintes de 0004 / 0040 ; DROP COLUMN
+--   DROP FUNCTION des fonctions créées ci-dessous ; DROP POLICY cmd_hold_request_* ; recréer worker_select de payment_command (0040) ; recréer l'index et les contraintes de 0004 / 0040 ; DROP COLUMN
 --   request_respond_by ; REVOKE des droits accordés ci-dessous.
 
 -- 1. Hold de demande (17 §2.5 deltas, §3.2.4) ------------------------------------------------------
@@ -212,6 +211,12 @@ GRANT SELECT (operation_kind) ON core.payment_payment_command TO cmd_hold_owner;
 -- posé par la commande après la vérification de la session : actor_kind HOST, org_id du compte),
 -- l'expiration (hold_expiry) et la preuve de l'autorisation (booking_conversion). Le voyageur
 -- n'a aucun droit sur une demande en attente (cmd_hold_upd inchangée).
+-- pose d'une demande par le voyageur de la session (même garde que cmd_hold_ins de 0037, type REQUEST)
+CREATE POLICY cmd_hold_request_ins ON core.booking_checkout_hold FOR INSERT TO cmd_hold_owner
+  WITH CHECK (app.actor_kind() = 'GUEST' AND guest_user_id = app.actor_id()
+              AND kind = 'REQUEST' AND status = 'ACTIVE' AND request_respond_by IS NULL
+              AND (org_id, country_code) = (SELECT p.org_id, p.country_code
+                                              FROM core.booking_vehicle_party(vehicle_id) AS p));
 CREATE POLICY cmd_hold_request_upd ON core.booking_checkout_hold FOR UPDATE TO cmd_hold_owner
   USING (kind = 'REQUEST' AND (
            (app.actor_kind() = 'HOST' AND org_id = app.org_id() AND status = 'AWAITING_HOST')
@@ -315,9 +320,13 @@ CREATE POLICY cmd_hold_request_event_ins ON core.outbox_outbox_event FOR INSERT 
                     AND type IN ('booking.request.received', 'booking.request.expired',
                                  'booking.request.void_requested'))));
 
--- lecture de la supervision : commandes VOID en attente (escalade, exigence d'argent c)
-CREATE POLICY worker_ops_monitor_read ON core.payment_payment_command FOR SELECT TO app_worker
-  USING (app.actor_kind() = 'WORKER' AND app.worker_name() = 'ops_monitor');
+-- lecture de la supervision : commandes VOID en attente (escalade, exigence d'argent c) ; ajouté
+-- à la liste des travailleurs de la politique EXISTANTE (comme 0045), plutôt qu'une politique de
+-- plus (matrice d'US-043 inchangée)
+ALTER POLICY worker_select ON core.payment_payment_command
+  USING (app.actor_kind() = 'WORKER' AND app.worker_name() IN
+         ('payment_command', 'booking_conversion', 'disposition_sweeper', 'payment_intent_sweeper',
+          'hold_expiry', 'ops_monitor'));
 
 -- lecture des demandes par l'hôte (host_view_owner, comme les trips de l'hôte, 0101)
 GRANT SELECT (kind, status, org_id, country_code, vehicle_id, guest_user_id, request_respond_by)

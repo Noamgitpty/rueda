@@ -300,7 +300,8 @@
         "created_by": "C1",
         "updated_at": "C1",
         "updated_by": "C1",
-        "row_version": "C1"
+        "row_version": "C1",
+        "request_respond_by": "C1"
       }
     },
     "core.booking_disposition_repair_log": {
