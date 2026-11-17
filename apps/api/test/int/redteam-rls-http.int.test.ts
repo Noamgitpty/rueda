@@ -188,7 +188,15 @@ beforeAll(async () => {
   }
 
   const env = { ...process.env, RUEDA_ENV: 'test' };
-  const wide: RateLimitPolicy = { limit: () => 1_000_000, isCountry: (c) => countries.includes(c) };
+  // US-122 (ci-stable-3) : limites larges, mais poids d'un client soupçonné d'être un robot = graine
+  // de production (`rate_limit_bot_weight` = 4, migration 0046), dans les bornes de
+  // `core.risk_cmd_hit` (1 à 100). Un poids de 1 000 000 était refusé par la base (repli dégradé
+  // en mémoire à chaque requête suspecte) et saturait à lui seul la fenêtre : 429 dès qu'un autre
+  // appel de la même minute était passé par le repli.
+  const wide: RateLimitPolicy = {
+    limit: (param) => (param === 'botWeight' ? 4 : 1_000_000),
+    isCountry: (c) => countries.includes(c),
+  };
   const staff: StaffOptions = {
     ...postgresStaffAdapters(client, env, 'Console'),
     vault: {

@@ -1870,6 +1870,20 @@
       "story": "US-215"
     },
     {
+      "signature": "core.settlement_cmd_post_host_penalty(uuid)",
+      "family": "cmd_money",
+      "owner": "cmd_money_owner",
+      "execute": [],
+      "story": "US-709"
+    },
+    {
+      "signature": "core.settlement_post_cancellation_penalty()",
+      "family": "cmd_money",
+      "owner": "cmd_money_owner",
+      "execute": [],
+      "story": "US-709"
+    },
+    {
       "signature": "core.payment_trip_refund_view(uuid,text)",
       "family": "cmd_money",
       "owner": "cmd_money_owner",

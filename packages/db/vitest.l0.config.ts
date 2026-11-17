@@ -39,6 +39,9 @@ const ISOLATED = [
   // US-215 : préparation et demandes de la console commitées (deux rôles), compte PSP ACTIVE du pays
   // partagé (fixture 9800, un seul compte ACTIVE par pays)
   'test/l0/l0-us215-trip-cancellation.test.ts',
+  // US-709a : même monde qu'US-215 (préparation, demandes et lectures de l'ops commitées, compte PSP
+  // ACTIVE du pays partagé) ; TRUNCATE refusé du host_ledger (verrou exclusif le temps de l'essai)
+  'test/l0/l0-us709a-host-ledger.test.ts',
   // US-224d : remboursements préparés et VALIDÉS par le travailleur (deux rôles), compte PSP ACTIVE
   // du pays partagé (fixture 9800) ; lectures annulées
   'test/l0/l0-us224d-refund-read.test.ts',

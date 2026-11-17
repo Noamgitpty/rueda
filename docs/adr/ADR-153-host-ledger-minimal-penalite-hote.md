@@ -1,0 +1,32 @@
+# ADR-153 — `host_ledger` minimal : la pénalité de l'hôte qui annule, écrite dans la transaction du règlement
+
+- **Statut** : PROPOSÉ (US-709a, partie minimale d'US-709 avancée au lot 2, agent argent / back-end, claude-opus-5-5, 2026-11-17). Revues exigées : voir `check-story-reviews.mjs` (argent, RLS, rôles, `SECURITY DEFINER` et concurrence sur un autre modèle que l'auteur). À reporter dans 17 §2.9 (`host_ledger[hôte][devise]`), §3.2.8 (entité `host_ledger_entry` à côté de `host_ledger_state`), §2.3 (lecture `fin_read`) et 16 A.8 (codes).
+- **Complète** : ADR-148 (annulations réglées dans la transition : « le `host_ledger` n'existe pas et n'appartient à aucune story livrée »), ADR-147 (avance de Kmino ; recouvrement de la créance laissé à US-709).
+- **Sources** : 19 US-215 critère 2 et US-709 ; 08 BR-CXL-13 (« la pénalité est débitée au `host_ledger` à l'horodatage de l'annulation »), E5 (un grand livre par hôte et par devise, jamais compensé entre devises), E7 règle 7 (pénalité = ajustement de versement, jamais une jambe), vecteurs T14, T15, T48, T62, TJ06 ; 17 v6 §2.9 ; BOARD N-219 (bloquante pour US-215), N-224 (GL-28).
+
+## Contexte
+
+Le critère 2 d'US-215 exige une pénalité de l'hôte « portée au `host_ledger` comme ajustement de versement ». 215a (#203) la calcule (moteur unique, `host_penalty_minor` du règlement, rejoué par 0054) mais aucune table ne la porte : le commentaire de 0124 (l. 59-62) l'attribuait à une table d'US-224b qui n'a jamais existé. Aucun versement n'existe avant le lot C (`payouts_enabled` = `false` en production) et US-709 (compensations, chargebacks, solde négatif) est au lot 3.
+
+## Décision
+
+1. **Table `core.settlement_host_ledger_entry`** (préfixe du schéma cible STL) : une écriture signée par ligne, `bigint` en unités mineures de la devise du trip (une écriture = une devise, 08 E5), signe du point de vue de l'hôte (négatif = débit, dette de l'hôte), motif fermé (`HOST_CANCELLATION_PENALTY` seul ; tout autre motif est une extension revue), horodatage `platform.now()`. Chaque écriture est rattachée au compte d'hôte, au pays, au trip, au segment, au règlement **et à sa version** par une clé étrangère composite vers `settlement_settlement` (nouvelle contrainte `settlement_ledger_scope_unique` sur `(id, trip_id, segment_no, version, org_id, country_code, currency)`) : une écriture ne peut citer ni une autre version, ni une autre devise, ni un autre hôte que son règlement. Idempotence par (règlement, motif) et par (trip, segment, version, motif). Immuable (`settlement_immutable` de 0027 : ni UPDATE, ni DELETE, ni TRUNCATE).
+2. **Montant** : `−host_penalty_minor` du règlement, jamais un paramètre reçu. Le montant vient du moteur et du paramètre `host_penalty` du pays (valeurs de test de 08 : 2 500 / 5 000 cents, 200 000 / 400 000 PYG, PROPOSÉ, OQ-BR-24) ; **aucune décision de montant dans cette story**. Paramètre absent en production ⇒ le moteur refuse et la demande est garée `FAILED` (défaut fail-closed de 0124, inchangé).
+3. **Écriture dans la transaction du règlement, par construction** : commande `core.settlement_cmd_post_host_penalty(uuid)` (`SECURITY DEFINER`, propriétaire `cmd_money_owner`, `search_path` figé, **aucun EXECUTE accordé**), appelée par le déclencheur `trip_cancellation_penalty_posted` (AFTER UPDATE OF status de `core.booking_trip_cancellation`, `PENDING` → `SETTLED`). La liaison du règlement à la demande (`core.booking_cmd_trip_settle_cancellation`, 0124) écrit donc la pénalité dans la même instruction que la transition (SM-1 invariant 4) ; un échec annule le règlement, la transition et les remboursements. Garde de la commande : travailleur `trip_lifecycle` seulement (`host_ledger_command_forbidden`), règlement d'annulation connu (`host_ledger_settlement_unknown`), version 1 seulement (`host_ledger_version_unsupported`, fail-closed) ; pénalité nulle ⇒ rien. La politique d'insertion de `cmd_money_owner` répète la garde (travailleur, motif, signe).
+4. **Lecture de l'ops** : vue `core.settlement_host_ledger_balance_v` (`security_invoker`) — solde, nombre d'écritures et dernière écriture par compte d'hôte, pays et devise (jamais entre devises). Politique `fin_read` : FINANCE et ADMIN du pays seulement (comme `platform_advance`), session élevée exigée par `app.has_staff_role`. Aucune lecture par OPS, SUPPORT, l'hôte, le co-hôte, le voyageur, ni par aucun travailleur (aucun consommateur avant les versements).
+5. **Aucune retenue ni compensation** : aucun versement n'existe et `payouts_enabled` vaut `false` ; la pénalité est enregistrée comme dette de l'hôte, son recouvrement est une suite (GL-33).
+
+## Alternatives écartées
+
+- **Appel explicite par `TripCancellationProcessor`** (commande accordée à app_worker, plus une contrainte différée qui exige l'écriture) : un chemin de plus à oublier, des droits d'EXECUTE en plus, et les preuves L0 d'US-215 (qui appellent les commandes une à une) auraient dû être modifiées. Le déclencheur rend l'écriture impossible à omettre sans ouvrir aucun droit.
+- **Déclencheur sur `settlement_settlement`** (toute version qui porte une pénalité) : couvrirait les futurs règlements (no-show de l'hôte, SM-7), mais exige la contre-passation d'une version n+1 et touche toutes les preuves de STL ; le seul écrivain de production d'un règlement à pénalité est aujourd'hui l'annulation. À reconsidérer avec US-709.
+- **Garde d'égalité du montant dans un déclencheur de la table** : écartée pour garder la matrice d'autorisations peuplée (fixture 9949) ; l'égalité est assurée par la commande, seule écrivaine de production, et prouvée en L0 (T14, T15, T48).
+- **Grand livre en partie double complet** (`ledger_account`, `journal_entry`) : hors du périmètre minimal (lot 3).
+
+## Limites et conséquences (suites)
+
+- Retenue sur les versements (`NETTING` de SM-6, `adjustPayout`, `SUPPORTS_PAYOUT_ADJUSTMENT`) et état SM-6b (`host_ledger_state`, `host_ledger.state_changed`), recouvrement hors versement et passage en perte à deux personnes : US-709 / US-314 / US-708 (GL-33).
+- Contre-passation d'une version n+1 (requalification SM-7) : la commande refuse une version > 1 ; aucune version n+1 n'est écrite en production aujourd'hui.
+- Autres motifs : pénalité de no-show de l'hôte (150 $), reprises de chargeback (E5), créances de la règle 3 bis (TJ18) : US-709.
+- Lecture par l'hôte de sa dette (vue sans identifiant du personnel, RLS-26) : US-709.
+- Commentaire de 0124 (l. 59-62) périmé : corrigé par la note d'en-tête de 0129 (0124 n'est pas réécrite).

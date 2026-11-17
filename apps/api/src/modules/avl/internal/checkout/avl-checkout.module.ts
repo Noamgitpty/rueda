@@ -17,7 +17,7 @@
  * rend `PAYMENT_UNAVAILABLE` sans toucher à la demande ; le refus et la lecture fonctionnent.
  *
  * Remboursements d'un trip (US-224 partie 224d, ADR-154) : lecture par la partie du trip
- * (`core.booking_trip_refunds`, 0129) ; aucun adaptateur : 503.
+ * (`core.booking_trip_refunds`, 0130) ; aucun adaptateur : 503.
  */
 import { Module } from '@nestjs/common';
 import type { DynamicModule } from '@nestjs/common';
@@ -87,7 +87,7 @@ export interface AvlCheckoutOptions {
   readonly payments?: AvlCheckoutPaymentOptions;
   /** Demandes de réservation de l'hôte (US-223c) ; absent : 503. */
   readonly hostRequests?: AvlHostRequestOptions;
-  /** Remboursements d'un trip lus par sa partie (US-224d, 0129) ; absent : 503. */
+  /** Remboursements d'un trip lus par sa partie (US-224d, 0130) ; absent : 503. */
   readonly refunds?: TripRefundStore;
 }
 

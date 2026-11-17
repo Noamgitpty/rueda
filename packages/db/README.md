@@ -907,7 +907,7 @@ Migration `0122_ctr_rental_contract`, fixture `9963_test_us211_rental_contract_f
 
 ## Remboursement lu par le voyageur, l'hôte et la console (US-224 partie 224d ; 19 US-224 critère 1 ; 08 SM-8, BR-PAY-08 ; ADR-154)
 
-Migration `0129_payment_refund_read` : trois fonctions de lecture AJOUTÉES, aucune table, aucun droit sur une table.
+Migration `0130_payment_refund_read` : trois fonctions de lecture AJOUTÉES, aucune table, aucun droit sur une table.
 
 - `core.payment_trip_refund_view(uuid, text)` (cmd_money_owner, EXECUTE cmd_hold_owner et iam_staff_owner) : instances SM-8 d'un trip pour une vue `GUEST` (état, montant, rail, dates de planification et d'émission), `HOST` (état, part de la jambe HOST seulement, dates) ou `STAFF` (tout : jambes demandées et de l'ordre, statut de l'ordre, tentative, version, motif de blocage, alerte FIN, avance) ; `SUPERSEDED` et `CANCELLED` au staff seulement ; montants en texte, dates ISO 8601 UTC.
 - `core.booking_trip_refunds(bytea, uuid)` (cmd_hold_owner, EXECUTE app_api) : partie de la session (voyageur du trip ou titulaire du compte d'hôte) ; `NOT_FOUND` à toute autre personne et pour un trip inconnu ; état, devise et fuseau du trip.
@@ -942,3 +942,13 @@ Migration `0127_payment_refund_scheduler`. Fixture `9961_test_us224c_refund_matr
 - **SM-8** : `SUBMITTED → SENT | FAILED`, `SENT → CONFIRMED | FAILED`, `FAILED → SUPERSEDED` (garde `payment_refund_instance_guard` ; supersession étendue aux instances `FAILED`) ; l'instance suit le statut de son ordre `REFUND` par le déclencheur `refund_instance_sync` (`core.payment_refund_instance_sync`, SECURITY DEFINER, cmd_money_owner ; politique `cmd_money_sync` pour `webhook_ingest`) ; `UNKNOWN` laisse l'instance inchangée ; CHECK `refund_instance_issued_shape` élargi (instance remplacée après un échec : date d'émission gardée).
 - **Commandes** (cmd_money_owner, EXECUTE app_worker, travailleur `payment_command`) : `core.payment_refunds_due(limit)` (file de l'ordonnanceur), `core.payment_cmd_refund_order_for_send(instance)` (verrous du trip puis de l'ordre gardés jusqu'à la fin de la transaction ; refus `NOT_SUBMITTED`, `FINAL`, `SUPERSEDED_UNSENT`, `NO_TARGET`), `core.payment_cmd_refund_mark_alerted(instance, clé)` (colonne `fin_alert`, format fermé).
 - **Preuves** : `test/l0/l0-us224c-refund-scheduler.test.ts` (PA USD, PY PYG) ; matrice d'autorisations peuplée (`l0-us043-authorization-matrix`, exception `sans_donnees` retirée).
+
+## `host_ledger` minimal : pénalité de l'hôte qui annule (US-709a ; 08 BR-CXL-13, E5, E7 règle 7 ; ADR-153)
+
+Migration `0129_settlement_host_ledger`. Fixture `9949_test_us709_host_ledger_fixtures.sql` (écriture posée dans le monde de la matrice d'autorisations, lecture des écritures d'un trip, appel de la commande, essais d'immuabilité).
+
+- **Table** `core.settlement_host_ledger_entry` (classe C1, sujet ORG) : écriture signée en unités mineures de la devise du trip (négatif = dette de l'hôte), motif fermé `HOST_CANCELLATION_PENALTY`, rattachée au compte d'hôte, au trip, au règlement et à sa version par la clé étrangère `host_ledger_settlement_fk` (contrainte `settlement_ledger_scope_unique` ajoutée à `settlement_settlement`) ; unique par (règlement, motif) ; immuable (`settlement_immutable`).
+- **Écriture** : `core.settlement_cmd_post_host_penalty(uuid)` (cmd_money_owner, aucun EXECUTE), appelée par le déclencheur `trip_cancellation_penalty_posted` de `core.booking_trip_cancellation` (`PENDING` → `SETTLED`, `core.settlement_post_cancellation_penalty`) : montant `−host_penalty_minor` du règlement, travailleur `trip_lifecycle`, version 1 seulement.
+- **Lecture** : vue `core.settlement_host_ledger_balance_v` (solde par hôte, pays et devise) ; politique `fin_read` (FINANCE / ADMIN du pays) ; aucun droit d'app_worker ni d'app_anon.
+- **Codes** : `host_ledger_command_forbidden` ⇒ `FORBIDDEN` ; `host_ledger_settlement_unknown`, `host_ledger_version_unsupported`, `host_ledger_entry_settlement_reason_unique` ⇒ `INVARIANT_VIOLATION`.
+- **Preuves** : `test/l0/l0-us709a-host-ledger.test.ts` (T14, T15, T48, T03, T27 ; PA USD, PY PYG ; groupe isolé) ; matrice d'autorisations peuplée (`l0-us043-authorization-matrix`).

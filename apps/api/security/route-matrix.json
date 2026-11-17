@@ -164,7 +164,7 @@
     },
     "GET /console/refunds/{id}": {
       "acces": "staff",
-      "permission": "ops.platform_cancel (OPS_AGENT, ADMIN) ou finance.platform_advance (FINANCE, ADMIN), dans le pays du trip, garde ADR-122, refus journalisés (US-224d, 0129)",
+      "permission": "ops.platform_cancel (OPS_AGENT, ADMIN) ou finance.platform_advance (FINANCE, ADMIN), dans le pays du trip, garde ADR-122, refus journalisés (US-224d, 0130)",
       "roles": ["OPS_AGENT", "FINANCE", "ADMIN"],
       "portee": "pays",
       "idor": "trip de l’autre pays ou inconnu : 403 FORBIDDEN journalisé, aucune donnée ; trip qui concerne l’agent : 403 STAFF_SELF_FORBIDDEN ; aucune donnée personnelle rendue (preuve L0 l0-us224d-refund-read)"
@@ -573,7 +573,7 @@
     },
     "GET /trips/{tripId}/refunds": {
       "acces": "session",
-      "idor": "trip d'une autre personne (ni son voyageur ni le titulaire de son compte d'hôte), inconnu ou identifiant mal formé : 404 REFUND_NOT_FOUND, même réponse (17 §2.3 point 5) ; la partie est celle de la session, jugée en base (core.booking_trip_refunds, 0129) ; l'hôte ne lit que la jambe HOST, aucune donnée du voyageur ; preuves base : l0-us224d-refund-read"
+      "idor": "trip d'une autre personne (ni son voyageur ni le titulaire de son compte d'hôte), inconnu ou identifiant mal formé : 404 REFUND_NOT_FOUND, même réponse (17 §2.3 point 5) ; la partie est celle de la session, jugée en base (core.booking_trip_refunds, 0130) ; l'hôte ne lit que la jambe HOST, aucune donnée du voyageur ; preuves base : l0-us224d-refund-read"
     },
     "GET /trips/{tripId}/contract/pdf": {
       "acces": "session",

@@ -197,7 +197,7 @@ const OPS_BODIES: Readonly<Record<string, Record<string, unknown>>> = {
       refunds: [{ status: 'PLANNED', amountMinor: '18744' }],
     },
   },
-  // US-224d : remboursements SM-8 d'un trip (forme de 0129, exposant joint par le magasin)
+  // US-224d : remboursements SM-8 d'un trip (forme de 0130, exposant joint par le magasin)
   tripRefunds: {
     tripId: ID,
     country: FIRST_COUNTRY,

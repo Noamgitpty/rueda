@@ -1,5 +1,5 @@
 /**
- * US-224 (partie 224d, migration 0129, ADR-154) — lecture du remboursement (critère 1 : « visible
+ * US-224 (partie 224d, migration 0130, ADR-154) — lecture du remboursement (critère 1 : « visible
  * du voyageur, de l'hôte (jambe HOST seulement) et de l'ops ») : `core.booking_trip_refunds`
  * (partie de la session, EXECUTE app_api) et `core.support_staff_trip_refunds` (console : session
  * élevée, ops.platform_cancel ou finance.platform_advance dans le pays du trip, refus journalisés).

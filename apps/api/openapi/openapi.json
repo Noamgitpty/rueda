@@ -15129,7 +15129,7 @@
         "type": "object",
         "required": ["tripId", "country", "exponent", "refunds"],
         "additionalProperties": false,
-        "description": "US-224d (ADR-154) : remboursements (SM-8) d'un trip pour la console (0129) ; montants en unités mineures (texte) ; aucune donnée personnelle.",
+        "description": "US-224d (ADR-154) : remboursements (SM-8) d'un trip pour la console (0130) ; montants en unités mineures (texte) ; aucune donnée personnelle.",
         "properties": {
           "tripId": {
             "$ref": "#/components/schemas/Uuid"

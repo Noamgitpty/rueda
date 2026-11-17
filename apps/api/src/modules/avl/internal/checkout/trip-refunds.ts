@@ -3,7 +3,7 @@
  * critère 1 ; 16 PAY-021 ; 08 SM-8, E3, BR-PAY-08 ; 10b S10, UX-31). Le voyageur lit le montant
  * remboursé par Kmino, le rail et la date d'ÉMISSION (jamais une date de réception) ; le titulaire
  * du compte d'hôte lit la seule part de la jambe HOST (impact sur ses gains). La base juge la
- * partie (`core.booking_trip_refunds`, 0129, SECURITY DEFINER, EXECUTE app_api) et rend la même
+ * partie (`core.booking_trip_refunds`, 0130, SECURITY DEFINER, EXECUTE app_api) et rend la même
  * réponse NOT_FOUND à toute autre personne : la route rend alors 404 `REFUND_NOT_FOUND`, comme pour
  * un trip inconnu ou un identifiant mal formé (aucun oracle).
  *
@@ -127,7 +127,7 @@ export class UnavailableTripRefundStore implements TripRefundStore {
   }
 }
 
-/** Lecture (0129) et exposant de la devise du trip, dans la MÊME instruction. */
+/** Lecture (0130) et exposant de la devise du trip, dans la MÊME instruction. */
 export const TRIP_REFUNDS_SQL = `SELECT r.outcome, r.viewer_role, r.trip_status, r.currency, r.timezone,
        r.refunds, c.exponent
   FROM core.booking_trip_refunds($1, $2::uuid) AS r

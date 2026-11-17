@@ -1,4 +1,4 @@
--- 0129 — PAY / AVL / SUP : lecture du remboursement par le voyageur, l'hôte et la console (S10).
+-- 0130 — PAY / AVL / SUP : lecture du remboursement par le voyageur, l'hôte et la console (S10).
 -- US-224 (partie 224d, écrans) ; 19 US-224 (critère 1 : « le remboursement est visible du voyageur,
 -- de l'hôte (jambe HOST seulement) et de l'ops ») ; 16 PAY-021 ; 08 SM-8, E3, BR-PAY-08 (date
 -- d'émission, jamais une date de réception) ; 10b S10, UX-31, UXQ-11 ; 17 v6 §3.2.7
