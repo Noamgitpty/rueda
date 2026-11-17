@@ -124,6 +124,13 @@ BEGIN
         USING ERRCODE = 'object_not_in_prerequisite_state',
               CONSTRAINT = 'leg_refund_without_settlement';
     END IF;
+    -- LEG_RELEASE d'un trip qui n'a AUCUN règlement (trajet terminé sans annulation : aucun
+    -- règlement de fin en bêta) : gardé par settlement_release_blocker (0054) seul ; dès qu'un
+    -- règlement existe, sa version en tête est exigée
+    IF v_kind = 'LEG_RELEASE'
+       AND NOT EXISTS (SELECT 1 FROM core.settlement_settlement AS s WHERE s.trip_id = v_trip) THEN
+      RETURN;
+    END IF;
     RAISE EXCEPTION 'payment: % of operation % without a settlement', v_kind, p_operation_id
       USING ERRCODE = 'object_not_in_prerequisite_state',
             CONSTRAINT = 'operation_settlement_required';
@@ -253,17 +260,17 @@ SET LOCAL ROLE cmd_money_owner;
 
 -- 3.1 Enregistrement d'un ordre (corps de 0048 recopié ; blocs marqués US-224)
 CREATE FUNCTION core.payment_cmd_record_operation(
-  p_id             uuid,
-  p_hold_id        uuid,
-  p_trip_id        uuid,
-  p_psp_account_id uuid,
-  p_method         text,
-  p_kind           text,
-  p_purpose        text,
-  p_amount_minor   bigint,
-  p_currency       text,
-  p_attempt_no     integer,
-  p_idem_plain     text,
+  p_id                 uuid,
+  p_hold_id            uuid,
+  p_trip_id            uuid,
+  p_psp_account_id     uuid,
+  p_method             text,
+  p_kind               text,
+  p_purpose            text,
+  p_amount_minor       bigint,
+  p_currency           text,
+  p_attempt_no         integer,
+  p_idem_plain         text,
   p_idem_sent          text,
   p_legs               jsonb,
   p_settlement_id      uuid,

@@ -2,9 +2,9 @@
  * US-224 (migration 0120, ADR-145) — ordres de règlement sur DEUX connexions (L2-PM-05, modèle
  * `rt-conc-*`, S-03) : la garde d'enregistrement prend le verrou du trip, compte les ordres en vol
  * validés par l'autre session et relit la version en tête après l'attente. Fichier ISOLÉ
- * (`vitest.l0.config.ts`, projet `l0-concurrence`) : la mise en place est validée (COMMIT) et le
- * compte PSP du pays reste ACTIVE le temps de la course (index `psp_account_one_active`), puis il
- * est suspendu. Aucun interrupteur n'est ouvert.
+ * (`vitest.l0.config.ts`, projet `l0-concurrence`) : la mise en place est validée (COMMIT) sur le
+ * compte FAKE ACTIVE du pays partagé par les fichiers isolés (fixture 9800, index
+ * `psp_account_one_active`). Aucun interrupteur n'est ouvert.
  *
  * Sous app_worker (rôle de PRODUCTION, assertion L0-05 : withRole / connectAs), en USD (PA) et en
  * PYG (PY). Attendus : export des oracles (TJ01 / TJ02b / T03, TJ08a / TJ08b / T27, T08), codes de
@@ -17,14 +17,7 @@ import { setSessionContext } from '../../src/index.ts';
 import { connectAs, releaseClient, withRole } from '../../src/testing/index.ts';
 import { COUNTRIES } from '../support/avl.ts';
 import type { CountryCase } from '../support/avl.ts';
-import {
-  applySignedStatus,
-  insertAccount,
-  insertTrip,
-  payTx,
-  recordOperation,
-  uuid,
-} from '../support/pay.ts';
+import { applySignedStatus, insertTrip, payTx, recordOperation, uuid } from '../support/pay.ts';
 import type { Legs, SettlementRef } from '../support/pay.ts';
 import {
   eventOfVector,
@@ -60,7 +53,12 @@ async function setup(c: CountryCase): Promise<Setup> {
   return withRole('app_worker', (client) =>
     payTx(client, { worker: 'payment_command', commit: true }, async (tx) => {
       const trip = await insertTrip(tx, c);
-      const account = await insertAccount(tx, { country: c.country });
+      // compte FAKE ACTIVE du pays partagé par les fichiers isolés (fixture 9800 : réutilisé s'il
+      // existe, un seul compte ACTIVE par pays)
+      const a = await tx.query<{ id: string }>('SELECT test_fixture.us024_psp_account($1) AS id', [
+        c.country,
+      ]);
+      const account = a.rows[0]?.id ?? '';
       const { operation_id: cap } = await recordOperation(tx, {
         tripId: trip,
         accountId: account,
@@ -78,17 +76,6 @@ async function setup(c: CountryCase): Promise<Setup> {
         recordOfVector(r.settlement),
       );
       return { trip, account, v1: { id, version: 1 } };
-    }),
-  );
-}
-
-/** Compte suspendu (validé) : aucun compte ACTIVE laissé aux fichiers suivants. */
-async function suspend(account: string): Promise<void> {
-  await withRole('app_worker', (client) =>
-    payTx(client, { commit: true }, async (tx) => {
-      await tx.query(`UPDATE core.payment_psp_account SET status = 'SUSPENDED' WHERE id = $1`, [
-        account,
-      ]);
     }),
   );
 }
@@ -163,7 +150,6 @@ describe.each(COUNTRIES)('US-224 — ordres de règlement concurrents — $count
       await second.query('ROLLBACK').catch(() => undefined);
       await releaseClient(first);
       await releaseClient(second);
-      await suspend(s.account);
     }
     expect(await refunds(s.trip)).toBe(1);
   });
@@ -202,7 +188,6 @@ describe.each(COUNTRIES)('US-224 — ordres de règlement concurrents — $count
       await pay.query('ROLLBACK').catch(() => undefined);
       await releaseClient(stl);
       await releaseClient(pay);
-      await suspend(s.account);
     }
     expect(await refunds(s.trip)).toBe(0);
   });

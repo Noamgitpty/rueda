@@ -218,8 +218,10 @@ describe('US-018 — supersession : version n+1 par contre-passation, sans perte
       string,
     ][] = [
       [
-        'v1 une seconde fois',
-        (tx, s) => recordAsSettlementWorker(tx, { tripId: s.trip, version: 1 }, r1),
+        // US-224 (0120, S-02 phrase 2) : la v1 rejouée au MÊME contenu rend la v1 existante (rejeu,
+        // rien d'écrit : l0-us224-refund-orders) ; une autre v1 (autre contenu) reste refusée
+        'v1 une seconde fois, autre contenu',
+        (tx, s) => recordAsSettlementWorker(tx, { tripId: s.trip, version: 1 }, r2),
         'SETTLEMENT_EXISTS',
       ],
       [
