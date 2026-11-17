@@ -15,7 +15,11 @@
  * tenant la tête, alors qu'une transaction neuve tient le consultatif et attend la tête : deux
  * fichiers qui ouvrent le même interrupteur du même pays en même temps s'interbloquent (40P01).
  * Les aides ci-dessous prennent la tête AVANT chaque commande (`lockAuditChainHead`, fixture
- * 9957), si bien que toute preuve suit le même ordre : tête, puis consultatif.
+ * 9957), si bien que toute preuve suit le même ordre : tête, puis consultatif. La fixture prend
+ * auparavant le verrou de table ROW EXCLUSIVE du journal (`core.audit_audit_log`), comme tout
+ * INSERT d'audit et comme `test_fixture.lock_audit_log` (9150, ACCESS EXCLUSIVE avant la tête) :
+ * ordre unique table, tête, consultatif (interblocage du run 44059396848 avec
+ * l0-aud-01-audit-chain).
  */
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import type pg from 'pg';

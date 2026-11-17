@@ -1,0 +1,1 @@
+exemption: US-122 — CI seule : limite de durée du job e2e web portée de 20 à 30 min (durées mesurées dans docs/ops/CI.md) ; aucun seuil, aucune relance, aucun test ne change ; aucun comportement livré ne change
