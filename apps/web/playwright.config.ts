@@ -50,7 +50,7 @@ const PAYMENT = /checkout-payment\.spec\.ts$/;
 const REVIEW = /checkout-review\.spec\.ts$/;
 /** Plan de gains d'un véhicule, A10 → A11 (US-226 partie 226b) : téléphones 360 et 390 px. */
 const HOST_EARNINGS = /host-earnings-plan\.spec\.ts$/;
-/** Contrat de location : S09 · contrat du voyageur, A03 · contrat de l'hôte (US-211 partie 211b). */
+/** Contrat de location : S09 · contrat du voyageur, A03 · contrat de l'hôte (US-211 partie 211b) : 360 px. */
 const CONTRACT = /trip-contract\.spec\.ts$/;
 /** Balayage axe + captures de chaque écran du site (US-044). */
 const SCREENS = /screens\.spec\.ts$/;
@@ -146,7 +146,8 @@ export default defineConfig({
         PAYMENT,
         REVIEW,
         HOST_EARNINGS,
-        CONTRACT,
+        // CONTRACT : 360 px seulement ; ses trois écrans passent à 390 px par SCREENS (axe, mobile
+        // d'abord) : job e2e proche de sa limite de 20 min (suite à la passation d'US-211b)
         SCREENS,
       ],
       use: { ...phone, viewport: { width: 390, height: 844 } },

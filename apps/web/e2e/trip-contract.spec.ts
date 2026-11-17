@@ -1,6 +1,6 @@
 /**
  * Contrat de location d'un trip — S09 · contrat (voyageur) et A03 · contrat (hôte), US-211 partie
- * 211b, comme un utilisateur réel, à 360 et 390 px, dans les quatre langues, contre le build de
+ * 211b, comme un utilisateur réel, à 360 px (ses écrans passent aussi à 390 px par `screens.spec.ts`), dans les quatre langues, contre le build de
  * production du site et le double de l'API (`e2e/stub-api.mjs`, appelé par le SERVEUR du site).
  *
  * - S06 confirmé ⇒ lien vers le contrat ; S09 : relation entre particuliers rappelée, BROUILLON,
