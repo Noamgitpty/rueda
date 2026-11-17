@@ -13,7 +13,8 @@ CTR ne stocke pas les octets des fichiers (AUD, `file_asset`) et n'envoie rien l
 - **livré** : documents juridiques versionnés et consentements du voyageur (US-102, ADR-091) : CGU du voyageur, confidentialité, communications ; routes `/legal` ; garde `TermsGuard` ; port `SignatureService` (US-020, ADR-058) ; **CGU de l'hôte** (US-126, ADR-100) : genre `TOS_HOST`, routes `/host/accounts/{orgId}/terms`, garde `TERMS_REACCEPT_REQUIRED` dans la commande de soumission d'une annonce (migration 0070) ;
 - **checkout** (US-208, ADR-133) : genre `GEO_TERMS` (texte géographique) et graines BROUILLON de `CANCELLATION_POLICY` et `GEO_TERMS` ; consentements `CHECKOUT` écrits par `core.ctr_checkout_terms` (EXECUTE `cmd_hold_owner`) dans la commande de checkout d'AVL ; `core.ctr_account_country` ignore ces acceptations ; contrôle à l'exécution de `TermsGuard` (`internal/terms-guard-runtime.test.ts`, N-43) ;
 - **contrat de location hôte–voyageur** (US-211 partie 211a, ADR-143) : gabarit `RENTAL_CONTRACT` BROUILLON (0122), texte du contrat (`buildContractBody`, libellés `ctr.contract.*` du catalogue v65, figés dans le document), PDF déterministe `ctr.pdf/1` (`renderContractPdf`, Courier WinAnsi, aucune date ni compression), empreinte et vérification (`contractSha256`, `verifyContractPdf` ⇒ `CONTRACT_HASH_MISMATCH`), lecture stricte des faits de la base (`parseContractFacts`). Fonctions pures exportées par `index.ts` ; la génération (faits du devis figé, retenue du moteur de règlement de PRC) est le travailleur `booking_contract` d'AVL ; tables et commandes de 0122 (propriétaire `cmd_hold_owner`) ;
-- **pas encore** : garde des CGU de l'hôte à la confirmation d'une réservation (lot 2), routes et écrans du contrat (211b), constancia (US-212), route de console de publication (US-101), événements de consentement.
+- **routes et écrans du contrat** (US-211 partie 211b, ADR-149) : `TripContractController` (`/trips/{tripId}/contract`, PDF, signature ; voir « Routes du contrat de location »), magasin `PgTripContractStore` (`core.booking_trip_contract`, `core.booking_cmd_sign_contract` de 0122), vérification d'un PDF signé présenté (`verifySignedContractPdf`), texte tel qu'imprimé (`fillSignatureBlock`) ;
+- **pas encore** : garde des CGU de l'hôte à la confirmation d'une réservation (lot 2), pièce jointe du contrat à la confirmation (NTF, US-213), régénération par l'ops et publication du gabarit `RENTAL_CONTRACT` par la console, constancia (US-212), route de console de publication (US-101), événements de consentement.
 
 ## Entités
 
@@ -47,6 +48,16 @@ Garde **`TermsGuard`** (`index.ts`) : à poser après `SessionGuard` sur toute r
 
 Commandes en base (`iam_auth_owner`) : `core.ctr_host_terms`, `core.ctr_cmd_accept_host_terms` (EXECUTE `app_api`), `core.ctr_host_terms_required` (EXECUTE `catalog_cmd_owner` : garde de `core.catalog_cmd_submit_listing`, 409 `TERMS_REACCEPT_REQUIRED`).
 
+## Routes du contrat de location (US-211 partie 211b)
+
+| Route                                | Accès   | Rôle                                                                                                                                                            |
+| ------------------------------------ | ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /trips/{tripId}/contract`       | session | voyageur ou titulaire du compte d'hôte : résumé, texte (équivalent HTML du PDF), empreinte, signature ; `?version=n` ; 404 sinon ; 409 `CONTRACT_NOT_GENERATED` |
+| `GET /trips/{tripId}/contract/pdf`   | session | PDF rendu de nouveau, servi seulement s'il redonne l'empreinte enregistrée (sinon 503) ; `X-Contract-Sha256`, sans cache ; 409 `CONTRACT_TEXT_ERASED`           |
+| `POST /trips/{tripId}/contract/sign` | session | voyageur seul : `{ accepted: true, documentId, sha256 }` ; 409 `CONTRACT_HASH_MISMATCH` / `CONTRACT_SUPERSEDED` / `CONTRACT_NOT_SIGNABLE`                       |
+
+Gardes `SessionGuard` puis `TermsGuard`. Toute autre personne, trip inconnu ou identifiant mal formé : même 404 `CONTRACT_NOT_FOUND`. Sans magasin (`contracts` absent des options) : 503. Codes et clés : `internal/contract/errors.ts` (`CONTRACT_MESSAGES`).
+
 ## Événements
 
 Émis (cible 17 §4.5) : `contract.document.generated` (version enregistrée, acteur SYSTEM) et `contract.document.signed` (signature du voyageur) depuis US-211 (0122) ; `legal.consent.recorded` et `legal.document_template.published` : pas encore.
@@ -62,7 +73,7 @@ Consommé (cible 17 §4.5) : `booking.trip.booked` par le travailleur `booking_c
 
 ## Commandes de test
 
-- Unitaires (sans base) : `pnpm --filter @rueda/api exec vitest run src/modules/ctr` (`internal/signature-service.port.test.ts`, `internal/terms.guard.test.ts`, `internal/contract/rental-contract.test.ts` (contrat, PDF, empreinte de référence), contrats HTTP `testing/legal.contract.test.ts` et `testing/host-terms.contract.test.ts`).
-- Preuves L0 (PostgreSQL, rôles de production) : `pnpm --filter @rueda/db exec vitest run --config vitest.l0.config.ts test/l0/l0-ctr-consents.test.ts test/l0/l0-us126-host-terms.test.ts test/l0/l0-us211-rental-contract.test.ts`.
+- Unitaires (sans base) : `pnpm --filter @rueda/api exec vitest run src/modules/ctr` (`testing/trip-contract.contract.test.ts` (routes du contrat, 211b), `internal/signature-service.port.test.ts`, `internal/terms.guard.test.ts`, `internal/contract/rental-contract.test.ts` (contrat, PDF, empreinte de référence), contrats HTTP `testing/legal.contract.test.ts` et `testing/host-terms.contract.test.ts`).
+- Preuves L0 (PostgreSQL, rôles de production) : `pnpm --filter @rueda/db exec vitest run --config vitest.l0.config.ts test/l0/l0-ctr-consents.test.ts test/l0/l0-us126-host-terms.test.ts test/l0/l0-us211-rental-contract.test.ts test/l0/l0-us211-contract-concurrency.test.ts`.
 
 `test:int` et `test:l0` demanderont PostgreSQL : guide `docs/ops/INSTALL.md` (compose de dev) ou `RUEDA_PG_TESTCONTAINERS=1` (Docker) ; variables dans `packages/db/README.md`, section « Commandes ».
