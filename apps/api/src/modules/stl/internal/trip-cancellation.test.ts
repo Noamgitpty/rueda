@@ -8,11 +8,11 @@
  * vecteurs (trip, événement, paramètres de test de 08) viennent de l'adaptateur de test du moteur
  * (`@rueda/money/testing`). Pays fictif `XA` (aucune constante de pays).
  */
-import { canonicalJson, type SettlementTrip } from '@rueda/money';
+import { SettlementError, canonicalJson, type SettlementTrip } from '@rueda/money';
 import { legVector, loadGoldenVectors, settlementVector } from '@rueda/money/golden-vectors';
 import { testParams, toEvent, toTrip } from '@rueda/money/testing';
 import { describe, expect, it } from 'vitest';
-import { assertSafeAlert } from '../../bus/index.js';
+import { BusRegistry, assertSafeAlert } from '../../bus/index.js';
 import type {
   AlertChannel,
   OpsAlert,
@@ -22,12 +22,15 @@ import type {
 } from '../../bus/index.js';
 import {
   CancellationPlanError,
+  TRIP_CANCELLATION_MAX_RETRIES,
   TripCancellationProcessor,
+  UNEXPECTED_CODE,
   cancellationEvent,
   cancellationParams,
   classify,
   orderKey,
   planCancellation,
+  registerTripCancellations,
   type CancellationFacts,
 } from './trip-cancellation.js';
 
@@ -413,5 +416,164 @@ describe('processeur trip_lifecycle', () => {
     expect(await p.process(facts.cancellationId)).toEqual({ outcome: 'RETRY', code: 'RETRY' });
     expect(db.calls.some((c) => c.sql.includes('park'))).toBe(false);
     expect(alerts.sent).toEqual([]);
+  });
+});
+
+describe('isolement des demandes, alertes et essais bornés (revue code n° 1 à 4, 7)', () => {
+  const ok = (facts: CancellationFacts) => (sql: string) => {
+    if (sql.includes('booking_trip_cancellation_begin')) return [beginRow(facts)];
+    if (sql.includes('settlement_cmd_record')) return [{ id: 'set-1' }];
+    if (sql.includes('booking_cmd_trip_settle_cancellation'))
+      return [{ r: { costBearer: 'GUEST' } }];
+    if (sql.includes('payment_payment_operation'))
+      return [{ id: 'cap-1', psp_account_id: 'acc-1', method: 'CARD' }];
+    if (sql.includes('payment_cmd_plan_refund'))
+      return [
+        {
+          instance_id: 'ri-1',
+          operation_id: 'op-1',
+          advance_id: null,
+          status: 'PLANNED',
+          blocked_reason: null,
+          replayed: false,
+        },
+      ];
+    if (sql.includes('booking_cmd_trip_park_cancellation')) return [{ r: 'PARKED' }];
+    return new Error(sql);
+  };
+
+  it('erreur sans SQLSTATE (programme) : garée FAILED UNEXPECTED_ERROR, alerte, journal sans identifiant ; process ne lève pas', async () => {
+    const { facts } = factsOf('T03');
+    const db = new FakeDb(ok(facts));
+    const alerts = new Alerts();
+    const logs: string[] = [];
+    const p = new TripCancellationProcessor({
+      transactions: transactionsOf(db),
+      alerts,
+      log: (l) => logs.push(l),
+      tripOf: () => {
+        throw new TypeError('devis illisible');
+      },
+    });
+    expect(await p.process(CANCELLATION_ID)).toEqual({ outcome: 'FAILED', code: UNEXPECTED_CODE });
+    expect(db.calls.some((c) => c.sql.includes('booking_cmd_trip_park_cancellation'))).toBe(true);
+    expect(alerts.sent.map((a) => [a.code, a.labels?.error_code])).toEqual([
+      ['TRIP_CANCELLATION_FAILED', UNEXPECTED_CODE],
+    ]);
+    expect(logs.map((l) => JSON.parse(l) as unknown)).toEqual([
+      { worker: 'trip_lifecycle', level: 'error', event: 'unexpected', error_class: 'TypeError' },
+    ]);
+    for (const l of logs) expect(l).not.toContain(CANCELLATION_ID);
+  });
+
+  it('REFUND_OUT_OF_RANGE du moteur : FIN_REVIEW garé, UNE seule alerte FIN_SETTLEMENT_REVIEW', async () => {
+    const { facts } = factsOf('T03');
+    const db = new FakeDb(ok(facts));
+    const alerts = new Alerts();
+    const p = new TripCancellationProcessor({
+      transactions: transactionsOf(db),
+      alerts,
+      tripOf: () => {
+        throw new SettlementError('REFUND_OUT_OF_RANGE', 'remboursement hors bornes');
+      },
+    });
+    expect(await p.process(CANCELLATION_ID)).toEqual({
+      outcome: 'FIN_REVIEW',
+      code: 'REFUND_OUT_OF_RANGE',
+    });
+    expect(alerts.sent.map((a) => a.code)).toEqual(['FIN_SETTLEMENT_REVIEW']);
+    expect(db.calls.some((c) => c.sql.includes('booking_cmd_trip_park_cancellation'))).toBe(true);
+  });
+
+  it('interblocages répétés : RETRY jusqu’à la borne, puis FAILED RETRY_EXHAUSTED, alerté et garé', async () => {
+    const { facts } = factsOf('T03');
+    const db = new FakeDb((sql) => {
+      if (sql.includes('booking_trip_cancellation_begin')) {
+        return Object.assign(new Error('deadlock'), { code: '40P01' });
+      }
+      if (sql.includes('booking_cmd_trip_park_cancellation')) return [{ r: 'PARKED' }];
+      return new Error(sql);
+    });
+    const alerts = new Alerts();
+    const p = new TripCancellationProcessor({ transactions: transactionsOf(db), alerts });
+    for (let i = 1; i < TRIP_CANCELLATION_MAX_RETRIES; i++) {
+      expect(await p.process(facts.cancellationId)).toEqual({ outcome: 'RETRY', code: 'RETRY' });
+    }
+    expect(alerts.sent).toEqual([]);
+    expect(await p.process(facts.cancellationId)).toEqual({
+      outcome: 'FAILED',
+      code: 'RETRY_EXHAUSTED',
+    });
+    expect(alerts.sent.map((a) => [a.code, a.labels?.error_code])).toEqual([
+      ['TRIP_CANCELLATION_FAILED', 'RETRY_EXHAUSTED'],
+    ]);
+  });
+
+  it('alerte impossible : rien n’est garé (la demande reste en attente, DEFERRED), jamais un garage silencieux', async () => {
+    const { facts } = factsOf('T03');
+    const db = new FakeDb(ok(facts));
+    const p = new TripCancellationProcessor({
+      transactions: transactionsOf(db),
+      alerts: { send: () => Promise.reject(new Error('canal indisponible')) },
+      tripOf: () => {
+        throw new TypeError('x');
+      },
+    });
+    expect(await p.process(CANCELLATION_ID)).toEqual({
+      outcome: 'DEFERRED',
+      code: UNEXPECTED_CODE,
+    });
+    expect(db.calls.some((c) => c.sql.includes('booking_cmd_trip_park_cancellation'))).toBe(false);
+  });
+
+  it('tâche périodique : une demande en échec inattendu ne bloque pas la suivante ; comptes seulement au journal', async () => {
+    const { facts } = factsOf('T03');
+    const bad = '44444444-4444-4444-8444-444444444444';
+    const db = new FakeDb((sql) => {
+      if (sql.includes('booking_trip_cancellations_pending'))
+        return [{ id: bad }, { id: CANCELLATION_ID }];
+      return ok(facts)(sql);
+    });
+    const registry = new BusRegistry();
+    const logs: string[] = [];
+    let call = 0;
+    const tx = transactionsOf(db);
+    const alerts = new Alerts();
+    registerTripCancellations(
+      registry,
+      {
+        run: async (worker, fn) => {
+          call++;
+          // première demande : la lecture des faits rend une ligne illisible (forme inattendue)
+          if (call === 1) {
+            return tx.run(worker, () => Promise.reject(new TypeError('ligne inattendue')));
+          }
+          return tx.run(worker, fn);
+        },
+      },
+      alerts,
+      (l) => logs.push(l),
+    );
+    const h = registry.handlerOf('trip_lifecycle');
+    if (h?.kind !== 'timer') throw new Error('minuterie attendue');
+    await h.handle({}, db);
+    const summary = logs.map((l) => JSON.parse(l) as Record<string, unknown>).at(-1);
+    // première : erreur inattendue ⇒ FAILED ; seconde : traitée quand même (sans devis figé dans
+    // ce double : QUOTE_UNAVAILABLE ⇒ FAILED) ; les deux garées et alertées
+    expect(summary).toMatchObject({ worker: 'trip_lifecycle', failed: 2, settled: 0 });
+    expect(
+      db.calls.filter((c) => c.sql.includes('booking_cmd_trip_park_cancellation')),
+    ).toHaveLength(2);
+    expect(alerts.sent.map((a) => a.labels?.error_code)).toEqual([
+      UNEXPECTED_CODE,
+      'QUOTE_UNAVAILABLE',
+    ]);
+    for (const l of logs) {
+      expect(l).not.toContain(bad);
+      expect(l).not.toContain(CANCELLATION_ID);
+    }
+    expect(db.calls.filter((c) => c.sql.includes('booking_trip_cancellation_begin'))).toHaveLength(
+      1,
+    );
   });
 });

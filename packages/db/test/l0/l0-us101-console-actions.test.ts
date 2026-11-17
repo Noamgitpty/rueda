@@ -950,9 +950,10 @@ describe('critère 1 — action d’état : commande de domaine liée, dans la m
           JSON.stringify(input),
         ).rejects.toMatchObject({ code: '22023' });
       }
-      // une action d'état sans clé déclarée n'admet aucune saisie
+      // une action d'état sans clé déclarée n'admet aucune saisie (US-215 : CANCEL_TRIP_PLATFORM
+      // déclare désormais platformReason ; la propriété est prouvée sur DECLARE_NO_SHOW, sans clé)
       await expect(
-        act(client, ops, 'CANCEL_TRIP_PLATFORM', subject, { input: { cause: 'x' } }),
+        act(client, ops, 'DECLARE_NO_SHOW', subject, { input: { cause: 'x' } }),
       ).rejects.toMatchObject({ code: '22023' });
       // `decision` : énumération fermée {APPROVED, REJECTED} (sujet ORGANIZATION, connu)
       const org = world.countries[0]?.orgA ?? '';

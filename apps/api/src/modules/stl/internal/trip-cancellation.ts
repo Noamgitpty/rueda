@@ -252,20 +252,20 @@ const asWorker = async (db: SqlClient, worker: string): Promise<void> => {
   await db.query(`SELECT pg_catalog.set_config('app.worker_name', $1, true)`, [worker]);
 };
 
+/** Ligne de la base d'une forme inattendue : refus déterministe, garé (jamais une erreur anonyme). */
+const rowShape = (): CancellationPlanError => new CancellationPlanError('ROW_SHAPE');
 const text = (v: unknown): string => {
-  if (typeof v !== 'string') throw new Error('annulation : texte attendu');
+  if (typeof v !== 'string') throw rowShape();
   return v;
 };
 const textOrNull = (v: unknown): string | null => (v === null ? null : text(v));
 const int = (v: unknown): number => {
   const n = typeof v === 'string' ? Number(v) : v;
-  if (typeof n !== 'number' || !Number.isSafeInteger(n)) {
-    throw new Error('annulation : entier attendu');
-  }
+  if (typeof n !== 'number' || !Number.isSafeInteger(n)) throw rowShape();
   return n;
 };
 const bool = (v: unknown): boolean => {
-  if (typeof v !== 'boolean') throw new Error('annulation : booléen attendu');
+  if (typeof v !== 'boolean') throw rowShape();
   return v;
 };
 
@@ -322,7 +322,16 @@ export type CancellationOutcome =
   | { readonly outcome: 'SETTLED'; readonly costBearer: string; readonly orders: number }
   | { readonly outcome: 'SKIPPED' }
   | { readonly outcome: 'FIN_REVIEW' | 'FAILED'; readonly code: string }
-  | { readonly outcome: 'RETRY'; readonly code: string };
+  | { readonly outcome: 'RETRY'; readonly code: string }
+  /** Garage ou alerte impossible : la demande reste en attente, reprise au passage suivant. */
+  | { readonly outcome: 'DEFERRED'; readonly code: string };
+
+/**
+ * Essais passagers consécutifs (interblocage, sérialisation, alerte ou garage impossibles) admis
+ * pour une demande avant de la garer `FAILED` (`RETRY_EXHAUSTED`) avec une alerte (PROPOSÉ,
+ * ADR-148) ; compteur du processus, remis à zéro au redémarrage du travailleur.
+ */
+export const TRIP_CANCELLATION_MAX_RETRIES = 5;
 
 export interface TripCancellationDeps {
   readonly transactions: WorkerTransactions;
@@ -332,6 +341,8 @@ export interface TripCancellationDeps {
    * dans les tests par un trip des vecteurs de 08.
    */
   readonly tripOf?: (f: CancellationFacts) => SettlementTrip;
+  /** Journal d'exploitation : comptes et codes seulement (17 §6.3). */
+  readonly log?: (line: string) => void;
 }
 
 /**
@@ -345,52 +356,77 @@ export class TripCancellationProcessor {
     this.#deps = deps;
   }
 
-  /** Demandes en attente (500 au plus par passage). */
-  async pending(limit: number): Promise<readonly string[]> {
-    return this.#deps.transactions.run(TRIP_LIFECYCLE_WORKER, async (db) => {
-      const { rows } = await db.query<{ id: string }>(
-        'SELECT id FROM core.booking_trip_cancellations_pending($1)',
-        [limit],
-      );
-      return rows.map((r) => r.id);
-    });
-  }
+  readonly #retries = new Map<string, number>();
 
+  /**
+   * Règle une demande ; ne lève jamais : toute issue est rendue. Refus déterministe ⇒ alerte P1
+   * PUIS garage (une alerte perdue laisse la demande en attente, jamais garée en silence) ; erreur
+   * passagère ⇒ demande laissée en attente, bornée à `TRIP_CANCELLATION_MAX_RETRIES` essais.
+   */
   async process(cancellationId: string): Promise<CancellationOutcome> {
-    let country = 'XX';
+    let country: string | null = null;
+    let alerted = false;
     let result: CancellationOutcome;
     try {
       result = await this.#deps.transactions.run(TRIP_LIFECYCLE_WORKER, async (db) => {
         const f = await beginCancellation(db, cancellationId);
         if (f === null) return { outcome: 'SKIPPED' } as const;
         country = f.country;
-        const trip = (this.#deps.tripOf ?? cancellationTrip)(f);
+        const tripOf = this.#deps.tripOf ?? cancellationTrip;
         const attempt = await settleOrFinReview(
-          () => planCancellation(f, trip),
+          () => planCancellation(f, tripOf(f)),
           f.country,
           this.#deps.alerts,
         );
         if (attempt.outcome === 'FIN_REVIEW') {
+          // settleOrFinReview a déjà levé l'alerte FIN_SETTLEMENT_REVIEW : une seule alerte
+          alerted = true;
           return { outcome: 'FIN_REVIEW', code: attempt.code } as const;
         }
         return this.#apply(db, f, attempt.result);
       });
     } catch (error) {
-      result = classify(error);
+      result = classifyOrUnexpected(error);
+      if (result.outcome === 'FAILED' && result.code === UNEXPECTED_CODE) {
+        this.#log({ level: 'error', event: 'unexpected', error_class: errorClass(error) });
+      }
     }
-    if (result.outcome === 'FIN_REVIEW' || result.outcome === 'FAILED') {
-      await this.#park(cancellationId, result.outcome, result.code);
-      await this.#deps.alerts.send({
-        code:
-          result.outcome === 'FIN_REVIEW' ? 'FIN_SETTLEMENT_REVIEW' : 'TRIP_CANCELLATION_FAILED',
-        severity: 'P1',
-        counts: { cancellations: 1 },
-        labels: /^[A-Z]{2}$/.test(country)
-          ? { country, error_code: result.code }
-          : { error_code: result.code },
-      });
+    if (result.outcome === 'RETRY') {
+      const n = (this.#retries.get(cancellationId) ?? 0) + 1;
+      this.#retries.set(cancellationId, n);
+      if (n < TRIP_CANCELLATION_MAX_RETRIES) return result;
+      result = { outcome: 'FAILED', code: 'RETRY_EXHAUSTED' };
     }
-    return result;
+    if (result.outcome !== 'FIN_REVIEW' && result.outcome !== 'FAILED') {
+      this.#retries.delete(cancellationId);
+      return result;
+    }
+    const parked = result;
+    try {
+      if (!alerted) {
+        await this.#deps.alerts.send({
+          code:
+            parked.outcome === 'FIN_REVIEW' ? 'FIN_SETTLEMENT_REVIEW' : 'TRIP_CANCELLATION_FAILED',
+          severity: 'P1',
+          counts: { cancellations: 1 },
+          labels:
+            country === null ? { error_code: parked.code } : { country, error_code: parked.code },
+        });
+      }
+      await this.#park(cancellationId, parked.outcome, parked.code);
+    } catch (error) {
+      // alerte ou garage impossible : la demande reste en attente (reprise, essais bornés)
+      const n = (this.#retries.get(cancellationId) ?? 0) + 1;
+      this.#retries.set(cancellationId, n);
+      this.#log({ level: 'warn', event: 'park_deferred', error_class: errorClass(error) });
+      return { outcome: 'DEFERRED', code: parked.code };
+    }
+    this.#retries.delete(cancellationId);
+    return parked;
+  }
+
+  #log(fields: Record<string, string>): void {
+    this.#deps.log?.(JSON.stringify({ worker: TRIP_LIFECYCLE_WORKER, ...fields }));
   }
 
   async #apply(db: SqlClient, f: CancellationFacts, plan: CancellationPlan) {
@@ -516,6 +552,25 @@ export function orderKey(f: CancellationFacts, o: CancellationOrder, tenderId: s
   ].join(':');
 }
 
+/** Code garé d'une erreur sans SQLSTATE (programme, réseau) : la file n'est jamais bloquée. */
+export const UNEXPECTED_CODE = 'UNEXPECTED_ERROR';
+
+/** Classe d'une erreur (nom du constructeur borné), jamais son message (17 §6.3). */
+function errorClass(error: unknown): string {
+  const name =
+    typeof error === 'object' && error !== null ? (error as { name?: unknown }).name : undefined;
+  return typeof name === 'string' && /^[A-Za-z][A-Za-z0-9_]{0,63}$/.test(name) ? name : 'Unknown';
+}
+
+/** `classify`, et toute erreur sans SQLSTATE garée `FAILED` (`UNEXPECTED_ERROR`). */
+export function classifyOrUnexpected(error: unknown): CancellationOutcome {
+  try {
+    return classify(error);
+  } catch {
+    return { outcome: 'FAILED', code: UNEXPECTED_CODE };
+  }
+}
+
 /** Contraintes de la base qui renvoient à la décision FINANCE d'US-224b (08 E7 règle 5). */
 const FIN_CONSTRAINTS = new Set([
   'operation_settlement_fin_review',
@@ -565,8 +620,15 @@ export function registerTripCancellations(
   transactions: WorkerTransactions,
   alerts: AlertChannel,
   log: (line: string) => void,
+  /** Tests seulement : trip du moteur d'une demande (défaut : devis figé rejoué). */
+  tripOf?: (f: CancellationFacts) => SettlementTrip,
 ): void {
-  const processor = new TripCancellationProcessor({ transactions, alerts });
+  const processor = new TripCancellationProcessor({
+    transactions,
+    alerts,
+    log,
+    ...(tripOf === undefined ? {} : { tripOf }),
+  });
   registry.registerPeriodic(
     TRIP_LIFECYCLE_WORKER,
     TRIP_CANCELLATION_PERIOD_SECONDS,
@@ -575,14 +637,16 @@ export function registerTripCancellations(
         'SELECT id FROM core.booking_trip_cancellations_pending($1)',
         [TRIP_CANCELLATION_BATCH],
       );
-      const counts = { settled: 0, skipped: 0, fin_review: 0, failed: 0, retry: 0 };
+      const counts = { settled: 0, skipped: 0, fin_review: 0, failed: 0, retry: 0, deferred: 0 };
       for (const row of rows) {
+        // `process` ne lève pas : une demande ne bloque jamais les suivantes
         const r = await processor.process(row.id);
         if (r.outcome === 'SETTLED') counts.settled++;
         else if (r.outcome === 'SKIPPED') counts.skipped++;
         else if (r.outcome === 'FIN_REVIEW') counts.fin_review++;
         else if (r.outcome === 'FAILED') counts.failed++;
-        else counts.retry++;
+        else if (r.outcome === 'RETRY') counts.retry++;
+        else counts.deferred++;
       }
       log(JSON.stringify({ level: 'info', worker: TRIP_LIFECYCLE_WORKER, ...counts }));
     },

@@ -920,3 +920,171 @@ describe('console : une demande vivante par trip, état du trip, rôles', () => 
     });
   });
 });
+
+/**
+ * Règlement complet d'une demande dont les ordres sont pris dans la variation de la base (aucune
+ * jambe attendue recopiée) ; rend le remboursement, la pénalité et la compensation du règlement.
+ */
+async function settleRead(
+  tx: Tx,
+  w: World,
+  id: string,
+): Promise<{
+  readonly result: Record<string, unknown>;
+  readonly refund: bigint;
+  readonly penalty: bigint;
+  readonly compensation: bigint;
+}> {
+  const f = await begin(tx, id);
+  if (f === undefined) throw new Error('demande non ouverte');
+  const record = proposal(w, f);
+  const settlement = await recordAsSettlementWorker(
+    tx,
+    { tripId: w.trip, version: 1, tripRowVersion: f.trip_row_version },
+    record,
+  );
+  const result = (await settle(tx, id, settlement)) as Record<string, unknown>;
+  await setSessionContext(tx, { kind: 'WORKER', workerName: 'settlement' });
+  const legs = await legsOf(tx, settlement);
+  if (record.guestRefundMinor > 0n) {
+    await refund(
+      tx,
+      w,
+      settlement,
+      Object.fromEntries(legs.map((l) => [l.leg, -l.variation])) as unknown as Legs,
+    );
+  }
+  await tx.query('SET CONSTRAINTS ALL IMMEDIATE');
+  await setSessionContext(tx, { kind: 'WORKER', workerName: 'settlement' });
+  const { rows } = await tx.query<{ r: string; p: string; c: string }>(
+    `SELECT guest_refund_minor::text AS r, host_penalty_minor::text AS p,
+            host_compensation_minor::text AS c
+       FROM core.settlement_settlement WHERE id = $1`,
+    [settlement],
+  );
+  return {
+    result,
+    refund: BigInt(rows[0]?.r ?? '-1'),
+    penalty: BigInt(rows[0]?.p ?? '-1'),
+    compensation: BigInt(rows[0]?.c ?? '-1'),
+  };
+}
+
+describe('bornes T−24 h (T74 à T80) : instant de la demande posé par la base, à la minute près', () => {
+  it.each([
+    [PA, 'T74', 'CANCEL_TRIP_GUEST', 'TJ01', 'CANCELLED_BY_GUEST'],
+    [PA, 'T75', 'CANCEL_TRIP_GUEST', 'TJ01', 'CANCELLED_BY_GUEST'],
+    [PA, 'T77', 'CANCEL_TRIP_HOST', 'TJ01', 'CANCELLED_BY_HOST'],
+    [PY, 'T78', 'CANCEL_TRIP_GUEST', 'TJ08a', 'CANCELLED_BY_GUEST'],
+    [PY, 'T79', 'CANCEL_TRIP_GUEST', 'TJ08a', 'CANCELLED_BY_GUEST'],
+    [PY, 'T80', 'CANCEL_TRIP_GUEST', 'TJ08a', 'CANCELLED_BY_GUEST'],
+  ] as const)(
+    '%s %s (%s) : remboursement et pénalité du vecteur',
+    async (c, vector, action, capture, status) => {
+      await withRole('app_api', async (api) => {
+        await withRole('app_worker', async (worker) => {
+          const w = await world(worker, c, vector, capture);
+          const r = await act(api, await staffOf(api, c), action, w);
+          expect(r.outcome).toBe('DONE');
+          await asWorker(worker, w, async (tx) => {
+            const o = await settleRead(tx, w, r.domain_ref ?? '');
+            expect(o.result).toMatchObject({ status });
+            expect(o.refund).toBe(expected(vector).guestRefundMinor);
+            expect(o.penalty).toBe(expected(vector).hostPenaltyMinor);
+          });
+        });
+      });
+    },
+  );
+});
+
+/**
+ * Variante PY (trip D, PYG sans décimale) des critères 3 et 4 : l'export n'a aucun vecteur PY de
+ * ces motifs ; attendus calculés par l'oracle indépendant `docs/specs/tools/independent_settlement_check.py`
+ * (`compute(D, …)`, `python -I -X utf8`, 2026-11-17), jamais par le code testé :
+ * T&S à T−30 h ⇒ 1 438 050, gains 0 ; compte de l'hôte fermé à T−10 h ⇒ 1 438 050, gains 0 ;
+ * étapes incomplètes à T−2 h ⇒ 1 000 367 ; « à cause du voyageur » à T+10 min avec preuve ⇒
+ * 587 683 (no-show, comme T41), sans preuve ⇒ 1 438 050 et pénalité 400 000 ; retard de revue à
+ * T−2 h ⇒ 1 438 050 (compensation : 0,00 en option B, 08 T61 (a) ; l'oracle calcule l'option A).
+ */
+const PY_ORACLE = {
+  trustSafety: { refund: 1_438_050n, earnings: 0n },
+  hostClosed: { refund: 1_438_050n, earnings: 0n },
+  incompleteSteps: { refund: 1_000_367n },
+  dueToGuestEvidence: { refund: 587_683n },
+  dueToGuestNoEvidence: { refund: 1_438_050n, penalty: 400_000n },
+  reviewDelay: { refund: 1_438_050n },
+} as const;
+
+describe('variante PY des critères 3 et 4 (oracle indépendant)', () => {
+  it.each([
+    ['PLATFORM_TRUST_SAFETY', 1800, 'PLATFORM', PY_ORACLE.trustSafety.refund],
+    ['HOST_ACCOUNT_CLOSED', 600, 'HOST', PY_ORACLE.hostClosed.refund],
+    ['PLATFORM_INCOMPLETE_STEPS', 120, 'GUEST', PY_ORACLE.incompleteSteps.refund],
+    ['PLATFORM_REVIEW_DELAY', 120, 'PLATFORM', PY_ORACLE.reviewDelay.refund],
+  ] as const)(
+    'PY %s à T−%i min : CANCELLED_BY_PLATFORM, remboursement de l’oracle, porteur %s, compensation 0',
+    async (platformReason, minutesBefore, bearer, refundMinor) => {
+      await withRole('app_api', async (api) => {
+        await withRole('app_worker', async (worker) => {
+          const w = await worldAt(
+            worker,
+            PY,
+            'T27',
+            'TJ08a',
+            REQUESTED_AT_MS + minutesBefore * MINUTE,
+          );
+          const r = await act(api, await staffOf(api, PY), 'CANCEL_TRIP_PLATFORM', w, {
+            input: { platformReason },
+          });
+          expect(r.outcome).toBe('DONE');
+          await asWorker(worker, w, async (tx) => {
+            const o = await settleRead(tx, w, r.domain_ref ?? '');
+            expect(o.result).toMatchObject({
+              status: 'CANCELLED_BY_PLATFORM',
+              reason: platformReason,
+              costBearer: bearer,
+            });
+            expect(o.refund).toBe(refundMinor);
+            expect(o.compensation).toBe(0n);
+          });
+        });
+      });
+    },
+  );
+
+  it('PY « à cause du voyageur » à T+10 min : pièce jointe ⇒ NO_SHOW_GUEST ; sans pièce ⇒ CANCELLED_BY_HOST, pénalité', async () => {
+    await withRole('app_api', async (api) => {
+      await withRole('app_worker', async (worker) => {
+        const withProof = await worldAt(worker, PY, 'T27', 'TJ08a', REQUESTED_AT_MS - 10 * MINUTE, {
+          checkinOpen: true,
+        });
+        const r7 = await act(api, await staffOf(api, PY), 'CANCEL_TRIP_HOST', withProof, {
+          input: { subReason: 'INVALID_LICENSE' },
+          evidence: [await evidenceFile(api)],
+        });
+        await asWorker(worker, withProof, async (tx) => {
+          const o = await settleRead(tx, withProof, r7.domain_ref ?? '');
+          expect(o.result).toMatchObject({ status: 'NO_SHOW_GUEST', costBearer: 'GUEST' });
+          expect(o.refund).toBe(PY_ORACLE.dueToGuestEvidence.refund);
+        });
+        const noProof = await worldAt(worker, PY, 'T27', 'TJ08a', REQUESTED_AT_MS - 10 * MINUTE, {
+          checkinOpen: true,
+        });
+        const r8 = await act(api, await staffOf(api, PY), 'CANCEL_TRIP_HOST', noProof, {
+          input: { subReason: 'INVALID_LICENSE' },
+        });
+        await asWorker(worker, noProof, async (tx) => {
+          const o = await settleRead(tx, noProof, r8.domain_ref ?? '');
+          expect(o.result).toMatchObject({
+            status: 'CANCELLED_BY_HOST',
+            origin: 'REQUALIFIED_NO_EVIDENCE',
+            costBearer: 'HOST',
+          });
+          expect(o.refund).toBe(PY_ORACLE.dueToGuestNoEvidence.refund);
+          expect(o.penalty).toBe(PY_ORACLE.dueToGuestNoEvidence.penalty);
+        });
+      });
+    });
+  });
+});
