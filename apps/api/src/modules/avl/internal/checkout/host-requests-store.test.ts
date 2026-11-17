@@ -1,6 +1,6 @@
 /**
  * US-223c — `PgHostRequestStore` sur des lignes de la FORME exacte que rend `pg` (bigint en texte,
- * instants en `Date`, jsonb en objet, numeric en texte) pour les quatre fonctions de 0124 ; SQL et
+ * instants en `Date`, jsonb en objet, numeric en texte) pour les quatre fonctions de 0126 ; SQL et
  * paramètres liés relus. Les règles sont prouvées en base (l0-us223-request) ; ici, le parseur :
  * jambes exactement les quatre clés, montants entiers, issues connues, toute autre forme ⇒ panne
  * (jamais un succès supposé). Attendus : TJ01 de l'export des oracles, jamais le code testé.

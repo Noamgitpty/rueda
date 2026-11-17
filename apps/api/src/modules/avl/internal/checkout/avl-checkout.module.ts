@@ -12,7 +12,7 @@
  * n'est jamais compilé dans l'image, C19) ⇒ `PAYMENT_UNAVAILABLE` sans toucher au hold ; tests :
  * l'adaptateur FAKE de `pay/testing/`.
  *
- * Demandes de réservation de l'hôte (US-223 partie 223c, ADR-146) : magasin des commandes de 0124
+ * Demandes de réservation de l'hôte (US-223 partie 223c, ADR-146) : magasin des commandes de 0126
  * et connecteurs de CAPTURE par fournisseur. Production : aucun connecteur (lot C) ⇒ l'acceptation
  * rend `PAYMENT_UNAVAILABLE` sans toucher à la demande ; le refus et la lecture fonctionnent.
  */
@@ -43,7 +43,7 @@ export interface AvlCheckoutPaymentOptions {
   readonly providers: ReadonlyMap<string, HostedPaymentProvider>;
 }
 
-/** Demandes de réservation de l'hôte (US-223c) : commandes de 0124 et connecteurs de capture. */
+/** Demandes de réservation de l'hôte (US-223c) : commandes de 0126 et connecteurs de capture. */
 export interface AvlHostRequestOptions {
   readonly store: HostRequestStore;
   /** Connecteurs de capture par fournisseur ; vide : aucune acceptation (503). */

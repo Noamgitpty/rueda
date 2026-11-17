@@ -848,7 +848,7 @@ Migration `0120_booking_checkout_review_state` : `core.booking_checkout_review_s
 
 ## Réservation sur demande (US-223 partie 223c ; 16 HDB-002 ; 08 BR-BOOK-01, E7 ; 17 §2.5 « Hold de demande REQUEST » ; ADR-146)
 
-Migrations `0123_config_booking_request_mode_params` (générée : `booking_request_mode_enabled`, faux au Panama et au Paraguay, PROPOSÉ) et `0124_booking_request_mode`, fixture `9956_test_us223c_request_fixtures.sql` (pose d'un hold REQUEST par la vraie pose, réglage du mode dans une transaction annulée seulement).
+Migrations `0125_config_booking_request_mode_params` (générée : `booking_request_mode_enabled`, faux au Panama et au Paraguay, PROPOSÉ) et `0126_booking_request_mode`, fixture `9959_test_us223c_request_fixtures.sql` (pose d'un hold REQUEST par la vraie pose, réglage du mode dans une transaction annulée seulement).
 
 - Hold : `kind` ∈ {CHECKOUT, REQUEST} posé une fois (`core.booking_place_hold_kind`, SECURITY INVOKER sous `cmd_hold_owner`, aucun EXECUTE ; `core.booking_cmd_place_hold` la rappelle en CHECKOUT) ; statut `AWAITING_HOST`, motif `REQUEST_DECLINED`, colonne `request_respond_by` et contrôles `hold_request_respond_by_kind`, `hold_awaiting_host_request` ; `AWAITING_HOST` vivant (index `one_live_hold_per_guest_vehicle`, `platform.guest_hold_guard`) ; `hold_guarded_columns` : heure limite, échéance et borne de paiement écrites seulement au passage `PAYMENT_IN_FLIGHT → AWAITING_HOST`, libération du voyageur refusée après.
 - Envoi : checkout (`core.booking_cmd_checkout`, corps de 0112) ⇒ REQUEST si le mode est ouvert ; T1 (`core.booking_cmd_start_payment`) : AUTH en capture MANUAL, quatre jambes du devis, moyen à `SUPPORTS_PREAUTH` et `SUPPORTS_VOID` validés (sinon `payment_method_unavailable`), `captureMode` rendu ; T2 (`core.booking_cmd_record_order`) : l'AUTH seulement, jamais la capture de l'hôte.
@@ -882,6 +882,19 @@ Migration `0121_settlement_refund_orders`. Fixture `9965_test_us224_refund_fixtu
 - **Rejeu** : `core.settlement_cmd_record` rend le règlement existant pour la même version au même contenu (S-02).
 - **Preuve** : webhook `SUCCEEDED` sans montant ⇒ `UNPROVEN` pour tout ordre qui déplace des fonds (N-196).
 - **Preuves** : `test/l0/l0-us224-refund-orders.test.ts`, `test/l0/l0-us224-refund-race.test.ts` (isolé, deux sessions), PA USD et PY PYG ; tests existants adaptés (passation US-224).
+- **US-224b** : la commande à 13 arguments est retirée (0123, ADR-147) ; tout appel passe par celle à 15 arguments (règlement NULL hors ordres de règlement).
+
+## Instance de remboursement et avance de Kmino (US-224 partie 224b ; 08 E7 règle 3 bis, SM-8 ; 17 §2.9, §3.2.7, §3.2.8 ; ADR-147)
+
+Migration `0123_settlement_refund_instances_advance` (corps de 0036, 0097 et 0116 recopiés, blocs « US-224b »). Fixture `9955_test_us224b_advance_fixtures.sql` (avance PLANNED posée directement ; passage forcé à OPEN, refusé).
+
+- **Table** `core.payment_refund_instance` (SM-8) : origine `SETTLEMENT` (bêta), exécutant `PLATFORM_API`, rail natif ; `requested_legs` (jambes du règlement), `operation_id` (ordre `REFUND`, clé étrangère différée), `advance_id`, `blocked_reason` ; RLS : FINANCE / ADMIN du pays (`fin_read`), travailleurs `settlement`, `payment_command`, `reconciliation` ; écriture par les commandes seulement ; ni DELETE ni TRUNCATE.
+- **Commandes** (`cmd_money_owner`, EXECUTE `app_worker`, travailleur `payment_command`) : `core.payment_cmd_plan_refund` (instance, avance attendue, ordre PENDING gardé ; rejeu ⇒ existante ; `refund_credit_cash_closed`, `refund_rail_unavailable`, `refund_instance_origin_invalid`, `refund_instance_idempotency_conflict`) et `core.payment_cmd_submit_refund` (`SUBMITTED`, `DUPLICATE`, `SUPERSEDED`, `BLOCKED` + motif).
+- **Gardes** : `payment_refund_instance_guard` (création PLANNED, crédit cash fermé, identité figée, transitions de 224b) ; `payment_refund_instance_gate` (`integrity_owner`, SECURITY DEFINER : l'ordre d'une instance PLANNED / SUPERSEDED ne change d'état que vers FAILED) ; `payment_refund_instance_supersede` (version n+1 : instances PLANNED ⇒ SUPERSEDED, avances attendues ⇒ CANCELLED).
+- **Avance** : `platform_advance` gagne `PLANNED` et `CANCELLED` ; `PLANNED → OPEN` exige la décision FINANCE à deux personnes (`advance_decision_required`, tous rôles) ; motif d'envoi retenu `core.payment_refund_advance_block` (`ADVANCE_CAP_UNSET`, `HOST_ADVANCE_CAP`, `PLATFORM_BALANCE_UNKNOWN`) ; `host_advance_v` ne montre que les avances effectives.
+- **État des jambes** `core.payment_trip_leg_state` (SECURITY INVOKER) commun à la garde des ordres et à la planification ; versement borné à l'enregistrement (`leg_release_exceeds_retained`).
+- **FINANCE** : `DECIDE_ADVANCE` sur une avance PLANNED ; conflit du demandeur rejugé à l'approbation (N-119, `SELF_FORBIDDEN`).
+- **Preuves** : `test/l0/l0-us224b-refund-instances.test.ts`, `test/l0/l0-us224b-finance-decision.test.ts`, `test/l0/l0-us224b-advance-decision.test.ts` (isolé, décision réelle à deux personnes), PA USD et PY PYG.
 
 ## Contrat de location hôte–voyageur et signature (US-211 partie 211a ; 16 BKG-018, BKG-019 ; 17 §2.7, §3.2.6 ; ADR-143)
 
@@ -891,3 +904,15 @@ Migration `0122_ctr_rental_contract`, fixture `9963_test_us211_rental_contract_f
 - **Commandes** (`SECURITY DEFINER`, `cmd_hold_owner`) : `core.booking_contract_source(trip)` et `core.booking_cmd_record_contract(trip, clé, faits, derived, texte, gabarit es, gabarit de courtoisie, rendu, empreinte)` (EXECUTE `app_worker`, travailleur `booking_contract` seul ; issues `RECORDED`, `ALREADY_RECORDED`, `TRIP_UNKNOWN`, `NOT_CONTRACTABLE`, `SOURCE_CHANGED`, `REQUEST_INVALID`) ; `core.booking_trip_contract(jeton, trip, version)` (EXECUTE `app_api` ; voyageur ou titulaire du compte d'hôte, sinon `NOT_FOUND`) ; `core.booking_cmd_sign_contract(jeton, trip, document, empreinte présentée)` (EXECUTE `app_api` ; `SIGNED`, `ALREADY_SIGNED`, `NOT_FOUND`, `CONTRACT_SUPERSEDED`, `NOT_SIGNABLE`, `CONTRACT_HASH_MISMATCH`, `REQUEST_INVALID`). Internes : `core.booking_contract_facts`, `core.booking_contract_template`, `core.booking_contract_courtesy_locale`, `core.booking_trip_contract_signed`.
 - **Remise** : `core.booking_cmd_trip_transition` (corps de 0099, bloc US-211) refuse `IN_PROGRESS` sans dernière version signée par le voyageur (`trip_contract_not_signed`, code `CONTRACT_NOT_SIGNED`).
 - **Lectures ajoutées à `cmd_hold_owner`** (au plus juste) : noms légaux et langue des comptes, marque et modèle du référentiel, contrat de l'assureur et assureur, caution du pays, gabarits, `grace_minutes` ; événements `contract.document.generated` (SYSTEM) et `contract.document.signed` (voyageur).
+
+## Annulations déclenchées par l'ops, réglées dans la transition (US-215 partie 215a ; 16 BKG-028, BKG-032, BKG-035, ADM-006 ; 08 BR-CXL, SM-1 invariant 4 ; ADR-148)
+
+Migration `0124_booking_trip_cancellation_settled`. Fixture `9956_test_us215_trip_cancellation_fixtures.sql` (lecture d'une demande et des occupations d'un trip).
+
+- **Table** `core.booking_trip_cancellation` (classe C1, aucun droit applicatif) : demande de la console (`CANCEL_TRIP_GUEST` / `HOST` / `PLATFORM`), motif demandé et initiateur dérivés de l'action, sous-motif, heure serveur de la demande, agent ; statut `PENDING` → `SETTLED` (règlement, `cost_bearer`) | `FIN_REVIEW` | `FAILED` (code seul) ; une demande vivante par trip (`trip_cancellation_live_unique`).
+- **Commande liée** `core.booking_manual_action_cancel_trip` (cmd_hold_owner, EXECUTE iam_staff_owner) ; saisies fermées `subReason` et `platformReason` au catalogue.
+- **Travailleur `trip_lifecycle`** (EXECUTE app_worker) : `core.booking_trip_cancellations_pending`, `core.booking_trip_cancellation_begin` (verrous voyageur → véhicule → trip, faits, devis figé, paramètres canoniques `core.booking_cancellation_params`), `core.booking_cmd_trip_settle_cancellation` (requalification, liaison du règlement aux faits de la base, transition avec `settlement_id` au journal et dans `trip.status_changed`), `core.booking_cmd_trip_park_cancellation`. Règlement lu par `core.settlement_cancellation_of` (cmd_money_owner, EXECUTE cmd_hold_owner).
+- **Contrainte différée** `trip_cancellation_refunded` (`core.settlement_assert_cancellation_refunded`, cmd_money_owner) : trip encaissé et Σ ordres `REFUND` non échoués du règlement = remboursement du voyageur, à la validation.
+- **Codes** : `CANCELLATION_PENDING`, `CANCELLATION_NOT_PENDING` (PROPOSÉS) ; `trip_cancellation_settlement_mismatch`, `trip_cancellation_uncaptured`, `trip_cancellation_unrefunded` ⇒ `INVARIANT_VIOLATION`.
+- `core.booking_trip_apply_transition` (0099) : corps recopié, règlement lu dans `p_extra` (absent ⇒ NULL comme avant).
+- **Preuves** : `test/l0/l0-us215-trip-cancellation.test.ts` (PA USD, PY PYG ; préparation et demande validées, transaction du travailleur annulée après `SET CONSTRAINTS ALL IMMEDIATE`) ; tests existants adaptés (passation US-215).

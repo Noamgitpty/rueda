@@ -134,7 +134,7 @@ export const POST_SEED_PARAMS: readonly {
   },
   {
     prefix: 'booking_request_mode',
-    file: '0123_config_booking_request_mode_params.sql',
+    file: '0125_config_booking_request_mode_params.sql',
     story: 'US-223',
     refs: '08 BR-BOOK-01 ; 17 §2.5 ; 19 US-223 DoR 2 ; ADR-146',
   },

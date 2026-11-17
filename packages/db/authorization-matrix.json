@@ -1986,6 +1986,43 @@
         "reconciliation": "tout"
       }
     },
+    "core.payment_refund_instance": {
+      "type": "table",
+      "sans_donnees": "US-224b (ADR-147) : une instance n'existe qu'avec un règlement enregistré par le travailleur settlement et un encaissement prouvé (core.payment_cmd_plan_refund sous app_worker) ; le monde de la matrice n'a aucun règlement. Lectures des travailleurs prouvées par l0-us224b-refund-instances ; lecture FINANCE / ADMIN par fin_read, même prédicat que settlement_platform_advance (suite : peupler la matrice avec un règlement, 224c)",
+      "droits": {
+        "app_api": {
+          "SELECT": "*"
+        },
+        "app_worker": {
+          "SELECT": "*"
+        },
+        "app_anon": {}
+      },
+      "politiques": {
+        "app_api": ["fin_read:SELECT"],
+        "app_worker": ["worker_money_read:SELECT"],
+        "app_anon": []
+      },
+      "lecture": {
+        "sans_contexte": "aucune",
+        "voyageur": "aucune",
+        "hote": "aucune",
+        "cohote": "aucune",
+        "hote_org_forgee": "aucune",
+        "SUPPORT_AGENT": "aucune",
+        "OPS_AGENT": "aucune",
+        "FINANCE": "country_code = :pays",
+        "ADMIN": "country_code = :pays",
+        "ADMIN_portee_elargie": "country_code = :pays",
+        "SUPERADMIN": "aucune",
+        "staff_sans_session": "aucune"
+      },
+      "travailleurs": {
+        "settlement": "tout",
+        "payment_command": "tout",
+        "reconciliation": "tout"
+      }
+    },
     "core.payment_webhook_inbox": {
       "type": "table",
       "droits": {
@@ -3166,6 +3203,19 @@
       }
     },
     "core.booking_trip_segment": {
+      "type": "table",
+      "droits": {
+        "app_api": {},
+        "app_worker": {},
+        "app_anon": {}
+      },
+      "politiques": {
+        "app_api": [],
+        "app_worker": [],
+        "app_anon": []
+      }
+    },
+    "core.booking_trip_cancellation": {
       "type": "table",
       "droits": {
         "app_api": {},

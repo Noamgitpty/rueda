@@ -2,7 +2,7 @@
  * Doubles des demandes de réservation de l'hôte (US-223 partie 223c) — TESTS SEULEMENT (contrat
  * HTTP). Les règles (hôte titulaire, heure limite de la base, capture par jambes rattachée à
  * l'autorisation, VOID total, expiration) sont prouvées en base (`l0-us223-request`, migration
- * 0124) ; ces doubles rendent ce qu'on leur impose et retiennent ce que l'API leur transmet.
+ * 0126) ; ces doubles rendent ce qu'on leur impose et retiennent ce que l'API leur transmet.
  */
 import { assertMovingLegs, PaymentError } from '../../pay/index.js';
 import type {

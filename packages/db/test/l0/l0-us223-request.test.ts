@@ -1,13 +1,13 @@
 /**
  * US-223 (partie 223c) — cycle d'une demande de réservation (hold REQUEST) : autorisation à l'envoi,
  * attente de l'hôte, acceptation (capture par jambes), refus et expiration (VOID total), IDOR et
- * concurrence (migration 0124, ADR-146 ; 17 §2.5 « Hold de demande REQUEST », deltas SQL,
+ * concurrence (migration 0126, ADR-146 ; 17 §2.5 « Hold de demande REQUEST », deltas SQL,
  * exigences de sécurité 1 à 4 et d'argent a à c ; 19 US-223 critères US-060, US-219 critères 4 à 6).
  *
  * Données COMMITÉES (deux sessions, travailleurs, expiration sur toute la base) : ce fichier tourne
  * seul, après les autres (projet l0-concurrence de vitest.l0.config.ts), dans sa propre période
  * d'horloge virtuelle (2044). Aucun interrupteur ni paramètre n'est touché : le hold REQUEST est posé
- * par la VRAIE pose (fixture 9956, qui appelle core.booking_place_hold_kind dans le contexte du
+ * par la VRAIE pose (fixture 9959, qui appelle core.booking_place_hold_kind dans le contexte du
  * voyageur), le devis engagé par la fixture 9969 (le checkout réel d'une annonce sur demande est
  * prouvé dans une transaction annulée, l0-us223-request-checkout) ; tout le reste par les VRAIES
  * commandes, sous les rôles de production (assertion L0-05 par connectAs) : hôte (US-107, US-126),

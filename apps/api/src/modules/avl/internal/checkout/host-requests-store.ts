@@ -1,6 +1,6 @@
 /**
  * Magasin des demandes de réservation de l'hôte (US-223 partie 223c, ADR-146 ; 17 §2.5 « Hold de
- * demande REQUEST » ; migration 0124) sous app_api : lecture `core.booking_host_requests`
+ * demande REQUEST » ; migration 0126) sous app_api : lecture `core.booking_host_requests`
  * (host_view_owner), acceptation `core.booking_cmd_accept_booking_request`, affinage de la capture
  * `core.booking_cmd_request_record_capture` et refus `core.booking_cmd_decline_booking_request`
  * (SECURITY DEFINER de cmd_hold_owner). L'hôte est désigné par l'empreinte de son jeton de session,
@@ -54,7 +54,7 @@ export interface RequestCapture {
   readonly lookup: boolean;
 }
 
-/** Refus de l'acceptation ou du refus (issues de 0124), codes de `host-request-errors.ts`. */
+/** Refus de l'acceptation ou du refus (issues de 0126), codes de `host-request-errors.ts`. */
 export const REQUEST_REFUSALS = [
   'AUTH_REQUIRED',
   'FORBIDDEN',
@@ -165,7 +165,7 @@ function jsonOf(rows: readonly Record<string, unknown>[]): Record<string, unknow
   return r as Record<string, unknown>;
 }
 
-/** Commandes et lecture de 0124, sous app_api. */
+/** Commandes et lecture de 0126, sous app_api. */
 export class PgHostRequestStore implements HostRequestStore {
   constructor(private readonly db: SqlExecutor) {}
 

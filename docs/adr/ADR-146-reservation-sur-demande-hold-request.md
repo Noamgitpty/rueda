@@ -2,7 +2,7 @@
 
 - **Statut** : PROPOSÉ (US-223, partie 223c-serveur, agent back-end, claude-opus-5-5, 2026-11-16). Revues exigées (`check-story-reviews.mjs`, story US-223) : architecture, argent, code, qa, sécurité, ux ; argent, RLS, rôles, `SECURITY DEFINER` et concurrence sur un autre modèle que l'auteur ; sécurité et argent ensemble (DoR 1 de 19 US-223).
 - **Sources** : 19 US-223 (DoR 1 et 2, critères US-060) et US-219 (critères 4 à 6) ; 16 HDB-002, BKG-011 ; 08 BR-BOOK-01, E7 (règles 1 et 2), TJ03 ; 17 §2.5 « Hold de demande REQUEST » (table, deltas SQL, exigences de sécurité 1 à 4, exigences d'argent a à c), §3.2.4, §3.2.7, §4.3, §7.2 (`booking_request_expiry_hours` = 4 h, `p2p_default_booking_mode` = INSTANT) ; 22 OQ-P2P-10 ; ADR-063 (pose), ADR-065 (T1, T2), ADR-133 (checkout), ADR-139 (paiement par jambes, preuve par webhook), ADR-142 (routes du paiement) ; BOARD : N-127, N-128, N-198.
-- **Migrations** : `0124_config_booking_request_mode_params` (générée) et `0125_booking_request_mode` (numéros pris après US-224a 0121, US-211a 0122 et US-224b 0123). Fixture de test : 9956.
+- **Migrations** : `0125_config_booking_request_mode_params` (générée) et `0126_booking_request_mode` (numéros pris après US-224a 0121, US-211a 0122, US-224b 0123 et US-215a 0124). Fixture de test : 9959.
 
 ## Contexte
 

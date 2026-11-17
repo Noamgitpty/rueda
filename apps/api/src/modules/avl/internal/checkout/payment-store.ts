@@ -10,7 +10,7 @@
  * ici en codes stables ; une contrainte inconnue ou un SQLSTATE différent ⇒ panne (503,
  * fail-closed : on ne devine pas). Sans adaptateur : 503 partout.
  *
- * US-223c (0124, ADR-146) : T1 rend le mode de capture (`MANUAL` pour une demande à l'hôte :
+ * US-223c (0126, ADR-146) : T1 rend le mode de capture (`MANUAL` pour une demande à l'hôte :
  * autorisation seulement, capture à l'acceptation) ; la lecture porte l'état de la demande
  * (`core.booking_checkout_request`).
  */
@@ -31,13 +31,13 @@ export interface CheckoutPaymentRow {
    */
   readonly operationStatus: string | null;
   /**
-   * Demande à l'hôte (hold REQUEST, US-223c, 0124) : état et heure limite ; `null` pour un hold de
+   * Demande à l'hôte (hold REQUEST, US-223c, 0126) : état et heure limite ; `null` pour un hold de
    * réservation immédiate (CHECKOUT).
    */
   readonly request: CheckoutRequestRow | null;
 }
 
-/** États d'une demande lus en base (`core.booking_checkout_request`, 0124). */
+/** États d'une demande lus en base (`core.booking_checkout_request`, 0126). */
 export const REQUEST_STATUSES = [
   'AUTHORIZING',
   'AWAITING_HOST',
@@ -272,7 +272,7 @@ export class PgCheckoutPaymentStore implements CheckoutPaymentStore {
     };
   }
 
-  /** Demande du hold (0124) ; `null` pour un hold CHECKOUT. Toute autre forme : panne. */
+  /** Demande du hold (0126) ; `null` pour un hold CHECKOUT. Toute autre forme : panne. */
   async #request(proof: Buffer, holdId: string): Promise<CheckoutRequestRow | null> {
     const { rows } = await this.db.query(
       'SELECT * FROM core.booking_checkout_request($1, $2::uuid)',

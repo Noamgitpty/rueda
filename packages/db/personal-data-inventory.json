@@ -1750,6 +1750,36 @@
         "row_version": "C1"
       }
     },
+    "core.payment_refund_instance": {
+      "lifecycle": "A",
+      "subjects": [],
+      "export": "none",
+      "columns": {
+        "id": "C1",
+        "origin_type": "C1",
+        "origin_id": "C1",
+        "settlement_id": "C1",
+        "settlement_version": "C1",
+        "trip_id": "C1",
+        "country_code": "C1",
+        "currency": "C1",
+        "refunded_operation_id": "C1",
+        "instance_seq": "C1",
+        "attempt_no": "C1",
+        "executor": "C1",
+        "rail": "C1",
+        "requested_legs": "C1",
+        "amount_trip_minor": "C1",
+        "operation_id": "C1",
+        "advance_id": "C1",
+        "status": "C1",
+        "blocked_reason": "C1",
+        "issued_at": "C1",
+        "created_at": "C1",
+        "updated_at": "C1",
+        "row_version": "C1"
+      }
+    },
     "core.payment_webhook_inbox": {
       "lifecycle": "A",
       "export": "none",
@@ -2840,6 +2870,33 @@
         "user_id": "C1",
         "role": "C1",
         "approved_at": "C1",
+        "created_at": "C1"
+      }
+    },
+    "core.booking_trip_cancellation": {
+      "lifecycle": "B",
+      "subjects": [
+        {
+          "column": "requested_by",
+          "type": "USER"
+        }
+      ],
+      "export": "controller",
+      "columns": {
+        "id": "C1",
+        "trip_id": "C1",
+        "country_code": "C1",
+        "action_code": "C1",
+        "requested_reason": "C1",
+        "initiator": "C1",
+        "sub_reason": "C1",
+        "requested_at": "C1",
+        "requested_by": "C1",
+        "status": "C1",
+        "settlement_id": "C1",
+        "cost_bearer": "C1",
+        "outcome_code": "C1",
+        "decided_at": "C1",
         "created_at": "C1"
       }
     },
