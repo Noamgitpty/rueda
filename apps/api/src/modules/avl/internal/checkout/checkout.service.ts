@@ -32,6 +32,7 @@ import {
   freezeQuote,
   isQuoteError,
   lateCancellationOf,
+  penaltyDaysLabel,
   protectionOptions,
   QuoteHttpError,
   replayFrozenQuote,
@@ -249,8 +250,7 @@ export class CheckoutService {
       const params = this.cancellationParamsOf({ country, at: new Date(frozenAtMs) });
       const late = lateCancellationOf(quote, params, Math.min(frozenAtMs, quote.startAtMs));
       if (late === null) return null;
-      const days = late.penaltyDays;
-      const penaltyDays = days.num === days.den ? '1' : days.num * 2n === days.den ? '1/2' : null;
+      const penaltyDays = penaltyDaysLabel(late.penaltyDays);
       if (penaltyDays === null) return null;
       return { penaltyDays, retainedMinor: late.retained.amountMinor.toString() };
     } catch (error) {

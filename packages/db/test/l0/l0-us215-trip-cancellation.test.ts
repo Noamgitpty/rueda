@@ -1,5 +1,5 @@
 /**
- * US-215 (partie 215a, migration 0122, ADR-148) — annulations du voyageur, de l'hôte et de la
+ * US-215 (partie 215a, migration 0123, ADR-148) — annulations du voyageur, de l'hôte et de la
  * plateforme déclenchées par l'ops : demande par la console (cadre d'US-101), règlement par le
  * moteur unique DANS la transaction de la transition (invariant 4 de SM-1), remboursements par les
  * ordres bornés d'US-224a (0121), en USD (PA) et en PYG sans décimale (PY).

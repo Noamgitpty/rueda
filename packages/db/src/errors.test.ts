@@ -91,7 +91,11 @@ describe('translateDbError (17 §2.5 2d, §4.4, L0-08)', () => {
     ['23000', 'trip_transition_unlogged', 'INVARIANT_VIOLATION'],
     ['23000', 'trip_segment_missing', 'INVARIANT_VIOLATION'],
     ['23000', 'trip_state_log_immutable', 'IMMUTABLE_RECORD'],
-    // annulations déclenchées par l'ops, réglées dans la transition (0122, US-215, ADR-148)
+    // contrat de location et signature (0122, US-211 ; 16 BKG-018, BKG-019)
+    ['55000', 'trip_contract_not_signed', 'CONTRACT_NOT_SIGNED'],
+    ['23000', 'contract_record_immutable', 'IMMUTABLE_RECORD'],
+    ['42501', 'contract_command_forbidden', 'FORBIDDEN'],
+    // annulations déclenchées par l'ops, réglées dans la transition (0123, US-215, ADR-148)
     ['55000', 'trip_cancellation_closed', 'CANCELLATION_NOT_PENDING'],
     ['23505', 'trip_cancellation_live_unique', 'CANCELLATION_PENDING'],
     ['23000', 'trip_cancellation_settlement_mismatch', 'INVARIANT_VIOLATION'],

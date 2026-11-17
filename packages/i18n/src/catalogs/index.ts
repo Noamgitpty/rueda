@@ -176,8 +176,12 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  conducteur, UXQ-12), `web.s06.reviewRejected.*` (hold libéré par la revue), `web.s04.entry.*`
  (déclaration d'entrée : statut, date mise en forme par langue) ; `common.payment.underReview` ne
  promet plus d'avis (aucune notification du voyageur avant GL-17).
+ Version 65 (la 63 était la réservation d’origine ; la 64 est celle d’US-209c ; US-224a n’a pas ajouté de version) : contrat de location hôte–voyageur, partie 211a
+ (US-211, ADR-143) : `ctr.contract.*` (libellés du PDF du contrat, figés dans le document à sa
+ génération : parties, plateforme intermédiaire, véhicule, période, prix, protection, caution,
+ distance, annulation, retard, territoire, bloc de signature, traduction de courtoisie).
  */
-export const CATALOG_VERSION = 64;
+export const CATALOG_VERSION = 65;
 
 /** Catalogues de base par langue ; la langue d'un profil de locale choisit le sien. */
 export const CATALOGS: Readonly<Record<CatalogLanguage, VersionedCatalog<MessageKey>>> = {

@@ -19,7 +19,7 @@
  * 5. ordres du règlement (`settlementOrders` : réaffectation d'abord, puis remboursement du moyen
  *    d'origine, montants explicites par jambe, jamais un prorata), enregistrés par la commande PAY
  *    à 15 arguments (travailleur `payment_command`), rattachés à la version 1 et bornés par 0121 ;
- *    la contrainte différée de 0122 exige Σ REFUND = remboursement du voyageur à la validation.
+ *    la contrainte différée de 0123 exige Σ REFUND = remboursement du voyageur à la validation.
  *
  * Un refus déterministe (moteur, paramètre, devis, état du trip, ordre refusé) annule la
  * transaction ; la demande est alors garée dans une transaction à part (`FIN_REVIEW` ou `FAILED`,
@@ -90,7 +90,7 @@ export interface CancellationFacts {
   readonly checkinValidated: boolean;
   readonly requestedAtMs: number;
   readonly frozen: FrozenQuote | null;
-  /** Paramètres du pays dans la forme canonique des entrées du règlement (0122), ou `null`. */
+  /** Paramètres du pays dans la forme canonique des entrées du règlement (0123), ou `null`. */
   readonly params: unknown;
 }
 
@@ -119,7 +119,7 @@ export interface CancellationPlan {
 const INT = /^[0-9]{1,6}$/;
 const MINOR = /^[0-9]{1,18}$/;
 
-/** Événement d'annulation des faits de la base, dans la forme que la base contrôle (0122). */
+/** Événement d'annulation des faits de la base, dans la forme que la base contrôle (0123). */
 export function cancellationEvent(f: CancellationFacts): CancellationEvent {
   return {
     reason: f.requestedReason,
@@ -156,7 +156,7 @@ function penaltyAmount(value: unknown, currency: Currency): Money {
 }
 
 /**
- * Paramètres du moteur lus en base (forme canonique de 0122) : aucune valeur par défaut. Absents
+ * Paramètres du moteur lus en base (forme canonique de 0123) : aucune valeur par défaut. Absents
  * ou mal formés ⇒ `PARAM_MISSING` (BLOCK). `platformFundedHostCompensation` est recopié tel quel
  * (seul `true` exact active l'option A, DEC-FONDATEUR-01 ; absent ⇒ option B).
  */

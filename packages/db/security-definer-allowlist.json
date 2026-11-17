@@ -1668,6 +1668,34 @@
       "story": "US-209"
     },
     {
+      "signature": "core.booking_contract_source(uuid)",
+      "family": "cmd_hold",
+      "owner": "cmd_hold_owner",
+      "execute": ["app_worker"],
+      "story": "US-211"
+    },
+    {
+      "signature": "core.booking_cmd_record_contract(uuid,text,jsonb,jsonb,jsonb,uuid,uuid,text,bytea)",
+      "family": "cmd_hold",
+      "owner": "cmd_hold_owner",
+      "execute": ["app_worker"],
+      "story": "US-211"
+    },
+    {
+      "signature": "core.booking_trip_contract(bytea,uuid,integer)",
+      "family": "cmd_hold",
+      "owner": "cmd_hold_owner",
+      "execute": ["app_api"],
+      "story": "US-211"
+    },
+    {
+      "signature": "core.booking_cmd_sign_contract(bytea,uuid,uuid,bytea)",
+      "family": "cmd_hold",
+      "owner": "cmd_hold_owner",
+      "execute": ["app_api"],
+      "story": "US-211"
+    },
+    {
       "signature": "core.booking_manual_action_cancel_trip(bytea,uuid,text,uuid,jsonb,text,uuid,text)",
       "family": "cmd_hold",
       "owner": "cmd_hold_owner",

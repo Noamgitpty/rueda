@@ -1057,6 +1057,81 @@
         "created_at": "C0"
       }
     },
+    "core.contract_document_party": {
+      "lifecycle": "B",
+      "export": "none",
+      "columns": {
+        "document_id": "C1",
+        "identity": {
+          "class": "C2",
+          "erasure": "pseudonymisation"
+        },
+        "body": {
+          "class": "C2",
+          "erasure": "pseudonymisation"
+        },
+        "pseudonymized_at": "C1",
+        "created_at": "C1"
+      }
+    },
+    "core.contract_generated_document": {
+      "lifecycle": "A",
+      "export": "none",
+      "columns": {
+        "id": "C1",
+        "kind": "C1",
+        "template_id": "C1",
+        "courtesy_template_id": "C1",
+        "subject_type": "C1",
+        "subject_id": "C1",
+        "trip_id": "C1",
+        "country_code": "C1",
+        "locale": "C1",
+        "version": "C1",
+        "supersedes_id": "C1",
+        "trigger_key": "C1",
+        "terms": "C1",
+        "derived": "C1",
+        "renderer_version": "C1",
+        "sha256": "C1",
+        "generated_at": "C1"
+      }
+    },
+    "core.contract_signature": {
+      "lifecycle": "A",
+      "subjects": [
+        {
+          "column": "signer_user_id",
+          "type": "USER"
+        }
+      ],
+      "export": "controller",
+      "columns": {
+        "id": "C1",
+        "document_id": "C1",
+        "trip_id": "C1",
+        "signer_user_id": "C1",
+        "signer_role": "C1",
+        "method": "C1",
+        "otp_challenge_id": "C1",
+        "signed_at": "C1",
+        "document_sha256": "C1",
+        "seal_sha256": "C1",
+        "ip_enc": {
+          "class": "C2",
+          "erasure": "crypto-shredding",
+          "key": ["key_subject_type", "key_subject_id"]
+        },
+        "user_agent_enc": {
+          "class": "C2",
+          "erasure": "crypto-shredding",
+          "key": ["key_subject_type", "key_subject_id"]
+        },
+        "key_subject_type": "C1",
+        "key_subject_id": "C1",
+        "c2_withheld": "C1"
+      }
+    },
     "core.finance_legal_entity": {
       "lifecycle": "C",
       "export": "none",
@@ -2746,7 +2821,8 @@
         "payment_status": "C1",
         "created_at": "C1",
         "updated_at": "C1",
-        "row_version": "C1"
+        "row_version": "C1",
+        "contract_document_id": "C1"
       }
     },
     "core.booking_trip_driver": {

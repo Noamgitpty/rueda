@@ -183,7 +183,7 @@ const RESTRICTION_KINDS = { kind: ['TS_HOLD', 'POLICY_VIOLATION'] };
 // US-209 (0119, ADR-141) : décision de l'ops sur une réservation signalée liée à sa commande
 const REVIEW_FLAGGED_HANDLER =
   'core.booking_manual_action_review_flagged(bytea,uuid,text,uuid,jsonb,text,uuid,text)';
-// US-215 (0122, ADR-148) : les trois annulations liées à leur commande (demande réglée par le
+// US-215 (0123, ADR-148) : les trois annulations liées à leur commande (demande réglée par le
 // travailleur trip_lifecycle) ; saisies fermées du sous-motif et du motif plateforme
 const CANCEL_TRIP_HANDLER =
   'core.booking_manual_action_cancel_trip(bytea,uuid,text,uuid,jsonb,text,uuid,text)';

@@ -152,10 +152,12 @@ describe('socle RLS et droits (0063)', () => {
         // US-115 (0067) : lecture du statut, du marché et des années par les commandes de l'hôte
         // (catalog_cmd_owner, propriétaire NOLOGIN), jamais par un rôle applicatif de plus ;
         // US-114 (0074) : ajout validé par l'ops (source HOST_REQUEST) par la fonction de domaine
+        // US-211 (0122) : marque et modèle lus par le contrat de location (cmd_hold_owner)
         expect(r.policies, r.relname).toEqual([
           'api_read:app_api',
           'catalog_addition_insert:catalog_cmd_owner',
           'catalog_cmd_read:catalog_cmd_owner',
+          'cmd_hold_contract_read:cmd_hold_owner',
           'migrator_all:migrator',
         ]);
       }

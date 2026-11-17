@@ -60,7 +60,7 @@ function factsOf(
     checkinValidated: false,
     requestedAtMs: event.requestedAtMs,
     frozen: null,
-    // forme canonique que rend la base (0122, core.booking_cancellation_params)
+    // forme canonique que rend la base (0123, core.booking_cancellation_params)
     params: JSON.parse(canonicalJson(testParams(trip.currency))) as unknown,
     ...over,
   };
