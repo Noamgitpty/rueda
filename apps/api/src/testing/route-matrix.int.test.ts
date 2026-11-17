@@ -474,6 +474,9 @@ async function requestOf(
         path: `/console/queues/items/${await riskItem(country)}/risk-review`,
         body: { requestId: id, purpose: 'Matrice US-043 : dossier de test' },
       };
+    // US-224d : remboursements du trip du pays (aucun ⇒ 200, liste vide)
+    case 'GET /console/refunds/{id}':
+      return { method: 'GET', path: `/console/refunds/${tripOf.get(country) ?? id}` };
     // US-215b : état de la demande d'annulation du trip du pays (aucune demande ⇒ 200, null)
     case 'GET /console/cancellations/{id}':
       return { method: 'GET', path: `/console/cancellations/${tripOf.get(country) ?? id}` };
@@ -789,6 +792,8 @@ async function requestOf(
     // contrat de location d'un trip (US-211 partie 211b) : trip inconnu de l'acteur ⇒ 404
     case 'GET /trips/{tripId}/contract':
       return { method: 'GET', path: `/trips/${randomUUID()}/contract` };
+    case 'GET /trips/{tripId}/refunds':
+      return { method: 'GET', path: `/trips/${randomUUID()}/refunds` };
     case 'GET /trips/{tripId}/contract/pdf':
       return { method: 'GET', path: `/trips/${randomUUID()}/contract/pdf` };
     case 'POST /trips/{tripId}/contract/sign':

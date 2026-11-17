@@ -15,6 +15,9 @@
  * Demandes de réservation de l'hôte (US-223 partie 223c, ADR-146) : magasin des commandes de 0126
  * et connecteurs de CAPTURE par fournisseur. Production : aucun connecteur (lot C) ⇒ l'acceptation
  * rend `PAYMENT_UNAVAILABLE` sans toucher à la demande ; le refus et la lecture fonctionnent.
+ *
+ * Remboursements d'un trip (US-224 partie 224d, ADR-154) : lecture par la partie du trip
+ * (`core.booking_trip_refunds`, 0129) ; aucun adaptateur : 503.
  */
 import { Module } from '@nestjs/common';
 import type { DynamicModule } from '@nestjs/common';
@@ -35,6 +38,13 @@ import { HostRequestService, LOG_HOST_REQUEST_FAILURE } from './host-requests.se
 import type { RequestCaptureProvider } from './host-requests.service.js';
 import { PgHostRequestStore, UnavailableHostRequestStore } from './host-requests-store.js';
 import type { HostRequestStore } from './host-requests-store.js';
+import { TripRefundsController } from './trip-refunds.controller.js';
+import {
+  PgTripRefundStore,
+  TripRefundsService,
+  UnavailableTripRefundStore,
+} from './trip-refunds.js';
+import type { TripRefundStore } from './trip-refunds.js';
 
 /** Paiement du hold du checkout (US-223b) : commandes de 0116 et connecteurs servis. */
 export interface AvlCheckoutPaymentOptions {
@@ -77,6 +87,8 @@ export interface AvlCheckoutOptions {
   readonly payments?: AvlCheckoutPaymentOptions;
   /** Demandes de réservation de l'hôte (US-223c) ; absent : 503. */
   readonly hostRequests?: AvlHostRequestOptions;
+  /** Remboursements d'un trip lus par sa partie (US-224d, 0129) ; absent : 503. */
+  readonly refunds?: TripRefundStore;
 }
 
 /** Aucun adaptateur : 503 partout (fail-closed). */
@@ -103,6 +115,8 @@ export function postgresCheckoutAdapters(
     payments: { store: new PgCheckoutPaymentStore(db), providers: new Map() },
     // US-223c : refus et lecture des demandes ; aucune capture avant le lot C
     hostRequests: { store: new PgHostRequestStore(db), providers: new Map() },
+    // US-224d : lecture du remboursement par la partie du trip (aucune écriture)
+    refunds: new PgTripRefundStore(db),
   };
 }
 
@@ -111,7 +125,12 @@ export class AvlCheckoutModule {
   static register(options: AvlCheckoutOptions = UNAVAILABLE_AVL_CHECKOUT): DynamicModule {
     return {
       module: AvlCheckoutModule,
-      controllers: [CheckoutController, CheckoutPaymentController, HostRequestsController],
+      controllers: [
+        CheckoutController,
+        CheckoutPaymentController,
+        HostRequestsController,
+        TripRefundsController,
+      ],
       providers: [
         {
           provide: CheckoutService,
@@ -138,6 +157,10 @@ export class AvlCheckoutModule {
             (options.hostRequests ?? UNAVAILABLE_HOST_REQUESTS).providers,
             LOG_HOST_REQUEST_FAILURE,
           ),
+        },
+        {
+          provide: TripRefundsService,
+          useValue: new TripRefundsService(options.refunds ?? new UnavailableTripRefundStore()),
         },
       ],
     };

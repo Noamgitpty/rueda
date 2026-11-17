@@ -262,6 +262,36 @@ async function openHostContract(page: Page, context: BrowserContext): Promise<vo
   await expect(page.locator('[data-testid="a03-contract-state"]')).toBeVisible();
 }
 
+/**
+ * S06 confirmé → contrat (trip né) → annulation réglée par le double → S10 · remboursement émis du
+ * voyageur (US-224 partie 224d).
+ */
+async function openTripRefund(
+  page: Page,
+  context: BrowserContext,
+  language: Language,
+): Promise<void> {
+  await openPayment(page, context, language, ['PAY', 'SUCCEEDED'], 'CONFIRMED');
+  await page.locator('[data-testid="s06-contract"]').click();
+  await expect(page).toHaveURL(/\/trips\/[0-9a-f-]{36}\/contract$/);
+  const tripId = /\/trips\/([0-9a-f-]{36})\/contract$/.exec(new URL(page.url()).pathname)?.[1];
+  if (tripId === undefined) throw new Error('trip absent');
+  expect((await fetch(`${API}/__e2e/refund/cancel?trip=${tripId}&state=issued`)).status).toBe(200);
+  await page.goto(`/trips/${tripId}/refund`);
+  await expect(page.locator('[data-testid="refund-issued"]')).toBeVisible();
+}
+
+/** A10 → A02 → A05 de l'hôte avec le remboursement du voyageur planifié (US-224 partie 224d). */
+async function openHostRefund(page: Page, context: BrowserContext): Promise<void> {
+  await openHostContract(page, context);
+  const tripId = /\/host\/trips\/([0-9a-f-]{36})\/contract/.exec(page.url())?.[1] ?? '';
+  expect((await fetch(`${API}/__e2e/refund/cancel?trip=${tripId}&state=preparing`)).status).toBe(
+    200,
+  );
+  await page.goto(page.url().replace('/contract?', '?'));
+  await expect(page.locator('[data-testid="a05-refunds"]')).toBeVisible();
+}
+
 interface Screen {
   /** Nom stable de la capture (dossier de références). */
   readonly name: string;
@@ -571,6 +601,17 @@ export const SCREENS: readonly Screen[] = [
     name: 'hote-contrat',
     source: 'A03, US-211',
     open: (page, context) => openHostContract(page, context),
+  },
+  // US-224 partie 224d : remboursement émis vu par le voyageur (S10) ; vu par l'hôte (A05)
+  {
+    name: 'remboursement-emis',
+    source: 'S10, US-224',
+    open: (page, context, language) => openTripRefund(page, context, language),
+  },
+  {
+    name: 'hote-remboursement',
+    source: 'A05, US-224',
+    open: (page, context) => openHostRefund(page, context),
   },
   { name: 'vitrine-composants', source: 'US-032', open: at('/ui?width=mobile') },
 ];

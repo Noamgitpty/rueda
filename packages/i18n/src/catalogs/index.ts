@@ -197,8 +197,17 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  fermée, confirmation avant envoi, état réel de la demande — en attente, réglée avec le porteur du
  coût et le remboursement par partie, en revue FINANCE, en échec — et la suite à donner ; refus de la
  commande et codes d’une demande garée expliqués).
+ Version 71 (la 70 est réservée à US-223d) : remboursement lu par sa partie, partie 224d (US-224,
+ ADR-154) : `common.refund.*` (réponses de la route `/trips/{id}/refunds` : introuvable,
+ indisponible), `web.s10.refund.*` (S10 · remboursement du voyageur : montant, rail sur le moyen
+ d’origine, date d’émission, jamais une date de réception), `web.refund.*` (états et date
+ d’émission vus par le voyageur et l’hôte), `web.a05.refund.*` (jambe HOST seulement, sur le
+ détail du trip de l’hôte), `backoffice.refunds.*` (console : états SM-8, rails, parts demandées et
+ ordre envoyé, avance, motifs de blocage ADVANCE_CAP_UNSET, HOST_ADVANCE_CAP,
+ PLATFORM_BALANCE_UNKNOWN et codes REFUND_EXCEEDS_COLLECTED, SETTLEMENT_SUPERSEDED,
+ FIN_REVIEW_REQUIRED, SUPERSEDED_UNSENT, NO_TARGET, MISMATCH expliqués).
  */
-export const CATALOG_VERSION = 69;
+export const CATALOG_VERSION = 71;
 
 /** Catalogues de base par langue ; la langue d'un profil de locale choisit le sien. */
 export const CATALOGS: Readonly<Record<CatalogLanguage, VersionedCatalog<MessageKey>>> = {

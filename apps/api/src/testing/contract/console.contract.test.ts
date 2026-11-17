@@ -197,6 +197,31 @@ const OPS_BODIES: Readonly<Record<string, Record<string, unknown>>> = {
       refunds: [{ status: 'PLANNED', amountMinor: '18744' }],
     },
   },
+  // US-224d : remboursements SM-8 d'un trip (forme de 0129, exposant joint par le magasin)
+  tripRefunds: {
+    tripId: ID,
+    country: FIRST_COUNTRY,
+    exponent: 2,
+    refunds: [
+      {
+        instanceId: ID,
+        status: 'PLANNED',
+        currency: 'XTA',
+        amountMinor: '18744',
+        rail: 'NATIVE_PARTIAL',
+        attemptNo: 1,
+        settlementVersion: 1,
+        requestedLegs: { HOST: '8625', INSURER: '0', TAX_THIRD_PARTY: '0', PLATFORM: '10119' },
+        orderLegs: { HOST: '0', INSURER: '0', TAX_THIRD_PARTY: '0', PLATFORM: '18744' },
+        orderStatus: 'PENDING',
+        blockedReason: 'PLATFORM_BALANCE_UNKNOWN',
+        finAlert: 'BLOCKED:PLATFORM_BALANCE_UNKNOWN',
+        advance: { status: 'PLANNED', amountMinor: '8625' },
+        plannedAt: '2031-07-01T08:00:00.123Z',
+        issuedAt: null,
+      },
+    ],
+  },
   // US-209b : dossier d'une réservation signalée (forme de 0119)
   bookingReview: {
     itemId: ID,
@@ -451,6 +476,9 @@ class TunableOpsStore implements OpsConsoleStore {
   }
   tripCancellation() {
     return this.#r('tripCancellation', 'OK');
+  }
+  tripRefunds() {
+    return this.#r('tripRefunds', 'OK');
   }
   findUser() {
     return this.#r('findUser', 'FOUND');
@@ -1082,6 +1110,24 @@ describe('contrat HTTP — /console', () => {
     expect((await a.api.request('GET', cxl, { headers: a.cookie('staff') })).status).toBe(403);
     delete ops.outcome['tripCancellation'];
     await refusals(a, 'GET', cxl);
+
+    // remboursements d'un trip (US-224d) : 200 (montants en texte, motif de blocage, alerte FIN),
+    // 400, 403 (dont STAFF_SELF_FORBIDDEN)
+    const rfd = `/console/refunds/${ID}`;
+    const rfdRead = await a.api.request('GET', rfd, { headers: a.cookie('staff') });
+    expect(rfdRead.status).toBe(200);
+    expect(rfdRead.json).toEqual(OPS_BODIES['tripRefunds']);
+    expect(
+      (await a.api.request('GET', '/console/refunds/x', { headers: a.cookie('staff') })).status,
+    ).toBe(400);
+    ops.outcome['tripRefunds'] = 'SELF_FORBIDDEN';
+    expect((await a.api.request('GET', rfd, { headers: a.cookie('staff') })).json).toMatchObject({
+      code: 'STAFF_SELF_FORBIDDEN',
+    });
+    ops.outcome['tripRefunds'] = 'FORBIDDEN';
+    expect((await a.api.request('GET', rfd, { headers: a.cookie('staff') })).status).toBe(403);
+    delete ops.outcome['tripRefunds'];
+    await refusals(a, 'GET', rfd);
 
     // file d'ajout au catalogue (US-114) : lecture 200, 400, 403, 409 ; décision 200, 400, 403,
     // 409, 422

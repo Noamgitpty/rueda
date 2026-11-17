@@ -3436,6 +3436,52 @@
         }
       }
     },
+    "/console/refunds/{id}": {
+      "get": {
+        "operationId": "consoleTripRefunds",
+        "tags": ["sup"],
+        "summary": "Remboursements (SM-8) d'un trip pour la console : jambes demandées et ordre envoyé, rail, tentative, version du règlement, motif de blocage, alerte FIN, avance, date d'émission ; permission ops.platform_cancel ou finance.platform_advance dans le pays du trip, garde ADR-122, refus journalisés, aucune donnée personnelle (US-224d)",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Remboursements du trip (liste vide si aucun)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StaffTripRefunds"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/StaffRequestInvalid"
+          },
+          "401": {
+            "$ref": "#/components/responses/StaffAuthRequired"
+          },
+          "403": {
+            "$ref": "#/components/responses/StaffForbiddenOrCase"
+          },
+          "429": {
+            "$ref": "#/components/responses/StaffRateLimited"
+          }
+        }
+      }
+    },
     "/console/cancellations/{id}": {
       "get": {
         "operationId": "consoleTripCancellation",
@@ -11753,6 +11799,83 @@
         }
       }
     },
+    "/trips/{tripId}/refunds": {
+      "get": {
+        "operationId": "tripRefunds",
+        "tags": ["avl"],
+        "summary": "Remboursements d'un trip lus par sa partie (US-224d, ADR-154 ; 19 US-224 critère 1 ; écran S10) : le voyageur lit le montant remboursé par Kmino, le rail et la date d'émission (jamais une date de réception, BR-PAY-08) ; le titulaire du compte d'hôte lit la seule part de la jambe HOST ; une instance remplacée par la version suivante n'est pas montrée",
+        "parameters": [
+          {
+            "name": "tripId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Vue de la partie de la session",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TripRefunds"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthRequired"
+          },
+          "404": {
+            "description": "Trip inconnu, d'une autre personne ou identifiant mal formé : même réponse (17 §2.3 point 5)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "REFUND_NOT_FOUND"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Base indisponible ou réponse inattendue : rien n’est servi (fail-closed)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "REFUNDS_UNAVAILABLE"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/trips/{tripId}/contract/sign": {
       "post": {
         "operationId": "signTripContract",
@@ -14816,6 +14939,358 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/Uuid"
+            }
+          }
+        }
+      },
+      "TripRefunds": {
+        "description": "US-224d (ADR-154) : remboursements d'un trip pour la partie de la session ; montants en unités mineures (texte, bigint exact), lus de la base, jamais recalculés.",
+        "oneOf": [
+          {
+            "type": "object",
+            "required": [
+              "tripId",
+              "viewerRole",
+              "tripStatus",
+              "currency",
+              "currencyExponent",
+              "timezone",
+              "refunds"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "tripId": {
+                "$ref": "#/components/schemas/Uuid"
+              },
+              "tripStatus": {
+                "type": "string",
+                "pattern": "^[A-Z][A-Z0-9_]{1,63}$"
+              },
+              "currency": {
+                "type": "string",
+                "pattern": "^[A-Z]{3}$"
+              },
+              "currencyExponent": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 4,
+                "description": "exposant de la devise (config), pour l'affichage seulement"
+              },
+              "timezone": {
+                "type": "string",
+                "pattern": "^[A-Za-z_]+(/[A-Za-z0-9_+-]+){0,2}$",
+                "description": "fuseau IANA du trip (affichage de la date d'émission)"
+              },
+              "viewerRole": {
+                "const": "GUEST"
+              },
+              "refunds": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": ["status", "amountMinor", "rail", "plannedAt", "issuedAt"],
+                  "additionalProperties": false,
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "PLANNED",
+                        "BLOCKED_CHARGEBACK",
+                        "PENDING_CUSTOMER_CHOICE",
+                        "PENDING_BANK_DETAILS",
+                        "SUBMITTED",
+                        "SENT",
+                        "CONFIRMED",
+                        "FAILED",
+                        "CREDITED",
+                        "CANCELLED",
+                        "SUPERSEDED"
+                      ]
+                    },
+                    "amountMinor": {
+                      "$ref": "#/components/schemas/MinorUnits"
+                    },
+                    "rail": {
+                      "type": "string",
+                      "enum": [
+                        "NATIVE_PARTIAL",
+                        "ROLLBACK_AND_RECHARGE",
+                        "BANK_TRANSFER",
+                        "CREDIT_CASH"
+                      ]
+                    },
+                    "plannedAt": {
+                      "type": "string",
+                      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+                    },
+                    "issuedAt": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "tripId",
+              "viewerRole",
+              "tripStatus",
+              "currency",
+              "currencyExponent",
+              "timezone",
+              "refunds"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "tripId": {
+                "$ref": "#/components/schemas/Uuid"
+              },
+              "tripStatus": {
+                "type": "string",
+                "pattern": "^[A-Z][A-Z0-9_]{1,63}$"
+              },
+              "currency": {
+                "type": "string",
+                "pattern": "^[A-Z]{3}$"
+              },
+              "currencyExponent": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 4,
+                "description": "exposant de la devise (config), pour l'affichage seulement"
+              },
+              "timezone": {
+                "type": "string",
+                "pattern": "^[A-Za-z_]+(/[A-Za-z0-9_+-]+){0,2}$",
+                "description": "fuseau IANA du trip (affichage de la date d'émission)"
+              },
+              "viewerRole": {
+                "const": "HOST"
+              },
+              "refunds": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": ["status", "hostLegMinor", "plannedAt", "issuedAt"],
+                  "additionalProperties": false,
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "PLANNED",
+                        "BLOCKED_CHARGEBACK",
+                        "PENDING_CUSTOMER_CHOICE",
+                        "PENDING_BANK_DETAILS",
+                        "SUBMITTED",
+                        "SENT",
+                        "CONFIRMED",
+                        "FAILED",
+                        "CREDITED",
+                        "CANCELLED",
+                        "SUPERSEDED"
+                      ]
+                    },
+                    "hostLegMinor": {
+                      "$ref": "#/components/schemas/MinorUnits"
+                    },
+                    "plannedAt": {
+                      "type": "string",
+                      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+                    },
+                    "issuedAt": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        ]
+      },
+      "StaffTripRefunds": {
+        "type": "object",
+        "required": ["tripId", "country", "exponent", "refunds"],
+        "additionalProperties": false,
+        "description": "US-224d (ADR-154) : remboursements (SM-8) d'un trip pour la console (0129) ; montants en unités mineures (texte) ; aucune donnée personnelle.",
+        "properties": {
+          "tripId": {
+            "$ref": "#/components/schemas/Uuid"
+          },
+          "country": {
+            "$ref": "#/components/schemas/CountryCode"
+          },
+          "exponent": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 18
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "exposant de la devise (config), pour l'affichage seulement ; null sans remboursement"
+          },
+          "refunds": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "instanceId",
+                "status",
+                "currency",
+                "amountMinor",
+                "rail",
+                "attemptNo",
+                "settlementVersion",
+                "requestedLegs",
+                "orderLegs",
+                "orderStatus",
+                "blockedReason",
+                "finAlert",
+                "advance",
+                "plannedAt",
+                "issuedAt"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "instanceId": {
+                  "$ref": "#/components/schemas/Uuid"
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "PLANNED",
+                    "BLOCKED_CHARGEBACK",
+                    "PENDING_CUSTOMER_CHOICE",
+                    "PENDING_BANK_DETAILS",
+                    "SUBMITTED",
+                    "SENT",
+                    "CONFIRMED",
+                    "FAILED",
+                    "CREDITED",
+                    "CANCELLED",
+                    "SUPERSEDED"
+                  ]
+                },
+                "currency": {
+                  "type": "string",
+                  "pattern": "^[A-Z]{3}$"
+                },
+                "amountMinor": {
+                  "$ref": "#/components/schemas/MinorUnits"
+                },
+                "rail": {
+                  "type": "string",
+                  "enum": [
+                    "NATIVE_PARTIAL",
+                    "ROLLBACK_AND_RECHARGE",
+                    "BANK_TRANSFER",
+                    "CREDIT_CASH"
+                  ]
+                },
+                "attemptNo": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "settlementVersion": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "requestedLegs": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "$ref": "#/components/schemas/MinorUnits"
+                  }
+                },
+                "orderLegs": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "$ref": "#/components/schemas/MinorUnits"
+                  }
+                },
+                "orderStatus": {
+                  "type": "string",
+                  "pattern": "^[A-Z][A-Z0-9_]{1,63}$"
+                },
+                "blockedReason": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "enum": ["ADVANCE_CAP_UNSET", "HOST_ADVANCE_CAP", "PLATFORM_BALANCE_UNKNOWN"]
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "finAlert": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "pattern": "^[A-Z][A-Z0-9_:]{0,79}$"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "advance": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "required": ["status", "amountMinor"],
+                      "additionalProperties": false,
+                      "properties": {
+                        "status": {
+                          "type": "string",
+                          "pattern": "^[A-Z][A-Z0-9_]{1,63}$"
+                        },
+                        "amountMinor": {
+                          "$ref": "#/components/schemas/MinorUnits"
+                        }
+                      }
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "plannedAt": {
+                  "type": "string",
+                  "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+                },
+                "issuedAt": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              }
             }
           }
         }
