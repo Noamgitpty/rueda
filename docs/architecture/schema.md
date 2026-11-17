@@ -7,7 +7,7 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 
 ## Synthèse
 
-- 128 migrations ; 125 tables ; 2 vues ; 706 politiques RLS ; 262 fonctions `SECURITY DEFINER` ; 246 autres fonctions.
+- 129 migrations ; 126 tables ; 3 vues ; 710 politiques RLS ; 264 fonctions `SECURITY DEFINER` ; 246 autres fonctions.
 - Tables sans RLS `ENABLE` + `FORCE` : aucune.
 - Rôles applicatifs avec `SUPERUSER` ou `BYPASSRLS` : aucun.
 
@@ -143,6 +143,7 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 | `0125_config_booking_request_mode_params` | graine complémentaire : paramètres « booking_request_mode* » (US-223 ; 17 §7.2). |
 | `0126_booking_request_mode` | AVL / PAY : réservation sur demande (hold REQUEST), autorisation à l'envoi, capture par |
 | `0127_payment_refund_scheduler` | PAY / STL : ordonnancement des remboursements planifiés et états SM-8 après l'envoi. |
+| `0128_settlement_host_ledger` | STL : grand livre minimal de l'hôte (`host_ledger`) ; pénalité d'annulation de l'hôte. |
 
 ## Rôles
 
@@ -1153,6 +1154,7 @@ Politiques RLS :
 
 Déclencheurs :
 
+- `trip_cancellation_penalty_posted` : `CREATE TRIGGER trip_cancellation_penalty_posted AFTER UPDATE OF status ON core.booking_trip_cancellation FOR EACH ROW WHEN (new.status = 'SETTLED'::text AND old.status IS DISTINCT FROM 'SETTLED'::text) EXECUTE FUNCTION core.settlement_post_cancellation_penalty()`
 - `trip_cancellation_refunded` : `CREATE CONSTRAINT TRIGGER trip_cancellation_refunded AFTER UPDATE OF status ON core.booking_trip_cancellation DEFERRABLE INITIALLY DEFERRED FOR EACH ROW WHEN (new.status = 'SETTLED'::text) EXECUTE FUNCTION core.settlement_assert_cancellation_refunded()`
 
 ### `core.booking_trip_driver`
@@ -5222,6 +5224,54 @@ Déclencheurs :
 - `money_no_delete` : `CREATE TRIGGER money_no_delete BEFORE DELETE ON core.settlement_finance_approval FOR EACH ROW EXECUTE FUNCTION core.settlement_no_delete()`
 - `money_no_truncate` : `CREATE TRIGGER money_no_truncate BEFORE TRUNCATE ON core.settlement_finance_approval FOR EACH STATEMENT EXECUTE FUNCTION core.settlement_no_delete()`
 
+### `core.settlement_host_ledger_entry`
+
+- RLS : ENABLE + FORCE ; propriétaire `migrator`
+- Droits : cmd_money_owner: SELECT ; migrator: DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE
+
+| Colonne | Type | NOT NULL | Défaut |
+| ------- | ---- | -------- | ------ |
+| `id` | `uuid` | oui | — |
+| `org_id` | `uuid` | oui | — |
+| `country_code` | `text` | oui | — |
+| `currency` | `text` | oui | — |
+| `trip_id` | `uuid` | oui | — |
+| `segment_no` | `integer` | oui | — |
+| `settlement_id` | `uuid` | oui | — |
+| `settlement_version` | `integer` | oui | — |
+| `reason` | `text` | oui | — |
+| `amount_minor` | `bigint` | oui | — |
+| `created_at` | `timestamp with time zone` | oui | `platform.now()` |
+
+Contraintes :
+
+- `host_ledger_amount_nonzero` : `CHECK (amount_minor <> 0)`
+- `host_ledger_country_format` : `CHECK (country_code ~ '^[A-Z]{2}$'::text)`
+- `host_ledger_currency_format` : `CHECK (currency ~ '^[A-Z]{3}$'::text)`
+- `host_ledger_entry_settlement_reason_unique` : `UNIQUE (settlement_id, reason)`
+- `host_ledger_entry_version_reason_unique` : `UNIQUE (trip_id, segment_no, settlement_version, reason)`
+- `host_ledger_penalty_debit` : `CHECK (reason <> 'HOST_CANCELLATION_PENALTY'::text OR amount_minor < 0)`
+- `host_ledger_reason_valid` : `CHECK (reason = 'HOST_CANCELLATION_PENALTY'::text)`
+- `host_ledger_settlement_fk` : `FOREIGN KEY (settlement_id, trip_id, segment_no, settlement_version, org_id, country_code, currency) REFERENCES core.settlement_settlement(id, trip_id, segment_no, version, org_id, country_code, currency)`
+- `host_ledger_version_positive` : `CHECK (settlement_version >= 1)`
+- `settlement_host_ledger_entry_pkey` : `PRIMARY KEY (id)`
+
+Index :
+
+- `host_ledger_org_idx` : `CREATE INDEX host_ledger_org_idx ON core.settlement_host_ledger_entry USING btree (org_id, currency)`
+
+Politiques RLS :
+
+- `cmd_money_ins` (INSERT, PERMISSIVE, cmd_money_owner) WITH CHECK `((app.actor_kind() = 'WORKER'::text) AND (app.worker_name() = 'trip_lifecycle'::text) AND (reason = 'HOST_CANCELLATION_PENALTY'::text) AND (amount_minor < 0))`
+- `cmd_money_sel` (SELECT, PERMISSIVE, cmd_money_owner) USING `true`
+- `fin_read` (SELECT, PERMISSIVE, app_api) USING `((app.actor_kind() = 'STAFF'::text) AND (country_code = ANY (app.country_scope())) AND (app.has_staff_role('FINANCE'::text, country_code) OR app.has_staff_role('ADMIN'::text, country_code)))`
+- `migrator_all` (ALL, PERMISSIVE, migrator) USING `true` WITH CHECK `true`
+
+Déclencheurs :
+
+- `settlement_immutable` : `CREATE TRIGGER settlement_immutable BEFORE DELETE OR UPDATE ON core.settlement_host_ledger_entry FOR EACH ROW EXECUTE FUNCTION core.settlement_guard_immutable()`
+- `settlement_immutable_truncate` : `CREATE TRIGGER settlement_immutable_truncate BEFORE TRUNCATE ON core.settlement_host_ledger_entry FOR EACH STATEMENT EXECUTE FUNCTION core.settlement_guard_immutable()`
+
 ### `core.settlement_insurer`
 
 - RLS : ENABLE + FORCE ; propriétaire `migrator`
@@ -5615,6 +5665,7 @@ Contraintes :
 - `settlement_qualification_valid` : `CHECK (qualification = ANY (ARRAY['VOLUNTARY'::text, 'FAULT_PRE_START'::text, 'NO_SHOW'::text, 'FULL'::text]))`
 - `settlement_reason_format` : `CHECK (reason ~ '^[A-Z][A-Z0-9_]{1,63}$'::text)`
 - `settlement_requested_reason_format` : `CHECK (requested_reason ~ '^[A-Z][A-Z0-9_]{1,63}$'::text)`
+- `settlement_ledger_scope_unique` : `UNIQUE (id, trip_id, segment_no, version, org_id, country_code, currency)`
 - `settlement_scope_unique` : `UNIQUE (id, trip_id, segment_no, org_id, country_code)`
 - `settlement_segment_beta` : `CHECK (segment_no = 1)`
 - `settlement_segment_unique` : `UNIQUE (id, trip_id, segment_no)`
@@ -6203,6 +6254,11 @@ Politiques RLS :
 - view ; propriétaire `migrator` ; droits : app_api: SELECT ; migrator: DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE
 - Colonnes : `id` uuid, `trip_id` uuid, `country_code` text, `currency` text, `amount_minor` bigint, `receivable_minor` bigint, `recovered_minor` bigint, `outstanding_minor` bigint, `status` text, `created_at` timestamp with time zone
 
+### `core.settlement_host_ledger_balance_v`
+
+- view ; propriétaire `migrator` ; droits : app_api: SELECT ; migrator: DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE
+- Colonnes : `org_id` uuid, `country_code` text, `currency` text, `balance_minor` bigint, `entries` integer, `last_entry_at` timestamp with time zone
+
 ## Fonctions `SECURITY DEFINER`
 
 Chacune a un propriétaire `NOLOGIN` dédié (ADR-053) et un `search_path` figé ; EXECUTE accordé nommément (jamais PUBLIC). Liste blanche : `packages/db/security-definer-allowlist.json`.
@@ -6442,8 +6498,10 @@ Chacune a un propriétaire `NOLOGIN` dédié (ADR-053) et un `search_path` figé
 | `core.settlement_cancellation_of(p_settlement_id uuid)` | `TABLE(id uuid, trip_id uuid, segment_no integer, version integer, supersedes_id uuid, kind text, requested_reason text, reason text, origin text, target_state text, inputs jsonb, superseded boolean)` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | cmd_hold_owner: EXECUTE ; cmd_money_owner: EXECUTE |
 | `core.settlement_cmd_apply_leg_movement(p_operation_id uuid)` | `text` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; cmd_money_owner: EXECUTE |
 | `core.settlement_cmd_approve_finance_action(p_token_hash bytea, p_approval_id uuid)` | `TABLE(outcome text, approval_id uuid)` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; cmd_money_owner: EXECUTE |
+| `core.settlement_cmd_post_host_penalty(p_settlement_id uuid)` | `uuid` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | cmd_money_owner: EXECUTE |
 | `core.settlement_cmd_record(p_settlement_id uuid, p_trip_id uuid, p_segment_no integer, p_version integer, p_supersedes_id uuid, p_trip_row_version integer, p_record jsonb)` | `uuid` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; cmd_money_owner: EXECUTE |
 | `core.settlement_cmd_request_finance_action(p_token_hash bytea, p_request_id uuid, p_action text, p_subject_id uuid, p_reason text)` | `TABLE(outcome text, approval_id uuid)` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; cmd_money_owner: EXECUTE |
+| `core.settlement_post_cancellation_penalty()` | `trigger` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | cmd_money_owner: EXECUTE |
 | `core.support_close_review_item(p_item_id uuid, p_status text, p_decision text, p_actor uuid)` | `TABLE(outcome text, item_id uuid)` | `iam_staff_owner` | search_path=pg_catalog, pg_temp | cmd_hold_owner: EXECUTE ; iam_staff_owner: EXECUTE ; kyc_cmd_owner: EXECUTE |
 | `core.support_enqueue_review(p_queue text, p_subject_type text, p_subject_id uuid, p_country text, p_actor uuid)` | `TABLE(outcome text, item_id uuid)` | `iam_staff_owner` | search_path=pg_catalog, pg_temp | catalog_cmd_owner: EXECUTE ; cmd_hold_owner: EXECUTE ; iam_staff_owner: EXECUTE ; kyc_cmd_owner: EXECUTE |
 | `core.support_manual_action_finance_request(p_token_hash bytea, p_action_id uuid, p_action_code text, p_subject_id uuid, p_input jsonb, p_reason text, p_actor uuid, p_actor_role text)` | `TABLE(outcome text, ref_id uuid, emitted_event_ids uuid[])` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | cmd_money_owner: EXECUTE ; iam_staff_owner: EXECUTE |

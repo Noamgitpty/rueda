@@ -2041,6 +2041,29 @@
         "applied_at": "C1"
       }
     },
+    "core.settlement_host_ledger_entry": {
+      "lifecycle": "A",
+      "subjects": [
+        {
+          "column": "org_id",
+          "type": "ORG"
+        }
+      ],
+      "export": "controller",
+      "columns": {
+        "id": "C1",
+        "org_id": "C1",
+        "country_code": "C1",
+        "currency": "C1",
+        "trip_id": "C1",
+        "segment_no": "C1",
+        "settlement_id": "C1",
+        "settlement_version": "C1",
+        "reason": "C1",
+        "amount_minor": "C1",
+        "created_at": "C1"
+      }
+    },
     "core.settlement_platform_advance": {
       "lifecycle": "A",
       "subjects": [
