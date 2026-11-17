@@ -54,7 +54,24 @@ const HOST_EARNINGS = /host-earnings-plan\.spec\.ts$/;
 const SCREENS = /screens\.spec\.ts$/;
 /** Balayage des écrans de la console interne (US-044). */
 const CONSOLE = /console\.spec\.ts$/;
-const phone = { isMobile: true, hasTouch: true, deviceScaleFactor: 2 } as const;
+/** Arguments de Chrome communs à tous les projets (voir `use.launchOptions`). */
+const CHROME_ARGS = ['--disable-lcd-text'] as const;
+/**
+ * Téléphones : écran de Chrome à l'échelle 2, égale au `deviceScaleFactor` émulé. Sous Linux,
+ * le réglage de tramage d'une police (`gfx::GetFontRenderParams`) dépend de l'échelle de la
+ * requête : 1 ⇒ ajustement des glyphes à la grille de pixels de fontconfig (hinting « slight »),
+ * plus de 1 ⇒ aucun ajustement. Sans ce drapeau, l'écran réel vaut 1 et l'émulation 2 : la toute première police de la page (le texte courant,
+ * 16 px normal) est parfois demandée avant que l'échelle émulée n'arrive au moteur de rendu, et
+ * garde alors l'ajustement pour toute la page (décalage vertical d'environ un demi-pixel, encre
+ * ±5 %, gras et 14 px intacts) ; une capture de téléphone échouait au hasard sous charge
+ * (docs/qa/REGRESSION_VISUELLE.md, « Ajustement des glyphes selon l'échelle de l'écran »).
+ */
+const phone = {
+  isMobile: true,
+  hasTouch: true,
+  deviceScaleFactor: 2,
+  launchOptions: { args: [...CHROME_ARGS, '--force-device-scale-factor=2'] },
+};
 
 export default defineConfig({
   testDir: './e2e',
@@ -80,7 +97,7 @@ export default defineConfig({
     // l'autre ; sans lui, une capture ne dépend plus ni de la machine ni des calques
     // (docs/qa/REGRESSION_VISUELLE.md, « Texte sans anticrénelage sous-pixel »). Le site servi ne
     // change pas : seul le navigateur des e2e est réglé.
-    launchOptions: { args: ['--disable-lcd-text'] },
+    launchOptions: { args: [...CHROME_ARGS] },
     reducedMotion: 'reduce',
     timezoneId: 'UTC',
     serviceWorkers: 'block',
