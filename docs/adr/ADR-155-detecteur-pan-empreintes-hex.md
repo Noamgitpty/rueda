@@ -33,7 +33,7 @@ Elle reste possible plus tard : la clé est déterministe (même `idem_plain` �
    - **en minuscules** (la sortie de `encode(sha256(…), 'hex')` et de `digest('hex')`) ;
    - **non collé** à une lettre ou à un chiffre, de chaque côté.
 
-   On utilise la même définition en base (migration **0129**, `CREATE OR REPLACE` de `core.payment_text_has_pan`, droits et contrainte inchangés) et dans l'API (`pay/internal/pan.ts` : `containsPan`, et `maskPan`, qui laisse l'empreinte intacte comme un UUID).
+   On utilise la même définition en base (migration **0130**, `CREATE OR REPLACE` de `core.payment_text_has_pan`, droits et contrainte inchangés) et dans l'API (`pay/internal/pan.ts` : `containsPan`, et `maskPan`, qui laisse l'empreinte intacte comme un UUID).
 
 2. Les cas suivants restent analysés (**fail-closed**) : capitales ou casse mêlée, 63 ou 65 caractères, jeton collé à une lettre ou à un chiffre. Un PAN voisin d'une empreinte, séparé par une espace, un tiret, un guillemet ou une virgule, reste refusé. Un jeton de 64 chiffres seuls n'était déjà pas analysé : c'est un groupe de plus de 19 chiffres (0029).
 3. L'identifiant écarté est remplacé par une espace, entre deux caractères qui ne sont ni des lettres ni des chiffres. Le résultat ne peut pas joindre deux suites de chiffres : il faudrait UN séparateur, et il en reste au moins trois. La nouvelle définition refuse donc un **sous-ensemble** de ce que refusait 0029. Les lignes existantes la respectent, et la contrainte n'est ni supprimée ni recréée.

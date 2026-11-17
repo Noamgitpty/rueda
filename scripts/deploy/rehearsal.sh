@@ -69,10 +69,18 @@ journal_has DEPLOY "$A" SUCCEEDED '"environment":"preproduction-local"'
 code="$(http POST "/webhooks/fake/wh_$(printf '%024d' 0)" '{}')"
 [ "$code" = 404 ] || fail "route de webhook FAKE : $code (404 attendu, C19)"
 say 'API saine ; route de webhook FAKE absente (404)'
-local_compose logs --no-color worker | grep -q '"event":"worker.started"' ||
+# US-122 (ci-stable-3) : journaux lus UNE fois, puis cherchés dans la variable. Avec
+# `set -o pipefail`, `logs | grep -q` peut échouer au hasard : grep -q sort au premier motif
+# trouvé, docker compose écrit encore et meurt de SIGPIPE, le tube rend non nul (cause probable
+# du run 44115264327, journaux du travailleur non conservés).
+worker_logs="$(local_compose logs --no-color worker)"
+grep -q '"event":"worker.started"' <<<"$worker_logs" ||
   fail 'travailleur : démarrage non journalisé'
-local_compose logs --no-color worker | grep -q '"queues":\["booking_contract","booking_conversion","booking_oracle","disposition_sweeper","hold_expiry","iam_otp_pruner","iam_otp_sender","kyc_score_pruner","ntf_dispatcher","ntf_sender","ops_monitor","privacy_request","reconciliation","refund_scheduler","review_sla_watch","risk_pruner","security_incident_watch","trip_lifecycle","webhook_ingest"\]' ||
+grep -q '"queues":\["booking_contract","booking_conversion","booking_oracle","disposition_sweeper","hold_expiry","iam_otp_pruner","iam_otp_sender","kyc_score_pruner","ntf_dispatcher","ntf_sender","ops_monitor","privacy_request","reconciliation","refund_scheduler","review_sla_watch","risk_pruner","security_incident_watch","trip_lifecycle","webhook_ingest"\]' <<<"$worker_logs" || {
+  # diagnostic : la ligne de démarrage (version et noms des files seulement, aucun secret)
+  grep -F '"event":"worker.started"' <<<"$worker_logs" | tail -n 3 >&2 || true
   fail 'travailleur : files attendues absentes'
+}
 say 'travailleur en marche, dix-huit files déclarées (dont booking_contract, US-211, booking_conversion et webhook_ingest, US-223, ops_monitor, US-004, reconciliation, US-047, iam_otp_sender, iam_otp_pruner, US-104, kyc_score_pruner, US-105, review_sla_watch, US-106, et privacy_request, US-111)'
 
 refuse() {

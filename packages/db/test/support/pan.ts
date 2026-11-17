@@ -33,7 +33,7 @@ export const EVT_FALSE_POSITIVE = 'evt-b6e0d932-76ed-4c01-8373-52880805f175';
  * Clé d'idempotence réduite (08 E4 : `hex(sha256(idem_plain))`) que la définition de 0029 refusait
  * (suite « 30752707115706043 », Luhn valide). Antécédent : clé de remboursement
  * `f32ac183-4791-4f5c-af1f-aabdd0d12b3b:9fb6aea1-3d03-457d-ab48-c3e7564599eb:v1:REFUND:`
- * `c38fe3d7-830e-49f4-a4a1-72334be7812b:i1:a1` (126 caractères). Corrigé par 0129 (ADR-155).
+ * `c38fe3d7-830e-49f4-a4a1-72334be7812b:i1:a1` (126 caractères). Corrigé par 0130 (ADR-155).
  */
 export const HEX_FALSE_POSITIVE =
   '2eedc6ee6c885aadeb30752707115706043d924d52e5e3cfc8aeca1a1843fcf3';

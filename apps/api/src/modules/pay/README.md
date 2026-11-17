@@ -8,7 +8,7 @@ D'après 17 §2.2 et §2.8 : adaptateurs PSP de place de marché, compte marchan
 
 État du code :
 
-- **livré** : port `PaymentProvider` avec contrôles de jambes, capacités fail-closed, erreurs normalisées, clés d'idempotence, envoi des commandes monétaires, réception et traitement des webhooks, détecteur de PAN (UUID et empreintes `hex(sha256)` de 64 minuscules écartés : ADR-155, migration 0129), adaptateurs PostgreSQL et garde de démarrage (US-019, ADR-059) ; méthodes de place de marché et sous-marchands (US-061, ADR-066) ;
+- **livré** : port `PaymentProvider` avec contrôles de jambes, capacités fail-closed, erreurs normalisées, clés d'idempotence, envoi des commandes monétaires, réception et traitement des webhooks, détecteur de PAN (UUID et empreintes `hex(sha256)` de 64 minuscules écartés : ADR-155, migration 0130), adaptateurs PostgreSQL et garde de démarrage (US-019, ADR-059) ; méthodes de place de marché et sous-marchands (US-061, ADR-066) ;
 - **FAKE seulement** : le registre des PSP de production est vide jusqu'au lot C (US-601) ; un FAKE n'est jamais actif en production (C19) ;
 - **livré par US-223 (223a, ADR-139)** : preuve par webhook seulement (montant et devise du webhook vérifiés en base, `MISMATCH` ; horodatage signé absent hors fenêtre ; aucune lecture ni réponse d'un compte LIVE ne prouve ; `UNPROVEN` et `MISMATCH` traités par `WebhookProcessor` : `FAILED` à motif dédié et alerte) ; lecture avant tout envoi sans `SUPPORTS_IDEMPOTENCY_HEADER` (N-108, `MoneyCommandSender`) ; tâches `webhook_ingest` et `booking_conversion` du travailleur (`worker-tasks.ts`) ;
 - **pas encore** : routes HTTP du paiement (US-223 partie 223b), mode `REQUEST` (223c), instruments, MIT, remboursements, caution, chargebacks, dettes.

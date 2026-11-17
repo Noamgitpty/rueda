@@ -39,6 +39,9 @@ const ISOLATED = [
   // US-215 : préparation et demandes de la console commitées (deux rôles), compte PSP ACTIVE du pays
   // partagé (fixture 9800, un seul compte ACTIVE par pays)
   'test/l0/l0-us215-trip-cancellation.test.ts',
+  // US-709a : même monde qu'US-215 (préparation, demandes et lectures de l'ops commitées, compte PSP
+  // ACTIVE du pays partagé) ; TRUNCATE refusé du host_ledger (verrou exclusif le temps de l'essai)
+  'test/l0/l0-us709a-host-ledger.test.ts',
 ];
 const C11 = ['test/l0/l0-c11-fuzz.test.ts'];
 // US-049 : les attaques de la red team (test/redteam/<axe>/) tournent seules, après tous les autres

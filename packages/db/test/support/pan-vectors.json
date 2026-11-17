@@ -138,31 +138,31 @@
     },
     {
       "text": "g2eedc6ee6c885aadeb30752707115706043d924d52e5e3cfc8aeca1a1843fcf3",
-      "note": "empreinte hex de 64 collée à une lettre : analysée (0129)"
+      "note": "empreinte hex de 64 collée à une lettre : analysée (0130)"
     },
     {
       "text": "2EEDC6EE6C885AADEB30752707115706043D924D52E5E3CFC8AECA1A1843FCF3",
-      "note": "empreinte hex de 64 en capitales : analysée (0129)"
+      "note": "empreinte hex de 64 en capitales : analysée (0130)"
     },
     {
       "text": "eedc6ee6c885aadeb30752707115706043d924d52e5e3cfc8aeca1a1843fcf3",
-      "note": "63 hexadécimaux : analysés (0129)"
+      "note": "63 hexadécimaux : analysés (0130)"
     },
     {
       "text": "2eedc6ee6c885aadeb30752707115706043d924d52e5e3cfc8aeca1a1843fcf3a",
-      "note": "65 hexadécimaux : analysés (0129)"
+      "note": "65 hexadécimaux : analysés (0130)"
     },
     {
       "text": "{\"merchantReference\": \"2eedc6ee6c885aadeb30752707115706043d924d52e5e3cfc8aeca1a1843fcf3\", \"card\": \"4111 1111 1111 1111\"}",
-      "note": "empreinte écartée, PAN voisin refusé (0129)"
+      "note": "empreinte écartée, PAN voisin refusé (0130)"
     },
     {
       "text": "2eedc6ee6c885aadeb30752707115706043d924d52e5e3cfc8aeca1a1843fcf3-4111111111111111",
-      "note": "PAN après une empreinte, joint par un tiret (0129)"
+      "note": "PAN après une empreinte, joint par un tiret (0130)"
     },
     {
       "text": "4111111111111111-2eedc6ee6c885aadeb30752707115706043d924d52e5e3cfc8aeca1a1843fcf3",
-      "note": "PAN avant une empreinte, joint par un tiret (0129)"
+      "note": "PAN avant une empreinte, joint par un tiret (0130)"
     }
   ],
   "notPans": [
@@ -236,11 +236,11 @@
     },
     {
       "text": "2eedc6ee6c885aadeb30752707115706043d924d52e5e3cfc8aeca1a1843fcf3",
-      "note": "empreinte hex(sha256) d'une clé de remboursement, refusée par 0029 (0129)"
+      "note": "empreinte hex(sha256) d'une clé de remboursement, refusée par 0029 (0130)"
     },
     {
       "text": "{\"merchantReference\": \"2eedc6ee6c885aadeb30752707115706043d924d52e5e3cfc8aeca1a1843fcf3\"}",
-      "note": "empreinte dans le webhook de preuve (0129)"
+      "note": "empreinte dans le webhook de preuve (0130)"
     },
     {
       "text": "4111111111111111aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",

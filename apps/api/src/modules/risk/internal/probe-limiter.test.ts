@@ -64,8 +64,12 @@ describe('availabilityProbeLimiter (adaptateur RISK du port de CAT)', () => {
         (x) => x.key === 'availability_probe_per_minute' && x.country === country,
       );
       if (v === undefined || typeof v.value !== 'number') throw new Error('paramètre absent');
+      // US-122 (ci-stable-3) : horloge FIXE au milieu d'une fenêtre d'une minute. À l'horloge
+      // réelle, la boucle pouvait franchir une limite de fenêtre (fixe, alignée sur l'époque) :
+      // compteur remis à zéro, la sonde de trop rendait null (run 44110961214).
+      const now = Date.UTC(2032, 0, 1, 12, 0, 30);
       const guard = new AbuseGuard({
-        store: new MemoryRateCounterStore(),
+        store: new MemoryRateCounterStore(() => now),
         hasher: new RateKeyHasher(Buffer.alloc(32, 9)),
         policy: configRateLimitPolicy(CONFIG),
         log: () => {},
@@ -76,6 +80,7 @@ describe('availabilityProbeLimiter (adaptateur RISK du port de CAT)', () => {
       const delay = await limiter.hit(IP, country);
       expect(delay).toBeGreaterThanOrEqual(1);
       expect(delay).toBeLessThanOrEqual(60);
+      expect(delay).toBe(30); // fin de la fenêtre courante, à l'horloge fixe
       // une autre IP n'est pas limitée
       await expect(limiter.hit('203.0.113.77', country)).resolves.toBeNull();
     },

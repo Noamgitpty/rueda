@@ -1,4 +1,4 @@
--- 0129 — PAY : le détecteur de PAN écarte les empreintes hexadécimales de 64 caractères (clé
+-- 0130 — PAY : le détecteur de PAN écarte les empreintes hexadécimales de 64 caractères (clé
 -- d'idempotence réduite que le PSP renvoie en `merchantReference`).
 -- US-019 (correctif ; défaut signalé par la QA d'US-122, run 44110961214) ; 08 E4 et 17 §2.8
 -- (`idem_sent` = `hex(sha256(idem_plain))` au-delà de la limite du PSP) ; 17 §1.6 (portée SAQ A),
@@ -63,7 +63,7 @@ BEGIN
   IF p_text IS NULL THEN
     RETURN false;
   END IF;
-  -- 1. UUID et empreintes hex(sha256) (64 hexadécimaux minuscules) écartés (0129, ADR-155) :
+  -- 1. UUID et empreintes hex(sha256) (64 hexadécimaux minuscules) écartés (0130, ADR-155) :
   --    le caractère qui précède est conservé, l'identifiant devient une espace
   FOR v_run IN
     SELECT m[1]
@@ -143,4 +143,4 @@ END
 $fn$;
 -- droits de 0028 conservés par CREATE OR REPLACE (EXECUTE : app_worker, cmd_money_owner)
 COMMENT ON FUNCTION core.payment_text_has_pan(text) IS
-  'PAN (17 §1.6, §4.4 point 3) : UUID et empreintes hex(sha256) de 64 minuscules écartés, 13 à 19 chiffres tout groupage, premier chiffre non nul de 2 à 8, Luhn ; temps linéaire (0029, 0129, US-019, ADR-155). Même définition que pay/internal/pan.ts.';
+  'PAN (17 §1.6, §4.4 point 3) : UUID et empreintes hex(sha256) de 64 minuscules écartés, 13 à 19 chiffres tout groupage, premier chiffre non nul de 2 à 8, Luhn ; temps linéaire (0029, 0130, US-019, ADR-155). Même définition que pay/internal/pan.ts.';

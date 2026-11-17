@@ -1,7 +1,7 @@
 /**
  * Détecteur de PAN (17 §4.4 point 3, F26 ; portée SAQ A, 17 §1.6). Numéros de test publics des
  * réseaux (jamais une carte réelle) ; même définition que `core.payment_text_has_pan` (0029,
- * 0129). Vecteurs : table UNIQUE `packages/db/test/support/pan-vectors.json`, jouée aussi en base
+ * 0130). Vecteurs : table UNIQUE `packages/db/test/support/pan-vectors.json`, jouée aussi en base
  * par `packages/db/test/l0/l0-pay-pan.test.ts` (identité vérifiée par `test/support/pan.test.ts`).
  */
 import { randomUUID } from 'node:crypto';
@@ -57,7 +57,7 @@ function containsPan0028(text: string): boolean {
 }
 
 describe('PAN', () => {
-  it('table partagée : 41 PAN (dont UnionPay, 19 chiffres, bords des empreintes de 0129), 20 non-PAN', () => {
+  it('table partagée : 41 PAN (dont UnionPay, 19 chiffres, bords des empreintes de 0130), 20 non-PAN', () => {
     expect(VECTORS.pans).toHaveLength(41);
     expect(VECTORS.notPans).toHaveLength(20);
     const notes = VECTORS.pans.map((v) => v.note).join(' | ');
@@ -90,7 +90,7 @@ describe('PAN', () => {
     expect(containsPan0028(EVT_FALSE_POSITIVE)).toBe(true);
   });
 
-  it('0129 / ADR-155 : 200 000 clés réduites par idempotencyKeyToSend, aucun PAN ni masque ; le mutant 0029 en refuse', () => {
+  it('0130 / ADR-155 : 200 000 clés réduites par idempotencyKeyToSend, aucun PAN ni masque ; le mutant 0029 en refuse', () => {
     // clés de remboursement (08 E4) : UUID à graine fixe, 126 caractères > 64 ⇒ hex(sha256)
     const next = rng(20261117);
     const uuid = (): string => {
@@ -123,7 +123,7 @@ describe('PAN', () => {
     console.log(`[US-019 PAN] 200 000 clés réduites : 0 refus (0029 en refusait ${mutantKilled})`);
   });
 
-  it('0129 / ADR-155 : un vrai PAN reste refusé et masqué à côté d’une empreinte, empreinte intacte', () => {
+  it('0130 / ADR-155 : un vrai PAN reste refusé et masqué à côté d’une empreinte, empreinte intacte', () => {
     const sent = idempotencyKeyToSend(`${'x'.repeat(70)}:a1`, 64);
     expect(sent).toMatch(/^[0-9a-f]{64}$/);
     for (const text of [
