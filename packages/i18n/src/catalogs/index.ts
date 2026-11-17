@@ -205,8 +205,12 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  `web.error.requestDeclined` et `web.error.requestExpired` (10b §4.3), `web.a05.accept`,
  `web.a05.decline`, `web.a05.requests.*` et `web.a05.request.*` (demandes de l'hôte : liste,
  détail, confirmation, issue).
+ Version 72 (la 71 est celle d’US-224d) : correctifs serveur de la console, partie 215c (US-215,
+ ADR-156) : `backoffice.profile.hostTrips` et `backoffice.profile.noHostTrip` (fiche 360° : trips à
+ venir des comptes d'hôte de la personne, N-123) ; `ntf.tripHostRestrictionLifted.*` (voyageur d'un
+ trip à venir prévenu de la levée de la restriction de son hôte, N-126).
  */
-export const CATALOG_VERSION = 70;
+export const CATALOG_VERSION = 72;
 
 /** Catalogues de base par langue ; la langue d'un profil de locale choisit le sien. */
 export const CATALOGS: Readonly<Record<CatalogLanguage, VersionedCatalog<MessageKey>>> = {

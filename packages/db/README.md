@@ -914,6 +914,14 @@ Migration `0128_support_console_trip_cancellation` : trois fonctions de lecture 
 - `core.settlement_staff_cancellation_summary(uuid)` (cmd_money_owner, EXECUTE iam_staff_owner) : règlement d'annulation, variation par jambe, ordres REFUND ; montants en texte.
 - **Preuves** : `test/l0/l0-us215-trip-cancellation.test.ts`, bloc « console (215b) » (en attente puis réglée sur T03 / TJ02b en PA, aucune demande et `FIN_REVIEW` en PY, refus FINANCE, autre pays, trip inconnu, sans session, EXECUTE refusé à app_worker).
 
+## Garde de la console et avis de restriction (US-215 partie 215c ; N-116, N-126 ; ADR-156)
+
+Migration `0129_support_console_self_guard_restriction_notices` : corps remplacés à signature, propriétaire et droits identiques ; une fonction ajoutée.
+
+- **N-116** : `core.support_staff_profile`, `core.support_staff_add_note`, `core.support_staff_open_case`, `core.support_staff_set_case_status` et `core.iam_staff_cmd_data_access` appellent `core.support_actor_conflict` (ADR-122) : issue `SELF_FORBIDDEN`, journalisée `STAFF_FORBIDDEN` (`reason` = `SELF`), ADMIN compris, rien d'écrit. Porte C3 : dossier ET sujet jugés, `USER` lu comme `USER_ACCOUNT`, type inconnu = conflit.
+- **N-126** : `core.iam_manual_action_restriction` ne prévient les voyageurs qu'au passage « aucune restriction active → restreint » ; la levée de la dernière restriction émet `booking.trip.host_restriction_lifted` par trip à venir (`core.booking_notify_host_restriction_lifted`, cmd_hold_owner, EXECUTE iam_auth_owner ; politique `cmd_hold_trip_notice_ins` élargie à ce type) ; verrou consultatif de la personne avant celui de la sorte.
+- **Preuves** : `test/l0/l0-us215c-console-guards.test.ts` (PA et PY, app_api : refus et cas légitime de chaque entrée, co-hôte, type inconnu, aucune ligne d'accès ; un seul avis par passage, avis de levée, `hostTrips` servi).
+
 ## Annulations déclenchées par l'ops, réglées dans la transition (US-215 partie 215a ; 16 BKG-028, BKG-032, BKG-035, ADM-006 ; 08 BR-CXL, SM-1 invariant 4 ; ADR-148)
 
 Migration `0124_booking_trip_cancellation_settled`. Fixture `9956_test_us215_trip_cancellation_fixtures.sql` (lecture d'une demande et des occupations d'un trip).

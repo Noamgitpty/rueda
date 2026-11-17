@@ -66,6 +66,19 @@ describe('readPersonalDataAsStaff (US-004, ADM-032)', () => {
     },
   );
 
+  it('SELF_FORBIDDEN (US-215c, ADR-156 : dossier ou sujet qui concerne l’agent) : refus nommé, sans lecture', async () => {
+    const t = tx({ outcome: 'SELF_FORBIDDEN', access_id: null });
+    let read = false;
+    await expect(
+      readPersonalDataAsStaff(t.tx, Buffer.alloc(32), REQUEST, () => {
+        read = true;
+        return Promise.resolve(1);
+      }),
+    ).rejects.toMatchObject({ name: 'StaffDataAccessDenied', outcome: 'SELF_FORBIDDEN' });
+    expect(read).toBe(false);
+    expect(t.calls).toEqual(['porte 8']);
+  });
+
   it.each([undefined, { outcome: 'OK', access_id: 'x' }, { outcome: 'GRANTED', access_id: null }])(
     'issue absente ou inconnue (%j) : refus fail-closed, aucune lecture',
     async (answer) => {

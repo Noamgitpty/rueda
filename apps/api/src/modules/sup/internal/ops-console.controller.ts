@@ -43,7 +43,9 @@
  * rendent une donnée personnelle sont des POST : un motif (`purpose`) est exigé et journalisé.
  * Séparation des tâches (US-122, ADR-122) : un élément des files LISTING et CATALOG_ADDITION dont le
  * sujet concerne l'agent (son compte, son véhicule, sa contestation, sa demande, un compte lié)
- * rend 403 STAFF_SELF_FORBIDDEN, journalisé.
+ * rend 403 STAFF_SELF_FORBIDDEN, journalisé. Depuis US-215c (ADR-156, N-116), la fiche 360°, la
+ * note interne, l'ouverture d'un dossier et le changement de son état aussi, pour une personne ou
+ * un dossier qui concerne l'agent (ADMIN compris).
  */
 import { randomUUID } from 'node:crypto';
 import {

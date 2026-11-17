@@ -1576,6 +1576,13 @@
       "story": "US-122"
     },
     {
+      "signature": "core.booking_notify_host_restriction_lifted(uuid,uuid,text,uuid)",
+      "family": "cmd_hold",
+      "owner": "cmd_hold_owner",
+      "execute": ["iam_auth_owner"],
+      "story": "US-215"
+    },
+    {
       "signature": "core.kyc_host_identity_duplicate(uuid)",
       "family": "risk_limit",
       "owner": "risk_limit_owner",

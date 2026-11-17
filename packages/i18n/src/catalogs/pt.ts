@@ -778,6 +778,8 @@ export const PT_MESSAGES = {
   'backoffice.profile.noHost': 'Não é anfitrião.',
   'backoffice.profile.trips': 'Viagens como hóspede',
   'backoffice.profile.noTrip': 'Nenhuma viagem.',
+  'backoffice.profile.hostTrips': 'Próximas viagens como anfitrião',
+  'backoffice.profile.noHostTrip': 'Nenhuma próxima viagem como anfitrião.',
   'backoffice.profile.cases': 'Casos de suporte',
   'backoffice.profile.noCase': 'Nenhum caso.',
   'backoffice.profile.notes': 'Anotações internas',
@@ -1311,6 +1313,12 @@ export const PT_MESSAGES = {
     'Olá, {first_name}. Estamos analisando a conta do anfitrião da sua reserva {booking_ref}. Sua reserva continua registrada e vamos manter você informado. Se o anfitrião cancelar, você recebe o reembolso integral. Detalhes no app.',
   'ntf.tripHostRestricted.sms.body':
     '{brand}: estamos analisando a conta do anfitrião da sua reserva {booking_ref}. Reembolso integral se o anfitrião cancelar. Detalhes no app.',
+  'ntf.tripHostRestrictionLifted.email.subject':
+    'Reserva {booking_ref}: novidade sobre seu anfitrião',
+  'ntf.tripHostRestrictionLifted.email.body':
+    'Olá, {first_name}. Terminamos a análise da conta do anfitrião da sua reserva {booking_ref}. Sua reserva continua de pé, sem mudanças. Detalhes no app.',
+  'ntf.tripHostRestrictionLifted.sms.body':
+    '{brand}: terminamos a análise do anfitrião da sua reserva {booking_ref}. Sua reserva continua de pé. Detalhes no app.',
   'backoffice.catalog.open': 'Abrir o pedido',
   'backoffice.catalog.heading': 'Pedido de inclusão no catálogo',
   'backoffice.catalog.requested': 'O que o anfitrião digitou',

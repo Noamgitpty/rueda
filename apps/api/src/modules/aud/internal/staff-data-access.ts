@@ -18,7 +18,9 @@ import type { SqlClient } from '../../bus/index.js';
 /** Types d'accès admis par la porte (READ_C2_SUPPORT et BULK_EXPORT : stories SUP, `data.export`). */
 export type StaffDataAccessKind = 'READ_C3' | 'BREAK_GLASS';
 
-export type StaffDataAccessOutcome = 'GRANTED' | 'FORBIDDEN' | 'MFA_REQUIRED' | 'AUTH_REQUIRED';
+/** `SELF_FORBIDDEN` : dossier ou sujet qui concerne l'agent (garde ADR-122 ; US-215c, ADR-156). */
+export type StaffDataAccessOutcome =
+  'GRANTED' | 'FORBIDDEN' | 'SELF_FORBIDDEN' | 'MFA_REQUIRED' | 'AUTH_REQUIRED';
 
 export interface StaffDataAccessRequest {
   /** Idempotence de la requête HTTP (UUID) ; repris au journal. */
@@ -49,6 +51,7 @@ export class StaffDataAccessDenied extends Error {
 const OUTCOMES: readonly StaffDataAccessOutcome[] = [
   'GRANTED',
   'FORBIDDEN',
+  'SELF_FORBIDDEN',
   'MFA_REQUIRED',
   'AUTH_REQUIRED',
 ];
