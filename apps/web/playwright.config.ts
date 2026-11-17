@@ -142,6 +142,7 @@ export default defineConfig({
         CONTRACT,
         REFUND,
         SCREENS,
+        /preuve-polices\.spec\.ts$/, // TEMPORAIRE (N-180) : preuve, retirée avant la revue
       ],
       use: { ...phone, viewport: { width: 360, height: 780 } },
     },
