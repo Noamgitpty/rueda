@@ -419,6 +419,8 @@ export const CONTRACT_SUITES: Readonly<Record<string, string>> = {
   // avertissements réglementaires versionnés par pays (US-125)
   '/regulatory-notices': 'modules/cfg/internal/notices/regulatory-notices.contract.test.ts',
   '/legal': 'modules/ctr/testing/legal.contract.test.ts',
+  // contrat de location d'un trip (US-211 partie 211b, module CTR)
+  '/trips': 'modules/ctr/testing/trip-contract.contract.test.ts',
   '/staff': 'testing/contract/staff.contract.test.ts',
   '/console': 'testing/contract/console.contract.test.ts',
   '/webhooks': 'testing/contract/webhooks.contract.test.ts',

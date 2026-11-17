@@ -1,0 +1,61 @@
+/*
+ * Contrat de location d'un trip (S09 voyageur, A03 hôte ; US-211 partie 211b) : résumé en liste de
+ * définitions, équivalent HTML du PDF (10b UX-51), jetons seulement (US-030). Conçu à 360 px.
+ */
+.summary {
+  display: grid;
+  gap: var(--space-3);
+  margin: 0;
+}
+
+.item {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.item dt {
+  font-weight: var(--font-weight-strong);
+}
+
+.item dd {
+  margin: 0;
+}
+
+/* empreintes et sceau : coupés n'importe où, jamais de défilement horizontal à 360 px */
+.hash {
+  overflow-wrap: anywhere;
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-sm);
+}
+
+.part {
+  display: grid;
+  gap: var(--space-2);
+  padding-block-start: var(--space-4);
+  border-block-start: 1px solid var(--color-border);
+}
+
+.lines {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.lines h3,
+.lines h4 {
+  margin: 0;
+}
+
+.part p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.note {
+  font-weight: var(--font-weight-strong);
+}
+
+.sig {
+  overflow-wrap: anywhere;
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-sm);
+}

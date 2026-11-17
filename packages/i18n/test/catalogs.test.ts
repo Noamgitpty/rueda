@@ -118,7 +118,9 @@ describe('mélange de langues (« une vue = une langue », 10b UX-11)', () => {
         .join(' | ');
       expect(findForeignStrings(all, language)).toEqual([]);
     }
-  });
+    // délai explicite : la recherche croît avec le carré du catalogue (≈ 5,5 s sur le runner de la
+    // CI à la version 68, au-delà du délai de 5 s par défaut) ; l'assertion est inchangée (US-211b)
+  }, 60_000);
 
   it('écran rendu en français : aucune chaîne espagnole ni anglaise', () => {
     const t = createTranslator(profile('fr')).t;

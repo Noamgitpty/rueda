@@ -358,7 +358,15 @@ export default async function PaymentPage({
           </Banner>
           {car}
           {reference}
-          <ButtonLink href={`/listings/${hold.listingId}`}>{t('web.s06.confirmed.cta')}</ButtonLink>
+          {/* contrat de location du trip né de la conversion (S09 · contrat, US-211 partie 211b) */}
+          {payment.tripId !== null && (
+            <ButtonLink href={`/trips/${payment.tripId}/contract`} data-testid="s06-contract">
+              {t('web.s06.confirmed.contract')}
+            </ButtonLink>
+          )}
+          <ButtonLink variant="secondary" href={`/listings/${hold.listingId}`}>
+            {t('web.s06.confirmed.cta')}
+          </ButtonLink>
         </>,
       );
     }

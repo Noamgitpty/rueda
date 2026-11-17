@@ -34,7 +34,7 @@ import {
   UnavailableBrandFileStore,
   UnavailableBrandScanner,
 } from '../modules/cfg/index.js';
-import { PgConsentStore } from '../modules/ctr/index.js';
+import { PgConsentStore, PgTripContractStore } from '../modules/ctr/index.js';
 import { postgresIamAdapters, postgresStaffAdapters } from '../modules/iam/index.js';
 import { postgresKycAdapters } from '../modules/kyc/index.js';
 import type { StaffOptions } from '../modules/iam/index.js';
@@ -474,6 +474,9 @@ async function requestOf(
         path: `/console/queues/items/${await riskItem(country)}/risk-review`,
         body: { requestId: id, purpose: 'Matrice US-043 : dossier de test' },
       };
+    // US-215b : état de la demande d'annulation du trip du pays (aucune demande ⇒ 200, null)
+    case 'GET /console/cancellations/{id}':
+      return { method: 'GET', path: `/console/cancellations/${tripOf.get(country) ?? id}` };
     // US-114 : file d'ajout au catalogue (élément du pays de l'acteur)
     case 'POST /console/queues/items/{id}/catalog-addition':
       return {
@@ -783,6 +786,17 @@ async function requestOf(
       };
     case 'GET /checkout/holds/{holdId}/payment':
       return { method: 'GET', path: `/checkout/holds/${randomUUID()}/payment` };
+    // contrat de location d'un trip (US-211 partie 211b) : trip inconnu de l'acteur ⇒ 404
+    case 'GET /trips/{tripId}/contract':
+      return { method: 'GET', path: `/trips/${randomUUID()}/contract` };
+    case 'GET /trips/{tripId}/contract/pdf':
+      return { method: 'GET', path: `/trips/${randomUUID()}/contract/pdf` };
+    case 'POST /trips/{tripId}/contract/sign':
+      return {
+        method: 'POST',
+        path: `/trips/${randomUUID()}/contract/sign`,
+        body: { accepted: true, documentId: randomUUID(), sha256: 'a'.repeat(64) },
+      };
     // recherche publique (US-201) : zones du pays ; recherche datée loin dans le futur
     case 'GET /search/areas':
       return { method: 'GET', path: `/search/areas?country=${country}` };
@@ -1087,7 +1101,7 @@ beforeAll(async () => {
         board: new PgAbuseBoardStore(client),
         rhythm: { record: () => false },
       },
-      { store: new PgConsentStore(client) },
+      { store: new PgConsentStore(client), contracts: new PgTripContractStore(client) },
       postgresCatAdapters(client),
       postgresKycAdapters(client),
       undefined,
