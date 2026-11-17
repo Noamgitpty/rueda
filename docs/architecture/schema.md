@@ -7,7 +7,7 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 
 ## Synthèse
 
-- 124 migrations ; 124 tables ; 2 vues ; 686 politiques RLS ; 243 fonctions `SECURITY DEFINER` ; 234 autres fonctions.
+- 125 migrations ; 125 tables ; 2 vues ; 693 politiques RLS ; 250 fonctions `SECURITY DEFINER` ; 237 autres fonctions.
 - Tables sans RLS `ENABLE` + `FORCE` : aucune.
 - Rôles applicatifs avec `SUPERUSER` ou `BYPASSRLS` : aucun.
 
@@ -139,6 +139,7 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 | `0121_settlement_refund_orders` | STL / PAY : ordres de remboursement et de jambe rattachés à la version du règlement, |
 | `0122_ctr_rental_contract` | CTR / AVL : contrat de location hôte–voyageur par trip et signature horodatée (bêta). |
 | `0123_settlement_refund_instances_advance` | PAY / STL : instance de remboursement (SM-8), avance de Kmino sur une jambe déjà versée, |
+| `0124_booking_trip_cancellation_settled` | AVL / STL / SUP : annulations du voyageur, de l'hôte et de la plateforme déclenchées par |
 
 ## Rôles
 
