@@ -7,7 +7,7 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 
 ## Synthèse
 
-- 131 migrations ; 126 tables ; 3 vues ; 710 politiques RLS ; 270 fonctions `SECURITY DEFINER` ; 246 autres fonctions.
+- 132 migrations ; 126 tables ; 3 vues ; 710 politiques RLS ; 271 fonctions `SECURITY DEFINER` ; 246 autres fonctions.
 - Tables sans RLS `ENABLE` + `FORCE` : aucune.
 - Rôles applicatifs avec `SUPERUSER` ou `BYPASSRLS` : aucun.
 
@@ -146,6 +146,7 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 | `0128_support_console_trip_cancellation` | SUP / AVL / STL : état d'une demande d'annulation lu par la console (O01). |
 | `0129_settlement_host_ledger` | STL : grand livre minimal de l'hôte (`host_ledger`) ; pénalité d'annulation de l'hôte. |
 | `0130_payment_refund_read` | PAY / AVL / SUP : lecture du remboursement par le voyageur, l'hôte et la console (S10). |
+| `0131_booking_notification_parties` | AVL / NTF : parties d'une réservation lues par le travailleur des notifications. |
 
 ## Rôles
 
@@ -6312,6 +6313,7 @@ Chacune a un propriétaire `NOLOGIN` dédié (ADR-053) et un `search_path` figé
 | `core.booking_host_trips(p_token_hash bytea, p_org uuid, p_tab text, p_vehicle_id uuid, p_from date, p_to date, p_trip_id uuid, p_limit integer)` | `TABLE(outcome text, trip_id uuid, public_ref text, tab text, status text, vehicle_id uuid, scheduled_start timestamp with time zone, scheduled_end timestamp with time zone, timezone text, booked_at timestamp with time zone, payment_status text, currency text, host_leg_minor bigint, guest_first_name text, guest_age_years integer, guest_rating numeric, guest_verified boolean)` | `host_view_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; host_view_owner: EXECUTE |
 | `core.booking_manual_action_cancel_trip(p_token_hash bytea, p_action_id uuid, p_action_code text, p_subject_id uuid, p_input jsonb, p_reason text, p_actor uuid, p_actor_role text)` | `TABLE(outcome text, ref_id uuid, emitted_event_ids uuid[])` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | cmd_hold_owner: EXECUTE ; iam_staff_owner: EXECUTE |
 | `core.booking_manual_action_review_flagged(p_token_hash bytea, p_action_id uuid, p_action_code text, p_subject_id uuid, p_input jsonb, p_reason text, p_actor uuid, p_actor_role text)` | `TABLE(outcome text, ref_id uuid, emitted_event_ids uuid[])` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | cmd_hold_owner: EXECUTE ; iam_staff_owner: EXECUTE |
+| `core.booking_notification_parties(p_subject text, p_id uuid)` | `jsonb` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; cmd_hold_owner: EXECUTE |
 | `core.booking_notify_host_restricted(p_holder uuid, p_actor uuid, p_actor_role text, p_causation uuid)` | `uuid[]` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | cmd_hold_owner: EXECUTE ; iam_auth_owner: EXECUTE |
 | `core.booking_request_authorized(p_operation_id uuid)` | `jsonb` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; cmd_hold_owner: EXECUTE |
 | `core.booking_request_void(p_hold_id uuid, p_auth_op uuid)` | `uuid` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; cmd_hold_owner: EXECUTE |
