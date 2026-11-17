@@ -129,7 +129,10 @@ describe('US-019 / 0029 — détecteur de PAN sans faux positif sur les UUID', (
       );
       const killed = [...glued].filter(([, pan]) => pan).length;
       expect(killed).toBeGreaterThan(20); // environ 0,32 % attendu
-      expect(glued.get(`g${HEX_FALSE_POSITIVE}`)).toBe(true);
+      // reproduction fixe (hors corpus) : refusée collée, acceptée seule
+      const repro = await hasPan(client, [`g${HEX_FALSE_POSITIVE}`, HEX_FALSE_POSITIVE]);
+      expect(repro.get(`g${HEX_FALSE_POSITIVE}`)).toBe(true);
+      expect(repro.get(HEX_FALSE_POSITIVE)).toBe(false);
       console.log(`[US-019 PAN] base, 20 000 clés réduites : 0 refus (0029 en refusait ${killed})`);
     });
   });
