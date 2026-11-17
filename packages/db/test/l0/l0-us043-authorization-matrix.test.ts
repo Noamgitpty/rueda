@@ -807,6 +807,20 @@ beforeAll(async () => {
         }
       }
     });
+    // US-709a (0129, ADR-153) : une écriture du host_ledger sur le règlement en tête des trips a1
+    // et a2 (même compte d'hôte : un solde de deux écritures) et b1 (autre compte d'hôte), pour
+    // éprouver chaque cellule de la table et de sa vue de solde sur des lignes réelles, par pays
+    await withTestTransaction(client, { commit: true }, async (tx) => {
+      for (const x of world.countries) {
+        for (const trip of [x.trips.a1.id, x.trips.a2.id, x.trips.b1.id]) {
+          await tx.query('SELECT test_fixture.us709_insert_entry($1, $2, $3::bigint)', [
+            uuid(),
+            trip,
+            '1',
+          ]);
+        }
+      }
+    });
   });
 }, 240_000);
 
