@@ -721,11 +721,12 @@ COMMENT ON FUNCTION core.payment_refund_instance_gate() IS
   'Garde : l''ordre d''une instance PLANNED ou SUPERSEDED ne change d''état que vers FAILED (SM-8). '
   'US-224 (224b), ADR-147.';
 REVOKE ALL ON FUNCTION core.payment_refund_instance_gate() FROM PUBLIC;
+-- déclencheur créé AVANT le transfert (CREATE TRIGGER exige EXECUTE du créateur, comme 0028)
+CREATE TRIGGER refund_instance_gate BEFORE UPDATE OF status ON core.payment_payment_operation
+  FOR EACH ROW EXECUTE FUNCTION core.payment_refund_instance_gate();
 GRANT CREATE ON SCHEMA core TO integrity_owner;
 ALTER FUNCTION core.payment_refund_instance_gate() OWNER TO integrity_owner;
 REVOKE CREATE ON SCHEMA core FROM integrity_owner;
-CREATE TRIGGER refund_instance_gate BEFORE UPDATE OF status ON core.payment_payment_operation
-  FOR EACH ROW EXECUTE FUNCTION core.payment_refund_instance_gate();
 
 -- 6. Supersession (SM-8) : à la création de la version n+1, sous le verrou du trip pris par
 -- settlement_cmd_record, les instances PLANNED (sans mouvement de fonds) passent SUPERSEDED et

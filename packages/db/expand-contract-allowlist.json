@@ -199,7 +199,7 @@
     },
     {
       "path": "packages/db/migrations/0122_settlement_refund_instances_advance.sql",
-      "line": 1516,
+      "line": 1517,
       "kind": "drop-function",
       "justification": "US-224b (ADR-147, suite des revues de la PR #198) : la surcharge à 13 arguments de core.payment_cmd_record_operation n'a aucun appelant dans la version N : PgOperationRecorder (PAY) appelle la commande à 15 arguments depuis US-224a (ADR-145) ; la surcharge ne servait plus qu'à refuser tout ordre de règlement sans règlement, refus que la commande à 15 arguments garde (règlement NULL). Retirée pour qu'aucun appelant futur ne contourne le rattachement au règlement"
     }
