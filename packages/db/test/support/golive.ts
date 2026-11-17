@@ -7,6 +7,15 @@
  * Règle : un interrupteur ne passe à true que dans une transaction ANNULÉE ou, sur la base de
  * TEST seulement, dans une fenêtre d'horloge virtuelle lointaine refermée par la même procédure
  * (`openSwitchWindow`). Aucun pays en constante : les pays viennent de `COUNTRIES`.
+ *
+ * Ordre de verrouillage (interblocage du run 44013812687) : chaque écriture d'audit tient la
+ * ligne unique `core.audit_chain_head` jusqu'à la fin de la transaction, et les commandes d'US-125
+ * prennent le verrou consultatif `config.go_live:<clé>:<pays>` avant leur audit. Une preuve qui
+ * a déjà audité (premier interrupteur ouvert, véhicule déclaré…) demande donc le consultatif en
+ * tenant la tête, alors qu'une transaction neuve tient le consultatif et attend la tête : deux
+ * fichiers qui ouvrent le même interrupteur du même pays en même temps s'interbloquent (40P01).
+ * Les aides ci-dessous prennent la tête AVANT chaque commande (`lockAuditChainHead`, fixture
+ * 9957), si bien que toute preuve suit le même ordre : tête, puis consultatif.
  */
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import type pg from 'pg';
@@ -32,6 +41,25 @@ export const APPROVE_SQL =
   'SELECT outcome, request_id FROM core.config_cmd_approve_go_live_switch($1, $2)';
 export const CANCEL_SQL =
   'SELECT outcome, request_id FROM core.config_cmd_cancel_go_live_switch($1, $2)';
+
+/** Verrou de la tête de chaîne d'audit dans la transaction courante (fixture 9957, app_api). */
+export const AUDIT_CHAIN_HEAD_LOCK_SQL = 'SELECT test_fixture.audit_chain_head_lock()';
+
+/**
+ * Options d'ordre de verrouillage des commandes d'US-125. `chainFirst` (défaut `true`) : la tête
+ * de chaîne d'audit est prise AVANT la commande, ordre commun à toutes les preuves. `false` est
+ * réservé aux courses qui éprouvent la sérialisation des commandes elles-mêmes (RT-CONC-25, 26) :
+ * prendre la tête avant la commande les sérialiserait avant même la lecture de la demande et
+ * rendrait la preuve vide.
+ */
+export interface LockOrder {
+  readonly chainFirst?: boolean;
+}
+
+/** Prend la tête de chaîne d'audit (verrou de transaction, jamais de session). */
+export async function lockAuditChainHead(tx: pg.ClientBase): Promise<void> {
+  await tx.query(AUDIT_CHAIN_HEAD_LOCK_SQL);
+}
 
 /** Membre du staff : identifiant, empreinte de session (élevée sauf mention), portée pays. */
 export interface StaffActor {
@@ -69,8 +97,13 @@ export async function requestSwitch(
   key: string,
   country: string,
   value: boolean,
-  options: { readonly id?: string; readonly decision?: string; readonly actorId?: string } = {},
+  options: {
+    readonly id?: string;
+    readonly decision?: string;
+    readonly actorId?: string;
+  } & LockOrder = {},
 ): Promise<Outcome> {
+  if (options.chainFirst !== false) await lockAuditChainHead(tx);
   await asStaff(tx, who, options.actorId);
   const { rows } = await tx.query<Outcome>(REQUEST_SQL, [
     who.hash,
@@ -89,7 +122,9 @@ export async function cancelSwitch(
   tx: pg.ClientBase,
   who: StaffActor,
   requestId: string,
+  order: LockOrder = {},
 ): Promise<Outcome> {
+  if (order.chainFirst !== false) await lockAuditChainHead(tx);
   await asStaff(tx, who);
   const { rows } = await tx.query<Outcome>(CANCEL_SQL, [who.hash, requestId]);
   return rows[0] ?? { outcome: '', request_id: null };
@@ -100,7 +135,9 @@ export async function approveSwitch(
   who: StaffActor,
   requestId: string,
   actorId?: string,
+  order: LockOrder = {},
 ): Promise<Outcome> {
+  if (order.chainFirst !== false) await lockAuditChainHead(tx);
   await asStaff(tx, who, actorId);
   const { rows } = await tx.query<Outcome>(APPROVE_SQL, [who.hash, requestId]);
   return rows[0] ?? { outcome: '', request_id: null };
