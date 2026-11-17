@@ -7,7 +7,7 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 
 ## Synthèse
 
-- 121 migrations ; 120 tables ; 2 vues ; 659 politiques RLS ; 236 fonctions `SECURITY DEFINER` ; 224 autres fonctions.
+- 122 migrations ; 120 tables ; 2 vues ; 659 politiques RLS ; 237 fonctions `SECURITY DEFINER` ; 225 autres fonctions.
 - Tables sans RLS `ENABLE` + `FORCE` : aucune.
 - Rôles applicatifs avec `SUPERUSER` ou `BYPASSRLS` : aucun.
 
@@ -136,6 +136,7 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 | `0118_prc_quote_mileage_checkout_terms` | PRC / CAT : distance figée dans le devis, conditions d'annulation du checkout, fenêtre |
 | `0119_booking_flagged_review_decision` | AVL / RISK / SUP / KYC : décision de l'ops sur une réservation signalée, hold de revue |
 | `0120_booking_checkout_review_state` | AVL : état de revue d'un hold de checkout, lu par le voyageur (S05). |
+| `0121_settlement_refund_orders` | STL / PAY : ordres de remboursement et de jambe rattachés à la version du règlement, |
 
 ## Rôles
 
@@ -3993,6 +3994,8 @@ Déclencheurs :
 | `updated_at` | `timestamp with time zone` | oui | `platform.now()` |
 | `row_version` | `integer` | oui | `0` |
 | `psp_account_id` | `uuid` | oui | — |
+| `settlement_id` | `uuid` | non | — |
+| `settlement_version` | `integer` | non | — |
 
 Contraintes :
 
@@ -4011,6 +4014,9 @@ Contraintes :
 - `payment_operation_provider_format` : `CHECK (provider ~ '^[A-Z][A-Z0-9_]{1,31}$'::text)`
 - `payment_operation_psp_account_fk` : `FOREIGN KEY (psp_account_id) REFERENCES core.payment_psp_account(id)`
 - `payment_operation_purpose_valid` : `CHECK (purpose = ANY (ARRAY['RENT'::text, 'RENT_SHORTFALL'::text, 'NO_SHOW_RETENTION'::text, 'DEPOSIT'::text, 'INCIDENTAL'::text, 'DAMAGE'::text, 'OTHER_DEBT'::text]))`
+- `payment_operation_settlement_fk` : `FOREIGN KEY (settlement_id, trip_id, settlement_version) REFERENCES core.settlement_settlement(id, trip_id, version)`
+- `payment_operation_settlement_kind` : `CHECK (settlement_id IS NULL OR trip_id IS NOT NULL AND (kind = ANY (ARRAY['REFUND'::text, 'LEG_REALLOCATION'::text, 'LEG_RELEASE'::text])) AND (purpose = ANY (ARRAY['RENT'::text, 'RENT_SHORTFALL'::text, 'NO_SHOW_RETENTION'::text])))`
+- `payment_operation_settlement_shape` : `CHECK ((settlement_id IS NULL) = (settlement_version IS NULL))`
 - `payment_operation_status_valid` : `CHECK (status = ANY (ARRAY['PENDING'::text, 'SUBMITTED'::text, 'SUCCEEDED'::text, 'FAILED'::text, 'UNKNOWN'::text]))`
 - `payment_payment_operation_hold_id_fkey` : `FOREIGN KEY (hold_id) REFERENCES core.booking_checkout_hold(id)`
 - `payment_payment_operation_pkey` : `PRIMARY KEY (id)`
@@ -4020,6 +4026,7 @@ Index :
 
 - `payment_operation_hold_idx` : `CREATE INDEX payment_operation_hold_idx ON core.payment_payment_operation USING btree (hold_id) WHERE (hold_id IS NOT NULL)`
 - `payment_operation_provider_reference_unique` : `CREATE UNIQUE INDEX payment_operation_provider_reference_unique ON core.payment_payment_operation USING btree (psp_account_id, provider_reference) WHERE (provider_reference IS NOT NULL)`
+- `payment_operation_settlement_idx` : `CREATE INDEX payment_operation_settlement_idx ON core.payment_payment_operation USING btree (settlement_id) WHERE (settlement_id IS NOT NULL)`
 - `payment_operation_trip_idx` : `CREATE INDEX payment_operation_trip_idx ON core.payment_payment_operation USING btree (trip_id) WHERE (trip_id IS NOT NULL)`
 
 Politiques RLS :
@@ -5273,6 +5280,7 @@ Contraintes :
 - `settlement_currency_format` : `CHECK (currency ~ '^[A-Z]{3}$'::text)`
 - `settlement_earnings` : `CHECK (host_earnings_minor = (host_from_guest_minor + host_compensation_minor))`
 - `settlement_engine_version_format` : `CHECK (engine_version ~ '^[a-z][a-z0-9-]{0,30}/[0-9]{1,6}$'::text)`
+- `settlement_id_trip_version_unique` : `UNIQUE (id, trip_id, version)`
 - `settlement_inputs_engine` : `CHECK ((inputs::jsonb ->> 'engineVersion'::text) = engine_version)`
 - `settlement_inputs_hash_match` : `CHECK (sha256(convert_to(('rueda.settlement.inputs/1'::text \|\| chr(10)) \|\| inputs, 'UTF8'::name)) = inputs_hash)`
 - `settlement_inputs_hash_sha256` : `CHECK (octet_length(inputs_hash) = 32)`
@@ -6054,6 +6062,7 @@ Chacune a un propriétaire `NOLOGIN` dédié (ADR-053) et un `search_path` figé
 | `core.payment_cmd_apply_operation_status(p_operation_id uuid, p_status text, p_source text, p_raw_ref uuid, p_provider_reference text)` | `text` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; cmd_money_owner: EXECUTE |
 | `core.payment_cmd_receive_webhook(p_account_id uuid, p_provider_event_id text, p_dedup_key bytea, p_signature_valid boolean, p_signed_at timestamp with time zone, p_headers jsonb, p_normalized jsonb)` | `TABLE(outcome text, inbox_id uuid)` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; cmd_money_owner: EXECUTE |
 | `core.payment_cmd_record_operation(p_id uuid, p_hold_id uuid, p_trip_id uuid, p_psp_account_id uuid, p_method text, p_kind text, p_purpose text, p_amount_minor bigint, p_currency text, p_attempt_no integer, p_idem_plain text, p_idem_sent text, p_legs jsonb)` | `TABLE(operation_id uuid, replayed boolean)` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; cmd_money_owner: EXECUTE |
+| `core.payment_cmd_record_operation(p_id uuid, p_hold_id uuid, p_trip_id uuid, p_psp_account_id uuid, p_method text, p_kind text, p_purpose text, p_amount_minor bigint, p_currency text, p_attempt_no integer, p_idem_plain text, p_idem_sent text, p_legs jsonb, p_settlement_id uuid, p_settlement_version integer)` | `TABLE(operation_id uuid, replayed boolean)` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; cmd_money_owner: EXECUTE |
 | `core.payment_cmd_record_submerchant_status(p_submerchant_id uuid, p_status text, p_provider_ref text, p_reason text)` | `text` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; cmd_money_owner: EXECUTE |
 | `core.payment_cmd_register_submerchant(p_id uuid, p_org_id uuid, p_psp_account_id uuid, p_attempt_no integer)` | `TABLE(submerchant_id uuid, idem_plain text, replayed boolean)` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; cmd_money_owner: EXECUTE |
 | `core.payment_resolve_webhook_account(p_provider text, p_public_webhook_id text)` | `TABLE(account_id uuid, webhook_secret_ref text)` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; cmd_money_owner: EXECUTE |
@@ -6268,6 +6277,7 @@ Chacune a un propriétaire `NOLOGIN` dédié (ADR-053) et un `search_path` figé
 | `core.outbox_reap_expired_jobs()` | `SETOF core.outbox_dead_letter` | `migrator` | app_worker: EXECUTE ; migrator: EXECUTE |
 | `core.outbox_record_relay_failure(p_ids uuid[], p_error text)` | `integer` | `migrator` | app_worker: EXECUTE ; migrator: EXECUTE |
 | `core.outbox_relay_claim(p_limit integer)` | `SETOF core.outbox_outbox_event` | `migrator` | app_worker: EXECUTE ; migrator: EXECUTE |
+| `core.payment_assert_settlement_order(p_operation_id uuid)` | `void` | `migrator` | cmd_money_owner: EXECUTE ; migrator: EXECUTE |
 | `core.payment_capability_bool(p_provider text, p_country text, p_method text, p_capability text)` | `boolean` | `migrator` | app_worker: EXECUTE ; cmd_hold_owner: EXECUTE ; migrator: EXECUTE |
 | `core.payment_capability_int(p_provider text, p_country text, p_method text, p_capability text)` | `integer` | `migrator` | app_worker: EXECUTE ; cmd_hold_owner: EXECUTE ; migrator: EXECUTE |
 | `core.payment_capability_value(p_provider text, p_country text, p_method text, p_capability text)` | `jsonb` | `migrator` | app_worker: EXECUTE ; cmd_hold_owner: EXECUTE ; migrator: EXECUTE |

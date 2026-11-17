@@ -10,7 +10,7 @@ STL ne déplace aucun fonds lui-même. Il planifie des commandes que PAY exécut
 
 État réel du code :
 
-- Le module Nest de ce dossier est un **squelette** : `internal/` est vide et `index.ts` n'exporte que `StlModule`.
+- Le module Nest de ce dossier est un **squelette** : `internal/` ne contient que `settlement-review.ts` (US-224) et `index.ts` exporte `StlModule` et `settleOrFinReview`.
 - Le **moteur pur** vit dans `packages/money` (US-017 : moteur des annulations ; US-018 : règlement persistable, versions, jambes). Voir [`packages/money/README.md`](../../../../../packages/money/README.md), sections « Moteur de règlement » et « Règlements persistés ».
 - La **persistance** vit en base (US-018, US-062, US-061). Voir [`packages/db/README.md`](../../../../../packages/db/README.md), sections « Règlements et jambes », « Rôle P2P_HOST, tables d'argent et minimisation » et « Port de place de marché ».
 - Restent à venir : le grand livre en partie double (US-530), les avances et remboursements par jambe (US-224, US-709), l'assureur et les bordereaux (US-227), le moteur complet (US-518).
@@ -53,6 +53,8 @@ Gardes ajoutées par les correctifs de la red team argent (US-049, migration 005
 - **Rejeu du règlement en base** : le trigger différé `settlement_balanced` rejoue les entrées `inputs` de chaque version par `core.settlement_verify_cxl_beta_1` (vérificateur indépendant du moteur `cxl-beta/1`, aucun montant produit) et refuse tout écart (`settlement_replay_mismatch`) ; une version n+1 porte sur le même trip canonique que la version n (`settlement_trip_inputs_changed`) ; une version de moteur sans vérificateur est refusée.
 - **Remboursement borné par le règlement** : `settlement_cmd_apply_leg_movement` refuse un `REFUND` sans règlement du segment, ou qui dépasse, jambe par jambe, − Σ variations de la chaîne de versions (jamais de prorata).
 - **Versement gardé** : `core.settlement_release_blocker` refuse un `LEG_RELEASE` (dès l'enregistrement de l'ordre, puis au report sur les soldes) tant que le trip n'est pas `COMPLETED`, que `release_at` n'est pas atteint, que l'hôte n'est pas sous-marchand `ACTIVE`, ou que `insurer_contract_active` / `payouts_enabled` du pays valent false. `funds_holding_enabled` est exigé pour un compte qui ne partage pas à la source.
+
+Service appelant du moteur (US-224, ADR-145, BOARD N-13 (a)) : `settleOrFinReview(calcul, pays, alertes)` (exporté par `index.ts`) attrape `REFUND_OUT_OF_RANGE` du moteur, n'écrit ni n'envoie rien, lève l'alerte P1 `FIN_SETTLEMENT_REVIEW` (comptes et codes seulement) et rend `SettlementError.details` à l'appelant (annulation d'US-215), qui l'inscrit avec la référence du trip. Les ordres d'un règlement sont calculés par `settlementOrders` (`@rueda/money`) et enregistrés par la commande PAY à 15 arguments, rattachés à la version en tête et bornés en base dès l'enregistrement (migration 0121).
 
 ## Événements
 

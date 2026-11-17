@@ -70,6 +70,17 @@ describe('translateDbError (17 §2.5 2d, §4.4, L0-08)', () => {
     ['55000', 'leg_movement_unproven', 'PAYMENT_UNPROVEN'],
     ['23000', 'pricing_checkout_trip_mismatch', 'INVARIANT_VIOLATION'],
     ['23505', 'payment_operation_leg_pkey', 'INVARIANT_VIOLATION'],
+    // US-224 (0121) : ordres de règlement gardés à l'enregistrement (S-02, 16 PAY-021)
+    ['55000', 'refund_exceeds_collected', 'REFUND_EXCEEDS_COLLECTED'],
+    ['55000', 'leg_reallocation_mismatch', 'INVARIANT_VIOLATION'],
+    ['55000', 'leg_reallocation_pending', 'INVARIANT_VIOLATION'],
+    ['55000', 'operation_settlement_superseded', 'SETTLEMENT_SUPERSEDED'],
+    ['55000', 'operation_settlement_fin_review', 'FIN_REVIEW_REQUIRED'],
+    ['55000', 'operation_settlement_required', 'INVARIANT_VIOLATION'],
+    ['55000', 'leg_refund_without_settlement', 'INVARIANT_VIOLATION'],
+    ['55000', 'leg_refund_exceeds_settlement', 'INVARIANT_VIOLATION'],
+    ['23514', 'payment_operation_settlement_shape', 'INVARIANT_VIOLATION'],
+    ['23514', 'payment_operation_settlement_kind', 'INVARIANT_VIOLATION'],
     // machine à états du trip (0099, US-207 ; 16 TRP-045, 08 BR-CXL règle 3)
     ['55000', 'trip_transition_forbidden', 'TRIP_TRANSITION_FORBIDDEN'],
     ['55000', 'trip_concurrent_update', 'TRIP_CONCURRENT_UPDATE'],

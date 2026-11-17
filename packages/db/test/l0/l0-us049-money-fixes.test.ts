@@ -34,12 +34,7 @@ import {
   type SettlementTrip,
 } from '@rueda/money';
 import { setSessionContext, translateDbError } from '../../src/index.ts';
-import {
-  connectAs,
-  releaseClient,
-  withRole,
-  withTestTransaction,
-} from '../../src/testing/index.ts';
+import { withRole, withTestTransaction } from '../../src/testing/index.ts';
 import { COUNTRIES } from '../support/avl.ts';
 import type { CountryCase } from '../support/avl.ts';
 import {
@@ -48,7 +43,9 @@ import {
   insertAccount,
   insertTrip as insertPayTrip,
   payTx,
+  headSettlement,
   recordOperation,
+  SETTLEMENT_ORDER_KINDS,
   uuid,
 } from '../support/pay.ts';
 import type { Legs } from '../support/pay.ts';
@@ -290,6 +287,10 @@ async function succeeded(
     currency,
     idemPlain: `trip:${tripId}:${kind}:${uuid()}`,
     legs,
+    // US-224 (0121, S-02) : un ordre de règlement porte la version en tête du règlement du trip
+    ...(SETTLEMENT_ORDER_KINDS.includes(kind)
+      ? { settlement: await headSettlement(tx, tripId) }
+      : {}),
   });
   expect(await applySignedStatus(tx, id, 'SUCCEEDED')).toBe('APPLIED');
   return id;
@@ -330,15 +331,10 @@ describe.each(COUNTRIES)(
             await succeeded(tx, trip, account, 'CAPTURE', capture, c.currency),
           ),
         ).toBe('APPLIED');
-        const op = await succeeded(
-          tx,
-          trip,
-          account,
-          'REFUND',
-          { ...ZERO, PLATFORM: 1n },
-          c.currency,
+        // US-224 (0121, S-02) : même refus, dès l'enregistrement de l'ordre (jamais créé ni envoyé)
+        const err = await caught(tx, () =>
+          succeeded(tx, trip, account, 'REFUND', { ...ZERO, PLATFORM: 1n }, c.currency),
         );
-        const err = await caught(tx, () => applyMovement(tx, op));
         expect(err).toMatchObject({ code: '55000', constraint: 'leg_refund_without_settlement' });
         expect(translateDbError(err).code).toBe('INVARIANT_VIOLATION');
         expect(await refundedOf(tx, trip)).toEqual(ZERO);
@@ -358,8 +354,10 @@ describe.each(COUNTRIES)(
         const r1 = recordOfVector(r.v1);
         const v1 = await recordAsSettlementWorker(tx, { tripId: trip, version: 1 }, r1);
         await setSessionContext(tx, { kind: 'WORKER', workerName: 'payment_command' });
-        const early = await succeeded(tx, trip, account, 'REFUND', capture, c.currency);
-        const err = await caught(tx, () => applyMovement(tx, early));
+        // US-224 (0121, S-02) : même refus, dès l'enregistrement de l'ordre
+        const err = await caught(tx, () =>
+          succeeded(tx, trip, account, 'REFUND', capture, c.currency),
+        );
         expect(err).toMatchObject({ code: '55000', constraint: 'leg_refund_exceeds_settlement' });
         expect(await refundedOf(tx, trip)).toEqual(ZERO);
         // requalification FULL : tout est remboursé (08, T08 ; variation v1 → v2 = TJ18a / TJ18c)
@@ -387,8 +385,6 @@ describe.each(COUNTRIES)(
     const r = refOf(c);
     const capture: Legs = { ...legVector(golden, r.capture).legsMinor };
     const hostOnly: Legs = { ...ZERO, HOST: capture.HOST };
-    /** Refus d'un débit au-delà du remboursable : solde de la jambe ou chaîne de versions. */
-    const REFUSED = ['leg_movement_exceeds_balance', 'leg_refund_exceeds_settlement'];
     const rest: Legs = { ...capture, HOST: 0n };
 
     /** Trip capturé, réglé v1 (no-show) puis requalifié FULL (T08) : capture remboursable. */
@@ -422,65 +418,39 @@ describe.each(COUNTRIES)(
             expect(await applyMovement(tx, op)).toBe('APPLIED');
           }
           expect(await refundedOf(tx, trip)).toEqual(capture);
-          const extra = await succeeded(
-            tx,
-            trip,
-            account,
-            'REFUND',
-            { ...ZERO, PLATFORM: 1n },
-            c.currency,
+          // US-224 (0121) : refusé dès l'enregistrement de l'ordre (jamais créé ni envoyé)
+          const err = await caught(tx, () =>
+            succeeded(tx, trip, account, 'REFUND', { ...ZERO, PLATFORM: 1n }, c.currency),
           );
-          const err = await caught(tx, () => applyMovement(tx, extra));
-          // refus par le solde de la jambe ou par la chaîne de versions : jamais appliqué
-          expect(err?.code).toBe('55000');
-          expect(REFUSED).toContain(err?.constraint);
+          // US-224 (0121) : refus exact à l'enregistrement, au-delà de l'encaissé de la jambe
+          // (avant : au report, solde de la jambe ou chaîne de versions) : jamais appliqué
+          expect(err).toMatchObject({ code: '55000', constraint: 'refund_exceeds_collected' });
           expect(await refundedOf(tx, trip)).toEqual(capture);
         });
       },
     );
 
-    it('course : deux remboursements de la capture entière sur deux connexions ⇒ un seul appliqué, le second refusé', async () => {
-      // mise en place validée : capture, règlements v1 et v2, deux ordres de remboursement réussis
-      const { trip, ops } = await withRole('app_worker', (client) =>
-        payTx(client, { worker: 'payment_command', commit: true }, async (tx) => {
-          const s = await settledFull(tx);
-          const a = await succeeded(tx, s.trip, s.account, 'REFUND', capture, c.currency);
-          const b = await succeeded(tx, s.trip, s.account, 'REFUND', capture, c.currency);
-          // aucun compte PSP ACTIVE laissé aux autres fichiers (index psp_account_one_active) :
-          // le compte, qui n'a plus à enregistrer d'ordre, est suspendu avant la validation
-          await tx.query(`UPDATE core.payment_psp_account SET status = 'SUSPENDED' WHERE id = $1`, [
-            s.account,
-          ]);
-          return { trip: s.trip, ops: [a, b] as const };
-        }),
-      );
-      const first = await connectAs('app_worker');
-      const second = await connectAs('app_worker');
-      try {
-        const begin = async (client: pg.Client): Promise<void> => {
-          await client.query('BEGIN');
-          await setSessionContext(client, { kind: 'WORKER', workerName: 'payment_command' });
-        };
-        await begin(first);
-        await begin(second);
-        expect(await applyMovement(first, ops[0])).toBe('APPLIED');
-        // la seconde attend le verrou du trip tenu par la première, puis relit les soldes à jour
-        const racing = applyMovement(second, ops[1]).then(
-          (o) => ({ ok: o }),
-          (e: unknown) => ({ err: e as { code?: string; constraint?: string } }),
-        );
-        await new Promise((resolve) => setTimeout(resolve, 300));
-        await first.query('COMMIT');
-        const late = await racing;
-        await second.query('ROLLBACK');
-        expect('err' in late ? late.err.code : 'APPLIQUÉ').toBe('55000');
-        expect(REFUSED).toContain('err' in late ? late.err.constraint : 'APPLIQUÉ');
-      } finally {
-        await first.query('ROLLBACK').catch(() => undefined);
-        await releaseClient(first);
-        await releaseClient(second);
-      }
+    // US-224 (0121, S-02) : le second ordre est refusé dès son ENREGISTREMENT (en-cours compté sous
+    // le verrou du trip) ; il n'existe donc plus deux ordres réussis à reporter en concurrence. La
+    // course sur deux connexions est rejouée dans l0-us224-refund-race.test.ts (fichier isolé) À
+    // L'ENREGISTREMENT et AU REPORT (deux ordres réussis écrits par la fixture 9965 sans la garde,
+    // reportés sur deux connexions : un seul appliqué, refunded = capture, comme l'ancien test).
+    it('second remboursement de la capture entière : refusé dès l’enregistrement, un seul ordre, rien de reporté en double', async () => {
       await asPayments(async (tx) => {
+        const { trip, account } = await settledFull(tx);
+        const a = await succeeded(tx, trip, account, 'REFUND', capture, c.currency);
+        const err = await caught(tx, () =>
+          succeeded(tx, trip, account, 'REFUND', capture, c.currency),
+        );
+        expect(err).toMatchObject({ code: '55000', constraint: 'refund_exceeds_collected' });
+        expect(translateDbError(err).code).toBe('REFUND_EXCEEDS_COLLECTED');
+        const { rows } = await tx.query<{ n: number }>(
+          `SELECT count(*)::int AS n FROM core.payment_payment_operation
+            WHERE trip_id = $1 AND kind = 'REFUND'`,
+          [trip],
+        );
+        expect(rows[0]?.n).toBe(1);
+        expect(await applyMovement(tx, a)).toBe('APPLIED');
         expect(await refundedOf(tx, trip)).toEqual(capture);
       });
     });
