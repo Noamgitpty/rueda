@@ -1,6 +1,6 @@
 /**
  * US-211 (partie 211a) — contrat de location hôte–voyageur par trip et signature horodatée
- * (migration 0121, ADR-143 ; fixture 9965). Rôles de production seulement (assertion L0-05 par
+ * (migration 0122, ADR-143 ; fixture 9963). Rôles de production seulement (assertion L0-05 par
  * `connectAs`), au Panama (USD) et au Paraguay (PYG sans décimale).
  *
  * Attendus tirés de 19 US-211 (critères 1 à 3), de 16 BKG-018 / BKG-019 (états GENERATED → SIGNED
@@ -10,7 +10,7 @@
  * de TA01 : 42,80 ; D2 en PYG : 421 667, retenue écrite par le travailleur) et du pré-mortem du
  * lot 2 (L2-PM-26, L2-PM-33, L2-PM-35), jamais du code testé.
  *
- * Partie A (transaction ANNULÉE, `app_worker`) : monde complet d'un trip BOOKED (fixture 9965),
+ * Partie A (transaction ANNULÉE, `app_worker`) : monde complet d'un trip BOOKED (fixture 9963),
  * source, enregistrement idempotent, version suivante, faits refusés s'ils diffèrent, garde de la
  * remise. Partie B (données VALIDÉES, deux sessions) : lecture par les parties, signature du
  * voyageur, CONTRACT_HASH_MISMATCH, version remplacée. Aucun interrupteur n'est touché.

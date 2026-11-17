@@ -57,7 +57,7 @@ export type Worker =
   | 'payment_command'
   // oracle de production C12 (US-025, 0045) : lecture seule
   | 'booking_oracle'
-  // contrat de location hôte–voyageur (US-211, 0121) : génération au passage BOOKED
+  // contrat de location hôte–voyageur (US-211, 0122) : génération au passage BOOKED
   | 'booking_contract';
 
 export const uuid = (): string => randomUUID();

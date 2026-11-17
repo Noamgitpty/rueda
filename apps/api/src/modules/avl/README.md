@@ -105,11 +105,11 @@ Dépendances fail-closed en attendant d'autres modules : `core.booking_vehicle_p
 
 Travailleur `booking_contract` (`internal/contract/contract-generator.ts`, déclaré dans `worker-tasks.ts`), consommateur de `booking.trip.booked`, dans la transaction du reçu de l'événement :
 
-1. `core.booking_contract_source(trip)` (0121, EXECUTE `app_worker`) : faits lus par la base (devis du checkout, distance figée, assureur et caution à la réservation, véhicule, lieu, hôte nommé, voyageur minimisé), devis canonique, gabarits es et de courtoisie, version suivante ;
+1. `core.booking_contract_source(trip)` (0122, EXECUTE `app_worker`) : faits lus par la base (devis du checkout, distance figée, assureur et caution à la réservation, véhicule, lieu, hôte nommé, voyageur minimisé), devis canonique, gabarits es et de courtoisie, version suivante ;
 2. retenue hors fenêtre gratuite par `lateCancellationOf` de PRC sur le devis REJOUÉ (la même que S05, N-199) ; rejeu impossible : aucune retenue écrite ;
 3. texte, PDF et empreinte par CTR (`buildContractBody`, `renderContractPdf`, `contractSha256`) ;
 4. `core.booking_cmd_record_contract` : la base relit les faits et refuse un écart (`SOURCE_CHANGED` : erreur, rejeu) ; clé `evt:<événement>` (rejeu : `ALREADY_RECORDED`).
 
-Source incomplète ou gabarit absent : `CONTRACT_GENERATION_FAILED` journalisé et levé (lettre morte, alerte). Journaux : issue, pays, motif ; jamais un nom, une plaque ni un montant. Lecture (`core.booking_trip_contract`) et signature du voyageur (`core.booking_cmd_sign_contract`) : commandes `app_api` de 0121, routes en 211b. La remise (`IN_PROGRESS`) exige la dernière version signée (`CONTRACT_NOT_SIGNED`).
+Source incomplète ou gabarit absent : `CONTRACT_GENERATION_FAILED` journalisé et levé (lettre morte, alerte). Journaux : issue, pays, motif ; jamais un nom, une plaque ni un montant. Lecture (`core.booking_trip_contract`) et signature du voyageur (`core.booking_cmd_sign_contract`) : commandes `app_api` de 0122, routes en 211b. La remise (`IN_PROGRESS`) exige la dernière version signée (`CONTRACT_NOT_SIGNED`).
 
 Tests : `internal/contract/contract-generator.test.ts` (base simulée) ; preuves L0 `packages/db/test/l0/l0-us211-rental-contract.test.ts`.

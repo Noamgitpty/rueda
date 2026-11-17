@@ -12,7 +12,7 @@ CTR ne stocke pas les octets des fichiers (AUD, `file_asset`) et n'envoie rien l
 
 - **livré** : documents juridiques versionnés et consentements du voyageur (US-102, ADR-091) : CGU du voyageur, confidentialité, communications ; routes `/legal` ; garde `TermsGuard` ; port `SignatureService` (US-020, ADR-058) ; **CGU de l'hôte** (US-126, ADR-100) : genre `TOS_HOST`, routes `/host/accounts/{orgId}/terms`, garde `TERMS_REACCEPT_REQUIRED` dans la commande de soumission d'une annonce (migration 0070) ;
 - **checkout** (US-208, ADR-133) : genre `GEO_TERMS` (texte géographique) et graines BROUILLON de `CANCELLATION_POLICY` et `GEO_TERMS` ; consentements `CHECKOUT` écrits par `core.ctr_checkout_terms` (EXECUTE `cmd_hold_owner`) dans la commande de checkout d'AVL ; `core.ctr_account_country` ignore ces acceptations ; contrôle à l'exécution de `TermsGuard` (`internal/terms-guard-runtime.test.ts`, N-43) ;
-- **contrat de location hôte–voyageur** (US-211 partie 211a, ADR-143) : gabarit `RENTAL_CONTRACT` BROUILLON (0121), texte du contrat (`buildContractBody`, libellés `ctr.contract.*` du catalogue v66, figés dans le document), PDF déterministe `ctr.pdf/1` (`renderContractPdf`, Courier WinAnsi, aucune date ni compression), empreinte et vérification (`contractSha256`, `verifyContractPdf` ⇒ `CONTRACT_HASH_MISMATCH`), lecture stricte des faits de la base (`parseContractFacts`). Fonctions pures exportées par `index.ts` ; la génération (faits du devis figé, retenue du moteur de règlement de PRC) est le travailleur `booking_contract` d'AVL ; tables et commandes de 0121 (propriétaire `cmd_hold_owner`) ;
+- **contrat de location hôte–voyageur** (US-211 partie 211a, ADR-143) : gabarit `RENTAL_CONTRACT` BROUILLON (0122), texte du contrat (`buildContractBody`, libellés `ctr.contract.*` du catalogue v65, figés dans le document), PDF déterministe `ctr.pdf/1` (`renderContractPdf`, Courier WinAnsi, aucune date ni compression), empreinte et vérification (`contractSha256`, `verifyContractPdf` ⇒ `CONTRACT_HASH_MISMATCH`), lecture stricte des faits de la base (`parseContractFacts`). Fonctions pures exportées par `index.ts` ; la génération (faits du devis figé, retenue du moteur de règlement de PRC) est le travailleur `booking_contract` d'AVL ; tables et commandes de 0122 (propriétaire `cmd_hold_owner`) ;
 - **pas encore** : garde des CGU de l'hôte à la confirmation d'une réservation (lot 2), routes et écrans du contrat (211b), constancia (US-212), route de console de publication (US-101), événements de consentement.
 
 ## Entités
@@ -21,8 +21,8 @@ CTR ne stocke pas les octets des fichiers (AUD, `file_asset`) et n'envoie rien l
 | -------------------- | ------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------- |
 | `document_template`  | `core.contract_document_template` (migration 0059)                                   | texte en base, version par (genre, pays, langue), `is_major`, BROUILLON si non validée ; `TOS_HOST` depuis 0070 |
 | `consent`            | `core.contract_consent` (migration 0059)                                             | registre immuable ; courant = dernière ligne ; C2 chiffrées ou retenues                                         |
-| `generated_document` | `core.contract_generated_document` + `core.contract_document_party` (migration 0121) | versions immuables (empreinte, faits non nominatifs) ; partie nominative pseudonymisable (US-211)               |
-| `signature`          | `core.contract_signature` (migration 0121)                                           | signature du voyageur, heure serveur, sceau ; C2 retenues (US-211)                                              |
+| `generated_document` | `core.contract_generated_document` + `core.contract_document_party` (migration 0122) | versions immuables (empreinte, faits non nominatifs) ; partie nominative pseudonymisable (US-211)               |
+| `signature`          | `core.contract_signature` (migration 0122)                                           | signature du voyageur, heure serveur, sceau ; C2 retenues (US-211)                                              |
 
 `master_agreement` et `psp_mandate` sont historiques, sans objet. Commandes en base (`SECURITY DEFINER`, `EXECUTE` au seul `app_api`) : `core.iam_cmd_register_with_consents`, `core.ctr_consent_status`, `core.ctr_cmd_accept_documents`, `core.ctr_cmd_set_marketing`, `core.ctr_consent_history`, `core.ctr_published_documents`, `core.ctr_document_body` (propriétaire `iam_auth_owner`) ; `core.ctr_staff_cmd_publish_document` (propriétaire `iam_staff_owner`, permission `legal.publish`). Aucune inscription sans consentement : déclencheur différé `ctr_signup_consents_required` (détail : `packages/db/README.md`, section « Consentements »).
 
@@ -49,7 +49,7 @@ Commandes en base (`iam_auth_owner`) : `core.ctr_host_terms`, `core.ctr_cmd_acce
 
 ## Événements
 
-Émis (cible 17 §4.5) : `contract.document.generated` (version enregistrée, acteur SYSTEM) et `contract.document.signed` (signature du voyageur) depuis US-211 (0121) ; `legal.consent.recorded` et `legal.document_template.published` : pas encore.
+Émis (cible 17 §4.5) : `contract.document.generated` (version enregistrée, acteur SYSTEM) et `contract.document.signed` (signature du voyageur) depuis US-211 (0122) ; `legal.consent.recorded` et `legal.document_template.published` : pas encore.
 
 Consommé (cible 17 §4.5) : `booking.trip.booked` par le travailleur `booking_contract` (AVL, US-211) : génération du contrat ; la constancia viendra avec US-212.
 

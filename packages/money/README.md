@@ -119,6 +119,14 @@ Module `src/settlement/tenders.ts`, exporté par `@rueda/money` ; fonctions pure
 - Preuves : `test/settlement/tenders.golden.test.ts` (TJ15a à d, TJ21a et b de l'export ; variante PYG sur TJ09a produite par la fonction `cascade` de `check_legs.py`).
 - Non utilisé au checkout bêta (un seul encaissement par carte) : servira aux crédits et aux remboursements par moyen (US-224).
 
+## Ordres d'un règlement (US-224, 08 E7 règles 1, 3 et 10, ADR-145)
+
+Module `src/settlement/refunds.ts`, exporté par `@rueda/money` ; fonction pure, `bigint`, aucune division ni arrondi.
+
+- `settlementOrders(variation, remboursements)` : depuis la variation signée de chaque jambe (version en tête du règlement) et le remboursement de chaque moyen (décidé par E2), rend la réaffectation (`reallocation`, Σ = 0, passée avant ; variation positive prise sur `HOST` → … → `PLATFORM`, TJ05b) et un remboursement par moyen (`refunds`, cascade de `cascadeTenders`, jambes positives = débits).
+- Refus `SETTLEMENT_INPUT_INVALID` : devises différentes, Σ remboursements ≠ débits, moyen nul, réaffectation plus grande que les jambes en baisse, crédit qui toucherait une autre jambe que `PLATFORM` (TJ20b : réaffectation de 224b). Le plafond « jamais plus que l'encaissé » est tenu en base (migration 0121).
+- Preuves : `test/settlement/refunds.golden.test.ts` (TJ02b + TJ16a/b, TJ08b + TJ16c/d, TJ10b / TJ10c de l'export ; TJ05b selon le texte de 08 E7 règle 3).
+
 ## Harnais des vecteurs dorés (US-016)
 
 Le sous-chemin `@rueda/money/golden-vectors` (`src/golden-vectors/`), **réservé aux tests**, charge les attendus exportés par les oracles Python de `docs/specs/tools/` (T01–T68, TJ01–TJ21, TA01–TA11, en USD et en PYG) et compare un moteur (US-017, US-018) à ces attendus, sans jamais les recalculer. Il n'est pas exporté par `@rueda/money`. Voir [`src/golden-vectors/README.md`](src/golden-vectors/README.md).

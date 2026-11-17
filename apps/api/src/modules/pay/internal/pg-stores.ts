@@ -131,6 +131,12 @@ export interface RecordOperationInput {
   readonly idemSent: string;
   /** `null` pour VOID, DEPOSIT_VOID, DEPOSIT_AUTH, CHARGEBACK, CHARGEBACK_REVERSAL. */
   readonly legs: LegAmounts | null;
+  /**
+   * US-224 (S-02, ADR-145) : règlement et version dont découle un ordre REFUND / LEG_REALLOCATION /
+   * LEG_RELEASE d'un trip (version en tête, gardée par la base à l'enregistrement) ; absent pour
+   * les autres ordres. Sans lui, un ordre de règlement d'un trip est refusé.
+   */
+  readonly settlement?: { readonly id: string; readonly version: number };
 }
 
 /** Travailleur `payment_command` : opération planifiée et ses jambes (17 §4.3 point 1). */
@@ -145,7 +151,7 @@ export class PgOperationRecorder {
     const { rows } = await this.#tx.query<{ operation_id: string; replayed: boolean }>(
       `SELECT operation_id, replayed
          FROM core.payment_cmd_record_operation($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12,
-                                                $13::jsonb)`,
+                                                $13::jsonb, $14::uuid, $15::integer)`,
       [
         input.id,
         input.holdId,
@@ -160,6 +166,8 @@ export class PgOperationRecorder {
         input.idemPlain,
         input.idemSent,
         input.legs === null ? null : JSON.stringify(legsToJson(input.legs)),
+        input.settlement?.id ?? null,
+        input.settlement?.version ?? null,
       ],
     );
     const row = rows[0];

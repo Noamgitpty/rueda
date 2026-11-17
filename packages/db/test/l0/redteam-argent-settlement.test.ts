@@ -97,20 +97,24 @@ const bump = (obj: Record<string, unknown>, key: string, by: bigint): void => {
 };
 
 describe.each(COUNTRIES)('ARG-20 — règlement rejoué — $country ($currency)', (c) => {
-  it('même charge utile rejouée (même identifiant, puis nouvel identifiant) ⇒ SETTLEMENT_EXISTS, une seule ligne', async () => {
+  // US-224 (0121, S-02 phrase 2) : un rejeu au MÊME contenu rend le règlement existant (rien
+  // d'écrit, une seule ligne) au lieu de SETTLEMENT_EXISTS ; un autre contenu à la même version
+  // reste refusé. La propriété attaquée (jamais deux règlements de la même version) est inchangée ;
+  // les ordres planifiés deux fois sont bornés à l'enregistrement (en-cours compté, ADR-145).
+  it('même charge utile rejouée (même identifiant, puis nouvel identifiant) ⇒ le règlement existant, une seule ligne ; autre contenu ⇒ SETTLEMENT_EXISTS', async () => {
     const s = scenario(c);
     await worker(async (tx) => {
       const trip = await insertTrip(tx, c, 30);
       const rec = recordOfVector(s.ref);
       const id = uuid();
       await recordAsSettlementWorker(tx, { tripId: trip.id, version: 1, id }, rec);
+      expect(await recordAsSettlementWorker(tx, { tripId: trip.id, version: 1, id }, rec)).toBe(id);
+      expect(await recordAsSettlementWorker(tx, { tripId: trip.id, version: 1 }, rec)).toBe(id);
+      const other = recordOf(tripOfVector(s.ref), eventOfVector('T08'));
       expect(
         await attempt(tx, () =>
-          recordAsSettlementWorker(tx, { tripId: trip.id, version: 1, id }, rec),
+          recordAsSettlementWorker(tx, { tripId: trip.id, version: 1 }, other),
         ),
-      ).toBe('SETTLEMENT_EXISTS');
-      expect(
-        await attempt(tx, () => recordAsSettlementWorker(tx, { tripId: trip.id, version: 1 }, rec)),
       ).toBe('SETTLEMENT_EXISTS');
       expect(await settlementCount(tx, trip.id)).toBe(1);
     });
@@ -167,8 +171,6 @@ describe.each(COUNTRIES)(
           r1,
         ];
         const outcomes1 = await race(clients, trip.id, () => ({ version: 1 }), rivals);
-        expect(outcomes1.filter((o) => o === 'OK')).toHaveLength(1);
-        expect(outcomes1.filter((o) => o === 'SETTLEMENT_EXISTS')).toHaveLength(N - 1);
 
         // version 2 : tous visent v1 ; le gagnant de la course 1 est lu en base (aucun ordre supposé)
         const head = await withTestTransaction(first, {}, async (tx) => {
@@ -181,6 +183,14 @@ describe.each(COUNTRIES)(
           return r.rows[0];
         });
         if (!head) throw new Error('version 1 absente');
+        // US-224 (0121, S-02 phrase 2) : un seul gagnant ; les rivaux au MÊME contenu que lui
+        // reçoivent le règlement existant (rejeu, rien d'écrit), les autres SETTLEMENT_EXISTS
+        const sameAsWinner = outcomes1.map(
+          (_o, i) => rivals[i % rivals.length]?.inputsHash === head.inputs_hash,
+        );
+        outcomes1.forEach((o, i) => {
+          expect(o, `client ${i}`).toBe(sameAsWinner[i] ? 'OK' : 'SETTLEMENT_EXISTS');
+        });
         const winner = rivals.find((r) => r.inputsHash === head.inputs_hash) ?? r1;
         const v2 = recordOf(tripOfVector(s.v1), eventOfVector('T08'), winner);
         const outcomes2 = await race(
@@ -189,8 +199,8 @@ describe.each(COUNTRIES)(
           () => ({ version: 2, supersedesId: head.id }),
           [v2],
         );
-        expect(outcomes2.filter((o) => o === 'OK')).toHaveLength(1);
-        expect(outcomes2.filter((o) => o === 'SETTLEMENT_EXISTS')).toHaveLength(N - 1);
+        // même v2 pour tous : un enregistrement, N − 1 rejeux (US-224) ; une seule ligne v2
+        expect(outcomes2).toEqual(Array.from({ length: N }, () => 'OK'));
 
         const versions = await withTestTransaction(first, {}, async (tx) => {
           await setSessionContext(tx, { kind: 'WORKER', workerName: 'settlement' });
@@ -236,11 +246,11 @@ describe.each(COUNTRIES)(
             recordAsSettlementWorker(tx, { tripId: trip.id, version: 3, supersedesId: v1 }, r3),
           ),
         ).toBe('INVARIANT_VIOLATION');
+        // US-224 (0121, S-02 phrase 2) : v2 rejouée telle quelle ⇒ la v2 existante, rien d'écrit
+        // (avant : SETTLEMENT_EXISTS) ; le nombre de versions est vérifié plus bas
         expect(
-          await attempt(tx, () =>
-            recordAsSettlementWorker(tx, { tripId: trip.id, version: 2, supersedesId: v1 }, r2),
-          ),
-        ).toBe('SETTLEMENT_EXISTS');
+          await recordAsSettlementWorker(tx, { tripId: trip.id, version: 2, supersedesId: v1 }, r2),
+        ).toBe(v2);
         // la v3 légitime (variation nulle) passe, et ne double rien
         const v3 = await recordAsSettlementWorker(
           tx,

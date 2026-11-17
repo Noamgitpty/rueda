@@ -233,7 +233,7 @@ describe('configuration pays : structure et droits', () => {
             ...(t === 'config_country'
               ? [{ t, pol: 'cmd_money_sel', cmd: 'r', roles: 'cmd_money_owner' }]
               : []),
-            // contrat de location (US-211, 0121) : tolérance de retard (grace_minutes) seulement
+            // contrat de location (US-211, 0122) : tolérance de retard (grace_minutes) seulement
             ...(t === 'config_param_value'
               ? [{ t, pol: 'cmd_hold_contract_param_read', cmd: 'r', roles: 'cmd_hold_owner' }]
               : []),

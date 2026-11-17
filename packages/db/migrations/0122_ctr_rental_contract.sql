@@ -1,4 +1,4 @@
--- 0121 — CTR / AVL : contrat de location hôte–voyageur par trip et signature horodatée (bêta).
+-- 0122 — CTR / AVL : contrat de location hôte–voyageur par trip et signature horodatée (bêta).
 -- US-211 (partie 211a) ; 19 US-211 (« Given un trip BOOKED, When le contrat est généré, Then
 -- l'hôte (nom, pièce masquée ; ou mandataire avec autorisation notariée), le voyageur, le niveau de
 -- protection, la franchise, la caution, la grille de retard et l'interdiction de sortie du pays sont

@@ -45,8 +45,11 @@
  *   trip d'US-207 (migration 0099, ADR-126) ;
  * - `PAYMENT_UNPROVEN` : PROPOSÉ par US-223 (migration 0116, ADR-139) : mouvement de jambe d'une
  *   opération sans preuve rattachée (S-02, RC-5) ;
+ * - `REFUND_EXCEEDS_COLLECTED` : 16 fiche PAY-021 ; `SETTLEMENT_SUPERSEDED` (ordre d'une version
+ *   de règlement remplacée) et `FIN_REVIEW_REQUIRED` (règlement à jambe négative : décision FIN
+ *   avant tout ordre, 08 E7 règle 5) : PROPOSÉS par US-224 (migration 0121, ADR-145, S-02) ;
  * - `CONTRACT_NOT_SIGNED` : 16 fiche BKG-019 (remise refusée tant que la dernière version du contrat
- *   de location n'est pas signée par le voyageur ; migration 0121, US-211, ADR-143).
+ *   de location n'est pas signée par le voyageur ; migration 0122, US-211, ADR-143).
  */
 
 /** Codes métier produits par la traduction. */
@@ -100,7 +103,11 @@ export const DB_BUSINESS_CODES = [
   'AGE_CLASS_MISMATCH',
   // US-223 (0116, ADR-139) : mouvement de jambe sans preuve rattachée (S-02, RC-5)
   'PAYMENT_UNPROVEN',
-  // US-211 (0121, ADR-143) : remise sans contrat de location signé (16 BKG-019)
+  // US-224 (0121, ADR-145) : ordres de règlement gardés à l'enregistrement (S-02, PAY-021)
+  'REFUND_EXCEEDS_COLLECTED',
+  'SETTLEMENT_SUPERSEDED',
+  'FIN_REVIEW_REQUIRED',
+  // US-211 (0122, ADR-143) : remise sans contrat de location signé (16 BKG-019)
   'CONTRACT_NOT_SIGNED',
 ] as const;
 
@@ -285,6 +292,17 @@ export const CONSTRAINT_CODES: Readonly<Record<string, readonly [string, DbBusin
   settlement_trip_inputs_changed: [SQLSTATE.integrityConstraintViolation, 'INVARIANT_VIOLATION'],
   leg_refund_without_settlement: [SQLSTATE.objectNotInPrerequisiteState, 'INVARIANT_VIOLATION'],
   leg_refund_exceeds_settlement: [SQLSTATE.objectNotInPrerequisiteState, 'INVARIANT_VIOLATION'],
+  // US-224 (0121, ADR-145) : ordre REFUND / LEG_* rattaché à la version en tête de son
+  // règlement et borné dès l'enregistrement (S-02) ; encaissé par jambe (16 PAY-021)
+  operation_settlement_required: [SQLSTATE.objectNotInPrerequisiteState, 'INVARIANT_VIOLATION'],
+  operation_settlement_superseded: [SQLSTATE.objectNotInPrerequisiteState, 'SETTLEMENT_SUPERSEDED'],
+  operation_settlement_fin_review: [SQLSTATE.objectNotInPrerequisiteState, 'FIN_REVIEW_REQUIRED'],
+  refund_exceeds_collected: [SQLSTATE.objectNotInPrerequisiteState, 'REFUND_EXCEEDS_COLLECTED'],
+  // revues de la PR 198 : réaffectation du règlement exacte et passée avant le remboursement (08 E7 règle 3)
+  leg_reallocation_mismatch: [SQLSTATE.objectNotInPrerequisiteState, 'INVARIANT_VIOLATION'],
+  leg_reallocation_pending: [SQLSTATE.objectNotInPrerequisiteState, 'INVARIANT_VIOLATION'],
+  payment_operation_settlement_shape: [SQLSTATE.checkViolation, 'INVARIANT_VIOLATION'],
+  payment_operation_settlement_kind: [SQLSTATE.checkViolation, 'INVARIANT_VIOLATION'],
   leg_release_trip_not_completed: [SQLSTATE.objectNotInPrerequisiteState, 'INVALID_TRANSITION'],
   leg_release_not_due: [SQLSTATE.objectNotInPrerequisiteState, 'INVALID_TRANSITION'],
   leg_release_submerchant_inactive: [
@@ -322,7 +340,7 @@ export const CONSTRAINT_CODES: Readonly<Record<string, readonly [string, DbBusin
   trip_transition_unlogged: [SQLSTATE.integrityConstraintViolation, 'INVARIANT_VIOLATION'],
   trip_segment_missing: [SQLSTATE.integrityConstraintViolation, 'INVARIANT_VIOLATION'],
   trip_state_log_immutable: [SQLSTATE.integrityConstraintViolation, 'IMMUTABLE_RECORD'],
-  // contrat de location et signature (0121, US-211 ; 16 BKG-018, BKG-019)
+  // contrat de location et signature (0122, US-211 ; 16 BKG-018, BKG-019)
   trip_contract_not_signed: [SQLSTATE.objectNotInPrerequisiteState, 'CONTRACT_NOT_SIGNED'],
   contract_record_immutable: [SQLSTATE.integrityConstraintViolation, 'IMMUTABLE_RECORD'],
   contract_command_forbidden: [SQLSTATE.insufficientPrivilege, 'FORBIDDEN'],
