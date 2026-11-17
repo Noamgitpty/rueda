@@ -7,7 +7,7 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 
 ## Synthèse
 
-- 128 migrations ; 125 tables ; 2 vues ; 706 politiques RLS ; 262 fonctions `SECURITY DEFINER` ; 246 autres fonctions.
+- 129 migrations ; 125 tables ; 2 vues ; 706 politiques RLS ; 265 fonctions `SECURITY DEFINER` ; 246 autres fonctions.
 - Tables sans RLS `ENABLE` + `FORCE` : aucune.
 - Rôles applicatifs avec `SUPERUSER` ou `BYPASSRLS` : aucun.
 
@@ -143,6 +143,7 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 | `0125_config_booking_request_mode_params` | graine complémentaire : paramètres « booking_request_mode* » (US-223 ; 17 §7.2). |
 | `0126_booking_request_mode` | AVL / PAY : réservation sur demande (hold REQUEST), autorisation à l'envoi, capture par |
 | `0127_payment_refund_scheduler` | PAY / STL : ordonnancement des remboursements planifiés et états SM-8 après l'envoi. |
+| `0128_support_console_trip_cancellation` | SUP / AVL / STL : état d'une demande d'annulation lu par la console (O01). |
 
 ## Rôles
 
@@ -6258,6 +6259,7 @@ Chacune a un propriétaire `NOLOGIN` dédié (ADR-053) et un `search_path` figé
 | `core.booking_request_authorized(p_operation_id uuid)` | `jsonb` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; cmd_hold_owner: EXECUTE |
 | `core.booking_request_void(p_hold_id uuid, p_auth_op uuid)` | `uuid` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; cmd_hold_owner: EXECUTE |
 | `core.booking_staff_review_dossier(p_assessment uuid)` | `jsonb` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | cmd_hold_owner: EXECUTE ; iam_staff_owner: EXECUTE |
+| `core.booking_staff_trip_cancellation(p_trip_id uuid)` | `jsonb` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | cmd_hold_owner: EXECUTE ; iam_staff_owner: EXECUTE |
 | `core.booking_trip_birth_defaults()` | `trigger` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | cmd_hold_owner: EXECUTE |
 | `core.booking_trip_birth_records()` | `trigger` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | cmd_hold_owner: EXECUTE |
 | `core.booking_trip_cancellation_begin(p_cancellation_id uuid)` | `TABLE(cancellation_id uuid, trip_id uuid, segment_id uuid, country_code text, currency text, trip_status text, trip_row_version integer, start_at_ms bigint, booked_at_ms bigint, requested_reason text, initiator text, sub_reason text, evidence_validated boolean, checkin_validated boolean, requested_at_ms bigint, quote_engine_version text, quote_inputs text, quote_inputs_hash text, quote_outputs text, quote_outputs_hash text, quote_total_minor text, quote_currency text, params jsonb)` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; cmd_hold_owner: EXECUTE |
@@ -6444,6 +6446,7 @@ Chacune a un propriétaire `NOLOGIN` dédié (ADR-053) et un `search_path` figé
 | `core.settlement_cmd_approve_finance_action(p_token_hash bytea, p_approval_id uuid)` | `TABLE(outcome text, approval_id uuid)` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; cmd_money_owner: EXECUTE |
 | `core.settlement_cmd_record(p_settlement_id uuid, p_trip_id uuid, p_segment_no integer, p_version integer, p_supersedes_id uuid, p_trip_row_version integer, p_record jsonb)` | `uuid` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; cmd_money_owner: EXECUTE |
 | `core.settlement_cmd_request_finance_action(p_token_hash bytea, p_request_id uuid, p_action text, p_subject_id uuid, p_reason text)` | `TABLE(outcome text, approval_id uuid)` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; cmd_money_owner: EXECUTE |
+| `core.settlement_staff_cancellation_summary(p_settlement_id uuid)` | `jsonb` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | cmd_money_owner: EXECUTE ; iam_staff_owner: EXECUTE |
 | `core.support_close_review_item(p_item_id uuid, p_status text, p_decision text, p_actor uuid)` | `TABLE(outcome text, item_id uuid)` | `iam_staff_owner` | search_path=pg_catalog, pg_temp | cmd_hold_owner: EXECUTE ; iam_staff_owner: EXECUTE ; kyc_cmd_owner: EXECUTE |
 | `core.support_enqueue_review(p_queue text, p_subject_type text, p_subject_id uuid, p_country text, p_actor uuid)` | `TABLE(outcome text, item_id uuid)` | `iam_staff_owner` | search_path=pg_catalog, pg_temp | catalog_cmd_owner: EXECUTE ; cmd_hold_owner: EXECUTE ; iam_staff_owner: EXECUTE ; kyc_cmd_owner: EXECUTE |
 | `core.support_manual_action_finance_request(p_token_hash bytea, p_action_id uuid, p_action_code text, p_subject_id uuid, p_input jsonb, p_reason text, p_actor uuid, p_actor_role text)` | `TABLE(outcome text, ref_id uuid, emitted_event_ids uuid[])` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | cmd_money_owner: EXECUTE ; iam_staff_owner: EXECUTE |
@@ -6465,6 +6468,7 @@ Chacune a un propriétaire `NOLOGIN` dédié (ADR-053) et un `search_path` figé
 | `core.support_staff_record_evidence(p_token_hash bytea, p_request_id uuid, p_subject_user uuid, p_mime text, p_bytes bigint, p_sha256 bytea)` | `TABLE(outcome text, body jsonb)` | `iam_staff_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; iam_staff_owner: EXECUTE |
 | `core.support_staff_resolve_catalog_addition(p_token_hash bytea, p_request_id uuid, p_item_id uuid, p_decision text, p_variant_id uuid, p_entry jsonb, p_reject_reason text)` | `TABLE(outcome text, body jsonb)` | `iam_staff_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; iam_staff_owner: EXECUTE |
 | `core.support_staff_set_case_status(p_token_hash bytea, p_request_id uuid, p_case_id uuid, p_status text)` | `TABLE(outcome text, body jsonb)` | `iam_staff_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; iam_staff_owner: EXECUTE |
+| `core.support_staff_trip_cancellation(p_token_hash bytea, p_request_id uuid, p_trip_id uuid)` | `TABLE(outcome text, body jsonb)` | `iam_staff_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; iam_staff_owner: EXECUTE |
 | `core.support_staff_vehicle_claim(p_token_hash bytea, p_request_id uuid, p_item_id uuid, p_purpose text)` | `TABLE(outcome text, body jsonb)` | `iam_staff_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; iam_staff_owner: EXECUTE |
 | `core.support_staff_vehicle_eligibility(p_token_hash bytea, p_request_id uuid, p_item_id uuid, p_purpose text)` | `TABLE(outcome text, body jsonb)` | `iam_staff_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; iam_staff_owner: EXECUTE |
 | `core.support_staff_vehicle_file(p_token_hash bytea, p_request_id uuid, p_item_id uuid, p_subject_type text, p_file_id uuid, p_purpose text)` | `TABLE(outcome text, body jsonb)` | `iam_staff_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; iam_staff_owner: EXECUTE |

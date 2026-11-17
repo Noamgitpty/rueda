@@ -18,6 +18,8 @@ import type {
   ContentGapsBody,
   MeBody,
 } from './api.ts';
+import { CANCEL_ACTION, CANCEL_REFUSAL_KEYS, draftProblem } from './cancel-view.tsx';
+import type { CancelHandlers, CancelState, CancellationView } from './cancel-view.tsx';
 import { ConsoleView, DSR_REFUSAL_KEYS, REVIEW_REFUSAL_KEYS, SCREEN_HEADINGS } from './view.tsx';
 import type {
   ConsoleAction,
@@ -61,12 +63,26 @@ interface QueuesBody {
   readonly items: readonly QueueItemView[];
 }
 
+/**
+ * US-215b : relectures de l'état d'une demande d'annulation après l'envoi (le travailleur
+ * trip_lifecycle règle les demandes toutes les 10 s) : une lecture toutes les 3 s, 8 au plus, puis
+ * l'agent actualise lui-même.
+ */
+const CANCEL_POLL_MS = 3_000;
+const CANCEL_POLLS = 8;
+const TRIP_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+
 /** Octets d'un fichier en base64 (pièce du staff, US-109). */
 async function base64Of(file: File): Promise<string> {
   const bytes = new Uint8Array(await file.arrayBuffer());
   let binary = '';
   for (const b of bytes) binary += String.fromCharCode(b);
   return btoa(binary);
+}
+
+/** Saisie en cours (reprise quand l'agent change de demandeur ou revient de la confirmation). */
+function draftOf(state: CancelState) {
+  return state.step === 'confirm' ? state.draft : state.step === 'form' ? state.draft : undefined;
 }
 
 export function ConsoleClient({ localeTag }: { readonly localeTag: string }) {
@@ -79,6 +95,21 @@ export function ConsoleClient({ localeTag }: { readonly localeTag: string }) {
   // files de revue et fiche 360° (US-109) ; le motif de la dernière fiche ouverte sert aux relectures
   const [ops, setOps] = useState<OpsState>({});
   const purposeRef = useRef<string>('');
+  // US-215b : annulation d'un voyage ; une génération par suivi (un nouveau suivi arrête l'ancien)
+  const [cancel, setCancel] = useState<CancelState>({ step: 'form', initiator: null });
+  const cancelGen = useRef(0);
+  const cancelStep = useRef<CancelState['step']>('form');
+  useEffect(() => {
+    // focus sur le titre du panneau à chaque changement d'étape (clavier, lecteur d'écran)
+    if (cancelStep.current !== cancel.step) document.getElementById('cancel-heading')?.focus();
+    cancelStep.current = cancel.step;
+  }, [cancel.step]);
+  useEffect(
+    () => () => {
+      cancelGen.current += 1;
+    },
+    [],
+  );
   // échec réseau (API injoignable, hors ligne) : rendu comme une erreur lisible, jamais muet
   const call = useCallback(
     <T,>(method: 'GET' | 'POST', path: string, body?: unknown) =>
@@ -350,6 +381,122 @@ export function ConsoleClient({ localeTag }: { readonly localeTag: string }) {
         await call('POST', '/auth/logout');
         setState({ kind: 'login' });
       })();
+    },
+  };
+
+  /**
+   * Lit l'état réel de la dernière demande d'annulation du trip, puis le relit tant qu'elle est en
+   * attente de règlement (borné) ; un refus de lecture est expliqué, jamais montré comme « rien ».
+   */
+  const followCancellation = async (
+    tripId: string,
+    notice?: Extract<CancelState, { step: 'state' }>['notice'],
+  ): Promise<void> => {
+    cancelGen.current += 1;
+    const gen = cancelGen.current;
+    for (let n = 0; n < CANCEL_POLLS; n += 1) {
+      const r = await call<{ cancellation: CancellationView | null }>(
+        'GET',
+        `/console/cancellations/${tripId}`,
+      );
+      if (cancelGen.current !== gen) return;
+      const view = r.ok ? r.body.cancellation : ('error' as const);
+      setCancel({
+        step: 'state',
+        tripId,
+        view,
+        notice: r.ok ? notice : { tone: r.status === 0 ? 'danger' : 'warning', key: r.messageKey },
+      });
+      if (view === 'error' || view === null || view.status !== 'PENDING') return;
+      await new Promise((resolve) => setTimeout(resolve, CANCEL_POLL_MS));
+      if (cancelGen.current !== gen) return;
+    }
+    setCancel((prev) =>
+      prev.step === 'state' && prev.tripId === tripId ? { ...prev, slow: true } : prev,
+    );
+  };
+
+  const cancelHandlers: CancelHandlers = {
+    onCancelInitiator: (initiator) =>
+      setCancel((prev) => ({
+        step: 'form',
+        initiator,
+        draft: prev.step === 'form' || prev.step === 'confirm' ? draftOf(prev) : undefined,
+      })),
+    onCancelReview: (draft) => {
+      const problem = draftProblem(draft);
+      setCancel(
+        problem === null
+          ? { step: 'confirm', draft }
+          : { step: 'form', initiator: draft.initiator, draft, error: problem },
+      );
+    },
+    onCancelEdit: () =>
+      setCancel((prev) =>
+        prev.step === 'confirm'
+          ? { step: 'form', initiator: prev.draft.initiator, draft: prev.draft }
+          : prev,
+      ),
+    onCancelConfirm: () => {
+      if (cancel.step !== 'confirm') return;
+      const d = cancel.draft;
+      const action = CANCEL_ACTION[d.initiator];
+      const input =
+        d.initiator === 'HOST' && d.subReason !== null
+          ? { subReason: d.subReason }
+          : d.initiator === 'PLATFORM' && d.platformReason !== null
+            ? { platformReason: d.platformReason }
+            : null;
+      // un requestId par intention : un double clic ou une reprise réseau est reconnu par la base
+      intent.current = intentFor(
+        intent.current,
+        [action, d.tripId, input, d.reason.trim(), d.evidence],
+        () => crypto.randomUUID(),
+      );
+      const { requestId } = intent.current;
+      once(async () => {
+        // jamais de montant : motif qualifié d'une liste fermée seulement (17 §10 NN3)
+        const r = await call('POST', '/console/actions', {
+          requestId,
+          action,
+          subjectId: d.tripId,
+          reason: d.reason,
+          ...(input !== null ? { input } : {}),
+          ...(d.evidence.length > 0 ? { evidence: d.evidence } : {}),
+        });
+        if (r.ok) {
+          // la DEMANDE est enregistrée ; le règlement suit : on lit son état réel (jamais « C'est fait »)
+          void followCancellation(d.tripId, { tone: 'success', key: 'backoffice.cancel.sent' });
+          return;
+        }
+        const why = r.values?.['reason'];
+        const refusal =
+          r.code === 'STAFF_ACTION_REFUSED' && typeof why === 'string'
+            ? CANCEL_REFUSAL_KEYS[why]
+            : undefined;
+        cancelGen.current += 1;
+        setCancel({
+          step: 'state',
+          tripId: d.tripId,
+          view: undefined,
+          notice:
+            refusal !== undefined
+              ? { tone: 'warning', key: refusal }
+              : { tone: r.status === 409 ? 'warning' : 'danger', key: r.messageKey },
+          offerRead: why === 'CANCELLATION_PENDING',
+        });
+      });
+    },
+    onCancelRead: (tripId) => {
+      if (!TRIP_ID.test(tripId)) {
+        setCancel({ step: 'form', initiator: null, error: 'backoffice.cancel.error.trip' });
+        return;
+      }
+      void followCancellation(tripId);
+    },
+    onCancelRestart: () => {
+      cancelGen.current += 1;
+      setCancel({ step: 'form', initiator: null });
     },
   };
 
@@ -708,6 +855,7 @@ export function ConsoleClient({ localeTag }: { readonly localeTag: string }) {
       handlers={handlers}
       busy={busy}
       ops={{ state: ops, handlers: opsHandlers }}
+      cancel={{ state: cancel, handlers: cancelHandlers }}
     />
   );
 }

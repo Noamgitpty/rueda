@@ -23,6 +23,8 @@ import {
   TextField,
 } from '@rueda/ui';
 import styles from './console.module.css';
+import { CancelPanel } from './cancel-view.tsx';
+import type { CancelHandlers, CancelState } from './cancel-view.tsx';
 import { OpsPanels, SANCTIONS_LISTS } from './ops-view.tsx';
 import type { OpsHandlers, OpsState, SanctionsList, SanctionsListResult } from './ops-view.tsx';
 
@@ -94,9 +96,8 @@ export type ConsoleState =
  */
 export const ACTION_GROUPS = {
   state: [
-    'CANCEL_TRIP_GUEST',
-    'CANCEL_TRIP_HOST',
-    'CANCEL_TRIP_PLATFORM',
+    // US-215b : CANCEL_TRIP_GUEST / HOST / PLATFORM ont leur propre formulaire (cancel-view.tsx :
+    // motif qualifié en liste fermée, confirmation, état réel du règlement)
     'DECLARE_NO_SHOW',
     'REFUSE_AT_PICKUP',
     'KYC_DECISION',
@@ -131,6 +132,9 @@ const SANCTIONS_LIST_KEYS: Readonly<Record<SanctionsList, MessageKey>> = {
   ofacList: 'backoffice.host.list.ofacList',
   nationalList: 'backoffice.host.list.nationalList',
 };
+
+/** US-215b : rôles qui détiennent `ops.platform_cancel` (0034 ; la base reste juge). */
+export const CANCEL_ROLES = new Set(['OPS_AGENT', 'ADMIN']);
 
 /** US-111 : rôles qui détiennent `data.export` (17 §2.3 ; la base reste juge). */
 const DSR_ROLES = new Set(['ADMIN', 'SUPERADMIN']);
@@ -277,9 +281,6 @@ const ROLE_KEYS: Readonly<Record<string, MessageKey>> = {
 };
 
 const ACTION_KEYS: Readonly<Record<ConsoleAction, MessageKey>> = {
-  CANCEL_TRIP_GUEST: 'backoffice.action.CANCEL_TRIP_GUEST',
-  CANCEL_TRIP_HOST: 'backoffice.action.CANCEL_TRIP_HOST',
-  CANCEL_TRIP_PLATFORM: 'backoffice.action.CANCEL_TRIP_PLATFORM',
   DECLARE_NO_SHOW: 'backoffice.action.DECLARE_NO_SHOW',
   REFUSE_AT_PICKUP: 'backoffice.action.REFUSE_AT_PICKUP',
   KYC_DECISION: 'backoffice.action.KYC_DECISION',
@@ -328,6 +329,7 @@ export function ConsoleView({
   handlers,
   busy = false,
   ops,
+  cancel,
 }: {
   readonly i18n: Translator;
   readonly state: ConsoleState;
@@ -336,6 +338,8 @@ export function ConsoleView({
   readonly busy?: boolean;
   /** Files de revue et fiche 360° (US-109). */
   readonly ops?: { readonly state: OpsState; readonly handlers: OpsHandlers } | undefined;
+  /** US-215b : annulation d'un voyage et état réel de la demande. */
+  readonly cancel?: { readonly state: CancelState; readonly handlers: CancelHandlers } | undefined;
 }) {
   switch (state.kind) {
     case 'loading':
@@ -538,6 +542,10 @@ export function ConsoleView({
               busy={busy}
               showProfile={state.roles.some((r) => PROFILE_ROLES.has(r.role))}
             />
+          )}
+
+          {cancel !== undefined && state.roles.some((r) => CANCEL_ROLES.has(r.role)) && (
+            <CancelPanel i18n={i18n} state={cancel.state} handlers={cancel.handlers} busy={busy} />
           )}
 
           <section className={styles['panel']} aria-labelledby="action-heading">

@@ -2337,4 +2337,126 @@ export const FR_MESSAGES = {
   'web.a03.contract.back': 'Retour à la réservation',
   'web.a05.contract': 'Voir le contrat',
   'web.s06.confirmed.contract': 'Lire et signer le contrat',
+  // US-215b (v69) : annulation d’un voyage par l’ops et état réel de la demande (console O01)
+  'backoffice.cancel.heading': 'Annuler un voyage',
+  'backoffice.cancel.intro':
+    'Le voyageur ou l’hôte a demandé l’annulation au support, ou la plateforme annule le voyage. Tu ne saisis jamais de montant : la plateforme calcule le remboursement et la pénalité.',
+  'backoffice.cancel.who': 'Qui demande l’annulation ?',
+  'backoffice.cancel.whoHint': 'Choisis d’abord qui la demande : le formulaire s’adapte.',
+  'backoffice.cancel.trip': 'Identifiant du voyage',
+  'backoffice.cancel.sub': 'Motif de l’hôte',
+  'backoffice.cancel.sub.none': 'L’hôte annule (sans faute du voyageur)',
+  'backoffice.cancel.sub.INVALID_LICENSE': 'À cause du voyageur : permis non valide',
+  'backoffice.cancel.sub.IDENTITY_NOT_VERIFIED': 'À cause du voyageur : identité non vérifiée',
+  'backoffice.cancel.sub.OTHER_DRIVER_SENT':
+    'À cause du voyageur : un autre conducteur s’est présenté',
+  'backoffice.cancel.sub.LICENSE_NOT_UPLOADED':
+    'À cause du voyageur : permis non envoyé dans l’heure avant le départ',
+  'backoffice.cancel.subHint':
+    '« À cause du voyageur » demande une pièce jointe : sans pièce, l’annulation est comptée à l’hôte, avec pénalité.',
+  'backoffice.cancel.platform': 'Motif de la plateforme',
+  'backoffice.cancel.platform.PLATFORM_TRUST_SAFETY': 'Confiance et sécurité',
+  'backoffice.cancel.platform.PLATFORM_INCOMPLETE_STEPS': 'Étapes obligatoires non faites',
+  'backoffice.cancel.platform.GUEST_FRAUD_PROVEN': 'Fraude du voyageur prouvée',
+  'backoffice.cancel.platform.HOST_ACCOUNT_CLOSED': 'Compte de l’hôte fermé',
+  'backoffice.cancel.platform.PLATFORM_REVIEW_DELAY': 'Revue non faite à temps',
+  'backoffice.cancel.platform.PSP_FAILURE': 'Panne du prestataire de paiement',
+  'backoffice.cancel.review': 'Vérifier avant d’envoyer',
+  'backoffice.cancel.readHeading': 'État d’une annulation',
+  'backoffice.cancel.read': 'Voir l’état',
+  'backoffice.cancel.confirmHeading': 'Confirme l’annulation',
+  'backoffice.cancel.confirmIntro':
+    'Vérifie avant d’envoyer. Une fois réglée, l’annulation ne peut pas être défaite.',
+  'backoffice.cancel.action': 'Action',
+  'backoffice.cancel.motive': 'Motif choisi',
+  'backoffice.cancel.guestMotive': 'Annulation demandée par le voyageur',
+  'backoffice.cancel.evidenceCount': 'Pièces jointes',
+  'backoffice.cancel.evidenceNone': 'Aucune',
+  'backoffice.cancel.noEvidenceWarning':
+    'Sans pièce jointe, l’annulation « à cause du voyageur » est requalifiée en annulation de l’hôte, avec pénalité.',
+  'backoffice.cancel.confirm': 'Confirmer l’annulation',
+  'backoffice.cancel.edit': 'Modifier',
+  'backoffice.cancel.sent':
+    'Demande enregistrée. Le règlement est en cours : son état réel s’affiche ci-dessous.',
+  'backoffice.cancel.stateHeading': 'État de l’annulation',
+  'backoffice.cancel.readError': 'Impossible de lire l’état. Réessaie.',
+  'backoffice.cancel.none': 'Ce voyage n’a aucune demande d’annulation.',
+  'backoffice.cancel.readLive': 'Voir la demande en cours',
+  'backoffice.cancel.refresh': 'Actualiser',
+  'backoffice.cancel.restart': 'Nouvelle annulation',
+  'backoffice.cancel.state.PENDING': 'Demande enregistrée, règlement en cours',
+  'backoffice.cancel.state.PENDINGBody':
+    'La plateforme règle la demande en quelques secondes. Cet écran se met à jour seul.',
+  'backoffice.cancel.state.SETTLED': 'Annulation réglée',
+  'backoffice.cancel.state.SETTLEDBody':
+    'Le voyage est annulé et le remboursement du voyageur est planifié, montant par montant pour chaque partie.',
+  'backoffice.cancel.state.FIN_REVIEW': 'Règlement en revue par FINANCE',
+  'backoffice.cancel.state.FIN_REVIEWBody':
+    'Le voyage n’est pas annulé. La demande attend une décision de FINANCE : préviens l’équipe en donnant l’identifiant de la demande. Tant qu’elle est en revue, une autre demande pour ce voyage est refusée.',
+  'backoffice.cancel.state.FAILED': 'Le règlement a échoué : le voyage n’est pas annulé',
+  'backoffice.cancel.state.FAILEDBody':
+    'Rien n’a été remboursé. Tu peux refaire la demande ; si l’échec revient, signale-le avec l’identifiant de la demande.',
+  'backoffice.cancel.slow': 'Le règlement prend plus de temps que prévu. Actualise dans un moment.',
+  'backoffice.cancel.requestId': 'Identifiant de la demande',
+  'backoffice.cancel.requestedAt': 'Demandée le',
+  'backoffice.cancel.why': 'Raison de l’arrêt',
+  'backoffice.cancel.outcome': 'Issue',
+  'backoffice.cancel.bearer': 'Coût porté par',
+  'backoffice.cancel.bearer.GUEST': 'le voyageur',
+  'backoffice.cancel.bearer.HOST': 'l’hôte',
+  'backoffice.cancel.bearer.PLATFORM': 'la plateforme',
+  'backoffice.cancel.refundTotal': 'Remboursement du voyageur',
+  'backoffice.cancel.penalty': 'Pénalité de l’hôte (retenue sur ses gains)',
+  'backoffice.cancel.compensation': 'Compensation de l’hôte',
+  'backoffice.cancel.legsCaption': 'Remboursement par partie',
+  'backoffice.cancel.legColumn': 'Partie',
+  'backoffice.cancel.amountColumn': 'Montant',
+  'backoffice.cancel.refundsCaption': 'Ordres de remboursement',
+  'backoffice.cancel.refundStatusColumn': 'État',
+  'backoffice.cancel.trip.CANCELLED_BY_GUEST': 'Annulé par le voyageur',
+  'backoffice.cancel.trip.CANCELLED_BY_HOST': 'Annulé par l’hôte',
+  'backoffice.cancel.trip.CANCELLED_BY_PLATFORM': 'Annulé par la plateforme',
+  'backoffice.cancel.trip.NO_SHOW_GUEST': 'Voyageur absent',
+  'backoffice.cancel.leg.HOST': 'Hôte',
+  'backoffice.cancel.leg.INSURER': 'Assureur',
+  'backoffice.cancel.leg.TAX_THIRD_PARTY': 'Taxe',
+  'backoffice.cancel.leg.PLATFORM': 'Plateforme',
+  'backoffice.cancel.refund.PENDING': 'À envoyer au prestataire de paiement',
+  'backoffice.cancel.refund.SUBMITTED': 'Envoyé au prestataire de paiement',
+  'backoffice.cancel.refund.SUCCEEDED': 'Remboursé',
+  'backoffice.cancel.refund.FAILED': 'Échoué',
+  'backoffice.cancel.refund.UNKNOWN': 'État inconnu, en vérification',
+  'backoffice.cancel.error.trip': 'Saisis l’identifiant complet du voyage.',
+  'backoffice.cancel.error.reason': 'Le motif doit faire entre 10 et 1 000 caractères.',
+  'backoffice.cancel.error.platformReason': 'Choisis le motif de la plateforme.',
+  'backoffice.cancel.refused.CANCEL_REASON_REQUIRED':
+    'Le motif de la plateforme manque. Rien n’a été enregistré.',
+  'backoffice.cancel.refused.TRIP_TRANSITION_FORBIDDEN':
+    'Ce voyage ne peut plus être annulé ici : il a commencé ou il est terminé. Rien n’a été enregistré.',
+  'backoffice.cancel.refused.CANCELLATION_PENDING':
+    'Une demande d’annulation existe déjà pour ce voyage. Rien n’a été enregistré.',
+  'backoffice.cancel.refused.SELF_FORBIDDEN':
+    'Tu ne peux pas annuler un voyage qui te concerne. Rien n’a été enregistré.',
+  'backoffice.cancel.refused.NOT_FOUND': 'Voyage introuvable. Vérifie l’identifiant.',
+  'backoffice.cancel.outcome.QUOTE_UNAVAILABLE': 'Le devis figé du voyage n’est pas disponible.',
+  'backoffice.cancel.outcome.PARAM_MISSING':
+    'Un paramètre d’annulation manque dans la configuration.',
+  'backoffice.cancel.outcome.TRIP_NOT_CAPTURED':
+    'Le paiement du voyage n’est pas encaissé par partie.',
+  'backoffice.cancel.outcome.ROW_SHAPE': 'Données du voyage inattendues.',
+  'backoffice.cancel.outcome.UNEXPECTED_ERROR': 'Erreur inattendue de la plateforme.',
+  'backoffice.cancel.outcome.RETRY_EXHAUSTED': 'Les essais de règlement sont épuisés.',
+  'backoffice.cancel.outcome.TRIP_TRANSITION_FORBIDDEN':
+    'L’état du voyage a changé et ne permet plus de l’annuler.',
+  'backoffice.cancel.outcome.TRIP_CANCELLATION_SETTLEMENT_MISMATCH':
+    'Le règlement calculé ne correspond pas aux données du voyage.',
+  'backoffice.cancel.outcome.REFUND_OUT_OF_RANGE':
+    'Un remboursement dépasse l’encaissé d’une partie.',
+  'backoffice.cancel.outcome.OPERATION_SETTLEMENT_FIN_REVIEW':
+    'Un ordre de remboursement attend une décision de FINANCE.',
+  'backoffice.cancel.outcome.REFUND_EXCEEDS_COLLECTED': 'Le remboursement dépasse l’encaissé.',
+  'backoffice.cancel.outcome.ADVANCE_DECISION_REQUIRED':
+    'Une décision de FINANCE sur une avance de la plateforme est nécessaire.',
+  'backoffice.cancel.outcome.SETTLEMENT_INPUT_INVALID':
+    'Les données du règlement ne sont pas valides.',
 } as const satisfies Readonly<Record<MessageKey, Message>>;

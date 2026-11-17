@@ -3436,6 +3436,66 @@
         }
       }
     },
+    "/console/cancellations/{id}": {
+      "get": {
+        "operationId": "consoleTripCancellation",
+        "tags": ["sup"],
+        "summary": "État de la dernière demande d'annulation d'un trip déclenchée par l'ops (CANCEL_TRIP_GUEST / HOST / PLATFORM) : en attente, réglée (porteur du coût, règlement et remboursement par jambe), en revue FINANCE ou en échec (code) ; permission ops.platform_cancel dans le pays du trip, garde ADR-122, refus journalisés, aucune donnée personnelle (US-215b)",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Dernière demande d'annulation du trip, ou null si aucune",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["cancellation"],
+                  "additionalProperties": false,
+                  "properties": {
+                    "cancellation": {
+                      "anyOf": [
+                        {
+                          "$ref": "#/components/schemas/TripCancellation"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/StaffRequestInvalid"
+          },
+          "401": {
+            "$ref": "#/components/responses/StaffAuthRequired"
+          },
+          "403": {
+            "$ref": "#/components/responses/StaffForbiddenOrCase"
+          },
+          "429": {
+            "$ref": "#/components/responses/StaffRateLimited"
+          }
+        }
+      }
+    },
     "/console/queues/items/{id}/catalog-addition": {
       "post": {
         "operationId": "consoleCatalogAddition",
@@ -14757,6 +14817,204 @@
             "items": {
               "$ref": "#/components/schemas/Uuid"
             }
+          }
+        }
+      },
+      "TripCancellation": {
+        "type": "object",
+        "required": [
+          "cancellationId",
+          "tripId",
+          "country",
+          "action",
+          "requestedReason",
+          "initiator",
+          "subReason",
+          "status",
+          "outcomeCode",
+          "costBearer",
+          "settlementId",
+          "requestedAt",
+          "decidedAt",
+          "tripStatus",
+          "settlement"
+        ],
+        "additionalProperties": false,
+        "description": "US-215b (ADR-151) : dernière demande d'annulation d'un trip (0124) et son règlement ; montants en unités mineures (texte, bigint exact) ; jamais l'agent demandeur ni une donnée personnelle.",
+        "properties": {
+          "cancellationId": {
+            "$ref": "#/components/schemas/Uuid"
+          },
+          "tripId": {
+            "$ref": "#/components/schemas/Uuid"
+          },
+          "country": {
+            "$ref": "#/components/schemas/CountryCode"
+          },
+          "action": {
+            "type": "string",
+            "enum": ["CANCEL_TRIP_GUEST", "CANCEL_TRIP_HOST", "CANCEL_TRIP_PLATFORM"]
+          },
+          "requestedReason": {
+            "type": "string",
+            "pattern": "^[A-Z][A-Z0-9_]{1,63}$"
+          },
+          "initiator": {
+            "type": "string",
+            "enum": ["GUEST", "HOST", "PLATFORM"]
+          },
+          "subReason": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[A-Z][A-Z0-9_]{1,63}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": ["PENDING", "SETTLED", "FIN_REVIEW", "FAILED"]
+          },
+          "outcomeCode": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[A-Z][A-Z0-9_]{1,63}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "costBearer": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": ["GUEST", "HOST", "PLATFORM"]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "settlementId": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "requestedAt": {
+            "$ref": "#/components/schemas/DateTime"
+          },
+          "decidedAt": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DateTime"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "tripStatus": {
+            "type": "string",
+            "pattern": "^[A-Z][A-Z0-9_]{1,63}$"
+          },
+          "settlement": {
+            "anyOf": [
+              {
+                "type": "object",
+                "required": [
+                  "settlementId",
+                  "currency",
+                  "reason",
+                  "totalPaidMinor",
+                  "guestRefundMinor",
+                  "hostPenaltyMinor",
+                  "hostCompensationMinor",
+                  "exponent",
+                  "legs",
+                  "refunds"
+                ],
+                "additionalProperties": false,
+                "properties": {
+                  "settlementId": {
+                    "$ref": "#/components/schemas/Uuid"
+                  },
+                  "currency": {
+                    "type": "string",
+                    "pattern": "^[A-Z]{3}$"
+                  },
+                  "reason": {
+                    "type": "string",
+                    "pattern": "^[A-Z][A-Z0-9_]{1,63}$"
+                  },
+                  "totalPaidMinor": {
+                    "$ref": "#/components/schemas/MinorUnits"
+                  },
+                  "guestRefundMinor": {
+                    "$ref": "#/components/schemas/MinorUnits"
+                  },
+                  "hostPenaltyMinor": {
+                    "$ref": "#/components/schemas/MinorUnits"
+                  },
+                  "hostCompensationMinor": {
+                    "$ref": "#/components/schemas/MinorUnits"
+                  },
+                  "exponent": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 18,
+                    "description": "exposant de la devise (config), pour l'affichage seulement"
+                  },
+                  "legs": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "required": ["leg", "variationMinor"],
+                      "additionalProperties": false,
+                      "properties": {
+                        "leg": {
+                          "type": "string",
+                          "pattern": "^[A-Z][A-Z0-9_]{1,63}$"
+                        },
+                        "variationMinor": {
+                          "type": "string",
+                          "pattern": "^-?(0|[1-9][0-9]{0,17})$"
+                        }
+                      }
+                    }
+                  },
+                  "refunds": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "required": ["status", "amountMinor"],
+                      "additionalProperties": false,
+                      "properties": {
+                        "status": {
+                          "type": "string",
+                          "pattern": "^[A-Z][A-Z0-9_]{1,63}$"
+                        },
+                        "amountMinor": {
+                          "$ref": "#/components/schemas/MinorUnits"
+                        }
+                      }
+                    }
+                  }
+                }
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         }
       },

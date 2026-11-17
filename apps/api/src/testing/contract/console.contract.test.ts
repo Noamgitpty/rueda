@@ -168,6 +168,35 @@ const OPS_BODIES: Readonly<Record<string, Record<string, unknown>>> = {
       },
     ],
   },
+  // US-215b : dernière demande d'annulation d'un trip et son règlement (forme de 0128)
+  tripCancellation: {
+    cancellationId: ID,
+    tripId: ID,
+    country: FIRST_COUNTRY,
+    action: 'CANCEL_TRIP_GUEST',
+    requestedReason: 'GUEST_CANCELLED',
+    initiator: 'GUEST',
+    subReason: null,
+    status: 'SETTLED',
+    outcomeCode: null,
+    costBearer: 'GUEST',
+    settlementId: ID,
+    requestedAt: '2031-07-01T08:00:00.123456+00:00',
+    decidedAt: '2031-07-01T08:00:10.5+00:00',
+    tripStatus: 'CANCELLED_BY_GUEST',
+    settlement: {
+      settlementId: ID,
+      currency: 'XTA',
+      reason: 'GUEST_CANCELLED',
+      totalPaidMinor: '25666',
+      guestRefundMinor: '18744',
+      hostPenaltyMinor: '0',
+      hostCompensationMinor: '0',
+      exponent: 2,
+      legs: [{ leg: 'HOST', variationMinor: '-8625' }],
+      refunds: [{ status: 'PLANNED', amountMinor: '18744' }],
+    },
+  },
   // US-209b : dossier d'une réservation signalée (forme de 0119)
   bookingReview: {
     itemId: ID,
@@ -419,6 +448,9 @@ class TunableOpsStore implements OpsConsoleStore {
   }
   bookingReview() {
     return this.#r('bookingReview', 'GRANTED');
+  }
+  tripCancellation() {
+    return this.#r('tripCancellation', 'OK');
   }
   findUser() {
     return this.#r('findUser', 'FOUND');
@@ -1020,6 +1052,36 @@ describe('contrat HTTP — /console', () => {
     }
     delete ops.outcome['bookingReview'];
     await refusals(a, 'POST', booking);
+
+    // état d'une demande d'annulation (US-215b) : 200 (instants en ISO, montants en texte), aucune
+    // demande (null), 400, 403 (dont STAFF_SELF_FORBIDDEN)
+    const cxl = `/console/cancellations/${ID}`;
+    const cxlRead = await a.api.request('GET', cxl, { headers: a.cookie('staff') });
+    expect(cxlRead.status).toBe(200);
+    expect(cxlRead.json).toMatchObject({
+      cancellation: {
+        status: 'SETTLED',
+        requestedAt: '2031-07-01T08:00:00.123Z',
+        decidedAt: '2031-07-01T08:00:10.500Z',
+        settlement: { guestRefundMinor: '18744', legs: [{ leg: 'HOST', variationMinor: '-8625' }] },
+      },
+    });
+    ops.outcome['tripCancellation'] = 'NONE';
+    expect((await a.api.request('GET', cxl, { headers: a.cookie('staff') })).json).toEqual({
+      cancellation: null,
+    });
+    expect(
+      (await a.api.request('GET', '/console/cancellations/x', { headers: a.cookie('staff') }))
+        .status,
+    ).toBe(400);
+    ops.outcome['tripCancellation'] = 'SELF_FORBIDDEN';
+    expect((await a.api.request('GET', cxl, { headers: a.cookie('staff') })).json).toMatchObject({
+      code: 'STAFF_SELF_FORBIDDEN',
+    });
+    ops.outcome['tripCancellation'] = 'FORBIDDEN';
+    expect((await a.api.request('GET', cxl, { headers: a.cookie('staff') })).status).toBe(403);
+    delete ops.outcome['tripCancellation'];
+    await refusals(a, 'GET', cxl);
 
     // file d'ajout au catalogue (US-114) : lecture 200, 400, 403, 409 ; décision 200, 400, 403,
     // 409, 422
