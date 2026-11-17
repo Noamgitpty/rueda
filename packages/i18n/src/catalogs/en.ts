@@ -2256,7 +2256,8 @@ export const EN_MESSAGES = {
     'You can’t cancel a trip that involves you. Nothing was recorded.',
   'backoffice.cancel.refused.NOT_FOUND': 'We couldn’t find this trip. Check the ID.',
   'backoffice.cancel.outcome.QUOTE_UNAVAILABLE': 'The trip’s locked quote isn’t available.',
-  'backoffice.cancel.outcome.PARAM_MISSING': 'A country cancellation setting is missing.',
+  'backoffice.cancel.outcome.PARAM_MISSING':
+    'A cancellation setting is missing from the configuration.',
   'backoffice.cancel.outcome.TRIP_NOT_CAPTURED': 'The trip payment isn’t collected by party.',
   'backoffice.cancel.outcome.ROW_SHAPE': 'Unexpected trip data.',
   'backoffice.cancel.outcome.UNEXPECTED_ERROR': 'Unexpected platform error.',

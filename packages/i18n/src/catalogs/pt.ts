@@ -2322,7 +2322,7 @@ export const PT_MESSAGES = {
   'backoffice.cancel.refused.NOT_FOUND': 'Não encontramos esta viagem. Confira o identificador.',
   'backoffice.cancel.outcome.QUOTE_UNAVAILABLE':
     'O orçamento fixado da viagem não está disponível.',
-  'backoffice.cancel.outcome.PARAM_MISSING': 'Falta um parâmetro de cancelamento do país.',
+  'backoffice.cancel.outcome.PARAM_MISSING': 'Falta um parâmetro de cancelamento na configuração.',
   'backoffice.cancel.outcome.TRIP_NOT_CAPTURED':
     'O pagamento da viagem não está cobrado por parte.',
   'backoffice.cancel.outcome.ROW_SHAPE': 'Dados da viagem inesperados.',

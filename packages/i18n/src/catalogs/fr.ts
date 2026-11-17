@@ -2371,7 +2371,8 @@ export const FR_MESSAGES = {
     'Tu ne peux pas annuler un voyage qui te concerne. Rien n’a été enregistré.',
   'backoffice.cancel.refused.NOT_FOUND': 'Voyage introuvable. Vérifie l’identifiant.',
   'backoffice.cancel.outcome.QUOTE_UNAVAILABLE': 'Le devis figé du voyage n’est pas disponible.',
-  'backoffice.cancel.outcome.PARAM_MISSING': 'Un paramètre d’annulation du pays manque.',
+  'backoffice.cancel.outcome.PARAM_MISSING':
+    'Un paramètre d’annulation manque dans la configuration.',
   'backoffice.cancel.outcome.TRIP_NOT_CAPTURED':
     'Le paiement du voyage n’est pas encaissé par partie.',
   'backoffice.cancel.outcome.ROW_SHAPE': 'Données du voyage inattendues.',

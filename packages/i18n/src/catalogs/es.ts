@@ -2317,7 +2317,8 @@ export const ES_MESSAGES = {
   'backoffice.cancel.refused.NOT_FOUND': 'No encontramos este viaje. Revisa el identificador.',
   'backoffice.cancel.outcome.QUOTE_UNAVAILABLE':
     'El presupuesto fijado del viaje no está disponible.',
-  'backoffice.cancel.outcome.PARAM_MISSING': 'Falta un parámetro de cancelación del país.',
+  'backoffice.cancel.outcome.PARAM_MISSING':
+    'Falta un parámetro de cancelación en la configuración.',
   'backoffice.cancel.outcome.TRIP_NOT_CAPTURED': 'El pago del viaje no está cobrado por partes.',
   'backoffice.cancel.outcome.ROW_SHAPE': 'Datos del viaje inesperados.',
   'backoffice.cancel.outcome.UNEXPECTED_ERROR': 'Error inesperado de la plataforma.',
