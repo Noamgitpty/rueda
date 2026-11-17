@@ -275,7 +275,8 @@ describe('processeur trip_lifecycle', () => {
     const db = new FakeDb((sql) => {
       if (sql.includes('booking_trip_cancellation_begin')) return [beginRow(facts)];
       if (sql.includes('settlement_cmd_record')) return [{ id: 'set-1' }];
-      if (sql.includes('booking_cmd_trip_cancel_settle')) return [{ r: { costBearer: 'GUEST' } }];
+      if (sql.includes('booking_cmd_trip_settle_cancellation'))
+        return [{ r: { costBearer: 'GUEST' } }];
       if (sql.includes('payment_payment_operation'))
         return [{ id: 'cap-1', psp_account_id: 'acc-1', method: 'CARD' }];
       if (sql.includes('payment_cmd_record_operation'))
@@ -294,7 +295,7 @@ describe('processeur trip_lifecycle', () => {
     expect(db.calls.map((c) => [c.worker, /core\.([a-z_]+)/.exec(c.sql)?.[1]])).toEqual([
       ['trip_lifecycle', 'booking_trip_cancellation_begin'],
       ['settlement', 'settlement_cmd_record'],
-      ['trip_lifecycle', 'booking_cmd_trip_cancel_settle'],
+      ['trip_lifecycle', 'booking_cmd_trip_settle_cancellation'],
       ['payment_command', 'payment_payment_operation'],
       ['payment_command', 'payment_cmd_record_operation'],
     ]);
@@ -316,7 +317,7 @@ describe('processeur trip_lifecycle', () => {
     const { facts } = factsOf('T03');
     const db = new FakeDb((sql) => {
       if (sql.includes('booking_trip_cancellation_begin')) return [beginRow(facts)];
-      if (sql.includes('booking_cmd_trip_cancel_park')) return [{ r: 'PARKED' }];
+      if (sql.includes('booking_cmd_trip_park_cancellation')) return [{ r: 'PARKED' }];
       return new Error(sql);
     });
     const tx = transactionsOf(db);
@@ -343,7 +344,8 @@ describe('processeur trip_lifecycle', () => {
     const db = new FakeDb((sql) => {
       if (sql.includes('booking_trip_cancellation_begin')) return [beginRow(facts)];
       if (sql.includes('settlement_cmd_record')) return [{ id: 'set-1' }];
-      if (sql.includes('booking_cmd_trip_cancel_settle')) return [{ r: { costBearer: 'GUEST' } }];
+      if (sql.includes('booking_cmd_trip_settle_cancellation'))
+        return [{ r: { costBearer: 'GUEST' } }];
       if (sql.includes('payment_payment_operation'))
         return [{ id: 'cap-1', psp_account_id: 'acc-1', method: 'CARD' }];
       if (sql.includes('payment_cmd_record_operation'))
@@ -351,7 +353,7 @@ describe('processeur trip_lifecycle', () => {
           code: '55000',
           constraint: 'operation_settlement_fin_review',
         });
-      if (sql.includes('booking_cmd_trip_cancel_park')) return [{ r: 'PARKED' }];
+      if (sql.includes('booking_cmd_trip_park_cancellation')) return [{ r: 'PARKED' }];
       return new Error(sql);
     });
     const alerts = new Alerts();
@@ -372,9 +374,10 @@ describe('processeur trip_lifecycle', () => {
     const db = new FakeDb((sql) => {
       if (sql.includes('booking_trip_cancellation_begin')) return [beginRow(facts)];
       if (sql.includes('settlement_cmd_record')) return [{ id: 'set-1' }];
-      if (sql.includes('booking_cmd_trip_cancel_settle')) return [{ r: { costBearer: 'GUEST' } }];
+      if (sql.includes('booking_cmd_trip_settle_cancellation'))
+        return [{ r: { costBearer: 'GUEST' } }];
       if (sql.includes('payment_payment_operation')) return [];
-      if (sql.includes('booking_cmd_trip_cancel_park')) return [{ r: 'PARKED' }];
+      if (sql.includes('booking_cmd_trip_park_cancellation')) return [{ r: 'PARKED' }];
       return new Error(sql);
     });
     const p = new TripCancellationProcessor({

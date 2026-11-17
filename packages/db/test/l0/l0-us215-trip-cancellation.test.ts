@@ -271,7 +271,7 @@ function proposal(
 async function settle(tx: Tx, cancellation: string, settlement: string): Promise<unknown> {
   await setSessionContext(tx, { kind: 'WORKER', workerName: 'trip_lifecycle' });
   const { rows } = await tx.query<{ r: unknown }>(
-    'SELECT core.booking_cmd_trip_cancel_settle($1, $2) AS r',
+    'SELECT core.booking_cmd_trip_settle_cancellation($1, $2) AS r',
     [cancellation, settlement],
   );
   return rows[0]?.r;
@@ -867,7 +867,7 @@ describe('console : une demande vivante par trip, état du trip, rôles', () => 
           async (tx) => {
             await setSessionContext(tx, { kind: 'WORKER', workerName: 'trip_lifecycle' });
             const p = await tx.query<{ r: string }>(
-              `SELECT core.booking_cmd_trip_cancel_park($1, 'FAILED', 'QUOTE_UNAVAILABLE') AS r`,
+              `SELECT core.booking_cmd_trip_park_cancellation($1, 'FAILED', 'QUOTE_UNAVAILABLE') AS r`,
               [r.domain_ref],
             );
             expect(p.rows[0]?.r).toBe('PARKED');
@@ -877,7 +877,7 @@ describe('console : une demande vivante par trip, état du trip, rôles', () => 
               settlement_id: null,
             });
             const again = await tx.query<{ r: string }>(
-              `SELECT core.booking_cmd_trip_cancel_park($1, 'FAILED', 'QUOTE_UNAVAILABLE') AS r`,
+              `SELECT core.booking_cmd_trip_park_cancellation($1, 'FAILED', 'QUOTE_UNAVAILABLE') AS r`,
               [r.domain_ref],
             );
             expect(again.rows[0]?.r).toBe('NOT_PENDING');
@@ -897,8 +897,8 @@ describe('console : une demande vivante par trip, état du trip, rôles', () => 
         });
         for (const sql of [
           'SELECT * FROM core.booking_trip_cancellations_pending(10)',
-          `SELECT core.booking_cmd_trip_cancel_settle('${uuid()}', '${uuid()}')`,
-          `SELECT core.booking_cmd_trip_cancel_park('${uuid()}', 'FAILED', 'X_CODE')`,
+          `SELECT core.booking_cmd_trip_settle_cancellation('${uuid()}', '${uuid()}')`,
+          `SELECT core.booking_cmd_trip_park_cancellation('${uuid()}', 'FAILED', 'X_CODE')`,
         ]) {
           await expect(api.query(sql), sql).rejects.toMatchObject({ code: '42501' });
         }

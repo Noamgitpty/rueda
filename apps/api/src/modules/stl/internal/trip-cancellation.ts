@@ -14,7 +14,7 @@
  *    devis figé REJOUÉ (`replayFrozenQuote`, `quoteSettlementTrip` de PRC), instants et paramètres
  *    de la base ; `REFUND_OUT_OF_RANGE` ⇒ revue FIN (`settleOrFinReview`), rien d'écrit ;
  * 3. `core.settlement_cmd_record` (travailleur `settlement`), version 1 ;
- * 4. `core.booking_cmd_trip_cancel_settle` (travailleur `trip_lifecycle`) : la base requalifie,
+ * 4. `core.booking_cmd_trip_settle_cancellation` (travailleur `trip_lifecycle`) : la base requalifie,
  *    LIE le règlement à la demande et applique la transition avec `settlement_id` ;
  * 5. ordres du règlement (`settlementOrders` : réaffectation d'abord, puis remboursement du moyen
  *    d'origine, montants explicites par jambe, jamais un prorata), enregistrés par la commande PAY
@@ -405,7 +405,7 @@ export class TripCancellationProcessor {
     const settlementId = text(recorded[0]?.id);
     await asWorker(db, TRIP_LIFECYCLE_WORKER);
     const { rows: settled } = await db.query<{ r: { costBearer?: unknown } }>(
-      'SELECT core.booking_cmd_trip_cancel_settle($1::uuid, $2::uuid) AS r',
+      'SELECT core.booking_cmd_trip_settle_cancellation($1::uuid, $2::uuid) AS r',
       [f.cancellationId, settlementId],
     );
     const costBearer = text(settled[0]?.r.costBearer);
@@ -438,7 +438,7 @@ export class TripCancellationProcessor {
 
   async #park(cancellationId: string, status: 'FIN_REVIEW' | 'FAILED', code: string) {
     await this.#deps.transactions.run(TRIP_LIFECYCLE_WORKER, (db) =>
-      db.query('SELECT core.booking_cmd_trip_cancel_park($1::uuid, $2, $3) AS r', [
+      db.query('SELECT core.booking_cmd_trip_park_cancellation($1::uuid, $2, $3) AS r', [
         cancellationId,
         status,
         code,

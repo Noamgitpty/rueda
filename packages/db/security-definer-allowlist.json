@@ -1717,14 +1717,14 @@
       "story": "US-215"
     },
     {
-      "signature": "core.booking_cmd_trip_cancel_settle(uuid,uuid)",
+      "signature": "core.booking_cmd_trip_settle_cancellation(uuid,uuid)",
       "family": "cmd_hold",
       "owner": "cmd_hold_owner",
       "execute": ["app_worker"],
       "story": "US-215"
     },
     {
-      "signature": "core.booking_cmd_trip_cancel_park(uuid,text,text)",
+      "signature": "core.booking_cmd_trip_park_cancellation(uuid,text,text)",
       "family": "cmd_hold",
       "owner": "cmd_hold_owner",
       "execute": ["app_worker"],

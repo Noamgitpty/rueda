@@ -24,9 +24,9 @@
 --      `TripCancellationProcessor`) : `core.booking_trip_cancellation_begin` (verrous voyageur →
 --      véhicule → trip, faits du trip, devis figé, paramètres du pays), moteur unique de
 --      `@rueda/money` (`cxl-beta/1`) sur le devis figé rejoué, `core.settlement_cmd_record`
---      (travailleur settlement), `core.booking_cmd_trip_cancel_settle` (ci-dessous), puis les ordres
+--      (travailleur settlement), `core.booking_cmd_trip_settle_cancellation` (ci-dessous), puis les ordres
 --      REFUND bornés de 0121 (travailleur payment_command) ;
---   3. `core.booking_cmd_trip_cancel_settle` requalifie la demande en base (règles 1 et 2 de BR-CXL,
+--   3. `core.booking_cmd_trip_settle_cancellation` requalifie la demande en base (règles 1 et 2 de BR-CXL,
 --      à l'heure de la DEMANDE ; preuve validée = au moins une pièce de la console jointe à l'action,
 --      N-131), puis LIE le règlement à la demande : même trip, version 1, motif demandé, motif
 --      qualifié, origine et état cible égaux à la qualification de la base ; événement, instants du
@@ -41,7 +41,7 @@
 --      règlement d'annulation sans ses remboursements dans la même transaction (19 US-224 DoR (1)) ;
 --   5. refus d'un calcul (règlement hors bornes, jambe négative : décision FINANCE d'US-224b ;
 --      paramètre manquant ; état du trip devenu incompatible) : la transaction est annulée, puis la
---      demande est garée par `core.booking_cmd_trip_cancel_park` (FIN_REVIEW ou FAILED, code seul) ;
+--      demande est garée par `core.booking_cmd_trip_park_cancellation` (FIN_REVIEW ou FAILED, code seul) ;
 --      le trip ne change pas.
 --
 -- Codes (SQLSTATE, contrainte) traduits par packages/db/src/errors.ts, sans DETAIL :
@@ -76,8 +76,8 @@
 --   réappliquer core.booking_trip_apply_transition de 0099 (sous cmd_hold_owner) ;
 --   DROP TRIGGER trip_cancellation_refunded ON core.booking_trip_cancellation ;
 --   DROP FUNCTION core.booking_manual_action_cancel_trip(bytea, uuid, text, uuid, jsonb, text, uuid,
---     text), core.booking_trip_cancellation_begin(uuid), core.booking_cmd_trip_cancel_settle(uuid,
---     uuid), core.booking_cmd_trip_cancel_park(uuid, text, text),
+--     text), core.booking_trip_cancellation_begin(uuid), core.booking_cmd_trip_settle_cancellation(uuid,
+--     uuid), core.booking_cmd_trip_park_cancellation(uuid, text, text),
 --     core.booking_trip_cancellations_pending(integer), core.booking_cancellation_params(text, text),
 --     core.booking_cancellation_cost_bearer(text), core.booking_epoch_ms(timestamptz),
 --     core.settlement_assert_cancellation_refunded(), core.settlement_cancellation_of(uuid) ;
@@ -418,7 +418,7 @@ $fn$;
 -- Contrôles d'accès faits AVANT l'appel par core.iam_staff_cmd_manual_action (session TOTP,
 -- permission ops.platform_cancel dans le pays du trip, saisie fermée, garde ADR-122, idempotence par
 -- request_id). Rien n'est écrit sur un refus. Aucun montant, aucun règlement ici : la demande est
--- réglée par le travailleur trip_lifecycle (core.booking_cmd_trip_cancel_settle).
+-- réglée par le travailleur trip_lifecycle (core.booking_cmd_trip_settle_cancellation).
 CREATE FUNCTION core.booking_manual_action_cancel_trip(p_token_hash bytea, p_action_id uuid,
                                                        p_action_code text, p_subject_id uuid,
                                                        p_input jsonb, p_reason text,
@@ -612,7 +612,7 @@ $fn$;
 -- (règles 1 et 2 de BR-CXL, heure de la demande), lie le règlement à la demande (voir l'en-tête,
 -- point 3), applique la transition avec le règlement, règle la demande. Une demande déjà réglée par
 -- ce règlement rend son issue (rejeu après un accusé perdu, N-131) ; tout autre écart ⇒ refus.
-CREATE FUNCTION core.booking_cmd_trip_cancel_settle(p_cancellation_id uuid, p_settlement_id uuid)
+CREATE FUNCTION core.booking_cmd_trip_settle_cancellation(p_cancellation_id uuid, p_settlement_id uuid)
   RETURNS jsonb
   LANGUAGE plpgsql
   VOLATILE
@@ -752,7 +752,7 @@ $fn$;
 -- FIN_REVIEW : règlement hors bornes ou ordre refusé par la décision FINANCE à venir (US-224b) ;
 -- FAILED : état du trip, paramètre, devis ou liaison refusés. Code seul (jamais un montant ni un
 -- message). Une demande qui n'est plus en attente rend NOT_PENDING.
-CREATE FUNCTION core.booking_cmd_trip_cancel_park(p_cancellation_id uuid, p_status text,
+CREATE FUNCTION core.booking_cmd_trip_park_cancellation(p_cancellation_id uuid, p_status text,
                                                   p_code text)
   RETURNS text
   LANGUAGE plpgsql
@@ -789,11 +789,11 @@ COMMENT ON FUNCTION core.booking_trip_cancellation_begin(uuid) IS
   'Ouverture du règlement d''une demande d''annulation : verrous voyageur → véhicule → trip, '
   'faits du trip, preuve dérivée des pièces de l''action, devis figé, paramètres canoniques du '
   'pays ; rien n''est écrit. Travailleur trip_lifecycle. US-215 (ADR-148).';
-COMMENT ON FUNCTION core.booking_cmd_trip_cancel_settle(uuid, uuid) IS
+COMMENT ON FUNCTION core.booking_cmd_trip_settle_cancellation(uuid, uuid) IS
   'Commande : annulation réglée (invariant 4 de SM-1) ; requalification en base, règlement lié à '
   'la demande (motifs, état, événement, instants, paramètres), transition avec settlement_id au '
   'journal et dans trip.status_changed, cost_bearer. Travailleur trip_lifecycle. US-215 (ADR-148).';
-COMMENT ON FUNCTION core.booking_cmd_trip_cancel_park(uuid, text, text) IS
+COMMENT ON FUNCTION core.booking_cmd_trip_park_cancellation(uuid, text, text) IS
   'Commande : demande d''annulation garée (FIN_REVIEW ou FAILED, code seul), trip inchangé. '
   'Travailleur trip_lifecycle. US-215 (ADR-148).';
 
@@ -801,15 +801,15 @@ REVOKE ALL ON FUNCTION core.booking_epoch_ms(timestamptz),
   core.booking_cancellation_cost_bearer(text), core.booking_cancellation_params(text, text),
   core.booking_manual_action_cancel_trip(bytea, uuid, text, uuid, jsonb, text, uuid, text),
   core.booking_trip_cancellations_pending(integer), core.booking_trip_cancellation_begin(uuid),
-  core.booking_cmd_trip_cancel_settle(uuid, uuid),
-  core.booking_cmd_trip_cancel_park(uuid, text, text)
+  core.booking_cmd_trip_settle_cancellation(uuid, uuid),
+  core.booking_cmd_trip_park_cancellation(uuid, text, text)
   FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION
   core.booking_manual_action_cancel_trip(bytea, uuid, text, uuid, jsonb, text, uuid, text)
   TO iam_staff_owner;
 GRANT EXECUTE ON FUNCTION core.booking_trip_cancellations_pending(integer),
-  core.booking_trip_cancellation_begin(uuid), core.booking_cmd_trip_cancel_settle(uuid, uuid),
-  core.booking_cmd_trip_cancel_park(uuid, text, text)
+  core.booking_trip_cancellation_begin(uuid), core.booking_cmd_trip_settle_cancellation(uuid, uuid),
+  core.booking_cmd_trip_park_cancellation(uuid, text, text)
   TO app_worker;
 
 RESET ROLE;
@@ -840,7 +840,7 @@ AS $fn$
    WHERE s.id = p_settlement_id AND s.kind = 'CANCELLATION'
 $fn$;
 COMMENT ON FUNCTION core.settlement_cancellation_of(uuid) IS
-  'Règlement d''annulation lu par core.booking_cmd_trip_cancel_settle (liaison à la demande) ; '
+  'Règlement d''annulation lu par core.booking_cmd_trip_settle_cancellation (liaison à la demande) ; '
   'EXECUTE cmd_hold_owner seulement. US-215 (ADR-148).';
 REVOKE ALL ON FUNCTION core.settlement_cancellation_of(uuid) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION core.settlement_cancellation_of(uuid) TO cmd_hold_owner;
