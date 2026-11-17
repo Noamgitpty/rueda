@@ -162,6 +162,12 @@ describe('schéma outbox (US-008)', () => {
           expect(r).toMatchObject({ roles: 'cmd_hold_owner', cmd: 'a' });
           continue;
         }
+        // contrat de location (0122, US-211, ADR-143) : contract.document.generated (SYSTEM) et
+        // contract.document.signed (voyageur) seulement
+        if (r.pol === 'outbox_outbox_event.cmd_hold_contract_event_ins') {
+          expect(r).toMatchObject({ roles: 'cmd_hold_owner', cmd: 'a' });
+          continue;
+        }
         // commandes de l'OTP (0066, US-104) : insertion de leurs seuls événements
         // iam.otp.requested et iam.phone.verified
         if (r.pol === 'outbox_outbox_event.iam_auth_otp_event_ins') {

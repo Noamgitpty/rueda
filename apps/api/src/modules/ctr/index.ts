@@ -26,3 +26,32 @@ export type {
   SignatureService,
   SignRequest,
 } from './internal/signature-service.port.js';
+
+// Contrat de location hôte–voyageur par trip (US-211, ADR-143) : texte figé, PDF déterministe,
+// empreinte et vérification (CONTRACT_HASH_MISMATCH). Fonctions pures ; le travailleur de
+// génération est dans AVL (faits du devis figé, retenue du moteur de règlement de PRC).
+export {
+  buildContractBody,
+  contractFooter,
+  contractSha256,
+  ContractInputError,
+  parseContractFacts,
+  renderContractPdf,
+  RENTAL_CONTRACT_RENDERER,
+  RENTAL_CONTRACT_SCHEMA,
+  verifyContractPdf,
+} from './internal/contract/rental-contract.js';
+export type {
+  ContractCancellation,
+  ContractDerived,
+  ContractFacts,
+  ContractIdentity,
+  ContractSignatureBlock,
+  ContractTemplateText,
+  ContractTerms,
+  ContractVerification,
+  CourtesyLocale,
+  RentalContractInput,
+} from './internal/contract/rental-contract.js';
+export { nonWinAnsiCount } from './internal/contract/pdf.js';
+export type { ContractLine, ContractLineStyle } from './internal/contract/pdf.js';
