@@ -314,7 +314,7 @@ export class PgRefundPlanner {
   }
 }
 
-/** Instance de remboursement qui attend l'ordonnanceur (`core.payment_refunds_due`, 0125). */
+/** Instance de remboursement qui attend l'ordonnanceur (`core.payment_refunds_due`, 0127). */
 export interface DueRefund {
   readonly instanceId: string;
   /** Pays de l'instance (étiquette d'alerte : un code, jamais un identifiant). */

@@ -2024,6 +2024,21 @@ export const EN_MESSAGES = {
   // du paiement rendus par l'API (common.payment.*) ; aucune durée écrite (heures lues dans l'API)
   'common.payment.unavailable':
     'Online payment isn’t available right now. You haven’t been charged.',
+  // US-223c (ADR-146) : demandes de réservation de l'hôte (mode REQUEST, 17 §2.5 ; 16 HDB-002)
+  'common.request.notFound': 'We couldn’t find this request.',
+  'common.request.expired': 'This request has expired. The guest wasn’t charged.',
+  'common.request.alreadyAnswered':
+    'This request can no longer be answered: it was already answered or is being processed.',
+  'common.request.guestNotEligible':
+    'The guest can no longer book. Decline the request: they won’t be charged.',
+  'common.request.startPassed':
+    'The trip has already started: you can’t accept this request. Decline it; the guest won’t be charged.',
+  'common.request.hostTermsRequired': 'To accept requests, read and accept the current Host Terms.',
+  'common.request.paymentUnavailable':
+    'We can’t charge this booking right now. The request is still open: try again later.',
+  'common.request.unavailable': 'We couldn’t process your response. Try again in a few minutes.',
+  'common.request.amountMismatch':
+    'We couldn’t confirm the amount for this booking. Nothing was charged. Decline the request or contact support.',
   'common.payment.payoutRailUnavailable':
     'We can’t take payments for this car yet. You haven’t been charged.',
   'common.payment.underReview':

@@ -690,6 +690,12 @@ beforeAll(async () => {
             [uuid(), c, x.trips.a1.id, agent],
           );
         }
+        // boîte d'envoi (US-223c) : une commande réelle, pour éprouver les cellules des travailleurs
+        // de payment_command (ops_monitor compris) sur une ligne, jamais à vide
+        await tx.query('SELECT test_fixture.us043_seed_payment_command($1, $2)', [
+          x.holds.h1,
+          x.ops.h1,
+        ]);
         // tables de référence que la graine ne peuple pas encore (férié, entité, capacité UNKNOWN)
         await tx.query('SELECT test_fixture.us043_seed_reference($1)', [c]);
         // clés par sujet (USER : personnes du monde ; ORG : comptes d'hôte), sous-marchands

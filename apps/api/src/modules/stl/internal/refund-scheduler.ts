@@ -16,7 +16,7 @@
  *    l'appel au PSP ; statut et version en tête relus (un ordre jamais envoyé d'une version
  *    remplacée ne part pas : revue FIN) ; `MoneyCommandSender` (lecture d'abord si l'issue est
  *    inconnue, même clé d'idempotence, montant explicite de chaque jambe, jamais recalculé) ;
- *    l'instance suit le statut de l'ordre (déclencheur de 0125 : `SENT`, `CONFIRMED`, `FAILED`) ;
+ *    l'instance suit le statut de l'ordre (déclencheur de 0127 : `SENT`, `CONFIRMED`, `FAILED`) ;
  * 3. `CONFIRMED` prouvé : report sur les soldes des jambes (`core.settlement_cmd_apply_leg_movement`,
  *    l'avance de Kmino décidée devient `OPEN`) ;
  * 4. `FAILED` : alerte FIN `FIN_REFUND_FAILED` (une fois). Nouvelle tentative et choix du rail :

@@ -5,7 +5,7 @@
  *
  * | Travailleur           | Période (PROPOSÉ)                          | Appel                                                     |
  * | --------------------- | ------------------------------------------ | --------------------------------------------------------- |
- * | `hold_expiry`         | 60 s (handoff US-023)                      | `core.booking_expire_due_holds`, `core.booking_release_cancelled_holds` (0037, 0040) |
+ * | `hold_expiry`         | 60 s (handoff US-023)                      | `core.booking_expire_due_holds`, `core.booking_release_cancelled_holds` (0037, 0040), `core.booking_cmd_expire_booking_requests` (0126, US-223c : demandes échues ⇒ EXPIRED, créneau libéré, VOID par la boîte d'envoi) |
  * | `webhook_ingest`      | 10 s (US-223, ADR-139)                     | `WebhookProcessor` de PAY sur `PgWebhookWorkStore` : webhooks reçus rattachés et statuts appliqués par `core.payment_cmd_apply_operation_status` (preuve signée seulement ; aucune lecture du PSP : aucun adaptateur dans le travailleur avant le lot C) |
  * | `booking_conversion`  | 10 s (US-223, ADR-139)                     | `core.booking_conversion_due` (0116) puis, une opération par transaction, `core.booking_convert_payment` (preuve exigée) ou `core.booking_record_payment_failure` (0041) |
  * | `disposition_sweeper` | `disposition_sweeper_period_s` (min. pays) | `core.booking_disposition_candidates` puis, une opération par transaction, `core.booking_disposition_repair` (0041, C17) |
@@ -22,7 +22,7 @@
  * | `security_incident_watch` | 300 s                                  | `core.security_incident_worker_watch` (0092, US-112) : déclaration d'incident nouvelle signalée une fois (`SECURITY_INCIDENT_OPENED`, P1, par pays) ; échéance de notification d'une violation dépassée signalée une fois (`SECURITY_INCIDENT_NOTICE_OVERDUE`, P1, par pays et destinataire) |
  * | `review_sla_watch`    | 60 s                                       | `core.kyc_worker_auto_review_hosts` (0081, US-108 : dossiers d'hôte propres approuvés sans l'ops), `core.kyc_worker_enqueue_reviews` puis `core.support_worker_review_sla` (0076, US-106) : dossiers KYC en revue remis en file, éléments en retard signalés une fois ; alertes `OPS_REVIEW_SLA_BREACH` (P2), `OPS_KYC_REVIEW_UNQUEUED` (P1, une fois par dossier et par épisode de revue) |
  * | `trip_lifecycle`      | 10 s (US-215, ADR-148)                     | `TripCancellationProcessor` de STL : chaque demande d'annulation de l'ops (`core.booking_trip_cancellations_pending`) réglée dans sa propre transaction (`core.booking_trip_cancellation_begin`, moteur unique, `core.settlement_cmd_record`, `core.booking_cmd_trip_settle_cancellation`, ordres REFUND bornés de 0121) ; refus garés par `core.booking_cmd_trip_park_cancellation`, alertes `FIN_SETTLEMENT_REVIEW` ou `TRIP_CANCELLATION_FAILED` (P1) |
- * | `refund_scheduler`    | 10 s (US-224c, ADR-150)                    | `RefundScheduler` de STL sous le nom `payment_command` : file `core.payment_refunds_due` (0125), une instance par transaction ; `core.payment_cmd_submit_refund`, puis l'ordre stocké relu sous les verrous du trip et de l'ordre (`core.payment_cmd_refund_order_for_send`) et envoyé par `MoneyCommandSender` au connecteur du fournisseur ; report `core.settlement_cmd_apply_leg_movement` d'un remboursement prouvé ; alertes `FIN_REFUND_BLOCKED`, `FIN_REFUND_FAILED` (P1, une fois par état). Aucun connecteur en production avant le lot C : rien n'est autorisé ni envoyé |
+ * | `refund_scheduler`    | 10 s (US-224c, ADR-150)                    | `RefundScheduler` de STL sous le nom `payment_command` : file `core.payment_refunds_due` (0127), une instance par transaction ; `core.payment_cmd_submit_refund`, puis l'ordre stocké relu sous les verrous du trip et de l'ordre (`core.payment_cmd_refund_order_for_send`) et envoyé par `MoneyCommandSender` au connecteur du fournisseur ; report `core.settlement_cmd_apply_leg_movement` d'un remboursement prouvé ; alertes `FIN_REFUND_BLOCKED`, `FIN_REFUND_FAILED` (P1, une fois par état). Aucun connecteur en production avant le lot C : rien n'est autorisé ni envoyé |
  *
  * Non déclarés ici, faute de port réel (tracé dans docs/team/handoffs/US-003.md) :
  * `payment_intent_sweeper` et `payment_command` (lisent ou appellent le PSP : adaptateurs du lot C,
@@ -207,9 +207,15 @@ export function registerWorkerTasks(registry: BusRegistry, deps: WorkerTaskDeps)
       'SELECT core.booking_release_cancelled_holds($1) AS n',
       [d.holdExpiryBatch],
     );
+    // US-223c (0126) : demandes sans réponse de l'hôte à l'heure limite de la base
+    const requests = await tx.query<{ n: unknown }>(
+      'SELECT core.booking_cmd_expire_booking_requests($1) AS n',
+      [d.holdExpiryBatch],
+    );
     line(HOLD_EXPIRY_WORKER, {
       expired: count(expired.rows[0]?.n),
       released: count(released.rows[0]?.n),
+      requestsExpired: count(requests.rows[0]?.n),
     });
   });
 

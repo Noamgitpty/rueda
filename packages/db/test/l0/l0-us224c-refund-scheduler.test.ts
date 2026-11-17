@@ -1,5 +1,5 @@
 /**
- * US-224 (partie 224c, migration 0125, ADR-150) — ordonnancement des remboursements planifiés :
+ * US-224 (partie 224c, migration 0127, ADR-150) — ordonnancement des remboursements planifiés :
  * file de l'ordonnanceur, ordre relu sous les verrous avant l'appel au PSP, états SM-8 après
  * l'envoi (SENT, CONFIRMED, FAILED, FAILED → SUPERSEDED), alerte FIN posée une fois. Sous
  * app_worker (rôle de PRODUCTION, assertion L0-05 en tête : withRole), en USD (PA) et en PYG sans

@@ -1,4 +1,4 @@
--- 0125 — PAY / STL : ordonnancement des remboursements planifiés et états SM-8 après l'envoi.
+-- 0127 — PAY / STL : ordonnancement des remboursements planifiés et états SM-8 après l'envoi.
 -- US-224 (partie 224c, argent / back-end) ; 19 US-224 (critères 1 et 4) ; 16 PAY-021 ; 08 SM-8,
 -- E4, BR-PAY-08 ; 17 v6 §2.8 (port PaymentProvider, lecture d'abord), §3.2.7 (`refund_instance`),
 -- §4.3 points 1 à 4 (verrou du trip, ordre PENDING, envoi, statut) ; ADR-145, ADR-147 ; ADR-150

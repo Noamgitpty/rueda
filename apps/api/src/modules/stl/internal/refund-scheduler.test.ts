@@ -206,7 +206,7 @@ describe.each(['TJ02b', 'TJ08b'])('ordonnanceur — ordre du règlement %s', (ve
         legs: r.legs,
       },
     ]);
-    // le PSP a pris l'ordre sans le traiter : SUBMITTED (l'instance passe SENT, déclencheur de 0125)
+    // le PSP a pris l'ordre sans le traiter : SUBMITTED (l'instance passe SENT, déclencheur de 0127)
     expect(db.called('payment_cmd_apply_operation_status')[0]?.params).toEqual([
       OPERATION,
       'SUBMITTED',

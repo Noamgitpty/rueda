@@ -162,6 +162,18 @@ describe('schéma outbox (US-008)', () => {
           expect(r).toMatchObject({ roles: 'cmd_hold_owner', cmd: 'a' });
           continue;
         }
+        // demandes de réservation (0126, US-223c, ADR-146) : booking.request.* seulement, acteur
+        // HOST du compte (titulaire) ou SYSTEM (hold_expiry, booking_conversion)
+        if (r.pol === 'outbox_outbox_event.cmd_hold_request_event_ins') {
+          expect(r).toMatchObject({ roles: 'cmd_hold_owner', cmd: 'a' });
+          continue;
+        }
+        // limiteur du journal des refus d'accès (0126, US-223c) : lecture de ses seuls événements
+        // booking.request.access_denied par la porte des commandes de l'hôte
+        if (r.pol === 'outbox_outbox_event.cmd_hold_request_event_sel') {
+          expect(r).toMatchObject({ roles: 'cmd_hold_owner', cmd: 'r' });
+          continue;
+        }
         // contrat de location (0122, US-211, ADR-143) : contract.document.generated (SYSTEM) et
         // contract.document.signed (voyageur) seulement
         if (r.pol === 'outbox_outbox_event.cmd_hold_contract_event_ins') {

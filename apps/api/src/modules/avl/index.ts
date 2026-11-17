@@ -64,6 +64,38 @@ export type {
   CheckoutStore,
 } from './internal/checkout/store.js';
 
+// Réservation sur demande, partie serveur (US-223 partie 223c, ADR-146) : routes
+// /host/accounts/{orgId}/requests… (SessionGuard + TermsGuard), acceptation (capture par jambes),
+// refus (VOID par la boîte d'envoi) et lecture des demandes de l'hôte ; état de la demande lu par
+// le voyageur dans le paiement du hold.
+export { UNAVAILABLE_HOST_REQUESTS } from './internal/checkout/avl-checkout.module.js';
+export type { AvlHostRequestOptions } from './internal/checkout/avl-checkout.module.js';
+export {
+  HOST_REQUEST_MESSAGES,
+  HostRequestHttpError,
+} from './internal/checkout/host-request-errors.js';
+export type { HostRequestHttpCode } from './internal/checkout/host-request-errors.js';
+export { HostRequestService } from './internal/checkout/host-requests.service.js';
+export type {
+  HostRequestDecision,
+  RequestCaptureProvider,
+} from './internal/checkout/host-requests.service.js';
+export {
+  HOST_REQUESTS_LIMIT,
+  PgHostRequestStore,
+  REQUEST_REFUSALS,
+  UnavailableHostRequestStore,
+} from './internal/checkout/host-requests-store.js';
+export type {
+  AcceptResult,
+  DeclineResult,
+  HostRequestRow,
+  HostRequestStore,
+  RequestCapture,
+  RequestRefusal,
+} from './internal/checkout/host-requests-store.js';
+export { REQUEST_STATUSES } from './internal/checkout/payment-store.js';
+export type { CheckoutRequestRow, RequestStatus } from './internal/checkout/payment-store.js';
 // Contrat de location hôte–voyageur par trip (US-211, ADR-143) : travailleur `booking_contract`,
 // consommateur de `booking.trip.booked` (faits du devis figé, retenue du moteur de règlement).
 export {

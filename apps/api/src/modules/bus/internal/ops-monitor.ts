@@ -8,10 +8,11 @@
  * | `outbox_oldest_age_s`        | `OPS_OUTBOX_STALE`      | P1       | > 120 s (17 §6.3)                   |
  * | `webhook_failing`            | `OPS_WEBHOOK_FAILING`   | P1       | ≥ 1 webhook en échec 3 fois (ADM-032)|
  * | `payment_unknown_30m`        | `OPS_PAYMENT_UNKNOWN`   | P1       | ≥ 1 opération UNKNOWN > 30 min      |
+ * | `request_void_pending_30m`   | `OPS_REQUEST_VOID_PENDING` | P1    | ≥ 1 VOID de demande non confirmé > 30 min (US-223c, 0126) |
  * | `webhook_signature_rejected` | `OPS_WEBHOOK_SIGNATURE` | P2       | ≥ 1 depuis la passe précédente      |
  * | `p1_event`                   | `OPS_P1_EVENT`          | P1       | ≥ 1 depuis la passe précédente      |
  *
- * Jauges (trois premières lignes) : une alerte au premier dépassement, puis seulement si la valeur
+ * Jauges (quatre premières lignes) : une alerte au premier dépassement, puis seulement si la valeur
  * monte ou toutes les `realertSeconds` tant qu'elle reste au-dessus du seuil ; l'état est oublié dès
  * qu'elle repasse sous le seuil. Compteurs (deux dernières) : une alerte par passe non nulle. Les
  * alertes P1 déjà écrites dans l'outbox par la base (oracle C12, invariant de conversion,
@@ -82,6 +83,15 @@ const RULES: Readonly<Record<string, Rule>> = {
   },
   payment_unknown_30m: {
     code: 'OPS_PAYMENT_UNKNOWN',
+    severity: 'P1',
+    gauge: true,
+    label: null,
+    breached: (v) => v > 0,
+  },
+  // US-223c (17 §2.5 exigence d'argent c) : VOID d'une demande refusée ou expirée non confirmé par
+  // la boîte d'envoi ⇒ escalade au support (aucun débit ; l'autorisation expire chez l'émetteur)
+  request_void_pending_30m: {
+    code: 'OPS_REQUEST_VOID_PENDING',
     severity: 'P1',
     gauge: true,
     label: null,

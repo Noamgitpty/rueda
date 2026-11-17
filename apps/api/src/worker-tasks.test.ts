@@ -129,12 +129,13 @@ describe('tâches du travailleur (US-003)', () => {
     expect(registry.queueNames()).not.toContain('payment_command');
   });
 
-  it('hold_expiry : expiration puis libération des holds annulés, par lots ; comptes journalisés', async () => {
+  it('hold_expiry : expiration, libération des holds annulés puis expiration des demandes (US-223c), par lots ; comptes journalisés', async () => {
     const registry = new BusRegistry();
     const logs: string[] = [];
     const { tx, sql } = recordingTx({
       booking_expire_due_holds: [{ n: 2 }],
       booking_release_cancelled_holds: [{ n: '1' }],
+      booking_cmd_expire_booking_requests: [{ n: 3 }],
     });
     registerWorkerTasks(registry, {
       transactions: transactions(tx, []),
@@ -149,9 +150,16 @@ describe('tâches du travailleur (US-003)', () => {
     expect(sql).toEqual([
       `SELECT core.booking_expire_due_holds($1) AS n [${WORKER_TASK_DEFAULTS.holdExpiryBatch}]`,
       `SELECT core.booking_release_cancelled_holds($1) AS n [${WORKER_TASK_DEFAULTS.holdExpiryBatch}]`,
+      `SELECT core.booking_cmd_expire_booking_requests($1) AS n [${WORKER_TASK_DEFAULTS.holdExpiryBatch}]`,
     ]);
     expect(logs).toEqual([
-      JSON.stringify({ level: 'info', worker: 'hold_expiry', expired: 2, released: 1 }),
+      JSON.stringify({
+        level: 'info',
+        worker: 'hold_expiry',
+        expired: 2,
+        released: 1,
+        requestsExpired: 3,
+      }),
     ]);
   });
 

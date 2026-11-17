@@ -125,6 +125,20 @@ describe('moniteur : seuils de 17 §6.3 et d’ADM-032', () => {
     expect(m.evaluate([row('outbox_oldest_age_s', 120)], T0)).toEqual([]);
   });
 
+  it('US-223c : VOID de demande non confirmé > 30 min (request_void_pending_30m) ⇒ OPS_REQUEST_VOID_PENDING P1 par pays ; 0 ⇒ rien ; jauge : pas de ré-alerte à valeur égale', () => {
+    const m = new OpsMonitor(new FakeAlertChannel());
+    expect(m.evaluate([row('request_void_pending_30m', 0, null, 'XA')], T0)).toEqual([]);
+    expect(m.evaluate([row('request_void_pending_30m', 2, null, 'XA')], T0)).toEqual([
+      {
+        code: 'OPS_REQUEST_VOID_PENDING',
+        severity: 'P1',
+        counts: { value: 2 },
+        labels: { country: 'XA' },
+      },
+    ]);
+    expect(m.evaluate([row('request_void_pending_30m', 2, null, 'XA')], T0)).toEqual([]);
+  });
+
   it('chaque métrique au-delà du seuil donne son alerte, sévérité et étiquettes', () => {
     const m = new OpsMonitor(new FakeAlertChannel());
     expect(

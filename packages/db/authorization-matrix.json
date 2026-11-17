@@ -1730,7 +1730,8 @@
         "booking_conversion": "tout",
         "disposition_sweeper": "tout",
         "payment_intent_sweeper": "tout",
-        "hold_expiry": "tout"
+        "hold_expiry": "tout",
+        "ops_monitor": "tout"
       }
     },
     "core.payment_payment_operation": {
