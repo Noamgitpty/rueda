@@ -974,7 +974,8 @@ describe.each(COUNTRIES)('US-223c — demande de réservation ($country, $curren
       const w = await world(c, T0);
       const start = at(T0, 3 * 24 * 60);
       const r = await sentRequest(c, w, T0, start, at(start, 2 * 24 * 60));
-      const other = await world(c, T0);
+      // second monde une minute après : capacités datées autrement (clé unique de la capacité)
+      const other = await world(c, at(T0, 1));
       const r2 = await sentRequest(c, other, T0, start, at(start, 2 * 24 * 60));
       // r2 : capture acceptée d'abord, restriction ensuite
       const a2 = await hostCall('accept', other.host, r2.holdId, at(r2.sentAt, 5));
@@ -1060,7 +1061,8 @@ describe.each(COUNTRIES)('US-223c — demande de réservation ($country, $curren
       const w = await world(c, T0);
       const start = at(T0, 3 * 24 * 60);
       const r = await sentRequest(c, w, T0, start, at(start, 2 * 24 * 60));
-      const w2 = await world(c, T0);
+      // second monde une minute après : capacités datées autrement (clé unique de la capacité)
+      const w2 = await world(c, at(T0, 1));
       const r2 = await sentRequest(c, w2, T0, start, at(start, 2 * 24 * 60));
       const api2 = await connectAs('app_api');
       try {
