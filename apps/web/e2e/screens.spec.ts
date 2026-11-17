@@ -212,6 +212,56 @@ async function openEarningsPlan(page: Page, context: BrowserContext, second: boo
   await expect(page.locator('#a11-current')).toBeVisible();
 }
 
+/**
+ * S06 confirmé → S09 · contrat du voyageur (US-211 partie 211b) ; `signed` : contrat signé (case
+ * cochée, signature du double : heure et sceau fixes).
+ */
+async function openTripContract(
+  page: Page,
+  context: BrowserContext,
+  language: Language,
+  signed: boolean,
+): Promise<void> {
+  await openPayment(page, context, language, ['PAY', 'SUCCEEDED'], 'CONFIRMED');
+  await page.locator('[data-testid="s06-contract"]').click();
+  await expect(page).toHaveURL(/\/trips\/[0-9a-f-]{36}\/contract$/);
+  await expect(page.locator('[data-testid="contract-summary"]')).toBeVisible();
+  if (!signed) return;
+  await page.locator('#s09-contract-accept').check();
+  await submitAndSettle(
+    page,
+    page.locator('[data-testid="s09-contract-sign"]'),
+    /\/contract\?signed=1$/,
+  );
+  await expect(page.locator('[data-testid="s09-contract-signed"]')).toBeVisible();
+}
+
+/** A10 (lieu et auto) → A02 → A05 → A03 · contrat de l'hôte (US-211 partie 211b), non signé. */
+async function openHostContract(page: Page, context: BrowserContext): Promise<void> {
+  await signInHost(context);
+  await page.goto('/host');
+  await page.locator('#a10-place-label').fill('Casa');
+  await page.locator('#a10-place-address').fill('Calle Secreta 123');
+  await page.locator('#a10-place-city').fill('Ciudad Ficticia');
+  await page.locator('#a10-place-form button[type="submit"]').click();
+  await expect(page).toHaveURL(/saved=1/);
+  // plaque unique (le double refuse une plaque déjà saisie) ; elle n'apparaît pas sur A03
+  await page.locator('#a10-car-plate').fill(`e2e-${randomBytes(3).toString('hex')}`);
+  await page.locator('#a10-car-make').fill('Toyota');
+  await page.locator('#a10-car-model').fill('Yaris');
+  await page.locator('#a10-car-year').fill('2021');
+  await page.locator('#a10-car-form button[type="submit"]').click();
+  await expect(page.locator('#a10-new')).toBeVisible();
+  await page.goto('/host');
+  await page
+    .locator('section[aria-labelledby="a02-upcoming"] li a[href^="/host/trips/"]')
+    .first()
+    .click();
+  await page.locator('[data-testid="a05-contract"]').click();
+  await expect(page).toHaveURL(/\/host\/trips\/[0-9a-f-]{36}\/contract\?org=/);
+  await expect(page.locator('[data-testid="a03-contract-state"]')).toBeVisible();
+}
+
 interface Screen {
   /** Nom stable de la capture (dossier de références). */
   readonly name: string;
@@ -505,6 +555,22 @@ export const SCREENS: readonly Screen[] = [
     name: 'hote-plan-gains-choix',
     source: 'A10, A11, US-226',
     open: (page, context) => openEarningsPlan(page, context, true),
+  },
+  // US-211 partie 211b : contrat de location (S09 à signer, S09 signé, A03 de l'hôte)
+  {
+    name: 'contrat-a-signer',
+    source: 'S09, US-211',
+    open: (page, context, language) => openTripContract(page, context, language, false),
+  },
+  {
+    name: 'contrat-signe',
+    source: 'S09, US-211',
+    open: (page, context, language) => openTripContract(page, context, language, true),
+  },
+  {
+    name: 'hote-contrat',
+    source: 'A03, US-211',
+    open: (page, context) => openHostContract(page, context),
   },
   { name: 'vitrine-composants', source: 'US-032', open: at('/ui?width=mobile') },
 ];

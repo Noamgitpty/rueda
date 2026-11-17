@@ -184,7 +184,15 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  serveur 223c (US-223, ADR-146) : `common.request.*` (demande inconnue, échue, déjà traitée, voyageur
  devenu inéligible, montant non confirmé ; aucun débit dans chaque cas), messages des routes des
  demandes de l'hôte.
- Version 69 (la 68 est réservée à US-211b) : annulation d’un voyage déclenchée par l’ops, partie
+ Version 68 (la 66 est réservée à US-224, la 67 est celle d’US-223c) : routes et écrans du contrat
+ de location, partie 211b (US-211, ADR-149) : `common.contract.*` (réponses des routes
+ `/trips/{id}/contract` : introuvable, en préparation, version remplacée, plus signable, empreinte
+ différente, texte effacé, indisponible), `web.contract.*` (résumé, équivalent HTML du PDF, PDF,
+ empreinte, signature, versions : écrans S09 et A03), `web.s09.contract.*` (signature du
+ voyageur : case, bouton, effet sur la remise), `web.a03.contract.*` (état de la signature vu par
+ l'hôte), `web.a05.contract` et `web.s06.confirmed.contract` (liens vers le contrat) ;
+ `ctr.contract.period` dit le nom du pays et l'heure locale au lieu du fuseau IANA.
+ Version 69 (la 68 est celle d’US-211b) : annulation d’un voyage déclenchée par l’ops, partie
  215b (US-215, ADR-151) : `backoffice.cancel.*` (console O01 : demandeur, motif qualifié en liste
  fermée, confirmation avant envoi, état réel de la demande — en attente, réglée avec le porteur du
  coût et le remboursement par partie, en revue FINANCE, en échec — et la suite à donner ; refus de la
