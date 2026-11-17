@@ -154,7 +154,10 @@ describe('rueda/no-country-constants (configuration réelle)', () => {
     // exemptions déclarées, options de la règle) ; seule la règle contrôlée s'exécute.
     const hits = await countryHits(new ESLint(countryOnlyOptions()), ['apps', 'packages']);
     expect(hits).toEqual([]);
-  });
+    // Délai explicite, mesuré : 8,1 s en local, 39,8 s en CI (run 44154988141) ; le reste est
+    // l'analyse syntaxique des ~1 200 sources, nécessaire à la règle, et la CI fait tourner les
+    // tests des autres paquets en même temps (facteur 3 à 5 ; jusqu'à 60,1 s avant ce correctif).
+  }, 120_000);
 
   it('le filtre de règle du test précédent ne coupe pas la règle : la fixture fautive est signalée', async () => {
     // Preuve négative du contrôle « dépôt » : mêmes options, appliquées à une constante plantée.
