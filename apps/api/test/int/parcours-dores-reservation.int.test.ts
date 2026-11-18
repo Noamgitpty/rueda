@@ -66,6 +66,8 @@ import {
   PaymentError,
   PgRefundOrders,
   type CreateHostedPaymentRequest,
+  type DepositEnforcement,
+  type DepositGuestView,
   type HostedPayment,
   type OperationResult,
   type PaymentConnectorRegistry,
@@ -393,8 +395,27 @@ const paymentService = (
   new CheckoutPaymentService(
     new PgCheckoutPaymentStore(db),
     new Map(providers.map((p) => [p, psp])),
+    new NoDepositGate(),
     () => undefined,
   );
+
+/**
+ * Porte de la caution (US-701) : décision « aucune caution », comme `FakeDepositGate` des contrats
+ * d'AVL (avl/testing, non public). Couture assumée : la vraie porte lit la classe de valeur du
+ * véhicule et le devis figé du hold, que les fixtures 9998 (sans classe de valeur) et 9969 (devis à
+ * documents vides) ne portent pas ; la caution est prouvée par `l0-us701-deposit-hold` et
+ * `checkout-deposit.contract.test.ts`. Les montants du paiement restent ceux des oracles.
+ */
+class NoDepositGate {
+  readonly enforced: string[] = [];
+  view(): Promise<DepositGuestView | null> {
+    return Promise.resolve(null);
+  }
+  enforce(_proof: Buffer, holdId: string): Promise<DepositEnforcement> {
+    this.enforced.push(holdId);
+    return Promise.resolve({ kind: 'ACCEPTED', view: { status: 'NONE' } });
+  }
+}
 
 /** « Pagar » par le vrai service ; un refus est rendu avec son code (diagnostic de la CI). */
 async function payOrExplain(
