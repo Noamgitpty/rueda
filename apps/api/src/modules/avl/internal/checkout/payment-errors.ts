@@ -32,6 +32,10 @@ export const PAYMENT_MESSAGES = {
   KYC_BIOMETRIC_CONSENT_MISSING: CHECKOUT_MESSAGES.KYC_BIOMETRIC_CONSENT_MISSING,
   KYC_LICENSE_EXPIRED: CHECKOUT_MESSAGES.KYC_LICENSE_EXPIRED,
   AGE_CLASS_MISMATCH: CHECKOUT_MESSAGES.AGE_CLASS_MISMATCH,
+  // US-701 (ADR-169 ; 08 BR-PAY-06) : caution exigée sans rail possible pour ces dates, ou sans
+  // montant fixé (`deposit_amount` absent) ; refus AVANT le paiement, aucune écriture
+  DEPOSIT_RAIL_UNAVAILABLE: { status: 409, messageKey: 'common.payment.depositUnavailable' },
+  DEPOSIT_PARAM_MISSING: { status: 409, messageKey: 'common.payment.depositUnavailable' },
   PAYMENT_UNAVAILABLE: { status: 503, messageKey: 'common.payment.unavailable' },
   BOOKING_UNAVAILABLE: CHECKOUT_MESSAGES.BOOKING_UNAVAILABLE,
 } as const;

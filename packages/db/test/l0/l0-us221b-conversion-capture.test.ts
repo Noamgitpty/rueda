@@ -1,6 +1,6 @@
 /**
  * US-221 partie 221b — report de la capture d'un checkout sur les soldes par jambe du trip réservé
- * (migration 0146, ADR-170 ; défauts D1 et D2 de la passation US-221 ; 08 E7 règles 1, 2 et 10 ;
+ * (migration 0147, ADR-170 ; défauts D1 et D2 de la passation US-221 ; 08 E7 règles 1, 2 et 10 ;
  * 17 v6 §2.5 étape 4, §2.9).
  *
  * D1 : à la conversion gardée, la CAPTURE prouvée est rattachée au trip né et reportée sur CHAQUE
@@ -420,7 +420,7 @@ describe.each(COUNTRIES)(
         // rien n'a été porté ni rattaché
         expect(await captureState(op)).toMatchObject({ operation_trip_id: null, movements: 0 });
         // D2 (transaction ANNULÉE) : la même capture prouvée convertie SANS report (forme d'avant
-        // 0146 : disposition CONVERSION, aucun solde) est vue par les faits du rapprochement, en
+        // 0147 : disposition CONVERSION, aucun solde) est vue par les faits du rapprochement, en
         // écart (Σ capturé 0 ≠ Σ encaissé ; aucune ligne de relevé)
         await inTx(worker, {}, async (tx) => {
           const trip = await insertTrip(tx, c, 9000 + idx);

@@ -391,6 +391,13 @@ export const CONSTRAINT_CODES: Readonly<Record<string, readonly [string, DbBusin
   host_ledger_settlement_unknown: [SQLSTATE.integrityConstraintViolation, 'INVARIANT_VIOLATION'],
   host_ledger_version_unsupported: [SQLSTATE.objectNotInPrerequisiteState, 'INVARIANT_VIOLATION'],
   host_ledger_entry_settlement_reason_unique: [SQLSTATE.uniqueViolation, 'INVARIANT_VIOLATION'],
+  // caution figée au checkout (0146, US-701, ADR-169) : décision incohérente avec la base, rail
+  // « débit puis remboursement » fermé, décision figée ou transition refusée, commande réservée
+  deposit_decision_mismatch: [SQLSTATE.checkViolation, 'INVARIANT_VIOLATION'],
+  deposit_rail_closed: [SQLSTATE.objectNotInPrerequisiteState, 'FORBIDDEN'],
+  deposit_hold_guarded: [SQLSTATE.objectNotInPrerequisiteState, 'INVARIANT_VIOLATION'],
+  deposit_hold_command_forbidden: [SQLSTATE.insufficientPrivilege, 'FORBIDDEN'],
+  deposit_hold_hold_unique: [SQLSTATE.uniqueViolation, 'INVARIANT_VIOLATION'],
   // créance de la règle 3 bis au host_ledger (0139, US-224e, ADR-163) ; unique de 0129 (N-277)
   host_ledger_advance_unknown: [SQLSTATE.integrityConstraintViolation, 'INVARIANT_VIOLATION'],
   host_ledger_advance_unique: [SQLSTATE.uniqueViolation, 'INVARIANT_VIOLATION'],
@@ -401,7 +408,7 @@ export const CONSTRAINT_CODES: Readonly<Record<string, readonly [string, DbBusin
   insurer_bordereau_incoherent: [SQLSTATE.integrityConstraintViolation, 'INVARIANT_VIOLATION'],
   insurer_bordereau_stale: [SQLSTATE.objectNotInPrerequisiteState, 'INVARIANT_VIOLATION'],
   insurer_bordereau_line_frozen: [SQLSTATE.objectNotInPrerequisiteState, 'INVARIANT_VIOLATION'],
-  // rattachement de la capture convertie à son trip (0146, US-221 partie 221b, ADR-170)
+  // rattachement de la capture convertie à son trip (0147, US-221 partie 221b, ADR-170)
   operation_trip_attach_invalid: [SQLSTATE.integrityConstraintViolation, 'INVARIANT_VIOLATION'],
 };
 

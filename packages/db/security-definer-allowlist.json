@@ -2050,6 +2050,34 @@
       "owner": "cmd_money_owner",
       "execute": [],
       "story": "US-227"
+    },
+    {
+      "signature": "core.payment_deposit_checkout(bytea,uuid)",
+      "family": "cmd_hold",
+      "owner": "cmd_hold_owner",
+      "execute": ["app_api"],
+      "story": "US-701"
+    },
+    {
+      "signature": "core.payment_cmd_record_deposit_decision(bytea,uuid,jsonb)",
+      "family": "cmd_hold",
+      "owner": "cmd_hold_owner",
+      "execute": ["app_api"],
+      "story": "US-701"
+    },
+    {
+      "signature": "core.payment_deposit_reauth_due(integer)",
+      "family": "cmd_hold",
+      "owner": "cmd_hold_owner",
+      "execute": ["app_worker"],
+      "story": "US-701"
+    },
+    {
+      "signature": "core.payment_cmd_deposit_transition(uuid,text,integer,timestamp with time zone,timestamp with time zone,timestamp with time zone,text)",
+      "family": "cmd_hold",
+      "owner": "cmd_hold_owner",
+      "execute": ["app_worker"],
+      "story": "US-701"
     }
   ]
 }

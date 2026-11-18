@@ -265,8 +265,13 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  pénalité en ligne séparée ; `web.a08.empty`, `web.a08.payoutsOff` de 10b §4.3 et
  `web.a08.title` du prototype US-033 devenues officielles),
  `web.host.earningsLink`.
+ Version 85 (la 84 est celle d’US-217b) : caution figée au checkout (US-701, ADR-169) :
+ `web.deposit.none` (S05 : aucune caution pour ce trip, 08 BR-PAY-06) et
+ `common.payment.depositUnavailable` (réponse 409 `DEPOSIT_RAIL_UNAVAILABLE` /
+ `DEPOSIT_PARAM_MISSING` de `POST /checkout/holds/{id}/payment`, avec une sortie : autres dates,
+ autre voiture).
  */
-export const CATALOG_VERSION = 84;
+export const CATALOG_VERSION = 85;
 
 /** Catalogues de base par langue ; la langue d'un profil de locale choisit le sien. */
 export const CATALOGS: Readonly<Record<CatalogLanguage, VersionedCatalog<MessageKey>>> = {

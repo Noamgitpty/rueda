@@ -29,6 +29,7 @@ import type { CheckoutPaymentRow, PaymentStart } from '../internal/checkout/paym
 import type { HostedPaymentProvider } from '../internal/checkout/payment.service.js';
 import {
   FakeCheckoutPaymentStore,
+  FakeDepositGate,
   PaymentError,
   RecordingHostedPayments,
 } from './fake-checkout-payment-store.js';
@@ -79,7 +80,12 @@ async function app(
   const psp = options.psp ?? new RecordingHostedPayments();
   const a = await startContractApp({
     checkout: {
-      payments: { store, providers: options.providers ?? new Map([['FAKE', psp]]) },
+      // US-701 : porte de la caution imposée « aucune caution » (contrat d'US-223 inchangé)
+      payments: {
+        store,
+        providers: options.providers ?? new Map([['FAKE', psp]]),
+        deposits: new FakeDepositGate(),
+      },
     },
   });
   apps.push(a);

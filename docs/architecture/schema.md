@@ -7,7 +7,7 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 
 ## Synthèse
 
-- 147 migrations ; 128 tables ; 3 vues ; 728 politiques RLS ; 291 fonctions `SECURITY DEFINER` ; 253 autres fonctions.
+- 147 migrations ; 129 tables ; 3 vues ; 728 politiques RLS ; 294 fonctions `SECURITY DEFINER` ; 253 autres fonctions.
 - Tables sans RLS `ENABLE` + `FORCE` : aucune.
 - Rôles applicatifs avec `SUPERUSER` ou `BYPASSRLS` : aucun.
 
@@ -161,7 +161,7 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 | `0143_settlement_insurer_ledger` | STL / FIN : jambe de l'assureur — registre `insurer_ledger`, bordereau mensuel à double |
 | `0144_booking_meeting_place` | AVL / CAT : lieux de prise et de retour (US-514 ; 19 US-514 ; 16 BKG-016 ; 08 BR-BOOK-09 ; |
 | `0145_finance_receipt_alignment` | FIN : alignement des reçus et du relevé des gains sur les décisions écrites d'US-217 |
-| `0146_settlement_conversion_capture_legs` | STL / AVL / FIN : la capture prouvée d'un hold converti est rattachée au trip né de la |
+| `0146_payment_deposit_hold` | PAY : caution de la plateforme figée au checkout (`deposit_hold`), vue du voyageur sans |
 
 ## Rôles
 
@@ -1014,7 +1014,6 @@ Index :
 Politiques RLS :
 
 - `cmd_hold_read` (SELECT, PERMISSIVE, cmd_hold_owner) USING `true`
-- `cmd_money_sel` (SELECT, PERMISSIVE, cmd_money_owner) USING `true`
 - `integrity_read` (SELECT, PERMISSIVE, integrity_owner) USING `true`
 - `migrator_all` (ALL, PERMISSIVE, migrator) USING `true` WITH CHECK `true`
 - `worker_insert_conversion` (INSERT, PERMISSIVE, app_worker) WITH CHECK `((app.actor_kind() = 'WORKER'::text) AND (app.worker_name() = ANY (ARRAY['booking_conversion'::text, 'disposition_sweeper'::text, 'payment_intent_sweeper'::text])))`
@@ -2560,6 +2559,7 @@ Politiques RLS :
 - `catalog_cmd_read` (SELECT, PERMISSIVE, catalog_cmd_owner) USING `(key = ANY (ARRAY['price_display_step_minor'::text, 'listing_min_photos'::text, 'price_ceiling_daily_minor'::text, 'price_ceiling_extra_km_minor'::text, 'p2p_private_hosts_enabled'::text, 'vehicle_financed_requires_lender_consent'::text, 'elig_age_years_ceiling'::text, 'elig_odometer_km_ceiling'::text, 'elig_doc_title'::text, 'elig_doc_plate_vin_photo'::text, 'elig_doc_inspection'::text, 'elig_doc_compulsory_insurance'::text, 'elig_doc_owner_authorization'::text, 'elig_doc_lender_consent'::text]))`
 - `catalog_cmd_upload_read` (SELECT, PERMISSIVE, catalog_cmd_owner) USING `(key = ANY (ARRAY['upload_photo_max_kb'::text, 'upload_gallery_photos_max'::text, 'upload_documents_per_minute'::text]))`
 - `cmd_golive_sel` (SELECT, PERMISSIVE, cmd_golive_owner) USING `go_live_switch`
+- `cmd_hold_deposit_read` (SELECT, PERMISSIVE, cmd_hold_owner) USING `(key = 'funds_holding_enabled'::text)`
 - `cmd_hold_read` (SELECT, PERMISSIVE, cmd_hold_owner) USING `(key = ANY (ARRAY['p2p_private_hosts_enabled'::text, 'insurer_contract_active'::text]))`
 - `cmd_money_sel` (SELECT, PERMISSIVE, cmd_money_owner) USING `go_live_switch`
 - `kyc_cmd_host_read` (SELECT, PERMISSIVE, kyc_cmd_owner) USING `(key = ANY (ARRAY['p2p_private_hosts_enabled'::text, 'insurer_contract_active'::text]))`
@@ -2625,6 +2625,7 @@ Politiques RLS :
 - `cmd_golive_sel` (SELECT, PERMISSIVE, cmd_golive_owner) USING `((go_live_request_id IS NOT NULL) OR (key IN ( SELECT d.key FROM core.config_param_definition d WHERE d.go_live_switch)))`
 - `cmd_hold_cancel_read` (SELECT, PERMISSIVE, cmd_hold_owner) USING `(key = ANY (ARRAY['free_cancel_lead'::text, 'last_minute_threshold'::text, 'host_penalty'::text, 'platform_funded_host_compensation'::text]))`
 - `cmd_hold_contract_param_read` (SELECT, PERMISSIVE, cmd_hold_owner) USING `(key = 'grace_minutes'::text)`
+- `cmd_hold_deposit_read` (SELECT, PERMISSIVE, cmd_hold_owner) USING `(key = ANY (ARRAY['deposit_always_required'::text, 'deposit_trigger_classes'::text, 'deposit_amount'::text, 'funds_holding_enabled'::text]))`
 - `cmd_hold_meeting_read` (SELECT, PERMISSIVE, cmd_hold_owner) USING `(key = 'review_window_days'::text)`
 - `cmd_hold_read` (SELECT, PERMISSIVE, cmd_hold_owner) USING `(key = ANY (ARRAY['buffer_minutes'::text, 'hold_ttl_minutes'::text, 'hold_max_total_minutes'::text, 'max_active_holds_per_guest'::text, 'hold_creations_per_guest_vehicle_hour'::text, 'sweep_grace_s'::text, 'flagged_booking_payment_order'::text, 'review_hold_minutes'::text, 'payment_in_flight_margin_s'::text, 'psp_call_timeout_s'::text, 'conversion_start_tolerance_minutes'::text, 'payment_attempts_per_hold'::text, 'max_trip_days'::text, 'advance_notice_minutes'::text, 'no_show_grace_minutes'::text, 'overdue_detection_minutes'::text, 'p2p_private_hosts_enabled'::text, 'insurer_contract_active'::text]))`
 - `cmd_hold_request_param_read` (SELECT, PERMISSIVE, cmd_hold_owner) USING `(key = ANY (ARRAY['booking_request_mode_enabled'::text, 'booking_request_expiry_hours'::text]))`
@@ -4216,6 +4217,79 @@ Déclencheurs :
 
 - `touch_row` : `CREATE TRIGGER touch_row BEFORE UPDATE ON core.outbox_scheduled_job FOR EACH ROW EXECUTE FUNCTION platform.touch_row()`
 
+### `core.payment_deposit_hold`
+
+- RLS : ENABLE + FORCE ; propriétaire `migrator`
+- Droits : cmd_hold_owner: SELECT ; migrator: DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE
+
+| Colonne | Type | NOT NULL | Défaut |
+| ------- | ---- | -------- | ------ |
+| `id` | `uuid` | oui | `platform.uuid_v7()` |
+| `hold_id` | `uuid` | oui | — |
+| `country_code` | `text` | oui | — |
+| `currency` | `text` | oui | — |
+| `provider` | `text` | non | — |
+| `mechanism` | `text` | oui | — |
+| `triggers` | `text[]` | oui | — |
+| `params_snapshot` | `jsonb` | oui | — |
+| `amount_minor` | `bigint` | oui | — |
+| `h_required_hours` | `integer` | non | — |
+| `v_hours_snapshot` | `integer` | non | — |
+| `auth_at` | `timestamp with time zone` | non | — |
+| `auth_expiry_at` | `timestamp with time zone` | non | — |
+| `auth_provider_reference` | `text` | non | — |
+| `release_at` | `timestamp with time zone` | non | — |
+| `decision_at` | `timestamp with time zone` | non | — |
+| `reauth_due_at` | `timestamp with time zone` | non | — |
+| `reauth_seq` | `integer` | oui | `0` |
+| `status` | `text` | non | — |
+| `decided_at` | `timestamp with time zone` | oui | `platform.now()` |
+| `created_at` | `timestamp with time zone` | oui | `platform.now()` |
+| `updated_at` | `timestamp with time zone` | oui | `platform.now()` |
+| `row_version` | `integer` | oui | `0` |
+
+Contraintes :
+
+- `deposit_hold_amount_nonnegative` : `CHECK (amount_minor >= 0)`
+- `deposit_hold_authorized_shape` : `CHECK (status IS DISTINCT FROM 'AUTHORIZED'::text OR auth_provider_reference IS NOT NULL AND (mechanism = 'CHARGE_THEN_REFUND'::text OR auth_expiry_at IS NOT NULL))`
+- `deposit_hold_country_format` : `CHECK (country_code ~ '^[A-Z]{2}$'::text)`
+- `deposit_hold_currency_format` : `CHECK (currency ~ '^[A-Z]{3}$'::text)`
+- `deposit_hold_decision_window` : `CHECK (decision_at IS NULL OR decision_at <= release_at AND decision_at >= auth_at AND (auth_expiry_at IS NULL OR decision_at <= auth_expiry_at OR mechanism = 'REAUTH'::text AND reauth_due_at IS NOT NULL))`
+- `deposit_hold_h_required_positive` : `CHECK (h_required_hours > 0)`
+- `deposit_hold_hold_fk` : `FOREIGN KEY (hold_id) REFERENCES core.booking_checkout_hold(id)`
+- `deposit_hold_hold_unique` : `UNIQUE (hold_id)`
+- `deposit_hold_mechanism_valid` : `CHECK (mechanism = ANY (ARRAY['NOT_REQUIRED'::text, 'PREAUTH_SINGLE'::text, 'REAUTH'::text, 'CHARGE_THEN_REFUND'::text]))`
+- `deposit_hold_not_required_empty` : `CHECK (mechanism <> 'NOT_REQUIRED'::text OR status IS NULL AND h_required_hours IS NULL AND v_hours_snapshot IS NULL AND auth_at IS NULL AND auth_expiry_at IS NULL AND auth_provider_reference IS NULL AND release_at IS NULL AND decision_at IS NULL AND reauth_due_at IS NULL AND reauth_seq = 0)`
+- `deposit_hold_not_required_shape` : `CHECK ((mechanism = 'NOT_REQUIRED'::text) = (cardinality(triggers) = 0) AND (mechanism = 'NOT_REQUIRED'::text) = (amount_minor = 0))`
+- `deposit_hold_provider_format` : `CHECK (provider ~ '^[A-Z][A-Z0-9_]{1,31}$'::text)`
+- `deposit_hold_provider_reference_format` : `CHECK (auth_provider_reference ~ '^[A-Za-z0-9_.:-]{1,128}$'::text)`
+- `deposit_hold_reauth_seq_nonnegative` : `CHECK (reauth_seq >= 0)`
+- `deposit_hold_reauth_shape` : `CHECK (reauth_due_at IS NULL OR mechanism = 'REAUTH'::text AND (status = ANY (ARRAY['PLANNED'::text, 'AUTHORIZED'::text])) AND (auth_expiry_at IS NULL OR reauth_due_at < auth_expiry_at))`
+- `deposit_hold_required_shape` : `CHECK (mechanism = 'NOT_REQUIRED'::text OR status IS NOT NULL AND h_required_hours IS NOT NULL AND v_hours_snapshot IS NOT NULL AND auth_at IS NOT NULL AND release_at IS NOT NULL AND decision_at IS NOT NULL)`
+- `deposit_hold_snapshot_object` : `CHECK (jsonb_typeof(params_snapshot) = 'object'::text)`
+- `deposit_hold_status_valid` : `CHECK (status = ANY (ARRAY['PLANNED'::text, 'AUTHORIZED'::text, 'PARTIALLY_CAPTURED'::text, 'VOIDED'::text, 'REFUNDED'::text, 'EXPIRED'::text]))`
+- `deposit_hold_triggers_valid` : `CHECK (triggers <@ ARRAY['AGE'::text, 'CLASS'::text, 'COUNTRY'::text, 'RISK'::text] AND array_position(triggers, NULL::text) IS NULL)`
+- `deposit_hold_v_nonnegative` : `CHECK (v_hours_snapshot >= 0)`
+- `payment_deposit_hold_pkey` : `PRIMARY KEY (id)`
+
+Index :
+
+- `deposit_hold_reauth_due_idx` : `CREATE INDEX deposit_hold_reauth_due_idx ON core.payment_deposit_hold USING btree (reauth_due_at) WHERE (reauth_due_at IS NOT NULL)`
+
+Politiques RLS :
+
+- `cmd_hold_ins` (INSERT, PERMISSIVE, cmd_hold_owner) WITH CHECK `((app.actor_kind() = 'GUEST'::text) AND ((status IS NULL) OR (status = 'PLANNED'::text)) AND (reauth_seq = 0) AND (auth_expiry_at IS NULL) AND (auth_provider_reference IS NULL))`
+- `cmd_hold_sel` (SELECT, PERMISSIVE, cmd_hold_owner) USING `true`
+- `cmd_hold_upd` (UPDATE, PERMISSIVE, cmd_hold_owner) USING `((app.actor_kind() = 'WORKER'::text) AND (app.worker_name() = 'payment_command'::text))` WITH CHECK `((app.actor_kind() = 'WORKER'::text) AND (app.worker_name() = 'payment_command'::text))`
+- `migrator_all` (ALL, PERMISSIVE, migrator) USING `true` WITH CHECK `true`
+
+Déclencheurs :
+
+- `deposit_hold_guard` : `CREATE TRIGGER deposit_hold_guard BEFORE UPDATE ON core.payment_deposit_hold FOR EACH ROW EXECUTE FUNCTION core.payment_deposit_hold_guard()`
+- `money_no_delete` : `CREATE TRIGGER money_no_delete BEFORE DELETE ON core.payment_deposit_hold FOR EACH ROW EXECUTE FUNCTION core.settlement_no_delete()`
+- `money_no_truncate` : `CREATE TRIGGER money_no_truncate BEFORE TRUNCATE ON core.payment_deposit_hold FOR EACH STATEMENT EXECUTE FUNCTION core.settlement_no_delete()`
+- `touch_row` : `CREATE TRIGGER touch_row BEFORE UPDATE ON core.payment_deposit_hold FOR EACH ROW EXECUTE FUNCTION platform.touch_row()`
+
 ### `core.payment_payment_command`
 
 - RLS : ENABLE + FORCE ; propriétaire `migrator`
@@ -4341,7 +4415,6 @@ Politiques RLS :
 - `cmd_hold_request_auth_ins` (INSERT, PERMISSIVE, cmd_hold_owner) WITH CHECK `((app.actor_kind() = 'GUEST'::text) AND (purpose = 'RENT'::text) AND (kind = 'AUTH'::text) AND (status = 'PENDING'::text) AND (trip_id IS NULL) AND (psp_account_id IS NOT NULL) AND (EXISTS ( SELECT 1 FROM core.booking_checkout_hold h WHERE ((h.id = payment_payment_operation.hold_id) AND (h.guest_user_id = app.actor_id()) AND (h.kind = 'REQUEST'::text) AND (h.status = 'PAYMENT_IN_FLIGHT'::text)))))`
 - `cmd_hold_request_pay_ins` (INSERT, PERMISSIVE, cmd_hold_owner) WITH CHECK `((purpose = 'RENT'::text) AND (status = 'PENDING'::text) AND (trip_id IS NULL) AND (psp_account_id IS NOT NULL) AND (((kind = 'CAPTURE'::text) AND (app.actor_kind() = 'HOST'::text) AND (EXISTS ( SELECT 1 FROM core.booking_checkout_hold h WHERE ((h.id = payment_payment_operation.hold_id) AND (h.kind = 'REQUEST'::text) AND (h.org_id = app.org_id()) AND (h.status = 'PAYMENT_IN_FLIGHT'::text) AND (h.request_respond_by IS NOT NULL))))) OR ((kind = 'VOID'::text) AND (EXISTS ( SELECT 1 FROM core.booking_checkout_hold h WHERE ((h.id = payment_payment_operation.hold_id) AND (h.kind = 'REQUEST'::text) AND (((app.actor_kind() = 'HOST'::text) AND (h.org_id = app.org_id())) OR ((app.actor_kind() = 'WORKER'::text) AND (app.worker_name() = ANY (ARRAY['hold_expiry'::text, 'booking_conversion'::text]))))))))))`
 - `cmd_hold_request_pay_upd` (UPDATE, PERMISSIVE, cmd_hold_owner) USING `((app.actor_kind() = 'HOST'::text) AND (purpose = 'RENT'::text) AND (kind = 'CAPTURE'::text) AND (status = 'PENDING'::text) AND (EXISTS ( SELECT 1 FROM core.booking_checkout_hold h WHERE ((h.id = payment_payment_operation.hold_id) AND (h.kind = 'REQUEST'::text) AND (h.org_id = app.org_id())))))` WITH CHECK `((app.actor_kind() = 'HOST'::text) AND (status = 'SUBMITTED'::text))`
-- `cmd_money_conversion_attach` (UPDATE, PERMISSIVE, cmd_money_owner) USING `((app.actor_kind() = 'WORKER'::text) AND (app.worker_name() = ANY (ARRAY['booking_conversion'::text, 'disposition_sweeper'::text, 'payment_intent_sweeper'::text])) AND (trip_id IS NULL) AND (hold_id IS NOT NULL) AND (kind = 'CAPTURE'::text) AND (purpose = 'RENT'::text) AND (status = 'SUCCEEDED'::text) AND (proof_type IS NOT NULL))` WITH CHECK `((app.actor_kind() = 'WORKER'::text) AND (app.worker_name() = ANY (ARRAY['booking_conversion'::text, 'disposition_sweeper'::text, 'payment_intent_sweeper'::text])) AND (kind = 'CAPTURE'::text) AND (purpose = 'RENT'::text) AND (status = 'SUCCEEDED'::text) AND (proof_type IS NOT NULL) AND (EXISTS ( SELECT 1 FROM core.booking_payment_disposition d WHERE ((d.operation_id = payment_payment_operation.id) AND (d.hold_id = payment_payment_operation.hold_id) AND (d.disposition = 'CONVERSION'::text) AND (d.trip_id = payment_payment_operation.trip_id)))))`
 - `cmd_money_ins` (INSERT, PERMISSIVE, cmd_money_owner) WITH CHECK `((app.actor_kind() = 'WORKER'::text) AND (app.worker_name() = 'payment_command'::text) AND (status = 'PENDING'::text) AND (psp_account_id IS NOT NULL))`
 - `cmd_money_sel` (SELECT, PERMISSIVE, cmd_money_owner) USING `true`
 - `cmd_money_upd` (UPDATE, PERMISSIVE, cmd_money_owner) USING `((app.actor_kind() = 'WORKER'::text) AND (app.worker_name() = ANY (ARRAY['payment_command'::text, 'webhook_ingest'::text])) AND (psp_account_id IS NOT NULL))` WITH CHECK `((app.actor_kind() = 'WORKER'::text) AND (psp_account_id IS NOT NULL))`
@@ -4356,7 +4429,6 @@ Politiques RLS :
 
 Déclencheurs :
 
-- `operation_trip_attach_guard` : `CREATE TRIGGER operation_trip_attach_guard BEFORE UPDATE OF trip_id ON core.payment_payment_operation FOR EACH ROW WHEN (old.trip_id IS DISTINCT FROM new.trip_id) EXECUTE FUNCTION core.payment_guard_operation_trip_attach()`
 - `payment_operation_legs_check` : `CREATE CONSTRAINT TRIGGER payment_operation_legs_check AFTER INSERT ON core.payment_payment_operation DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION core.payment_assert_operation_legs()`
 - `refund_instance_gate` : `CREATE TRIGGER refund_instance_gate BEFORE UPDATE OF status ON core.payment_payment_operation FOR EACH ROW EXECUTE FUNCTION core.payment_refund_instance_gate()`
 - `refund_instance_sync` : `CREATE TRIGGER refund_instance_sync AFTER UPDATE OF status ON core.payment_payment_operation FOR EACH ROW WHEN (new.kind = 'REFUND'::text) EXECUTE FUNCTION core.payment_refund_instance_sync()`
@@ -4429,7 +4501,6 @@ Politiques RLS :
 - `cmd_hold_leg_ins` (INSERT, PERMISSIVE, cmd_hold_owner) WITH CHECK `((app.actor_kind() = 'GUEST'::text) AND (trip_id IS NULL) AND (EXISTS ( SELECT 1 FROM (core.payment_payment_operation o JOIN core.booking_checkout_hold h ON ((h.id = o.hold_id))) WHERE ((o.id = payment_payment_operation_leg.operation_id) AND (o.status = 'PENDING'::text) AND (o.purpose = 'RENT'::text) AND (h.guest_user_id = app.actor_id())))))`
 - `cmd_hold_leg_sel` (SELECT, PERMISSIVE, cmd_hold_owner) USING `((app.actor_kind() = 'GUEST'::text) AND (EXISTS ( SELECT 1 FROM (core.payment_payment_operation o JOIN core.booking_checkout_hold h ON ((h.id = o.hold_id))) WHERE ((o.id = payment_payment_operation_leg.operation_id) AND (h.guest_user_id = app.actor_id())))))`
 - `cmd_hold_request_leg_ins` (INSERT, PERMISSIVE, cmd_hold_owner) WITH CHECK `((app.actor_kind() = 'HOST'::text) AND (trip_id IS NULL) AND (EXISTS ( SELECT 1 FROM (core.payment_payment_operation o JOIN core.booking_checkout_hold h ON ((h.id = o.hold_id))) WHERE ((o.id = payment_payment_operation_leg.operation_id) AND (o.kind = 'CAPTURE'::text) AND (o.status = 'PENDING'::text) AND (o.purpose = 'RENT'::text) AND (h.kind = 'REQUEST'::text) AND (h.org_id = app.org_id())))))`
-- `cmd_money_conversion_attach` (UPDATE, PERMISSIVE, cmd_money_owner) USING `((app.actor_kind() = 'WORKER'::text) AND (app.worker_name() = ANY (ARRAY['booking_conversion'::text, 'disposition_sweeper'::text, 'payment_intent_sweeper'::text])) AND (trip_id IS NULL))` WITH CHECK `((app.actor_kind() = 'WORKER'::text) AND (app.worker_name() = ANY (ARRAY['booking_conversion'::text, 'disposition_sweeper'::text, 'payment_intent_sweeper'::text])) AND (EXISTS ( SELECT 1 FROM (core.payment_payment_operation o JOIN core.booking_payment_disposition d ON (((d.operation_id = o.id) AND (d.disposition = 'CONVERSION'::text)))) WHERE ((o.id = payment_payment_operation_leg.operation_id) AND (o.trip_id = payment_payment_operation_leg.trip_id) AND (d.trip_id = payment_payment_operation_leg.trip_id)))))`
 - `cmd_money_ins` (INSERT, PERMISSIVE, cmd_money_owner) WITH CHECK `((app.actor_kind() = 'WORKER'::text) AND (app.worker_name() = 'payment_command'::text))`
 - `cmd_money_sel` (SELECT, PERMISSIVE, cmd_money_owner) USING `true`
 - `host_view_read` (SELECT, PERMISSIVE, host_view_owner) USING `true`
@@ -4442,7 +4513,6 @@ Politiques RLS :
 
 Déclencheurs :
 
-- `operation_leg_trip_attach_guard` : `CREATE TRIGGER operation_leg_trip_attach_guard BEFORE UPDATE OF trip_id ON core.payment_payment_operation_leg FOR EACH ROW WHEN (old.trip_id IS DISTINCT FROM new.trip_id) EXECUTE FUNCTION core.payment_guard_leg_trip_attach()`
 - `payment_operation_leg_release_guard` : `CREATE TRIGGER payment_operation_leg_release_guard AFTER INSERT ON core.payment_payment_operation_leg REFERENCING NEW TABLE AS new_legs FOR EACH STATEMENT EXECUTE FUNCTION core.payment_operation_leg_release_guard()`
 - `payment_operation_legs_check` : `CREATE CONSTRAINT TRIGGER payment_operation_legs_check AFTER INSERT ON core.payment_payment_operation_leg DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION core.payment_assert_operation_legs()`
 
@@ -5669,7 +5739,6 @@ Index :
 
 Politiques RLS :
 
-- `cmd_money_conversion_ins` (INSERT, PERMISSIVE, cmd_money_owner) WITH CHECK `((app.actor_kind() = 'WORKER'::text) AND (app.worker_name() = ANY (ARRAY['booking_conversion'::text, 'disposition_sweeper'::text, 'payment_intent_sweeper'::text])) AND (kind = 'CAPTURE'::text) AND (segment_no = 1) AND (EXISTS ( SELECT 1 FROM (core.booking_payment_disposition d JOIN core.payment_payment_operation o ON ((o.id = d.operation_id))) WHERE ((d.operation_id = settlement_leg_movement.operation_id) AND (d.trip_id = settlement_leg_movement.trip_id) AND (d.disposition = 'CONVERSION'::text) AND (o.trip_id = settlement_leg_movement.trip_id) AND (o.kind = 'CAPTURE'::text) AND (o.status = 'SUCCEEDED'::text) AND (o.proof_type IS NOT NULL)))))`
 - `cmd_money_ins` (INSERT, PERMISSIVE, cmd_money_owner) WITH CHECK `((app.actor_kind() = 'WORKER'::text) AND (app.worker_name() = 'payment_command'::text))`
 - `cmd_money_sel` (SELECT, PERMISSIVE, cmd_money_owner) USING `true`
 - `migrator_all` (ALL, PERMISSIVE, migrator) USING `true` WITH CHECK `true`
@@ -6013,8 +6082,6 @@ Index :
 
 Politiques RLS :
 
-- `cmd_money_conversion_ins` (INSERT, PERMISSIVE, cmd_money_owner) WITH CHECK `((app.actor_kind() = 'WORKER'::text) AND (app.worker_name() = ANY (ARRAY['booking_conversion'::text, 'disposition_sweeper'::text, 'payment_intent_sweeper'::text])) AND (captured_minor = 0) AND (refunded_minor = 0) AND (reallocated_in_minor = 0) AND (reallocated_out_minor = 0) AND (released_minor = 0) AND (NOT frozen) AND (EXISTS ( SELECT 1 FROM core.booking_payment_disposition d WHERE ((d.trip_id = settlement_trip_leg_balance.trip_id) AND (d.disposition = 'CONVERSION'::text)))))`
-- `cmd_money_conversion_upd` (UPDATE, PERMISSIVE, cmd_money_owner) USING `((app.actor_kind() = 'WORKER'::text) AND (app.worker_name() = ANY (ARRAY['booking_conversion'::text, 'disposition_sweeper'::text, 'payment_intent_sweeper'::text])) AND (captured_minor = 0) AND (refunded_minor = 0) AND (reallocated_in_minor = 0) AND (reallocated_out_minor = 0) AND (released_minor = 0) AND (NOT frozen) AND (EXISTS ( SELECT 1 FROM core.booking_payment_disposition d WHERE ((d.trip_id = settlement_trip_leg_balance.trip_id) AND (d.disposition = 'CONVERSION'::text)))))` WITH CHECK `((app.actor_kind() = 'WORKER'::text) AND (app.worker_name() = ANY (ARRAY['booking_conversion'::text, 'disposition_sweeper'::text, 'payment_intent_sweeper'::text])) AND (refunded_minor = 0) AND (reallocated_in_minor = 0) AND (reallocated_out_minor = 0) AND (released_minor = 0) AND (NOT frozen) AND (captured_minor = ( SELECT g.amount_minor FROM (core.booking_payment_disposition d JOIN core.payment_payment_operation_leg g ON ((g.operation_id = d.operation_id))) WHERE ((d.trip_id = settlement_trip_leg_balance.trip_id) AND (d.disposition = 'CONVERSION'::text) AND (g.leg = settlement_trip_leg_balance.leg)))))`
 - `cmd_money_ins` (INSERT, PERMISSIVE, cmd_money_owner) WITH CHECK `((app.actor_kind() = 'WORKER'::text) AND (app.worker_name() = 'payment_command'::text) AND (captured_minor = 0) AND (refunded_minor = 0) AND (reallocated_in_minor = 0) AND (reallocated_out_minor = 0) AND (released_minor = 0) AND (NOT frozen))`
 - `cmd_money_sel` (SELECT, PERMISSIVE, cmd_money_owner) USING `true`
 - `cmd_money_upd` (UPDATE, PERMISSIVE, cmd_money_owner) USING `((app.actor_kind() = 'WORKER'::text) AND (app.worker_name() = 'payment_command'::text))` WITH CHECK `((app.actor_kind() = 'WORKER'::text) AND (app.worker_name() = 'payment_command'::text))`
@@ -6633,8 +6700,10 @@ Chacune a un propriétaire `NOLOGIN` dédié (ADR-053) et un `search_path` figé
 | `core.kyc_worker_prune(p_batch integer)` | `integer` | `kyc_cmd_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; kyc_cmd_owner: EXECUTE |
 | `core.payment_assert_operation_legs()` | `trigger` | `integrity_owner` | search_path=pg_catalog, pg_temp | integrity_owner: EXECUTE |
 | `core.payment_cmd_apply_operation_status(p_operation_id uuid, p_status text, p_source text, p_raw_ref uuid, p_provider_reference text)` | `text` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; cmd_money_owner: EXECUTE |
+| `core.payment_cmd_deposit_transition(p_deposit_id uuid, p_event text, p_expected_seq integer, p_auth_expiry_at timestamp with time zone, p_decision_at timestamp with time zone, p_reauth_due_at timestamp with time zone, p_provider_reference text)` | `text` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; cmd_hold_owner: EXECUTE |
 | `core.payment_cmd_plan_refund(p_instance_id uuid, p_operation_id uuid, p_settlement_id uuid, p_refunded_operation_id uuid, p_instance_seq integer, p_rail text, p_legs jsonb, p_idem_plain text, p_idem_sent text)` | `TABLE(instance_id uuid, operation_id uuid, advance_id uuid, status text, blocked_reason text, replayed boolean)` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; cmd_money_owner: EXECUTE |
 | `core.payment_cmd_receive_webhook(p_account_id uuid, p_provider_event_id text, p_dedup_key bytea, p_signature_valid boolean, p_signed_at timestamp with time zone, p_headers jsonb, p_normalized jsonb)` | `TABLE(outcome text, inbox_id uuid)` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; cmd_money_owner: EXECUTE |
+| `core.payment_cmd_record_deposit_decision(p_token_hash bytea, p_hold_id uuid, p_decision jsonb)` | `text` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; cmd_hold_owner: EXECUTE |
 | `core.payment_cmd_record_operation(p_id uuid, p_hold_id uuid, p_trip_id uuid, p_psp_account_id uuid, p_method text, p_kind text, p_purpose text, p_amount_minor bigint, p_currency text, p_attempt_no integer, p_idem_plain text, p_idem_sent text, p_legs jsonb, p_settlement_id uuid, p_settlement_version integer)` | `TABLE(operation_id uuid, replayed boolean)` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; cmd_money_owner: EXECUTE |
 | `core.payment_cmd_record_submerchant_status(p_submerchant_id uuid, p_status text, p_provider_ref text, p_reason text)` | `text` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; cmd_money_owner: EXECUTE |
 | `core.payment_cmd_refund_await_choice(p_instance_id uuid)` | `text` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; cmd_money_owner: EXECUTE |
@@ -6642,6 +6711,8 @@ Chacune a un propriétaire `NOLOGIN` dédié (ADR-053) et un `search_path` figé
 | `core.payment_cmd_refund_order_for_send(p_instance_id uuid)` | `TABLE(operation_id uuid, operation_status text, idem_sent text, amount_minor bigint, currency text, legs jsonb, target_reference text, provider_reference text, provider text, sendable boolean, reason text)` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; cmd_money_owner: EXECUTE |
 | `core.payment_cmd_register_submerchant(p_id uuid, p_org_id uuid, p_psp_account_id uuid, p_attempt_no integer)` | `TABLE(submerchant_id uuid, idem_plain text, replayed boolean)` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; cmd_money_owner: EXECUTE |
 | `core.payment_cmd_submit_refund(p_instance_id uuid)` | `TABLE(outcome text, blocked_reason text)` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; cmd_money_owner: EXECUTE |
+| `core.payment_deposit_checkout(p_token_hash bytea, p_hold_id uuid)` | `TABLE(outcome text, country_code text, currency text, value_class text, scheduled_start timestamp with time zone, scheduled_end timestamp with time zone, provider text, now timestamp with time zone, mechanism text, amount_minor bigint, release_at timestamp with time zone)` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; cmd_hold_owner: EXECUTE |
+| `core.payment_deposit_reauth_due(p_limit integer)` | `TABLE(deposit_id uuid, trip_id uuid, segment_id uuid, tender_id uuid, country_code text, currency text, provider text, provider_reference text, auth_expiry_at timestamp with time zone, release_at timestamp with time zone, reauth_seq integer, now timestamp with time zone)` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; cmd_hold_owner: EXECUTE |
 | `core.payment_refund_instance_gate()` | `trigger` | `integrity_owner` | search_path=pg_catalog, pg_temp | integrity_owner: EXECUTE |
 | `core.payment_refund_instance_sync()` | `trigger` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | cmd_money_owner: EXECUTE |
 | `core.payment_refunds_due(p_limit integer)` | `TABLE(instance_id uuid, country_code text, status text, operation_status text, provider text, blocked_reason text, fin_alert text, target_known boolean)` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; cmd_money_owner: EXECUTE |
@@ -6673,7 +6744,6 @@ Chacune a un propriétaire `NOLOGIN` dédié (ADR-053) et un `search_path` figé
 | `core.settlement_assert_balanced()` | `trigger` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | cmd_money_owner: EXECUTE |
 | `core.settlement_assert_cancellation_refunded()` | `trigger` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | cmd_money_owner: EXECUTE |
 | `core.settlement_cancellation_of(p_settlement_id uuid)` | `TABLE(id uuid, trip_id uuid, segment_no integer, version integer, supersedes_id uuid, kind text, requested_reason text, reason text, origin text, target_state text, inputs jsonb, superseded boolean)` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | cmd_hold_owner: EXECUTE ; cmd_money_owner: EXECUTE |
-| `core.settlement_cmd_apply_conversion_capture(p_operation_id uuid)` | `text` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; cmd_money_owner: EXECUTE |
 | `core.settlement_cmd_apply_leg_movement(p_operation_id uuid)` | `text` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; cmd_money_owner: EXECUTE |
 | `core.settlement_cmd_approve_finance_action(p_token_hash bytea, p_approval_id uuid)` | `TABLE(outcome text, approval_id uuid)` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; cmd_money_owner: EXECUTE |
 | `core.settlement_cmd_draft_insurer_bordereaux(p_month text)` | `TABLE(outcome text, country text, bordereau uuid, lines integer, total bigint)` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; cmd_money_owner: EXECUTE |
@@ -6895,8 +6965,8 @@ Chacune a un propriétaire `NOLOGIN` dédié (ADR-053) et un `search_path` figé
 | `core.payment_capability_bool(p_provider text, p_country text, p_method text, p_capability text)` | `boolean` | `migrator` | app_worker: EXECUTE ; cmd_hold_owner: EXECUTE ; migrator: EXECUTE |
 | `core.payment_capability_int(p_provider text, p_country text, p_method text, p_capability text)` | `integer` | `migrator` | app_worker: EXECUTE ; cmd_hold_owner: EXECUTE ; migrator: EXECUTE |
 | `core.payment_capability_value(p_provider text, p_country text, p_method text, p_capability text)` | `jsonb` | `migrator` | app_worker: EXECUTE ; cmd_hold_owner: EXECUTE ; migrator: EXECUTE |
-| `core.payment_guard_leg_trip_attach()` | `trigger` | `migrator` | migrator: EXECUTE |
-| `core.payment_guard_operation_trip_attach()` | `trigger` | `migrator` | migrator: EXECUTE |
+| `core.payment_deposit_amount_param(p_key text, p_country text)` | `jsonb` | `cmd_hold_owner` | cmd_hold_owner: EXECUTE |
+| `core.payment_deposit_hold_guard()` | `trigger` | `migrator` | migrator: EXECUTE |
 | `core.payment_missing_blocking_capabilities(p_provider text, p_country text, p_mode text)` | `text[]` | `migrator` | app_api: EXECUTE ; app_worker: EXECUTE ; cmd_hold_owner: EXECUTE ; cmd_money_owner: EXECUTE ; kyc_cmd_owner: EXECUTE ; migrator: EXECUTE |
 | `core.payment_operation_leg_release_guard()` | `trigger` | `migrator` | migrator: EXECUTE |
 | `core.payment_psp_account_fake_guard()` | `trigger` | `migrator` | migrator: EXECUTE |

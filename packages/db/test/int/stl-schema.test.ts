@@ -96,7 +96,7 @@ describe('schéma STL (US-018, 0027)', () => {
         expect(['app_api', 'app_worker', 'cmd_money_owner'], label).toContain(r.roles);
       }
       // trip_leg_balance : écrivains cmd_apply_leg_movement (US-061, 0039) et, depuis US-221b
-      // (0146, ADR-170), le report de la capture convertie (cmd_apply_conversion_capture) : ses
+      // (0147, ADR-170), le report de la capture convertie (cmd_apply_conversion_capture) : ses
       // politiques sont réservées aux travailleurs de conversion et miroir exact de la capture
       expect(
         rows
