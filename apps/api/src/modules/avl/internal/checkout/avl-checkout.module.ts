@@ -20,7 +20,7 @@
  * (`core.booking_trip_refunds`, 0130) ; aucun adaptateur : 503.
  *
  * « Mis viajes » et détail du trip du voyageur (US-214, ADR-160) : lecture par le voyageur de la
- * session (`core.booking_guest_trips`, 0134) ; aucun adaptateur : 503.
+ * session (`core.booking_guest_trips`, 0136) ; aucun adaptateur : 503.
  */
 import { Module } from '@nestjs/common';
 import type { DynamicModule } from '@nestjs/common';
@@ -95,7 +95,7 @@ export interface AvlCheckoutOptions {
   readonly hostRequests?: AvlHostRequestOptions;
   /** Remboursements d'un trip lus par sa partie (US-224d, 0130) ; absent : 503. */
   readonly refunds?: TripRefundStore;
-  /** Trips et demandes du voyageur de la session (US-214, 0134) ; absent : 503. */
+  /** Trips et demandes du voyageur de la session (US-214, 0136) ; absent : 503. */
   readonly guestTrips?: GuestTripStore;
 }
 

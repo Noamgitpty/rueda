@@ -569,11 +569,11 @@
     },
     "GET /trips": {
       "acces": "session",
-      "idor": "liste du voyageur de la SESSION seulement (core.booking_guest_trips, 0134 : aucun identifiant de personne reçu) ; les trips qu'il héberge n'y figurent pas ; de l'hôte seulement prénom et initiale (L2-PM-35), aucune plaque, adresse exacte d'un trip à venir ou en cours seulement ; preuves base : l0-us214-guest-trips"
+      "idor": "liste du voyageur de la SESSION seulement (core.booking_guest_trips, 0136 : aucun identifiant de personne reçu) ; les trips qu'il héberge n'y figurent pas ; de l'hôte seulement prénom et initiale (L2-PM-35), aucune plaque, adresse exacte d'un trip à venir ou en cours seulement ; preuves base : l0-us214-guest-trips"
     },
     "GET /trips/{tripId}": {
       "acces": "session",
-      "idor": "trip d'une autre personne (y compris un trip que la session héberge), inconnu ou identifiant mal formé : 404 TRIP_NOT_FOUND, même réponse (RLS-1, 17 §2.3 point 5) ; le voyageur est celui de la session, jugé en base (core.booking_guest_trips, 0134) ; preuves base : l0-us214-guest-trips"
+      "idor": "trip d'une autre personne (y compris un trip que la session héberge), inconnu ou identifiant mal formé : 404 TRIP_NOT_FOUND, même réponse (RLS-1, 17 §2.3 point 5) ; le voyageur est celui de la session, jugé en base (core.booking_guest_trips, 0136) ; preuves base : l0-us214-guest-trips"
     },
     "GET /trips/{tripId}/contract": {
       "acces": "session",

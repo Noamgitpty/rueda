@@ -1,6 +1,6 @@
 /**
  * « Mis viajes » et détail du trip du voyageur (US-214, ADR-160 ; 19 US-214 ; 16 BKG-027 ; 10b S08,
- * S09). La base juge le voyageur (celui de la SESSION, `core.booking_guest_trips`, 0134, SECURITY
+ * S09). La base juge le voyageur (celui de la SESSION, `core.booking_guest_trips`, 0136, SECURITY
  * DEFINER, EXECUTE app_api), filtre et minimise : hôte en prénom et initiale (L2-PM-35), adresse
  * exacte d'un trip à venir ou en cours seulement, aucune plaque. Un trip d'une autre personne (y
  * compris celui que la session héberge), un trip inconnu ou un identifiant mal formé rendent la
@@ -123,7 +123,7 @@ export interface GuestTrip {
   readonly contract: (typeof CONTRACT_STATES)[number] | null;
 }
 
-/** Ligne telle que la base la rend (0134) et exposant de la devise (`config_currency`). */
+/** Ligne telle que la base la rend (0136) et exposant de la devise (`config_currency`). */
 export interface GuestTripRow {
   readonly outcome: string;
   readonly kind: unknown;
@@ -171,7 +171,7 @@ export class UnavailableGuestTripStore implements GuestTripStore {
   }
 }
 
-/** Lecture (0134) et exposant de chaque devise, dans la MÊME instruction, ordre de la base gardé. */
+/** Lecture (0136) et exposant de chaque devise, dans la MÊME instruction, ordre de la base gardé. */
 export const GUEST_TRIPS_SQL = `SELECT g.*, c.exponent
   FROM core.booking_guest_trips($1, NULL, $2::uuid, $3) WITH ORDINALITY AS g
   LEFT JOIN core.config_currency AS c ON c.code::text = g.currency

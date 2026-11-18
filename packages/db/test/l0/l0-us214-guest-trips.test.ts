@@ -1,5 +1,5 @@
 /**
- * US-214 (migration 0134, ADR-160) — « Mis viajes » (S08) et détail du trip (S09) du voyageur :
+ * US-214 (migration 0136, ADR-160) — « Mis viajes » (S08) et détail du trip (S09) du voyageur :
  * `core.booking_guest_trips` (SECURITY DEFINER, EXECUTE app_api). Rôles de PRODUCTION seulement
  * (assertion L0-05 par `connectAs`), au Panama (USD) et au Paraguay (PYG sans décimale).
  *

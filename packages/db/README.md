@@ -906,6 +906,16 @@ Migration `0122_ctr_rental_contract`, fixture `9963_test_us211_rental_contract_f
 - **Remise** : `core.booking_cmd_trip_transition` (corps de 0099, bloc US-211) refuse `IN_PROGRESS` sans dernière version signée par le voyageur (`trip_contract_not_signed`, code `CONTRACT_NOT_SIGNED`).
 - **Lectures ajoutées à `cmd_hold_owner`** (au plus juste) : noms légaux et langue des comptes, marque et modèle du référentiel, contrat de l'assureur et assureur, caution du pays, gabarits, `grace_minutes` ; événements `contract.document.generated` (SYSTEM) et `contract.document.signed` (voyageur).
 
+## Classe de valeur attribuée à la publication (N-83 ; US-113, US-118 ; 08 BR-ACC-05 ; ADR-159)
+
+Migrations `0134_config_vehicle_value_class_params` (générée : `vehicle_default_value_class`, STANDARD au Panama et au Paraguay, PROPOSÉ) et `0135_catalog_vehicle_value_class`, fixture `9944_test_n83_value_class_fixtures.sql` (relecture de la classe et de sa règle, défaut du pays posé dans une transaction annulée).
+
+- **Table** `core.catalog_value_class_rule` (classe C, RLS `ENABLE` + `FORCE`, aucun droit applicatif ; lecture par `catalog_cmd_owner` ; jamais supprimée, retirée par `status`) : marque, modèle facultatif (slug exact ou préfixe suivi d'un tiret), pays facultatif, classe ; graine PROPOSÉE sans code pays.
+- **Colonnes** `catalog_vehicle.value_class_source` (`CATALOG`, `MODEL_RULE`, `MAKE_RULE`, `COUNTRY_DEFAULT`) et `value_class_rule_id` ; contraintes `catalog_vehicle_value_class_source_known` et `catalog_vehicle_value_class_rule_match`.
+- **Fonctions** (SECURITY INVOKER, propriétaire `migrator`, EXECUTE `catalog_cmd_owner`) : `core.catalog_value_class_resolve(pays, variante, marque saisie, modèle saisi)` (lecture seule ; variante, puis règle la plus précise, puis défaut du pays ; sinon aucune classe) et `core.catalog_vehicle_assign_value_class(véhicule)` (pose la classe d'un véhicule SANS classe, jamais un recalcul) ; déclencheur `catalog_vehicle_value_class_follow` (`BEFORE UPDATE OF variant_id`, seulement pour un véhicule déjà classé par cette règle).
+- **Publication** : `core.catalog_cmd_submit_listing` (corps de 0084 recopié) attribue la classe après les photos, avant les contrôles automatiques. Interrupteurs inchangés : sans contrat ni `insurer_contract_active`, toujours `INSURER_CONTRACT_INACTIVE`.
+- **Preuves** : `test/l0/l0-n83-value-class.test.ts` (PA USD, PY PYG, transactions annulées) ; `test/l0/l0-n101-catalogue-pa.test.ts` (parcours jusqu'à l'annonce publique sur une variante sans fiche, sans classe posée à la main).
+
 ## Parties d'une réservation pour les notifications (US-213 ; 16 BKG-022, NTF-007 ; 17 §2.2, §4.5 ; ADR-157)
 
 Migration `0133_booking_notification_parties` : une fonction de lecture AJOUTÉE. Aucune table, aucun droit sur une table : `cmd_hold_owner` lisait déjà les colonnes lues.
@@ -923,7 +933,7 @@ Migration `0133_booking_notification_parties` : une fonction de lecture AJOUTÉE
 
 ## « Mis viajes » et détail du trip du voyageur (US-214 ; 16 BKG-027 ; 10b S08, S09 ; ADR-160)
 
-Migration `0134_booking_guest_trips_read` : une fonction de lecture AJOUTÉE, aucune table ; un droit de colonne (`booking_trip.payment_status` pour `cmd_hold_owner`). Fixture `9948_test_us214_guest_trips_fixtures` (trips BOOKED sans assureur ni caution, demande REQUEST en attente de l'hôte).
+Migration `0136_booking_guest_trips_read` : une fonction de lecture AJOUTÉE, aucune table ; un droit de colonne (`booking_trip.payment_status` pour `cmd_hold_owner`). Fixture `9948_test_us214_guest_trips_fixtures` (trips BOOKED sans assureur ni caution, demande REQUEST en attente de l'hôte).
 
 - `core.booking_guest_trips(bytea, text, uuid, integer)` (cmd_hold_owner, EXECUTE app_api) : trips du voyageur de la SESSION (onglets UPCOMING, IN_PROGRESS, DONE, CANCELLED, partition de 0101) et ses demandes en attente (REQUESTED : hold REQUEST en `AWAITING_HOST` ou `PAYMENT_IN_FLIGHT`, heure limite de la base) ; auto sans plaque ; hôte en prénom et initiale ; nom du lieu, adresse et ville d'un trip à venir ou en cours seulement, ville seule d'une demande ; total du devis figé (jamais recalculé) ; état du contrat (`NONE`, `TO_SIGN`, `SIGNED`). Trip d'une autre personne (y compris celui que la session héberge) ou inconnu : aucune ligne. Issues : `DONE`, `AUTH_REQUIRED`, `REQUEST_INVALID`.
 - **Preuves** : `test/l0/l0-us214-guest-trips.test.ts` (PA USD, PY PYG ; transaction annulée sous app_api ; trips et demande de la fixture 9948, contrat signé par 9963 ; IDOR, onglets, minimisation, refus d'app_worker et d'app_anon).
