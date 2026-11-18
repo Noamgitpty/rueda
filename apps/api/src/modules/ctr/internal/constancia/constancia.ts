@@ -249,6 +249,21 @@ export function buildConstanciaBody(input: ConstanciaInput): ContractLine[] {
   return [...part(input, 'es'), { s: 'h', t: note }, ...part(input, input.courtesy)];
 }
 
+/**
+ * Découpe du texte en ses deux parties (revue de code de #234 n° 6, BOARD N-353) : la partie
+ * espagnole (fait foi) jusqu'à la note de traduction exclue, puis la partie du lecteur à partir de
+ * cette note (avant son titre). La frontière est le deuxième titre moins une ligne : elle dépend de
+ * l'ordre de `buildConstanciaBody` (note de traduction juste avant le second titre), que le test
+ * d'invariant de `constancia.test.ts` protège.
+ */
+export function splitConstanciaBody(
+  lines: readonly ContractLine[],
+): readonly [readonly ContractLine[], readonly ContractLine[]] {
+  const second = lines.findIndex((l, i) => i > 0 && l.s === 'title');
+  const cut = second - 1;
+  return [lines.slice(0, cut), lines.slice(cut)];
+}
+
 /** Pied de page du PDF (référence et version du contrat suivi). */
 export function constanciaFooter(tripRef: string, contractVersion: number): string {
   return `Constancia ${tripRef} v${contractVersion}`;

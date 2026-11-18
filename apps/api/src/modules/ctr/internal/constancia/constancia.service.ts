@@ -28,6 +28,7 @@ import {
   constanciaSha256,
   parseConstanciaFacts,
   renderConstanciaPdf,
+  splitConstanciaBody,
 } from './constancia.js';
 import type { ConstanciaFacts, ConstanciaLocale } from './constancia.js';
 import { ConstanciaHttpError } from './errors.js';
@@ -97,11 +98,10 @@ interface Rendered {
 /** Partie espagnole, puis la langue du lecteur (à partir de sa note, avant son titre). */
 function partsOf(lines: readonly ContractLine[], courtesy: string): ConstanciaPartView[] {
   const view = (l: ContractLine): ConstanciaLineView => ({ style: l.s, text: l.t });
-  const second = lines.findIndex((l, i) => i > 0 && l.s === 'title');
-  const cut = second - 1;
+  const [es, reader] = splitConstanciaBody(lines);
   return [
-    { lang: 'es', authoritative: true, lines: lines.slice(0, cut).map(view) },
-    { lang: courtesy, authoritative: false, lines: lines.slice(cut).map(view) },
+    { lang: 'es', authoritative: true, lines: es.map(view) },
+    { lang: courtesy, authoritative: false, lines: reader.map(view) },
   ];
 }
 

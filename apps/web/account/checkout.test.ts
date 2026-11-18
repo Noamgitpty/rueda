@@ -205,6 +205,15 @@ describe('devis figé du checkout', () => {
     expect(legacy?.driverAge).toBeNull();
   });
 
+  it('US-212b (N-346) : hôte en prénom et initiale lu tel quel ; absent, vide, trop long ou d’une autre forme ⇒ aucun nom (le devis reste lisible)', () => {
+    expect(checkoutQuoteOf(reply(200, quote({ hostName: 'María G.' })))?.hostName).toBe('María G.');
+    for (const hostName of [undefined, null, '', '   ', 42, 'x'.repeat(44)]) {
+      const q = checkoutQuoteOf(reply(200, quote({ hostName })));
+      expect(q).not.toBeNull();
+      expect(q?.hostName).toBeNull();
+    }
+  });
+
   it('US-226b : niveaux incohérents ⇒ devis jamais affiché (fail-closed)', () => {
     const bad = (mutate: (o: ReturnType<typeof options>) => unknown) =>
       checkoutQuoteOf(reply(200, withProtection({ protectionOptions: mutate(options()) })));
