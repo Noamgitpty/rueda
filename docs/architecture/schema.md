@@ -7,7 +7,7 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 
 ## Synthèse
 
-- 133 migrations ; 126 tables ; 3 vues ; 710 politiques RLS ; 271 fonctions `SECURITY DEFINER` ; 246 autres fonctions.
+- 134 migrations ; 126 tables ; 3 vues ; 710 politiques RLS ; 277 fonctions `SECURITY DEFINER` ; 246 autres fonctions.
 - Tables sans RLS `ENABLE` + `FORCE` : aucune.
 - Rôles applicatifs avec `SUPERUSER` ou `BYPASSRLS` : aucun.
 
@@ -148,6 +148,7 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 | `0130_payment_refund_read` | PAY / AVL / SUP : lecture du remboursement par le voyageur, l'hôte et la console (S10). |
 | `0131_payment_pan_detector_hex_digest` | PAY : le détecteur de PAN écarte les empreintes hexadécimales de 64 caractères (clé |
 | `0132_support_console_self_guard_restriction_notices` | SUP / IAM / BKG : séparation des tâches sur les cinq entrées de la console restées hors de |
+| `0133_finance_host_earnings_receipts` | FIN / AVL : reçu des gains de l'hôte, reçu du trip fee du voyageur, relevé mensuel des |
 
 ## Rôles
 
