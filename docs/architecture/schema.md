@@ -151,6 +151,8 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 | `0133_booking_notification_parties` | AVL / NTF : parties d'une réservation lues par le travailleur des notifications. |
 | `0134_config_vehicle_value_class_params` | graine complémentaire : paramètres « vehicle_default_value_class* » (US-113 ; 17 §7.2). |
 | `0135_catalog_vehicle_value_class` | CAT : classe de valeur attribuée à la publication d'un véhicule non classé (BOARD N-83, |
+| `0136_settlement_host_ledger_advance_receivable` | STL : créance de l'hôte de la règle 3 bis portée au `host_ledger` (avance de Kmino). |
+| `0137_booking_defaulted_host_trips_cancel` | AVL / SUP : hôte défaillant, annulation de ses trips à venir par l'ops, voyageurs remboursés |
 
 ## Rôles
 
@@ -5297,16 +5299,20 @@ Déclencheurs :
 | `reason` | `text` | oui | — |
 | `amount_minor` | `bigint` | oui | — |
 | `created_at` | `timestamp with time zone` | oui | `platform.now()` |
+| `advance_id` | `uuid` | non | — |
 
 Contraintes :
 
+- `host_ledger_advance_fk` : `FOREIGN KEY (advance_id) REFERENCES core.settlement_platform_advance(id)`
+- `host_ledger_advance_shape` : `CHECK ((((reason = 'RELEASED_LEG_ADVANCE'::text) = (advance_id IS NOT NULL)) AND ((reason <> 'RELEASED_LEG_ADVANCE'::text) OR (amount_minor < 0))))`
+- `host_ledger_advance_unique` : `UNIQUE (advance_id)`
 - `host_ledger_amount_nonzero` : `CHECK (amount_minor <> 0)`
 - `host_ledger_country_format` : `CHECK (country_code ~ '^[A-Z]{2}$'::text)`
 - `host_ledger_currency_format` : `CHECK (currency ~ '^[A-Z]{3}$'::text)`
-- `host_ledger_entry_settlement_reason_unique` : `UNIQUE (settlement_id, reason)`
-- `host_ledger_entry_version_reason_unique` : `UNIQUE (trip_id, segment_no, settlement_version, reason)`
+- `host_ledger_entry_settlement_reason_unique` : `UNIQUE NULLS NOT DISTINCT (settlement_id, reason, advance_id)`
+- `host_ledger_entry_version_reason_unique` : `UNIQUE NULLS NOT DISTINCT (trip_id, segment_no, settlement_version, reason, advance_id)`
 - `host_ledger_penalty_debit` : `CHECK (reason <> 'HOST_CANCELLATION_PENALTY'::text OR amount_minor < 0)`
-- `host_ledger_reason_valid` : `CHECK (reason = 'HOST_CANCELLATION_PENALTY'::text)`
+- `host_ledger_reason_valid` : `CHECK (reason = ANY (ARRAY['HOST_CANCELLATION_PENALTY'::text, 'RELEASED_LEG_ADVANCE'::text]))`
 - `host_ledger_settlement_fk` : `FOREIGN KEY (settlement_id, trip_id, segment_no, settlement_version, org_id, country_code, currency) REFERENCES core.settlement_settlement(id, trip_id, segment_no, version, org_id, country_code, currency)`
 - `host_ledger_version_positive` : `CHECK (settlement_version >= 1)`
 - `settlement_host_ledger_entry_pkey` : `PRIMARY KEY (id)`
@@ -5318,6 +5324,7 @@ Index :
 Politiques RLS :
 
 - `cmd_money_ins` (INSERT, PERMISSIVE, cmd_money_owner) WITH CHECK `((app.actor_kind() = 'WORKER'::text) AND (app.worker_name() = 'trip_lifecycle'::text) AND (reason = 'HOST_CANCELLATION_PENALTY'::text) AND (amount_minor < 0))`
+- `cmd_money_ins_advance` (INSERT, PERMISSIVE, cmd_money_owner) WITH CHECK `((app.actor_kind() = 'WORKER'::text) AND (app.worker_name() = 'payment_command'::text) AND (reason = 'RELEASED_LEG_ADVANCE'::text) AND (amount_minor < 0) AND (advance_id IS NOT NULL))`
 - `cmd_money_sel` (SELECT, PERMISSIVE, cmd_money_owner) USING `true`
 - `fin_read` (SELECT, PERMISSIVE, app_api) USING `((app.actor_kind() = 'STAFF'::text) AND (country_code = ANY (app.country_scope())) AND (app.has_staff_role('FINANCE'::text, country_code) OR app.has_staff_role('ADMIN'::text, country_code)))`
 - `migrator_all` (ALL, PERMISSIVE, migrator) USING `true` WITH CHECK `true`

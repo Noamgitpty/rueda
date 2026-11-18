@@ -45,6 +45,11 @@ const ISOLATED = [
   // US-224d : remboursements préparés et VALIDÉS par le travailleur (deux rôles), compte PSP ACTIVE
   // du pays partagé (fixture 9800) ; lectures annulées
   'test/l0/l0-us224d-refund-read.test.ts',
+  // US-224e : avance de Kmino décidée par deux personnes (comme US-224b) puis créance au host_ledger ;
+  // hôte défaillant : préparation, restriction et action de la console commitées (comme US-709a),
+  // compte PSP ACTIVE du pays partagé (fixture 9800)
+  'test/l0/l0-us224e-host-receivable.test.ts',
+  'test/l0/l0-us224e-defaulted-host.test.ts',
 ];
 const C11 = ['test/l0/l0-c11-fuzz.test.ts'];
 // US-049 : les attaques de la red team (test/redteam/<axe>/) tournent seules, après tous les autres

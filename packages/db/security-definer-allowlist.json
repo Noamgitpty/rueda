@@ -1917,6 +1917,27 @@
       "owner": "iam_staff_owner",
       "execute": ["app_api"],
       "story": "US-224"
+    },
+    {
+      "signature": "core.settlement_cmd_post_advance_receivable(uuid)",
+      "family": "cmd_money",
+      "owner": "cmd_money_owner",
+      "execute": [],
+      "story": "US-224"
+    },
+    {
+      "signature": "core.settlement_post_advance_receivable()",
+      "family": "cmd_money",
+      "owner": "cmd_money_owner",
+      "execute": [],
+      "story": "US-224"
+    },
+    {
+      "signature": "core.booking_manual_action_cancel_host_trips(bytea,uuid,text,uuid,jsonb,text,uuid,text)",
+      "family": "cmd_hold",
+      "owner": "cmd_hold_owner",
+      "execute": ["iam_staff_owner"],
+      "story": "US-224"
     }
   ]
 }

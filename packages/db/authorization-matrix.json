@@ -2456,6 +2456,7 @@
       "droits": {
         "app_api": {
           "SELECT": [
+            "advance_id",
             "amount_minor",
             "country_code",
             "created_at",
