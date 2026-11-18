@@ -1,4 +1,4 @@
--- 0136 — STL : créance de l'hôte de la règle 3 bis portée au `host_ledger` (avance de Kmino).
+-- 0137 — STL : créance de l'hôte de la règle 3 bis portée au `host_ledger` (avance de Kmino).
 -- US-224 (partie 224e, argent / back-end) ; 19 US-224 critère 4 (« une créance de 75,00 est inscrite
 -- au `host_ledger` (avance de Kmino `platform_advance`, plafonnée par `host_advance_cap_minor`) ») ;
 -- BOARD N-274 ; 08 E7 règle 3 bis (« le même montant devient une créance sur le bénéficiaire : pour

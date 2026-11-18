@@ -18,6 +18,9 @@
  *
  * Remboursements d'un trip (US-224 partie 224d, ADR-154) : lecture par la partie du trip
  * (`core.booking_trip_refunds`, 0130) ; aucun adaptateur : 503.
+ *
+ * « Mis viajes » et détail du trip du voyageur (US-214, ADR-160) : lecture par le voyageur de la
+ * session (`core.booking_guest_trips`, 0136) ; aucun adaptateur : 503.
  */
 import { Module } from '@nestjs/common';
 import type { DynamicModule } from '@nestjs/common';
@@ -38,6 +41,9 @@ import { HostRequestService, LOG_HOST_REQUEST_FAILURE } from './host-requests.se
 import type { RequestCaptureProvider } from './host-requests.service.js';
 import { PgHostRequestStore, UnavailableHostRequestStore } from './host-requests-store.js';
 import type { HostRequestStore } from './host-requests-store.js';
+import { GuestTripsController } from './guest-trips.controller.js';
+import { GuestTripsService, PgGuestTripStore, UnavailableGuestTripStore } from './guest-trips.js';
+import type { GuestTripStore } from './guest-trips.js';
 import { TripRefundsController } from './trip-refunds.controller.js';
 import {
   PgTripRefundStore,
@@ -89,6 +95,8 @@ export interface AvlCheckoutOptions {
   readonly hostRequests?: AvlHostRequestOptions;
   /** Remboursements d'un trip lus par sa partie (US-224d, 0130) ; absent : 503. */
   readonly refunds?: TripRefundStore;
+  /** Trips et demandes du voyageur de la session (US-214, 0136) ; absent : 503. */
+  readonly guestTrips?: GuestTripStore;
 }
 
 /** Aucun adaptateur : 503 partout (fail-closed). */
@@ -117,6 +125,8 @@ export function postgresCheckoutAdapters(
     hostRequests: { store: new PgHostRequestStore(db), providers: new Map() },
     // US-224d : lecture du remboursement par la partie du trip (aucune écriture)
     refunds: new PgTripRefundStore(db),
+    // US-214 : « Mis viajes » et détail du trip du voyageur (aucune écriture)
+    guestTrips: new PgGuestTripStore(db),
   };
 }
 
@@ -130,6 +140,7 @@ export class AvlCheckoutModule {
         CheckoutPaymentController,
         HostRequestsController,
         TripRefundsController,
+        GuestTripsController,
       ],
       providers: [
         {
@@ -161,6 +172,10 @@ export class AvlCheckoutModule {
         {
           provide: TripRefundsService,
           useValue: new TripRefundsService(options.refunds ?? new UnavailableTripRefundStore()),
+        },
+        {
+          provide: GuestTripsService,
+          useValue: new GuestTripsService(options.guestTrips ?? new UnavailableGuestTripStore()),
         },
       ],
     };

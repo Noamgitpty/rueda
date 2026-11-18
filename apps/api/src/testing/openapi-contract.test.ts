@@ -9,6 +9,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { hygienicCode } from '../http-hardening.js';
 import {
   CHECKOUT_MESSAGES,
+  GUEST_TRIP_MESSAGES,
   HOST_REQUEST_MESSAGES,
   PAYMENT_MESSAGES,
   TRIP_REFUND_MESSAGES,
@@ -242,6 +243,7 @@ const CATALOG: ReadonlyMap<string, ReadonlySet<number>> = (() => {
     QUOTE_MESSAGES,
     CONTRACT_MESSAGES,
     TRIP_REFUND_MESSAGES,
+    GUEST_TRIP_MESSAGES,
   ] as const) {
     for (const [code, { status }] of Object.entries(catalog)) add(code, status);
   }

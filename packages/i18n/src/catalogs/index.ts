@@ -227,8 +227,15 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  (demandes de réservation : reçue par l’hôte avec l’heure limite de la base ; refus, expiration,
  capture non aboutie), `web.s07.title`, `web.s07.documents`, `web.s07.safety` (S06 confirmé,
  10b S07).
+ Version 76 (74 et 75 réservées à des stories en cours ; la 73 est celle d’US-213) : « Mis viajes » et détail du
+ trip du voyageur (US-214, ADR-160) : `common.trips.*` (réponses des routes `/trips` et
+ `/trips/{id}` : introuvable, indisponible), `web.s08.*` (S08 : sections demandes envoyées, à
+ venir, en cours, passés, annulés ; carte du trip ; heure limite de réponse d'une demande ; vide
+ `web.s08.none`, texte de `web.s08.empty` de 10b §4.3 dont la clé est tenue par le prototype),
+ `web.s09.*` (S09 : lieu de remise, hôte particulier, total payé,
+ documents — contrat ; constancia et reçu annoncés —, modification par le support, BR-MOD-01).
  */
-export const CATALOG_VERSION = 73;
+export const CATALOG_VERSION = 76;
 
 /** Catalogues de base par langue ; la langue d'un profil de locale choisit le sien. */
 export const CATALOGS: Readonly<Record<CatalogLanguage, VersionedCatalog<MessageKey>>> = {

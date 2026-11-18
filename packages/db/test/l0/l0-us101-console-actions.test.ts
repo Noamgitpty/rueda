@@ -187,7 +187,7 @@ const REVIEW_FLAGGED_HANDLER =
 // travailleur trip_lifecycle) ; saisies fermées du sous-motif et du motif plateforme
 const CANCEL_TRIP_HANDLER =
   'core.booking_manual_action_cancel_trip(bytea,uuid,text,uuid,jsonb,text,uuid,text)';
-// US-224e (0137, ADR-163) : annulation des trips à venir d'un hôte défaillant
+// US-224e (0138, ADR-163) : annulation des trips à venir d'un hôte défaillant
 const CANCEL_HOST_TRIPS_HANDLER =
   'core.booking_manual_action_cancel_host_trips(bytea,uuid,text,uuid,jsonb,text,uuid,text)';
 const KYC_DECISION_HANDLER =
@@ -329,7 +329,7 @@ const MATRIX: Readonly<Record<string, Expected>> = {
     handler: CANCEL_TRIP_HANDLER,
     source: '17 §2.3 « ops.platform_cancel (motif plateforme) » ; 16 BKG-035 ; 19 US-215, ADR-148',
   },
-  // US-224e (0137, ADR-163) : hôte défaillant, trips à venir de son compte annulés au motif
+  // US-224e (0138, ADR-163) : hôte défaillant, trips à venir de son compte annulés au motif
   // HOST_ACCOUNT_CLOSED (motif dérivé de l'action, aucune saisie)
   CANCEL_HOST_TRIPS: {
     permission: 'ops.platform_cancel',
@@ -541,7 +541,7 @@ describe('catalogue (17 §10 NN9, 17 §2.3, 19 US-101)', () => {
           'HOST_SCREENING_REVIEW',
           // US-108 (0081) : filtrage manuel des sanctions par l'ops
           'HOST_SANCTIONS_SCREENING',
-          // US-224e (0137) : trips à venir d'un hôte défaillant (ADR-163)
+          // US-224e (0138) : trips à venir d'un hôte défaillant (ADR-163)
           'CANCEL_HOST_TRIPS',
         ].sort(),
       );

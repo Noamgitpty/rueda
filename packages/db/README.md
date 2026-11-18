@@ -931,6 +931,13 @@ Migration `0133_booking_notification_parties` : une fonction de lecture AJOUTÉE
   - assertions ajoutées à `l0-us223-request.test.ts` (capture refusée et capture jamais confirmée d'une demande acceptée : faits lus du hold) ;
   - `apps/api/test/int/ntf.int.test.ts` (charge utile réelle de `booking.trip.booked`, trip réel, rejeu sans doublon).
 
+## « Mis viajes » et détail du trip du voyageur (US-214 ; 16 BKG-027 ; 10b S08, S09 ; ADR-160)
+
+Migration `0136_booking_guest_trips_read` : une fonction de lecture AJOUTÉE, aucune table ; un droit de colonne (`booking_trip.payment_status` pour `cmd_hold_owner`). Fixture `9948_test_us214_guest_trips_fixtures` (trips BOOKED sans assureur ni caution, demande REQUEST en attente de l'hôte).
+
+- `core.booking_guest_trips(bytea, text, uuid, integer)` (cmd_hold_owner, EXECUTE app_api) : trips du voyageur de la SESSION (onglets UPCOMING, IN_PROGRESS, DONE, CANCELLED, partition de 0101) et ses demandes en attente (REQUESTED : hold REQUEST en `AWAITING_HOST` ou `PAYMENT_IN_FLIGHT`, heure limite de la base) ; auto sans plaque ; hôte en prénom et initiale ; nom du lieu, adresse et ville d'un trip à venir ou en cours seulement, ville seule d'une demande ; total du devis figé (jamais recalculé) ; état du contrat (`NONE`, `TO_SIGN`, `SIGNED`). Trip d'une autre personne (y compris celui que la session héberge) ou inconnu : aucune ligne. Issues : `DONE`, `AUTH_REQUIRED`, `REQUEST_INVALID`.
+- **Preuves** : `test/l0/l0-us214-guest-trips.test.ts` (PA USD, PY PYG ; transaction annulée sous app_api ; trips et demande de la fixture 9948, contrat signé par 9963 ; IDOR, onglets, minimisation, refus d'app_worker et d'app_anon).
+
 ## Remboursement lu par le voyageur, l'hôte et la console (US-224 partie 224d ; 19 US-224 critère 1 ; 08 SM-8, BR-PAY-08 ; ADR-154)
 
 Migration `0130_payment_refund_read` : trois fonctions de lecture AJOUTÉES, aucune table, aucun droit sur une table.
@@ -989,7 +996,7 @@ Migration `0129_settlement_host_ledger`. Fixture `9949_test_us709_host_ledger_fi
 
 ## Créance de la règle 3 bis et hôte défaillant (US-224 partie 224e ; 08 E7 règle 3 bis, BR-TRUST-09, BR-CXL-14 ; ADR-163)
 
-Migrations `0136_settlement_host_ledger_advance_receivable` et `0137_booking_defaulted_host_trips_cancel`. Fixture `9941_test_us224e_host_receivable_fixtures.sql` (écritures d'un trip avec l'avance citée, appel de la commande, titulaire d'un compte d'hôte, demandes d'annulation d'un compte).
+Migrations `0137_settlement_host_ledger_advance_receivable` et `0138_booking_defaulted_host_trips_cancel`. Fixture `9941_test_us224e_host_receivable_fixtures.sql` (écritures d'un trip avec l'avance citée, appel de la commande, titulaire d'un compte d'hôte, demandes d'annulation d'un compte).
 
 - **Créance de l'avance** (N-274, critère 4) : motif `RELEASED_LEG_ADVANCE` ajouté au `host_ledger` ; colonne `advance_id` (clé étrangère vers `settlement_platform_advance`, unique, exigée pour ce motif seulement, `host_ledger_advance_shape`) ; uniques d'idempotence de 0129 recréées sous leur nom en `NULLS NOT DISTINCT` avec `advance_id` (même sens pour la pénalité). Commande `core.settlement_cmd_post_advance_receivable(uuid)` (cmd_money_owner, aucun EXECUTE) appelée par le déclencheur `platform_advance_receivable_posted` (avance `RELEASED_LEG` `PLANNED` → `OPEN`, c'est-à-dire au report du remboursement par `settlement_cmd_apply_leg_movement`, travailleur `payment_command`) : montant `−receivable_minor` de l'avance stockée, devise du trip, règlement et version de l'instance de remboursement ; idempotente par avance ; politique `cmd_money_ins_advance`.
 - **Hôte défaillant** (N-236, critère 5) : action de console `CANCEL_HOST_TRIPS` (sujet ORGANIZATION, permission `ops.platform_cancel`, aucune saisie) liée à `core.booking_manual_action_cancel_host_trips` (cmd_hold_owner, EXECUTE iam_staff_owner) : restriction active du titulaire exigée (`HOST_NOT_RESTRICTED`), une demande `booking_trip_cancellation` PENDING par trip à venir du compte (`CANCEL_TRIP_PLATFORM`, motif dérivé `HOST_ACCOUNT_CLOSED`, initiateur PLATFORM), réglée par le travailleur `trip_lifecycle` comme toute annulation (remboursement intégral, aucune pénalité) ; `NO_TRIP_TO_CANCEL`, `SELF_FORBIDDEN`, `NOT_FOUND`.
