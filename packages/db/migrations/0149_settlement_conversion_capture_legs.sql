@@ -1,4 +1,4 @@
--- 0147 — STL / AVL / FIN : la capture prouvée d'un hold converti est rattachée au trip né de la
+-- 0149 — STL / AVL / FIN : la capture prouvée d'un hold converti est rattachée au trip né de la
 -- conversion et reportée sur ses soldes par jambe, dans la même transaction ; le rapprochement voit
 -- tout trip qui a un encaissement prouvé.
 -- US-221 partie 221b (agent argent / back-end) ; défauts D1 et D2 de la passation US-221 (PR #245) ;
@@ -586,7 +586,7 @@ BEGIN
               r_op.hold_id::text);
     END IF;
     -- US-221b : rejeu d'une conversion de CAPTURE : report idempotent sur les soldes par jambe
-    -- (DUPLICATE si déjà porté ; rattrape une conversion antérieure à 0147, jamais portée)
+    -- (DUPLICATE si déjà porté ; rattrape une conversion antérieure à 0149, jamais portée)
     IF r_disp.disposition = 'CONVERSION' AND r_op.kind = 'CAPTURE' THEN
       PERFORM core.settlement_cmd_apply_conversion_capture(p_operation_id);
     END IF;

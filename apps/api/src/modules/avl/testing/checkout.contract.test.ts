@@ -137,6 +137,7 @@ const VIEW: CheckoutQuote = {
   protectionLevel: null,
   driverAge: null,
   insurerContractActive: true,
+  hostName: 'María G.',
   protectionOptions: [],
   mileage: { mode: 'UNLIMITED', includedKm: null, extraKmPriceMinor: null },
   cancellation: {

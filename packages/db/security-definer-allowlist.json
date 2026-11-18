@@ -1814,6 +1814,13 @@
       "story": "US-212"
     },
     {
+      "signature": "core.booking_checkout_host_name(bytea,uuid)",
+      "family": "cmd_hold",
+      "owner": "cmd_hold_owner",
+      "execute": ["app_api"],
+      "story": "US-212"
+    },
+    {
       "signature": "core.booking_cmd_record_contract(uuid,text,jsonb,jsonb,jsonb,uuid,uuid,text,bytea)",
       "family": "cmd_hold",
       "owner": "cmd_hold_owner",

@@ -1072,9 +1072,27 @@ Migration `0146_payment_deposit_hold`, fixture `9945_test_us701_deposit_hold_fix
 - **Droits ajoutés** à cmd_hold_owner : politiques de lecture `cmd_hold_deposit_read` de `config_param_value` (`deposit_always_required`, `deposit_trigger_classes`, `deposit_amount`, `funds_holding_enabled`) et de `config_param_definition` (`funds_holding_enabled`) ; `SELECT (conversion_operation_id)` de `booking_checkout_hold`.
 - **Preuves** : `test/l0/l0-us701-deposit-hold.test.ts` (PA USD, PY PYG ; `app_api`, `app_worker`).
 
+## Hôte figé de la constancia et hôte du checkout S05 (US-212 partie 212b ; BOARD N-345, N-346 ; ADR-162)
+
+Migration `0147_ctr_constancia_frozen_host_checkout_host`. Fixture `9938_test_us212b_host_rename_fixtures` (nom légal d'un compte changé après la réservation, transaction annulée).
+
+- **Hôte figé** : `core.booking_trip_constancia(bytea, uuid)` (0138) remplacée à signature identique : le nom de l'hôte vient de `identity.hostName` de la dernière version du contrat (0122), réduit à prénom et initiale par une règle du seul fait figé (premier mot, initiale du mot suivant ; nom figé vide ⇒ `ERASED`) ; le compte n'est plus lu que pour sa pseudonymisation.
+- **Hôte du checkout** : `core.booking_checkout_host_name(bytea, uuid)` (cmd_hold_owner, EXECUTE app_api, lecture seule) : premier mot du prénom légal et initiale du nom de l'hôte de l'annonce du devis du voyageur de la session ; devis d'un autre ou inconnu ⇒ aucune ligne ; titulaire pseudonymisé ⇒ `NULL`.
+- **Droits** : aucun nouveau (colonnes déjà accordées par 0032, 0037, 0067, 0108, 0122).
+- **Preuves** : `test/l0/l0-us212-constancia.test.ts` (PA USD, PY PYG : nom changé après la réservation sans effet sur la constancia, règle de réduction, nom figé vide, hôte du checkout au seul voyageur du devis, `app_worker` et `app_anon` : 42501).
+
+## Durcissement avant l'ouverture d'un pays (US-224 ; suites N-354, N-342, N-313 ; ADR-171)
+
+Migration `0148_hardening_country_open`. Fixture `9935_test_hardening_fixtures` (restriction d'un genre donné, statut de l'adhésion du titulaire, co-hôte ACTIVE ; transactions de test).
+
+- **N-354** : corps de `core.booking_manual_action_cancel_host_trips` (0140) remplacé : `CANCEL_HOST_TRIPS` exige une restriction active de sûreté du titulaire (`TS_HOLD`, `POLICY_VIOLATION`, `KYC_REVOKED`) ; une restriction d'argent seule (`UNPAID_BALANCE`, `PAYMENT_PLAN_ACTIVE`, `CHARGEBACK`) ⇒ `HOST_NOT_RESTRICTED`, rien d'écrit. `GRANT SELECT (kind) ON core.iam_restriction TO cmd_hold_owner` ajouté.
+- **N-342** : corps de `core.booking_trip_receipt` (0137) remplacé : l'hôte est jugé par `core.iam_host_accounts` (titulaire au rôle `P2P_HOST` `ACTIVE`, comme `booking_host_earnings`) ; co-hôte ou adhésion retirée ⇒ `NOT_FOUND`.
+- **N-313** : corps de `core.catalog_value_class_resolve` (0135) remplacé : marque comparée sans ses tirets, modèle de la règle reconnu au début du modèle saisi (tirets facultatifs, suivi de la fin, d'un tiret, d'un chiffre ou d'une lettre selon la fin de la règle) ; graine `core.catalog_value_class_rule` complétée (`source_ref` « N-313 »). Une classe posée n'est jamais recalculée.
+- **Preuves** : `test/l0/l0-us224e-defaulted-host.test.ts`, `test/l0/l0-us217-host-receipt.test.ts`, `test/l0/l0-n83-value-class.test.ts` (PA USD, PY PYG ; rôles de production).
+
 ## Report de la capture convertie (US-221 partie 221b ; défauts D1 et D2 d'US-221 ; 08 E7 règles 1, 2, 10 ; ADR-170)
 
-Migration `0147_settlement_conversion_capture_legs`. Fixture `9936_test_us221b_conversion_capture_fixtures.sql` (disposition `CONVERSION` sans report, forme d'avant 0147, transaction annulée ; état de rattachement et de report d'une opération).
+Migration `0149_settlement_conversion_capture_legs`. Fixture `9936_test_us221b_conversion_capture_fixtures.sql` (disposition `CONVERSION` sans report, forme d'avant 0149, transaction annulée ; état de rattachement et de report d'une opération).
 
 - **Conversion** : `core.booking_convert_payment` (0126) remplacé à signature, propriétaire et droits identiques : la conversion d'une `CAPTURE` appelle, dans sa transaction, `core.settlement_cmd_apply_conversion_capture(uuid)` (cmd_money_owner, EXECUTE app_worker, travailleurs `booking_conversion`, `disposition_sweeper`, `payment_intent_sweeper`) : rattachement de l'opération et de ses jambes au trip de la disposition `CONVERSION`, chaque jambe portée à son montant explicite, mouvement `CAPTURE` (écriture `COLLECTION` de l'assureur par 0143) ; `DUPLICATE` au rejeu ; un refus annule la conversion.
 - **Droits** : `SELECT (operation_id, hold_id, disposition, trip_id)` de `booking_payment_disposition` et `UPDATE (trip_id)` de `payment_payment_operation` et `payment_payment_operation_leg` à cmd_money_owner ; politiques `cmd_money_conversion_attach`, `cmd_money_conversion_ins`, `cmd_money_conversion_upd` (travailleurs de conversion, miroir exact de la capture) ; déclencheurs `operation_trip_attach_guard`, `operation_leg_trip_attach_guard` (tous rôles).

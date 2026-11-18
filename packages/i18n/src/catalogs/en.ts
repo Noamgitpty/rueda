@@ -2061,6 +2061,10 @@ export const EN_MESSAGES = {
   'web.s05.priceChanged': 'The price changed',
   'web.s05.summary.title': 'Your trip',
   'web.s05.summary.host': '{host_name}’s car',
+  'web.s05.intermediary':
+    '{brand} is a peer-to-peer marketplace: it acts as intermediary and collects the payment as merchant of record, but it is not a rental company and does not own the car. The rental agreement is between {host_name} and you.',
+  'web.s05.intermediaryNoHost':
+    '{brand} is a peer-to-peer marketplace: it acts as intermediary and collects the payment as merchant of record, but it is not a rental company and does not own the car. The rental agreement is between the host and you.',
   'web.s05.summary.pickup': 'Pickup',
   'web.s05.summary.return': 'Return',
   'web.s05.summary.place': 'Pickup area',

@@ -408,7 +408,7 @@ export const CONSTRAINT_CODES: Readonly<Record<string, readonly [string, DbBusin
   insurer_bordereau_incoherent: [SQLSTATE.integrityConstraintViolation, 'INVARIANT_VIOLATION'],
   insurer_bordereau_stale: [SQLSTATE.objectNotInPrerequisiteState, 'INVARIANT_VIOLATION'],
   insurer_bordereau_line_frozen: [SQLSTATE.objectNotInPrerequisiteState, 'INVARIANT_VIOLATION'],
-  // rattachement de la capture convertie à son trip (0147, US-221 partie 221b, ADR-170)
+  // rattachement de la capture convertie à son trip (0149, US-221 partie 221b, ADR-170)
   operation_trip_attach_invalid: [SQLSTATE.integrityConstraintViolation, 'INVARIANT_VIOLATION'],
 };
 

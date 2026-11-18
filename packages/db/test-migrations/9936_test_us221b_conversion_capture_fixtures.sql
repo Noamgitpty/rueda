@@ -1,12 +1,12 @@
 -- 9936 — fixtures des preuves du report de la capture convertie (US-221 partie 221b, migration
--- 0147, ADR-170). TESTS SEULEMENT.
+-- 0149, ADR-170). TESTS SEULEMENT.
 --
 -- JAMAIS appliquée hors tests : seul le harnais ajoute test-migrations/, et seulement à la base
 -- jetable principale `rueda_test_*`.
 --
 -- Rôle (SECURITY DEFINER sous migrator, search_path figé ; aucun SQL dynamique) :
 --   1. `us221b_legacy_conversion` : disposition CONVERSION d'une capture prouvée vers un trip de
---      fixture, SANS report sur les soldes : la forme qu'avait un trip réservé avant 0147 (défaut
+--      fixture, SANS report sur les soldes : la forme qu'avait un trip réservé avant 0149 (défaut
 --      D2 de la passation US-221) ; appelée SEULEMENT dans une transaction annulée (le contrôle
 --      différé de la disposition n'est jamais atteint) ;
 --   2. `us221b_capture_state` : rattachement et report d'une opération (trip de l'opération et de
@@ -22,7 +22,7 @@ CREATE FUNCTION test_fixture.us221b_legacy_conversion(p_operation_id uuid, p_tri
   SECURITY DEFINER
   SET search_path = pg_catalog, pg_temp
 AS $fn$
-  -- disposition CONVERSION posée SANS le report (forme d'avant 0147) ; le contrôle différé de la
+  -- disposition CONVERSION posée SANS le report (forme d'avant 0149) ; le contrôle différé de la
   -- disposition (hold CONVERTED) n'est jamais atteint : transaction annulée seulement
   INSERT INTO core.booking_payment_disposition (operation_id, hold_id, disposition, trip_id)
   SELECT o.id, o.hold_id, 'CONVERSION', p_trip_id
