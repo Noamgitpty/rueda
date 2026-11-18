@@ -679,9 +679,32 @@ describe.each(CASES)('US-221 — parcours dorés « réservation » ($country, $
         });
 
         // capacités validées : T1 (jambes du devis engagé), ordre au PSP, T2
-        // diagnostic lu AVANT T1 (un refus de la base annule la transaction)
-        const diagnostic = await accountsDiagnostic(tx, c.country);
-        const started = await payOrExplain(pay, hash, holdId, () => Promise.resolve(diagnostic));
+        // Compte de passage d'un autre fichier (constat C-1) : T1 peut viser un compte ACTIVE
+        // ouvert APRÈS la lecture des fournisseurs. Chaque essai est isolé par un point de
+        // sauvegarde ; un refus relit les fournisseurs, valide le nouveau et rejoue (3 essais au
+        // plus). Un refus qui persiste sur les mêmes comptes échoue avec son diagnostic.
+        let started: Awaited<ReturnType<CheckoutPaymentService['pay']>> | undefined;
+        let seen = providers;
+        for (let attempt = 1; started === undefined; attempt++) {
+          await tx.query('SAVEPOINT us221_t1');
+          try {
+            started = await paymentService(tx, psp, seen).pay(hash, holdId, { method: 'CARD' });
+            await tx.query('RELEASE SAVEPOINT us221_t1');
+          } catch (error) {
+            await tx.query('ROLLBACK TO SAVEPOINT us221_t1');
+            const code = String((error as { code?: unknown }).code);
+            const now = await checkoutProviders(c.country);
+            const fresh = now.filter((x) => !seen.includes(x));
+            if (attempt >= 3 || fresh.length === 0) {
+              const diagnostic = await accountsDiagnostic(tx, c.country);
+              throw new Error(`paiement refusé : ${code} (essai ${attempt}) ${diagnostic}`, {
+                cause: error,
+              });
+            }
+            seen = [...seen, ...fresh];
+            await capabilities(tx, c.country, at(-3), undefined, 'VALIDATED_SANDBOX', fresh);
+          }
+        }
         expect(started.created).toBe(true);
         expect(started.payment).toMatchObject({
           state: 'VERIFYING',
