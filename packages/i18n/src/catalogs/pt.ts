@@ -115,6 +115,14 @@ export const PT_MESSAGES = {
   'web.deposit.contest': 'Conferir e responder',
   'web.deposit.debitWarning':
     'A caução é cobrada e depois devolvida. Faremos o estorno em {date}; seu banco pode levar de 3 a 10 dias úteis para mostrar o valor.',
+  // US-225 (ADR-164) : refus de la caution avant le paiement (10b UX-24 ; 08 BR-PAY-06, T59)
+  'web.deposit.unavailable': {
+    one: 'Para essas datas não conseguimos bloquear a caução no seu cartão. Você pode reservar até {count} dia.',
+    other:
+      'Para essas datas não conseguimos bloquear a caução no seu cartão. Você pode reservar até {count} dias.',
+  },
+  'web.deposit.unavailableNone':
+    'Por enquanto, não conseguimos bloquear a caução no seu cartão para este carro.',
   'web.catalog.title': 'Biblioteca de componentes',
   'web.catalog.intro':
     'Cada componente em todos os seus estados. Escolha o idioma, o tema e a largura para revisar.',

@@ -34,7 +34,7 @@ Entités de 17 §3.2.7 :
 | `mit_consent`              | cible 17, pas encore créée                                                                       |
 | `tender`                   | cible 17, pas encore créée                                                                       |
 | `refund_instance`          | cible 17, pas encore créée                                                                       |
-| `deposit_hold`             | cible 17, pas encore créée                                                                       |
+| `deposit_hold`             | cible 17, pas encore créée (US-701) ; rails et décision prêts en fonctions pures (US-225)        |
 | `chargeback`               | cible 17, pas encore créée                                                                       |
 | `debt_balance`             | cible 17, pas encore créée                                                                       |
 | `payment_plan`             | cible 17, pas encore créée                                                                       |
@@ -42,6 +42,10 @@ Entités de 17 §3.2.7 :
 | `credit_lot`               | cible 17, pas encore créée                                                                       |
 
 Hors entités de 17 : `core.payment_psp_capability_catalog` (catalogue des capacités, migration 0039 ; `SUPPORTS_PAYOUT_WITHOUT_HOST_TAX_ID` ajoutée par 0087, non bloquante, lue par le KYC de l'hôte : inconnue ⇒ numéro fiscal exigé avant l'activation, ADR-115). Commandes `SECURITY DEFINER` (famille `cmd_money`) : `core.payment_cmd_record_operation`, `payment_cmd_apply_operation_status`, `payment_cmd_receive_webhook` (0028), `payment_cmd_register_submerchant`, `payment_cmd_record_submerchant_status` (0039). Détail : `packages/db/README.md`, sections « Port PaymentProvider » et « Port de place de marché ».
+
+## Caution « comme Turo » (US-225 ; 08 BR-PAY-06 ; ADR-108, ADR-164)
+
+**Aucune caution par défaut.** Une caution n'existe que si un déclencheur paramétré par pays est vrai (`deposit_always_required`, `deposit_trigger_classes` = {LUXE}, âge sur `deposit_young_driver_classes` = vide au PA et au PY, signal de risque si `risk_control_deployed`) : graine `0138`, valeurs PROPOSÉES. Au checkout, avant le paiement, `decideDepositGate` rend `NOT_REQUIRED` (aucun rail évalué), `REQUIRED` avec le rail choisi par configuration, ou un refus (`PARAM_MISSING` si `deposit_amount` manque, `DEPOSIT_RAIL_UNAVAILABLE` avec les jours possibles). Le rail « débit puis remboursement » reste fermé tant que `funds_holding_enabled[pays]` = `false` (aucun fonds de tiers détenu) ; une capacité PSP inconnue vaut « non ». `planDepositDecision` et `DepositRailExecutor` exécutent la décision sur le port (FAKE seulement) avec le montant explicite de chaque commande. **Non branché** au checkout ni à un travailleur dans cette story : `deposit_hold`, l'écriture au checkout, les minuteries et l'écran S05 sont à US-701 / US-702 (voir `docs/team/handoffs/US-225.md`).
 
 ## Événements
 

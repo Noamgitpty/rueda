@@ -38,6 +38,11 @@ export const POST_SEED_PARAMS: readonly {
   readonly refs?: string;
   /** Clés définies dans 0009 dont les valeurs sont insérées par ce groupe (US-226). */
   readonly valueKeys?: readonly string[];
+  /**
+   * Clés NOUVELLES du groupe hors du préfixe (US-225, ADR-164) : noms de 17 §7.2 sans préfixe
+   * commun (`deposit_*` couvre des clés de 0009). Le préfixe reste l'identifiant du groupe.
+   */
+  readonly extraKeys?: readonly string[];
 }[] = [
   { prefix: 'rate_limit_', file: '0046_config_rate_limit_params.sql', story: 'US-052' },
   { prefix: 'otp_rate_', file: '0065_config_otp_rate_params.sql', story: 'US-104' },
@@ -144,11 +149,31 @@ export const POST_SEED_PARAMS: readonly {
     story: 'US-113',
     refs: '08 BR-ACC-05 ; BOARD N-83 ; ADR-159',
   },
+  {
+    prefix: 'deposit_always_required',
+    file: '0138_config_deposit_rail_params.sql',
+    story: 'US-225',
+    refs: '08 BR-PAY-06 ; 17 §7.2 ; ADR-108 ; ADR-164',
+    extraKeys: [
+      'deposit_fee_notice_h',
+      'deposit_on_risk_flag',
+      'deposit_reauth_lead_h',
+      'deposit_trigger_classes',
+      'deposit_young_driver_age',
+      'deposit_young_driver_classes',
+      'risk_control_deployed',
+    ],
+  },
 ];
+
+/** La clé appartient au groupe : préfixe ou clé nouvelle nommée (`extraKeys`). */
+export function inPostSeedGroup(step: (typeof POST_SEED_PARAMS)[number], key: string): boolean {
+  return key.startsWith(step.prefix) || (step.extraKeys?.includes(key) ?? false);
+}
 
 /** La clé appartient à un groupe de paramètres ajouté après 0009. */
 export function isPostSeedParam(key: string): boolean {
-  return POST_SEED_PARAMS.some((p) => key.startsWith(p.prefix));
+  return POST_SEED_PARAMS.some((p) => inPostSeedGroup(p, key));
 }
 
 /** Les valeurs de la clé (définie dans 0009) sont insérées par un groupe ajouté après 0009. */
@@ -466,11 +491,16 @@ export function renderParamSeedSql(config: CountryConfig, prefix: string): strin
   const step = POST_SEED_PARAMS.find((p) => p.prefix === prefix);
   if (!step) throw new Error(`groupe de paramètres « ${prefix} » absent de POST_SEED_PARAMS`);
   const definitions = [...config.definitions.values()]
-    .filter((d) => d.key.startsWith(prefix))
+    .filter((d) => inPostSeedGroup(step, d.key))
     .sort((a, b) => a.key.localeCompare(b.key));
-  const values = sortValues(config.values.filter((v) => v.key.startsWith(prefix)));
+  const values = sortValues(config.values.filter((v) => inPostSeedGroup(step, v.key)));
   const number = step.file.slice(0, 4);
   const like = `${prefix.replaceAll('_', '\\_')}%`;
+  const extra = step.extraKeys ?? [];
+  const where =
+    extra.length === 0
+      ? `             WHERE d.key LIKE ${lit(like)}`
+      : `             WHERE (d.key LIKE ${lit(like)} OR d.key = ANY (${textArray(extra)}))`;
   return [
     [
       `-- ${number} — graine complémentaire : paramètres « ${prefix}* » (${step.story} ; 17 §7.2).`,
@@ -480,7 +510,10 @@ export function renderParamSeedSql(config: CountryConfig, prefix: string): strin
       '-- Valeurs PROPOSÉES ; valid_from posé par la garde (platform.now()).',
       '--',
       `-- Retour arrière (base sans dépendance) : DELETE des valeurs puis des définitions dont la clé`,
-      `-- commence par « ${prefix} » ; jamais en production : nouvelle migration à la place.`,
+      extra.length === 0
+        ? `-- commence par « ${prefix} » ; jamais en production : nouvelle migration à la place.`
+        : `-- commence par « ${prefix} » ou vaut ${extra.join(', ')} ;\n` +
+          '-- jamais en production : nouvelle migration à la place.',
       '',
     ].join('\n'),
     definitionInsert(definitions),
@@ -497,7 +530,7 @@ export function renderParamSeedSql(config: CountryConfig, prefix: string): strin
       'BEGIN',
       '  IF EXISTS (SELECT 1 FROM core.config_param_definition AS d',
       '              CROSS JOIN core.config_country AS c',
-      `             WHERE d.key LIKE ${lit(like)}`,
+      where,
       '               AND NOT EXISTS (SELECT 1 FROM core.config_param_value AS v',
       '                                WHERE v.key = d.key AND v.country_code = c.code)) THEN',
       `    RAISE EXCEPTION 'graine : paramètre ${prefix}* sans valeur pour un pays' USING ERRCODE = 'check_violation';`,

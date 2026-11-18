@@ -117,6 +117,14 @@ export const FR_MESSAGES = {
   'web.deposit.contest': 'Vérifier et répondre',
   'web.deposit.debitWarning':
     'Le dépôt est débité puis remboursé. Nous émettrons le remboursement le {date} ; ta banque peut mettre de 3 à 10 jours ouvrés à l’afficher.',
+  // US-225 (ADR-164) : refus de la caution avant le paiement (10b UX-24 ; 08 BR-PAY-06, T59)
+  'web.deposit.unavailable': {
+    one: 'Pour ces dates, nous ne pouvons pas bloquer le dépôt sur ta carte. Tu peux réserver jusqu’à {count} jour.',
+    other:
+      'Pour ces dates, nous ne pouvons pas bloquer le dépôt sur ta carte. Tu peux réserver jusqu’à {count} jours.',
+  },
+  'web.deposit.unavailableNone':
+    'Pour l’instant, nous ne pouvons pas bloquer le dépôt sur ta carte pour cette voiture.',
   'web.catalog.title': 'Bibliothèque de composants',
   'web.catalog.intro':
     'Chaque composant dans ses états. Choisis la langue, le thème et la largeur pour les passer en revue.',

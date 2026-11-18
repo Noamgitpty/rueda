@@ -178,7 +178,10 @@ describe.each(PAIRS)('FAKE hostile — $capture.currency', (pair) => {
     expect(types).toEqual(['order.created', 'order.expired']);
   });
 
-  it('pré-autorisation : capture partielle aux jambes réglées (08 E7 règle 2), VOID du reste interdit après capture', async () => {
+  // US-225 : ce test exigeait un refus du VOID après une capture partielle ; 08 E3 (repli 1 :
+  // « capture partielle de need, puis VOID du reste ») et T57 (capture 12,00, VOID 288,00) le
+  // demandent : le VOID libère le reste, une seconde capture est alors refusée (ADR-164)
+  it('pré-autorisation : capture partielle aux jambes réglées (08 E7 règle 2), puis VOID du reste (08 E3 repli 1)', async () => {
     const retained =
       pair.capture.currency === legVector(set, 'TJ03').currency ? legVector(set, 'TJ03') : null;
     const { stack } = harness(pair);
@@ -200,10 +203,19 @@ describe.each(PAIRS)('FAKE hostile — $capture.currency', (pair) => {
         legs: legsOf(retained),
       });
       expect(cap.status).toBe('SUCCEEDED');
+      const voided = await stack.provider.void({
+        idempotencyKey: 'A:1:v1:VOID:card:i1:a1',
+        providerReference: auth.providerReference,
+      });
+      expect(voided.status).toBe('SUCCEEDED');
+      // reste libéré : plus aucune capture possible sur cette autorisation
       await expectCode(
-        stack.provider.void({
-          idempotencyKey: 'A:1:v1:VOID:card:i1:a1',
+        stack.provider.capture({
+          idempotencyKey: 'A:1:v1:CAPTURE:card:i2:a1',
+          currency,
           providerReference: auth.providerReference,
+          amountMinor: 1n,
+          legs: { HOST: 1n, INSURER: 0n, TAX_THIRD_PARTY: 0n, PLATFORM: 0n },
         }),
         'INVALID_REQUEST',
       );

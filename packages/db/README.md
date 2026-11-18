@@ -1003,3 +1003,11 @@ Migration `0129_settlement_host_ledger`. Fixture `9949_test_us709_host_ledger_fi
 - **Lecture** : vue `core.settlement_host_ledger_balance_v` (solde par hôte, pays et devise) ; politique `fin_read` (FINANCE / ADMIN du pays) ; aucun droit d'app_worker ni d'app_anon.
 - **Codes** : `host_ledger_command_forbidden` ⇒ `FORBIDDEN` ; `host_ledger_settlement_unknown`, `host_ledger_version_unsupported`, `host_ledger_entry_settlement_reason_unique` ⇒ `INVARIANT_VIOLATION`.
 - **Preuves** : `test/l0/l0-us709a-host-ledger.test.ts` (T14, T15, T48, T03, T27 ; PA USD, PY PYG ; groupe isolé) ; matrice d'autorisations peuplée (`l0-us043-authorization-matrix`).
+
+## Paramètres de la caution « comme Turo » (US-225 ; 08 BR-PAY-06 ; ADR-108, ADR-164)
+
+Migration générée `0138_config_deposit_rail_params` (groupe `deposit_always_required` + clés nommées de `POST_SEED_PARAMS`), fixture `9943_test_us225_deposit_rail_fixtures.sql` (`test_fixture.us225_param_version`, clés fermées, transaction annulée, EXECUTE `app_api`).
+
+- **Valeurs PROPOSÉES**, identiques au PA et au PY, `fail_mode` BLOCK, portée pays : `deposit_always_required` faux, `deposit_trigger_classes` `["LUXE"]` (à confirmer par le fondateur), `deposit_young_driver_age` 30, `deposit_young_driver_classes` `[]` (DEC-FONDATEUR-21), `deposit_on_risk_flag` vrai, `risk_control_deployed` faux, `deposit_reauth_lead_h` 24, `deposit_fee_notice_h` 48. `deposit_amount`, `deposit_charge_cap` et `provider_max_hold_h` restent sans valeur (absent : caution exigée refusée, rail « débit puis remboursement » interdit, aucune pré-autorisation). Aucun interrupteur touché ; aucun droit nouveau.
+- **Lecture** : `PgDepositRailConfigReader` (module PAY) sous `app_api` ou `app_worker` : `core.config_param_value`, `core.config_go_live('funds_holding_enabled', pays)`, `core.payment_psp_capability`.
+- **Preuves** : `test/l0/l0-us225-deposit-rails.test.ts` (PA USD, PY PYG ; `app_api`, `app_worker`, `app_anon`) ; `apps/api/src/modules/pay/testing/deposit-rail-config.int.test.ts` (décision du checkout sur la configuration réelle, sous `app_api`).

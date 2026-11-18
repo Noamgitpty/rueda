@@ -103,6 +103,13 @@ export const EN_MESSAGES = {
   'web.deposit.contest': 'Review and respond',
   'web.deposit.debitWarning':
     "The deposit is charged and then refunded. We'll issue the refund on {date}; your bank may take 3 to 10 business days to show it.",
+  // US-225 (ADR-164) : refus de la caution avant le paiement (10b UX-24 ; 08 BR-PAY-06, T59)
+  'web.deposit.unavailable': {
+    one: "We can't place the deposit on your card for these dates. You can book up to {count} day.",
+    other:
+      "We can't place the deposit on your card for these dates. You can book up to {count} days.",
+  },
+  'web.deposit.unavailableNone': "For now, we can't place the deposit on your card for this car.",
   'web.catalog.title': 'Component library',
   'web.catalog.intro':
     'Every component in each of its states. Pick the language, theme and width to review them.',

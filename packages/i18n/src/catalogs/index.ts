@@ -239,8 +239,11 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  disponible, indisponible) et `common.earnings.*` (réponses de la route
  `/host/accounts/{orgId}/earnings/{month}` : introuvable, indisponible). Les écrans A08 et S09
  (Bêta L3) viendront avec leurs propres clés.
+ Version 78 : rails de la caution (US-225, ADR-164) : `web.deposit.unavailable` (refus avant le
+ paiement avec la durée possible, texte de 10b UX-24) et `web.deposit.unavailableNone` (aucune
+ durée possible, PROPOSÉ), affichés par l'écran S05 quand il branchera la décision de la caution.
  */
-export const CATALOG_VERSION = 77;
+export const CATALOG_VERSION = 78;
 
 /** Catalogues de base par langue ; la langue d'un profil de locale choisit le sien. */
 export const CATALOGS: Readonly<Record<CatalogLanguage, VersionedCatalog<MessageKey>>> = {
