@@ -262,10 +262,14 @@ describe('API réelle (ApiModule + durcissement), adaptateurs en mémoire', () =
         body: `{"email": "${EMAIL}", "phone": ${PHONE}`,
       }),
     ]);
-    // route inconnue avec la donnée dans le chemin et la requête (« Cannot GET /… »)
+    // route inconnue avec la donnée dans le chemin et la requête (« Cannot GET /… ») ; US-214 :
+    // `GET /trips/{tripId}` est désormais une route réelle, le chemin inconnu garde la donnée
     replies.push([
       '404',
-      await h.call('GET', `/trips/${encodeURIComponent(EMAIL)}?phone=${encodeURIComponent(PHONE)}`),
+      await h.call(
+        'GET',
+        `/trips/${encodeURIComponent(EMAIL)}/inconnue?phone=${encodeURIComponent(PHONE)}`,
+      ),
     ]);
     // identifiants refusés (anti-énumération) et inscription invalide
     replies.push([

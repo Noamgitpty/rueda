@@ -906,6 +906,13 @@ Migration `0122_ctr_rental_contract`, fixture `9963_test_us211_rental_contract_f
 - **Remise** : `core.booking_cmd_trip_transition` (corps de 0099, bloc US-211) refuse `IN_PROGRESS` sans dernière version signée par le voyageur (`trip_contract_not_signed`, code `CONTRACT_NOT_SIGNED`).
 - **Lectures ajoutées à `cmd_hold_owner`** (au plus juste) : noms légaux et langue des comptes, marque et modèle du référentiel, contrat de l'assureur et assureur, caution du pays, gabarits, `grace_minutes` ; événements `contract.document.generated` (SYSTEM) et `contract.document.signed` (voyageur).
 
+## « Mis viajes » et détail du trip du voyageur (US-214 ; 16 BKG-027 ; 10b S08, S09 ; ADR-160)
+
+Migration `0133_booking_guest_trips_read` : une fonction de lecture AJOUTÉE, aucune table ; un droit de colonne (`booking_trip.payment_status` pour `cmd_hold_owner`). Fixture `9948_test_us214_guest_trips_fixtures` (demande REQUEST en attente de l'hôte).
+
+- `core.booking_guest_trips(bytea, text, uuid, integer)` (cmd_hold_owner, EXECUTE app_api) : trips du voyageur de la SESSION (onglets UPCOMING, IN_PROGRESS, DONE, CANCELLED, partition de 0101) et ses demandes en attente (REQUESTED : hold REQUEST en `AWAITING_HOST` ou `PAYMENT_IN_FLIGHT`, heure limite de la base) ; auto sans plaque ; hôte en prénom et initiale ; nom du lieu, adresse et ville d'un trip à venir ou en cours seulement, ville seule d'une demande ; total du devis figé (jamais recalculé) ; état du contrat (`NONE`, `TO_SIGN`, `SIGNED`). Trip d'une autre personne (y compris celui que la session héberge) ou inconnu : aucune ligne. Issues : `DONE`, `AUTH_REQUIRED`, `REQUEST_INVALID`.
+- **Preuves** : `test/l0/l0-us214-guest-trips.test.ts` (PA USD, PY PYG ; transaction annulée sous app_api ; mondes des fixtures 9963 et 9948 ; IDOR, onglets, minimisation, refus d'app_worker et d'app_anon).
+
 ## Remboursement lu par le voyageur, l'hôte et la console (US-224 partie 224d ; 19 US-224 critère 1 ; 08 SM-8, BR-PAY-08 ; ADR-154)
 
 Migration `0130_payment_refund_read` : trois fonctions de lecture AJOUTÉES, aucune table, aucun droit sur une table.

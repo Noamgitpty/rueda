@@ -218,8 +218,15 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  ADR-156) : `backoffice.profile.hostTrips` et `backoffice.profile.noHostTrip` (fiche 360° : trips à
  venir des comptes d'hôte de la personne, N-123) ; `ntf.tripHostRestrictionLifted.*` (voyageur d'un
  trip à venir prévenu de la levée de la restriction de son hôte, N-126).
+ Version 76 (73 à 75 réservées à des stories en cours, dont US-213) : « Mis viajes » et détail du
+ trip du voyageur (US-214, ADR-160) : `common.trips.*` (réponses des routes `/trips` et
+ `/trips/{id}` : introuvable, indisponible), `web.s08.*` (S08 : sections demandes envoyées, à
+ venir, en cours, passés, annulés ; carte du trip ; heure limite de réponse d'une demande ; vide
+ `web.s08.none`, texte de `web.s08.empty` de 10b §4.3 dont la clé est tenue par le prototype),
+ `web.s09.*` (S09 : lieu de remise, hôte particulier, total payé,
+ documents — contrat ; constancia et reçu annoncés —, modification par le support, BR-MOD-01).
  */
-export const CATALOG_VERSION = 72;
+export const CATALOG_VERSION = 76;
 
 /** Catalogues de base par langue ; la langue d'un profil de locale choisit le sien. */
 export const CATALOGS: Readonly<Record<CatalogLanguage, VersionedCatalog<MessageKey>>> = {

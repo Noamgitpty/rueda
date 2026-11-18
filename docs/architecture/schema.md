@@ -7,7 +7,7 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 
 ## Synthèse
 
-- 133 migrations ; 126 tables ; 3 vues ; 710 politiques RLS ; 271 fonctions `SECURITY DEFINER` ; 246 autres fonctions.
+- 134 migrations ; 126 tables ; 3 vues ; 710 politiques RLS ; 272 fonctions `SECURITY DEFINER` ; 246 autres fonctions.
 - Tables sans RLS `ENABLE` + `FORCE` : aucune.
 - Rôles applicatifs avec `SUPERUSER` ou `BYPASSRLS` : aucun.
 
@@ -6308,6 +6308,7 @@ Chacune a un propriétaire `NOLOGIN` dédié (ADR-053) et un `search_path` figé
 | `core.booking_cmd_trip_transition(p_trip_id uuid, p_to_status text, p_reason_code text, p_expected_row_version integer)` | `jsonb` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; cmd_hold_owner: EXECUTE |
 | `core.booking_contract_source(p_trip_id uuid)` | `jsonb` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; cmd_hold_owner: EXECUTE |
 | `core.booking_conversion_eligibility(p_hold_id uuid)` | `text` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; cmd_hold_owner: EXECUTE |
+| `core.booking_guest_trips(p_token_hash bytea, p_tab text, p_trip_id uuid, p_limit integer)` | `TABLE(outcome text, kind text, item_id uuid, public_ref text, tab text, status text, payment_status text, currency text, timezone text, starts_at timestamp with time zone, ends_at timestamp with time zone, respond_by timestamp with time zone, vehicle_make text, vehicle_model text, vehicle_year integer, host_name text, place_label text, place_address text, place_city text, total_minor bigint, contract_state text)` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; cmd_hold_owner: EXECUTE |
 | `core.booking_hold_review_item_close()` | `trigger` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | cmd_hold_owner: EXECUTE |
 | `core.booking_host_guest_rows()` | `TABLE(trip_id uuid, first_name text, age_years integer, rating numeric, verification_status text)` | `host_view_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; host_view_owner: EXECUTE |
 | `core.booking_host_requests(p_token_hash bytea, p_org uuid, p_hold_id uuid, p_limit integer)` | `TABLE(outcome text, hold_id uuid, status text, vehicle_id uuid, scheduled_start timestamp with time zone, scheduled_end timestamp with time zone, timezone text, request_respond_by timestamp with time zone, currency text, total_minor bigint, host_leg_minor bigint, guest_first_name text, guest_age_years integer, guest_rating numeric, guest_verified boolean)` | `host_view_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; host_view_owner: EXECUTE |
