@@ -34,10 +34,11 @@
 --      COLLECTION de la jambe INSURER) ; idempotente (`DUPLICATE`) ; mêmes refus que le report de
 --      0123 (preuve, périmètre, quatre jambes, Σ jambes = montant, détention de fonds) ;
 --   5. `core.finance_trip_leg_facts()` (corps de 0137 recopié, blocs marqués US-221b) : un trip est
---      tenu dès qu'il a un encaissement PROUVÉ (opération CAPTURE, MIT_CHARGE ou DEBT_COLLECTION du
---      périmètre du loyer, SUCCEEDED, preuve rattachée), rattaché au trip ou à sa disposition
---      CONVERSION ; « encaissé » = Σ des encaissements prouvés (et non plus seulement des portés) :
---      un encaissement prouvé jamais porté ressort en `TRIP_CAPTURE_LEGS` ;
+--      tenu dès que sa disposition CONVERSION porte une CAPTURE PROUVÉE (SUCCEEDED, preuve
+--      rattachée) ; « encaissé » = Σ des encaissements portés et de cette capture : une capture
+--      convertie jamais portée ressort en `TRIP_CAPTURE_LEGS` (les encaissements rattachés
+--      directement au trip, MIT et recouvrements, restent jugés une fois portés : leur report
+--      après la preuve est celui de la boîte d'envoi monétaire, lot C) ;
 --   6. `core.booking_convert_payment(uuid)` (corps de 0126 recopié, blocs marqués US-221b) : la
 --      conversion d'une CAPTURE appelle la commande 4 dans la même transaction (un refus annule la
 --      conversion : aucun trip sans ses soldes, la tâche réessaie et compte l'erreur) ; un rejeu
@@ -409,21 +410,21 @@ BEGIN
   END IF;
   RETURN QUERY
   WITH enc AS (
-    -- US-221b (D2) : encaissements du trip = ceux qui sont portés sur les soldes UNION ceux qui
-    -- sont PROUVÉS (SUCCEEDED, preuve rattachée, périmètre du loyer), rattachés au trip ou à sa
-    -- disposition CONVERSION ; un encaissement prouvé jamais porté est donc vu (et en écart)
+    -- US-221b (D2) : encaissements du trip = ceux qui sont portés sur les soldes UNION la capture
+    -- PROUVÉE (SUCCEEDED, preuve rattachée) qui a converti un hold en ce trip (disposition
+    -- CONVERSION) ; une capture convertie jamais portée est donc vue (et en écart). Un
+    -- encaissement rattaché directement au trip (MIT, recouvrement) est porté par la boîte d'envoi
+    -- monétaire après sa preuve (lot C) : hors de ces faits tant que ce report n'existe pas
     SELECT m.trip_id, m.operation_id AS op_id
       FROM core.settlement_leg_movement AS m
      WHERE m.segment_no = 1 AND m.kind IN ('CAPTURE', 'MIT_CHARGE', 'DEBT_COLLECTION')
     UNION
-    SELECT COALESCE(o.trip_id, d.trip_id), o.id
-      FROM core.payment_payment_operation AS o
-      LEFT JOIN core.booking_payment_disposition AS d
-        ON d.operation_id = o.id AND d.disposition = 'CONVERSION'
-     WHERE o.status = 'SUCCEEDED' AND o.proof_type IS NOT NULL
-       AND o.kind IN ('CAPTURE', 'MIT_CHARGE', 'DEBT_COLLECTION')
-       AND o.purpose IN ('RENT', 'RENT_SHORTFALL', 'NO_SHOW_RETENTION')
-       AND COALESCE(o.trip_id, d.trip_id) IS NOT NULL
+    SELECT d.trip_id, o.id
+      FROM core.booking_payment_disposition AS d
+      JOIN core.payment_payment_operation AS o ON o.id = d.operation_id
+     WHERE d.disposition = 'CONVERSION'
+       AND o.status = 'SUCCEEDED' AND o.proof_type IS NOT NULL
+       AND o.kind = 'CAPTURE' AND o.purpose = 'RENT'
   ),
   held AS (
     SELECT b.trip_id AS id FROM core.settlement_trip_leg_balance AS b WHERE b.segment_no = 1
@@ -490,8 +491,8 @@ BEGIN
 END
 $fn$;
 COMMENT ON FUNCTION core.finance_trip_leg_facts() IS
-  'Faits de l''invariant par jambe, par trip tenu (soldes, règlement ou encaissement prouvé) : Σ '
-  'capturé, Σ des encaissements portés ou prouvés et de leurs jambes, total payé de la version en '
+  'Faits de l''invariant par jambe, par trip tenu (soldes, règlement ou capture convertie prouvée) : '
+  'Σ capturé, Σ des encaissements portés ou convertis prouvés et de leurs jambes, total payé de la version en '
   'tête, jambe HOST attendue et jambe HOST du relevé. Travailleur reconciliation seulement '
   '(EXECUTE app_worker). US-217 (217a, ADR-161), US-221 (221b, ADR-170).';
 

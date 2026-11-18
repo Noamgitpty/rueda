@@ -1065,10 +1065,10 @@ Migration `0144_booking_meeting_place`. Fixture `9939_test_us514_meeting_place_f
 
 ## Report de la capture convertie (US-221 partie 221b ; défauts D1 et D2 d'US-221 ; 08 E7 règles 1, 2, 10 ; ADR-170)
 
-Migration `0146_settlement_conversion_capture_legs`. Fixture `9936_test_us221b_conversion_capture_fixtures.sql` (encaissement prouvé jamais porté sur un trip de fixture, transaction annulée ; état de rattachement et de report d'une opération).
+Migration `0146_settlement_conversion_capture_legs`. Fixture `9936_test_us221b_conversion_capture_fixtures.sql` (disposition `CONVERSION` sans report, forme d'avant 0146, transaction annulée ; état de rattachement et de report d'une opération).
 
 - **Conversion** : `core.booking_convert_payment` (0126) remplacé à signature, propriétaire et droits identiques : la conversion d'une `CAPTURE` appelle, dans sa transaction, `core.settlement_cmd_apply_conversion_capture(uuid)` (cmd_money_owner, EXECUTE app_worker, travailleurs `booking_conversion`, `disposition_sweeper`, `payment_intent_sweeper`) : rattachement de l'opération et de ses jambes au trip de la disposition `CONVERSION`, chaque jambe portée à son montant explicite, mouvement `CAPTURE` (écriture `COLLECTION` de l'assureur par 0143) ; `DUPLICATE` au rejeu ; un refus annule la conversion.
 - **Droits** : `SELECT (operation_id, hold_id, disposition, trip_id)` de `booking_payment_disposition` et `UPDATE (trip_id)` de `payment_payment_operation` et `payment_payment_operation_leg` à cmd_money_owner ; politiques `cmd_money_conversion_attach`, `cmd_money_conversion_ins`, `cmd_money_conversion_upd` (travailleurs de conversion, miroir exact de la capture) ; déclencheurs `operation_trip_attach_guard`, `operation_leg_trip_attach_guard` (tous rôles).
-- **Rapprochement** : `core.finance_trip_leg_facts()` (0137) remplacé : tout trip ayant un encaissement prouvé est tenu ; « encaissé » = encaissements portés ou prouvés.
+- **Rapprochement** : `core.finance_trip_leg_facts()` (0137) remplacé : tout trip dont la disposition `CONVERSION` porte une capture prouvée est tenu ; « encaissé » = encaissements portés et cette capture.
 - **Codes** : `operation_trip_attach_invalid` ⇒ `INVARIANT_VIOLATION` ; refus du report sous les noms de 0123 (`leg_movement_unsupported`, `leg_movement_unproven`, `leg_movement_not_succeeded`, `leg_funds_holding_disabled`).
 - **Preuves** : `test/l0/l0-us221b-conversion-capture.test.ts` (TJ01 PA USD, TJ08a PY PYG ; groupe isolé) ; inventaire des écrivains de `trip_leg_balance` mis à jour (`test/int/stl-schema.test.ts`).

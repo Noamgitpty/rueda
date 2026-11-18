@@ -6,8 +6,8 @@
  * D1 : à la conversion gardée, la CAPTURE prouvée est rattachée au trip né et reportée sur CHAQUE
  * jambe avec son montant explicite (jamais un prorata), dans la même transaction ; COLLECTION de la
  * jambe INSURER au registre de l'assureur ; rejeu sans double report.
- * D2 : un trip qui a un encaissement prouvé jamais porté est vu par les faits de l'invariant par
- * jambe du rapprochement (Σ capturé ≠ Σ encaissé).
+ * D2 : un trip dont la capture convertie et prouvée n'est pas portée est vu par les faits de
+ * l'invariant par jambe du rapprochement (Σ capturé ≠ Σ encaissé).
  *
  * Attendus : vecteurs TJ01 (USD) et TJ08a (PYG) de l'oracle Python (`docs/specs/tools/check_legs.py`,
  * `python -I -X utf8` : « TJ01 (USD) : 131,25 / 25,50 / 0,00 / 99,91 / 256,66 » et « TJ08a (PYG) :
@@ -393,7 +393,7 @@ describe.each(COUNTRIES)(
     );
 
     it(
-      'garde : report refusé hors des travailleurs de conversion (42501) et pour une opération sans conversion (leg_movement_unsupported) ; app_api sans EXECUTE',
+      'garde : report refusé hors des travailleurs de conversion (42501) et pour une opération sans conversion (leg_movement_unsupported) ; app_api sans EXECUTE ; D2 : capture convertie jamais portée vue en écart par le rapprochement',
       async () => {
         const T0 = era(idx + 2);
         const w = await world(c, T0);
@@ -419,6 +419,24 @@ describe.each(COUNTRIES)(
         });
         // rien n'a été porté ni rattaché
         expect(await captureState(op)).toMatchObject({ operation_trip_id: null, movements: 0 });
+        // D2 (transaction ANNULÉE) : la même capture prouvée convertie SANS report (forme d'avant
+        // 0146 : disposition CONVERSION, aucun solde) est vue par les faits du rapprochement, en
+        // écart (Σ capturé 0 ≠ Σ encaissé ; aucune ligne de relevé)
+        await inTx(worker, {}, async (tx) => {
+          const trip = await insertTrip(tx, c, 9000 + idx);
+          await tx.query('SELECT test_fixture.us221b_legacy_conversion($1, $2)', [op, trip.id]);
+          await asReconciliation(tx);
+          const { rows } = await tx.query<Facts>(FACTS_SQL, [trip.id]);
+          expect(rows).toEqual([
+            {
+              captured: '0',
+              collected: o.total.toString(),
+              collected_legs: o.total.toString(),
+              expected_host: o.legs.HOST.toString(),
+              statement_host: null,
+            },
+          ]);
+        });
         // la vraie conversion porte ensuite la capture (aucune opération prouvée laissée sans
         // disposition dans la base partagée)
         const r = await convert(op, at(T0, 4));
@@ -430,28 +448,5 @@ describe.each(COUNTRIES)(
       },
       LONG,
     );
-
-    it('D2 : un encaissement prouvé jamais porté (forme d’avant 0146) est vu par le rapprochement, en écart (Σ capturé 0 ≠ Σ encaissé)', async () => {
-      await inTx(worker, {}, async (tx) => {
-        const trip = await insertTrip(tx, c, 9000 + idx);
-        const op = uuid();
-        await tx.query('SELECT test_fixture.us221b_proven_capture($1, $2, $3::jsonb)', [
-          op,
-          trip.id,
-          legsJson(o.legs),
-        ]);
-        await asReconciliation(tx);
-        const { rows } = await tx.query<Facts>(FACTS_SQL, [trip.id]);
-        expect(rows).toEqual([
-          {
-            captured: '0',
-            collected: o.total.toString(),
-            collected_legs: o.total.toString(),
-            expected_host: o.legs.HOST.toString(),
-            statement_host: null,
-          },
-        ]);
-      });
-    });
   },
 );

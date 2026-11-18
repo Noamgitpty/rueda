@@ -5,43 +5,29 @@
 -- jetable principale `rueda_test_*`.
 --
 -- Rôle (SECURITY DEFINER sous migrator, search_path figé ; aucun SQL dynamique) :
---   1. `us221b_proven_capture` : encaissement PROUVÉ (CAPTURE de loyer SUCCEEDED, preuve
---      WEBHOOK_SIGNED, quatre jambes données par l'appelant, montant = Σ jambes) rattaché à un trip
---      de fixture et JAMAIS porté sur les soldes : la forme qu'avait un trip réservé avant 0146
---      (défaut D2 de la passation US-221) ; appelée SEULEMENT dans une transaction annulée ;
+--   1. `us221b_legacy_conversion` : disposition CONVERSION d'une capture prouvée vers un trip de
+--      fixture, SANS report sur les soldes : la forme qu'avait un trip réservé avant 0146 (défaut
+--      D2 de la passation US-221) ; appelée SEULEMENT dans une transaction annulée (le contrôle
+--      différé de la disposition n'est jamais atteint) ;
 --   2. `us221b_capture_state` : rattachement et report d'une opération (trip de l'opération et de
 --      ses jambes, mouvements), lecture des preuves sous app_worker.
 -- AUCUNE fixture n'écrit un interrupteur de mise en service (17 §0.1).
 --
--- Retour arrière : DROP FUNCTION test_fixture.us221b_proven_capture(uuid, uuid, jsonb),
+-- Retour arrière : DROP FUNCTION test_fixture.us221b_legacy_conversion(uuid, uuid),
 --   test_fixture.us221b_capture_state(uuid).
 
-CREATE FUNCTION test_fixture.us221b_proven_capture(p_operation_id uuid, p_trip_id uuid,
-                                                   p_legs jsonb)
+CREATE FUNCTION test_fixture.us221b_legacy_conversion(p_operation_id uuid, p_trip_id uuid)
   RETURNS void
-  LANGUAGE plpgsql
+  LANGUAGE sql
   SECURITY DEFINER
   SET search_path = pg_catalog, pg_temp
 AS $fn$
-DECLARE
-  t record;
-BEGIN
-  SELECT x.org_id, x.country_code, x.currency INTO t FROM core.booking_trip AS x
-   WHERE x.id = p_trip_id;
-  INSERT INTO core.payment_payment_operation
-         (id, trip_id, psp_account_id, country_code, provider, kind, purpose, amount_minor, currency,
-          attempt_no, status, idem_plain, idem_sent, proof_type)
-  SELECT p_operation_id, p_trip_id, test_fixture.fixture_psp_account(t.country_code),
-         t.country_code, 'FAKE', 'CAPTURE', 'RENT',
-         (SELECT pg_catalog.sum((l.value #>> '{}')::bigint)
-            FROM pg_catalog.jsonb_each(p_legs) AS l),
-         t.currency, 1, 'SUCCEEDED', pg_catalog.format('us221b:%s', p_operation_id),
-         pg_catalog.format('us221b:%s', p_operation_id), 'WEBHOOK_SIGNED';
-  INSERT INTO core.payment_payment_operation_leg
-         (operation_id, leg, org_id, trip_id, country_code, amount_minor)
-  SELECT p_operation_id, l.key, t.org_id, p_trip_id, t.country_code, (l.value #>> '{}')::bigint
-    FROM pg_catalog.jsonb_each(p_legs) AS l;
-END
+  -- disposition CONVERSION posée SANS le report (forme d'avant 0146) ; le contrôle différé de la
+  -- disposition (hold CONVERTED) n'est jamais atteint : transaction annulée seulement
+  INSERT INTO core.booking_payment_disposition (operation_id, hold_id, disposition, trip_id)
+  SELECT o.id, o.hold_id, 'CONVERSION', p_trip_id
+    FROM core.payment_payment_operation AS o
+   WHERE o.id = p_operation_id
 $fn$;
 
 CREATE FUNCTION test_fixture.us221b_capture_state(p_operation_id uuid)
@@ -62,7 +48,7 @@ AS $fn$
    WHERE o.id = p_operation_id
 $fn$;
 
-REVOKE ALL ON FUNCTION test_fixture.us221b_proven_capture(uuid, uuid, jsonb),
+REVOKE ALL ON FUNCTION test_fixture.us221b_legacy_conversion(uuid, uuid),
   test_fixture.us221b_capture_state(uuid) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION test_fixture.us221b_proven_capture(uuid, uuid, jsonb),
+GRANT EXECUTE ON FUNCTION test_fixture.us221b_legacy_conversion(uuid, uuid),
   test_fixture.us221b_capture_state(uuid) TO app_worker;
