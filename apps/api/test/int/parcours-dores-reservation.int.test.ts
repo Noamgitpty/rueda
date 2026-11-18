@@ -352,6 +352,7 @@ async function capabilities(
   from: string,
   only?: string,
   status: 'VALIDATED_SANDBOX' | 'UNKNOWN' = 'VALIDATED_SANDBOX',
+  providers: readonly string[] = ['FAKE'],
 ): Promise<void> {
   const { rows } = await tx.query<{ capability: string; kind: string }>(
     `SELECT capability, kind FROM core.payment_psp_capability_catalog WHERE blocking <> 'NO'`,
@@ -359,11 +360,13 @@ async function capabilities(
   for (const r of rows) {
     if (only !== undefined && r.capability !== only) continue;
     const value = r.kind === 'bool' ? true : r.kind === 'int' ? 1 : 'FAKE_HMAC_SHA256';
-    await tx.query(
-      `SELECT test_fixture.us024_set_capability('FAKE', $1, '*', $2, $3::jsonb, $4,
-                                                $5::timestamptz)`,
-      [country, r.capability, JSON.stringify(value), status, from],
-    );
+    for (const provider of providers) {
+      await tx.query(
+        `SELECT test_fixture.us024_set_capability($1, $2, '*', $3, $4::jsonb, $5,
+                                                  $6::timestamptz)`,
+        [provider, country, r.capability, JSON.stringify(value), status, from],
+      );
+    }
   }
 }
 
@@ -382,10 +385,14 @@ class FakeHostedPsp implements HostedPaymentProvider {
     return Promise.resolve(null);
   }
 }
-const paymentService = (db: pg.ClientBase, psp: FakeHostedPsp): CheckoutPaymentService =>
+const paymentService = (
+  db: pg.ClientBase,
+  psp: FakeHostedPsp,
+  providers: readonly string[] = ['FAKE'],
+): CheckoutPaymentService =>
   new CheckoutPaymentService(
     new PgCheckoutPaymentStore(db),
-    new Map([['FAKE', psp]]),
+    new Map(providers.map((p) => [p, psp])),
     () => undefined,
   );
 
@@ -418,6 +425,22 @@ async function soleFakeAccount(country: string): Promise<void> {
     await new Promise((resolve) => setTimeout(resolve, 250));
   }
   throw new Error('un compte marchand actif d’un autre fournisseur reste ouvert dans le pays');
+}
+
+/**
+ * Fournisseurs que T1 peut retenir dans le pays, À CET INSTANT : FAKE et le premier compte ACTIVE
+ * dans l'ordre de `booking_cmd_checkout_pay` (environnement LIVE d'abord, fournisseur,
+ * identifiant). Segment A seulement (transaction annulée) : capacités et PSP FAKE posés pour chacun,
+ * pour que le parcours ne dépende pas d'un compte de passage d'un autre fichier (constat C-1).
+ */
+async function checkoutProviders(country: string): Promise<string[]> {
+  const worker = await open('app_worker');
+  const { rows } = await worker.query<{ provider: string }>(
+    `SELECT provider FROM core.payment_psp_account WHERE country_code = $1 AND status = 'ACTIVE'
+      ORDER BY (environment = 'LIVE') DESC, provider, id LIMIT 1`,
+    [country],
+  );
+  return [...new Set(['FAKE', ...rows.map((r) => r.provider)])];
 }
 
 // --- état partagé des segments (par pays) --------------------------------------------------------
@@ -609,12 +632,12 @@ describe.each(CASES)('US-221 — parcours dorés « réservation » ($country, $
         // critère 2 (FAKE hostile) : capacité bloquante inconnue ⇒ refus AVANT T1, aucun ordre
         const at = (m: number) => iso(Date.parse(NOW) + m * MINUTE);
         const psp = new FakeHostedPsp();
-        const pay = paymentService(tx, psp);
-        await capabilities(tx, c.country, at(-3));
-        await soleFakeAccount(c.country);
+        const providers = await checkoutProviders(c.country);
+        const pay = paymentService(tx, psp, providers);
+        await capabilities(tx, c.country, at(-3), undefined, 'VALIDATED_SANDBOX', providers);
         // capacité inconnue posée dans un point de sauvegarde, retirée avec lui après le refus
         await tx.query('SAVEPOINT us221_capability');
-        await capabilities(tx, c.country, at(-2), 'SUPPORTS_PER_LEG_AMOUNTS', 'UNKNOWN');
+        await capabilities(tx, c.country, at(-2), 'SUPPORTS_PER_LEG_AMOUNTS', 'UNKNOWN', providers);
         await expect(pay.pay(hash, holdId, { method: 'CARD' })).rejects.toMatchObject({
           code: 'HOST_PAYOUT_RAIL_UNAVAILABLE',
         });
@@ -627,7 +650,6 @@ describe.each(CASES)('US-221 — parcours dorés « réservation » ($country, $
         });
 
         // capacités validées : T1 (jambes du devis engagé), ordre au PSP, T2
-        await soleFakeAccount(c.country);
         const started = await payOrExplain(pay, hash, holdId);
         expect(started.created).toBe(true);
         expect(started.payment).toMatchObject({
