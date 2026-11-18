@@ -7,7 +7,7 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 
 ## Synthèse
 
-- 148 migrations ; 129 tables ; 3 vues ; 728 politiques RLS ; 295 fonctions `SECURITY DEFINER` ; 253 autres fonctions.
+- 149 migrations ; 129 tables ; 3 vues ; 728 politiques RLS ; 295 fonctions `SECURITY DEFINER` ; 253 autres fonctions.
 - Tables sans RLS `ENABLE` + `FORCE` : aucune.
 - Rôles applicatifs avec `SUPERUSER` ou `BYPASSRLS` : aucun.
 
@@ -163,6 +163,7 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 | `0145_finance_receipt_alignment` | FIN : alignement des reçus et du relevé des gains sur les décisions écrites d'US-217 |
 | `0146_payment_deposit_hold` | PAY : caution de la plateforme figée au checkout (`deposit_hold`), vue du voyageur sans |
 | `0147_ctr_constancia_frozen_host_checkout_host` | CTR / AVL : hôte de la constancia lu du contrat FIGÉ ; hôte en prénom et initiale au |
+| `0148_hardening_country_open` | SUP / FIN / CAT : durcissement avant l'ouverture d'un pays (suites des revues : BOARD |
 
 ## Rôles
 
