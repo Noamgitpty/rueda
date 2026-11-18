@@ -11,15 +11,26 @@ export {
   TripCancellationProcessor,
   cancellationEvent,
   cancellationParams,
+  ordersByTender,
   planCancellation,
   registerTripCancellations,
+  tenderKindOf,
 } from './internal/trip-cancellation.js';
 export type {
+  BetaRefundRail,
   CancellationFacts,
   CancellationOrder,
   CancellationOutcome,
   CancellationPlan,
+  CaptureTender,
+  TenderOrder,
 } from './internal/trip-cancellation.js';
+// Bordereau mensuel de l'assureur (US-227, ADR-165)
+export {
+  INSURER_BORDEREAU_PERIOD_SECONDS,
+  INSURER_BORDEREAU_WORKER,
+  registerInsurerBordereaux,
+} from './internal/insurer-bordereau.js';
 // Ordonnanceur des remboursements planifiés (US-224c, ADR-150)
 export {
   REFUND_SCHEDULER_BATCH,

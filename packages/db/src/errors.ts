@@ -325,6 +325,11 @@ export const CONSTRAINT_CODES: Readonly<Record<string, readonly [string, DbBusin
   refund_instance_not_submitted: [SQLSTATE.objectNotInPrerequisiteState, 'INVALID_TRANSITION'],
   refund_instance_transition: [SQLSTATE.integrityConstraintViolation, 'INVALID_TRANSITION'],
   refund_instance_immutable: [SQLSTATE.integrityConstraintViolation, 'IMMUTABLE_RECORD'],
+  // US-224f (ADR-166) : jamais plus que le payé d'un moyen (08 E2) ; rail natif sur la carte
+  // seulement ; nouvelle tentative après un rejet confirmé seulement (08 SM-8, E4)
+  refund_exceeds_tender: [SQLSTATE.objectNotInPrerequisiteState, 'REFUND_EXCEEDS_COLLECTED'],
+  refund_rail_not_native: [SQLSTATE.objectNotInPrerequisiteState, 'PAYMENT_METHOD_UNAVAILABLE'],
+  refund_instance_not_failed: [SQLSTATE.objectNotInPrerequisiteState, 'INVALID_TRANSITION'],
   advance_decision_required: [SQLSTATE.objectNotInPrerequisiteState, 'FIN_REVIEW_REQUIRED'],
   advance_exceeds_released_leg: [SQLSTATE.objectNotInPrerequisiteState, 'INVARIANT_VIOLATION'],
   leg_release_exceeds_retained: [SQLSTATE.objectNotInPrerequisiteState, 'INVARIANT_VIOLATION'],
@@ -390,6 +395,12 @@ export const CONSTRAINT_CODES: Readonly<Record<string, readonly [string, DbBusin
   host_ledger_advance_unknown: [SQLSTATE.integrityConstraintViolation, 'INVARIANT_VIOLATION'],
   host_ledger_advance_unique: [SQLSTATE.uniqueViolation, 'INVARIANT_VIOLATION'],
   host_ledger_entry_version_reason_unique: [SQLSTATE.uniqueViolation, 'INVARIANT_VIOLATION'],
+  // registre de l'assureur et bordereau (0143, US-227, ADR-165)
+  insurer_ledger_command_forbidden: [SQLSTATE.insufficientPrivilege, 'FORBIDDEN'],
+  insurer_leg_on_bordereau: [SQLSTATE.objectNotInPrerequisiteState, 'INVARIANT_VIOLATION'],
+  insurer_bordereau_incoherent: [SQLSTATE.integrityConstraintViolation, 'INVARIANT_VIOLATION'],
+  insurer_bordereau_stale: [SQLSTATE.objectNotInPrerequisiteState, 'INVARIANT_VIOLATION'],
+  insurer_bordereau_line_frozen: [SQLSTATE.objectNotInPrerequisiteState, 'INVARIANT_VIOLATION'],
 };
 
 const own = (value: object, key: string): unknown =>

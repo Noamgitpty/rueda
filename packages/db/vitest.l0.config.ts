@@ -53,6 +53,9 @@ const ISOLATED = [
   // compte PSP ACTIVE du pays partagé (fixture 9800)
   'test/l0/l0-us224e-host-receivable.test.ts',
   'test/l0/l0-us224e-defaulted-host.test.ts',
+  // US-227 : trips, contrat d'assureur de test (période passée), bordereaux et décisions FINANCE
+  // VALIDÉS (deux rôles), compte PSP ACTIVE du pays partagé (fixture 9800)
+  'test/l0/l0-us227-insurer-ledger.test.ts',
 ];
 const C11 = ['test/l0/l0-c11-fuzz.test.ts'];
 // US-049 : les attaques de la red team (test/redteam/<axe>/) tournent seules, après tous les autres

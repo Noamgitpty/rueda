@@ -16,8 +16,9 @@
  * 3. `core.settlement_cmd_record` (travailleur `settlement`), version 1 ;
  * 4. `core.booking_cmd_trip_settle_cancellation` (travailleur `trip_lifecycle`) : la base requalifie,
  *    LIE le règlement à la demande et applique la transition avec `settlement_id` ;
- * 5. ordres du règlement (`settlementOrders` : réaffectation d'abord, puis remboursement du moyen
- *    d'origine, montants explicites par jambe, jamais un prorata), rattachés à la version 1 et
+ * 5. ordres du règlement (`ordersByTender` : réaffectation d'abord, puis remboursement de chaque
+ *    moyen d'origine décidé par 08 E2 et ventilé en cascade par la règle 10, US-224f, ADR-166 ;
+ *    montants explicites par jambe, jamais un prorata), rattachés à la version 1 et
  *    bornés par 0121 (travailleur `payment_command`) : réaffectation par la commande PAY à 15
  *    arguments, remboursement par l'instance `PLANNED` d'US-224b (`PgRefundPlanner.plan`) ;
  *    la contrainte différée de 0124 exige Σ REFUND = remboursement du voyageur à la validation.
@@ -38,15 +39,18 @@ import {
   money,
   settlementOrders,
   settlementRecordPayload,
+  tenderRefundOrders,
   type CancellationEvent,
   type Currency,
   type HostPenaltySchedule,
   type Leg,
   type Legs,
   type Money,
+  type PaidTender,
   type SettlementParams,
   type SettlementRecord,
   type SettlementTrip,
+  type TenderKind,
 } from '@rueda/money';
 import type { AlertChannel, BusRegistry, SqlClient, WorkerTransactions } from '../../bus/index.js';
 import {
@@ -115,6 +119,8 @@ export interface CancellationOrder {
 
 export interface CancellationPlan {
   readonly record: SettlementRecord;
+  /** Devise du trip (configuration du pays), pour les ordres par moyen (US-224f). */
+  readonly currency: Currency;
   readonly orders: readonly CancellationOrder[];
 }
 
@@ -217,13 +223,7 @@ export function planCancellation(f: CancellationFacts, trip: SettlementTrip): Ca
   const params = cancellationParams(f.params, trip.currency);
   const rec = buildSettlementRecord(trip, cancellationEvent(f), params);
   const currency = trip.currency;
-  const variationRow = Object.fromEntries(
-    rec.legs.map((l) => [l.leg, money(l.variationMinor, currency)]),
-  ) as Record<Leg, Money>;
-  const variation: Legs = Object.freeze({
-    ...variationRow,
-    total: money(-rec.guestRefundMinor, currency),
-  });
+  const variation = variationOf(rec, currency);
   const refund = money(rec.guestRefundMinor, currency);
   const orders = settlementOrders(
     variation,
@@ -243,7 +243,120 @@ export function planCancellation(f: CancellationFacts, trip: SettlementTrip): Ca
       instanceSeq: i + 1,
     });
   });
-  return { record: rec, orders: out };
+  return { record: rec, currency, orders: out };
+}
+
+/** Variation signée des jambes d'un règlement (`settlement_leg.variation_minor`, 08 E7 règle 3). */
+function variationOf(rec: SettlementRecord, currency: Currency): Legs {
+  const variationRow = Object.fromEntries(
+    rec.legs.map((l) => [l.leg, money(l.variationMinor, currency)]),
+  ) as Record<Leg, Money>;
+  return Object.freeze({ ...variationRow, total: money(-rec.guestRefundMinor, currency) });
+}
+
+/**
+ * Encaissement réussi du loyer d'un trip : un moyen d'origine de 08 E2 (US-224f, ADR-166), lu par
+ * `tendersOf` dans l'ordre des captures (la plus ancienne d'abord).
+ */
+export interface CaptureTender {
+  readonly operationId: string;
+  readonly accountId: string;
+  readonly method: string | null;
+  /** Payé par ce moyen, devise du trip. */
+  readonly amountMinor: bigint;
+  /** Déjà engagé sur ce moyen : instances SM-8 hors `CANCELLED` et `SUPERSEDED` (08 E2). */
+  readonly committedMinor: bigint;
+}
+
+/** Rail de remboursement de bêta : natif seulement (08 E3 ; ADR-147, ADR-166). */
+export type BetaRefundRail = 'NATIVE_PARTIAL';
+
+/** Ordre d'un règlement rattaché à son moyen d'origine (remboursement : avec son rail). */
+export interface TenderOrder extends CancellationOrder {
+  readonly tender: CaptureTender;
+  readonly rail: BetaRefundRail | null;
+}
+
+/** Ordre de la cascade de 08 E7 règle 10 (natif → non natif → crédit cash → crédit promo). */
+const TENDER_ORDER: readonly TenderKind[] = ['NATIVE', 'NON_NATIVE', 'CASH_CREDIT', 'PROMO_CREDIT'];
+
+/**
+ * Catégorie de 08 E2 d'un moyen (PROPOSÉ, ADR-166) : la carte est le seul moyen natif de la bêta
+ * (`NATIVE_PARTIAL`, ADR-147) ; crédit cash et crédit promo sont des moyens de Kmino ; tout autre
+ * moyen (Yappy, QR, virement, inconnu) est non natif. Un moyen inconnu n'est jamais supposé natif.
+ */
+export function tenderKindOf(method: string | null): TenderKind {
+  if (method === 'CARD') return 'NATIVE';
+  if (method === 'CREDIT_CASH') return 'CASH_CREDIT';
+  if (method === 'CREDIT_PROMO') return 'PROMO_CREDIT';
+  return 'NON_NATIVE';
+}
+
+/**
+ * Ordres d'un règlement sur les moyens d'origine (fonction pure, US-224f, ADR-166) : 08 E2 décide le
+ * montant de chaque moyen, la règle 10 ses jambes (`tenderRefundOrders`) ; réaffectation d'abord
+ * (règle 3), rattachée au premier moyen de la cascade. Rail de bêta (fail-closed, 08 E3, SM-8) : un
+ * moyen non natif ou un crédit qui doit rembourser quelque chose exige le choix du voyageur
+ * (`PENDING_CUSTOMER_CHOICE`) ou un crédit cash recréé, tous deux fermés en bêta (aucune coordonnée
+ * bancaire stockée, `funds_holding_enabled` = false) ⇒ `REFUND_RAIL_UNAVAILABLE` : rien n'est écrit,
+ * la demande est garée avec une alerte, jamais un remboursement partiel ni un autre moyen deviné.
+ */
+export function ordersByTender(
+  plan: CancellationPlan,
+  tenders: readonly CaptureTender[],
+): readonly TenderOrder[] {
+  const currency = plan.currency;
+  const variation = variationOf(plan.record, currency);
+  if (!LEGS.some((leg) => variation[leg].amountMinor !== 0n)) return [];
+  if (tenders.length === 0) throw new CancellationPlanError('TRIP_NOT_CAPTURED');
+  const paid: PaidTender[] = tenders.map((t, i) => ({
+    id: t.operationId,
+    kind: tenderKindOf(t.method),
+    paid: money(t.amountMinor, currency),
+    committed: money(t.committedMinor, currency),
+    capturedRank: i + 1,
+  }));
+  const byId = new Map(tenders.map((t) => [t.operationId, t]));
+  const tenderOf = (id: string): CaptureTender => {
+    const t = byId.get(id);
+    if (t === undefined) throw new CancellationPlanError('ROW_SHAPE');
+    return t;
+  };
+  const orders = tenderRefundOrders(variation, paid);
+  const out: TenderOrder[] = [];
+  if (orders.reallocation !== null) {
+    // premier moyen de la cascade (catégorie, puis capture la plus ancienne) : clé et compte
+    const first = [...paid].sort(
+      (a, b) =>
+        TENDER_ORDER.indexOf(a.kind) - TENDER_ORDER.indexOf(b.kind) ||
+        a.capturedRank - b.capturedRank,
+    )[0];
+    if (first === undefined) throw new CancellationPlanError('TRIP_NOT_CAPTURED');
+    const legs = legAmounts(orders.reallocation);
+    const amount = LEGS.reduce((s, leg) => (legs[leg] > 0n ? s + legs[leg] : s), 0n);
+    out.push({
+      kind: 'LEG_REALLOCATION',
+      amountMinor: amount,
+      legs,
+      instanceSeq: 1,
+      tender: tenderOf(first.id),
+      rail: null,
+    });
+  }
+  for (const r of orders.refunds) {
+    if (r.kind !== 'NATIVE') throw new CancellationPlanError('REFUND_RAIL_UNAVAILABLE');
+    out.push({
+      kind: 'REFUND',
+      amountMinor: r.legs.total.amountMinor,
+      legs: legAmounts(r.legs),
+      // 08 E4 : rang de l'instance parmi celles du même (règlement, REFUND, moyen) ; une seule par
+      // moyen à la version 1
+      instanceSeq: 1,
+      tender: tenderOf(r.id),
+      rail: 'NATIVE_PARTIAL',
+    });
+  }
+  return out;
 }
 
 // ------------------------------------------------------------------ accès à la base (production)
@@ -447,24 +560,29 @@ export class TripCancellationProcessor {
       [f.cancellationId, settlementId],
     );
     const costBearer = text(settled[0]?.r.costBearer);
+    let count = 0;
     if (plan.orders.length > 0) {
       await asWorker(db, PAYMENT_COMMAND_WORKER);
-      const capture = await captureOf(db, f.tripId);
+      // US-224f (ADR-166) : chaque moyen d'origine rembourse ce que lui donne 08 E2, jambes en
+      // cascade (règle 10) ; Σ remboursements = remboursement du voyageur (contrainte différée 0124)
+      const orders = ordersByTender(plan, await tendersOf(db, f.tripId, f.currency));
+      count = orders.length;
       const recorder = new PgOperationRecorder(db);
       const refunds = new PgRefundPlanner(db);
-      for (const o of plan.orders) {
-        const idemPlain = orderKey(f, o, capture.operationId);
+      for (const o of orders) {
+        const idemPlain = orderKey(f, o, o.tender.operationId);
         const idemSent = idempotencyKeyToSend(idemPlain, PSP_IDEMPOTENCY_MAX_LENGTH);
         if (o.kind === 'REFUND') {
           // US-224b (ADR-147) : un remboursement naît d'une instance PLANNED (SM-8), rail du moyen
           // d'origine ; son envoi au PSP est le service d'US-224 (aucun PSP réel avant le lot C)
+          if (o.rail === null) throw new CancellationPlanError('REFUND_RAIL_UNAVAILABLE');
           await refunds.plan({
             instanceId: randomUUID(),
             operationId: randomUUID(),
             settlementId,
-            refundedOperationId: capture.operationId,
+            refundedOperationId: o.tender.operationId,
             instanceSeq: o.instanceSeq,
-            rail: 'NATIVE_PARTIAL',
+            rail: o.rail,
             legs: o.legs,
             idemPlain,
             idemSent,
@@ -475,8 +593,8 @@ export class TripCancellationProcessor {
           id: randomUUID(),
           holdId: null,
           tripId: f.tripId,
-          pspAccountId: capture.accountId,
-          method: capture.method,
+          pspAccountId: o.tender.accountId,
+          method: o.tender.method,
           kind: o.kind,
           purpose: 'RENT',
           amountMinor: o.amountMinor,
@@ -489,7 +607,7 @@ export class TripCancellationProcessor {
         });
       }
     }
-    return { outcome: 'SETTLED', costBearer, orders: plan.orders.length } as const;
+    return { outcome: 'SETTLED', costBearer, orders: count } as const;
   }
 
   async #park(cancellationId: string, status: 'FIN_REVIEW' | 'FAILED', code: string) {
@@ -503,26 +621,49 @@ export class TripCancellationProcessor {
   }
 }
 
-/** Capture réussie du loyer du trip (moyen et compte d'origine du remboursement). */
-async function captureOf(
+/**
+ * Moyens d'origine du trip (US-224f, ADR-166) : encaissements RÉUSSIS du loyer dans la devise du
+ * trip (capture, débit MIT, recouvrement : mêmes natures que `core.payment_cmd_plan_refund`), dans
+ * l'ordre des captures, avec ce qui est déjà engagé sur chacun (instances SM-8 hors `CANCELLED` et
+ * `SUPERSEDED`, 08 E2). Un encaissement dans une autre devise n'est pas un moyen : le remboursement
+ * dépasse alors Σ payé et la demande est garée (fail-closed, aucune conversion en bêta).
+ */
+async function tendersOf(
   db: SqlClient,
   tripId: string,
-): Promise<{ operationId: string; accountId: string; method: string | null }> {
-  const { rows } = await db.query<{ id: string; psp_account_id: string; method: string | null }>(
-    `SELECT o.id, o.psp_account_id, o.method
+  currency: string,
+): Promise<readonly CaptureTender[]> {
+  const { rows } = await db.query<Record<string, unknown>>(
+    `SELECT o.id, o.psp_account_id, o.method, o.amount_minor::text AS amount_minor,
+            COALESCE(e.engaged, 0)::text AS committed_minor
        FROM core.payment_payment_operation AS o
-      WHERE o.kind = 'CAPTURE' AND o.purpose = 'RENT' AND o.status = 'SUCCEEDED'
+       LEFT JOIN LATERAL (SELECT pg_catalog.sum(ri.amount_trip_minor) AS engaged
+                            FROM core.payment_refund_instance AS ri
+                           WHERE ri.refunded_operation_id = o.id
+                             AND ri.status NOT IN ('CANCELLED', 'SUPERSEDED')) AS e ON true
+      WHERE o.kind IN ('CAPTURE', 'MIT_CHARGE', 'DEBT_COLLECTION')
+        AND o.purpose IN ('RENT', 'RENT_SHORTFALL', 'NO_SHOW_RETENTION')
+        AND o.status = 'SUCCEEDED' AND o.currency = $2
         AND (o.trip_id = $1::uuid
              OR o.hold_id = (SELECT t.source_hold_id FROM core.booking_trip AS t
-                              WHERE t.id = $1::uuid))`,
-    [tripId],
+                              WHERE t.id = $1::uuid))
+      ORDER BY o.created_at, o.id`,
+    [tripId, currency],
   );
-  // bêta : une seule capture du loyer ; aucune ou plusieurs ⇒ refus (jamais un moyen deviné)
-  if (rows.length !== 1 || rows[0] === undefined) {
-    throw new CancellationPlanError('TRIP_NOT_CAPTURED');
-  }
-  return { operationId: rows[0].id, accountId: rows[0].psp_account_id, method: rows[0].method };
+  return rows.map((r) => ({
+    operationId: text(r['id']),
+    accountId: text(r['psp_account_id']),
+    method: textOrNull(r['method']),
+    amountMinor: minorOf(r['amount_minor']),
+    committedMinor: minorOf(r['committed_minor']),
+  }));
 }
+
+const minorOf = (v: unknown): bigint => {
+  const s = text(v);
+  if (!/^[0-9]{1,18}$/.test(s)) throw rowShape();
+  return BigInt(s);
+};
 
 /**
  * Clé d'idempotence d'un ordre (08 E4) : `{trip}:{segment}:v1:{opération}:{moyen}:i{n}:a1`, le
@@ -571,11 +712,17 @@ export function classifyOrUnexpected(error: unknown): CancellationOutcome {
   }
 }
 
-/** Contraintes de la base qui renvoient à la décision FINANCE d'US-224b (08 E7 règle 5). */
+/**
+ * Contraintes de la base qui renvoient à la décision FINANCE d'US-224b (08 E7 règle 5) ; US-227
+ * (ADR-165) : jambe INSURER déjà portée par un bordereau émis (08 E7 règle 3 bis, ADR-147).
+ */
 const FIN_CONSTRAINTS = new Set([
   'operation_settlement_fin_review',
   'refund_exceeds_collected',
+  // US-224f (08 E2) : jamais plus que le payé d'un moyen
+  'refund_exceeds_tender',
   'advance_decision_required',
+  'insurer_leg_on_bordereau',
 ]);
 /** Interblocage, sérialisation : reprise au passage suivant. */
 const RETRY_STATES = new Set(['40P01', '40001']);

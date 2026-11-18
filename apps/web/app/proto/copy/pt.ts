@@ -87,11 +87,6 @@ export const PT_PROTO = {
     'Você vai precisar de: carteira de motorista válida, passaporte ou documento de identidade e uma selfie. Leva uns 3 minutos.',
   'web.s03.kyc.90days':
     'Você pode dirigir com sua carteira estrangeira até {date_limit}. Seu aluguel termina em {date_end}.',
-  'web.deposit.unavailable': {
-    one: 'Para essas datas não conseguimos bloquear a caução no seu cartão. Você pode reservar até {count} dia.',
-    other:
-      'Para essas datas não conseguimos bloquear a caução no seu cartão. Você pode reservar até {count} dias.',
-  },
   'web.s04.status.question': 'Qual é a sua situação como visitante ou morador ({country})?',
   'web.s04.status.tourist':
     'Você entrou no território ({country}) há menos de 90 dias com passaporte',

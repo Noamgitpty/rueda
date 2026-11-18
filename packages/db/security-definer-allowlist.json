@@ -2001,6 +2001,41 @@
       "owner": "cmd_hold_owner",
       "execute": ["iam_staff_owner"],
       "story": "US-224"
+    },
+    {
+      "signature": "core.payment_cmd_refund_await_choice(uuid)",
+      "family": "cmd_money",
+      "owner": "cmd_money_owner",
+      "execute": ["app_worker"],
+      "story": "US-224"
+    },
+    {
+      "signature": "core.settlement_cmd_draft_insurer_bordereaux(text)",
+      "family": "cmd_money",
+      "owner": "cmd_money_owner",
+      "execute": ["app_worker"],
+      "story": "US-227"
+    },
+    {
+      "signature": "core.finance_insurer_ledger_facts()",
+      "family": "cmd_money",
+      "owner": "cmd_money_owner",
+      "execute": ["app_worker"],
+      "story": "US-227"
+    },
+    {
+      "signature": "core.settlement_post_insurer_collection()",
+      "family": "cmd_money",
+      "owner": "cmd_money_owner",
+      "execute": [],
+      "story": "US-227"
+    },
+    {
+      "signature": "core.settlement_post_insurer_variation()",
+      "family": "cmd_money",
+      "owner": "cmd_money_owner",
+      "execute": [],
+      "story": "US-227"
     }
   ]
 }

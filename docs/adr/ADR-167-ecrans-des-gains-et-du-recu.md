@@ -10,7 +10,7 @@ Les revues de 217a (#231) ont relevé quatre écarts entre le contrat des routes
 
 ## Décision
 
-1. **Taxe du trip fee (N-337)** : la taxe de ligne du devis figé n'est rendue (`taxMinor`, `taxRateBps`) que si rien du trip fee n'est remboursé ; dès qu'une part l'est, les deux valent `null`. 08 rembourse la taxe une fois par **groupe** fiscal (prorata de la base taxable remboursée), jamais par ligne : la taxe du trip fee conservé n'existe dans aucun état stocké et attend OQ-BR-14. L'écran dit qu'elle figure sur la facture émise à part. Migration 0141 (`core.finance_trip_receipt_view` remplacée à signature et droits identiques).
+1. **Taxe du trip fee (N-337)** : la taxe de ligne du devis figé n'est rendue (`taxMinor`, `taxRateBps`) que si rien du trip fee n'est remboursé ; dès qu'une part l'est, les deux valent `null`. 08 rembourse la taxe une fois par **groupe** fiscal (prorata de la base taxable remboursée), jamais par ligne : la taxe du trip fee conservé n'existe dans aucun état stocké et attend OQ-BR-14. L'écran dit qu'elle figure sur la facture émise à part. Migration 0144 (`core.finance_trip_receipt_view` remplacée à signature et droits identiques).
 2. **Aucun reçu deviné (N-340)** : sans règlement ni solde capturé, la vue GUEST rend `NULL` (`NO_RECEIPT`, 409 `RECEIPT_NOT_READY`), comme la vue HOST ; le total payé est celui du règlement en tête ou la somme capturée, jamais le total du devis.
 3. **Acquis et à venir (N-339)** : le relevé du mois gagne deux sommes par devise, `earnedMinor` (jambes HOST des versions en tête des règlements et ajustements du `host_ledger`) et `pendingMinor` (jambes HOST capturées d'un trip sans règlement : à venir, en cours, ou terminé et pas encore réglé). `hostLegMinor`, `adjustmentsMinor`, `netMinor` (= `earnedMinor` + `pendingMinor`), `tripsCount` et les lignes ne changent pas. A08 montre « Ganado » et « Por liquidar » séparés, jamais leur somme (PROPOSÉ ; comme Turo, qui sépare les gains à venir des gains versés).
 4. **Remboursement dû (N-338)** : la clé `refundMinor` reste (contrat de 217a) ; OpenAPI la décrit comme le dû du règlement, l'écran la libelle « Reembolso que te corresponde » et renvoie à S10 (`/trips/{id}/refund`) pour l'état et la date d'émission (SM-8). Jamais « te devolvimos » sur le reçu.
@@ -28,7 +28,7 @@ Les revues de 217a (#231) ont relevé quatre écarts entre le contrat des routes
 
 ## Conséquences
 
-- Migration 0141 (deux corps remplacés, aucune table ni droit) ; le relevé gagne deux clés : l'API 217a les refuserait (503, fail-closed) entre la migration et le déploiement de l'API 217b.
-- Catalogue v82 : `web.s09.receipt.*`, `web.s09.documents.receiptOpen`, `web.a08.*`, `web.host.earningsLink` ; `web.a08.title`, `web.a08.empty`, `web.a08.payoutsOff` deviennent officielles (retirées du prototype).
+- Migration 0144 (deux corps remplacés, aucune table ni droit) ; le relevé gagne deux clés : l'API 217a les refuserait (503, fail-closed) entre la migration et le déploiement de l'API 217b.
+- Catalogue v83 : `web.s09.receipt.*`, `web.s09.documents.receiptOpen`, `web.a08.*`, `web.host.earningsLink` ; `web.a08.title`, `web.a08.empty`, `web.a08.payoutsOff` deviennent officielles (retirées du prototype).
 - e2e `trip-receipt.spec.ts` (360 px, es) et deux écrans de plus dans `screens.spec.ts` (`recu-voyage`, `hote-gains`) ; références visuelles tirées de l'artefact CI `regression-visuelle`.
 - Suites : dates et statuts de versement sur A08 avant `payouts_enabled` (GL-44) ; PDF du reçu si demandé ; relevé annuel (US-541) ; accès au reçu jugé sur le rôle `P2P_HOST` `ACTIVE` et co-hôtes (N-342) ; `TRIP_SETTLED_TOTAL` hors MIT et prolongations (N-341).

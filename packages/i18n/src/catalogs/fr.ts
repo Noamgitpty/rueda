@@ -117,6 +117,14 @@ export const FR_MESSAGES = {
   'web.deposit.contest': 'Vérifier et répondre',
   'web.deposit.debitWarning':
     'Le dépôt est débité puis remboursé. Nous émettrons le remboursement le {date} ; ta banque peut mettre de 3 à 10 jours ouvrés à l’afficher.',
+  // US-225 (ADR-164) : refus de la caution avant le paiement (10b UX-24 ; 08 BR-PAY-06, T59)
+  'web.deposit.unavailable': {
+    one: 'Pour ces dates, nous ne pouvons pas bloquer le dépôt sur ta carte. Tu peux réserver jusqu’à {count} jour.',
+    other:
+      'Pour ces dates, nous ne pouvons pas bloquer le dépôt sur ta carte. Tu peux réserver jusqu’à {count} jours.',
+  },
+  'web.deposit.unavailableNone':
+    'Pour l’instant, nous ne pouvons pas bloquer le dépôt sur ta carte pour cette voiture.',
   'web.catalog.title': 'Bibliothèque de composants',
   'web.catalog.intro':
     'Chaque composant dans ses états. Choisis la langue, le thème et la largeur pour les passer en revue.',
@@ -2654,6 +2662,13 @@ export const FR_MESSAGES = {
     'Une décision de FINANCE sur une avance de la plateforme est nécessaire.',
   'backoffice.cancel.outcome.SETTLEMENT_INPUT_INVALID':
     'Les données du règlement ne sont pas valides.',
+  // US-224f (ADR-166) : remboursement réparti sur les moyens d’origine (codes garés)
+  'backoffice.cancel.outcome.REFUND_RAIL_UNAVAILABLE':
+    'Un remboursement irait vers un moyen de paiement qui ne se rembourse pas encore automatiquement. Rien n’a été enregistré ; FINANCE s’en occupe.',
+  'backoffice.cancel.outcome.REFUND_RAIL_NOT_NATIVE':
+    'Un remboursement par carte a été demandé sur un autre moyen de paiement. Rien n’a été enregistré.',
+  'backoffice.cancel.outcome.REFUND_EXCEEDS_TENDER':
+    'Un remboursement dépasse ce qu’a payé un moyen de paiement.',
   // US-214 (ADR-160) : « Mis viajes » (S08) et détail du trip du voyageur (S09)
   'common.trips.notFound': 'Nous ne trouvons pas ce voyage.',
   'common.trips.unavailable':

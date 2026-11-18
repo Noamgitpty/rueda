@@ -524,7 +524,7 @@ describe.each(COUNTRIES)('US-217a — reçu des gains et du trip fee — $countr
     });
   });
 
-  // US-217 partie 217b (migration 0141, ADR-167) : suites des revues de #231 (N-337, N-339, N-340)
+  // US-217 partie 217b (migration 0144, ADR-167) : suites des revues de #231 (N-337, N-339, N-340)
   it('217b : taxe du trip fee non rendue dès qu’une part du trip fee est remboursée (N-337) ; trip sans règlement ni capture ⇒ aucun reçu des deux côtés, jamais un total lu du devis (N-340) ; relevé : acquis et à venir séparés (N-339)', async () => {
     await withRole('app_worker', async (worker) => {
       const w = await world(worker, c);

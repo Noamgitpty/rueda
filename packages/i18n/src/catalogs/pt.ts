@@ -115,6 +115,14 @@ export const PT_MESSAGES = {
   'web.deposit.contest': 'Conferir e responder',
   'web.deposit.debitWarning':
     'A caução é cobrada e depois devolvida. Faremos o estorno em {date}; seu banco pode levar de 3 a 10 dias úteis para mostrar o valor.',
+  // US-225 (ADR-164) : refus de la caution avant le paiement (10b UX-24 ; 08 BR-PAY-06, T59)
+  'web.deposit.unavailable': {
+    one: 'Para essas datas não conseguimos bloquear a caução no seu cartão. Você pode reservar até {count} dia.',
+    other:
+      'Para essas datas não conseguimos bloquear a caução no seu cartão. Você pode reservar até {count} dias.',
+  },
+  'web.deposit.unavailableNone':
+    'Por enquanto, não conseguimos bloquear a caução no seu cartão para este carro.',
   'web.catalog.title': 'Biblioteca de componentes',
   'web.catalog.intro':
     'Cada componente em todos os seus estados. Escolha o idioma, o tema e a largura para revisar.',
@@ -2599,6 +2607,13 @@ export const PT_MESSAGES = {
   'backoffice.cancel.outcome.ADVANCE_DECISION_REQUIRED':
     'É preciso uma decisão de FINANCE sobre um adiantamento da plataforma.',
   'backoffice.cancel.outcome.SETTLEMENT_INPUT_INVALID': 'Os dados da liquidação não são válidos.',
+  // US-224f (ADR-166) : remboursement réparti sur les moyens d’origine (codes garés)
+  'backoffice.cancel.outcome.REFUND_RAIL_UNAVAILABLE':
+    'Um reembolso iria para um meio de pagamento que ainda não é reembolsado automaticamente. Nada foi registrado; o FINANCE cuida disso.',
+  'backoffice.cancel.outcome.REFUND_RAIL_NOT_NATIVE':
+    'Foi pedido um reembolso no cartão sobre outro meio de pagamento. Nada foi registrado.',
+  'backoffice.cancel.outcome.REFUND_EXCEEDS_TENDER':
+    'Um reembolso supera o que um meio de pagamento pagou.',
   // US-214 (ADR-160) : « Mis viajes » (S08) et détail du trip du voyageur (S09)
   'common.trips.notFound': 'Não encontramos esta viagem.',
   'common.trips.unavailable':

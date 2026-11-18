@@ -1,0 +1,34 @@
+# ADR-166 — Remboursement réparti sur les moyens d'origine (TJ16) et reprise après un échec confirmé
+
+- **Statut** : PROPOSÉ (US-224 partie 224f, agent argent / back-end, claude-opus-5-5, 2026-11-18). Revues exigées : voir `check-story-reviews.mjs` (argent, RLS, rôles, `SECURITY DEFINER` et concurrence sur un autre modèle que l'auteur). À reporter dans 17 §3.2.7 (garde de l'instance), §4.3 (commandes) et 16 A.8 (codes garés).
+- **Complète** : ADR-145 (ordres de règlement, 0121), ADR-147 (instance SM-8, rails de bêta, 0123), ADR-148 (annulations réglées dans la transition, 0124), ADR-150 (ordonnanceur, 0127), ADR-154 (lecture S10, 0130).
+- **Sources** : 19 US-224 critère 6 ; 08 E1 (`refund_committed`), E2 (imputation incrémentale, ordre d'absorption), E3 (rails, `CREDIT_CASH` et `funds_holding_enabled`), E4 (`instance_seq`, `attempt_no`), E7 règle 10 (cascade, deux ordres distincts), SM-8 ; vecteurs T33, T66 b, TJ15a à TJ15d, TJ16a à TJ16d, TJ20a ; BOARD N-238.
+
+## Contexte
+
+Jusqu'à 224e, le processeur des annulations (STL, ADR-148) remboursait **une seule capture** (`captureOf` refusait un trip encaissé en plusieurs fois) et la base ne bornait un remboursement qu'au niveau du trip (0121). 08 prévoit au contraire un remboursement réparti par E2 sur les moyens d'origine, chaque moyen remboursé au plus de son reliquat, puis ventilé par jambe en cascade (règle 10, TJ16) ; un échec confirmé du rail ouvre le choix d'un autre rail par le voyageur (SM-8 `FAILED → PENDING_CUSTOMER_CHOICE`, `attempt_no` + 1). TJ16d est une **réémission de crédit cash** : un solde du voyageur détenu par Kmino, ouvert en production seulement si `funds_holding_enabled[pays]` = true (E3).
+
+## Décision
+
+1. **E2 dans `@rueda/money`** : `refundsByTender` (imputation incrémentale : `refundable[m] = max(0, payé[m] − engagé[m])` ; `K'` absorbé crédit promo → crédit cash → non natif → natif, la capture la plus récente d'abord ; chaque moyen reçoit `refundable[m] − absorbé[m]`) et `tenderRefundOrders` (E2 puis la cascade existante `settlementOrders`, identité du moyen conservée). Fonctions pures, sans division ; dépassement de Σ reliquats ⇒ `REFUND_OUT_OF_RANGE`. Les chargebacks perdus ne sont pas modélisés (aucun en bêta).
+2. **STL** : `tendersOf` lit tous les encaissements réussis du loyer du trip (mêmes natures que `payment_cmd_plan_refund`, devise du trip, ordre des captures) avec ce qui est engagé sur chacun ; `ordersByTender` rattache chaque ordre à son moyen (clé `…:REFUND:{moyen}:i1:a1`), la réaffectation au premier moyen de la cascade. Catégorie d'un moyen (PROPOSÉ) : `CARD` = natif ; `CREDIT_CASH`, `CREDIT_PROMO` = crédits ; tout autre moyen ou un moyen inconnu = non natif (jamais supposé natif).
+3. **Rail de bêta, fail-closed** : seul le remboursement natif d'une carte existe. Un moyen non natif ou un crédit qui doit rembourser quelque chose (TJ16b au PA, TJ16d au PY) ⇒ `REFUND_RAIL_UNAVAILABLE` : **rien n'est écrit** (ni règlement, ni ordre), la demande d'annulation est garée avec une alerte P1 et FINANCE la traite. Jamais un remboursement partiel silencieux (la contrainte différée de 0124 l'interdit), jamais un autre moyen deviné, jamais une conversion en crédit (08 E3). Un moyen non natif **entièrement absorbé** par E2 (T07 payé comme T33) ne bloque rien.
+4. **Invariant de E2 en base, pour tout appelant** (0141, `payment_cmd_plan_refund`) : Σ instances du moyen, toutes versions, hors `CANCELLED` et `SUPERSEDED` (donc `FAILED` et `PENDING_CUSTOMER_CHOICE` compris : l'obligation subsiste) ≤ payé par ce moyen (`refund_exceeds_tender` ⇒ `REFUND_EXCEEDS_COLLECTED`, revue FIN) ; contrôlé après la garde du trip de 0121, sous le verrou du trip. Rail natif (`NATIVE_PARTIAL`, `ROLLBACK_AND_RECHARGE`) sur une carte seulement (`refund_rail_not_native`) ; moyen remboursé dans la devise du trip seulement.
+5. **Reprise après un échec confirmé** : `core.payment_cmd_refund_await_choice` (`SECURITY DEFINER`, `cmd_money_owner`, EXECUTE `app_worker`, travailleur `payment_command`) fait passer une instance `FAILED` dont l'ordre est `FAILED` (rejet reçu, aucun fonds sorti) à `PENDING_CUSTOMER_CHOICE`, `attempt_no` + 1 ; un ordre `UNKNOWN` ou `SUBMITTED` garde sa clé (08 E4, EC-29). L'ordonnanceur l'appelle dans la transaction qui pose l'alerte `FIN_REFUND_FAILED`. La garde n'admet un changement d'`attempt_no` que sur cette transition (+1 exactement) ; `PENDING_CUSTOMER_CHOICE → SUPERSEDED` à la version n+1 (supersession étendue). Aucun autre rail n'est ouvert en bêta : l'instance attend (08 E3 : « aucune conversion automatique en crédit »).
+6. **S10** : `PENDING_CUSTOMER_CHOICE` est montré au voyageur comme « en cours de vérification » (l'équipe s'en occupe), plus « en préparation » : en bêta, il ne suit qu'un rejet confirmé et aucun choix n'est proposé. Aucun nouveau texte visible du voyageur ; trois codes garés de la console (catalogue v81, quatre langues).
+
+## Alternatives écartées
+
+- **Rembourser la part carte et laisser le reliquat non natif en attente** : impossible sans écrire une instance sans ordre (contrainte différée de 0124 : Σ REFUND = remboursement du voyageur) ; un remboursement partiel validé masquerait l'obligation restante. Fail-closed : rien n'est écrit, FIN décide.
+- **Crédit cash recréé en bêta** (TJ16d exécuté) : fonds de tiers détenus ; interdit tant que `funds_holding_enabled` = false (CLAUDE.md point 4, 0123 inchangé : refusé en bêta quelle que soit la valeur).
+- **E2 recalculé en SQL** : double source du calcul ; la base tient l'invariant (jamais plus que le reliquat d'un moyen), le calcul reste unique dans `@rueda/money`.
+- **Nouvelle instance `i2` après un échec** : 08 E4 réserve `instance_seq` + 1 à une nouvelle obligation ; une nouvelle tentative est `attempt_no` + 1 de la même instance. La base le refuse désormais (`refund_exceeds_tender`).
+- **Passage automatique en `PENDING_CUSTOMER_CHOICE` dans le déclencheur de l'ordre** : l'alerte FIN de l'échec serait sautée ; la transition suit l'alerte, dans la même transaction que sa marque.
+
+## Limites et conséquences (suites)
+
+- Choix du rail par le voyageur sur S10 et virement vers un compte vérifié à son nom (OQ-BR-12, `PENDING_BANK_DETAILS`, lot C) ; l'instance garde son ordre `FAILED` d'origine jusque-là (un nouvel ordre `…:a2` naîtra avec le rail choisi).
+- Crédit cash recréé (TJ16d exécuté) : seulement après l'ouverture de `funds_holding_enabled[pays]` par décision écrite du fondateur (commande à deux personnes de 17 v6).
+- Relances J+1, J+3, J+7 et sort des sommes non réclamées (OQ-BR-44).
+- Un encaissement par crédit (`CREDIT_CASH`, `CREDIT_PROMO`) peut être enregistré par `payment_cmd_record_operation` (aucun contrôle du moyen) alors que les crédits n'existent pas en bêta : refus à la capture à ajouter (US-223 ou lot C).
+- Chargebacks perdus dans le reliquat d'un moyen (E5) ; FX entre devise de capture et devise du trip.

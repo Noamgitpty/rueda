@@ -111,6 +111,14 @@ export const ES_MESSAGES = {
   'web.deposit.contest': 'Revisar y responder',
   'web.deposit.debitWarning':
     'El depósito se cobra y luego se reembolsa. Emitiremos el reembolso el {date}; tu banco puede tardar de 3 a 10 días hábiles en mostrarlo.',
+  // US-225 (ADR-164) : refus de la caution avant le paiement (10b UX-24 ; 08 BR-PAY-06, T59)
+  'web.deposit.unavailable': {
+    one: 'Para estas fechas no podemos tomar el depósito en tu tarjeta. Puedes reservar hasta {count} día.',
+    other:
+      'Para estas fechas no podemos tomar el depósito en tu tarjeta. Puedes reservar hasta {count} días.',
+  },
+  'web.deposit.unavailableNone':
+    'Por ahora no podemos tomar el depósito en tu tarjeta para este auto.',
   // Vitrine de la bibliothèque (US-032) : outil interne de revue du design, PROPOSÉ.
   'web.catalog.title': 'Biblioteca de componentes',
   'web.catalog.intro':
@@ -2594,6 +2602,13 @@ export const ES_MESSAGES = {
     'Hace falta una decisión de FINANCE sobre un anticipo de la plataforma.',
   'backoffice.cancel.outcome.SETTLEMENT_INPUT_INVALID':
     'Los datos de la liquidación no son válidos.',
+  // US-224f (ADR-166) : remboursement réparti sur les moyens d’origine (codes garés)
+  'backoffice.cancel.outcome.REFUND_RAIL_UNAVAILABLE':
+    'Un reembolso iría a un medio de pago que todavía no se reembolsa automáticamente. No se registró nada; lo atiende FINANCE.',
+  'backoffice.cancel.outcome.REFUND_RAIL_NOT_NATIVE':
+    'Se pidió un reembolso a tarjeta sobre otro medio de pago. No se registró nada.',
+  'backoffice.cancel.outcome.REFUND_EXCEEDS_TENDER':
+    'Un reembolso supera lo que pagó un medio de pago.',
   // US-214 (ADR-160) : « Mis viajes » (S08) et détail du trip du voyageur (S09)
   'common.trips.notFound': 'No encontramos este viaje.',
   'common.trips.unavailable':

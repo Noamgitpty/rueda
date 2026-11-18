@@ -84,17 +84,24 @@ describe('migration de graines', () => {
   );
 
   it('0009 reste rendue sans les paramètres ajoutés après elle (immuable, ADR-044, ADR-075)', () => {
-    for (const { prefix } of POST_SEED_PARAMS) expect(rendered).not.toContain(`'${prefix}`);
+    for (const { prefix, extraKeys } of POST_SEED_PARAMS) {
+      expect(rendered).not.toContain(`'${prefix}`);
+      for (const key of extraKeys ?? []) expect(rendered).not.toContain(`'${key}'`);
+    }
   });
 
   it.each(POST_SEED_PARAMS)(
     'graine complémentaire $file identique au rendu des paramètres $prefix*',
-    ({ prefix, file }) => {
+    ({ prefix, file, extraKeys }) => {
       const delta = renderParamSeedSql(config, prefix);
       if (process.env['RUEDA_WRITE_CFG_SEED'] === '1')
         writeFileSync(migrationUrl(file), delta, 'utf8');
       expect(readFileSync(migrationUrl(file), 'utf8').replaceAll('\r\n', '\n')).toBe(delta);
-      const keys = [...config.definitions.keys()].filter((k) => k.startsWith(prefix));
+      const keys = [...config.definitions.keys()].filter(
+        (k) => k.startsWith(prefix) || (extraKeys ?? []).includes(k),
+      );
+      // US-225 : chaque clé nouvelle nommée existe dans le registre
+      for (const key of extraKeys ?? []) expect(keys).toContain(key);
       expect(keys.length).toBeGreaterThan(0);
       for (const key of keys) {
         expect(delta).toContain(`('${key}', '`);

@@ -182,6 +182,7 @@ function answers(over: Partial<Record<string, unknown[] | Error>> = {}): Answer 
     if (sql.includes('payment_cmd_refund_order_for_send')) return [orderRow('TJ02b')];
     if (sql.includes('payment_cmd_apply_operation_status')) return [{ outcome: 'APPLIED' }];
     if (sql.includes('payment_cmd_refund_mark_alerted')) return [{ changed: true }];
+    if (sql.includes('payment_cmd_refund_await_choice')) return [{ outcome: 'AWAITING_CHOICE' }];
     if (sql.includes('FROM core.payment_refund_instance')) return [{ operation_id: OPERATION }];
     if (sql.includes('settlement_cmd_apply_leg_movement')) return [{ outcome: 'APPLIED' }];
     return new Error(`requête inattendue : ${sql}`);
@@ -360,8 +361,40 @@ describe('ordonnanceur — états et refus', () => {
       step: 'ATTENTION',
       alert: { code: 'FIN_REFUND_FAILED', key: 'FAILED', errorCode: 'REFUND_FAILED' },
     });
+    // US-224f : marque et attente du choix d'un autre rail dans LA MÊME transaction, après l'alerte
+    expect(db.calls.slice(-2).map((c) => [c.sql.match(/core\.(\w+)/)?.[1], c.params])).toEqual([
+      ['payment_cmd_refund_mark_alerted', [INSTANCE, 'FAILED']],
+      ['payment_cmd_refund_await_choice', [INSTANCE]],
+    ]);
     await s.process(due({ status: 'FAILED', operationStatus: 'FAILED', finAlert: 'FAILED' }));
     expect(alerts.sent.map((a) => a.code)).toEqual(['FIN_REFUND_FAILED']);
+    expect(db.called('payment_cmd_refund_await_choice')).toHaveLength(1);
+  });
+
+  it('US-224f : seule l’alerte d’un échec confirmé ouvre le choix du rail ; issue inconnue de la base ⇒ alerte rejouée au passage suivant', async () => {
+    const blocked = new FakeDb(
+      answers({
+        payment_cmd_submit_refund: [{ outcome: 'BLOCKED', blocked_reason: 'ADVANCE_CAP_UNSET' }],
+      }),
+    );
+    const s1 = new RefundScheduler({
+      transactions: transactionsOf(blocked),
+      alerts: new Alerts(),
+      connectors: registryOf(new StubConnector(HONEST, () => new Error('jamais appelé'))),
+    });
+    expect((await s1.process(due())).step).toBe('BLOCKED');
+    expect(blocked.called('payment_cmd_refund_await_choice')).toEqual([]);
+
+    const odd = new FakeDb(answers({ payment_cmd_refund_await_choice: [{ outcome: 'X' }] }));
+    const lines: string[] = [];
+    const s2 = new RefundScheduler({
+      transactions: transactionsOf(odd),
+      alerts: new Alerts(),
+      connectors: registryOf(undefined),
+      log: (l) => lines.push(l),
+    });
+    await s2.process(due({ status: 'FAILED', operationStatus: 'FAILED' }));
+    expect(lines.some((l) => l.includes('alert_deferred'))).toBe(true);
   });
 
   it('issue inconnue : UNKNOWN appliqué, repris plus tard ; ordre en vol relu d’abord (aucun renvoi) puis SENT', async () => {

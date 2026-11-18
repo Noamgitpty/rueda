@@ -7,7 +7,7 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 
 ## Synthèse
 
-- 141 migrations ; 127 tables ; 3 vues ; 714 politiques RLS ; 284 fonctions `SECURITY DEFINER` ; 249 autres fonctions.
+- 144 migrations ; 128 tables ; 3 vues ; 720 politiques RLS ; 289 fonctions `SECURITY DEFINER` ; 251 autres fonctions.
 - Tables sans RLS `ENABLE` + `FORCE` : aucune.
 - Rôles applicatifs avec `SUPERUSER` ou `BYPASSRLS` : aucun.
 
@@ -156,6 +156,9 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 | `0138_booking_trip_constancia_read` | CTR / AVL : constancia d'arrendamiento d'un trip et recherche de l'hôte par plaque et date |
 | `0139_settlement_host_ledger_advance_receivable` | STL : créance de l'hôte de la règle 3 bis portée au `host_ledger` (avance de Kmino). |
 | `0140_booking_defaulted_host_trips_cancel` | AVL / SUP : hôte défaillant, annulation de ses trips à venir par l'ops, voyageurs remboursés |
+| `0141_payment_refund_multi_tender` | PAY : remboursement réparti sur les moyens d'origine (TJ16c / TJ16d) et reprise après un |
+| `0142_config_deposit_rail_params` | graine complémentaire : paramètres « deposit_always_required* » (US-225 ; 17 §7.2). |
+| `0143_settlement_insurer_ledger` | STL / FIN : jambe de l'assureur — registre `insurer_ledger`, bordereau mensuel à double |
 
 ## Rôles
 
@@ -5366,6 +5369,7 @@ Politiques RLS :
 
 - `catalog_cmd_read` (SELECT, PERMISSIVE, catalog_cmd_owner) USING `true`
 - `cmd_hold_contract_read` (SELECT, PERMISSIVE, cmd_hold_owner) USING `true`
+- `cmd_money_sel` (SELECT, PERMISSIVE, cmd_money_owner) USING `true`
 - `migrator_all` (ALL, PERMISSIVE, migrator) USING `true` WITH CHECK `true`
 
 ### `core.settlement_insurer_bordereau`
@@ -5392,15 +5396,19 @@ Politiques RLS :
 | `created_at` | `timestamp with time zone` | oui | `platform.now()` |
 | `updated_at` | `timestamp with time zone` | oui | `platform.now()` |
 | `row_version` | `integer` | oui | `0` |
+| `period_month` | `text` | non | — |
 
 Contraintes :
 
+- `insurer_bordereau_contract_fk` : `FOREIGN KEY (insurer_contract_id, insurer_id, country_code) REFERENCES core.settlement_insurer_contract(id, insurer_id, country_code)`
 - `insurer_bordereau_country_format` : `CHECK (country_code ~ '^[A-Z]{2}$'::text)`
 - `insurer_bordereau_currency_format` : `CHECK (currency ~ '^[A-Z]{3}$'::text)`
 - `insurer_bordereau_id_country_unique` : `UNIQUE (id, country_code)`
+- `insurer_bordereau_insurer_fk` : `FOREIGN KEY (insurer_id, country_code) REFERENCES core.settlement_insurer(id, country_code)`
 - `insurer_bordereau_issue_pair` : `CHECK ((issued_by IS NULL) = (second_validated_by IS NULL) AND (issued_by IS NULL) = (approval_id IS NULL) AND (issued_by IS NULL) = (issued_at IS NULL) AND (issued_by IS NULL OR issued_by <> second_validated_by))`
 - `insurer_bordereau_issued_shape` : `CHECK ((status = 'DRAFT'::text) = (issued_by IS NULL))`
 - `insurer_bordereau_paid_shape` : `CHECK ((status = 'PAID'::text) = (paid_at IS NOT NULL))`
+- `insurer_bordereau_period_month_format` : `CHECK (period_month IS NULL OR period_month ~ '^[0-9]{4}-(0[1-9]\|1[0-2])$'::text)`
 - `insurer_bordereau_period_nonempty` : `CHECK (NOT isempty(period))`
 - `insurer_bordereau_status_valid` : `CHECK (status = ANY (ARRAY['DRAFT'::text, 'ISSUED'::text, 'PAID'::text, 'DISPUTED'::text]))`
 - `insurer_bordereau_total_nonneg` : `CHECK (total_minor >= 0)`
@@ -5409,9 +5417,13 @@ Contraintes :
 - `settlement_insurer_bordereau_pkey` : `PRIMARY KEY (id)`
 - `settlement_insurer_bordereau_second_validated_by_fkey` : `FOREIGN KEY (second_validated_by) REFERENCES core.iam_user_account(id)`
 
+Index :
+
+- `insurer_bordereau_contract_month` : `CREATE UNIQUE INDEX insurer_bordereau_contract_month ON core.settlement_insurer_bordereau USING btree (insurer_contract_id, period_month) WHERE (period_month IS NOT NULL)`
+
 Politiques RLS :
 
-- `cmd_money_ins` (INSERT, PERMISSIVE, cmd_money_owner) WITH CHECK `((app.actor_kind() = 'WORKER'::text) AND (app.worker_name() = 'bordereau'::text) AND (status = 'DRAFT'::text))`
+- `cmd_money_ins` (INSERT, PERMISSIVE, cmd_money_owner) WITH CHECK `((app.actor_kind() = 'WORKER'::text) AND (app.worker_name() = 'bordereau'::text) AND (status = 'DRAFT'::text) AND (period_month IS NOT NULL))`
 - `cmd_money_sel` (SELECT, PERMISSIVE, cmd_money_owner) USING `true`
 - `cmd_money_upd` (UPDATE, PERMISSIVE, cmd_money_owner) USING `((app.actor_kind() = 'STAFF'::text) AND (country_code = ANY (app.country_scope())) AND (status = 'DRAFT'::text))` WITH CHECK `((app.actor_kind() = 'STAFF'::text) AND (country_code = ANY (app.country_scope())) AND (status = 'ISSUED'::text))`
 - `fin_read` (SELECT, PERMISSIVE, app_api) USING `((app.actor_kind() = 'STAFF'::text) AND (country_code = ANY (app.country_scope())) AND (app.has_staff_role('FINANCE'::text, country_code) OR app.has_staff_role('ADMIN'::text, country_code)))`
@@ -5422,6 +5434,7 @@ Politiques RLS :
 Déclencheurs :
 
 - `bordereau_transition_guard` : `CREATE TRIGGER bordereau_transition_guard BEFORE UPDATE ON core.settlement_insurer_bordereau FOR EACH ROW EXECUTE FUNCTION core.settlement_insurer_bordereau_guard()`
+- `insurer_bordereau_issue_check` : `CREATE TRIGGER insurer_bordereau_issue_check BEFORE UPDATE OF status ON core.settlement_insurer_bordereau FOR EACH ROW WHEN (old.status = 'DRAFT'::text AND new.status = 'ISSUED'::text) EXECUTE FUNCTION core.settlement_insurer_bordereau_issue_check()`
 - `money_no_delete` : `CREATE TRIGGER money_no_delete BEFORE DELETE ON core.settlement_insurer_bordereau FOR EACH ROW EXECUTE FUNCTION core.settlement_no_delete()`
 - `money_no_truncate` : `CREATE TRIGGER money_no_truncate BEFORE TRUNCATE ON core.settlement_insurer_bordereau FOR EACH STATEMENT EXECUTE FUNCTION core.settlement_no_delete()`
 - `touch_row` : `CREATE TRIGGER touch_row BEFORE UPDATE ON core.settlement_insurer_bordereau FOR EACH ROW EXECUTE FUNCTION platform.touch_row()`
@@ -5450,7 +5463,7 @@ Contraintes :
 
 Politiques RLS :
 
-- `cmd_money_ins` (INSERT, PERMISSIVE, cmd_money_owner) WITH CHECK `((app.actor_kind() = 'WORKER'::text) AND (app.worker_name() = 'bordereau'::text))`
+- `cmd_money_ins` (INSERT, PERMISSIVE, cmd_money_owner) WITH CHECK `((app.actor_kind() = 'WORKER'::text) AND (app.worker_name() = 'bordereau'::text) AND (EXISTS ( SELECT 1 FROM core.settlement_insurer_bordereau b WHERE ((b.id = settlement_insurer_bordereau_line.bordereau_id) AND (b.country_code = settlement_insurer_bordereau_line.country_code) AND (b.status = 'DRAFT'::text)))))`
 - `cmd_money_sel` (SELECT, PERMISSIVE, cmd_money_owner) USING `true`
 - `fin_read` (SELECT, PERMISSIVE, app_api) USING `((app.actor_kind() = 'STAFF'::text) AND (country_code = ANY (app.country_scope())) AND (app.has_staff_role('FINANCE'::text, country_code) OR app.has_staff_role('ADMIN'::text, country_code)))`
 - `migrator_all` (ALL, PERMISSIVE, migrator) USING `true` WITH CHECK `true`
@@ -5484,10 +5497,14 @@ Déclencheurs :
 | `rc_amount_minor` | `bigint` | non | — |
 | `deductibles` | `jsonb` | non | — |
 | `exclusions` | `jsonb` | non | — |
+| `bordereau_period` | `text` | oui | `'MONTHLY'::text` |
+| `chargeback_clause` | `text` | oui | `'PREMIUM_NEVER_REDUCED'::text` |
 
 Contraintes :
 
+- `settlement_insurer_contract_bordereau_period_valid` : `CHECK (bordereau_period = 'MONTHLY'::text)`
 - `settlement_insurer_contract_broker_fk` : `FOREIGN KEY (broker_id, country_code) REFERENCES core.settlement_insurer(id, country_code)`
+- `settlement_insurer_contract_chargeback_clause_valid` : `CHECK (chargeback_clause = 'PREMIUM_NEVER_REDUCED'::text)`
 - `settlement_insurer_contract_country_format` : `CHECK (country_code ~ '^[A-Z]{2}$'::text)`
 - `settlement_insurer_contract_currency_format` : `CHECK (currency IS NULL OR currency ~ '^[A-Z]{3}$'::text)`
 - `settlement_insurer_contract_deductibles_shape` : `CHECK (deductibles IS NULL OR jsonb_typeof(deductibles) = 'object'::text AND deductibles ?& ARRAY['BASICA'::text, 'ESTANDAR'::text, 'TOTAL'::text] AND (deductibles - ARRAY['BASICA'::text, 'ESTANDAR'::text, 'TOTAL'::text]) = '{}'::jsonb AND jsonb_typeof(deductibles -> 'BASICA'::text) = 'string'::text AND jsonb_typeof(deductibles -> 'ESTANDAR'::text) = 'string'::text AND jsonb_typeof(deductibles -> 'TOTAL'::text) = 'string'::text AND (deductibles ->> 'BASICA'::text) ~ '^(0\|[1-9][0-9]{0,13})$'::text AND (deductibles ->> 'ESTANDAR'::text) ~ '^(0\|[1-9][0-9]{0,13})$'::text AND (deductibles ->> 'TOTAL'::text) ~ '^(0\|[1-9][0-9]{0,13})$'::text)`
@@ -5499,6 +5516,7 @@ Contraintes :
 - `settlement_insurer_contract_period` : `CHECK (valid_to IS NULL OR valid_to > valid_from)`
 - `settlement_insurer_contract_pkey` : `PRIMARY KEY (id)`
 - `settlement_insurer_contract_rc_positive` : `CHECK (rc_amount_minor IS NULL OR rc_amount_minor > 0 AND rc_amount_minor <= '100000000000000'::bigint)`
+- `settlement_insurer_contract_scope_unique` : `UNIQUE (id, insurer_id, country_code)`
 - `settlement_insurer_contract_signed` : `CHECK (signed_at <= valid_from)`
 - `settlement_insurer_contract_terms_complete` : `CHECK ((currency IS NULL) = (rc_amount_minor IS NULL) AND (currency IS NULL) = (deductibles IS NULL) AND (currency IS NULL) = (exclusions IS NULL))`
 - `settlement_insurer_contract_version_positive` : `CHECK (version >= 1)`
@@ -5508,11 +5526,69 @@ Politiques RLS :
 
 - `catalog_cmd_read` (SELECT, PERMISSIVE, catalog_cmd_owner) USING `true`
 - `cmd_hold_contract_read` (SELECT, PERMISSIVE, cmd_hold_owner) USING `true`
+- `cmd_money_sel` (SELECT, PERMISSIVE, cmd_money_owner) USING `true`
 - `migrator_all` (ALL, PERMISSIVE, migrator) USING `true` WITH CHECK `true`
 
 Déclencheurs :
 
 - `settlement_insurer_contract_terms_guard` : `CREATE TRIGGER settlement_insurer_contract_terms_guard BEFORE INSERT OR DELETE OR UPDATE ON core.settlement_insurer_contract FOR EACH ROW EXECUTE FUNCTION core.settlement_insurer_contract_terms_guard()`
+
+### `core.settlement_insurer_ledger_entry`
+
+- RLS : ENABLE + FORCE ; propriétaire `migrator`
+- Droits : cmd_money_owner: SELECT ; migrator: DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE
+
+| Colonne | Type | NOT NULL | Défaut |
+| ------- | ---- | -------- | ------ |
+| `id` | `uuid` | oui | — |
+| `trip_id` | `uuid` | oui | — |
+| `segment_no` | `integer` | oui | — |
+| `org_id` | `uuid` | oui | — |
+| `country_code` | `text` | oui | — |
+| `currency` | `text` | oui | — |
+| `insurer_id` | `uuid` | non | — |
+| `insurer_contract_id` | `uuid` | non | — |
+| `reason` | `text` | oui | — |
+| `operation_id` | `uuid` | non | — |
+| `settlement_id` | `uuid` | non | — |
+| `settlement_version` | `integer` | non | — |
+| `amount_minor` | `bigint` | oui | — |
+| `created_at` | `timestamp with time zone` | oui | `platform.now()` |
+
+Contraintes :
+
+- `insurer_ledger_entry_amount_nonzero` : `CHECK (amount_minor <> 0)`
+- `insurer_ledger_entry_attribution` : `CHECK ((insurer_id IS NULL) = (insurer_contract_id IS NULL))`
+- `insurer_ledger_entry_contract_fk` : `FOREIGN KEY (insurer_contract_id, insurer_id, country_code) REFERENCES core.settlement_insurer_contract(id, insurer_id, country_code)`
+- `insurer_ledger_entry_country_format` : `CHECK (country_code ~ '^[A-Z]{2}$'::text)`
+- `insurer_ledger_entry_currency_format` : `CHECK (currency ~ '^[A-Z]{3}$'::text)`
+- `insurer_ledger_entry_operation_fk` : `FOREIGN KEY (operation_id) REFERENCES core.settlement_leg_movement(operation_id)`
+- `insurer_ledger_entry_operation_unique` : `UNIQUE (operation_id)`
+- `insurer_ledger_entry_reason_valid` : `CHECK (reason = ANY (ARRAY['COLLECTION'::text, 'SETTLEMENT_VARIATION'::text]))`
+- `insurer_ledger_entry_segment_beta` : `CHECK (segment_no = 1)`
+- `insurer_ledger_entry_settlement_fk` : `FOREIGN KEY (settlement_id, trip_id, segment_no, settlement_version, org_id, country_code, currency) REFERENCES core.settlement_settlement(id, trip_id, segment_no, version, org_id, country_code, currency)`
+- `insurer_ledger_entry_settlement_unique` : `UNIQUE (settlement_id)`
+- `insurer_ledger_entry_source_shape` : `CHECK (reason = 'COLLECTION'::text AND operation_id IS NOT NULL AND settlement_id IS NULL AND settlement_version IS NULL AND amount_minor > 0 OR reason = 'SETTLEMENT_VARIATION'::text AND operation_id IS NULL AND settlement_id IS NOT NULL AND settlement_version IS NOT NULL)`
+- `insurer_ledger_entry_trip_fk` : `FOREIGN KEY (trip_id, country_code) REFERENCES core.booking_trip(id, country_code)`
+- `insurer_ledger_entry_version_positive` : `CHECK (settlement_version >= 1)`
+- `settlement_insurer_ledger_entry_pkey` : `PRIMARY KEY (id)`
+
+Index :
+
+- `insurer_ledger_entry_contract_idx` : `CREATE INDEX insurer_ledger_entry_contract_idx ON core.settlement_insurer_ledger_entry USING btree (insurer_contract_id, country_code, currency) WHERE (insurer_contract_id IS NOT NULL)`
+- `insurer_ledger_entry_trip_idx` : `CREATE INDEX insurer_ledger_entry_trip_idx ON core.settlement_insurer_ledger_entry USING btree (trip_id)`
+
+Politiques RLS :
+
+- `cmd_money_ins` (INSERT, PERMISSIVE, cmd_money_owner) WITH CHECK `(((reason = 'COLLECTION'::text) AND (EXISTS ( SELECT 1 FROM (core.settlement_leg_movement m JOIN core.payment_payment_operation_leg g ON (((g.operation_id = m.operation_id) AND (g.leg = 'INSURER'::text)))) WHERE ((m.operation_id = settlement_insurer_ledger_entry.operation_id) AND (m.trip_id = settlement_insurer_ledger_entry.trip_id) AND (m.segment_no = settlement_insurer_ledger_entry.segment_no) AND (m.kind = ANY (ARRAY['CAPTURE'::text, 'MIT_CHARGE'::text, 'DEBT_COLLECTION'::text])) AND (g.amount_minor = settlement_insurer_ledger_entry.amount_minor))))) OR ((reason = 'SETTLEMENT_VARIATION'::text) AND (EXISTS ( SELECT 1 FROM core.settlement_settlement_leg l WHERE ((l.settlement_id = settlement_insurer_ledger_entry.settlement_id) AND (l.leg = 'INSURER'::text) AND (l.trip_id = settlement_insurer_ledger_entry.trip_id) AND (l.segment_no = settlement_insurer_ledger_entry.segment_no) AND (l.variation_minor = settlement_insurer_ledger_entry.amount_minor))))))`
+- `cmd_money_sel` (SELECT, PERMISSIVE, cmd_money_owner) USING `true`
+- `fin_read` (SELECT, PERMISSIVE, app_api) USING `((app.actor_kind() = 'STAFF'::text) AND (country_code = ANY (app.country_scope())) AND (app.has_staff_role('FINANCE'::text, country_code) OR app.has_staff_role('ADMIN'::text, country_code)))`
+- `migrator_all` (ALL, PERMISSIVE, migrator) USING `true` WITH CHECK `true`
+
+Déclencheurs :
+
+- `settlement_immutable` : `CREATE TRIGGER settlement_immutable BEFORE DELETE OR UPDATE ON core.settlement_insurer_ledger_entry FOR EACH ROW EXECUTE FUNCTION core.settlement_guard_immutable()`
+- `settlement_immutable_truncate` : `CREATE TRIGGER settlement_immutable_truncate BEFORE TRUNCATE ON core.settlement_insurer_ledger_entry FOR EACH STATEMENT EXECUTE FUNCTION core.settlement_guard_immutable()`
 
 ### `core.settlement_insurer_ledger_state`
 
@@ -5537,6 +5613,7 @@ Contraintes :
 - `insurer_ledger_amounts_nonneg` : `CHECK (payable_minor >= 0 AND frozen_minor >= 0 AND receivable_minor >= 0)`
 - `insurer_ledger_country_format` : `CHECK (country_code ~ '^[A-Z]{2}$'::text)`
 - `insurer_ledger_currency_format` : `CHECK (currency ~ '^[A-Z]{3}$'::text)`
+- `insurer_ledger_insurer_fk` : `FOREIGN KEY (insurer_id, country_code) REFERENCES core.settlement_insurer(id, country_code)`
 - `settlement_insurer_ledger_state_pkey` : `PRIMARY KEY (insurer_id, country_code, currency)`
 
 Politiques RLS :
@@ -5589,6 +5666,7 @@ Politiques RLS :
 
 Déclencheurs :
 
+- `insurer_ledger_collection_posted` : `CREATE TRIGGER insurer_ledger_collection_posted AFTER INSERT ON core.settlement_leg_movement FOR EACH ROW WHEN (new.kind = ANY (ARRAY['CAPTURE'::text, 'MIT_CHARGE'::text, 'DEBT_COLLECTION'::text])) EXECUTE FUNCTION core.settlement_post_insurer_collection()`
 - `settlement_immutable` : `CREATE TRIGGER settlement_immutable BEFORE DELETE OR UPDATE ON core.settlement_leg_movement FOR EACH ROW EXECUTE FUNCTION core.settlement_guard_immutable()`
 - `settlement_immutable_truncate` : `CREATE TRIGGER settlement_immutable_truncate BEFORE TRUNCATE ON core.settlement_leg_movement FOR EACH STATEMENT EXECUTE FUNCTION core.settlement_guard_immutable()`
 
@@ -5631,6 +5709,7 @@ Contraintes :
 - `platform_advance_currency_format` : `CHECK (currency ~ '^[A-Z]{3}$'::text)`
 - `platform_advance_decision_pair` : `CHECK ((decided_by IS NULL) = (decision_second_by IS NULL) AND (decided_by IS NULL) = (decision_approval_id IS NULL) AND (decided_by IS NULL OR decided_by <> decision_second_by))`
 - `platform_advance_funded_from_valid` : `CHECK (funded_from = ANY (ARRAY['TRIP_PLATFORM_LEG'::text, 'COUNTRY_PLATFORM_BALANCE'::text]))`
+- `platform_advance_insurer_fk` : `FOREIGN KEY (insurer_id, country_code) REFERENCES core.settlement_insurer(id, country_code)`
 - `platform_advance_no_receivable` : `CHECK ((cause <> ALL (ARRAY['CREDIT_BEYOND_PLATFORM'::text, 'CHARGEBACK_LOSS'::text])) OR receivable_minor = 0)`
 - `platform_advance_org_country_fk` : `FOREIGN KEY (org_id, country_code) REFERENCES core.iam_organization(id, country_code)`
 - `platform_advance_recovered_shape` : `CHECK (status <> 'RECOVERED'::text OR recovered_minor = receivable_minor)`
@@ -5807,6 +5886,7 @@ Politiques RLS :
 
 Déclencheurs :
 
+- `insurer_ledger_variation_posted` : `CREATE TRIGGER insurer_ledger_variation_posted AFTER INSERT ON core.settlement_settlement_leg FOR EACH ROW WHEN (new.leg = 'INSURER'::text AND new.variation_minor <> 0) EXECUTE FUNCTION core.settlement_post_insurer_variation()`
 - `settlement_immutable` : `CREATE TRIGGER settlement_immutable BEFORE DELETE OR UPDATE ON core.settlement_settlement_leg FOR EACH ROW EXECUTE FUNCTION core.settlement_guard_immutable()`
 - `settlement_immutable_truncate` : `CREATE TRIGGER settlement_immutable_truncate BEFORE TRUNCATE ON core.settlement_settlement_leg FOR EACH STATEMENT EXECUTE FUNCTION core.settlement_guard_immutable()`
 
@@ -6470,6 +6550,7 @@ Chacune a un propriétaire `NOLOGIN` dédié (ADR-053) et un `search_path` figé
 | `core.ctr_staff_cmd_publish_document(p_token_hash bytea, p_request_id uuid, p_kind text, p_country text, p_is_major boolean, p_valid_from timestamp with time zone, p_legal_review_ref text, p_bodies jsonb)` | `TABLE(outcome text, version integer)` | `iam_staff_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; iam_staff_owner: EXECUTE |
 | `core.finance_earning_lines(p_org uuid)` | `TABLE(line_kind text, trip_id uuid, country_code text, currency text, period_month text, event_at timestamp with time zone, trip_status text, source text, settlement_version integer, reason text, amount_minor bigint, share_base_minor bigint, host_plan_code text, host_share_pct text)` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | cmd_money_owner: EXECUTE |
 | `core.finance_host_statement(p_org uuid, p_month text)` | `jsonb` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | cmd_hold_owner: EXECUTE ; cmd_money_owner: EXECUTE |
+| `core.finance_insurer_ledger_facts()` | `TABLE(country_code text, currency text, collected_entries_minor bigint, collected_legs_minor bigint, settled_entries_minor bigint, settled_variations_minor bigint, billed_minor bigint, due_minor bigint, unattributed boolean)` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; cmd_money_owner: EXECUTE |
 | `core.finance_trip_leg_facts()` | `TABLE(trip_id uuid, country_code text, currency text, captured_minor bigint, collected_minor bigint, collected_legs_minor bigint, head_total_paid_minor bigint, expected_host_minor bigint, statement_host_minor bigint)` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; cmd_money_owner: EXECUTE |
 | `core.finance_trip_receipt_view(p_trip_id uuid, p_viewer text)` | `jsonb` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | cmd_hold_owner: EXECUTE ; cmd_money_owner: EXECUTE |
 | `core.iam_auth_lookup(p_email text)` | `TABLE(user_id uuid, password_hash text, status text)` | `iam_auth_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; iam_auth_owner: EXECUTE |
@@ -6542,6 +6623,7 @@ Chacune a un propriétaire `NOLOGIN` dédié (ADR-053) et un `search_path` figé
 | `core.payment_cmd_receive_webhook(p_account_id uuid, p_provider_event_id text, p_dedup_key bytea, p_signature_valid boolean, p_signed_at timestamp with time zone, p_headers jsonb, p_normalized jsonb)` | `TABLE(outcome text, inbox_id uuid)` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; cmd_money_owner: EXECUTE |
 | `core.payment_cmd_record_operation(p_id uuid, p_hold_id uuid, p_trip_id uuid, p_psp_account_id uuid, p_method text, p_kind text, p_purpose text, p_amount_minor bigint, p_currency text, p_attempt_no integer, p_idem_plain text, p_idem_sent text, p_legs jsonb, p_settlement_id uuid, p_settlement_version integer)` | `TABLE(operation_id uuid, replayed boolean)` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; cmd_money_owner: EXECUTE |
 | `core.payment_cmd_record_submerchant_status(p_submerchant_id uuid, p_status text, p_provider_ref text, p_reason text)` | `text` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; cmd_money_owner: EXECUTE |
+| `core.payment_cmd_refund_await_choice(p_instance_id uuid)` | `text` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; cmd_money_owner: EXECUTE |
 | `core.payment_cmd_refund_mark_alerted(p_instance_id uuid, p_key text)` | `boolean` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; cmd_money_owner: EXECUTE |
 | `core.payment_cmd_refund_order_for_send(p_instance_id uuid)` | `TABLE(operation_id uuid, operation_status text, idem_sent text, amount_minor bigint, currency text, legs jsonb, target_reference text, provider_reference text, provider text, sendable boolean, reason text)` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; cmd_money_owner: EXECUTE |
 | `core.payment_cmd_register_submerchant(p_id uuid, p_org_id uuid, p_psp_account_id uuid, p_attempt_no integer)` | `TABLE(submerchant_id uuid, idem_plain text, replayed boolean)` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; cmd_money_owner: EXECUTE |
@@ -6579,12 +6661,15 @@ Chacune a un propriétaire `NOLOGIN` dédié (ADR-053) et un `search_path` figé
 | `core.settlement_cancellation_of(p_settlement_id uuid)` | `TABLE(id uuid, trip_id uuid, segment_no integer, version integer, supersedes_id uuid, kind text, requested_reason text, reason text, origin text, target_state text, inputs jsonb, superseded boolean)` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | cmd_hold_owner: EXECUTE ; cmd_money_owner: EXECUTE |
 | `core.settlement_cmd_apply_leg_movement(p_operation_id uuid)` | `text` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; cmd_money_owner: EXECUTE |
 | `core.settlement_cmd_approve_finance_action(p_token_hash bytea, p_approval_id uuid)` | `TABLE(outcome text, approval_id uuid)` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; cmd_money_owner: EXECUTE |
+| `core.settlement_cmd_draft_insurer_bordereaux(p_month text)` | `TABLE(outcome text, country text, bordereau uuid, lines integer, total bigint)` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; cmd_money_owner: EXECUTE |
 | `core.settlement_cmd_post_advance_receivable(p_advance_id uuid)` | `uuid` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | cmd_money_owner: EXECUTE |
 | `core.settlement_cmd_post_host_penalty(p_settlement_id uuid)` | `uuid` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | cmd_money_owner: EXECUTE |
 | `core.settlement_cmd_record(p_settlement_id uuid, p_trip_id uuid, p_segment_no integer, p_version integer, p_supersedes_id uuid, p_trip_row_version integer, p_record jsonb)` | `uuid` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; cmd_money_owner: EXECUTE |
 | `core.settlement_cmd_request_finance_action(p_token_hash bytea, p_request_id uuid, p_action text, p_subject_id uuid, p_reason text)` | `TABLE(outcome text, approval_id uuid)` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; cmd_money_owner: EXECUTE |
 | `core.settlement_post_advance_receivable()` | `trigger` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | cmd_money_owner: EXECUTE |
 | `core.settlement_post_cancellation_penalty()` | `trigger` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | cmd_money_owner: EXECUTE |
+| `core.settlement_post_insurer_collection()` | `trigger` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | cmd_money_owner: EXECUTE |
+| `core.settlement_post_insurer_variation()` | `trigger` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | cmd_money_owner: EXECUTE |
 | `core.settlement_staff_cancellation_summary(p_settlement_id uuid)` | `jsonb` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | cmd_money_owner: EXECUTE ; iam_staff_owner: EXECUTE |
 | `core.support_close_review_item(p_item_id uuid, p_status text, p_decision text, p_actor uuid)` | `TABLE(outcome text, item_id uuid)` | `iam_staff_owner` | search_path=pg_catalog, pg_temp | cmd_hold_owner: EXECUTE ; iam_staff_owner: EXECUTE ; kyc_cmd_owner: EXECUTE |
 | `core.support_enqueue_review(p_queue text, p_subject_type text, p_subject_id uuid, p_country text, p_actor uuid)` | `TABLE(outcome text, item_id uuid)` | `iam_staff_owner` | search_path=pg_catalog, pg_temp | catalog_cmd_owner: EXECUTE ; cmd_hold_owner: EXECUTE ; iam_staff_owner: EXECUTE ; kyc_cmd_owner: EXECUTE |
@@ -6822,6 +6907,8 @@ Chacune a un propriétaire `NOLOGIN` dédié (ADR-053) et un `search_path` figé
 | `core.settlement_finance_approval_guard()` | `trigger` | `migrator` | migrator: EXECUTE |
 | `core.settlement_guard_immutable()` | `trigger` | `migrator` | migrator: EXECUTE |
 | `core.settlement_insurer_bordereau_guard()` | `trigger` | `migrator` | migrator: EXECUTE |
+| `core.settlement_insurer_bordereau_issue_check()` | `trigger` | `migrator` | migrator: EXECUTE |
+| `core.settlement_insurer_contract_of_trip(p_trip_id uuid)` | `TABLE(insurer_id uuid, contract_id uuid)` | `cmd_money_owner` | cmd_money_owner: EXECUTE |
 | `core.settlement_insurer_contract_terms_guard()` | `trigger` | `migrator` | migrator: EXECUTE |
 | `core.settlement_insurer_vehicle_coverage(p_country text, p_timezone text, p_year integer, p_value_class text, p_plate_category text)` | `TABLE(outcome text, reasons text[], contract_id uuid)` | `migrator` | catalog_cmd_owner: EXECUTE ; migrator: EXECUTE |
 | `core.settlement_no_delete()` | `trigger` | `migrator` | migrator: EXECUTE |

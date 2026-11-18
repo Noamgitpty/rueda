@@ -147,6 +147,10 @@ export const CANCEL_OUTCOME_KEYS: Readonly<Record<string, MessageKey>> = {
   REFUND_EXCEEDS_COLLECTED: 'backoffice.cancel.outcome.REFUND_EXCEEDS_COLLECTED',
   ADVANCE_DECISION_REQUIRED: 'backoffice.cancel.outcome.ADVANCE_DECISION_REQUIRED',
   SETTLEMENT_INPUT_INVALID: 'backoffice.cancel.outcome.SETTLEMENT_INPUT_INVALID',
+  // US-224f (ADR-166) : remboursement réparti sur les moyens d'origine
+  REFUND_RAIL_UNAVAILABLE: 'backoffice.cancel.outcome.REFUND_RAIL_UNAVAILABLE',
+  REFUND_RAIL_NOT_NATIVE: 'backoffice.cancel.outcome.REFUND_RAIL_NOT_NATIVE',
+  REFUND_EXCEEDS_TENDER: 'backoffice.cancel.outcome.REFUND_EXCEEDS_TENDER',
 };
 
 /** Libellés des trois actions (catalogue de la console, US-101). */
