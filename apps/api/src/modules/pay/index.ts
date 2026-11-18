@@ -207,6 +207,22 @@ export type {
   DepositTimerStep,
   DueDepositReauth,
 } from './internal/deposit-timer.js';
+// décision de la caution à l'heure de décision (US-702, ADR-172)
+export {
+  DEPOSIT_DECISION_BATCH,
+  DepositDecisionTimer,
+  NO_DEPOSIT_FEES,
+  PgDepositDecisionStore,
+  postgresDepositDecisionDeps,
+  withoutMit,
+} from './internal/deposit-decision.js';
+export type {
+  DepositDecisionDeps,
+  DepositDecisionStep,
+  DepositFeeSource,
+  DepositOutcome,
+  DueDepositDecision,
+} from './internal/deposit-decision.js';
 
 // Webhooks (17 §4.4)
 export {

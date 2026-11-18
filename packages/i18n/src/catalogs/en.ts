@@ -1321,6 +1321,16 @@ export const EN_MESSAGES = {
     "Hi {first_name}. You accepted the request {booking_ref}, but we could not confirm the guest's payment and the booking was not made. The dates are free again in your {brand} calendar. Do not hand over the car for this request.",
   'ntf.bookingRequestFailedHost.sms.body':
     '{brand}: the request {booking_ref} you accepted was not confirmed. Dates released. Do not hand over the car.',
+  'ntf.depositReleased.email.subject': 'We released your {amount} deposit',
+  'ntf.depositReleased.email.body':
+    'Hi {first_name}. We released your {amount} security deposit for trip {booking_ref}. Your bank may take a few days to show it.',
+  'ntf.depositReleased.sms.body':
+    '{brand}: we released your {amount} deposit for trip {booking_ref}. Your bank may take a few days to show it.',
+  'ntf.depositPartiallyCaptured.email.subject': 'Your deposit: {captured} charged, rest released',
+  'ntf.depositPartiallyCaptured.email.body':
+    'Hi {first_name}. From the security deposit for trip {booking_ref}, we charged {captured} for the extra fees we told you about and released {amount}. Your bank may take a few days to show it.',
+  'ntf.depositPartiallyCaptured.sms.body':
+    '{brand}: from your deposit for trip {booking_ref}, we charged {captured} in fees already notified and released {amount}.',
   'backoffice.catalog.open': 'Open the request',
   'backoffice.catalog.heading': 'Catalog addition request',
   'backoffice.catalog.requested': 'What the host entered',

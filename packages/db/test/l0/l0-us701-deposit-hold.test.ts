@@ -72,8 +72,12 @@ const VECTORS: Readonly<Record<string, CheckoutVector>> = {
   },
 };
 
-/** 300,00 de T57 (valeur de test du mécanisme) à l'exposant de la devise : USD 30 000, PYG 300. */
-const DEPOSIT: Readonly<Record<string, bigint>> = { USD: 30_000n, PYG: 300n };
+/**
+ * Montant de test de `deposit_amount[pays][LUXE]` (valeur de test du mécanisme, 08) : 300,00 de T57
+ * en USD (30 000 centimes) ; 1 500 000 de T73 a en PYG (`AMT_PY` de l'oracle `check_t49plus.py`,
+ * US-702 : revues argent et qa d'US-701), jamais 300 mis à l'échelle.
+ */
+const DEPOSIT: Readonly<Record<string, bigint>> = { USD: 30_000n, PYG: 1_500_000n };
 const depositOf = (cc: CountryCase): bigint => {
   const d = DEPOSIT[cc.currency];
   if (d === undefined) throw new Error(`devise sans vecteur : ${cc.currency}`);

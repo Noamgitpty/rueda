@@ -1391,6 +1391,16 @@ export const FR_MESSAGES = {
     'Bonjour {first_name}. Tu as accepté la demande {booking_ref}, mais nous n’avons pas pu confirmer le paiement du voyageur et la réservation ne s’est pas faite. Les dates sont de nouveau libres dans ton calendrier {brand}. Ne remets pas la voiture pour cette demande.',
   'ntf.bookingRequestFailedHost.sms.body':
     '{brand} : la demande {booking_ref} que tu as acceptée n’a pas été confirmée. Dates libérées. Ne remets pas la voiture.',
+  'ntf.depositReleased.email.subject': 'Ton dépôt de {amount} est libéré',
+  'ntf.depositReleased.email.body':
+    'Bonjour {first_name}. Nous avons libéré ton dépôt de garantie de {amount} du voyage {booking_ref}. Ta banque peut mettre quelques jours à l’afficher.',
+  'ntf.depositReleased.sms.body':
+    '{brand} : ton dépôt de {amount} du voyage {booking_ref} est libéré. Ta banque peut mettre quelques jours à l’afficher.',
+  'ntf.depositPartiallyCaptured.email.subject': 'Ton dépôt : {captured} prélevé, le reste libéré',
+  'ntf.depositPartiallyCaptured.email.body':
+    'Bonjour {first_name}. Sur le dépôt de garantie du voyage {booking_ref}, nous avons prélevé {captured} pour les frais annexes qui t’ont été annoncés et libéré {amount}. Ta banque peut mettre quelques jours à l’afficher.',
+  'ntf.depositPartiallyCaptured.sms.body':
+    '{brand} : sur ton dépôt du voyage {booking_ref}, {captured} de frais annoncés prélevés, {amount} libérés.',
   'backoffice.catalog.open': 'Ouvrir la demande',
   'backoffice.catalog.heading': 'Demande d’ajout au catalogue',
   'backoffice.catalog.requested': 'Saisie de l’hôte',

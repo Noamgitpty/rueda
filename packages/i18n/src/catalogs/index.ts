@@ -270,8 +270,11 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  `common.payment.depositUnavailable` (réponse 409 `DEPOSIT_RAIL_UNAVAILABLE` /
  `DEPOSIT_PARAM_MISSING` de `POST /checkout/holds/{id}/payment`, avec une sortie : autres dates,
  autre voiture).
+ Version 87 (la 86 est celle d’US-212b) : décision de la caution (US-702, ADR-172) : avis au
+ voyageur `ntf.depositReleased.*` (caution libérée en entier) et `ntf.depositPartiallyCaptured.*`
+ (frais annexes annoncés capturés, reste libéré), sur `deposit.decision.executed`.
  */
-export const CATALOG_VERSION = 85;
+export const CATALOG_VERSION = 87;
 
 /** Catalogues de base par langue ; la langue d'un profil de locale choisit le sien. */
 export const CATALOGS: Readonly<Record<CatalogLanguage, VersionedCatalog<MessageKey>>> = {

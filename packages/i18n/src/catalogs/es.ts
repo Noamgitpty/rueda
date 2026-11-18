@@ -1359,6 +1359,16 @@ export const ES_MESSAGES = {
     'Hola, {first_name}. Aceptaste la solicitud {booking_ref}, pero no pudimos confirmar el cobro al viajero y la reserva no se hizo. Las fechas vuelven a estar libres en tu calendario de {brand}. No entregues el auto para esta solicitud.',
   'ntf.bookingRequestFailedHost.sms.body':
     '{brand}: la solicitud {booking_ref} que aceptaste no se confirmó. Fechas liberadas. No entregues el auto.',
+  'ntf.depositReleased.email.subject': 'Liberamos tu depósito de {amount}',
+  'ntf.depositReleased.email.body':
+    'Hola, {first_name}. Liberamos tu depósito de garantía de {amount} del viaje {booking_ref}. Tu banco puede tardar unos días en mostrarlo.',
+  'ntf.depositReleased.sms.body':
+    '{brand}: liberamos tu depósito de {amount} del viaje {booking_ref}. Tu banco puede tardar unos días en mostrarlo.',
+  'ntf.depositPartiallyCaptured.email.subject': 'Tu depósito: {captured} cobrado, resto liberado',
+  'ntf.depositPartiallyCaptured.email.body':
+    'Hola, {first_name}. Del depósito de garantía del viaje {booking_ref}, cobramos {captured} por los cargos adicionales que te avisamos y liberamos {amount}. Tu banco puede tardar unos días en mostrarlo.',
+  'ntf.depositPartiallyCaptured.sms.body':
+    '{brand}: de tu depósito del viaje {booking_ref}, cobramos {captured} de cargos ya avisados y liberamos {amount}.',
   'backoffice.catalog.open': 'Abrir la solicitud',
   'backoffice.catalog.heading': 'Solicitud de alta al catálogo',
   'backoffice.catalog.requested': 'Lo que escribió el anfitrión',
