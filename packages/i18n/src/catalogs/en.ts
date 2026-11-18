@@ -2481,6 +2481,14 @@ export const EN_MESSAGES = {
   'web.s09.documents.contract.UNSIGNED': 'Not signed',
   'web.s06.confirmed.trips': 'See my trips',
   // US-224 partie 224d (ADR-154) : remboursement lu par le voyageur (S10), l’hôte (A05) et la console
+  'common.receipt.notFound': 'We can’t find this receipt.',
+  'common.receipt.notReady':
+    'This receipt isn’t available yet: the trip payment hasn’t been recorded.',
+  'common.receipt.unavailable':
+    'We can’t show your receipt right now. Please try again in a few minutes.',
+  'common.earnings.notFound': 'We can’t find these earnings.',
+  'common.earnings.unavailable':
+    'We can’t show your earnings right now. Please try again in a few minutes.',
   'common.refund.notFound': 'We can’t find this refund.',
   'common.refund.unavailable':
     'We can’t show your refund right now. Please try again in a few minutes.',

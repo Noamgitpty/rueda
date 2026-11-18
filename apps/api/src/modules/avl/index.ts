@@ -40,6 +40,12 @@ export type { AvlCheckoutPaymentOptions } from './internal/checkout/avl-checkout
 export { PAYMENT_MESSAGES, PaymentHttpError } from './internal/checkout/payment-errors.js';
 // remboursements d'un trip lus par sa partie (US-224 partie 224d, ADR-154)
 export { TRIP_REFUND_MESSAGES, TripRefundHttpError } from './internal/checkout/trip-refunds.js';
+// reçu d'un trip et relevé des gains de l'hôte (US-217 partie 217a, ADR-161)
+export { TRIP_RECEIPT_MESSAGES, TripReceiptHttpError } from './internal/checkout/trip-receipt.js';
+export {
+  HOST_EARNINGS_MESSAGES,
+  HostEarningsHttpError,
+} from './internal/checkout/host-earnings.js';
 // « Mis viajes » et détail du trip du voyageur (US-214, ADR-160)
 export { GUEST_TRIP_MESSAGES, GuestTripHttpError } from './internal/checkout/guest-trips.js';
 export type { PaymentHttpCode } from './internal/checkout/payment-errors.js';

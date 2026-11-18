@@ -234,8 +234,13 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  `web.s08.none`, texte de `web.s08.empty` de 10b §4.3 dont la clé est tenue par le prototype),
  `web.s09.*` (S09 : lieu de remise, hôte particulier, total payé,
  documents — contrat ; constancia et reçu annoncés —, modification par le support, BR-MOD-01).
+ Version 77 (la 76 est celle d’US-214 ; 74 et 75 restent sautées) : reçu des gains de l’hôte et reçu du trip fee, partie 217a (US-217, ADR-161) :
+ `common.receipt.*` (réponses de la route `/trips/{id}/receipt` : introuvable, pas encore
+ disponible, indisponible) et `common.earnings.*` (réponses de la route
+ `/host/accounts/{orgId}/earnings/{month}` : introuvable, indisponible). Les écrans A08 et S09
+ (Bêta L3) viendront avec leurs propres clés.
  */
-export const CATALOG_VERSION = 76;
+export const CATALOG_VERSION = 77;
 
 /** Catalogues de base par langue ; la langue d'un profil de locale choisit le sien. */
 export const CATALOGS: Readonly<Record<CatalogLanguage, VersionedCatalog<MessageKey>>> = {

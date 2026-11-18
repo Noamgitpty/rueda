@@ -7,7 +7,7 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 
 ## Synthèse
 
-- 137 migrations ; 127 tables ; 3 vues ; 713 politiques RLS ; 273 fonctions `SECURITY DEFINER` ; 249 autres fonctions.
+- 138 migrations ; 127 tables ; 3 vues ; 713 politiques RLS ; 279 fonctions `SECURITY DEFINER` ; 249 autres fonctions.
 - Tables sans RLS `ENABLE` + `FORCE` : aucune.
 - Rôles applicatifs avec `SUPERUSER` ou `BYPASSRLS` : aucun.
 
@@ -152,6 +152,7 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 | `0134_config_vehicle_value_class_params` | graine complémentaire : paramètres « vehicle_default_value_class* » (US-113 ; 17 §7.2). |
 | `0135_catalog_vehicle_value_class` | CAT : classe de valeur attribuée à la publication d'un véhicule non classé (BOARD N-83, |
 | `0136_booking_guest_trips_read` | AVL : « Mis viajes » et détail du trip du voyageur (S08, S09), lecture seule. |
+| `0137_finance_host_earnings_receipts` | FIN / AVL : reçu des gains de l'hôte, reçu du trip fee du voyageur, relevé mensuel des |
 
 ## Rôles
 
@@ -6362,6 +6363,7 @@ Chacune a un propriétaire `NOLOGIN` dédié (ADR-053) et un `search_path` figé
 | `core.booking_conversion_eligibility(p_hold_id uuid)` | `text` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; cmd_hold_owner: EXECUTE |
 | `core.booking_guest_trips(p_token_hash bytea, p_tab text, p_trip_id uuid, p_limit integer)` | `TABLE(outcome text, kind text, item_id uuid, public_ref text, tab text, status text, payment_status text, currency text, timezone text, starts_at timestamp with time zone, ends_at timestamp with time zone, respond_by timestamp with time zone, vehicle_make text, vehicle_model text, vehicle_year integer, host_name text, place_label text, place_address text, place_city text, total_minor bigint, contract_state text)` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; cmd_hold_owner: EXECUTE |
 | `core.booking_hold_review_item_close()` | `trigger` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | cmd_hold_owner: EXECUTE |
+| `core.booking_host_earnings(p_token_hash bytea, p_org uuid, p_month text)` | `TABLE(outcome text, country_code text, statements jsonb)` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; cmd_hold_owner: EXECUTE |
 | `core.booking_host_guest_rows()` | `TABLE(trip_id uuid, first_name text, age_years integer, rating numeric, verification_status text)` | `host_view_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; host_view_owner: EXECUTE |
 | `core.booking_host_requests(p_token_hash bytea, p_org uuid, p_hold_id uuid, p_limit integer)` | `TABLE(outcome text, hold_id uuid, status text, vehicle_id uuid, scheduled_start timestamp with time zone, scheduled_end timestamp with time zone, timezone text, request_respond_by timestamp with time zone, currency text, total_minor bigint, host_leg_minor bigint, guest_first_name text, guest_age_years integer, guest_rating numeric, guest_verified boolean)` | `host_view_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; host_view_owner: EXECUTE |
 | `core.booking_host_trips(p_token_hash bytea, p_org uuid, p_tab text, p_vehicle_id uuid, p_from date, p_to date, p_trip_id uuid, p_limit integer)` | `TABLE(outcome text, trip_id uuid, public_ref text, tab text, status text, vehicle_id uuid, scheduled_start timestamp with time zone, scheduled_end timestamp with time zone, timezone text, booked_at timestamp with time zone, payment_status text, currency text, host_leg_minor bigint, guest_first_name text, guest_age_years integer, guest_rating numeric, guest_verified boolean)` | `host_view_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; host_view_owner: EXECUTE |
@@ -6380,6 +6382,7 @@ Chacune a un propriétaire `NOLOGIN` dédié (ADR-053) et un `search_path` figé
 | `core.booking_trip_cancellations_pending(p_limit integer)` | `TABLE(id uuid)` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; cmd_hold_owner: EXECUTE |
 | `core.booking_trip_contract(p_token_hash bytea, p_trip_id uuid, p_version integer)` | `TABLE(outcome text, viewer_role text, document_id uuid, version integer, latest_version integer, locale text, generated_at timestamp with time zone, sha256 text, renderer_version text, terms jsonb, derived jsonb, body jsonb, is_draft boolean, signature_id uuid, signed_at timestamp with time zone, seal_sha256 text)` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; cmd_hold_owner: EXECUTE |
 | `core.booking_trip_period_sync()` | `trigger` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | cmd_hold_owner: EXECUTE |
+| `core.booking_trip_receipt(p_token_hash bytea, p_trip_id uuid)` | `TABLE(outcome text, viewer_role text, trip_status text, currency text, timezone text, receipt jsonb)` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; cmd_hold_owner: EXECUTE |
 | `core.booking_trip_refunds(p_token_hash bytea, p_trip_id uuid)` | `TABLE(outcome text, viewer_role text, trip_status text, currency text, timezone text, refunds jsonb)` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; cmd_hold_owner: EXECUTE |
 | `core.catalog_addition_detail(p_addition_id uuid, p_country text)` | `jsonb` | `catalog_cmd_owner` | search_path=pg_catalog, pg_temp | catalog_cmd_owner: EXECUTE ; iam_staff_owner: EXECUTE |
 | `core.catalog_cmd_add_listing_photo(p_token_hash bytea, p_org uuid, p_listing_id uuid, p_photo_id uuid, p_file_id uuid, p_mime text, p_bytes bigint, p_sha256 bytea)` | `TABLE(outcome text, photo_id uuid, storage_key text)` | `catalog_cmd_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; catalog_cmd_owner: EXECUTE |
@@ -6453,6 +6456,10 @@ Chacune a un propriétaire `NOLOGIN` dédié (ADR-053) et un `search_path` figé
 | `core.ctr_published_documents(p_country text, p_language text)` | `TABLE(doc_kind text, version integer, is_major boolean, locale text, title text, content_hash bytea, is_draft boolean, valid_from timestamp with time zone)` | `iam_auth_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; iam_auth_owner: EXECUTE |
 | `core.ctr_signup_consents_guard()` | `trigger` | `iam_auth_owner` | search_path=pg_catalog, pg_temp | iam_auth_owner: EXECUTE |
 | `core.ctr_staff_cmd_publish_document(p_token_hash bytea, p_request_id uuid, p_kind text, p_country text, p_is_major boolean, p_valid_from timestamp with time zone, p_legal_review_ref text, p_bodies jsonb)` | `TABLE(outcome text, version integer)` | `iam_staff_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; iam_staff_owner: EXECUTE |
+| `core.finance_earning_lines(p_org uuid)` | `TABLE(line_kind text, trip_id uuid, country_code text, currency text, period_month text, event_at timestamp with time zone, trip_status text, source text, settlement_version integer, reason text, amount_minor bigint, share_base_minor bigint, host_plan_code text, host_share_pct text)` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | cmd_money_owner: EXECUTE |
+| `core.finance_host_statement(p_org uuid, p_month text)` | `jsonb` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | cmd_hold_owner: EXECUTE ; cmd_money_owner: EXECUTE |
+| `core.finance_trip_leg_facts()` | `TABLE(trip_id uuid, country_code text, currency text, captured_minor bigint, collected_minor bigint, collected_legs_minor bigint, head_total_paid_minor bigint, expected_host_minor bigint, statement_host_minor bigint)` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; cmd_money_owner: EXECUTE |
+| `core.finance_trip_receipt_view(p_trip_id uuid, p_viewer text)` | `jsonb` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | cmd_hold_owner: EXECUTE ; cmd_money_owner: EXECUTE |
 | `core.iam_auth_lookup(p_email text)` | `TABLE(user_id uuid, password_hash text, status text)` | `iam_auth_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; iam_auth_owner: EXECUTE |
 | `core.iam_cmd_open_host_account(p_token_hash bytea, p_country text, p_holder_kind text)` | `TABLE(outcome text, org_id uuid)` | `iam_auth_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; iam_auth_owner: EXECUTE |
 | `core.iam_cmd_open_session(p_session_id uuid, p_user_id uuid, p_token_hash bytea, p_ttl_s integer, p_mfa_level text, p_ip inet, p_user_agent text)` | `timestamp with time zone` | `iam_auth_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; iam_auth_owner: EXECUTE |

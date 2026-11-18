@@ -19,6 +19,9 @@
  * Remboursements d'un trip (US-224 partie 224d, ADR-154) : lecture par la partie du trip
  * (`core.booking_trip_refunds`, 0130) ; aucun adaptateur : 503.
  *
+ * Reçu d'un trip et relevé mensuel des gains de l'hôte (US-217 partie 217a, ADR-161) : lectures par
+ * la partie du trip (`core.booking_trip_receipt`) et par le titulaire du compte d'hôte
+ * (`core.booking_host_earnings`, 0137) ; aucun adaptateur : 503.
  * « Mis viajes » et détail du trip du voyageur (US-214, ADR-160) : lecture par le voyageur de la
  * session (`core.booking_guest_trips`, 0136) ; aucun adaptateur : 503.
  */
@@ -51,6 +54,20 @@ import {
   UnavailableTripRefundStore,
 } from './trip-refunds.js';
 import type { TripRefundStore } from './trip-refunds.js';
+import { HostEarningsController } from './host-earnings.controller.js';
+import {
+  HostEarningsService,
+  PgHostEarningsStore,
+  UnavailableHostEarningsStore,
+} from './host-earnings.js';
+import type { HostEarningsStore } from './host-earnings.js';
+import { TripReceiptController } from './trip-receipt.controller.js';
+import {
+  PgTripReceiptStore,
+  TripReceiptService,
+  UnavailableTripReceiptStore,
+} from './trip-receipt.js';
+import type { TripReceiptStore } from './trip-receipt.js';
 
 /** Paiement du hold du checkout (US-223b) : commandes de 0116 et connecteurs servis. */
 export interface AvlCheckoutPaymentOptions {
@@ -95,6 +112,10 @@ export interface AvlCheckoutOptions {
   readonly hostRequests?: AvlHostRequestOptions;
   /** Remboursements d'un trip lus par sa partie (US-224d, 0130) ; absent : 503. */
   readonly refunds?: TripRefundStore;
+  /** Reçu d'un trip lu par sa partie (US-217a, 0137) ; absent : 503. */
+  readonly receipts?: TripReceiptStore;
+  /** Relevé mensuel des gains de l'hôte (US-217a, 0137) ; absent : 503. */
+  readonly earnings?: HostEarningsStore;
   /** Trips et demandes du voyageur de la session (US-214, 0136) ; absent : 503. */
   readonly guestTrips?: GuestTripStore;
 }
@@ -125,6 +146,9 @@ export function postgresCheckoutAdapters(
     hostRequests: { store: new PgHostRequestStore(db), providers: new Map() },
     // US-224d : lecture du remboursement par la partie du trip (aucune écriture)
     refunds: new PgTripRefundStore(db),
+    // US-217a : reçu du trip et relevé des gains de l'hôte (lectures seulement)
+    receipts: new PgTripReceiptStore(db),
+    earnings: new PgHostEarningsStore(db),
     // US-214 : « Mis viajes » et détail du trip du voyageur (aucune écriture)
     guestTrips: new PgGuestTripStore(db),
   };
@@ -140,6 +164,8 @@ export class AvlCheckoutModule {
         CheckoutPaymentController,
         HostRequestsController,
         TripRefundsController,
+        TripReceiptController,
+        HostEarningsController,
         GuestTripsController,
       ],
       providers: [
@@ -172,6 +198,14 @@ export class AvlCheckoutModule {
         {
           provide: TripRefundsService,
           useValue: new TripRefundsService(options.refunds ?? new UnavailableTripRefundStore()),
+        },
+        {
+          provide: TripReceiptService,
+          useValue: new TripReceiptService(options.receipts ?? new UnavailableTripReceiptStore()),
+        },
+        {
+          provide: HostEarningsService,
+          useValue: new HostEarningsService(options.earnings ?? new UnavailableHostEarningsStore()),
         },
         {
           provide: GuestTripsService,

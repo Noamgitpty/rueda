@@ -30,8 +30,14 @@ export {
   SETTLEMENT_LEG_SOURCE,
   SETTLEMENT_SOURCE,
   settlementAggregatesSql,
+  // US-217a (ADR-161) : faits de l'invariant par jambe, lus de core.finance_trip_leg_facts()
+  parseTripLegFactRow,
+  TRIP_LEG_FACTS_SOURCE,
+  tripLegFactsSql,
+  tripLegViolations,
 } from './internal/money-reconciliation.js';
 export type {
   MoneyReconciliationCheck,
   MoneyReconciliationReport,
+  TripLegFact,
 } from './internal/money-reconciliation.js';
