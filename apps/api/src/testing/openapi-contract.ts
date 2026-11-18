@@ -421,6 +421,8 @@ export const CONTRACT_SUITES: Readonly<Record<string, string>> = {
   '/legal': 'modules/ctr/testing/legal.contract.test.ts',
   // contrat de location d'un trip (US-211 partie 211b, module CTR)
   '/trips': 'modules/ctr/testing/trip-contract.contract.test.ts',
+  // remboursements d'un trip lus par sa partie (US-224 partie 224d, module AVL)
+  '/trips/{tripId}/refunds': 'modules/avl/testing/trip-refunds.contract.test.ts',
   '/staff': 'testing/contract/staff.contract.test.ts',
   '/console': 'testing/contract/console.contract.test.ts',
   '/webhooks': 'testing/contract/webhooks.contract.test.ts',

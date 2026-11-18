@@ -2456,6 +2456,91 @@ export const ES_MESSAGES = {
     'Hace falta una decisión de FINANCE sobre un anticipo de la plataforma.',
   'backoffice.cancel.outcome.SETTLEMENT_INPUT_INVALID':
     'Los datos de la liquidación no son válidos.',
+  // US-224 partie 224d (ADR-154) : remboursement lu par le voyageur (S10), l’hôte (A05) et la console
+  'common.refund.notFound': 'No encontramos este reembolso.',
+  'common.refund.unavailable':
+    'No podemos mostrar tu reembolso en este momento. Vuelve a intentarlo en unos minutos.',
+  'web.s10.refund.title': 'Tu reembolso',
+  'web.s10.refund.lead':
+    'Nosotros te devolvemos el monto calculado al cancelar, en el medio de pago que usaste. El reembolso no depende del anfitrión.',
+  'web.s10.refund.amount': 'Monto reembolsado',
+  'web.s10.refund.none': 'Este viaje no tiene reembolsos.',
+  'web.s10.refund.noneHint':
+    'Si tu viaje se cancela, aquí verás el monto reembolsado y su fecha de emisión.',
+  'web.s10.refund.loadError': 'No pudimos cargar tu reembolso.',
+  'web.s10.refund.rail.NATIVE_PARTIAL': 'En tu medio de pago original.',
+  'web.s10.refund.rail.ROLLBACK_AND_RECHARGE':
+    'En tu medio de pago original: anulamos el pago inicial y volvemos a cobrar solo lo que corresponde. Verás dos movimientos en tu estado de cuenta.',
+  'web.s10.refund.rail.BANK_TRANSFER': 'Por transferencia a una cuenta bancaria a tu nombre.',
+  'web.s10.refund.rail.CREDIT_CASH': 'Como saldo a tu favor, con tu acuerdo.',
+  'web.refund.status.PREPARING': 'En preparación',
+  'web.refund.status.ISSUED': 'Emitido',
+  'web.refund.status.CONFIRMED': 'Confirmado por el proveedor de pagos',
+  'web.refund.status.ATTENTION': 'En revisión',
+  'web.refund.issuedOn': 'Emitido el {date}',
+  'web.refund.bankDelay':
+    'Tu banco puede tardar algunos días hábiles en mostrarlo en tu estado de cuenta.',
+  'web.refund.preparing': 'Estamos preparando la emisión. La fecha de emisión aparecerá aquí.',
+  'web.refund.attention':
+    'La emisión tuvo un problema. Nuestro equipo se encarga; no tienes que hacer nada.',
+  'web.a05.refund.title': 'Reembolso al viajero',
+  'web.a05.refund.lead':
+    'Nosotros reembolsamos al viajero. Aquí ves solo la parte que se descuenta de tus ganancias por este viaje.',
+  'web.a05.refund.hostLeg': 'Se descuenta de tus ganancias: {amount}',
+  'web.a05.refund.noImpact': 'Sin efecto en tus ganancias.',
+  'backoffice.refunds.heading': 'Reembolsos de un viaje',
+  'backoffice.refunds.lead':
+    'Solo lectura: estado de cada reembolso, partes pedidas por la liquidación, orden enviada al proveedor de pagos y motivo de bloqueo. Nada se ejecuta desde aquí.',
+  'backoffice.refunds.trip': 'Identificador del viaje',
+  'backoffice.refunds.tripInvalid': 'El identificador del viaje no es válido.',
+  'backoffice.refunds.read': 'Ver los reembolsos',
+  'backoffice.refunds.none': 'Ningún reembolso para este viaje.',
+  'backoffice.refunds.caption': 'Reembolsos del viaje',
+  'backoffice.refunds.statusColumn': 'Estado del reembolso',
+  'backoffice.refunds.amountColumn': 'Monto reembolsado al viajero',
+  'backoffice.refunds.issuedColumn': 'Fecha de emisión',
+  'backoffice.refunds.detailColumn': 'Detalle del reembolso',
+  'backoffice.refunds.notIssued': 'Todavía no emitido',
+  'backoffice.refunds.attempt': 'intento {n}, versión {v} de la liquidación',
+  'backoffice.refunds.requested': 'Partes pedidas por la liquidación: {legs}',
+  'backoffice.refunds.order': 'Orden enviada al proveedor de pagos: {legs}',
+  'backoffice.refunds.advance': 'Adelanto de la plataforma: {amount}',
+  'backoffice.refunds.status.PLANNED': 'Planificado',
+  'backoffice.refunds.status.BLOCKED_CHARGEBACK': 'Bloqueado por un contracargo',
+  'backoffice.refunds.status.PENDING_CUSTOMER_CHOICE': 'Espera la elección del viajero',
+  'backoffice.refunds.status.PENDING_BANK_DETAILS': 'Espera los datos bancarios del viajero',
+  'backoffice.refunds.status.SUBMITTED': 'Emisión autorizada',
+  'backoffice.refunds.status.SENT': 'Enviado al proveedor de pagos',
+  'backoffice.refunds.status.CONFIRMED': 'Confirmado por el proveedor de pagos',
+  'backoffice.refunds.status.FAILED': 'Rechazado por el proveedor de pagos',
+  'backoffice.refunds.status.CREDITED': 'Acreditado como saldo',
+  'backoffice.refunds.status.CANCELLED': 'Anulado',
+  'backoffice.refunds.status.SUPERSEDED': 'Reemplazado por una versión nueva',
+  'backoffice.refunds.rail.NATIVE_PARTIAL': 'Reembolso parcial en el medio original',
+  'backoffice.refunds.rail.ROLLBACK_AND_RECHARGE': 'Anulación del pago y nuevo cobro',
+  'backoffice.refunds.rail.BANK_TRANSFER': 'Transferencia bancaria',
+  'backoffice.refunds.rail.CREDIT_CASH': 'Saldo a favor del viajero',
+  'backoffice.refunds.reason.ADVANCE_CAP_UNSET':
+    'Bloqueado: el tope de adelanto por anfitrión no está definido. Hace falta una decisión de FINANCE a dos personas.',
+  'backoffice.refunds.reason.HOST_ADVANCE_CAP':
+    'Bloqueado: el adelanto superaría el tope del anfitrión. Hace falta una decisión de FINANCE a dos personas.',
+  'backoffice.refunds.reason.PLATFORM_BALANCE_UNKNOWN':
+    'Bloqueado: el saldo de la plataforma no se conoce. Hace falta una decisión de FINANCE a dos personas.',
+  'backoffice.refunds.reason.SUPERSEDED_UNSENT':
+    'Orden nunca enviada de una liquidación reemplazada: no se enviará. Revisión de FINANCE.',
+  'backoffice.refunds.reason.NO_TARGET':
+    'No se conoce el pago original que hay que reembolsar. Revisión de FINANCE.',
+  'backoffice.refunds.reason.MISMATCH':
+    'El proveedor de pagos devolvió un monto o una moneda distintos de la orden. Revisión de FINANCE.',
+  'backoffice.refunds.reason.REFUND_FAILED':
+    'El proveedor de pagos rechazó el reembolso. Revisión de FINANCE.',
+  'backoffice.refunds.reason.REFUND_EXCEEDS_COLLECTED':
+    'El reembolso superaría lo cobrado en una parte. Nada se envió.',
+  'backoffice.refunds.reason.SETTLEMENT_SUPERSEDED':
+    'La liquidación fue reemplazada por una versión nueva. Nada se envió con la anterior.',
+  'backoffice.refunds.reason.FIN_REVIEW_REQUIRED':
+    'La liquidación necesita una decisión de FINANCE antes de cualquier envío.',
+  'backoffice.refunds.reason.other': 'Código técnico {code}. Revisión de FINANCE.',
 } as const satisfies Catalog;
 
 export type MessageKey = keyof typeof ES_MESSAGES;

@@ -1,4 +1,4 @@
--- 0130 — SUP / IAM / BKG : séparation des tâches sur les cinq entrées de la console restées hors de
+-- 0132 — SUP / IAM / BKG : séparation des tâches sur les cinq entrées de la console restées hors de
 -- la garde, et avis du voyageur quand la restriction de son hôte est posée puis levée.
 -- US-215 (partie 215c) ; suites du BOARD N-116 et N-126 (revues d'US-122, passe n° 2 #152) ;
 -- 17 §2.3 (« un agent ne décide pas sur son propre dossier », RLS-24), §4.5 ; 08 BR-TRUST-09 ;

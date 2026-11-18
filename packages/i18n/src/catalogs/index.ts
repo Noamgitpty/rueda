@@ -205,6 +205,15 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  `web.error.requestDeclined` et `web.error.requestExpired` (10b §4.3), `web.a05.accept`,
  `web.a05.decline`, `web.a05.requests.*` et `web.a05.request.*` (demandes de l'hôte : liste,
  détail, confirmation, issue).
+ Version 71 (la 70 est celle d’US-223d) : remboursement lu par sa partie, partie 224d (US-224,
+ ADR-154) : `common.refund.*` (réponses de la route `/trips/{id}/refunds` : introuvable,
+ indisponible), `web.s10.refund.*` (S10 · remboursement du voyageur : montant, rail sur le moyen
+ d’origine, date d’émission, jamais une date de réception), `web.refund.*` (états et date
+ d’émission vus par le voyageur et l’hôte), `web.a05.refund.*` (jambe HOST seulement, sur le
+ détail du trip de l’hôte), `backoffice.refunds.*` (console : états SM-8, rails, parts demandées et
+ ordre envoyé, avance, motifs de blocage ADVANCE_CAP_UNSET, HOST_ADVANCE_CAP,
+ PLATFORM_BALANCE_UNKNOWN et codes REFUND_EXCEEDS_COLLECTED, SETTLEMENT_SUPERSEDED,
+ FIN_REVIEW_REQUIRED, SUPERSEDED_UNSENT, NO_TARGET, MISMATCH expliqués).
  Version 72 (la 71 est celle d’US-224d) : correctifs serveur de la console, partie 215c (US-215,
  ADR-156) : `backoffice.profile.hostTrips` et `backoffice.profile.noHostTrip` (fiche 360° : trips à
  venir des comptes d'hôte de la personne, N-123) ; `ntf.tripHostRestrictionLifted.*` (voyageur d'un

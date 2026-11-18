@@ -1,5 +1,5 @@
 /**
- * US-215 (partie 215c, migration 0130, ADR-156) — suites N-116 et N-126 des revues d'US-122 (passe
+ * US-215 (partie 215c, migration 0132, ADR-156) — suites N-116 et N-126 des revues d'US-122 (passe
  * n° 2), sous le rôle de PRODUCTION app_api (`rolledBack` → `withRole` : assertion L0-05 en tête),
  * en PA (USD) et en PY (PYG), dans des transactions annulées. Personnes, hôtes et membres du staff
  * sont créés par les vraies commandes (inscription, compte d'hôte, élévation TOTP) ; les fixtures

@@ -153,3 +153,13 @@
     gap: var(--space-3);
   }
 }
+
+/* Détail d'un remboursement (US-224d) : rail, parts, ordre, motif, une ligne chacun */
+.list {
+  display: grid;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  overflow-wrap: anywhere;
+}

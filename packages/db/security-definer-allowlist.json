@@ -1889,6 +1889,27 @@
       "owner": "cmd_money_owner",
       "execute": [],
       "story": "US-709"
+    },
+    {
+      "signature": "core.payment_trip_refund_view(uuid,text)",
+      "family": "cmd_money",
+      "owner": "cmd_money_owner",
+      "execute": ["cmd_hold_owner", "iam_staff_owner"],
+      "story": "US-224"
+    },
+    {
+      "signature": "core.booking_trip_refunds(bytea,uuid)",
+      "family": "cmd_hold",
+      "owner": "cmd_hold_owner",
+      "execute": ["app_api"],
+      "story": "US-224"
+    },
+    {
+      "signature": "core.support_staff_trip_refunds(bytea,uuid,uuid)",
+      "family": "iam_staff",
+      "owner": "iam_staff_owner",
+      "execute": ["app_api"],
+      "story": "US-224"
     }
   ]
 }

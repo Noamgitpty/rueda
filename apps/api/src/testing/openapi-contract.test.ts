@@ -11,6 +11,7 @@ import {
   CHECKOUT_MESSAGES,
   HOST_REQUEST_MESSAGES,
   PAYMENT_MESSAGES,
+  TRIP_REFUND_MESSAGES,
 } from '../modules/avl/index.js';
 import { HOST_LISTING_MESSAGES, SEARCH_MESSAGES } from '../modules/cat/index.js';
 import { BRAND_MESSAGES } from '../modules/cfg/index.js';
@@ -240,6 +241,7 @@ const CATALOG: ReadonlyMap<string, ReadonlySet<number>> = (() => {
     HOST_REQUEST_MESSAGES,
     QUOTE_MESSAGES,
     CONTRACT_MESSAGES,
+    TRIP_REFUND_MESSAGES,
   ] as const) {
     for (const [code, { status }] of Object.entries(catalog)) add(code, status);
   }

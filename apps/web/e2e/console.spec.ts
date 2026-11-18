@@ -298,3 +298,107 @@ for (const language of LANGUAGES) {
     });
   });
 }
+
+/**
+ * US-224d : remboursements d'un voyage lus par la console (lecture seule). Une instance planifiée
+ * BLOQUÉE (solde de la plateforme inconnu : décision FINANCE à deux personnes) et une instance
+ * émise puis confirmée ; parts demandées par le règlement et ordre envoyé (avance), motif expliqué.
+ * Montants : −TJ02b (08 E7) dans la devise fictive ; données fictives (pays « ZZ »).
+ */
+const REFUND_TRIP = '04400000-0000-4000-8000-0000000000e7';
+const REFUND_LEGS = { HOST: '8625', INSURER: '2550', TAX_THIRD_PARTY: '0', PLATFORM: '7569' };
+const REFUNDS: Api = {
+  ...CONSOLE,
+  [`/console/refunds/${REFUND_TRIP}`]: {
+    status: 200,
+    body: {
+      tripId: REFUND_TRIP,
+      country: COUNTRY,
+      exponent: 2,
+      refunds: [
+        {
+          instanceId: '04400000-0000-4000-8000-0000000000f7',
+          status: 'PLANNED',
+          currency: 'XTS',
+          amountMinor: '18744',
+          rail: 'NATIVE_PARTIAL',
+          attemptNo: 1,
+          settlementVersion: 1,
+          requestedLegs: REFUND_LEGS,
+          orderLegs: { HOST: '0', INSURER: '2550', TAX_THIRD_PARTY: '0', PLATFORM: '16194' },
+          orderStatus: 'PENDING',
+          blockedReason: 'PLATFORM_BALANCE_UNKNOWN',
+          finAlert: 'BLOCKED:PLATFORM_BALANCE_UNKNOWN',
+          advance: { status: 'PLANNED', amountMinor: '8625' },
+          plannedAt: AT,
+          issuedAt: null,
+        },
+        {
+          instanceId: '04400000-0000-4000-8000-0000000000f8',
+          status: 'CONFIRMED',
+          currency: 'XTS',
+          amountMinor: '18744',
+          rail: 'NATIVE_PARTIAL',
+          attemptNo: 1,
+          settlementVersion: 1,
+          requestedLegs: REFUND_LEGS,
+          orderLegs: REFUND_LEGS,
+          orderStatus: 'SUCCEEDED',
+          blockedReason: null,
+          finAlert: null,
+          advance: null,
+          plannedAt: AT,
+          issuedAt: AT,
+        },
+      ],
+    },
+  },
+};
+
+for (const language of LANGUAGES) {
+  test.describe(`écran console-remboursements · ${language}`, () => {
+    test.use({ locale: tagOf(language) });
+
+    test('identifiant du voyage, lecture, états SM-8, motif de blocage expliqué ; axe, mobile d’abord et capture', async ({
+      page,
+    }, info) => {
+      const t = createTranslator(getProfile(LOCALE_CONFIG, tagOf(language)));
+      await serve(page, REFUNDS);
+      await page.goto('/');
+      await expect(page.locator('#roles-heading')).toBeFocused();
+      await expect(page).toHaveTitle(/\S/);
+      const heading = page.locator('#refunds-heading');
+      await expect(heading).toHaveText(t.t('backoffice.refunds.heading'));
+      // identifiant mal formé : expliqué, aucune lecture
+      await page.locator('#refunds-trip').fill('pas-un-voyage');
+      await page.getByRole('button', { name: t.t('backoffice.refunds.read'), exact: true }).click();
+      await expect(page.locator('section[aria-labelledby="refunds-heading"]')).toContainText(
+        t.t('backoffice.refunds.tripInvalid'),
+      );
+      await page.locator('#refunds-trip').fill(REFUND_TRIP);
+      const read = page.waitForResponse((r) =>
+        r.url().endsWith(`/api/console/refunds/${REFUND_TRIP}`),
+      );
+      await page.getByRole('button', { name: t.t('backoffice.refunds.read'), exact: true }).click();
+      await read;
+      const table = page.locator('#refunds-table');
+      await expect(table).toContainText(t.t('backoffice.refunds.status.PLANNED'));
+      await expect(table).toContainText(t.t('backoffice.refunds.status.CONFIRMED'));
+      await expect(table).toContainText(t.t('backoffice.refunds.reason.PLATFORM_BALANCE_UNKNOWN'));
+      await expect(table).toContainText(t.t('backoffice.refunds.notIssued'));
+      await expect(table).toContainText(
+        t.t('backoffice.refunds.advance', {
+          amount: t.money({ amountMinor: 8625n, currency: 'XTS', exponent: 2 }),
+        }),
+      );
+      await page.waitForLoadState('networkidle');
+      await expectMobileFriendly(page);
+      for (const scheme of ['light', 'dark'] as const) {
+        await page.emulateMedia({ colorScheme: scheme });
+        await expectAccessible(page, { include: null });
+        if (captured(info, language, scheme))
+          await expectScreen(page, 'console-remboursements', language, scheme);
+      }
+    });
+  });
+}

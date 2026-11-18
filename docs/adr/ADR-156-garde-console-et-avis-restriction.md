@@ -2,7 +2,7 @@
 
 - **Statut** : PROPOSÉ (US-215, partie 215c, agent de story back-end, claude-opus-5-5, 2026-11-17). Revues exigées : celles de `check-story-reviews.mjs` ; `SECURITY DEFINER`, RLS et rôles sur un autre modèle que l'auteur. À reporter dans 17 §2.3 et §4.5.
 - **Amende** : ADR-124 (point 1 « Non gardées, suivi » ; point 6, F2-T-02) et, par lui, ADR-122 (« quelle que soit l'action »).
-- **Sources** : BOARD N-116, N-123, N-126 (revues d'US-122, passe n° 2, PR #152) ; 17 §2.3 (« un agent ne décide pas sur son propre dossier », RLS-24) ; 08 BR-TRUST-09 ; 19 US-122 critère 4 ; migration 0130.
+- **Sources** : BOARD N-116, N-123, N-126 (revues d'US-122, passe n° 2, PR #152) ; 17 §2.3 (« un agent ne décide pas sur son propre dossier », RLS-24) ; 08 BR-TRUST-09 ; 19 US-122 critère 4 ; migration 0132.
 
 ## Contexte
 
@@ -48,4 +48,4 @@ Enfin, la fiche servait `hostTrips` depuis 0097, mais la console ne l'affichait 
 
 ## Retour arrière
 
-Voir l'en-tête de la migration 0130 (définitions à réappliquer, politique à rétablir, fonction à supprimer). Côté code : retirer le gabarit et la règle NTF, les textes v72 et le tableau de la fiche.
+Voir l'en-tête de la migration 0132 (définitions à réappliquer, politique à rétablir, fonction à supprimer). Côté code : retirer le gabarit et la règle NTF, les textes v72 et le tableau de la fiche.

@@ -429,6 +429,12 @@ describe('US-211 partie 211b — routes du contrat de location d’un trip', () 
   });
 
   it('couverture : chaque statut déclaré pour /trips est exercé', () => {
-    expect(missingCoverage(contract, '/trips', coverageOf(...apps)), 'statuts').toEqual([]);
+    // remboursements d'un trip (US-224d) : leur propre suite (avl/testing/trip-refunds.contract)
+    expect(
+      missingCoverage(contract, '/trips', coverageOf(...apps)).filter(
+        (d) => !d.includes(' /trips/{tripId}/refunds '),
+      ),
+      'statuts',
+    ).toEqual([]);
   });
 });

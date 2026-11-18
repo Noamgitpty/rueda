@@ -36,6 +36,8 @@
  * |      :fileId (US-124)                   |                                  |                                  |
  * | GET /console/cancellations/:id     | 200 { cancellation } : dernière  | 403 STAFF_SELF_FORBIDDEN         |
  * |      (US-215b)                          | demande d'annulation ou null     |                                  |
+ * | GET /console/refunds/:id                | 200 remboursements SM-8 du trip  | 403 STAFF_SELF_FORBIDDEN         |
+ * |      (US-224d)                          | (jambes, ordre, blocage, alerte) |                                  |
  *
  * Toutes : StaffGuard (401 AUTH_REQUIRED, 403 FORBIDDEN / 2FA_REQUIRED), 400 REQUEST_INVALID. La
  * base juge chaque droit (permission EN COURS dans le pays du sujet, couverture) et journalise
@@ -694,6 +696,18 @@ export class OpsConsoleController {
       ['OK', 'NONE'],
     );
     return { cancellation: r.outcome === 'OK' ? r.body : null };
+  }
+
+  // US-224d (ADR-154) : remboursements (SM-8) du trip `:id` : jambes demandées et ordre, rail, motif
+  // de blocage, alerte FIN, date d'émission ; permission ops.platform_cancel ou
+  // finance.platform_advance dans le pays du trip ; aucune donnée personnelle ; refus journalisés
+  @Get('refunds/:id')
+  @UseGuards(StaffGuard)
+  async tripRefunds(@Req() request: object, @Param('id') id: string) {
+    const actor = actorOf(request);
+    const tripId = uuidOf(id);
+    const r = await run(() => this.store.tripRefunds(actor, randomUUID(), tripId), ['OK']);
+    return r.body;
   }
 
   @Post('users/search')

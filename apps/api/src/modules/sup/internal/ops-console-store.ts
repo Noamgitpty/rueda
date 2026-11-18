@@ -177,6 +177,12 @@ export interface OpsConsoleStore {
    * refus journalisés ; aucune donnée personnelle.
    */
   tripCancellation(actor: StaffActor, requestId: string, tripId: string): Promise<OpsResult>;
+  /**
+   * US-224d (ADR-154) : remboursements (SM-8) d'un trip, toutes jambes, ordre, motif de blocage,
+   * alerte FIN (OK) ; permission ops.platform_cancel ou finance.platform_advance dans le pays du
+   * trip, garde ADR-122, refus journalisés ; aucune donnée personnelle.
+   */
+  tripRefunds(actor: StaffActor, requestId: string, tripId: string): Promise<OpsResult>;
 }
 
 /** Décision sur une annonce en revue (US-118 ; revue exigée par le pays seulement). */
@@ -238,6 +244,16 @@ export const TRIP_CANCELLATION_SQL = `SELECT r.outcome,
             ELSE r.body END AS body
   FROM core.support_staff_trip_cancellation($1, $2, $3) AS r
   LEFT JOIN core.config_currency AS c ON c.code::text = r.body #>> '{settlement,currency}'`;
+/**
+ * US-224d : remboursements d'un trip ; l'exposant de la devise des instances (config, lisible par
+ * app_api) est joint dans la MÊME instruction, pour l'affichage des montants (jamais un calcul).
+ */
+export const TRIP_REFUNDS_SQL = `SELECT r.outcome,
+       CASE WHEN pg_catalog.jsonb_typeof(r.body) = 'object'
+            THEN r.body || pg_catalog.jsonb_build_object('exponent', c.exponent)
+            ELSE r.body END AS body
+  FROM core.support_staff_trip_refunds($1, $2, $3) AS r
+  LEFT JOIN core.config_currency AS c ON c.code::text = r.body #>> '{refunds,0,currency}'`;
 export const RESOLVE_CATALOG_ADDITION_SQL =
   'SELECT outcome, body FROM core.support_staff_resolve_catalog_addition($1, $2, $3, $4, $5, $6::jsonb, $7)';
 
@@ -433,5 +449,9 @@ export class PgOpsConsoleStore implements OpsConsoleStore {
 
   tripCancellation(actor: StaffActor, requestId: string, tripId: string) {
     return one(this.#db, TRIP_CANCELLATION_SQL, [actor.tokenHash, requestId, tripId]);
+  }
+
+  tripRefunds(actor: StaffActor, requestId: string, tripId: string) {
+    return one(this.#db, TRIP_REFUNDS_SQL, [actor.tokenHash, requestId, tripId]);
   }
 }
