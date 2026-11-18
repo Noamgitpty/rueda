@@ -931,6 +931,13 @@ Migration `0133_booking_notification_parties` : une fonction de lecture AJOUTÉE
   - assertions ajoutées à `l0-us223-request.test.ts` (capture refusée et capture jamais confirmée d'une demande acceptée : faits lus du hold) ;
   - `apps/api/test/int/ntf.int.test.ts` (charge utile réelle de `booking.trip.booked`, trip réel, rejeu sans doublon).
 
+## « Mis viajes » et détail du trip du voyageur (US-214 ; 16 BKG-027 ; 10b S08, S09 ; ADR-160)
+
+Migration `0136_booking_guest_trips_read` : une fonction de lecture AJOUTÉE, aucune table ; un droit de colonne (`booking_trip.payment_status` pour `cmd_hold_owner`). Fixture `9948_test_us214_guest_trips_fixtures` (trips BOOKED sans assureur ni caution, demande REQUEST en attente de l'hôte).
+
+- `core.booking_guest_trips(bytea, text, uuid, integer)` (cmd_hold_owner, EXECUTE app_api) : trips du voyageur de la SESSION (onglets UPCOMING, IN_PROGRESS, DONE, CANCELLED, partition de 0101) et ses demandes en attente (REQUESTED : hold REQUEST en `AWAITING_HOST` ou `PAYMENT_IN_FLIGHT`, heure limite de la base) ; auto sans plaque ; hôte en prénom et initiale ; nom du lieu, adresse et ville d'un trip à venir ou en cours seulement, ville seule d'une demande ; total du devis figé (jamais recalculé) ; état du contrat (`NONE`, `TO_SIGN`, `SIGNED`). Trip d'une autre personne (y compris celui que la session héberge) ou inconnu : aucune ligne. Issues : `DONE`, `AUTH_REQUIRED`, `REQUEST_INVALID`.
+- **Preuves** : `test/l0/l0-us214-guest-trips.test.ts` (PA USD, PY PYG ; transaction annulée sous app_api ; trips et demande de la fixture 9948, contrat signé par 9963 ; IDOR, onglets, minimisation, refus d'app_worker et d'app_anon).
+
 ## Remboursement lu par le voyageur, l'hôte et la console (US-224 partie 224d ; 19 US-224 critère 1 ; 08 SM-8, BR-PAY-08 ; ADR-154)
 
 Migration `0130_payment_refund_read` : trois fonctions de lecture AJOUTÉES, aucune table, aucun droit sur une table.

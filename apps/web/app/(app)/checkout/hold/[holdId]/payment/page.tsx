@@ -386,6 +386,10 @@ export default async function PaymentPage({
               {t('web.s06.confirmed.contract')}
             </ButtonLink>
           )}
+          {/* « Mis viajes » (S08, US-214) : retrouver ce voyage et les autres */}
+          <ButtonLink variant="secondary" href="/trips" data-testid="s06-trips">
+            {t('web.s06.confirmed.trips')}
+          </ButtonLink>
           <ButtonLink variant="secondary" href={`/listings/${hold.listingId}`}>
             {t('web.s06.confirmed.cta')}
           </ButtonLink>
