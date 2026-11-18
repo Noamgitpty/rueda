@@ -255,13 +255,23 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  Version 82 (la 79 qui lui était réservée a été dépassée par la 81 d’US-224f) : rails de la caution (US-225, ADR-164) : `web.deposit.unavailable` (refus avant le
  paiement avec la durée possible, texte de 10b UX-24) et `web.deposit.unavailableNone` (aucune
  durée possible, PROPOSÉ), affichés par l'écran S05 quand il branchera la décision de la caution.
- Version 83 (la 82 est celle d’US-225) : caution figée au checkout (US-701, ADR-169) :
+ Version 83 (la 82 est celle d’US-225) : lieux de prise
+ et de retour (US-514, ADR-168) : `common.checkout.oneWayNotAllowed` (lieu de retour différent du
+ lieu de prise refusé au checkout, 16 BKG-016 : one-way interdit).
+ Version 84 (la 83 est celle d’US-514) : reçu du voyageur et gains de l’hôte
+ (US-217 partie 217b, ADR-167) : `web.s09.receipt.*` (S09 · reçu : total payé, trip fee et sa
+ taxe de ligne, remboursement dû, mention d’intermédiaire, reçu sans valeur fiscale),
+ `web.s09.documents.receiptOpen`, `web.a08.*` (A08 : acquis, à liquider, lignes par voyage,
+ pénalité en ligne séparée ; `web.a08.empty`, `web.a08.payoutsOff` de 10b §4.3 et
+ `web.a08.title` du prototype US-033 devenues officielles),
+ `web.host.earningsLink`.
+ Version 85 (la 84 est celle d’US-217b) : caution figée au checkout (US-701, ADR-169) :
  `web.deposit.none` (S05 : aucune caution pour ce trip, 08 BR-PAY-06) et
  `common.payment.depositUnavailable` (réponse 409 `DEPOSIT_RAIL_UNAVAILABLE` /
  `DEPOSIT_PARAM_MISSING` de `POST /checkout/holds/{id}/payment`, avec une sortie : autres dates,
  autre voiture).
  */
-export const CATALOG_VERSION = 83;
+export const CATALOG_VERSION = 85;
 
 /** Catalogues de base par langue ; la langue d'un profil de locale choisit le sien. */
 export const CATALOGS: Readonly<Record<CatalogLanguage, VersionedCatalog<MessageKey>>> = {

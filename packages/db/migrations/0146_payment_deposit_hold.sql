@@ -1,4 +1,4 @@
--- 0144 — PAY : caution de la plateforme figée au checkout (`deposit_hold`), vue du voyageur sans
+-- 0146 — PAY : caution de la plateforme figée au checkout (`deposit_hold`), vue du voyageur sans
 -- champ [C2], minuterie de ré-autorisation.
 -- US-701 ; 19 US-701 (critères 3 et 4), US-225 (critère 3 : ré-autorisation avant l'échéance,
 -- refusée ⇒ ops, sans débit) ; 16 PAY-011, PAY-036 ; 08 BR-PAY-06 (« Moment de l'évaluation »,

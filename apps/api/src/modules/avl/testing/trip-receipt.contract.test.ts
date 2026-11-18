@@ -333,6 +333,9 @@ describe('US-217 partie 217a — relevé mensuel des gains de l’hôte', () => 
     hostLegMinor: hostLeg.toString(),
     adjustmentsMinor: '-2500',
     netMinor: (hostLeg - 2500n).toString(),
+    // 217b (N-339) : acquis = règlement (0) + host_ledger ; à venir = capture sans règlement
+    earnedMinor: '-2500',
+    pendingMinor: hostLeg.toString(),
     lines: [
       {
         kind: 'EARNING',
@@ -451,6 +454,10 @@ describe('US-217 partie 217a — relevé mensuel des gains de l’hôte', () => 
     for (const statements of [
       [{ ...good, hostLegMinor: '-1' }],
       [{ ...good, tripsCount: -1 }],
+      // 217b (N-339) : acquis et à venir exigés, à venir jamais négatif
+      [{ ...good, pendingMinor: '-1' }],
+      [{ ...good, earnedMinor: '1.5' }],
+      [Object.fromEntries(Object.entries(good).filter(([k]) => k !== 'earnedMinor'))],
       [{ ...good, lines: [{ ...earning, amountMinor: '-1' }] }],
       [{ ...good, lines: [{ ...earning, kind: 'COMMISSION' }] }],
       [{ ...good, lines: [{ ...cxl, reason: 'HOST_CANCELLATION_PENALTY' }] }],

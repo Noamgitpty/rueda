@@ -155,7 +155,7 @@ export function postgresCheckoutAdapters(
     store: new PgCheckoutStore(db),
     ...(cancellationParamsOf === undefined ? {} : { cancellationParamsOf }),
     // aucun connecteur de PSP en production avant le lot C (PRODUCTION_PROVIDERS vide)
-    // US-701 : caution décidée et figée avant le paiement (0144), configuration du pays lue sous
+    // US-701 : caution décidée et figée avant le paiement (0146), configuration du pays lue sous
     // app_api
     payments: {
       store: new PgCheckoutPaymentStore(db),

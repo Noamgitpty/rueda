@@ -1,5 +1,5 @@
 /**
- * Magasin de la caution du checkout sous `app_api` (US-701, ADR-169 ; migration 0144) :
+ * Magasin de la caution du checkout sous `app_api` (US-701, ADR-169 ; migration 0146) :
  * - `core.payment_deposit_checkout(jeton, hold)` : contexte du hold du voyageur de la session
  *   (pays, devise et période du devis ENGAGÉ, classe du véhicule, compte marchand du pays,
  *   `platform.now()`) et, si elle existe, la décision figée telle que le voyageur peut la lire

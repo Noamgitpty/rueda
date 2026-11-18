@@ -2034,6 +2034,7 @@ export const EN_MESSAGES = {
   'common.checkout.quoteAlreadyUsed': 'You already booked with this price. Check your booking.',
   'common.checkout.holdNotFound': 'We can’t find this booking in your account.',
   'common.checkout.noticeTooShort': 'The host needs more notice. Choose a later start time.',
+  'common.checkout.oneWayNotAllowed': 'You return the car to the same place you pick it up.',
   'common.checkout.guestOverlap': 'You already have a trip on these dates. Choose other dates.',
   'common.checkout.holdAlreadyLive':
     'You’re already booking this car. Finish that booking or wait a few minutes.',
@@ -2689,4 +2690,61 @@ export const EN_MESSAGES = {
   'backoffice.refunds.reason.FIN_REVIEW_REQUIRED':
     'The settlement needs a FINANCE decision before anything is sent.',
   'backoffice.refunds.reason.other': 'Technical code {code}. FINANCE review.',
+  // US-217 partie 217b (ADR-167) : reçu du voyageur (S09 · reçu) et gains de l’hôte (A08)
+  'web.s09.documents.receiptOpen': 'View the receipt',
+  'web.s09.receipt.title': 'Payment receipt',
+  'web.s09.receipt.back': 'Back to your trip',
+  'web.s09.receipt.intermediary':
+    '{brand} is an intermediary platform between private individuals: it is neither the lessor nor the owner of the car. You rent the car directly from {host}, its host.',
+  'web.s09.receipt.intermediaryNoHost':
+    '{brand} is an intermediary platform between private individuals: it is neither the lessor nor the owner of the car. You rent the car directly from its host.',
+  'web.s09.receipt.payment': 'What you paid',
+  'web.s09.receipt.totalPaid': 'Total paid to {brand}',
+  'web.s09.receipt.fee.title': 'Trip fee',
+  'web.s09.receipt.fee.charged': 'Trip fee charged',
+  'web.s09.receipt.fee.tax': 'Tax charged on the fee ({rate}%)',
+  'web.s09.receipt.fee.refunded': 'Part of the fee refunded to you',
+  'web.s09.receipt.fee.retained': 'Part of the fee {brand} keeps',
+  'web.s09.receipt.fee.taxElsewhere':
+    'The tax on the part kept isn’t shown here: it appears on the invoice issued separately.',
+  'web.s09.receipt.refund.title': 'Refund',
+  'web.s09.receipt.refund.due': 'Refund owed to you',
+  'web.s09.receipt.refund.hint':
+    '{brand} returns it to your original payment method. This is the amount owed under the cancellation; the date we issue it is shown separately.',
+  'web.s09.receipt.refund.link': 'See your refund status',
+  'web.s09.receipt.fiscal':
+    'This receipt isn’t an invoice and has no tax value. The electronic invoice is sent separately.',
+  'web.host.earningsLink': 'My earnings',
+  'web.a08.title': 'Earnings',
+  'web.a08.intro': 'What you earn on each trip under your plan, month by month.',
+  'web.a08.back': 'Back to my host space',
+  'web.a08.intermediary':
+    '{brand} is an intermediary platform between private individuals: you rent your car directly to the guest.',
+  'web.a08.monthNav': 'Statement month',
+  'web.a08.prev': 'Previous month',
+  'web.a08.next': 'Next month',
+  'web.a08.summary': 'Statement for {month}',
+  'web.a08.earned': 'Earned',
+  'web.a08.earnedHint': 'Your share of settled trips, minus penalties.',
+  'web.a08.pending': 'Not settled yet',
+  'web.a08.pendingHint':
+    'Upcoming or ongoing trips: your share is confirmed when the trip is settled.',
+  'web.a08.tripsCount': 'Trips this month: {count}',
+  'web.a08.lines': 'Trip by trip',
+  'web.a08.line.EARNING': 'Trip',
+  'web.a08.line.CXL_EARNING': 'Cancelled trip',
+  'web.a08.line.HOST_CANCELLATION_PENALTY': 'Penalty for cancelling a trip',
+  'web.a08.line.penaltyHint': 'It’s deducted from your next earnings.',
+  'web.a08.line.settled': 'Settled',
+  'web.a08.line.pending': 'Not settled yet',
+  'web.a08.line.base': 'Price your share is based on',
+  'web.a08.line.fee': '{brand} commission',
+  'web.a08.line.share': 'Your share · {plan} ({share}%)',
+  'web.a08.line.shareNoPlan': 'Your share',
+  'web.a08.line.trip': 'View the trip',
+  'web.a08.loadError': 'We couldn’t load your earnings.',
+  'web.a08.retry': 'Try again',
+  'web.a08.empty': 'No earnings yet',
+  'web.a08.payoutsOff':
+    "Your earnings are recorded. Host payouts in {country} aren't open yet; we'll let you know.",
 } as const satisfies Readonly<Record<MessageKey, Message>>;

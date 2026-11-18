@@ -391,7 +391,7 @@ export const CONSTRAINT_CODES: Readonly<Record<string, readonly [string, DbBusin
   host_ledger_settlement_unknown: [SQLSTATE.integrityConstraintViolation, 'INVARIANT_VIOLATION'],
   host_ledger_version_unsupported: [SQLSTATE.objectNotInPrerequisiteState, 'INVARIANT_VIOLATION'],
   host_ledger_entry_settlement_reason_unique: [SQLSTATE.uniqueViolation, 'INVARIANT_VIOLATION'],
-  // caution figée au checkout (0144, US-701, ADR-169) : décision incohérente avec la base, rail
+  // caution figée au checkout (0146, US-701, ADR-169) : décision incohérente avec la base, rail
   // « débit puis remboursement » fermé, décision figée ou transition refusée, commande réservée
   deposit_decision_mismatch: [SQLSTATE.checkViolation, 'INVARIANT_VIOLATION'],
   deposit_rail_closed: [SQLSTATE.objectNotInPrerequisiteState, 'FORBIDDEN'],

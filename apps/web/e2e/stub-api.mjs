@@ -2327,6 +2327,173 @@ function guestTripsRoute(req, res, url) {
   return json(res, 200, { trip: guestTripView(found[0], found[1]) });
 }
 
+// ---- Reçu du voyageur et gains de l'hôte (US-217 partie 217b) ---------------------------------
+// `GET /trips/{id}/receipt` : la partie voyageur du contrat lit le reçu de son paiement ; toute autre
+// session ⇒ 404 RECEIPT_NOT_FOUND (comme l'API). Montants FIXES de forme (le total est celui du détail
+// S09 du double) : trip fee 12,00 et sa taxe de ligne 0,84 (7 %) ; après `__e2e/refund/cancel`, le
+// règlement rend un remboursement dû, le trip fee conservé en partie et AUCUNE taxe (ADR-167, N-337).
+function receiptRoute(req, res, url) {
+  const m = /^\/trips\/([^/]+)\/receipt$/.exec(url.pathname);
+  if (m === null || req.method !== 'GET') return false;
+  const token = tokenOf(req);
+  if (token === undefined) return err(res, 401, 'AUTH_REQUIRED', 'common.auth.sessionRequired');
+  const tripId = m[1].toLowerCase();
+  const c = contracts.get(tripId);
+  if (c === undefined || c.guest === null || token !== c.guest) {
+    return err(res, 404, 'RECEIPT_NOT_FOUND', 'common.receipt.notFound');
+  }
+  const cancelled = refundsByTrip.has(tripId);
+  return json(res, 200, {
+    tripId,
+    viewerRole: 'GUEST',
+    tripStatus: cancelled ? 'CANCELLED_BY_GUEST' : 'BOOKED',
+    currency: MARKET.currency,
+    currencyExponent: MARKET.currencyExponent,
+    timezone: 'UTC',
+    receipt: {
+      source: cancelled ? 'SETTLEMENT' : 'CAPTURE',
+      settlementVersion: cancelled ? 1 : null,
+      totalPaidMinor: '12840',
+      refundMinor: cancelled ? '8640' : '0',
+      tripFee: cancelled
+        ? {
+            chargedMinor: '1200',
+            taxMinor: null,
+            taxRateBps: null,
+            refundedMinor: '800',
+            retainedMinor: '400',
+          }
+        : {
+            chargedMinor: '1200',
+            taxMinor: '84',
+            taxRateBps: 700,
+            refundedMinor: '0',
+            retainedMinor: '1200',
+          },
+      fiscalDocument: 'OFF_PLATFORM',
+    },
+  });
+}
+
+// `GET /host/accounts/{orgId}/earnings/{month}` : relevé du compte de la session (compte d'un autre
+// ⇒ 404 EARNINGS_NOT_FOUND ; mois mal formé ⇒ 400). Seul le mois EARNINGS_MONTH porte des lignes
+// FIXES (trips fictifs) : un trip à venir capturé (à liquider), un trip annulé par le voyageur et
+// réglé (part retenue), un trip annulé par l'hôte (part nulle) et sa pénalité EN LIGNE SÉPARÉE.
+// Formes des vecteurs de 08 (TJ01, T03, T14 en exposant 2 ; TJ08a, T27, T48 sans décimale).
+const EARNINGS_MONTH = '2036-12';
+function earningsRoute(req, res, url) {
+  const m = /^\/host\/accounts\/([0-9a-f-]{36})\/earnings\/([^/]+)$/.exec(url.pathname);
+  if (m === null || req.method !== 'GET') return false;
+  const owner = hostOf(req);
+  if (owner === undefined) return err(res, 401, 'AUTH_REQUIRED', 'common.auth.sessionRequired');
+  const a = owner === null ? undefined : owner.accounts.find((x) => x.orgId === m[1]);
+  if (a === undefined) return err(res, 404, 'EARNINGS_NOT_FOUND', 'common.earnings.notFound');
+  const month = decodeURIComponent(m[2]);
+  if (!/^[0-9]{4}-(0[1-9]|1[0-2])$/.test(month)) {
+    return err(res, 400, 'REQUEST_INVALID', 'common.auth.requestInvalid');
+  }
+  const base = { orgId: m[1], month, country: a.market.country };
+  if (month !== EARNINGS_MONTH) return json(res, 200, { ...base, statements: [] });
+  const z = a.market.currencyExponent === 0;
+  const v = z
+    ? {
+        leg: '787500',
+        base: '1050000',
+        fee: '262500',
+        kept: '270000',
+        keptBase: '360000',
+        keptFee: '90000',
+        penalty: '-200000',
+        earned: '70000',
+        hostLeg: '1057500',
+        net: '857500',
+      }
+    : {
+        leg: '13125',
+        base: '17500',
+        fee: '4375',
+        kept: '4500',
+        keptBase: '6000',
+        keptFee: '1500',
+        penalty: '-2500',
+        earned: '2000',
+        hostLeg: '17625',
+        net: '15125',
+      };
+  const line = {
+    settlementVersion: null,
+    reason: null,
+    hostPlanCode: 'ESTÁNDAR',
+    hostSharePct: '3/4',
+  };
+  return json(res, 200, {
+    ...base,
+    statements: [
+      {
+        currency: a.market.currency,
+        currencyExponent: a.market.currencyExponent,
+        tripsCount: 3,
+        hostLegMinor: v.hostLeg,
+        adjustmentsMinor: v.penalty,
+        netMinor: v.net,
+        earnedMinor: v.earned,
+        pendingMinor: v.leg,
+        lines: [
+          {
+            ...line,
+            kind: 'CXL_EARNING',
+            tripId: '21700000-0000-4000-8000-0000000b0002',
+            tripStatus: 'CANCELLED_BY_GUEST',
+            source: 'SETTLEMENT',
+            settlementVersion: 1,
+            eventAt: '2036-12-03T15:00:00.000Z',
+            amountMinor: v.kept,
+            shareBaseMinor: v.keptBase,
+            kminoFeeMinor: v.keptFee,
+          },
+          {
+            ...line,
+            kind: 'CXL_EARNING',
+            tripId: '21700000-0000-4000-8000-0000000b0003',
+            tripStatus: 'CANCELLED_BY_HOST',
+            source: 'SETTLEMENT',
+            settlementVersion: 1,
+            eventAt: '2036-12-05T15:00:00.000Z',
+            amountMinor: '0',
+            shareBaseMinor: '0',
+            kminoFeeMinor: '0',
+          },
+          {
+            kind: 'ADJUSTMENT',
+            tripId: '21700000-0000-4000-8000-0000000b0003',
+            tripStatus: 'CANCELLED_BY_HOST',
+            source: 'HOST_LEDGER',
+            settlementVersion: 1,
+            reason: 'HOST_CANCELLATION_PENALTY',
+            eventAt: '2036-12-05T15:00:00.000Z',
+            amountMinor: v.penalty,
+            shareBaseMinor: null,
+            kminoFeeMinor: null,
+            hostPlanCode: null,
+            hostSharePct: null,
+          },
+          {
+            ...line,
+            kind: 'EARNING',
+            tripId: '21700000-0000-4000-8000-0000000b0001',
+            tripStatus: 'BOOKED',
+            source: 'CAPTURE',
+            eventAt: '2036-12-14T14:00:00.000Z',
+            amountMinor: v.leg,
+            shareBaseMinor: v.base,
+            kminoFeeMinor: v.fee,
+          },
+        ],
+      },
+    ],
+  });
+}
+
 createServer(async (req, res) => {
   const url = new URL(req.url ?? '/', 'http://127.0.0.1');
   const path = url.pathname;
@@ -2335,6 +2502,8 @@ createServer(async (req, res) => {
   if ((await contractRoute(req, res, url)) !== false) return;
   if ((await constanciaRoute(req, res, url)) !== false) return;
   if (refundRoute(req, res, url) !== false) return;
+  if (receiptRoute(req, res, url) !== false) return;
+  if (earningsRoute(req, res, url) !== false) return;
   if (guestTripsRoute(req, res, url) !== false) return;
   if ((await checkoutRoute(req, res, path)) !== false) return;
   if ((await hostRoute(req, res, url)) !== false) return;

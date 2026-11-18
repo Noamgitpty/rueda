@@ -1012,6 +1012,10 @@ Migration `0129_settlement_host_ledger`. Fixture `9949_test_us709_host_ledger_fi
 - **Codes** : `host_ledger_command_forbidden` ⇒ `FORBIDDEN` ; `host_ledger_settlement_unknown`, `host_ledger_version_unsupported`, `host_ledger_entry_settlement_reason_unique` ⇒ `INVARIANT_VIOLATION`.
 - **Preuves** : `test/l0/l0-us709a-host-ledger.test.ts` (T14, T15, T48, T03, T27 ; PA USD, PY PYG ; groupe isolé) ; matrice d'autorisations peuplée (`l0-us043-authorization-matrix`).
 
+## Alignement des reçus et du relevé (US-217 partie 217b ; suites N-337, N-339, N-340 ; ADR-167)
+
+Migration `0145_finance_receipt_alignment` : corps de `core.finance_trip_receipt_view` et `core.finance_host_statement` (0137) remplacés à signature, propriétaire (`cmd_money_owner`) et droits identiques ; aucune table ni droit. Vue `GUEST` : taxe de ligne du trip fee (`taxMinor`, `taxRateBps`) rendue seulement si rien du trip fee n'est remboursé (N-337 : la taxe du trip fee conservé attend OQ-BR-14) ; sans règlement ni solde capturé, aucun reçu (`NO_RECEIPT`, comme la vue `HOST` ; le total du devis n'est plus jamais rendu, N-340). Relevé : `earnedMinor` (jambes HOST des règlements en tête + `host_ledger`) et `pendingMinor` (jambes HOST capturées sans règlement) ajoutés par devise (N-339). Preuve : bloc « 217b » de `test/l0/l0-us217-host-receipt.test.ts` (T03 / T27 avec devis figé ; trip avec devis seul ; relevé acquis / à venir ; PA USD, PY PYG).
+
 ## Créance de la règle 3 bis et hôte défaillant (US-224 partie 224e ; 08 E7 règle 3 bis, BR-TRUST-09, BR-CXL-14 ; ADR-163)
 
 Migrations `0139_settlement_host_ledger_advance_receivable` et `0140_booking_defaulted_host_trips_cancel`. Fixture `9941_test_us224e_host_receivable_fixtures.sql` (écritures d'un trip avec l'avance citée, appel de la commande, titulaire d'un compte d'hôte, demandes d'annulation d'un compte).
@@ -1050,9 +1054,18 @@ Migration `0143_settlement_insurer_ledger`. Fixture `9947_test_us227_insurer_led
 - **Codes** : `insurer_ledger_command_forbidden` ⇒ `FORBIDDEN` ; `insurer_leg_on_bordereau`, `insurer_bordereau_incoherent`, `insurer_bordereau_stale`, `insurer_bordereau_line_frozen` ⇒ `INVARIANT_VIOLATION`.
 - **Preuves** : `test/l0/l0-us227-insurer-ledger.test.ts` (TJ01, TJ02b, TJ08a, TJ08b ; T03, T27 ; PA USD, PY PYG ; groupe isolé) ; matrice d'autorisations peuplée (`l0-us043-authorization-matrix`).
 
+## Lieux de prise et de retour (US-514 ; 16 BKG-016 ; 08 BR-BOOK-09 ; ADR-168)
+
+Migration `0144_booking_meeting_place`. Fixture `9939_test_us514_meeting_place_fixtures` (annonce d'un trip ; fermeture de `review_window_days` d'un pays, transaction annulée).
+
+- **One-way refusé** : `core.booking_checkout_return_place(bytea, uuid, uuid)` (cmd_hold_owner, EXECUTE app_api, lecture seule) : lieu de retour absent ou égal au lieu du véhicule du devis du voyageur de la session ⇒ `DONE` ; autre ⇒ `ONE_WAY_NOT_ALLOWED` ; devis d'un autre ou inconnu ⇒ `QUOTE_NOT_FOUND` ; session invalide ⇒ `AUTH_REQUIRED`. Le checkout (`booking_cmd_checkout`) est inchangé.
+- **Adresse bornée** : `core.catalog_guest_meeting_point` (0106) et `core.booking_guest_trips` (0136) remplacés à signature identique : l'adresse exacte n'est plus rendue au-delà de la fin prévue du trip + `review_window_days` du pays (paramètre absent ou mal formé ⇒ jamais). Aucune copie de l'adresse, rien à purger.
+- **Droits** : `SELECT (country_code, scheduled_end)` de `booking_trip` à catalog_cmd_owner ; politiques ajoutées `catalog_cmd_meeting_read`, `cmd_hold_meeting_read` sur `config_param_value` (clé `review_window_days`).
+- **Preuves** : `test/l0/l0-us514-meeting-place.test.ts` (PA USD, PY PYG : one-way, adresse après réservation seulement, borne de la fenêtre dans chaque état, paramètre absent, lieu non modifiable par aucun rôle, droits).
+
 ## Caution figée au checkout (US-701 ; 08 BR-PAY-06 ; ADR-169)
 
-Migration `0144_payment_deposit_hold`, fixture `9945_test_us701_deposit_hold_fixtures.sql` (`test_fixture.us701_converted_deposit` : caution autorisée d'un hold converti, transaction annulée, EXECUTE `app_worker`).
+Migration `0146_payment_deposit_hold`, fixture `9945_test_us701_deposit_hold_fixtures.sql` (`test_fixture.us701_converted_deposit` : caution autorisée d'un hold converti, transaction annulée, EXECUTE `app_worker`).
 
 - **Table** `core.payment_deposit_hold` : une décision par hold (`hold_id` unique ; trip par `converted_trip_id`) ; `NOT_REQUIRED` ⇔ aucun déclencheur ⇔ montant 0, sans état ni échéance ; `REFUSED` jamais écrit ; `triggers` et `params_snapshot` [C2] ; garde de la décision et des transitions (`deposit_hold_guarded`), aucune suppression ; décision jamais après la libération ni après l'expiration (sauf ré-autorisation planifiée avant elle) ; RLS ENABLE + FORCE, **aucun droit** d'`app_api`, `app_worker`, `app_anon`.
 - **Fonctions** (cmd_hold_owner, RLS-15) : `payment_deposit_checkout(jeton, hold)` et `payment_cmd_record_deposit_decision(jeton, hold, décision)` (EXECUTE `app_api`, voyageur de la session, hold d'un autre ⇒ `HOLD_NOT_FOUND`) ; `payment_deposit_reauth_due(lot)` et `payment_cmd_deposit_transition(…)` (EXECUTE `app_worker`, nom `payment_command`). Revérifications de l'écriture : `deposit_decision_mismatch` (montant ≠ `deposit_amount[pays][classe]`, `NOT_REQUIRED` sur un pays ou une classe déclencheurs, classe inconnue), `deposit_rail_closed` (`CHARGE_THEN_REFUND` tant que `funds_holding_enabled` = faux).

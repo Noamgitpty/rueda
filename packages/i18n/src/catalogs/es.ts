@@ -2089,6 +2089,7 @@ export const ES_MESSAGES = {
   'common.checkout.holdNotFound': 'No encontramos esta reserva en tu cuenta.',
   'common.checkout.noticeTooShort':
     'El anfitrión necesita más anticipación. Elige una hora de inicio más tarde.',
+  'common.checkout.oneWayNotAllowed': 'Devuelves el auto en el mismo lugar donde lo recoges.',
   'common.checkout.guestOverlap': 'Ya tienes un viaje en esas fechas. Elige otras.',
   'common.checkout.holdAlreadyLive':
     'Ya estás reservando este auto. Termina esa reserva o espera unos minutos.',
@@ -2757,6 +2758,63 @@ export const ES_MESSAGES = {
   'backoffice.refunds.reason.FIN_REVIEW_REQUIRED':
     'La liquidación necesita una decisión de FINANCE antes de cualquier envío.',
   'backoffice.refunds.reason.other': 'Código técnico {code}. Revisión de FINANCE.',
+  // US-217 partie 217b (ADR-167) : reçu du voyageur (S09 · reçu) et gains de l’hôte (A08)
+  'web.s09.documents.receiptOpen': 'Ver el recibo',
+  'web.s09.receipt.title': 'Recibo del pago',
+  'web.s09.receipt.back': 'Volver a tu viaje',
+  'web.s09.receipt.intermediary':
+    '{brand} es una plataforma intermediaria entre particulares: no es arrendadora ni propietaria del auto. Alquilas el auto directamente a {host}, su anfitrión.',
+  'web.s09.receipt.intermediaryNoHost':
+    '{brand} es una plataforma intermediaria entre particulares: no es arrendadora ni propietaria del auto. Alquilas el auto directamente a su anfitrión.',
+  'web.s09.receipt.payment': 'Lo que pagaste',
+  'web.s09.receipt.totalPaid': 'Total pagado a {brand}',
+  'web.s09.receipt.fee.title': 'Tarifa del viaje',
+  'web.s09.receipt.fee.charged': 'Tarifa del viaje facturada',
+  'web.s09.receipt.fee.tax': 'Impuesto facturado sobre la tarifa ({rate} %)',
+  'web.s09.receipt.fee.refunded': 'Parte de la tarifa que se te devuelve',
+  'web.s09.receipt.fee.retained': 'Parte de la tarifa que conserva {brand}',
+  'web.s09.receipt.fee.taxElsewhere':
+    'El impuesto de la parte conservada no se muestra aquí: figura en la factura que se emite por separado.',
+  'web.s09.receipt.refund.title': 'Reembolso',
+  'web.s09.receipt.refund.due': 'Reembolso que te corresponde',
+  'web.s09.receipt.refund.hint':
+    '{brand} te lo devuelve en tu medio de pago original. Es el importe que corresponde según la cancelación; la fecha en que lo emitimos se muestra aparte.',
+  'web.s09.receipt.refund.link': 'Ver el estado de tu reembolso',
+  'web.s09.receipt.fiscal':
+    'Este recibo no es una factura y no tiene valor fiscal. La factura electrónica se envía por separado.',
+  'web.host.earningsLink': 'Mis ganancias',
+  'web.a08.title': 'Ganancias',
+  'web.a08.intro': 'Lo que ganas con cada viaje según tu plan, mes a mes.',
+  'web.a08.back': 'Volver a mi espacio de anfitrión',
+  'web.a08.intermediary':
+    '{brand} es una plataforma intermediaria entre particulares: alquilas tu auto directamente al viajero.',
+  'web.a08.monthNav': 'Mes del resumen',
+  'web.a08.prev': 'Mes anterior',
+  'web.a08.next': 'Mes siguiente',
+  'web.a08.summary': 'Resumen de {month}',
+  'web.a08.earned': 'Ganado',
+  'web.a08.earnedHint': 'Tu parte de los viajes liquidados, menos las penalidades.',
+  'web.a08.pending': 'Por liquidar',
+  'web.a08.pendingHint':
+    'Viajes próximos o en curso: tu parte se confirma cuando se liquida el viaje.',
+  'web.a08.tripsCount': 'Viajes del mes: {count}',
+  'web.a08.lines': 'Detalle por viaje',
+  'web.a08.line.EARNING': 'Viaje',
+  'web.a08.line.CXL_EARNING': 'Viaje cancelado',
+  'web.a08.line.HOST_CANCELLATION_PENALTY': 'Penalidad por cancelar un viaje',
+  'web.a08.line.penaltyHint': 'Se descuenta de tus próximas ganancias.',
+  'web.a08.line.settled': 'Liquidado',
+  'web.a08.line.pending': 'Por liquidar',
+  'web.a08.line.base': 'Precio sobre el que se calcula tu parte',
+  'web.a08.line.fee': 'Comisión de {brand}',
+  'web.a08.line.share': 'Tu parte · {plan} ({share} %)',
+  'web.a08.line.shareNoPlan': 'Tu parte',
+  'web.a08.line.trip': 'Ver el viaje',
+  'web.a08.loadError': 'No pudimos cargar tus ganancias.',
+  'web.a08.retry': 'Reintentar',
+  'web.a08.empty': 'Aún no tienes ganancias',
+  'web.a08.payoutsOff':
+    'Tus ganancias quedan registradas. Los pagos a anfitriones en {country} aún no están abiertos; te avisaremos.',
 } as const satisfies Catalog;
 
 export type MessageKey = keyof typeof ES_MESSAGES;

@@ -1,5 +1,5 @@
 /**
- * US-701 (ADR-169) — lecture défensive des fonctions de 0144 par `PgDepositCheckoutStore` (sans
+ * US-701 (ADR-169) — lecture défensive des fonctions de 0146 par `PgDepositCheckoutStore` (sans
  * base : exécutant simulé). Attendus : forme des fonctions de la migration (colonnes, issues) ; une
  * forme inattendue ⇒ erreur (503 chez l'appelant), jamais une décision devinée. Les fonctions
  * elles-mêmes sont prouvées en base (`l0-us701-deposit-hold`).

@@ -2,7 +2,8 @@
  * Relevé mensuel des gains d'un compte d'hôte (US-217 partie 217a, ADR-161 ; 19 US-217 critères 2
  * et 3 ; 16 PYO-013 ; 17 §3.2.13 `host_earnings_statement` / `host_earnings_line` ; 10b UX-45). Par
  * devise : Σ jambes HOST des trips du mois (version en tête du règlement, sinon capture), Σ
- * ajustements du host_ledger (pénalité de l'hôte, en ligne séparée), net, et les lignes. La base
+ * ajustements du host_ledger (pénalité de l'hôte, en ligne séparée), net, acquis (règlement en
+ * tête et host_ledger) et à venir (capture sans règlement ; 217b, ADR-167, N-339), et les lignes. La base
  * vérifie que la session est TITULAIRE du compte (`core.booking_host_earnings`, 0137, SECURITY
  * DEFINER, EXECUTE app_api) : compte d'un autre, co-hôte, inconnu ou identifiant mal formé ⇒ 404
  * `EARNINGS_NOT_FOUND`, même réponse ; mois mal formé ⇒ 400 `REQUEST_INVALID`.
@@ -80,6 +81,13 @@ export interface EarningsStatement {
   readonly hostLegMinor: string;
   readonly adjustmentsMinor: string;
   readonly netMinor: string;
+  /**
+   * Acquis (217b, ADR-167, N-339) : jambes HOST des versions en tête des règlements et ajustements
+   * du host_ledger.
+   */
+  readonly earnedMinor: string;
+  /** À venir (217b) : jambes HOST capturées d'un trip sans règlement (à venir, en cours). */
+  readonly pendingMinor: string;
   readonly lines: readonly EarningsLine[];
 }
 
@@ -166,6 +174,8 @@ const STATEMENT_KEYS = [
   'hostLegMinor',
   'adjustmentsMinor',
   'netMinor',
+  'earnedMinor',
+  'pendingMinor',
   'lines',
 ];
 const sameKeys = (o: Readonly<Record<string, unknown>>, keys: readonly string[]): boolean => {
@@ -235,6 +245,8 @@ function statementsOf(raw: unknown, exponents: unknown): EarningsStatement[] | n
     const hostLegMinor = textOf(s['hostLegMinor'], MINOR);
     const adjustmentsMinor = textOf(s['adjustmentsMinor'], SIGNED_MINOR);
     const netMinor = textOf(s['netMinor'], SIGNED_MINOR);
+    const earnedMinor = textOf(s['earnedMinor'], SIGNED_MINOR);
+    const pendingMinor = textOf(s['pendingMinor'], MINOR);
     if (
       typeof currency !== 'string' ||
       typeof count !== 'number' ||
@@ -242,7 +254,9 @@ function statementsOf(raw: unknown, exponents: unknown): EarningsStatement[] | n
       count < 0 ||
       typeof hostLegMinor !== 'string' ||
       typeof adjustmentsMinor !== 'string' ||
-      typeof netMinor !== 'string'
+      typeof netMinor !== 'string' ||
+      typeof earnedMinor !== 'string' ||
+      typeof pendingMinor !== 'string'
     ) {
       return null;
     }
@@ -262,6 +276,8 @@ function statementsOf(raw: unknown, exponents: unknown): EarningsStatement[] | n
       hostLegMinor,
       adjustmentsMinor,
       netMinor,
+      earnedMinor,
+      pendingMinor,
       lines,
     });
   }
