@@ -11,9 +11,9 @@
 --     signatures, mêmes droits, mêmes lignes posées) ; seuls changent les identifiants d'assureur
 --     et de contrat, désormais réels (clés étrangères de 0141). Aucun attendu des tests appelants
 --     ne porte sur ces identifiants ;
---   - us227_contract : assureur ACTIVE et contrat du pays sur une période donnée (les preuves
---     d'US-227 choisissent une période passée, disjointe de tout contrat « en vigueur depuis la
---     veille » des autres fixtures) ;
+--   - us227_contract : assureur ACTIVE et contrat du pays (par défaut : en vigueur depuis une
+--     heure, pour dix ans) ; us227_retire_contract le replace ensuite hors du temps des autres
+--     fichiers (le fichier de preuves est isolé : aucun autre contrat n'est posé pendant ce temps) ;
 --   - us227_entries : écritures du registre d'un trip (lecture des preuves sous app_worker) ;
 --   - us227_insert_entry : écriture posée dans le monde de la matrice d'autorisations
 --     (l0-us043-authorization-matrix) sur le règlement en tête du trip, pour éprouver chaque
@@ -24,7 +24,7 @@
 -- Retour arrière : DROP FUNCTION test_fixture.us062_fixture_insurer(text),
 --   test_fixture.us227_contract(text, timestamptz, timestamptz), test_fixture.us227_entries(uuid),
 --   test_fixture.us227_insert_entry(uuid), test_fixture.us227_try_update(uuid),
---   test_fixture.us227_try_delete(uuid) ; corps de 9700 rétablis pour us062_insert_bordereau et
+--   test_fixture.us227_try_delete(uuid), test_fixture.us227_retire_contract(uuid) ; corps de 9700 rétablis pour us062_insert_bordereau et
 --   us062_insert_insurer_ledger.
 
 CREATE FUNCTION test_fixture.us062_fixture_insurer(p_country text)
@@ -99,6 +99,8 @@ AS $fn$
 DECLARE
   v_insurer uuid := pg_catalog.gen_random_uuid();
   v_id      uuid := pg_catalog.gen_random_uuid();
+  v_from    timestamptz := COALESCE(p_from, platform.now() - interval '1 hour');
+  v_to      timestamptz := COALESCE(p_to, platform.now() + interval '10 years');
 BEGIN
   INSERT INTO core.settlement_insurer (id, country_code, name, kind, license_ref, status)
   VALUES (v_insurer, p_country, 'Aseguradora de prueba', 'INSURER', 'SSRP-TEST-227', 'ACTIVE');
@@ -108,13 +110,30 @@ BEGIN
                                                 vehicle_eligibility, signed_at, valid_from,
                                                 valid_to)
   VALUES (v_id, v_insurer, p_country,
-          1000000 + (pg_catalog.date_part('epoch', p_from) / 86400)::integer,
+          1000000 + (pg_catalog.date_part('epoch', v_from)::bigint % 1000000000)::integer,
           pg_catalog.jsonb_build_object('maxVehicleAgeYears', 30,
                                         'valueClasses', pg_catalog.jsonb_build_array('STANDARD'),
                                         'usages', pg_catalog.jsonb_build_array('PARTICULAR')),
-          p_from, p_from, p_to);
+          v_from, v_from, v_to);
   RETURN QUERY SELECT v_insurer, v_id;
 END
+$fn$;
+
+-- Contrat de test replacé hors du temps des autres fichiers à la fin des preuves : une seconde
+-- de 1801 propre au contrat (aucun recouvrement, exclusion GiST de 0081) ; conditions inchangées
+-- (garde de 0115) ; écritures et bordereaux gardent son identifiant.
+CREATE FUNCTION test_fixture.us227_retire_contract(p_contract uuid)
+  RETURNS void
+  LANGUAGE sql
+  SECURITY DEFINER
+  SET search_path = pg_catalog, pg_temp
+AS $fn$
+  UPDATE core.settlement_insurer_contract AS c
+     SET signed_at = x.at, valid_from = x.at, valid_to = x.at + interval '1 second'
+    FROM (SELECT '1801-01-01T00:00:00Z'::timestamptz
+                 + pg_catalog.make_interval(secs => pg_catalog.abs(pg_catalog.hashtext(p_contract::text))::double precision)
+                 AS at) AS x
+   WHERE c.id = p_contract
 $fn$;
 
 CREATE FUNCTION test_fixture.us227_entries(p_trip_id uuid)
@@ -181,10 +200,10 @@ REVOKE ALL ON FUNCTION
   test_fixture.us062_fixture_insurer(text),
   test_fixture.us227_contract(text, timestamptz, timestamptz), test_fixture.us227_entries(uuid),
   test_fixture.us227_insert_entry(uuid), test_fixture.us227_try_update(uuid),
-  test_fixture.us227_try_delete(uuid)
+  test_fixture.us227_try_delete(uuid), test_fixture.us227_retire_contract(uuid)
   FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION
   test_fixture.us227_contract(text, timestamptz, timestamptz), test_fixture.us227_entries(uuid),
   test_fixture.us227_insert_entry(uuid), test_fixture.us227_try_update(uuid),
-  test_fixture.us227_try_delete(uuid)
+  test_fixture.us227_try_delete(uuid), test_fixture.us227_retire_contract(uuid)
   TO app_worker, app_api;

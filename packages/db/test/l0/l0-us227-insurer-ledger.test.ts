@@ -19,7 +19,7 @@
  */
 import { legVector } from '@rueda/money/golden-vectors';
 import type pg from 'pg';
-import { describe, expect, it } from 'vitest';
+import { afterAll, describe, expect, it } from 'vitest';
 import { setSessionContext } from '../../src/index.ts';
 import { withRole, withTestTransaction } from '../../src/testing/index.ts';
 import { COUNTRIES } from '../support/avl.ts';
@@ -43,8 +43,12 @@ const REF: Readonly<Record<string, { capture: string; cancelled: string; variati
   PYG: { capture: 'TJ08a', cancelled: 'T27', variation: 'TJ08b' },
 };
 
-/** Année de l'exécution : période passée, propre à ce fichier (contrat de test sur l'année). */
-const YEAR = 1950 + Math.floor(Math.random() * 50);
+/**
+ * Trips RÉSERVÉS à l'heure réelle (paramètres du pays en vigueur depuis la migration ; contrat de
+ * test en vigueur à cet instant), mais PRÉVUS en 2089 : les bordereaux portent sur des mois de 2089,
+ * clos sous une horloge virtuelle (aucun autre trip de la base n'y tombe).
+ */
+const YEAR = 2089;
 const at = (month: number, day: number): string =>
   `${YEAR}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}T15:00:00.000Z`;
 const monthOf = (month: number): string => `${YEAR}-${String(month).padStart(2, '0')}`;
@@ -130,8 +134,8 @@ interface DraftRow {
 }
 
 /** Une passe du travailleur `bordereau` sur un mois clos (VALIDÉE). */
-async function draft(worker: Tx, month: string): Promise<DraftRow[]> {
-  return withTestTransaction(worker, { commit: true }, async (tx) => {
+async function draft(worker: Tx, month: string, closedAt: string): Promise<DraftRow[]> {
+  return withTestTransaction(worker, { virtualNow: closedAt, commit: true }, async (tx) => {
     await asWorker(tx, 'bordereau');
     return (await tx.query<DraftRow>(DRAFT, [month])).rows;
   });
@@ -175,6 +179,17 @@ describe.each(COUNTRIES)(
     const variation = legVector(golden, r.variation).legsMinor.INSURER;
     const other = COUNTRIES.find((x) => x.country !== c.country)!;
 
+    // le contrat de test (en vigueur à l'heure réelle) est replacé hors du temps des autres fichiers
+    // (exclusion d'une version en vigueur par pays) ; écritures et bordereaux gardent son identifiant
+    afterAll(async () => {
+      if (w.contract === '') return;
+      await withRole('app_worker', (worker) =>
+        withTestTransaction(worker, { commit: true }, async (tx) => {
+          await tx.query('SELECT test_fixture.us227_retire_contract($1)', [w.contract]);
+        }),
+      );
+    });
+
     // monde du pays, construit par les premiers essais puis relu par les suivants (ordre du fichier)
     const w = {
       insurer: '',
@@ -207,8 +222,8 @@ describe.each(COUNTRIES)(
       await withRole('app_worker', async (worker) => {
         await withTestTransaction(worker, { commit: true }, async (tx) => {
           const k = await tx.query<{ insurer_id: string; contract_id: string }>(
-            'SELECT * FROM test_fixture.us227_contract($1, $2, $3)',
-            [c.country, `${YEAR}-01-01T00:00:00Z`, `${YEAR + 1}-01-01T00:00:00Z`],
+            'SELECT * FROM test_fixture.us227_contract($1, NULL, NULL)',
+            [c.country],
           );
           w.insurer = k.rows[0]!.insurer_id;
           w.contract = k.rows[0]!.contract_id;
@@ -216,7 +231,7 @@ describe.each(COUNTRIES)(
 
         // transaction ANNULÉE : l'écriture naît et meurt avec la capture qui la porte
         let ghost = '';
-        await payTx(worker, { virtualNow: at(3, 5) }, async (tx) => {
+        await payTx(worker, {}, async (tx) => {
           const g = await capturedTrip(tx, c, w.org, capture, 3);
           ghost = g.trip;
           const e = await entriesOf(tx, g.trip);
@@ -228,7 +243,7 @@ describe.each(COUNTRIES)(
           expect(await entriesOf(tx, ghost)).toEqual([]);
         });
 
-        await payTx(worker, { virtualNow: at(3, 5), commit: true }, async (tx) => {
+        await payTx(worker, { commit: true }, async (tx) => {
           w.cancelled = await capturedTrip(tx, c, w.org, capture, 3);
           const settlement = await recordAsSettlementWorker(
             tx,
@@ -268,8 +283,9 @@ describe.each(COUNTRIES)(
             insurer_contract_id: w.contract,
           });
           expect(BigInt(set!.amount_minor)).toBe(variation);
-          // horodatage = horloge de la base (platform.now(), virtuelle ici)
-          expect(col!.created_at.toISOString()).toBe(at(3, 5));
+          // horodatage = horloge de la base (platform.now() de la transaction)
+          const now = await tx.query<{ n: Date }>('SELECT platform.now() AS n');
+          expect(col!.created_at.getTime()).toBe(now.rows[0]!.n.getTime());
           expect(e.reduce((s, x) => s + BigInt(x.amount_minor), 0n)).toBe(0n);
 
           // rejeu du report de la capture : aucune seconde écriture
@@ -331,7 +347,7 @@ describe.each(COUNTRIES)(
 
     it('bordereau du mois clos : une ligne par trip terminé dont la prime est due, non gelée ; total = Σ lignes ; rédaction idempotente ; position de l’assureur projetée', async () => {
       await withRole('app_worker', async (worker) => {
-        const rows = await draft(worker, monthOf(3));
+        const rows = await draft(worker, monthOf(3), at(4, 2));
         const mine = rows.filter((x) => x.country === c.country && x.outcome === 'DRAFTED');
         expect(mine).toHaveLength(1);
         expect(mine[0]).toMatchObject({ lines: 1, total: premium.toString() });
@@ -391,7 +407,7 @@ describe.each(COUNTRIES)(
         });
 
         // seconde passe : le même bordereau, aucune ligne de plus
-        const again = await draft(worker, monthOf(3));
+        const again = await draft(worker, monthOf(3), at(4, 2));
         expect(again.filter((x) => x.country === c.country && x.bordereau === w.march)).toEqual([
           {
             outcome: 'EXISTS',
@@ -483,7 +499,7 @@ describe.each(COUNTRIES)(
 
       // position projetée par la passe suivante : la ligne émise n'est plus à payer
       await withRole('app_worker', async (worker) => {
-        await draft(worker, monthOf(3));
+        await draft(worker, monthOf(3), at(4, 2));
         await withTestTransaction(worker, {}, async (tx) => {
           await asWorker(tx, 'bordereau');
           const s = await tx.query<{ payable: string; frozen: string; receivable: string }>(
@@ -570,12 +586,12 @@ describe.each(COUNTRIES)(
       let july = '';
       let mayTrip = '';
       await withRole('app_worker', async (worker) => {
-        await payTx(worker, { virtualNow: at(5, 2), commit: true }, async (tx) => {
+        await payTx(worker, { commit: true }, async (tx) => {
           const t = await capturedTrip(tx, c, w.org, capture, 5);
           await tx.query(`SELECT test_fixture.us049_set_trip_status($1, 'COMPLETED')`, [t.trip]);
           mayTrip = t.trip;
         });
-        may = (await draft(worker, monthOf(5))).find(
+        may = (await draft(worker, monthOf(5), at(6, 2))).find(
           (x) => x.country === c.country && x.outcome === 'DRAFTED',
         )!.bordereau!;
         await payTx(worker, { commit: true }, async (tx) => {
@@ -584,12 +600,12 @@ describe.each(COUNTRIES)(
         });
 
         let julyTrip = '';
-        await payTx(worker, { virtualNow: at(7, 2), commit: true }, async (tx) => {
+        await payTx(worker, { commit: true }, async (tx) => {
           const t = await capturedTrip(tx, c, w.org, capture, 7);
           await tx.query(`SELECT test_fixture.us049_set_trip_status($1, 'COMPLETED')`, [t.trip]);
           julyTrip = t.trip;
         });
-        const rows = await draft(worker, monthOf(7));
+        const rows = await draft(worker, monthOf(7), at(8, 2));
         const j = rows.find((x) => x.country === c.country && x.outcome === 'DRAFTED')!;
         expect(j).toMatchObject({ lines: 1, total: premium.toString() });
         july = j.bordereau!;
