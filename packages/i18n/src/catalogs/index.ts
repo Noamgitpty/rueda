@@ -255,8 +255,11 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  Version 82 (la 79 qui lui était réservée a été dépassée par la 81 d’US-224f) : rails de la caution (US-225, ADR-164) : `web.deposit.unavailable` (refus avant le
  paiement avec la durée possible, texte de 10b UX-24) et `web.deposit.unavailableNone` (aucune
  durée possible, PROPOSÉ), affichés par l'écran S05 quand il branchera la décision de la caution.
+ Version 83 (la 82 est celle d’US-225) : lieux de prise
+ et de retour (US-514, ADR-168) : `common.checkout.oneWayNotAllowed` (lieu de retour différent du
+ lieu de prise refusé au checkout, 16 BKG-016 : one-way interdit).
  */
-export const CATALOG_VERSION = 82;
+export const CATALOG_VERSION = 83;
 
 /** Catalogues de base par langue ; la langue d'un profil de locale choisit le sien. */
 export const CATALOGS: Readonly<Record<CatalogLanguage, VersionedCatalog<MessageKey>>> = {

@@ -13,6 +13,7 @@ import type {
   CheckoutQuoteRow,
   CheckoutResult,
   CheckoutStore,
+  ReturnPlaceOutcome,
 } from '../internal/checkout/store.js';
 
 export class FakeQuoteStore implements QuoteStore {
@@ -53,6 +54,9 @@ export class FakeCheckoutStore implements CheckoutStore {
   result: CheckoutResult = { outcome: 'DONE', holdId: null, expiresAt: null };
   down = false;
   demands: { proof: string; quoteId: string; demand: CheckoutDemand }[] = [];
+  /** Issue imposée de la lecture du lieu de retour (US-514) et appels reçus. */
+  returnPlaceOutcome: ReturnPlaceOutcome = 'DONE';
+  returnPlaces: { proof: string; quoteId: string; returnLocationId: string }[] = [];
 
   #fail(): Promise<never> {
     return Promise.reject(new Error('base indisponible (FAKE)'));
@@ -76,6 +80,16 @@ export class FakeCheckoutStore implements CheckoutStore {
       frozenAtMs: this.frozenAtMs,
       frozen: this.frozenDocuments.get(quoteId) ?? null,
     });
+  }
+
+  returnPlace(
+    proof: Buffer,
+    quoteId: string,
+    returnLocationId: string,
+  ): Promise<ReturnPlaceOutcome> {
+    if (this.down) return this.#fail();
+    this.returnPlaces.push({ proof: proof.toString('hex'), quoteId, returnLocationId });
+    return Promise.resolve(this.returnPlaceOutcome);
   }
 
   checkout(proof: Buffer, quoteId: string, demand: CheckoutDemand): Promise<CheckoutResult> {

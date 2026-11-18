@@ -271,6 +271,16 @@ describe.each(countryCases())(
       expect(card).toEqual({ totalMinor: want.total, billableDays: 3 });
       expect(created.totalMinor).toBe(want.total);
 
+      // US-514 (0144) : un lieu de retour qui n'est pas le lieu de prise ⇒ ONE_WAY_NOT_ALLOWED,
+      // jugé par la vraie lecture de la base, sans engager le devis (le hold suivant est posé)
+      await expect(
+        checkout.checkout(guest, created.quoteId, {
+          driver: { firstName: 'Ana', lastName: 'Pérez' },
+          acceptedDocuments: created.documents.map((d) => ({ kind: d.kind, version: d.version })),
+          returnLocationId: '00000000-0000-4000-8000-0000000514b2',
+        }),
+      ).rejects.toMatchObject({ code: 'ONE_WAY_NOT_ALLOWED' });
+
       const hold = await checkout.checkout(guest, created.quoteId, {
         driver: { firstName: 'Ana', lastName: 'Pérez' },
         acceptedDocuments: created.documents.map((d) => ({ kind: d.kind, version: d.version })),

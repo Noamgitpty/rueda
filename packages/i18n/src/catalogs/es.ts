@@ -2087,6 +2087,7 @@ export const ES_MESSAGES = {
   'common.checkout.holdNotFound': 'No encontramos esta reserva en tu cuenta.',
   'common.checkout.noticeTooShort':
     'El anfitrión necesita más anticipación. Elige una hora de inicio más tarde.',
+  'common.checkout.oneWayNotAllowed': 'Devuelves el auto en el mismo lugar donde lo recoges.',
   'common.checkout.guestOverlap': 'Ya tienes un viaje en esas fechas. Elige otras.',
   'common.checkout.holdAlreadyLive':
     'Ya estás reservando este auto. Termina esa reserva o espera unos minutos.',

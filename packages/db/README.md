@@ -1049,3 +1049,12 @@ Migration `0143_settlement_insurer_ledger`. Fixture `9947_test_us227_insurer_led
 - **Rapprochement** : `core.finance_insurer_ledger_facts()` (cmd_money_owner, EXECUTE app_worker, travailleur `reconciliation`).
 - **Codes** : `insurer_ledger_command_forbidden` ⇒ `FORBIDDEN` ; `insurer_leg_on_bordereau`, `insurer_bordereau_incoherent`, `insurer_bordereau_stale`, `insurer_bordereau_line_frozen` ⇒ `INVARIANT_VIOLATION`.
 - **Preuves** : `test/l0/l0-us227-insurer-ledger.test.ts` (TJ01, TJ02b, TJ08a, TJ08b ; T03, T27 ; PA USD, PY PYG ; groupe isolé) ; matrice d'autorisations peuplée (`l0-us043-authorization-matrix`).
+
+## Lieux de prise et de retour (US-514 ; 16 BKG-016 ; 08 BR-BOOK-09 ; ADR-168)
+
+Migration `0144_booking_meeting_place`. Fixture `9939_test_us514_meeting_place_fixtures` (annonce d'un trip ; fermeture de `review_window_days` d'un pays, transaction annulée).
+
+- **One-way refusé** : `core.booking_checkout_return_place(bytea, uuid, uuid)` (cmd_hold_owner, EXECUTE app_api, lecture seule) : lieu de retour absent ou égal au lieu du véhicule du devis du voyageur de la session ⇒ `DONE` ; autre ⇒ `ONE_WAY_NOT_ALLOWED` ; devis d'un autre ou inconnu ⇒ `QUOTE_NOT_FOUND` ; session invalide ⇒ `AUTH_REQUIRED`. Le checkout (`booking_cmd_checkout`) est inchangé.
+- **Adresse bornée** : `core.catalog_guest_meeting_point` (0106) et `core.booking_guest_trips` (0136) remplacés à signature identique : l'adresse exacte n'est plus rendue au-delà de la fin prévue du trip + `review_window_days` du pays (paramètre absent ou mal formé ⇒ jamais). Aucune copie de l'adresse, rien à purger.
+- **Droits** : `SELECT (country_code, scheduled_end)` de `booking_trip` à catalog_cmd_owner ; politiques ajoutées `catalog_cmd_meeting_read`, `cmd_hold_meeting_read` sur `config_param_value` (clé `review_window_days`).
+- **Preuves** : `test/l0/l0-us514-meeting-place.test.ts` (PA USD, PY PYG : one-way, adresse après réservation seulement, borne de la fenêtre dans chaque état, paramètre absent, lieu non modifiable par aucun rôle, droits).

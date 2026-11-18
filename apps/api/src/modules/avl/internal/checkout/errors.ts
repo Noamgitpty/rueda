@@ -17,7 +17,8 @@
  * US-209 (ADR-135, 16 BKG-012) : `AGE_CLASS_MISMATCH` (08 BR-BOOK-11) ;
  * repris de KYC (ADR-102) : `KYC_NOT_APPROVED`, `KYC_BIOMETRIC_CONSENT_MISSING`,
  * `KYC_LICENSE_EXPIRED` (un consentement retiré rend `KYC_BIOMETRIC_CONSENT_MISSING`, N-122 ;
- * l'ancien `KYC_CONSENT_WITHDRAWN` d'US-208 n'est plus rendu). Une réservation signalée (16 ADM-029) n'est pas un refus : le hold est
+ * l'ancien `KYC_CONSENT_WITHDRAWN` d'US-208 n'est plus rendu). US-514 (ADR-168, 16 BKG-016) :
+ * `ONE_WAY_NOT_ALLOWED` (lieu de retour différent du lieu de prise). Une réservation signalée (16 ADM-029) n'est pas un refus : le hold est
  * posé (en revue selon `flagged_booking_payment_order`).
  */
 import { HttpException } from '@nestjs/common';
@@ -45,6 +46,7 @@ export const CHECKOUT_MESSAGES = {
   TERMS_UNAVAILABLE: { status: 503, messageKey: 'common.legal.unavailable' },
   DATES_UNAVAILABLE: { status: 409, messageKey: 'common.listing.datesUnavailable' },
   DATES_NOTICE_TOO_SHORT: { status: 422, messageKey: 'common.checkout.noticeTooShort' },
+  ONE_WAY_NOT_ALLOWED: { status: 422, messageKey: 'common.checkout.oneWayNotAllowed' },
   GUEST_OVERLAP: { status: 409, messageKey: 'common.checkout.guestOverlap' },
   HOLD_ALREADY_LIVE: { status: 409, messageKey: 'common.checkout.holdAlreadyLive' },
   HOLD_LIMIT_REACHED: { status: 409, messageKey: 'common.checkout.holdLimit' },

@@ -7,7 +7,7 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 
 ## Synthèse
 
-- 144 migrations ; 128 tables ; 3 vues ; 720 politiques RLS ; 289 fonctions `SECURITY DEFINER` ; 251 autres fonctions.
+- 145 migrations ; 128 tables ; 3 vues ; 722 politiques RLS ; 290 fonctions `SECURITY DEFINER` ; 251 autres fonctions.
 - Tables sans RLS `ENABLE` + `FORCE` : aucune.
 - Rôles applicatifs avec `SUPERUSER` ou `BYPASSRLS` : aucun.
 
@@ -159,6 +159,7 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 | `0141_payment_refund_multi_tender` | PAY : remboursement réparti sur les moyens d'origine (TJ16c / TJ16d) et reprise après un |
 | `0142_config_deposit_rail_params` | graine complémentaire : paramètres « deposit_always_required* » (US-225 ; 17 §7.2). |
 | `0143_settlement_insurer_ledger` | STL / FIN : jambe de l'assureur — registre `insurer_ledger`, bordereau mensuel à double |
+| `0144_booking_meeting_place` | AVL / CAT : lieux de prise et de retour (US-514 ; 19 US-514 ; 16 BKG-016 ; 08 BR-BOOK-09 ; |
 
 ## Rôles
 
@@ -2609,6 +2610,7 @@ Politiques RLS :
 - `app_read` (SELECT, PERMISSIVE, app_api, app_worker) USING `true`
 - `catalog_cmd_claim_read` (SELECT, PERMISSIVE, catalog_cmd_owner) USING `(key = 'plate_claims_open_per_host'::text)`
 - `catalog_cmd_insurer_read` (SELECT, PERMISSIVE, catalog_cmd_owner) USING `(key = 'insurer_contract_active'::text)`
+- `catalog_cmd_meeting_read` (SELECT, PERMISSIVE, catalog_cmd_owner) USING `(key = 'review_window_days'::text)`
 - `catalog_cmd_plan_read` (SELECT, PERMISSIVE, catalog_cmd_owner) USING `(key = ANY (ARRAY['host_share_pct'::text, 'host_default_plan'::text]))`
 - `catalog_cmd_publish_read` (SELECT, PERMISSIVE, catalog_cmd_owner) USING `(key = 'listing_manual_review_required'::text)`
 - `catalog_cmd_read` (SELECT, PERMISSIVE, catalog_cmd_owner) USING `(key = ANY (ARRAY['price_display_step_minor'::text, 'listing_min_photos'::text, 'price_ceiling_daily_minor'::text, 'price_ceiling_extra_km_minor'::text, 'p2p_private_hosts_enabled'::text, 'advance_notice_minutes'::text, 'vehicle_financed_requires_lender_consent'::text, 'elig_age_years_ceiling'::text, 'elig_odometer_km_ceiling'::text, 'elig_doc_title'::text, 'elig_doc_plate_vin_photo'::text, 'elig_doc_inspection'::text, 'elig_doc_compulsory_insurance'::text, 'elig_doc_owner_authorization'::text, 'elig_doc_lender_consent'::text]))`
@@ -2620,6 +2622,7 @@ Politiques RLS :
 - `cmd_golive_sel` (SELECT, PERMISSIVE, cmd_golive_owner) USING `((go_live_request_id IS NOT NULL) OR (key IN ( SELECT d.key FROM core.config_param_definition d WHERE d.go_live_switch)))`
 - `cmd_hold_cancel_read` (SELECT, PERMISSIVE, cmd_hold_owner) USING `(key = ANY (ARRAY['free_cancel_lead'::text, 'last_minute_threshold'::text, 'host_penalty'::text, 'platform_funded_host_compensation'::text]))`
 - `cmd_hold_contract_param_read` (SELECT, PERMISSIVE, cmd_hold_owner) USING `(key = 'grace_minutes'::text)`
+- `cmd_hold_meeting_read` (SELECT, PERMISSIVE, cmd_hold_owner) USING `(key = 'review_window_days'::text)`
 - `cmd_hold_read` (SELECT, PERMISSIVE, cmd_hold_owner) USING `(key = ANY (ARRAY['buffer_minutes'::text, 'hold_ttl_minutes'::text, 'hold_max_total_minutes'::text, 'max_active_holds_per_guest'::text, 'hold_creations_per_guest_vehicle_hour'::text, 'sweep_grace_s'::text, 'flagged_booking_payment_order'::text, 'review_hold_minutes'::text, 'payment_in_flight_margin_s'::text, 'psp_call_timeout_s'::text, 'conversion_start_tolerance_minutes'::text, 'payment_attempts_per_hold'::text, 'max_trip_days'::text, 'advance_notice_minutes'::text, 'no_show_grace_minutes'::text, 'overdue_detection_minutes'::text, 'p2p_private_hosts_enabled'::text, 'insurer_contract_active'::text]))`
 - `cmd_hold_request_param_read` (SELECT, PERMISSIVE, cmd_hold_owner) USING `(key = ANY (ARRAY['booking_request_mode_enabled'::text, 'booking_request_expiry_hours'::text]))`
 - `cmd_hold_risk_read` (SELECT, PERMISSIVE, cmd_hold_owner) USING `(key = ANY (ARRAY['min_driver_age'::text, 'foreign_license_review_enabled'::text]))`
@@ -6425,6 +6428,7 @@ Chacune a un propriétaire `NOLOGIN` dédié (ADR-053) et un `search_path` figé
 | `core.booking_checkout_protection(p_token_hash bytea, p_quote_id uuid)` | `TABLE(quote_id uuid, protection_level text, driver_age integer, frozen_at timestamp with time zone, insurer_contract_active boolean)` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; cmd_hold_owner: EXECUTE |
 | `core.booking_checkout_quote(p_token_hash bytea, p_quote_id uuid)` | `TABLE(quote_id uuid, listing_id uuid, country_code text, currency text, start_at timestamp with time zone, end_at timestamp with time zone, billable_days integer, lines jsonb, total_minor bigint, expires_at timestamp with time zone, expired boolean, manual_transmission boolean, instant_book boolean, documents jsonb)` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; cmd_hold_owner: EXECUTE |
 | `core.booking_checkout_request(p_token_hash bytea, p_hold_id uuid)` | `TABLE(outcome text, hold_kind text, request_status text, request_respond_by timestamp with time zone)` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; cmd_hold_owner: EXECUTE |
+| `core.booking_checkout_return_place(p_token_hash bytea, p_quote_id uuid, p_return_location_id uuid)` | `TABLE(outcome text)` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; cmd_hold_owner: EXECUTE |
 | `core.booking_checkout_review_state(p_token_hash bytea, p_hold_id uuid)` | `TABLE(hold_id uuid, review_state text)` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; cmd_hold_owner: EXECUTE |
 | `core.booking_checkout_summary(p_token_hash bytea, p_hold_id uuid)` | `TABLE(hold_id uuid, status text, expires_at timestamp with time zone, quote_id uuid, listing_id uuid, currency text, start_at timestamp with time zone, end_at timestamp with time zone, total_minor bigint, manual_confirmed_at timestamp with time zone, documents jsonb)` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; cmd_hold_owner: EXECUTE |
 | `core.booking_cmd_accept_booking_request(p_token_hash bytea, p_org uuid, p_hold_id uuid)` | `jsonb` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; cmd_hold_owner: EXECUTE |

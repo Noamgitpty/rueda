@@ -1926,6 +1926,13 @@
       "story": "US-214"
     },
     {
+      "signature": "core.booking_checkout_return_place(bytea,uuid,uuid)",
+      "family": "cmd_hold",
+      "owner": "cmd_hold_owner",
+      "execute": ["app_api"],
+      "story": "US-514"
+    },
+    {
       "signature": "core.booking_trip_refunds(bytea,uuid)",
       "family": "cmd_hold",
       "owner": "cmd_hold_owner",
