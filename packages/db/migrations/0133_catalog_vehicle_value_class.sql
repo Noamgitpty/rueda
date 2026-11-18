@@ -1,4 +1,4 @@
--- 0132 — CAT : classe de valeur attribuée à la publication d'un véhicule non classé (BOARD N-83,
+-- 0133 — CAT : classe de valeur attribuée à la publication d'un véhicule non classé (BOARD N-83,
 -- suite de N-101 et N-115 ; US-113, US-118 ; ADR-159 ; 08 BR-ACC-05 ; 17 §3.2.3). Appliquée sous
 -- `migrator`, en une transaction.
 --
@@ -16,7 +16,7 @@
 --      passés par `core.catalog_slug`). Le modèle se reconnaît à son slug exact ou à un préfixe
 --      suivi d'un tiret (« land-cruiser » couvre « land-cruiser-300 ») ; la règle la plus précise
 --      l'emporte (modèle le plus long, puis règle du pays, puis la classe la plus haute) ;
---   3. COUNTRY_DEFAULT : paramètre `vehicle_default_value_class[pays]` (0131 ; STANDARD PROPOSÉ au
+--   3. COUNTRY_DEFAULT : paramètre `vehicle_default_value_class[pays]` (0132 ; STANDARD PROPOSÉ au
 --      Panama et au Paraguay) ; absent ou illisible : aucune classe, le véhicule reste jamais
 --      couvert (fail-closed, comme avant).
 -- Graine des règles : marques et modèles dont la valeur dépasse nettement le premier seuil PROPOSÉ

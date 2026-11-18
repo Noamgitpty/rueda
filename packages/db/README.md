@@ -908,7 +908,7 @@ Migration `0122_ctr_rental_contract`, fixture `9963_test_us211_rental_contract_f
 
 ## Classe de valeur attribuée à la publication (N-83 ; US-113, US-118 ; 08 BR-ACC-05 ; ADR-159)
 
-Migrations `0131_config_vehicle_value_class_params` (générée : `vehicle_default_value_class`, STANDARD au Panama et au Paraguay, PROPOSÉ) et `0132_catalog_vehicle_value_class`, fixture `9944_test_n83_value_class_fixtures.sql` (relecture de la classe et de sa règle, défaut du pays posé dans une transaction annulée).
+Migrations `0132_config_vehicle_value_class_params` (générée : `vehicle_default_value_class`, STANDARD au Panama et au Paraguay, PROPOSÉ) et `0133_catalog_vehicle_value_class`, fixture `9944_test_n83_value_class_fixtures.sql` (relecture de la classe et de sa règle, défaut du pays posé dans une transaction annulée).
 
 - **Table** `core.catalog_value_class_rule` (classe C, RLS `ENABLE` + `FORCE`, aucun droit applicatif ; lecture par `catalog_cmd_owner` ; jamais supprimée, retirée par `status`) : marque, modèle facultatif (slug exact ou préfixe suivi d'un tiret), pays facultatif, classe ; graine PROPOSÉE sans code pays.
 - **Colonnes** `catalog_vehicle.value_class_source` (`CATALOG`, `MODEL_RULE`, `MAKE_RULE`, `COUNTRY_DEFAULT`) et `value_class_rule_id` ; contraintes `catalog_vehicle_value_class_source_known` et `catalog_vehicle_value_class_rule_match`.
