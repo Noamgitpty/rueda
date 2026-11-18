@@ -1021,9 +1021,18 @@ Migrations `0139_settlement_host_ledger_advance_receivable` et `0140_booking_def
 - **Codes** : `host_ledger_advance_unknown`, `host_ledger_advance_unique`, `host_ledger_entry_version_reason_unique` ⇒ `INVARIANT_VIOLATION`.
 - **Preuves** : `test/l0/l0-us224e-host-receivable.test.ts` (TJ18a à TJ18d, PA USD, PY PYG), `test/l0/l0-us224e-defaulted-host.test.ts` (T22, trip D de T48 ; PA, PY) ; groupe isolé ; catalogue de la console (`l0-us101-console-actions`).
 
+## Remboursement réparti sur les moyens d'origine (US-224 partie 224f ; 08 E2, E3, E4, E7 règle 10, SM-8 ; ADR-166)
+
+Migration `0141_payment_refund_multi_tender`. Aucune fixture nouvelle.
+
+- **Planification** (`core.payment_cmd_plan_refund`, corps de 0123 recopié) : rail natif (`NATIVE_PARTIAL`, `ROLLBACK_AND_RECHARGE`) sur une carte seulement (`refund_rail_not_native`) ; moyen remboursé dans la devise du trip ; **jamais plus que le payé d'un moyen** (08 E2) : Σ instances du moyen, toutes versions, hors `CANCELLED` et `SUPERSEDED` (`FAILED` et `PENDING_CUSTOMER_CHOICE` compris) ≤ montant de l'encaissement (`refund_exceeds_tender`), contrôlé après la garde du trip de 0121.
+- **Reprise après un échec confirmé** : `core.payment_cmd_refund_await_choice(uuid)` (cmd_money_owner, EXECUTE app_worker, travailleur `payment_command`) : instance `FAILED` dont l'ordre est `FAILED` ⇒ `PENDING_CUSTOMER_CHOICE`, `attempt_no` + 1 (`refund_instance_not_failed` sinon) ; garde de l'instance (corps de 0127) : `attempt_no` ne change que sur cette transition, `PENDING_CUSTOMER_CHOICE → SUPERSEDED` ; supersession étendue à `PENDING_CUSTOMER_CHOICE`. Droit de colonne `UPDATE (attempt_no)` à cmd_money_owner.
+- **Codes** : `refund_exceeds_tender` ⇒ `REFUND_EXCEEDS_COLLECTED` ; `refund_rail_not_native` ⇒ `PAYMENT_METHOD_UNAVAILABLE` ; `refund_instance_not_failed` ⇒ `INVALID_TRANSITION`.
+- **Preuves** : `test/l0/l0-us224f-multi-tender.test.ts` (PA USD : TJ16a / TJ16b, moyens de T33 ; PY PYG : TJ16c / TJ16d ; refus de TJ16b / TJ16d sur tout rail en bêta ; reprise après échec ; supersession ; droits). `test/support/pay.ts` : `recordOperation` accepte un moyen (`method`, défaut `CARD`).
+
 ## Registre et bordereau de l'assureur (US-227 ; 08 E7 règles 3, 3 bis, 6, 7 ; 17 §2.9 ; ADR-165)
 
-Migration `0141_settlement_insurer_ledger`. Fixture `9947_test_us227_insurer_ledger_fixtures.sql` (contrat de test sur une période, lecture des écritures, écriture posée dans le monde de la matrice, essais d'immuabilité ; assureur et contrat « de structure » des fixtures de 9700, dont `us062_insert_bordereau` et `us062_insert_insurer_ledger` sont remplacées à signature égale pour les clés étrangères de 0141).
+Migration `0142_settlement_insurer_ledger`. Fixture `9947_test_us227_insurer_ledger_fixtures.sql` (contrat de test sur une période, lecture des écritures, écriture posée dans le monde de la matrice, essais d'immuabilité ; assureur et contrat « de structure » des fixtures de 9700, dont `us062_insert_bordereau` et `us062_insert_insurer_ledger` sont remplacées à signature égale pour les clés étrangères de 0142).
 
 - **Table** `core.settlement_insurer_ledger_entry` (classe C1, sujet ORG) : écriture signée en unités mineures de la devise du trip, motif `COLLECTION` (jambe `INSURER` d'un encaissement porté, clé vers `settlement_leg_movement`) ou `SETTLEMENT_VARIATION` (variation stockée d'une version, clé composite `settlement_ledger_scope_unique`), contrat de l'assureur en vigueur à la réservation (NULL si aucun) ; unique par opération et par règlement ; immuable. La politique d'insertion de `cmd_money_owner` exige la source au montant exact.
 - **Écriture** : déclencheurs `insurer_ledger_collection_posted` (`settlement_leg_movement`) et `insurer_ledger_variation_posted` (`settlement_settlement_leg`), fonctions SECURITY DEFINER de cmd_money_owner sans EXECUTE ; refus `insurer_leg_on_bordereau` si le trip est porté par un bordereau émis.

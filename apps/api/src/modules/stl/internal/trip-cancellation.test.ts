@@ -29,9 +29,12 @@ import {
   cancellationParams,
   classify,
   orderKey,
+  ordersByTender,
   planCancellation,
   registerTripCancellations,
+  tenderKindOf,
   type CancellationFacts,
+  type CaptureTender,
 } from './trip-cancellation.js';
 
 const golden = loadGoldenVectors();
@@ -184,6 +187,114 @@ describe('plan du règlement d’une demande (moteur unique, vecteurs de l’exp
   });
 });
 
+/**
+ * US-224f (ADR-166) — ordres par moyen d'origine (08 E2 puis E7 règle 10). Attendus : export des
+ * oracles (TJ16a à TJ16d, TJ02b, TJ08b) ; montants par moyen de `check_legs.py` (`e2_refunds` :
+ * T33 → [150,00 ; 37,44 ; 0 ; 0], T07 → [138,22 ; 0 ; 0 ; 0]) et de `check_t49plus.py` (`allocate`,
+ * deux cartes : la plus récente absorbe d'abord : PYG {c2: 367, c1: 1 000 000}, USD {c2: 37,44,
+ * c1: 150,00}).
+ */
+const card = (
+  id: string,
+  amountMinor: bigint,
+  committedMinor = 0n,
+  method = 'CARD',
+): CaptureTender => ({
+  operationId: id,
+  accountId: `acc-${id}`,
+  method,
+  amountMinor,
+  committedMinor,
+});
+const refundsOf = (orders: ReturnType<typeof ordersByTender>) =>
+  orders.filter((o) => o.kind === 'REFUND');
+
+describe('US-224f — remboursement réparti sur les moyens d’origine (08 E2, E7 règle 10)', () => {
+  it('devise sans décimale (critère 6) : D payé par deux cartes 1 000 000 et 438 050, T27 ⇒ ordres TJ16c puis TJ16d, natifs, rang 1 chacun ; Σ = TJ08b à l’unité', () => {
+    const { facts, trip } = factsOf('T27');
+    const plan = planCancellation(facts, trip);
+    const orders = ordersByTender(plan, [card('c1', 1_000_000n), card('c2', 438_050n)]);
+    expect(orders.map((o) => [o.kind, o.tender.operationId, o.rail, o.instanceSeq])).toEqual([
+      ['REFUND', 'c1', 'NATIVE_PARTIAL', 1],
+      ['REFUND', 'c2', 'NATIVE_PARTIAL', 1],
+    ]);
+    expect({ ...orders[0]?.legs }).toEqual(negate(legsOf('TJ16c')));
+    expect({ ...orders[1]?.legs }).toEqual(negate(legsOf('TJ16d')));
+    const sum = Object.fromEntries(
+      LEGS.map((k) => [k, (orders[0]?.legs[k] ?? 0n) + (orders[1]?.legs[k] ?? 0n)]),
+    );
+    expect(sum).toEqual(negate(legsOf('TJ08b')));
+    expect(orders.reduce((s, o) => s + o.amountMinor, 0n)).toBe(expected('T27').guestRefundMinor);
+  });
+
+  it('devise à deux décimales : A payé par deux cartes 150,00 et 106,66, T03 ⇒ ordres TJ16a puis TJ16b ; clé de chaque ordre sur son moyen', () => {
+    const { facts, trip } = factsOf('T03');
+    const orders = ordersByTender(planCancellation(facts, trip), [
+      card('c1', 15_000n),
+      card('c2', 10_666n),
+    ]);
+    expect({ ...orders[0]?.legs }).toEqual(negate(legsOf('TJ16a')));
+    expect({ ...orders[1]?.legs }).toEqual(negate(legsOf('TJ16b')));
+    expect(orders.map((o) => orderKey(facts, o, o.tender.operationId))).toEqual([
+      `${TRIP_ID}:${SEGMENT_ID}:v1:REFUND:c1:i1:a1`,
+      `${TRIP_ID}:${SEGMENT_ID}:v1:REFUND:c2:i1:a1`,
+    ]);
+  });
+
+  it('moyens non natifs ENTIÈREMENT absorbés (T07 payé comme T33, E2 : [138,22 ; 0 ; 0 ; 0]) : un seul remboursement, sur la carte, du remboursement de T07', () => {
+    const { facts, trip } = factsOf('T07');
+    const orders = ordersByTender(planCancellation(facts, trip), [
+      card('card', 15_000n),
+      card('yappy', 5_666n, 0n, 'YAPPY'),
+      card('cash', 3_000n, 0n, 'CREDIT_CASH'),
+      card('promo', 2_000n, 0n, 'CREDIT_PROMO'),
+    ]);
+    expect(refundsOf(orders).map((o) => [o.tender.operationId, o.rail])).toEqual([
+      ['card', 'NATIVE_PARTIAL'],
+    ]);
+    const refund = refundsOf(orders)[0];
+    expect(refund?.amountMinor).toBe(expected('T07').guestRefundMinor);
+    expect(LEGS.reduce((s, k) => s + (refund?.legs[k] ?? 0n), 0n)).toBe(refund?.amountMinor);
+  });
+
+  it('fail-closed (bêta) : un moyen non natif ou un crédit cash qui doit rembourser ⇒ REFUND_RAIL_UNAVAILABLE (TJ16b Yappy, TJ16d crédit cash recréé)', () => {
+    const t03 = factsOf('T03');
+    expect(() =>
+      ordersByTender(planCancellation(t03.facts, t03.trip), [
+        card('card', 15_000n),
+        card('yappy', 5_666n, 0n, 'YAPPY'),
+        card('cash', 3_000n, 0n, 'CREDIT_CASH'),
+        card('promo', 2_000n, 0n, 'CREDIT_PROMO'),
+      ]),
+    ).toThrow(new CancellationPlanError('REFUND_RAIL_UNAVAILABLE'));
+    const t27 = factsOf('T27');
+    expect(() =>
+      ordersByTender(planCancellation(t27.facts, t27.trip), [
+        card('card', 1_000_000n),
+        card('cash', 438_050n, 0n, 'CREDIT_CASH'),
+      ]),
+    ).toThrow(new CancellationPlanError('REFUND_RAIL_UNAVAILABLE'));
+  });
+
+  it('aucun moyen ⇒ TRIP_NOT_CAPTURED ; moyen déjà engagé : jamais au-delà de son reliquat (REFUND_OUT_OF_RANGE)', () => {
+    const { facts, trip } = factsOf('T27');
+    const plan = planCancellation(facts, trip);
+    expect(() => ordersByTender(plan, [])).toThrow(new CancellationPlanError('TRIP_NOT_CAPTURED'));
+    expect(() =>
+      ordersByTender(plan, [card('c1', 1_000_000n, 1_000_000n), card('c2', 438_050n)]),
+    ).toThrow(SettlementError);
+  });
+
+  it('catégorie d’un moyen : la carte seule est native ; un moyen inconnu n’est jamais natif', () => {
+    expect(tenderKindOf('CARD')).toBe('NATIVE');
+    expect(tenderKindOf('CREDIT_CASH')).toBe('CASH_CREDIT');
+    expect(tenderKindOf('CREDIT_PROMO')).toBe('PROMO_CREDIT');
+    for (const m of ['YAPPY', 'QR', 'CLAVE', 'PIX', 'BANK_TRANSFER', 'card', null]) {
+      expect(tenderKindOf(m)).toBe('NON_NATIVE');
+    }
+  });
+});
+
 describe('classement des refus', () => {
   it('moteur, plan et base : FAILED ou FIN_REVIEW ; interblocage : RETRY ; erreur inconnue relancée', () => {
     expect(classify(new CancellationPlanError('QUOTE_UNAVAILABLE'))).toEqual({
@@ -286,7 +397,15 @@ describe('processeur trip_lifecycle', () => {
       if (sql.includes('booking_cmd_trip_settle_cancellation'))
         return [{ r: { costBearer: 'GUEST' } }];
       if (sql.includes('payment_payment_operation'))
-        return [{ id: 'cap-1', psp_account_id: 'acc-1', method: 'CARD' }];
+        return [
+          {
+            id: 'cap-1',
+            psp_account_id: 'acc-1',
+            method: 'CARD',
+            amount_minor: '25666',
+            committed_minor: '0',
+          },
+        ];
       if (sql.includes('payment_cmd_plan_refund'))
         return [
           {
@@ -364,7 +483,15 @@ describe('processeur trip_lifecycle', () => {
       if (sql.includes('booking_cmd_trip_settle_cancellation'))
         return [{ r: { costBearer: 'GUEST' } }];
       if (sql.includes('payment_payment_operation'))
-        return [{ id: 'cap-1', psp_account_id: 'acc-1', method: 'CARD' }];
+        return [
+          {
+            id: 'cap-1',
+            psp_account_id: 'acc-1',
+            method: 'CARD',
+            amount_minor: '25666',
+            committed_minor: '0',
+          },
+        ];
       if (sql.includes('payment_cmd_plan_refund'))
         return Object.assign(new Error('fin'), {
           code: '55000',
@@ -386,7 +513,7 @@ describe('processeur trip_lifecycle', () => {
     expect(alerts.sent.map((a) => a.code)).toEqual(['FIN_SETTLEMENT_REVIEW']);
   });
 
-  it('trip sans capture unique du loyer : FAILED (TRIP_NOT_CAPTURED), jamais un moyen deviné', async () => {
+  it('trip sans encaissement du loyer : FAILED (TRIP_NOT_CAPTURED), jamais un moyen deviné', async () => {
     const { facts, trip } = factsOf('T03');
     const db = new FakeDb((sql) => {
       if (sql.includes('booking_trip_cancellation_begin')) return [beginRow(facts)];

@@ -2003,6 +2003,13 @@
       "story": "US-224"
     },
     {
+      "signature": "core.payment_cmd_refund_await_choice(uuid)",
+      "family": "cmd_money",
+      "owner": "cmd_money_owner",
+      "execute": ["app_worker"],
+      "story": "US-224"
+    },
+    {
       "signature": "core.settlement_cmd_draft_insurer_bordereaux(text)",
       "family": "cmd_money",
       "owner": "cmd_money_owner",

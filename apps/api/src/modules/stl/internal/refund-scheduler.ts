@@ -19,8 +19,10 @@
  *    l'instance suit le statut de l'ordre (déclencheur de 0127 : `SENT`, `CONFIRMED`, `FAILED`) ;
  * 3. `CONFIRMED` prouvé : report sur les soldes des jambes (`core.settlement_cmd_apply_leg_movement`,
  *    l'avance de Kmino décidée devient `OPEN`) ;
- * 4. `FAILED` : alerte FIN `FIN_REFUND_FAILED` (une fois). Nouvelle tentative et choix du rail :
- *    suite (SM-8 `PENDING_CUSTOMER_CHOICE`).
+ * 4. `FAILED` : alerte FIN `FIN_REFUND_FAILED` (une fois) ; dans la transaction qui la marque, le
+ *    rejet confirmé ouvre le choix d'un autre rail par le voyageur (SM-8 `PENDING_CUSTOMER_CHOICE`,
+ *    `attempt_no` + 1, `core.payment_cmd_refund_await_choice`, US-224f, ADR-166) ; aucun autre rail
+ *    n'est ouvert en bêta, rien n'est converti en crédit.
  *
  * Une instance ne bloque jamais les suivantes (`process` ne lève pas). Chaque état n'est signalé
  * qu'une fois (`fin_alert`, posé APRÈS l'envoi de l'alerte : une alerte perdue est rejouée). Les
@@ -89,6 +91,9 @@ export interface RefundSchedulerDeps {
   readonly log?: (line: string) => void;
 }
 
+/** Clé d'alerte d'une instance `FAILED` (rejet confirmé du PSP). */
+const FAILED_ALERT_KEY = 'FAILED';
+
 const attention = (code: RefundAlertCode, key: string, errorCode: string): RefundOutcome => ({
   step: 'ATTENTION',
   alert: { code, key, errorCode },
@@ -126,9 +131,15 @@ export class RefundScheduler {
           counts: { refunds: 1 },
           labels: { country: due.country, error_code: alert.errorCode },
         });
-        await this.#deps.transactions.run(PAYMENT_COMMAND_WORKER, (db) =>
-          new PgRefundOrders(db).markAlerted(due.instanceId, alert.key),
-        );
+        await this.#deps.transactions.run(PAYMENT_COMMAND_WORKER, async (db) => {
+          const orders = new PgRefundOrders(db);
+          await orders.markAlerted(due.instanceId, alert.key);
+          // US-224f (08 SM-8, E4) : rejet confirmé signalé ⇒ attente du choix d'un autre rail ; une
+          // marque sans la transition (ou l'inverse) n'est jamais validée
+          if (due.status === 'FAILED' && alert.key === FAILED_ALERT_KEY) {
+            await orders.awaitChoice(due.instanceId);
+          }
+        });
       } catch (error) {
         // alerte ou marque impossible : rejouée au passage suivant (jamais perdue en silence)
         this.#log({ level: 'warn', event: 'alert_deferred', error_class: errorClass(error) });
@@ -190,7 +201,7 @@ export class RefundScheduler {
         return { step: outcome === 'APPLIED' ? 'REPORTED' : 'DUPLICATE' };
       }
       case 'FAILED':
-        return attention('FIN_REFUND_FAILED', 'FAILED', 'REFUND_FAILED');
+        return attention('FIN_REFUND_FAILED', FAILED_ALERT_KEY, 'REFUND_FAILED');
       default:
         return { step: 'DUPLICATE' };
     }

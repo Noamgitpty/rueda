@@ -33,7 +33,7 @@ const US108_TABLES = ['settlement_insurer', 'settlement_insurer_contract'] as co
  */
 const US709_TABLES = ['settlement_host_ledger_entry'] as const;
 /**
- * Registre de l'assureur d'US-227 (0141, ADR-165) : lecture FINANCE / ADMIN, écriture par les seuls
+ * Registre de l'assureur d'US-227 (0142, ADR-165) : lecture FINANCE / ADMIN, écriture par les seuls
  * déclencheurs de cmd_money_owner (miroir de la source) ; prouvé par l0-us227-insurer-ledger.test.ts.
  */
 const US227_TABLES = ['settlement_insurer_ledger_entry'] as const;

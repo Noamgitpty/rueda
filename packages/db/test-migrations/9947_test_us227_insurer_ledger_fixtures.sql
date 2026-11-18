@@ -1,4 +1,4 @@
--- 9947 — Fixtures de TEST d'US-227 (0141, ADR-165) : registre de l'assureur et bordereaux. Jamais en
+-- 9947 — Fixtures de TEST d'US-227 (0142, ADR-165) : registre de l'assureur et bordereaux. Jamais en
 -- production (test-migrations/ seulement). SECURITY DEFINER sous migrator (politiques migrator_all) ;
 -- l'appelant reste sous un rôle de production (L0-05).
 --
@@ -6,10 +6,10 @@
 --     de 1800 (aucune réservation ne tombe dans sa période : aucune écriture ne lui est rattachée),
 --     créés une fois par pays sous verrou consultatif ; donne aux lignes de structure des fixtures
 --     de 9700 (US-062) les clés étrangères vers `settlement_insurer` / `settlement_insurer_contract`
---     qu'ajoute 0141 ;
+--     qu'ajoute 0142 ;
 --   - us062_insert_bordereau / us062_insert_insurer_ledger : REMPLACENT les corps de 9700 (mêmes
 --     signatures, mêmes droits, mêmes lignes posées) ; seuls changent les identifiants d'assureur
---     et de contrat, désormais réels (clés étrangères de 0141). Aucun attendu des tests appelants
+--     et de contrat, désormais réels (clés étrangères de 0142). Aucun attendu des tests appelants
 --     ne porte sur ces identifiants ;
 --   - us227_contract : assureur ACTIVE et contrat du pays (par défaut : en vigueur depuis une
 --     heure, pour dix ans) ; us227_retire_contract le replace ensuite hors du temps des autres

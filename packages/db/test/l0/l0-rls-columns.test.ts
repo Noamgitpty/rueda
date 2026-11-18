@@ -279,7 +279,7 @@ const API_COLUMNS: Record<string, readonly string[]> = {
     'country_code',
     'currency',
     'period',
-    // US-227 (0141, ADR-165) : mois du bordereau rédigé par la commande (FINANCE / ADMIN du pays)
+    // US-227 (0142, ADR-165) : mois du bordereau rédigé par la commande (FINANCE / ADMIN du pays)
     'period_month',
     'total_minor',
     'status',
