@@ -270,8 +270,15 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  `common.payment.depositUnavailable` (réponse 409 `DEPOSIT_RAIL_UNAVAILABLE` /
  `DEPOSIT_PARAM_MISSING` de `POST /checkout/holds/{id}/payment`, avec une sortie : autres dates,
  autre voiture).
+ Version 86 (la 85 est celle d’US-701) : fin d’US-212 (partie 212b, ADR-162 n° 6 et n° 10) :
+ `web.s05.intermediary` et `web.s05.intermediaryNoHost` (mention d’intermédiaire entre
+ particuliers et hôte en prénom et initiale au checkout S05, 19 US-212 critère 3) ; « constancia de
+ alquiler » et « empresa de alquiler » au lieu d’« arrendamiento » / « arrendadora » en espagnol
+ (`ctr.constancia.title`, `ctr.constancia.platform`, `web.s09.documents.constancia`) ; tutoiement
+ du centre juridique (`web.legalCenter.trip.body`, `web.legalCenter.disputes.body1` à `body3`, es
+ et fr). Textes juridiques toujours BROUILLON (GL-39).
  */
-export const CATALOG_VERSION = 85;
+export const CATALOG_VERSION = 86;
 
 /** Catalogues de base par langue ; la langue d'un profil de locale choisit le sien. */
 export const CATALOGS: Readonly<Record<CatalogLanguage, VersionedCatalog<MessageKey>>> = {

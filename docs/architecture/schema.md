@@ -7,7 +7,7 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 
 ## Synthèse
 
-- 148 migrations ; 129 tables ; 3 vues ; 728 politiques RLS ; 294 fonctions `SECURITY DEFINER` ; 253 autres fonctions.
+- 149 migrations ; 129 tables ; 3 vues ; 728 politiques RLS ; 295 fonctions `SECURITY DEFINER` ; 253 autres fonctions.
 - Tables sans RLS `ENABLE` + `FORCE` : aucune.
 - Rôles applicatifs avec `SUPERUSER` ou `BYPASSRLS` : aucun.
 
@@ -162,7 +162,8 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 | `0144_booking_meeting_place` | AVL / CAT : lieux de prise et de retour (US-514 ; 19 US-514 ; 16 BKG-016 ; 08 BR-BOOK-09 ; |
 | `0145_finance_receipt_alignment` | FIN : alignement des reçus et du relevé des gains sur les décisions écrites d'US-217 |
 | `0146_payment_deposit_hold` | PAY : caution de la plateforme figée au checkout (`deposit_hold`), vue du voyageur sans |
-| `0147_hardening_country_open` | SUP / FIN / CAT : durcissement avant l'ouverture d'un pays (suites des revues : BOARD |
+| `0147_ctr_constancia_frozen_host_checkout_host` | CTR / AVL : hôte de la constancia lu du contrat FIGÉ ; hôte en prénom et initiale au |
+| `0148_hardening_country_open` | SUP / FIN / CAT : durcissement avant l'ouverture d'un pays (suites des revues : BOARD |
 
 ## Rôles
 
@@ -6502,6 +6503,7 @@ Chacune a un propriétaire `NOLOGIN` dédié (ADR-053) et un `search_path` figé
 | `core.booking_assert_rent_payment_operation()` | `trigger` | `integrity_owner` | search_path=pg_catalog, pg_temp | integrity_owner: EXECUTE |
 | `core.booking_assert_trip_occupancy()` | `trigger` | `integrity_owner` | search_path=pg_catalog, pg_temp | integrity_owner: EXECUTE |
 | `core.booking_checkout_capture_terms(p_hold_id uuid)` | `TABLE(amount_minor bigint, currency text, legs jsonb, scheduled_start timestamp with time zone, scheduled_end timestamp with time zone, timezone text)` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; cmd_hold_owner: EXECUTE ; host_view_owner: EXECUTE |
+| `core.booking_checkout_host_name(p_token_hash bytea, p_quote_id uuid)` | `TABLE(quote_id uuid, host_name text)` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; cmd_hold_owner: EXECUTE |
 | `core.booking_checkout_payment(p_token_hash bytea, p_hold_id uuid)` | `TABLE(outcome text, hold_status text, trip_id uuid, expires_at timestamp with time zone, payment_in_flight_until timestamp with time zone, operation_status text)` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; cmd_hold_owner: EXECUTE |
 | `core.booking_checkout_protection(p_token_hash bytea, p_quote_id uuid)` | `TABLE(quote_id uuid, protection_level text, driver_age integer, frozen_at timestamp with time zone, insurer_contract_active boolean)` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; cmd_hold_owner: EXECUTE |
 | `core.booking_checkout_quote(p_token_hash bytea, p_quote_id uuid)` | `TABLE(quote_id uuid, listing_id uuid, country_code text, currency text, start_at timestamp with time zone, end_at timestamp with time zone, billable_days integer, lines jsonb, total_minor bigint, expires_at timestamp with time zone, expired boolean, manual_transmission boolean, instant_book boolean, documents jsonb)` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; cmd_hold_owner: EXECUTE |

@@ -6,7 +6,7 @@
  *
  * Parcours : un compte d'hôte a deux trips à venir encaissés (jambes TJ01 / TJ08a) ; l'ops ne peut
  * pas annuler ses trips tant qu'il n'est pas suspendu (HOST_NOT_RESTRICTED, rien d'écrit), ni
- * quand il n'a que des restrictions d'argent (N-354, migration 0147, ADR-171 : UNPAID_BALANCE,
+ * quand il n'a que des restrictions d'argent (N-354, migration 0148, ADR-171 : UNPAID_BALANCE,
  * PAYMENT_PLAN_ACTIVE, CHARGEBACK, fixture 9935) ; il est restreint pour la sûreté (TS_HOLD posée
  * par la fixture 9941 ; POLICY_VIOLATION et KYC_REVOKED prouvés à part), puis `CANCEL_HOST_TRIPS` écrit UNE
  * demande PENDING par trip à venir de ce compte (motif dérivé HOST_ACCOUNT_CLOSED, initiateur

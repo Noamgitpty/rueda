@@ -122,6 +122,7 @@ describe('niveaux proposés du devis lu (US-226, revue de code n° 3)', () => {
     protectionLevel: 'BASICA',
     driverAge: null,
     insurerContractActive: true,
+    hostName: 'María G.',
     frozenAtMs: 0,
     frozen: null,
     mileage: null,

@@ -22,6 +22,7 @@ import {
   constanciaSha256,
   parseConstanciaFacts,
   renderConstanciaPdf,
+  splitConstanciaBody,
 } from './constancia.js';
 import type { ConstanciaInput, ConstanciaLocale } from './constancia.js';
 
@@ -132,6 +133,33 @@ describe.each(COUNTRIES.map((c) => ({ c, code: c.code, currency: c.currency.code
         ]);
         // tout le texte s'imprime en WinAnsi (aucun « ? » de substitution)
         expect(nonWinAnsiCount(body)).toBe(0);
+      },
+    );
+
+    it.each(['en', 'fr', 'pt'] as const)(
+      'N-353 : invariant du découpage en deux parties (es fait foi, puis %s à partir de sa note de traduction), quel que soit l’état signé',
+      (courtesy) => {
+        const es = createTranslator(getProfile(LOCALES, c.legalLocale));
+        const other = createTranslator(getProfile(LOCALES, courtesy));
+        const note = other.t('ctr.constancia.courtesy', {
+          language: getProfile(LOCALES, courtesy).displayName,
+        });
+        for (const over of [{}, { signed_at_local: null }]) {
+          const body = buildConstanciaBody(input(c, courtesy, over));
+          const [first, second] = splitConstanciaBody(body);
+          // les deux parties recouvrent tout le texte, dans l'ordre, sans perte ni doublon
+          expect([...first, ...second]).toEqual(body);
+          // partie espagnole : un seul titre, le sien, en tête ; aucune note de traduction
+          expect(first[0]).toEqual({ s: 'title', t: es.t('ctr.constancia.title') });
+          expect(first.filter((l) => l.s === 'title')).toHaveLength(1);
+          expect(first.map((l) => l.t)).not.toContain(note);
+          expect(first.at(-1)?.t).toBe(es.t('ctr.constancia.notice.fines', { brand: 'Marca' }));
+          // partie du lecteur : la note de traduction, puis son titre ; un seul titre
+          expect(second[0]).toEqual({ s: 'h', t: note });
+          expect(second[1]).toEqual({ s: 'title', t: other.t('ctr.constancia.title') });
+          expect(second.filter((l) => l.s === 'title')).toHaveLength(1);
+          expect(second.at(-1)?.t).toBe(other.t('ctr.constancia.notice.fines', { brand: 'Marca' }));
+        }
       },
     );
 
