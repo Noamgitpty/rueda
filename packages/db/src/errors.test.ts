@@ -115,6 +115,8 @@ describe('translateDbError (17 §2.5 2d, §4.4, L0-08)', () => {
     ['42501', 'ops_monitor_forbidden', 'FORBIDDEN'],
     ['23505', 'payment_command_idem_unique', 'DISPOSITION_EXISTS'],
     ['23505', 'payment_operation_provider_reference_unique', 'PAYMENT_SUBJECT_MISMATCH'],
+    // rattachement de la capture convertie à son trip (0146, US-221 partie 221b)
+    ['23000', 'operation_trip_attach_invalid', 'INVARIANT_VIOLATION'],
   ])('%s sur %s → %s, sans détail', (code, constraint, expected) => {
     const translated = translateDbError(pgError({ code, constraint }));
     expect(translated).toEqual({ code: expected, retryable: false });
