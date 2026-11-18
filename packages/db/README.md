@@ -1038,9 +1038,21 @@ Migration générée `0142_config_deposit_rail_params` (groupe `deposit_always_r
 - **Lecture** : `PgDepositRailConfigReader` (module PAY) sous `app_api` ou `app_worker` : `core.config_param_value`, `core.config_go_live('funds_holding_enabled', pays)`, `core.payment_psp_capability`.
 - **Preuves** : `test/l0/l0-us225-deposit-rails.test.ts` (PA USD, PY PYG ; `app_api`, `app_worker`, `app_anon`) ; `apps/api/src/modules/pay/testing/deposit-rail-config.int.test.ts` (décision du checkout sur la configuration réelle, sous `app_api`).
 
+## Registre et bordereau de l'assureur (US-227 ; 08 E7 règles 3, 3 bis, 6, 7 ; 17 §2.9 ; ADR-165)
+
+Migration `0143_settlement_insurer_ledger`. Fixture `9947_test_us227_insurer_ledger_fixtures.sql` (contrat de test sur une période, lecture des écritures, écriture posée dans le monde de la matrice, essais d'immuabilité ; assureur et contrat « de structure » des fixtures de 9700, dont `us062_insert_bordereau` et `us062_insert_insurer_ledger` sont remplacées à signature égale pour les clés étrangères de 0143).
+
+- **Table** `core.settlement_insurer_ledger_entry` (classe C1, sujet ORG) : écriture signée en unités mineures de la devise du trip, motif `COLLECTION` (jambe `INSURER` d'un encaissement porté, clé vers `settlement_leg_movement`) ou `SETTLEMENT_VARIATION` (variation stockée d'une version, clé composite `settlement_ledger_scope_unique`), contrat de l'assureur en vigueur à la réservation (NULL si aucun) ; unique par opération et par règlement ; immuable. La politique d'insertion de `cmd_money_owner` exige la source au montant exact.
+- **Écriture** : déclencheurs `insurer_ledger_collection_posted` (`settlement_leg_movement`) et `insurer_ledger_variation_posted` (`settlement_settlement_leg`), fonctions SECURITY DEFINER de cmd_money_owner sans EXECUTE ; refus `insurer_leg_on_bordereau` si le trip est porté par un bordereau émis.
+- **Bordereau** : `core.settlement_cmd_draft_insurer_bordereaux(text)` (cmd_money_owner, EXECUTE app_worker, travailleur `bordereau`) ; colonne `period_month`, index unique (contrat, mois) ; lignes seulement sur un bordereau DRAFT ; garde `insurer_bordereau_issue_check` (incohérent, gelé, périmé) à l'émission par `cmd_approve_finance_action`.
+- **Contrat** : `bordereau_period` (`MONTHLY`), `chargeback_clause` (`PREMIUM_NEVER_REDUCED`) ; clés étrangères vers l'assureur et le contrat sur `insurer_ledger_state`, `insurer_bordereau`, `platform_advance`.
+- **Rapprochement** : `core.finance_insurer_ledger_facts()` (cmd_money_owner, EXECUTE app_worker, travailleur `reconciliation`).
+- **Codes** : `insurer_ledger_command_forbidden` ⇒ `FORBIDDEN` ; `insurer_leg_on_bordereau`, `insurer_bordereau_incoherent`, `insurer_bordereau_stale`, `insurer_bordereau_line_frozen` ⇒ `INVARIANT_VIOLATION`.
+- **Preuves** : `test/l0/l0-us227-insurer-ledger.test.ts` (TJ01, TJ02b, TJ08a, TJ08b ; T03, T27 ; PA USD, PY PYG ; groupe isolé) ; matrice d'autorisations peuplée (`l0-us043-authorization-matrix`).
+
 ## Lieux de prise et de retour (US-514 ; 16 BKG-016 ; 08 BR-BOOK-09 ; ADR-168)
 
-Migration `0143_booking_meeting_place`. Fixture `9939_test_us514_meeting_place_fixtures` (annonce d'un trip ; fermeture de `review_window_days` d'un pays, transaction annulée).
+Migration `0144_booking_meeting_place`. Fixture `9939_test_us514_meeting_place_fixtures` (annonce d'un trip ; fermeture de `review_window_days` d'un pays, transaction annulée).
 
 - **One-way refusé** : `core.booking_checkout_return_place(bytea, uuid, uuid)` (cmd_hold_owner, EXECUTE app_api, lecture seule) : lieu de retour absent ou égal au lieu du véhicule du devis du voyageur de la session ⇒ `DONE` ; autre ⇒ `ONE_WAY_NOT_ALLOWED` ; devis d'un autre ou inconnu ⇒ `QUOTE_NOT_FOUND` ; session invalide ⇒ `AUTH_REQUIRED`. Le checkout (`booking_cmd_checkout`) est inchangé.
 - **Adresse bornée** : `core.catalog_guest_meeting_point` (0106) et `core.booking_guest_trips` (0136) remplacés à signature identique : l'adresse exacte n'est plus rendue au-delà de la fin prévue du trip + `review_window_days` du pays (paramètre absent ou mal formé ⇒ jamais). Aucune copie de l'adresse, rien à purger.

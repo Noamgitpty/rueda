@@ -305,6 +305,11 @@ describe('classement des refus', () => {
       outcome: 'FIN_REVIEW',
       code: 'OPERATION_SETTLEMENT_FIN_REVIEW',
     });
+    // US-227 (ADR-165) : jambe INSURER déjà portée par un bordereau émis ⇒ revue FIN
+    expect(classify({ code: '55000', constraint: 'insurer_leg_on_bordereau' })).toEqual({
+      outcome: 'FIN_REVIEW',
+      code: 'INSURER_LEG_ON_BORDEREAU',
+    });
     expect(classify({ code: '55000', constraint: 'trip_transition_forbidden' })).toEqual({
       outcome: 'FAILED',
       code: 'TRIP_TRANSITION_FORBIDDEN',

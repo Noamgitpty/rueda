@@ -187,7 +187,7 @@ describe('configuration pays : structure et droits', () => {
             ...(t === 'config_param_definition' || t === 'config_param_value'
               ? [{ t, pol: 'catalog_cmd_insurer_read', cmd: 'r', roles: 'catalog_cmd_owner' }]
               : []),
-            // lieu exact de la fiche (US-514, 0143) : fenêtre review_window_days seulement
+            // lieu exact de la fiche (US-514, 0144) : fenêtre review_window_days seulement
             ...(t === 'config_param_value'
               ? [{ t, pol: 'catalog_cmd_meeting_read', cmd: 'r', roles: 'catalog_cmd_owner' }]
               : []),
@@ -250,7 +250,7 @@ describe('configuration pays : structure et droits', () => {
             ...(t === 'config_param_value'
               ? [{ t, pol: 'cmd_hold_contract_param_read', cmd: 'r', roles: 'cmd_hold_owner' }]
               : []),
-            // détail du trip du voyageur (US-514, 0143) : fenêtre review_window_days seulement
+            // détail du trip du voyageur (US-514, 0144) : fenêtre review_window_days seulement
             ...(t === 'config_param_value'
               ? [{ t, pol: 'cmd_hold_meeting_read', cmd: 'r', roles: 'cmd_hold_owner' }]
               : []),

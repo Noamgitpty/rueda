@@ -35,8 +35,14 @@ export {
   TRIP_LEG_FACTS_SOURCE,
   tripLegFactsSql,
   tripLegViolations,
+  // US-227 (ADR-165) : faits de la jambe assureur, lus de core.finance_insurer_ledger_facts()
+  INSURER_LEDGER_FACTS_SOURCE,
+  insurerLedgerFactsSql,
+  insurerLedgerViolations,
+  parseInsurerLedgerFactRow,
 } from './internal/money-reconciliation.js';
 export type {
+  InsurerLedgerFact,
   MoneyReconciliationCheck,
   MoneyReconciliationReport,
   TripLegFact,
