@@ -3,7 +3,7 @@
  * et 3 ; 16 PYO-013 ; 17 §3.2.13 `host_earnings_statement` / `host_earnings_line` ; 10b UX-45). Par
  * devise : Σ jambes HOST des trips du mois (version en tête du règlement, sinon capture), Σ
  * ajustements du host_ledger (pénalité de l'hôte, en ligne séparée), net, et les lignes. La base
- * vérifie que la session est TITULAIRE du compte (`core.booking_host_earnings`, 0133, SECURITY
+ * vérifie que la session est TITULAIRE du compte (`core.booking_host_earnings`, 0137, SECURITY
  * DEFINER, EXECUTE app_api) : compte d'un autre, co-hôte, inconnu ou identifiant mal formé ⇒ 404
  * `EARNINGS_NOT_FOUND`, même réponse ; mois mal formé ⇒ 400 `REQUEST_INVALID`.
  *
@@ -113,7 +113,7 @@ export class UnavailableHostEarningsStore implements HostEarningsStore {
   }
 }
 
-/** Lecture (0133) et exposants des devises, dans la MÊME instruction. */
+/** Lecture (0137) et exposants des devises, dans la MÊME instruction. */
 export const HOST_EARNINGS_SQL = `SELECT r.outcome, r.country_code, r.statements,
        (SELECT pg_catalog.jsonb_object_agg(c.code::text, c.exponent)
           FROM core.config_currency AS c) AS exponents

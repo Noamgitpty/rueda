@@ -25,7 +25,7 @@
  * `FIN_MONEY_RECONCILIATION` par pays (port `AlertChannel`, US-004). Le rapprochement par jambe
  * avec l'export du PSP arrive avec US-311, l'égalité Σ débits = Σ crédits avec le grand livre
  * (lot 5). Les trois derniers contrôles (US-217a, ADR-161) lisent les faits par trip de
- * `core.finance_trip_leg_facts()` (0133, SECURITY DEFINER, travailleur `reconciliation` seulement :
+ * `core.finance_trip_leg_facts()` (0137, SECURITY DEFINER, travailleur `reconciliation` seulement :
  * les opérations de paiement et le relevé de l'hôte ne lui sont pas lisibles autrement) ; la
  * requête n'en garde que des montants et un pays, le rapport que des comptes. Les deux premiers ne
  * portent que sur un trip dont un encaissement est porté (un solde posé sans opération n'a rien à
@@ -97,7 +97,7 @@ export interface LegBalanceAggregate {
   readonly released: bigint;
 }
 
-/** Faits de l'invariant par jambe d'un trip tenu (`core.finance_trip_leg_facts()`, 0133). */
+/** Faits de l'invariant par jambe d'un trip tenu (`core.finance_trip_leg_facts()`, 0137). */
 export interface TripLegFact {
   readonly country: string;
   /** Σ capturé des soldes du trip (toutes jambes). */
@@ -156,7 +156,7 @@ export const LEG_BALANCE_SOURCE = `SELECT country_code, captured_minor, refunded
          reallocated_in_minor, reallocated_out_minor, released_minor
     FROM core.settlement_trip_leg_balance`;
 
-/** Faits par trip (US-217a, 0133) : montants et pays seulement, jamais l'identifiant du trip. */
+/** Faits par trip (US-217a, 0137) : montants et pays seulement, jamais l'identifiant du trip. */
 export const TRIP_LEG_FACTS_SOURCE = `SELECT country_code, captured_minor, collected_minor, collected_legs_minor,
          head_total_paid_minor, expected_host_minor, statement_host_minor
     FROM core.finance_trip_leg_facts()`;

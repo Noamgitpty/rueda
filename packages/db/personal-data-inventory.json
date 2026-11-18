@@ -600,6 +600,20 @@
         "advance_notice_minutes": "C0"
       }
     },
+    "core.catalog_value_class_rule": {
+      "lifecycle": "C",
+      "export": "none",
+      "columns": {
+        "id": "C0",
+        "country_code": "C0",
+        "make_slug": "C0",
+        "model_slug": "C0",
+        "value_class": "C0",
+        "status": "C0",
+        "source_ref": "C0",
+        "created_at": "C0"
+      }
+    },
     "core.catalog_vehicle": {
       "lifecycle": "B",
       "subjects": [
@@ -650,7 +664,9 @@
         "eligibility_checked_at": "C1",
         "released_at": "C1",
         "ownership_attested_at": "C1",
-        "lien_attested_at": "C1"
+        "lien_attested_at": "C1",
+        "value_class_source": "C0",
+        "value_class_rule_id": "C0"
       }
     },
     "core.catalog_vehicle_attestation": {

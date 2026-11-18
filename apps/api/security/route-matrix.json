@@ -457,7 +457,7 @@
     },
     "GET /host/accounts/{orgId}/earnings/{month}": {
       "acces": "session",
-      "idor": "compte {orgId} qui n'est pas un compte titulaire de la session (co-hôte compris), inconnu ou mal formé : 404 EARNINGS_NOT_FOUND, même réponse, sans état révélé (core.booking_host_earnings, 0133, titulaire par core.iam_host_accounts) ; mois mal formé : 400 ; aucune donnée du voyageur ; montants lus, jamais recalculés ; preuves base : l0-us217-host-receipt"
+      "idor": "compte {orgId} qui n'est pas un compte titulaire de la session (co-hôte compris), inconnu ou mal formé : 404 EARNINGS_NOT_FOUND, même réponse, sans état révélé (core.booking_host_earnings, 0137, titulaire par core.iam_host_accounts) ; mois mal formé : 400 ; aucune donnée du voyageur ; montants lus, jamais recalculés ; preuves base : l0-us217-host-receipt"
     },
     "GET /host/accounts/{orgId}/requests/{holdId}": {
       "acces": "session",
@@ -571,6 +571,14 @@
       "acces": "public",
       "idor": "rappel d’un fournisseur d’identité : signature du fournisseur exigée sur le corps brut ; le dossier visé est celui de la session du fournisseur ET de la référence opaque du sujet (recoupées en base) ; fournisseur inconnu ⇒ 404 sans écriture"
     },
+    "GET /trips": {
+      "acces": "session",
+      "idor": "liste du voyageur de la SESSION seulement (core.booking_guest_trips, 0136 : aucun identifiant de personne reçu) ; les trips qu'il héberge n'y figurent pas ; de l'hôte seulement prénom et initiale (L2-PM-35), aucune plaque, adresse exacte d'un trip à venir ou en cours seulement ; preuves base : l0-us214-guest-trips"
+    },
+    "GET /trips/{tripId}": {
+      "acces": "session",
+      "idor": "trip d'une autre personne (y compris un trip que la session héberge), inconnu ou identifiant mal formé : 404 TRIP_NOT_FOUND, même réponse (RLS-1, 17 §2.3 point 5) ; le voyageur est celui de la session, jugé en base (core.booking_guest_trips, 0136) ; preuves base : l0-us214-guest-trips"
+    },
     "GET /trips/{tripId}/contract": {
       "acces": "session",
       "idor": "trip d'une autre personne (ni son voyageur ni le titulaire de son compte d'hôte), inconnu ou identifiant mal formé : 404 CONTRACT_NOT_FOUND, même réponse (17 §2.3 point 5) ; la partie est celle de la session, jugée en base (core.booking_trip_contract, core.booking_cmd_sign_contract ; signature : voyageur seulement) ; du voyageur seulement prénom et initiale (L2-PM-35) ; preuves base : l0-us211"
@@ -581,7 +589,7 @@
     },
     "GET /trips/{tripId}/receipt": {
       "acces": "session",
-      "idor": "trip d'une autre personne (ni son voyageur ni le titulaire de son compte d'hôte), inconnu ou identifiant mal formé : 404 RECEIPT_NOT_FOUND, même réponse (17 §2.3 point 5) ; la partie est celle de la session, jugée en base (core.booking_trip_receipt, 0133) ; le voyageur ne lit ni jambe, ni plan, ni pénalité de l'hôte ; l'hôte ne lit rien du voyageur ; montants lus, jamais recalculés ; preuves base : l0-us217-host-receipt"
+      "idor": "trip d'une autre personne (ni son voyageur ni le titulaire de son compte d'hôte), inconnu ou identifiant mal formé : 404 RECEIPT_NOT_FOUND, même réponse (17 §2.3 point 5) ; la partie est celle de la session, jugée en base (core.booking_trip_receipt, 0137) ; le voyageur ne lit ni jambe, ni plan, ni pénalité de l'hôte ; l'hôte ne lit rien du voyageur ; montants lus, jamais recalculés ; preuves base : l0-us217-host-receipt"
     },
     "GET /trips/{tripId}/contract/pdf": {
       "acces": "session",

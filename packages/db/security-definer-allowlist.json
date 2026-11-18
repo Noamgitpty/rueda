@@ -1786,6 +1786,13 @@
       "story": "US-211"
     },
     {
+      "signature": "core.booking_notification_parties(text,uuid)",
+      "family": "cmd_hold",
+      "owner": "cmd_hold_owner",
+      "execute": ["app_worker"],
+      "story": "US-213"
+    },
+    {
       "signature": "core.booking_cmd_record_contract(uuid,text,jsonb,jsonb,jsonb,uuid,uuid,text,bytea)",
       "family": "cmd_hold",
       "owner": "cmd_hold_owner",
@@ -1896,6 +1903,13 @@
       "owner": "cmd_money_owner",
       "execute": ["cmd_hold_owner", "iam_staff_owner"],
       "story": "US-224"
+    },
+    {
+      "signature": "core.booking_guest_trips(bytea,text,uuid,integer)",
+      "family": "cmd_hold",
+      "owner": "cmd_hold_owner",
+      "execute": ["app_api"],
+      "story": "US-214"
     },
     {
       "signature": "core.booking_trip_refunds(bytea,uuid)",

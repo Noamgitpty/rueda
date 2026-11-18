@@ -52,12 +52,16 @@ export interface RenderedMessage {
 /** Motifs interdits dans un texte rendu (10b UX-60). */
 const RESIDUAL = /\{|\}|%s|\bundefined\b|\bnull\b|\bNaN\b/;
 
-/** Référence courte lisible d'un identifiant UUID (8 derniers chiffres hexadécimaux, majuscules). */
+/**
+ * Référence courte lisible d'un identifiant UUID : ses 8 PREMIERS chiffres hexadécimaux, en
+ * majuscules, comme les écrans (S06, S07, A03, A05) et le contrat (`K-…`, 0122) ; US-213, ADR-157
+ * (les 8 derniers avant US-213 : la référence d'un message différait de celle de l'écran).
+ */
 export function shortRef(id: string): string {
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) {
     throw new TemplateRenderError('TEMPLATE_VARIABLE_MISSING', 'référence : UUID attendu');
   }
-  return id.slice(-8).toUpperCase();
+  return id.slice(0, 8).toUpperCase();
 }
 
 function missing(name: string): never {

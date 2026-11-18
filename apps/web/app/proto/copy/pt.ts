@@ -110,11 +110,8 @@ export const PT_PROTO = {
   'web.s05.review.notice':
     'Analisamos cada reserva. Se não pudermos aprovar, devolvemos tudo a você.',
   'web.s06.pre.title': 'Na sua fatura vai aparecer: {merchant_name}',
-  'web.s07.title': 'Sua reserva está confirmada!',
   'web.s07.message': 'Escrever para {host_name}',
   'web.s07.checkinOpens': 'O check-in com fotos abre em {date}.',
-  'web.s07.safety':
-    'Para sua segurança: encontrem-se em um lugar público e iluminado, avise alguém de confiança onde você vai estar e converse só pela {brand}.',
   'web.s08.tabs.upcoming': 'Próximas',
   'web.s08.tabs.past': 'Anteriores',
   'web.s08.empty': 'Você ainda não tem viagens',

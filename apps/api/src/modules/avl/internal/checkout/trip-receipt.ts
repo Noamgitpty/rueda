@@ -5,7 +5,7 @@
  * capture, plan et part figés, frais retenus par Kmino, pénalité du host_ledger en ligne séparée,
  * net) ; le voyageur lit le reçu de son paiement (total payé, remboursé, trip fee et sa taxe de
  * ligne ; la facture électronique est émise hors plateforme en bêta, FIN-002 MANUEL). La base juge
- * la partie (`core.booking_trip_receipt`, 0133, SECURITY DEFINER, EXECUTE app_api) et rend la même
+ * la partie (`core.booking_trip_receipt`, 0137, SECURITY DEFINER, EXECUTE app_api) et rend la même
  * réponse NOT_FOUND à toute autre personne : 404 `RECEIPT_NOT_FOUND`, comme pour un trip inconnu ou
  * un identifiant mal formé (aucun oracle). Trip sans capture ni règlement : 409 `RECEIPT_NOT_READY`.
  *
@@ -140,7 +140,7 @@ export class UnavailableTripReceiptStore implements TripReceiptStore {
   }
 }
 
-/** Lecture (0133) et exposant de la devise du trip, dans la MÊME instruction. */
+/** Lecture (0137) et exposant de la devise du trip, dans la MÊME instruction. */
 export const TRIP_RECEIPT_SQL = `SELECT r.outcome, r.viewer_role, r.trip_status, r.currency, r.timezone,
        r.receipt, c.exponent
   FROM core.booking_trip_receipt($1, $2::uuid) AS r

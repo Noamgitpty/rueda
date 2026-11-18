@@ -21,7 +21,9 @@
  *
  * Reçu d'un trip et relevé mensuel des gains de l'hôte (US-217 partie 217a, ADR-161) : lectures par
  * la partie du trip (`core.booking_trip_receipt`) et par le titulaire du compte d'hôte
- * (`core.booking_host_earnings`, 0133) ; aucun adaptateur : 503.
+ * (`core.booking_host_earnings`, 0137) ; aucun adaptateur : 503.
+ * « Mis viajes » et détail du trip du voyageur (US-214, ADR-160) : lecture par le voyageur de la
+ * session (`core.booking_guest_trips`, 0136) ; aucun adaptateur : 503.
  */
 import { Module } from '@nestjs/common';
 import type { DynamicModule } from '@nestjs/common';
@@ -42,6 +44,9 @@ import { HostRequestService, LOG_HOST_REQUEST_FAILURE } from './host-requests.se
 import type { RequestCaptureProvider } from './host-requests.service.js';
 import { PgHostRequestStore, UnavailableHostRequestStore } from './host-requests-store.js';
 import type { HostRequestStore } from './host-requests-store.js';
+import { GuestTripsController } from './guest-trips.controller.js';
+import { GuestTripsService, PgGuestTripStore, UnavailableGuestTripStore } from './guest-trips.js';
+import type { GuestTripStore } from './guest-trips.js';
 import { TripRefundsController } from './trip-refunds.controller.js';
 import {
   PgTripRefundStore,
@@ -107,10 +112,12 @@ export interface AvlCheckoutOptions {
   readonly hostRequests?: AvlHostRequestOptions;
   /** Remboursements d'un trip lus par sa partie (US-224d, 0130) ; absent : 503. */
   readonly refunds?: TripRefundStore;
-  /** Reçu d'un trip lu par sa partie (US-217a, 0133) ; absent : 503. */
+  /** Reçu d'un trip lu par sa partie (US-217a, 0137) ; absent : 503. */
   readonly receipts?: TripReceiptStore;
-  /** Relevé mensuel des gains de l'hôte (US-217a, 0133) ; absent : 503. */
+  /** Relevé mensuel des gains de l'hôte (US-217a, 0137) ; absent : 503. */
   readonly earnings?: HostEarningsStore;
+  /** Trips et demandes du voyageur de la session (US-214, 0136) ; absent : 503. */
+  readonly guestTrips?: GuestTripStore;
 }
 
 /** Aucun adaptateur : 503 partout (fail-closed). */
@@ -142,6 +149,8 @@ export function postgresCheckoutAdapters(
     // US-217a : reçu du trip et relevé des gains de l'hôte (lectures seulement)
     receipts: new PgTripReceiptStore(db),
     earnings: new PgHostEarningsStore(db),
+    // US-214 : « Mis viajes » et détail du trip du voyageur (aucune écriture)
+    guestTrips: new PgGuestTripStore(db),
   };
 }
 
@@ -157,6 +166,7 @@ export class AvlCheckoutModule {
         TripRefundsController,
         TripReceiptController,
         HostEarningsController,
+        GuestTripsController,
       ],
       providers: [
         {
@@ -196,6 +206,10 @@ export class AvlCheckoutModule {
         {
           provide: HostEarningsService,
           useValue: new HostEarningsService(options.earnings ?? new UnavailableHostEarningsStore()),
+        },
+        {
+          provide: GuestTripsService,
+          useValue: new GuestTripsService(options.guestTrips ?? new UnavailableGuestTripStore()),
         },
       ],
     };

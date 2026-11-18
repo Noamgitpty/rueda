@@ -218,8 +218,23 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  ADR-156) : `backoffice.profile.hostTrips` et `backoffice.profile.noHostTrip` (fiche 360° : trips à
  venir des comptes d'hôte de la personne, N-123) ; `ntf.tripHostRestrictionLifted.*` (voyageur d'un
  trip à venir prévenu de la levée de la restriction de son hôte, N-126).
- Version 77 (les 73 à 76 sont réservées à d’autres stories en cours ; la 72 est celle
- d’US-215c) : reçu des gains de l’hôte et reçu du trip fee, partie 217a (US-217, ADR-161) :
+ Version 73 (la 72 est celle d’US-215c) : confirmation de réservation (US-213,
+ ADR-157) : `ntf.bookingConfirmed.*` revu (adresse exacte, contrat à signer, permis physique,
+ conseils de sécurité de 10b `web.s07.safety` ; jamais le téléphone de l’hôte ; numéros du
+ support et de l’assistance de l’assureur : GL-36), `ntf.bookingConfirmedHost.*` (confirmation à
+ l’hôte, sans donnée du voyageur), `ntf.bookingRequestReceived.*`, `ntf.bookingRequestDeclined.*`,
+ `ntf.bookingRequestExpired.*`, `ntf.bookingRequestFailed.*` et `ntf.bookingRequestFailedHost.*`
+ (demandes de réservation : reçue par l’hôte avec l’heure limite de la base ; refus, expiration,
+ capture non aboutie), `web.s07.title`, `web.s07.documents`, `web.s07.safety` (S06 confirmé,
+ 10b S07).
+ Version 76 (74 et 75 réservées à des stories en cours ; la 73 est celle d’US-213) : « Mis viajes » et détail du
+ trip du voyageur (US-214, ADR-160) : `common.trips.*` (réponses des routes `/trips` et
+ `/trips/{id}` : introuvable, indisponible), `web.s08.*` (S08 : sections demandes envoyées, à
+ venir, en cours, passés, annulés ; carte du trip ; heure limite de réponse d'une demande ; vide
+ `web.s08.none`, texte de `web.s08.empty` de 10b §4.3 dont la clé est tenue par le prototype),
+ `web.s09.*` (S09 : lieu de remise, hôte particulier, total payé,
+ documents — contrat ; constancia et reçu annoncés —, modification par le support, BR-MOD-01).
+ Version 77 (la 76 est celle d’US-214 ; 74 et 75 restent sautées) : reçu des gains de l’hôte et reçu du trip fee, partie 217a (US-217, ADR-161) :
  `common.receipt.*` (réponses de la route `/trips/{id}/receipt` : introuvable, pas encore
  disponible, indisponible) et `common.earnings.*` (réponses de la route
  `/host/accounts/{orgId}/earnings/{month}` : introuvable, indisponible). Les écrans A08 et S09

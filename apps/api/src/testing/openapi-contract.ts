@@ -426,6 +426,9 @@ export const CONTRACT_SUITES: Readonly<Record<string, string>> = {
   // reçu d'un trip et relevé des gains de l'hôte (US-217 partie 217a, module AVL)
   '/trips/{tripId}/receipt': 'modules/avl/testing/trip-receipt.contract.test.ts',
   '/host/accounts/{orgId}/earnings/{month}': 'modules/avl/testing/trip-receipt.contract.test.ts',
+  // « Mis viajes » et détail du trip du voyageur (US-214, module AVL) : GET /trips et
+  // GET /trips/{tripId} seulement (les sous-routes ont leur propre suite)
+  '/trips/{tripId}': 'modules/avl/testing/guest-trips.contract.test.ts',
   '/staff': 'testing/contract/staff.contract.test.ts',
   '/console': 'testing/contract/console.contract.test.ts',
   '/webhooks': 'testing/contract/webhooks.contract.test.ts',

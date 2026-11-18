@@ -138,6 +138,12 @@ export const POST_SEED_PARAMS: readonly {
     story: 'US-223',
     refs: '08 BR-BOOK-01 ; 17 §2.5 ; 19 US-223 DoR 2 ; ADR-146',
   },
+  {
+    prefix: 'vehicle_default_value_class',
+    file: '0134_config_vehicle_value_class_params.sql',
+    story: 'US-113',
+    refs: '08 BR-ACC-05 ; BOARD N-83 ; ADR-159',
+  },
 ];
 
 /** La clé appartient à un groupe de paramètres ajouté après 0009. */

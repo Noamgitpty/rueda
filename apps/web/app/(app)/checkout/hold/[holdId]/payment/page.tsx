@@ -18,6 +18,7 @@ import type {
 import { publicListingOf } from '../../../../../../account/host-listings.ts';
 import { searchHref } from '../../../../../../account/search.ts';
 import { clientContext } from '../../../../../../account/request.ts';
+import { getRequestBrand } from '../../../../../../brand-source.ts';
 import { getRequestI18n, getRequestLocaleTag } from '../../../../../../i18n.ts';
 import accountStyles from '../../../../_account/account.module.css';
 import { MAIN_ID } from '../../../../_shell/main-id.ts';
@@ -57,6 +58,10 @@ const BODY_ID = 's06-body';
  *   revue d'une réservation signalée (`reviewState` = REJECTED, US-209c) : « Reserva no aprobada » ;
  * - `UNPROVEN` : hold terminé avec un ordre non prouvé : ne pas payer de nouveau, support ;
  * - `REFUND_DUE` : payé après la libération (`web.error.paidAfterRelease`, montant rendu par l'API).
+ * `CONFIRMED` porte le contenu de 10b S07 (US-213, ADR-157) : « ¡Reserva confirmada! », numéro du
+ * TRIP (celui du contrat, de l'espace de l'hôte et du message de confirmation), pièces à présenter
+ * (permis physique) et conseils de sécurité d'une rencontre entre particuliers ; jamais le
+ * téléphone de l'hôte (messagerie, US-316). L'adresse exacte reste sur la fiche du véhicule.
  * `PAYABLE` (aucun ordre) : retour à S05. Le passage d'un état à l'autre est annoncé par une région
  * vive persistante et le focus passe au titre (`StateAnnouncer`).
  *
@@ -77,10 +82,11 @@ export default async function PaymentPage({
 }: {
   readonly params: Promise<{ readonly holdId: string }>;
 }) {
-  const [i18n, localeTag, { holdId }] = await Promise.all([
+  const [i18n, localeTag, { holdId }, brand] = await Promise.all([
     getRequestI18n(),
     getRequestLocaleTag(),
     params,
+    getRequestBrand(),
   ]);
   const t = i18n.t.bind(i18n);
   const ctx = await clientContext();
@@ -346,8 +352,17 @@ export default async function PaymentPage({
   }
   switch (payment.state) {
     case 'CONFIRMED': {
-      const title = t('web.s06.confirmed.title');
+      const title = t('web.s07.title');
       const body = t('web.s06.confirmed.body');
+      // numéro du trip né de la conversion (contrat K-…, A03, message) ; sinon celui du hold
+      const tripReference =
+        payment.tripId === null ? (
+          reference
+        ) : (
+          <p className={accountStyles['text']} data-testid="s06-reference">
+            {t('web.s06.reference', { reference: bookingReference(payment.tripId) })}
+          </p>
+        );
       return page(
         'CONFIRMED',
         title,
@@ -357,13 +372,24 @@ export default async function PaymentPage({
             {body}
           </Banner>
           {car}
-          {reference}
+          {tripReference}
+          {/* 10b S07 : pièces à présenter et conseils de sécurité (US-213) */}
+          <p className={accountStyles['text']} data-testid="s07-documents">
+            {t('web.s07.documents')}
+          </p>
+          <p className={accountStyles['text']} data-testid="s07-safety">
+            {t('web.s07.safety', { brand: brand.name })}
+          </p>
           {/* contrat de location du trip né de la conversion (S09 · contrat, US-211 partie 211b) */}
           {payment.tripId !== null && (
             <ButtonLink href={`/trips/${payment.tripId}/contract`} data-testid="s06-contract">
               {t('web.s06.confirmed.contract')}
             </ButtonLink>
           )}
+          {/* « Mis viajes » (S08, US-214) : retrouver ce voyage et les autres */}
+          <ButtonLink variant="secondary" href="/trips" data-testid="s06-trips">
+            {t('web.s06.confirmed.trips')}
+          </ButtonLink>
           <ButtonLink variant="secondary" href={`/listings/${hold.listingId}`}>
             {t('web.s06.confirmed.cta')}
           </ButtonLink>

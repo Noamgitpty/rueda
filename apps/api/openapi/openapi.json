@@ -11523,6 +11523,130 @@
         }
       }
     },
+    "/trips": {
+      "get": {
+        "operationId": "guestTrips",
+        "tags": ["avl"],
+        "summary": "« Mis viajes » du voyageur de la session (US-214, ADR-160 ; 16 BKG-027 ; écran S08) : demandes en attente de l'hôte, trips à venir, en cours, passés et annulés ; lecture seule",
+        "responses": {
+          "200": {
+            "description": "Trips et demandes du voyageur de la session (liste vide possible)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GuestTrips"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthRequired"
+          },
+          "503": {
+            "description": "Base indisponible ou réponse inattendue : rien n’est servi (fail-closed)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "TRIPS_UNAVAILABLE"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/trips/{tripId}": {
+      "get": {
+        "operationId": "guestTrip",
+        "tags": ["avl"],
+        "summary": "Détail d'un trip du voyageur de la session (US-214, ADR-160 ; 19 US-214 ; écran S09) : horaires, lieu de remise, hôte, total payé, état du contrat ; toute modification passe par le support (08 BR-MOD-01)",
+        "parameters": [
+          {
+            "name": "tripId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Trip du voyageur de la session",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GuestTripReply"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthRequired"
+          },
+          "404": {
+            "description": "Trip inconnu, d'une autre personne (y compris un trip que la session héberge) ou identifiant mal formé : même réponse (RLS-1, 17 §2.3 point 5)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "TRIP_NOT_FOUND"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Base indisponible ou réponse inattendue : rien n’est servi (fail-closed)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "TRIPS_UNAVAILABLE"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/trips/{tripId}/contract": {
       "get": {
         "operationId": "tripContract",
@@ -15162,6 +15286,234 @@
             "items": {
               "$ref": "#/components/schemas/Uuid"
             }
+          }
+        }
+      },
+      "GuestTrip": {
+        "description": "US-214 (ADR-160) : trip ou demande en attente du voyageur de la session (S08, S09) ; hôte en prénom et initiale, adresse exacte d’un trip à venir ou en cours seulement, aucune plaque ; total du devis figé en unités mineures (texte, bigint exact), lu de la base, jamais recalculé.",
+        "type": "object",
+        "required": [
+          "kind",
+          "id",
+          "reference",
+          "tab",
+          "status",
+          "paymentStatus",
+          "currency",
+          "currencyExponent",
+          "timezone",
+          "startsAt",
+          "endsAt",
+          "respondBy",
+          "vehicle",
+          "hostName",
+          "handover",
+          "totalMinor",
+          "contract"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": ["TRIP", "REQUEST"]
+          },
+          "id": {
+            "$ref": "#/components/schemas/Uuid"
+          },
+          "reference": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "tab": {
+            "type": "string",
+            "enum": ["REQUESTED", "UPCOMING", "IN_PROGRESS", "DONE", "CANCELLED"]
+          },
+          "status": {
+            "type": "string",
+            "pattern": "^[A-Z][A-Z0-9_]{1,63}$"
+          },
+          "paymentStatus": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": ["CONFIRMED", "REFUNDED_PARTIAL", "REFUNDED"]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "currency": {
+            "type": "string",
+            "pattern": "^[A-Z]{3}$"
+          },
+          "currencyExponent": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4,
+            "description": "exposant de la devise (config), pour l'affichage seulement"
+          },
+          "timezone": {
+            "type": "string",
+            "pattern": "^[A-Za-z_]+(/[A-Za-z0-9_+-]+){0,2}$",
+            "description": "fuseau IANA du trip (affichage des heures locales)"
+          },
+          "startsAt": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+          },
+          "endsAt": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+          },
+          "respondBy": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "demande : heure limite de réponse de l'hôte écrite par la base ; trip : null"
+          },
+          "vehicle": {
+            "type": "object",
+            "required": ["make", "model", "year"],
+            "additionalProperties": false,
+            "properties": {
+              "make": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "maxLength": 500
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "model": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "maxLength": 500
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "year": {
+                "anyOf": [
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            }
+          },
+          "hostName": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "prénom et initiale de l'hôte (L2-PM-35)"
+          },
+          "handover": {
+            "type": "object",
+            "required": ["place", "address", "city"],
+            "additionalProperties": false,
+            "properties": {
+              "place": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "maxLength": 500
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "address": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "maxLength": 500
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "city": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "maxLength": 500
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            }
+          },
+          "totalMinor": {
+            "anyOf": [{ "$ref": "#/components/schemas/MinorUnits" }, { "type": "null" }],
+            "description": "total du devis figé ; null : trip sans devis source (la ligne reste servie)"
+          },
+          "contract": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": ["NONE", "TO_SIGN", "SIGNED"]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "état du contrat de location (trip seulement)"
+          }
+        }
+      },
+      "GuestTrips": {
+        "type": "object",
+        "required": ["trips"],
+        "additionalProperties": false,
+        "properties": {
+          "trips": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GuestTrip"
+            }
+          }
+        }
+      },
+      "GuestTripReply": {
+        "type": "object",
+        "required": ["trip"],
+        "additionalProperties": false,
+        "properties": {
+          "trip": {
+            "$ref": "#/components/schemas/GuestTrip"
           }
         }
       },

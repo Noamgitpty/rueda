@@ -502,6 +502,21 @@ async function sentRequest(
   return { holdId, auth, ref, sentAt };
 }
 
+/**
+ * US-213 (0133, ADR-157) : parties du hold lues par le travailleur des notifications. Assertions
+ * AJOUTÉES aux issues « capture refusée » et « capture jamais confirmée » (aucune assertion
+ * existante modifiée) : la règle NTF de la capture refusée lit ces faits en base.
+ */
+async function notificationParties(holdId: string, when: string): Promise<Json | null> {
+  return inTx(worker, { worker: 'ntf_dispatcher', virtualNow: when }, async (tx) => {
+    const { rows } = await tx.query<{ p: Json | null }>(
+      'SELECT core.booking_notification_parties($1, $2::uuid) AS p',
+      ['HOLD', holdId],
+    );
+    return rows[0]?.p ?? null;
+  });
+}
+
 describe.each(COUNTRIES)('US-223c — demande de réservation ($country, $currency)', (c) => {
   const idx = COUNTRIES.indexOf(c) * 10;
 
@@ -834,6 +849,15 @@ describe.each(COUNTRIES)('US-223c — demande de réservation ($country, $curren
       expect((await readRequest(w, r.holdId, at(acceptAt, 1)))['request_status']).toBe(
         'CAPTURE_FAILED',
       );
+      // US-213 : voyageur et titulaire du compte d'hôte prévenus (faits de la règle NTF)
+      expect(await notificationParties(r.holdId, at(acceptAt, 1))).toEqual({
+        guestUserId: w.guest,
+        hostUserId: w.host.userId,
+        holdKind: 'REQUEST',
+        holdStatus: 'RELEASED',
+        releaseReason: 'PAYMENT_DECLINED',
+        requestAuthorized: true,
+      });
     },
     LONG,
   );
@@ -1050,6 +1074,15 @@ describe.each(COUNTRIES)('US-223c — demande de réservation ($country, $curren
       expect((await readRequest(w, r.holdId, atSec(bound, 61)))['request_status']).toBe(
         'CAPTURE_FAILED',
       );
+      // US-213 : parties du hold pour la notification de la capture jamais confirmée
+      expect(await notificationParties(r.holdId, atSec(bound, 61))).toEqual({
+        guestUserId: w.guest,
+        hostUserId: w.host.userId,
+        holdKind: 'REQUEST',
+        holdStatus: 'RELEASED',
+        releaseReason: 'CAPTURE_UNCONFIRMED',
+        requestAuthorized: true,
+      });
     },
     LONG,
   );

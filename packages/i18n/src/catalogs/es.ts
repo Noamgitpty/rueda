@@ -833,9 +833,9 @@ export const ES_MESSAGES = {
     '{brand}: {first_name}, tu identidad está verificada. Ya puedes reservar.',
   'ntf.bookingConfirmed.email.subject': 'Reserva {booking_ref} confirmada',
   'ntf.bookingConfirmed.email.body':
-    'Hola, {first_name}. Tu reserva {booking_ref} está confirmada: del {start_at} al {end_at}. En la app encuentras el lugar de entrega, el contrato y los mensajes de la reserva.',
+    'Hola, {first_name}. Tu reserva {booking_ref} está confirmada: del {start_at} al {end_at}. En tu reserva en {brand} encuentras la dirección exacta del lugar de entrega, el contrato para leer y firmar antes de la entrega y los mensajes con tu anfitrión. Lleva tu licencia de conducir física y tu documento de identidad: el anfitrión los revisará en la entrega. Para tu seguridad: encuéntrense en un lugar público e iluminado, avisa a alguien de confianza dónde estarás y escribe solo por {brand}.',
   'ntf.bookingConfirmed.sms.body':
-    '{brand}: reserva {booking_ref} confirmada, del {start_at} al {end_at}. Detalles en la app.',
+    '{brand}: reserva {booking_ref} confirmada, del {start_at} al {end_at}. Lleva tu licencia física. Dirección y contrato en la app.',
   'ntf.bookingCancelled.email.subject': 'Reserva {booking_ref} cancelada',
   'ntf.bookingCancelled.email.body':
     'Hola, {first_name}. La reserva {booking_ref} fue cancelada. En la app ves el detalle y, si corresponde, tu reembolso.',
@@ -1318,6 +1318,37 @@ export const ES_MESSAGES = {
     'Hola, {first_name}. Terminamos la revisión de la cuenta del anfitrión de tu reserva {booking_ref}. Tu reserva sigue en pie, sin cambios. Detalles en la app.',
   'ntf.tripHostRestrictionLifted.sms.body':
     '{brand}: terminamos la revisión del anfitrión de tu reserva {booking_ref}. Tu reserva sigue en pie. Detalles en la app.',
+  // confirmation et demandes de réservation (US-213, ADR-157)
+  'ntf.bookingConfirmedHost.email.subject': 'Reserva {booking_ref} confirmada',
+  'ntf.bookingConfirmedHost.email.body':
+    'Hola, {first_name}. La reserva {booking_ref} de tu auto está confirmada: del {start_at} al {end_at}. {brand} ya recibió el pago del viajero. En tu espacio de anfitrión ves el viaje y los mensajes con el viajero. En la entrega, revisa su licencia de conducir física y que su nombre sea el de la reserva.',
+  'ntf.bookingConfirmedHost.sms.body':
+    '{brand}: reserva {booking_ref} confirmada, del {start_at} al {end_at}. Detalles en tu espacio de anfitrión.',
+  'ntf.bookingRequestReceived.email.subject': 'Nueva solicitud de reserva {booking_ref}',
+  'ntf.bookingRequestReceived.email.body':
+    'Hola, {first_name}. Un viajero te envió la solicitud de reserva {booking_ref}. Tienes hasta el {respond_by} para aceptarla o rechazarla en tu espacio de anfitrión de {brand}. Si no respondes a tiempo, la solicitud vence y no se le cobra nada al viajero.',
+  'ntf.bookingRequestReceived.sms.body':
+    '{brand}: nueva solicitud {booking_ref}. Responde antes del {respond_by} en tu espacio de anfitrión.',
+  'ntf.bookingRequestDeclined.email.subject': 'Solicitud {booking_ref} no aceptada',
+  'ntf.bookingRequestDeclined.email.body':
+    'Hola, {first_name}. El anfitrión no aceptó tu solicitud {booking_ref}. No se te cobró nada: anulamos la autorización de tu pago. Puedes buscar otro auto para las mismas fechas en {brand}.',
+  'ntf.bookingRequestDeclined.sms.body':
+    '{brand}: tu solicitud {booking_ref} no fue aceptada. No se te cobró nada. Busca otro auto en la app.',
+  'ntf.bookingRequestExpired.email.subject': 'Solicitud {booking_ref} sin respuesta del anfitrión',
+  'ntf.bookingRequestExpired.email.body':
+    'Hola, {first_name}. El anfitrión no respondió a tiempo a tu solicitud {booking_ref}. No se te cobró nada: anulamos la autorización de tu pago. Puedes buscar otro auto para las mismas fechas en {brand}.',
+  'ntf.bookingRequestExpired.sms.body':
+    '{brand}: tu solicitud {booking_ref} venció sin respuesta. No se te cobró nada. Busca otro auto en la app.',
+  'ntf.bookingRequestFailed.email.subject': 'Reserva {booking_ref} no confirmada',
+  'ntf.bookingRequestFailed.email.body':
+    'Hola, {first_name}. El anfitrión aceptó tu solicitud {booking_ref}, pero no pudimos confirmar el cobro y la reserva no se hizo. No pagues de nuevo: anulamos la autorización de tu pago. Si ves un cargo, escríbenos desde tu reserva en {brand} y te devolvemos todo el pago.',
+  'ntf.bookingRequestFailed.sms.body':
+    '{brand}: la reserva {booking_ref} no se confirmó. No pagues de nuevo. Si ves un cargo, te devolvemos todo. Detalles en la app.',
+  'ntf.bookingRequestFailedHost.email.subject': 'Reserva {booking_ref} no confirmada',
+  'ntf.bookingRequestFailedHost.email.body':
+    'Hola, {first_name}. Aceptaste la solicitud {booking_ref}, pero no pudimos confirmar el cobro al viajero y la reserva no se hizo. Las fechas vuelven a estar libres en tu calendario de {brand}. No entregues el auto para esta solicitud.',
+  'ntf.bookingRequestFailedHost.sms.body':
+    '{brand}: la solicitud {booking_ref} que aceptaste no se confirmó. Fechas liberadas. No entregues el auto.',
   'backoffice.catalog.open': 'Abrir la solicitud',
   'backoffice.catalog.heading': 'Solicitud de alta al catálogo',
   'backoffice.catalog.requested': 'Lo que escribió el anfitrión',
@@ -2135,7 +2166,6 @@ export const ES_MESSAGES = {
   'web.s06.interrupted.body':
     'Vuelve a intentarlo: revisamos primero tu pago anterior y nunca creamos un segundo cobro.',
   'web.s06.interrupted.retry': 'Reintentar el pago',
-  'web.s06.confirmed.title': '¡Pago confirmado!',
   'web.s06.confirmed.body':
     'Tu reserva está confirmada. En la ficha del auto ya ves el lugar exacto de entrega.',
   'web.s06.confirmed.cta': 'Ver el auto',
@@ -2336,6 +2366,12 @@ export const ES_MESSAGES = {
   'web.a03.contract.back': 'Volver a la reserva',
   'web.a05.contract': 'Ver el contrato',
   'web.s06.confirmed.contract': 'Leer y firmar el contrato',
+  // S06 confirmé, contenu de 10b S07 (US-213, ADR-157)
+  'web.s07.title': '¡Reserva confirmada!',
+  'web.s07.documents':
+    'Lleva tu licencia de conducir física y tu documento de identidad: el anfitrión los revisará en la entrega.',
+  'web.s07.safety':
+    'Para tu seguridad: encuéntrense en un lugar público e iluminado, avisa a alguien de confianza dónde estarás y escribe solo por {brand}.',
   // US-215b (v69) : annulation d’un voyage par l’ops et état réel de la demande (console O01)
   'backoffice.cancel.heading': 'Cancelar un viaje',
   'backoffice.cancel.intro':
@@ -2456,6 +2492,56 @@ export const ES_MESSAGES = {
     'Hace falta una decisión de FINANCE sobre un anticipo de la plataforma.',
   'backoffice.cancel.outcome.SETTLEMENT_INPUT_INVALID':
     'Los datos de la liquidación no son válidos.',
+  // US-214 (ADR-160) : « Mis viajes » (S08) et détail du trip du voyageur (S09)
+  'common.trips.notFound': 'No encontramos este viaje.',
+  'common.trips.unavailable':
+    'No podemos mostrar tus viajes en este momento. Vuelve a intentarlo en unos minutos.',
+  'web.s08.heading': 'Mis viajes',
+  'web.s08.section.REQUESTED': 'Solicitudes enviadas',
+  'web.s08.section.UPCOMING': 'Próximos',
+  'web.s08.section.IN_PROGRESS': 'En curso',
+  'web.s08.section.DONE': 'Anteriores',
+  'web.s08.section.CANCELLED': 'Cancelados',
+  'web.s08.none': 'Aún no tienes viajes',
+  'web.s08.emptyCta': 'Buscar un auto',
+  'web.s08.loadError': 'No pudimos cargar tus viajes.',
+  'web.s08.reference': 'Viaje {ref}',
+  'web.s08.request': 'Solicitud de reserva',
+  'web.s08.dates': 'Del {start} al {end}',
+  'web.s08.host': 'Anfitrión: {name}',
+  'web.s08.hostHidden': 'anfitrión particular',
+  'web.s08.respondBy':
+    'El anfitrión responde a más tardar el {date}. No se te cobra nada si no acepta.',
+  'web.s08.openTrip': 'Ver el viaje',
+  'web.s08.openRequest': 'Ver la solicitud',
+  'web.s09.heading': 'Tu viaje',
+  'web.s09.back': 'Volver a mis viajes',
+  'web.s09.localTime': 'Horas en la zona horaria local del viaje.',
+  'web.s09.host.lead':
+    'Tu anfitrión es un particular que alquila su propio auto. La entrega y la devolución se hacen en persona.',
+  'web.s09.place.title': 'Lugar de entrega',
+  'web.s09.place.hidden': 'La dirección exacta solo se muestra para un viaje próximo o en curso.',
+  'web.s09.payment.title': 'Pago',
+  'web.s09.payment.total': 'Total pagado',
+  'web.s09.payment.CONFIRMED': 'Pago confirmado',
+  'web.s09.payment.REFUNDED_PARTIAL': 'Reembolsado en parte',
+  'web.s09.payment.REFUNDED': 'Reembolsado',
+  'web.s09.refund.link': 'Ver tu reembolso',
+  'web.s09.documents.title': 'Documentos',
+  'web.s09.documents.contract': 'Contrato de alquiler',
+  'web.s09.documents.contract.NONE': 'En preparación',
+  'web.s09.documents.contract.TO_SIGN': 'Por firmar',
+  'web.s09.documents.contract.SIGNED': 'Firmado',
+  'web.s09.documents.open': 'Abrir el contrato',
+  'web.s09.documents.constancia': 'Constancia de arrendamiento',
+  'web.s09.documents.receipt': 'Recibo del pago',
+  'web.s09.documents.soon': 'Disponible pronto',
+  'web.s09.loadError': 'No pudimos cargar este viaje.',
+  'web.s09.changes':
+    '¿Necesitas cambiar o cancelar un viaje? Por ahora, cualquier cambio pasa por nuestro soporte.',
+  'web.s08.requestAccepted': 'El anfitrión aceptó tu solicitud. Estamos confirmando tu pago.',
+  'web.s09.documents.contract.UNSIGNED': 'Sin firmar',
+  'web.s06.confirmed.trips': 'Ver mis viajes',
   // US-224 partie 224d (ADR-154) : remboursement lu par le voyageur (S10), l’hôte (A05) et la console
   'common.receipt.notFound': 'No encontramos este recibo.',
   'common.receipt.notReady':
