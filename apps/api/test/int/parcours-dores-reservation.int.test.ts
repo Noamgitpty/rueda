@@ -389,6 +389,37 @@ const paymentService = (db: pg.ClientBase, psp: FakeHostedPsp): CheckoutPaymentS
     () => undefined,
   );
 
+/** « Pagar » par le vrai service ; un refus est rendu avec son code (diagnostic de la CI). */
+async function payOrExplain(service: CheckoutPaymentService, hash: Buffer, holdId: string) {
+  try {
+    return await service.pay(hash, holdId, { method: 'CARD' });
+  } catch (error) {
+    const code = (error as { code?: unknown }).code;
+    throw new Error(`paiement refusé : ${String(code)}`, { cause: error });
+  }
+}
+
+/**
+ * T1 (`booking_cmd_checkout_pay`) retient le premier compte marchand ACTIVE du pays (fournisseur,
+ * puis identifiant). Les scènes de `concurrence-webhook.int.test.ts` VALIDENT, le temps d'un test,
+ * un compte ACTIVE d'un autre fournisseur du même pays (BAC, EBANX : avant FAKE dans l'ordre) puis
+ * le suspendent : attendre (au plus 30 s) que seul le compte FAKE du pays soit actif, sinon T1
+ * viserait ce compte de passage (course entre fichiers de test, pas un défaut du produit ;
+ * passation US-221, constat C-1). Lecture seule, sous app_worker.
+ */
+async function soleFakeAccount(country: string): Promise<void> {
+  const worker = await open('app_worker');
+  for (let i = 0; i < 120; i++) {
+    const { rows } = await worker.query<{ provider: string }>(
+      `SELECT provider FROM core.payment_psp_account WHERE country_code = $1 AND status = 'ACTIVE'`,
+      [country],
+    );
+    if (rows.length > 0 && rows.every((r) => r.provider === 'FAKE')) return;
+    await new Promise((resolve) => setTimeout(resolve, 250));
+  }
+  throw new Error('un compte marchand actif d’un autre fournisseur reste ouvert dans le pays');
+}
+
 // --- état partagé des segments (par pays) --------------------------------------------------------
 
 interface BookedWorld {
@@ -580,8 +611,10 @@ describe.each(CASES)('US-221 — parcours dorés « réservation » ($country, $
         const psp = new FakeHostedPsp();
         const pay = paymentService(tx, psp);
         await capabilities(tx, c.country, at(-3));
-        await capabilities(tx, c.country, at(-2), 'SUPPORTS_PER_LEG_AMOUNTS', 'UNKNOWN');
+        await soleFakeAccount(c.country);
+        // capacité inconnue posée dans un point de sauvegarde, retirée avec lui après le refus
         await tx.query('SAVEPOINT us221_capability');
+        await capabilities(tx, c.country, at(-2), 'SUPPORTS_PER_LEG_AMOUNTS', 'UNKNOWN');
         await expect(pay.pay(hash, holdId, { method: 'CARD' })).rejects.toMatchObject({
           code: 'HOST_PAYOUT_RAIL_UNAVAILABLE',
         });
@@ -593,9 +626,9 @@ describe.each(CASES)('US-221 — parcours dorés « réservation » ($country, $
           tripId: null,
         });
 
-        // capacité validée : T1 (jambes du devis engagé), ordre au PSP, T2
-        await capabilities(tx, c.country, at(-1), 'SUPPORTS_PER_LEG_AMOUNTS');
-        const started = await pay.pay(hash, holdId, { method: 'CARD' });
+        // capacités validées : T1 (jambes du devis engagé), ordre au PSP, T2
+        await soleFakeAccount(c.country);
+        const started = await payOrExplain(pay, hash, holdId);
         expect(started.created).toBe(true);
         expect(started.payment).toMatchObject({
           state: 'VERIFYING',
@@ -733,8 +766,9 @@ describe.each(CASES)('US-221 — parcours dorés « réservation » ($country, $
       });
 
       const psp = new FakeHostedPsp();
+      await soleFakeAccount(c.country);
       const started = await inTx(api, { at: t(1), commit: true }, (tx) =>
-        paymentService(tx, psp).pay(w.guestHash!, w.hold!, { method: 'CARD' }),
+        payOrExplain(paymentService(tx, psp), w.guestHash!, w.hold!),
       );
       expect(started.created).toBe(true);
       expect(started.payment).toMatchObject({ state: 'VERIFYING', tripId: null });
