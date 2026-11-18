@@ -1,6 +1,6 @@
 /**
  * Port et adaptateur PostgreSQL de la constancia d'arrendamiento (US-212, ADR-162 ; fonctions de la
- * migration 0136). L'adaptateur n'appelle QUE :
+ * migration 0137). L'adaptateur n'appelle QUE :
  *   - `core.booking_trip_constancia` (faits figés du dernier contrat, pour une partie du trip) ;
  *   - `core.booking_host_constancia_search` (trips du compte d'hôte par plaque et date, EC-48).
  * Les deux sont `SECURITY DEFINER`, `EXECUTE` au seul `app_api` ; la personne est désignée par

@@ -297,7 +297,7 @@ export async function postgresCtrAdapters(db: CtrSqlExecutor): Promise<{
   // contrat de location d'un trip (US-211 partie 211b) : core.booking_trip_contract et
   // core.booking_cmd_sign_contract (0122, EXECUTE app_api)
   // constancia d'arrendamiento (US-212) : core.booking_trip_constancia et
-  // core.booking_host_constancia_search (0136, EXECUTE app_api)
+  // core.booking_host_constancia_search (0137, EXECUTE app_api)
   return {
     store: new PgConsentStore(db),
     contracts: new PgTripContractStore(db),

@@ -7,7 +7,7 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 
 ## Synthèse
 
-- 137 migrations ; 127 tables ; 3 vues ; 713 politiques RLS ; 274 fonctions `SECURITY DEFINER` ; 249 autres fonctions.
+- 138 migrations ; 127 tables ; 3 vues ; 713 politiques RLS ; 275 fonctions `SECURITY DEFINER` ; 249 autres fonctions.
 - Tables sans RLS `ENABLE` + `FORCE` : aucune.
 - Rôles applicatifs avec `SUPERUSER` ou `BYPASSRLS` : aucun.
 
@@ -151,7 +151,8 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 | `0133_booking_notification_parties` | AVL / NTF : parties d'une réservation lues par le travailleur des notifications. |
 | `0134_config_vehicle_value_class_params` | graine complémentaire : paramètres « vehicle_default_value_class* » (US-113 ; 17 §7.2). |
 | `0135_catalog_vehicle_value_class` | CAT : classe de valeur attribuée à la publication d'un véhicule non classé (BOARD N-83, |
-| `0136_booking_trip_constancia_read` | CTR / AVL : constancia d'arrendamiento d'un trip et recherche de l'hôte par plaque et date |
+| `0136_booking_guest_trips_read` | AVL : « Mis viajes » et détail du trip du voyageur (S08, S09), lecture seule. |
+| `0137_booking_trip_constancia_read` | CTR / AVL : constancia d'arrendamiento d'un trip et recherche de l'hôte par plaque et date |
 
 ## Rôles
 
@@ -6360,6 +6361,7 @@ Chacune a un propriétaire `NOLOGIN` dédié (ADR-053) et un `search_path` figé
 | `core.booking_cmd_trip_transition(p_trip_id uuid, p_to_status text, p_reason_code text, p_expected_row_version integer)` | `jsonb` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; cmd_hold_owner: EXECUTE |
 | `core.booking_contract_source(p_trip_id uuid)` | `jsonb` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; cmd_hold_owner: EXECUTE |
 | `core.booking_conversion_eligibility(p_hold_id uuid)` | `text` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; cmd_hold_owner: EXECUTE |
+| `core.booking_guest_trips(p_token_hash bytea, p_tab text, p_trip_id uuid, p_limit integer)` | `TABLE(outcome text, kind text, item_id uuid, public_ref text, tab text, status text, payment_status text, currency text, timezone text, starts_at timestamp with time zone, ends_at timestamp with time zone, respond_by timestamp with time zone, vehicle_make text, vehicle_model text, vehicle_year integer, host_name text, place_label text, place_address text, place_city text, total_minor bigint, contract_state text)` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; cmd_hold_owner: EXECUTE |
 | `core.booking_hold_review_item_close()` | `trigger` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | cmd_hold_owner: EXECUTE |
 | `core.booking_host_constancia_search(p_token_hash bytea, p_plate text, p_date date)` | `TABLE(outcome text, trip_id uuid, public_ref text, status text, start_local text, end_local text)` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; cmd_hold_owner: EXECUTE |
 | `core.booking_host_guest_rows()` | `TABLE(trip_id uuid, first_name text, age_years integer, rating numeric, verification_status text)` | `host_view_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; host_view_owner: EXECUTE |

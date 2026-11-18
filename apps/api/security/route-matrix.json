@@ -567,6 +567,14 @@
       "acces": "public",
       "idor": "rappel d’un fournisseur d’identité : signature du fournisseur exigée sur le corps brut ; le dossier visé est celui de la session du fournisseur ET de la référence opaque du sujet (recoupées en base) ; fournisseur inconnu ⇒ 404 sans écriture"
     },
+    "GET /trips": {
+      "acces": "session",
+      "idor": "liste du voyageur de la SESSION seulement (core.booking_guest_trips, 0136 : aucun identifiant de personne reçu) ; les trips qu'il héberge n'y figurent pas ; de l'hôte seulement prénom et initiale (L2-PM-35), aucune plaque, adresse exacte d'un trip à venir ou en cours seulement ; preuves base : l0-us214-guest-trips"
+    },
+    "GET /trips/{tripId}": {
+      "acces": "session",
+      "idor": "trip d'une autre personne (y compris un trip que la session héberge), inconnu ou identifiant mal formé : 404 TRIP_NOT_FOUND, même réponse (RLS-1, 17 §2.3 point 5) ; le voyageur est celui de la session, jugé en base (core.booking_guest_trips, 0136) ; preuves base : l0-us214-guest-trips"
+    },
     "GET /trips/{tripId}/contract": {
       "acces": "session",
       "idor": "trip d'une autre personne (ni son voyageur ni le titulaire de son compte d'hôte), inconnu ou identifiant mal formé : 404 CONTRACT_NOT_FOUND, même réponse (17 §2.3 point 5) ; la partie est celle de la session, jugée en base (core.booking_trip_contract, core.booking_cmd_sign_contract ; signature : voyageur seulement) ; du voyageur seulement prénom et initiale (L2-PM-35) ; preuves base : l0-us211"
@@ -585,15 +593,15 @@
     },
     "GET /trips/{tripId}/constancia": {
       "acces": "session",
-      "idor": "trip d'une autre personne (ni son voyageur ni le titulaire de son compte d'hôte), inconnu ou identifiant mal formé : 404 CONSTANCIA_NOT_FOUND, même réponse (17 §2.3 point 5) ; la partie est celle de la session, jugée en base (core.booking_trip_constancia, 0136) ; faits figés du dernier contrat ; hôte et conducteur en prénom et initiale, ni pièce ni adresse exacte (L2-PM-35) ; preuves base : l0-us212"
+      "idor": "trip d'une autre personne (ni son voyageur ni le titulaire de son compte d'hôte), inconnu ou identifiant mal formé : 404 CONSTANCIA_NOT_FOUND, même réponse (17 §2.3 point 5) ; la partie est celle de la session, jugée en base (core.booking_trip_constancia, 0137) ; faits figés du dernier contrat ; hôte et conducteur en prénom et initiale, ni pièce ni adresse exacte (L2-PM-35) ; preuves base : l0-us212"
     },
     "GET /trips/{tripId}/constancia/pdf": {
       "acces": "session",
-      "idor": "trip d'une autre personne (ni son voyageur ni le titulaire de son compte d'hôte), inconnu ou identifiant mal formé : 404 CONSTANCIA_NOT_FOUND, même réponse (17 §2.3 point 5) ; la partie est celle de la session, jugée en base (core.booking_trip_constancia, 0136) ; faits figés du dernier contrat ; hôte et conducteur en prénom et initiale, ni pièce ni adresse exacte (L2-PM-35) ; preuves base : l0-us212"
+      "idor": "trip d'une autre personne (ni son voyageur ni le titulaire de son compte d'hôte), inconnu ou identifiant mal formé : 404 CONSTANCIA_NOT_FOUND, même réponse (17 §2.3 point 5) ; la partie est celle de la session, jugée en base (core.booking_trip_constancia, 0137) ; faits figés du dernier contrat ; hôte et conducteur en prénom et initiale, ni pièce ni adresse exacte (L2-PM-35) ; preuves base : l0-us212"
     },
     "POST /trips/constancias/search": {
       "acces": "session",
-      "idor": "trips du seul compte d'hôte dont la session est le titulaire (core.booking_host_constancia_search, 0136) : un voyageur ou un tiers n'obtient aucune ligne ; plaque figée au dernier contrat, dans le corps (jamais dans l'URL) ; référence, statut et période locale seulement ; preuves base : l0-us212"
+      "idor": "trips du seul compte d'hôte dont la session est le titulaire (core.booking_host_constancia_search, 0137) : un voyageur ou un tiers n'obtient aucune ligne ; plaque figée au dernier contrat, dans le corps (jamais dans l'URL) ; référence, statut et période locale seulement ; preuves base : l0-us212"
     }
   }
 }

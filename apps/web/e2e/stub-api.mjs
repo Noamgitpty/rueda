@@ -2243,6 +2243,58 @@ function refundRoute(req, res, url) {
   });
 }
 
+// ---- « Mis viajes » et détail du trip du voyageur (US-214) : lecture par le voyageur ------------
+// Les trips du voyageur de la session sont ceux dont il est la partie voyageur du contrat (trip né au
+// webhook SUCCEEDED) ; toute autre session ⇒ liste vide et 404 TRIP_NOT_FOUND (comme l'API). Faits
+// FIXES (captures stables) : auto, dates, hôte en prénom et initiale, lieu, total ; un trip annulé
+// par `__e2e/refund/cancel` passe en CANCELLED (adresse retirée, paiement remboursé en partie).
+const GUEST_TRIP_START = '2036-12-10T15:00:00.000Z';
+const GUEST_TRIP_END = '2036-12-13T15:00:00.000Z';
+
+function guestTripView(tripId, c) {
+  const cancelled = refundsByTrip.has(tripId);
+  const last = c.docs[c.docs.length - 1];
+  return {
+    kind: 'TRIP',
+    id: tripId,
+    // référence FIXE (captures stables ; l'API rend le numéro public du trip)
+    reference: 'K-E2E00214',
+    tab: cancelled ? 'CANCELLED' : 'UPCOMING',
+    status: cancelled ? 'CANCELLED_BY_GUEST' : 'BOOKED',
+    paymentStatus: cancelled ? 'REFUNDED_PARTIAL' : 'CONFIRMED',
+    currency: MARKET.currency,
+    currencyExponent: MARKET.currencyExponent,
+    timezone: 'UTC',
+    startsAt: GUEST_TRIP_START,
+    endsAt: GUEST_TRIP_END,
+    respondBy: null,
+    vehicle: { make: 'Toyota', model: 'Yaris', year: 2021 },
+    hostName: 'María G.',
+    handover: {
+      place: 'Casa',
+      address: cancelled ? null : 'Calle de prueba 1',
+      city: cancelled ? null : 'Ciudad de prueba',
+    },
+    totalMinor: '12840',
+    contract: last === undefined ? 'NONE' : last.signature === null ? 'TO_SIGN' : 'SIGNED',
+  };
+}
+
+function guestTripsRoute(req, res, url) {
+  const path = url.pathname;
+  const one = /^\/trips\/([^/]+)$/.exec(path);
+  if (req.method !== 'GET' || (path !== '/trips' && one === null)) return false;
+  const token = tokenOf(req);
+  if (token === undefined) return err(res, 401, 'AUTH_REQUIRED', 'common.auth.sessionRequired');
+  const mine = [...contracts.entries()].filter(([, c]) => c.guest !== null && c.guest === token);
+  if (one === null) {
+    return json(res, 200, { trips: mine.map(([id, c]) => guestTripView(id, c)) });
+  }
+  const found = mine.find(([id]) => id === one[1].toLowerCase());
+  if (found === undefined) return err(res, 404, 'TRIP_NOT_FOUND', 'common.trips.notFound');
+  return json(res, 200, { trip: guestTripView(found[0], found[1]) });
+}
+
 createServer(async (req, res) => {
   const url = new URL(req.url ?? '/', 'http://127.0.0.1');
   const path = url.pathname;
@@ -2251,6 +2303,7 @@ createServer(async (req, res) => {
   if ((await contractRoute(req, res, url)) !== false) return;
   if ((await constanciaRoute(req, res, url)) !== false) return;
   if (refundRoute(req, res, url) !== false) return;
+  if (guestTripsRoute(req, res, url) !== false) return;
   if ((await checkoutRoute(req, res, path)) !== false) return;
   if ((await hostRoute(req, res, url)) !== false) return;
   if (req.method === 'GET' && path === '/__e2e/signups') return json(res, 200, signups);

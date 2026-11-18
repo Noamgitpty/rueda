@@ -325,6 +325,27 @@ async function openHostContract(
 }
 
 /**
+ * S06 confirmé (trip né) → S08 « Mis viajes » ; avec `detail`, S09 · détail du trip (US-214). Faits
+ * du double fixes (référence, dates, total) : captures stables.
+ */
+async function openGuestTrips(
+  page: Page,
+  context: BrowserContext,
+  language: Language,
+  detail: boolean,
+): Promise<void> {
+  await openPayment(page, context, language, ['PAY', 'SUCCEEDED'], 'CONFIRMED');
+  const href = await page.locator('[data-testid="s06-contract"]').getAttribute('href');
+  const tripId = /\/trips\/([0-9a-f-]{36})\/contract$/.exec(href ?? '')?.[1];
+  if (tripId === undefined) throw new Error('trip absent');
+  await page.goto('/trips');
+  await expect(page.locator('[data-testid="s08-upcoming"]')).toBeVisible();
+  if (!detail) return;
+  await page.goto(`/trips/${tripId}`);
+  await expect(page.locator('[data-testid="s09-documents"]')).toBeVisible();
+}
+
+/**
  * S06 confirmé → contrat (trip né) → annulation réglée par le double → S10 · remboursement émis du
  * voyageur (US-224 partie 224d).
  */
@@ -714,6 +735,17 @@ export const SCREENS: readonly Screen[] = [
     name: 'hote-remboursement',
     source: 'A05, US-224',
     open: (page, context, language, project) => openHostRefund(page, context, language, project),
+  },
+  // US-214 : « Mis viajes » (S08) et détail du trip (S09) du voyageur
+  {
+    name: 'mes-voyages',
+    source: 'S08, US-214',
+    open: (page, context, language) => openGuestTrips(page, context, language, false),
+  },
+  {
+    name: 'detail-voyage',
+    source: 'S09, US-214',
+    open: (page, context, language) => openGuestTrips(page, context, language, true),
   },
   { name: 'vitrine-composants', source: 'US-032', open: at('/ui?width=mobile') },
 ];

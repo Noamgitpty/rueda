@@ -227,7 +227,14 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  (demandes de réservation : reçue par l’hôte avec l’heure limite de la base ; refus, expiration,
  capture non aboutie), `web.s07.title`, `web.s07.documents`, `web.s07.safety` (S06 confirmé,
  10b S07).
- Version 78 (74 à 77 réservées à des stories en cours ; la 73 est celle d’US-213) : constancia
+ Version 76 (74 et 75 réservées à des stories en cours ; la 73 est celle d’US-213) : « Mis viajes » et détail du
+ trip du voyageur (US-214, ADR-160) : `common.trips.*` (réponses des routes `/trips` et
+ `/trips/{id}` : introuvable, indisponible), `web.s08.*` (S08 : sections demandes envoyées, à
+ venir, en cours, passés, annulés ; carte du trip ; heure limite de réponse d'une demande ; vide
+ `web.s08.none`, texte de `web.s08.empty` de 10b §4.3 dont la clé est tenue par le prototype),
+ `web.s09.*` (S09 : lieu de remise, hôte particulier, total payé,
+ documents — contrat ; constancia et reçu annoncés —, modification par le support, BR-MOD-01).
+ Version 78 (77 réservée à US-217a ; la 76 est celle d’US-214 ; 74 et 75 réservées à des stories en cours) : constancia
  d’arrendamiento et centre juridique (US-212, ADR-162) : `ctr.constancia.*` (texte du PDF de la
  constancia, espagnol qui fait foi puis langue du lecteur, gabarit BROUILLON, GL-39),
  `common.constancia.*` (réponses des routes `/trips/{id}/constancia` et

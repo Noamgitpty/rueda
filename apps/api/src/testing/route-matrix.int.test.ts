@@ -793,6 +793,11 @@ async function requestOf(
       };
     case 'GET /checkout/holds/{holdId}/payment':
       return { method: 'GET', path: `/checkout/holds/${randomUUID()}/payment` };
+    // « Mis viajes » et détail du trip du voyageur (US-214) : liste de la session ; trip inconnu ⇒ 404
+    case 'GET /trips':
+      return { method: 'GET', path: '/trips' };
+    case 'GET /trips/{tripId}':
+      return { method: 'GET', path: `/trips/${randomUUID()}` };
     // contrat de location d'un trip (US-211 partie 211b) : trip inconnu de l'acteur ⇒ 404
     case 'GET /trips/{tripId}/contract':
       return { method: 'GET', path: `/trips/${randomUUID()}/contract` };
