@@ -187,6 +187,9 @@ const REVIEW_FLAGGED_HANDLER =
 // travailleur trip_lifecycle) ; saisies fermées du sous-motif et du motif plateforme
 const CANCEL_TRIP_HANDLER =
   'core.booking_manual_action_cancel_trip(bytea,uuid,text,uuid,jsonb,text,uuid,text)';
+// US-224e (0140, ADR-163) : annulation des trips à venir d'un hôte défaillant
+const CANCEL_HOST_TRIPS_HANDLER =
+  'core.booking_manual_action_cancel_host_trips(bytea,uuid,text,uuid,jsonb,text,uuid,text)';
 const KYC_DECISION_HANDLER =
   'core.kyc_manual_action_decision(bytea,uuid,text,uuid,jsonb,text,uuid,text)';
 // 19 US-106 : décision (SM-3 MANUAL_REVIEW → APPROVED | REJECTED | MORE_INFO_REQUIRED) et les
@@ -325,6 +328,19 @@ const MATRIX: Readonly<Record<string, Expected>> = {
     approval: false,
     handler: CANCEL_TRIP_HANDLER,
     source: '17 §2.3 « ops.platform_cancel (motif plateforme) » ; 16 BKG-035 ; 19 US-215, ADR-148',
+  },
+  // US-224e (0140, ADR-163) : hôte défaillant, trips à venir de son compte annulés au motif
+  // HOST_ACCOUNT_CLOSED (motif dérivé de l'action, aucune saisie)
+  CANCEL_HOST_TRIPS: {
+    permission: 'ops.platform_cancel',
+    subject: 'ORGANIZATION',
+    mode: 'DOMAIN_COMMAND',
+    keys: [],
+    values: {},
+    approval: false,
+    handler: CANCEL_HOST_TRIPS_HANDLER,
+    source:
+      '08 BR-TRUST-09 « suspendre les nouvelles réservations d’un hôte défaillant », BR-CXL-14 ; 19 US-224 critère 5 ; ADR-163 (action, sujet et permission, PROPOSÉ)',
   },
   DECLARE_NO_SHOW: {
     permission: 'trip.declare_no_show',
@@ -506,7 +522,7 @@ async function catalog(client: pg.ClientBase): Promise<Map<string, CatalogRow>> 
 }
 
 describe('catalogue (17 §10 NN9, 17 §2.3, 19 US-101)', () => {
-  it('le catalogue minimal de 17 §10 : les 19 actions de 19 US-101, plus CREATE_HOST_ACCOUNT (US-107), RESTRICT_ACCOUNT et LIFT_RESTRICTION (US-109), HOST_SCREENING_REVIEW (US-123), HOST_SANCTIONS_SCREENING (US-108)', async () => {
+  it('le catalogue minimal de 17 §10 : les 19 actions de 19 US-101, plus CREATE_HOST_ACCOUNT (US-107), RESTRICT_ACCOUNT et LIFT_RESTRICTION (US-109), HOST_SCREENING_REVIEW (US-123), HOST_SANCTIONS_SCREENING (US-108), CANCEL_HOST_TRIPS (US-224e)', async () => {
     await withRole('app_api', async (client) => {
       const byCode = await catalog(client);
       expect([...byCode.keys()].sort()).toEqual(
@@ -525,6 +541,8 @@ describe('catalogue (17 §10 NN9, 17 §2.3, 19 US-101)', () => {
           'HOST_SCREENING_REVIEW',
           // US-108 (0081) : filtrage manuel des sanctions par l'ops
           'HOST_SANCTIONS_SCREENING',
+          // US-224e (0140) : trips à venir d'un hôte défaillant (ADR-163)
+          'CANCEL_HOST_TRIPS',
         ].sort(),
       );
       expect(Object.keys(MATRIX).sort()).toEqual([...byCode.keys()].sort());
