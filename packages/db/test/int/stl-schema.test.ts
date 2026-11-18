@@ -59,13 +59,7 @@ describe('schéma STL (US-018, 0027)', () => {
           ORDER BY 1`,
       );
       expect(rows.map((r) => r.t)).toEqual(
-        [
-          ...STL_TABLES,
-          ...US062_TABLES,
-          ...US108_TABLES,
-          ...US709_TABLES,
-          ...US227_TABLES,
-        ].sort(),
+        [...STL_TABLES, ...US062_TABLES, ...US108_TABLES, ...US709_TABLES, ...US227_TABLES].sort(),
       );
       for (const r of rows) {
         expect(r, r.t).toMatchObject({ rls: true, force: true, owner: 'migrator', m: true });

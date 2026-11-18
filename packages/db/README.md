@@ -1011,3 +1011,15 @@ Migration `0129_settlement_host_ledger`. Fixture `9949_test_us709_host_ledger_fi
 - **Lecture** : vue `core.settlement_host_ledger_balance_v` (solde par hôte, pays et devise) ; politique `fin_read` (FINANCE / ADMIN du pays) ; aucun droit d'app_worker ni d'app_anon.
 - **Codes** : `host_ledger_command_forbidden` ⇒ `FORBIDDEN` ; `host_ledger_settlement_unknown`, `host_ledger_version_unsupported`, `host_ledger_entry_settlement_reason_unique` ⇒ `INVARIANT_VIOLATION`.
 - **Preuves** : `test/l0/l0-us709a-host-ledger.test.ts` (T14, T15, T48, T03, T27 ; PA USD, PY PYG ; groupe isolé) ; matrice d'autorisations peuplée (`l0-us043-authorization-matrix`).
+
+## Registre et bordereau de l'assureur (US-227 ; 08 E7 règles 3, 3 bis, 6, 7 ; 17 §2.9 ; ADR-165)
+
+Migration `0139_settlement_insurer_ledger`. Fixture `9947_test_us227_insurer_ledger_fixtures.sql` (contrat de test sur une période, lecture des écritures, écriture posée dans le monde de la matrice, essais d'immuabilité ; assureur et contrat « de structure » des fixtures de 9700, dont `us062_insert_bordereau` et `us062_insert_insurer_ledger` sont remplacées à signature égale pour les clés étrangères de 0139).
+
+- **Table** `core.settlement_insurer_ledger_entry` (classe C1, sujet ORG) : écriture signée en unités mineures de la devise du trip, motif `COLLECTION` (jambe `INSURER` d'un encaissement porté, clé vers `settlement_leg_movement`) ou `SETTLEMENT_VARIATION` (variation stockée d'une version, clé composite `settlement_ledger_scope_unique`), contrat de l'assureur en vigueur à la réservation (NULL si aucun) ; unique par opération et par règlement ; immuable. La politique d'insertion de `cmd_money_owner` exige la source au montant exact.
+- **Écriture** : déclencheurs `insurer_ledger_collection_posted` (`settlement_leg_movement`) et `insurer_ledger_variation_posted` (`settlement_settlement_leg`), fonctions SECURITY DEFINER de cmd_money_owner sans EXECUTE ; refus `insurer_leg_on_bordereau` si le trip est porté par un bordereau émis.
+- **Bordereau** : `core.settlement_cmd_draft_insurer_bordereaux(text)` (cmd_money_owner, EXECUTE app_worker, travailleur `bordereau`) ; colonne `period_month`, index unique (contrat, mois) ; lignes seulement sur un bordereau DRAFT ; garde `insurer_bordereau_issue_check` (incohérent, gelé, périmé) à l'émission par `cmd_approve_finance_action`.
+- **Contrat** : `bordereau_period` (`MONTHLY`), `chargeback_clause` (`PREMIUM_NEVER_REDUCED`) ; clés étrangères vers l'assureur et le contrat sur `insurer_ledger_state`, `insurer_bordereau`, `platform_advance`.
+- **Rapprochement** : `core.finance_insurer_ledger_facts()` (cmd_money_owner, EXECUTE app_worker, travailleur `reconciliation`).
+- **Codes** : `insurer_ledger_command_forbidden` ⇒ `FORBIDDEN` ; `insurer_leg_on_bordereau`, `insurer_bordereau_incoherent`, `insurer_bordereau_stale`, `insurer_bordereau_line_frozen` ⇒ `INVARIANT_VIOLATION`.
+- **Preuves** : `test/l0/l0-us227-insurer-ledger.test.ts` (TJ01, TJ02b, TJ08a, TJ08b ; T03, T27 ; PA USD, PY PYG ; groupe isolé) ; matrice d'autorisations peuplée (`l0-us043-authorization-matrix`).

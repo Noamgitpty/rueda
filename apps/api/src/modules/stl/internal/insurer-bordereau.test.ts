@@ -38,9 +38,9 @@ describe('US-227 — tâche du bordereau de l’assureur', () => {
     const handler = registry.handlerOf(INSURER_BORDEREAU_WORKER);
     if (handler?.kind !== 'timer') throw new Error('minuterie attendue');
     const sql = new ScriptedSql([
-      { outcome: 'DRAFTED', country: 'PA' },
-      { outcome: 'EMPTY', country: 'PA' },
-      { outcome: 'PERIOD_OPEN', country: 'PY' },
+      { outcome: 'DRAFTED', country: 'AA' },
+      { outcome: 'EMPTY', country: 'AA' },
+      { outcome: 'PERIOD_OPEN', country: 'BB' },
     ]);
     await handler.handle({}, sql);
     expect(sql.texts).toEqual([DRAFT_INSURER_BORDEREAUX_SQL]);
@@ -57,7 +57,9 @@ describe('US-227 — tâche du bordereau de l’assureur', () => {
   });
 
   it('la requête ne lit aucune horloge et n’écrit rien elle-même (la base décide le mois)', () => {
-    expect(DRAFT_INSURER_BORDEREAUX_SQL).not.toMatch(/\b(now|current_timestamp|clock_timestamp)\b/i);
+    expect(DRAFT_INSURER_BORDEREAUX_SQL).not.toMatch(
+      /\b(now|current_timestamp|clock_timestamp)\b/i,
+    );
     expect(DRAFT_INSURER_BORDEREAUX_SQL).toMatch(/settlement_cmd_draft_insurer_bordereaux\(NULL\)/);
   });
 

@@ -485,15 +485,18 @@ const INSURER_CORRUPTIONS: readonly [
 ];
 
 describe('US-227 — jambe assureur : le registre est le miroir des jambes INSURER stockées (chaque pays configuré)', () => {
-  it.each(CASES)('$country : trip annulé (TJ02b / TJ08b) et trip porté par un bordereau ⇒ aucun écart', (c) => {
-    expect(insurerFactOf(c).due).toBe(0n);
-    expect(insurerLedgerViolations(insurerFactOf(c))).toEqual([]);
-    expect(insurerLedgerViolations(billedFactOf(c))).toEqual([]);
-    const r = evaluateMoneyReconciliation([], [], [], [insurerFactOf(c), billedFactOf(c)]);
-    expect(r.violations).toBe(0n);
-    expect(r.examined.insurerTrips).toEqual({ [c.country]: 2 });
-    expect(r.examined.insurerUnattributed).toEqual({});
-  });
+  it.each(CASES)(
+    '$country : trip annulé (TJ02b / TJ08b) et trip porté par un bordereau ⇒ aucun écart',
+    (c) => {
+      expect(insurerFactOf(c).due).toBe(0n);
+      expect(insurerLedgerViolations(insurerFactOf(c))).toEqual([]);
+      expect(insurerLedgerViolations(billedFactOf(c))).toEqual([]);
+      const r = evaluateMoneyReconciliation([], [], [], [insurerFactOf(c), billedFactOf(c)]);
+      expect(r.violations).toBe(0n);
+      expect(r.examined.insurerTrips).toEqual({ [c.country]: 2 });
+      expect(r.examined.insurerUnattributed).toEqual({});
+    },
+  );
 
   for (const c of CASES) {
     it.each(INSURER_CORRUPTIONS)(`${c.country} : %s`, (_label, corrupt, expected) => {
@@ -508,7 +511,12 @@ describe('US-227 — jambe assureur : le registre est le miroir des jambes INSUR
   }
 
   it.each(CASES)('$country : écriture sans contrat d’assureur ⇒ comptée, pas un écart', (c) => {
-    const r = evaluateMoneyReconciliation([], [], [], [{ ...insurerFactOf(c), unattributed: true }]);
+    const r = evaluateMoneyReconciliation(
+      [],
+      [],
+      [],
+      [{ ...insurerFactOf(c), unattributed: true }],
+    );
     expect(r.violations).toBe(0n);
     expect(r.examined.insurerUnattributed).toEqual({ [c.country]: 1 });
   });
