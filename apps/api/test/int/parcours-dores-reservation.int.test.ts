@@ -397,13 +397,42 @@ const paymentService = (
   );
 
 /** « Pagar » par le vrai service ; un refus est rendu avec son code (diagnostic de la CI). */
-async function payOrExplain(service: CheckoutPaymentService, hash: Buffer, holdId: string) {
+async function payOrExplain(
+  service: CheckoutPaymentService,
+  hash: Buffer,
+  holdId: string,
+  explain: () => Promise<string> = () => Promise.resolve(''),
+) {
   try {
     return await service.pay(hash, holdId, { method: 'CARD' });
   } catch (error) {
     const code = (error as { code?: unknown }).code;
-    throw new Error(`paiement refusé : ${String(code)}`, { cause: error });
+    throw new Error(`paiement refusé : ${String(code)} ${await explain()}`, { cause: error });
   }
+}
+
+/**
+ * Diagnostic d'un refus de T1 (aucun identifiant ni montant) : comptes ACTIVE du pays (fournisseur,
+ * environnement, mode d'encaissement, lus sous app_worker) et capacités bloquantes manquantes de
+ * chacun, lues dans la transaction de l'appelant (`payment_missing_blocking_capabilities`).
+ */
+async function accountsDiagnostic(tx: pg.ClientBase, country: string): Promise<string> {
+  const worker = await open('app_worker');
+  const { rows } = await worker.query<{ provider: string; environment: string; mode: string }>(
+    `SELECT provider, environment, collection_mode AS mode FROM core.payment_psp_account
+      WHERE country_code = $1 AND status = 'ACTIVE'
+      ORDER BY (environment = 'LIVE') DESC, provider, id`,
+    [country],
+  );
+  const out: string[] = [];
+  for (const r of rows) {
+    const m = await tx.query<{ missing: string[] }>(
+      'SELECT core.payment_missing_blocking_capabilities($1, $2, $3) AS missing',
+      [r.provider, country, r.mode],
+    );
+    out.push(`${r.provider}/${r.environment}/${r.mode} manque=[${m.rows[0]?.missing.join(',')}]`);
+  }
+  return `comptes : ${out.join(' ; ')}`;
 }
 
 /**
@@ -650,7 +679,9 @@ describe.each(CASES)('US-221 — parcours dorés « réservation » ($country, $
         });
 
         // capacités validées : T1 (jambes du devis engagé), ordre au PSP, T2
-        const started = await payOrExplain(pay, hash, holdId);
+        // diagnostic lu AVANT T1 (un refus de la base annule la transaction)
+        const diagnostic = await accountsDiagnostic(tx, c.country);
+        const started = await payOrExplain(pay, hash, holdId, () => Promise.resolve(diagnostic));
         expect(started.created).toBe(true);
         expect(started.payment).toMatchObject({
           state: 'VERIFYING',
