@@ -4,11 +4,14 @@
  * inattendue ⇒ `null`, l'écran dit l'erreur, jamais un remboursement partiel ou deviné). Le voyageur
  * reçoit le montant, le rail et la date d'émission ; l'hôte la seule part de la jambe HOST. Les
  * états SM-8 sont regroupés pour la personne (jamais un état technique à l'écran) :
- * - `PREPARING` : planifié ou en attente (PLANNED, PENDING_*), la date d'émission n'existe pas encore ;
+ * - `PREPARING` : planifié (PLANNED, PENDING_BANK_DETAILS), la date d'émission n'existe pas encore ;
  * - `ISSUED` : émission autorisée ou envoyée (SUBMITTED, SENT, CREDITED) : « Émis le … » ;
  * - `CONFIRMED` : le prestataire de paiement a confirmé (CONFIRMED) ;
- * - `ATTENTION` : refus du prestataire ou contestation bancaire (FAILED, BLOCKED_CHARGEBACK) :
- *   l'équipe s'en occupe, aucune action demandée.
+ * - `ATTENTION` : refus du prestataire, contestation bancaire ou autre moyen à convenir (FAILED,
+ *   BLOCKED_CHARGEBACK, PENDING_CUSTOMER_CHOICE) : l'équipe s'en occupe, aucune action demandée.
+ *   US-224f (ADR-166) : en bêta, PENDING_CUSTOMER_CHOICE ne suit qu'un rejet confirmé du moyen
+ *   d'origine et aucun autre rail n'est ouvert au voyageur : rien ne se « prépare », l'équipe le
+ *   contacte (aucun choix proposé à l'écran tant que le virement et le crédit sont fermés).
  * Côté serveur seulement ; jamais de donnée personnelle dans une URL ni dans un journal.
  */
 import type { ApiResult } from './api-client.ts';
@@ -42,7 +45,6 @@ export type RefundPhase = 'PREPARING' | 'ISSUED' | 'CONFIRMED' | 'ATTENTION';
 export function phaseOf(status: RefundStatus): RefundPhase | null {
   switch (status) {
     case 'PLANNED':
-    case 'PENDING_CUSTOMER_CHOICE':
     case 'PENDING_BANK_DETAILS':
       return 'PREPARING';
     case 'SUBMITTED':
@@ -53,6 +55,7 @@ export function phaseOf(status: RefundStatus): RefundPhase | null {
       return 'CONFIRMED';
     case 'FAILED':
     case 'BLOCKED_CHARGEBACK':
+    case 'PENDING_CUSTOMER_CHOICE':
       return 'ATTENTION';
     case 'CANCELLED':
     case 'SUPERSEDED':

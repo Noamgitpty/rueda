@@ -11,14 +11,19 @@ export {
   TripCancellationProcessor,
   cancellationEvent,
   cancellationParams,
+  ordersByTender,
   planCancellation,
   registerTripCancellations,
+  tenderKindOf,
 } from './internal/trip-cancellation.js';
 export type {
+  BetaRefundRail,
   CancellationFacts,
   CancellationOrder,
   CancellationOutcome,
   CancellationPlan,
+  CaptureTender,
+  TenderOrder,
 } from './internal/trip-cancellation.js';
 // Ordonnanceur des remboursements planifiés (US-224c, ADR-150)
 export {

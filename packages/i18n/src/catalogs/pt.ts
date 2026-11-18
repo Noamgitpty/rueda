@@ -2599,6 +2599,13 @@ export const PT_MESSAGES = {
   'backoffice.cancel.outcome.ADVANCE_DECISION_REQUIRED':
     'É preciso uma decisão de FINANCE sobre um adiantamento da plataforma.',
   'backoffice.cancel.outcome.SETTLEMENT_INPUT_INVALID': 'Os dados da liquidação não são válidos.',
+  // US-224f (ADR-166) : remboursement réparti sur les moyens d’origine (codes garés)
+  'backoffice.cancel.outcome.REFUND_RAIL_UNAVAILABLE':
+    'Um reembolso iria para um meio de pagamento que ainda não é reembolsado automaticamente. Nada foi registrado; o FINANCE cuida disso.',
+  'backoffice.cancel.outcome.REFUND_RAIL_NOT_NATIVE':
+    'Foi pedido um reembolso no cartão sobre outro meio de pagamento. Nada foi registrado.',
+  'backoffice.cancel.outcome.REFUND_EXCEEDS_TENDER':
+    'Um reembolso supera o que um meio de pagamento pagou.',
   // US-214 (ADR-160) : « Mis viajes » (S08) et détail du trip du voyageur (S09)
   'common.trips.notFound': 'Não encontramos esta viagem.',
   'common.trips.unavailable':

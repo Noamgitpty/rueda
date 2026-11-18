@@ -74,7 +74,8 @@ describe('tripRefundsOf', () => {
     expect(Object.fromEntries(REFUND_STATUSES.map((s) => [s, phaseOf(s)]))).toEqual({
       PLANNED: 'PREPARING',
       BLOCKED_CHARGEBACK: 'ATTENTION',
-      PENDING_CUSTOMER_CHOICE: 'PREPARING',
+      // US-224f (ADR-166) : en bêta, attente d'un autre moyen après un rejet confirmé
+      PENDING_CUSTOMER_CHOICE: 'ATTENTION',
       PENDING_BANK_DETAILS: 'PREPARING',
       SUBMITTED: 'ISSUED',
       SENT: 'ISSUED',
