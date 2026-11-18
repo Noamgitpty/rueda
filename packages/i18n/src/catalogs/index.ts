@@ -248,8 +248,15 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  `web.contract.constanciaSearch`, `web.contract.legalCenter` (liens depuis S09 · contrat et A03),
  `web.legalCenter.*` (centre juridique : positionnement d’intermédiaire entre particuliers,
  documents publiés, documents de chaque voyage, désaccords et médiation, loi applicable).
+ Version 82 (79 à 81 réservées à US-225, US-227 et #239) : reçu du voyageur et gains de l’hôte
+ (US-217 partie 217b, ADR-167) : `web.s09.receipt.*` (S09 · reçu : total payé, trip fee et sa
+ taxe de ligne, remboursement dû, mention d’intermédiaire, reçu sans valeur fiscale),
+ `web.s09.documents.receiptOpen`, `web.a08.*` (A08 : acquis, à liquider, lignes par voyage,
+ pénalité en ligne séparée ; `web.a08.empty`, `web.a08.payoutsOff` de 10b §4.3 et
+ `web.a08.title` du prototype US-033 devenues officielles),
+ `web.host.earningsLink`.
  */
-export const CATALOG_VERSION = 78;
+export const CATALOG_VERSION = 82;
 
 /** Catalogues de base par langue ; la langue d'un profil de locale choisit le sien. */
 export const CATALOGS: Readonly<Record<CatalogLanguage, VersionedCatalog<MessageKey>>> = {

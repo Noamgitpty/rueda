@@ -2797,4 +2797,61 @@ export const FR_MESSAGES = {
   'backoffice.refunds.reason.FIN_REVIEW_REQUIRED':
     'Le règlement attend une décision de FINANCE avant tout envoi.',
   'backoffice.refunds.reason.other': 'Code technique {code}. Revue de FINANCE.',
+  // US-217 partie 217b (ADR-167) : reçu du voyageur (S09 · reçu) et gains de l’hôte (A08)
+  'web.s09.documents.receiptOpen': 'Voir le reçu',
+  'web.s09.receipt.title': 'Reçu du paiement',
+  'web.s09.receipt.back': 'Retour à ton voyage',
+  'web.s09.receipt.intermediary':
+    '{brand} est une plateforme intermédiaire entre particuliers : elle n’est ni loueuse ni propriétaire de la voiture. Tu loues la voiture directement à {host}, son hôte.',
+  'web.s09.receipt.intermediaryNoHost':
+    '{brand} est une plateforme intermédiaire entre particuliers : elle n’est ni loueuse ni propriétaire de la voiture. Tu loues la voiture directement à son hôte.',
+  'web.s09.receipt.payment': 'Ce que tu as payé',
+  'web.s09.receipt.totalPaid': 'Total payé à {brand}',
+  'web.s09.receipt.fee.title': 'Frais de voyage',
+  'web.s09.receipt.fee.charged': 'Frais de voyage facturés',
+  'web.s09.receipt.fee.tax': 'Taxe facturée sur les frais ({rate} %)',
+  'web.s09.receipt.fee.refunded': 'Part des frais qui t’est remboursée',
+  'web.s09.receipt.fee.retained': 'Part des frais conservée par {brand}',
+  'web.s09.receipt.fee.taxElsewhere':
+    'La taxe de la part conservée n’est pas affichée ici : elle figure sur la facture émise à part.',
+  'web.s09.receipt.refund.title': 'Remboursement',
+  'web.s09.receipt.refund.due': 'Remboursement qui t’est dû',
+  'web.s09.receipt.refund.hint':
+    '{brand} te le rend sur ton moyen de paiement d’origine. C’est le montant dû selon l’annulation ; la date à laquelle nous l’émettons est affichée à part.',
+  'web.s09.receipt.refund.link': 'Voir l’état de ton remboursement',
+  'web.s09.receipt.fiscal':
+    'Ce reçu n’est pas une facture et n’a pas de valeur fiscale. La facture électronique est envoyée à part.',
+  'web.host.earningsLink': 'Mes gains',
+  'web.a08.title': 'Gains',
+  'web.a08.intro': 'Ce que tu gagnes sur chaque voyage selon ton plan, mois par mois.',
+  'web.a08.back': 'Retour à mon espace hôte',
+  'web.a08.intermediary':
+    '{brand} est une plateforme intermédiaire entre particuliers : tu loues ta voiture directement au voyageur.',
+  'web.a08.monthNav': 'Mois du relevé',
+  'web.a08.prev': 'Mois précédent',
+  'web.a08.next': 'Mois suivant',
+  'web.a08.summary': 'Relevé de {month}',
+  'web.a08.earned': 'Gagné',
+  'web.a08.earnedHint': 'Ta part des voyages réglés, moins les pénalités.',
+  'web.a08.pending': 'À régler',
+  'web.a08.pendingHint':
+    'Voyages à venir ou en cours : ta part est confirmée quand le voyage est réglé.',
+  'web.a08.tripsCount': 'Voyages du mois : {count}',
+  'web.a08.lines': 'Détail par voyage',
+  'web.a08.line.EARNING': 'Voyage',
+  'web.a08.line.CXL_EARNING': 'Voyage annulé',
+  'web.a08.line.HOST_CANCELLATION_PENALTY': 'Pénalité pour l’annulation d’un voyage',
+  'web.a08.line.penaltyHint': 'Elle est déduite de tes prochains gains.',
+  'web.a08.line.settled': 'Réglé',
+  'web.a08.line.pending': 'À régler',
+  'web.a08.line.base': 'Prix sur lequel ta part est calculée',
+  'web.a08.line.fee': 'Commission de {brand}',
+  'web.a08.line.share': 'Ta part · {plan} ({share} %)',
+  'web.a08.line.shareNoPlan': 'Ta part',
+  'web.a08.line.trip': 'Voir le voyage',
+  'web.a08.loadError': 'Nous n’avons pas pu charger tes gains.',
+  'web.a08.retry': 'Réessayer',
+  'web.a08.empty': 'Pas encore de gains',
+  'web.a08.payoutsOff':
+    'Tes gains sont enregistrés. Les versements aux hôtes ne sont pas encore ouverts au {country} ; nous te préviendrons.',
 } as const satisfies Readonly<Record<MessageKey, Message>>;

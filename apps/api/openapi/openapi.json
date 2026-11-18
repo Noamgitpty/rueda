@@ -16130,7 +16130,8 @@
                     "$ref": "#/components/schemas/MinorUnits"
                   },
                   "refundMinor": {
-                    "$ref": "#/components/schemas/MinorUnits"
+                    "$ref": "#/components/schemas/MinorUnits",
+                    "description": "remboursement DÛ au voyageur par la version en tête du règlement (0 sans règlement) ; ce n'est pas un remboursement émis : son état et sa date d'émission se lisent sur GET /trips/{tripId}/refunds (SM-8)"
                   },
                   "tripFee": {
                     "oneOf": [
@@ -16157,7 +16158,7 @@
                                 "type": "null"
                               }
                             ],
-                            "description": "taxe de LIGNE du devis figé (08 BR-PRICE-12) ; null sans devis figé lisible (jamais recalculée)"
+                            "description": "taxe de LIGNE du devis figé (08 BR-PRICE-12), sur le trip fee facturé en entier ; null sans devis figé lisible, ou dès qu'une part du trip fee est remboursée (217b, ADR-167 : la taxe du trip fee conservé attend OQ-BR-14 ; jamais recalculée)"
                           },
                           "taxRateBps": {
                             "type": ["integer", "null"],
@@ -16362,6 +16363,8 @@
                 "hostLegMinor",
                 "adjustmentsMinor",
                 "netMinor",
+                "earnedMinor",
+                "pendingMinor",
                 "lines"
               ],
               "additionalProperties": false,
@@ -16386,7 +16389,16 @@
                   "$ref": "#/components/schemas/SignedMinorUnits"
                 },
                 "netMinor": {
-                  "$ref": "#/components/schemas/SignedMinorUnits"
+                  "$ref": "#/components/schemas/SignedMinorUnits",
+                  "description": "Σ des lignes du mois (= earnedMinor + pendingMinor)"
+                },
+                "earnedMinor": {
+                  "$ref": "#/components/schemas/SignedMinorUnits",
+                  "description": "acquis : jambes HOST des versions en tête des règlements et ajustements du host_ledger (217b, ADR-167)"
+                },
+                "pendingMinor": {
+                  "$ref": "#/components/schemas/MinorUnits",
+                  "description": "à venir : jambes HOST capturées d'un trip encore sans règlement (à venir ou en cours ; 217b, ADR-167)"
                 },
                 "lines": {
                   "type": "array",

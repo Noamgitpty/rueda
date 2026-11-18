@@ -346,6 +346,34 @@ async function openGuestTrips(
 }
 
 /**
+ * S06 confirmé → S09 → S09 · reçu du voyageur (US-217 partie 217b) : reçu d'un trip payé.
+ */
+async function openGuestReceipt(
+  page: Page,
+  context: BrowserContext,
+  language: Language,
+): Promise<void> {
+  await openGuestTrips(page, context, language, true);
+  await page.locator('[data-testid="s09-receipt"]').click();
+  await expect(page).toHaveURL(/\/trips\/[0-9a-f-]{36}\/receipt$/);
+  await expect(page.locator('[data-testid="s09r-total"]')).toBeVisible();
+}
+
+/**
+ * A10 → A08 de l'hôte (US-217 partie 217b) : mois du double qui porte des gains (acquis, à
+ * liquider, pénalité en ligne séparée), compte au marché à deux décimales.
+ */
+async function openHostEarnings(page: Page, context: BrowserContext): Promise<void> {
+  await signInHost(context);
+  await page.goto('/host');
+  await page.locator('[data-testid="a10-earnings"]').click();
+  await expect(page).toHaveURL(/\/host\/earnings\?org=/);
+  const org = new URL(page.url()).searchParams.get('org') ?? '';
+  await page.goto(`/host/earnings?org=${org}&month=2036-12`);
+  await expect(page.locator('[data-testid="a08-earned"]')).toBeVisible();
+}
+
+/**
  * S06 confirmé → contrat (trip né) → annulation réglée par le double → S10 · remboursement émis du
  * voyageur (US-224 partie 224d).
  */
@@ -746,6 +774,17 @@ export const SCREENS: readonly Screen[] = [
     name: 'detail-voyage',
     source: 'S09, US-214',
     open: (page, context, language) => openGuestTrips(page, context, language, true),
+  },
+  // US-217 partie 217b : reçu du voyageur (S09 · reçu) et gains de l'hôte (A08)
+  {
+    name: 'recu-voyage',
+    source: 'S09, US-217',
+    open: (page, context, language) => openGuestReceipt(page, context, language),
+  },
+  {
+    name: 'hote-gains',
+    source: 'A08, US-217',
+    open: (page, context) => openHostEarnings(page, context),
   },
   { name: 'vitrine-composants', source: 'US-032', open: at('/ui?width=mobile') },
 ];

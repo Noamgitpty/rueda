@@ -35,7 +35,8 @@ const PAYMENT_KEYS = {
  * qu'il faut le jour J ») : horaires dans le fuseau du trip, lieu de remise (adresse exacte d'un
  * trip à venir ou en cours seulement), hôte en prénom et initiale, total payé (devis figé relu de
  * l'API, jamais recalculé ; PYG sans décimale), documents (contrat S09 · contrat d'US-211 ;
- * constancia d'US-212 liée dès que le contrat existe, reçu d'US-217 annoncé « bientôt »), lien vers le remboursement (S10) d'un
+ * constancia d'US-212 liée dès que le contrat existe, reçu d'US-217 (S09 · reçu, 217b) lié dès que
+ * le paiement existe), lien vers le remboursement (S10) d'un
  * trip annulé ou remboursé. Lecture seule : toute modification passe par le support en bêta
  * (08 BR-MOD-01). Un trip d'une autre personne, ou inconnu, rend le même message (404 de l'API).
  * Check-in, retard, refus, urgence et messages (10b S09) : lot 3.
@@ -186,11 +187,23 @@ export default async function GuestTripPage({
               )}
             </li>
           )}
+          {/* reçu du paiement (US-217 partie 217b) : dès que le paiement existe ; sinon annoncé */}
           <li className={styles['card']}>
             <div className={styles['between']}>
               <span className={styles['strong']}>{t('web.s09.documents.receipt')}</span>
-              <Badge tone="neutral">{t('web.s09.documents.soon')}</Badge>
+              {trip.paymentStatus === null && (
+                <Badge tone="neutral">{t('web.s09.documents.soon')}</Badge>
+              )}
             </div>
+            {trip.paymentStatus !== null && (
+              <a
+                className={styles['link']}
+                href={`/trips/${trip.id}/receipt`}
+                data-testid="s09-receipt"
+              >
+                {t('web.s09.documents.receiptOpen')}
+              </a>
+            )}
           </li>
         </ul>
       </section>

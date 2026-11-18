@@ -523,4 +523,133 @@ describe.each(COUNTRIES)('US-217a — reçu des gains et du trip fee — $countr
       }
     });
   });
+
+  // US-217 partie 217b (migration 0141, ADR-167) : suites des revues de #231 (N-337, N-339, N-340)
+  it('217b : taxe du trip fee non rendue dès qu’une part du trip fee est remboursée (N-337) ; trip sans règlement ni capture ⇒ aucun reçu des deux côtés, jamais un total lu du devis (N-340) ; relevé : acquis et à venir séparés (N-339)', async () => {
+    await withRole('app_worker', async (worker) => {
+      const w = await world(worker, c);
+      const fee = lines.find((l) => l.type === 'TRIP_FEE')!;
+      const quote = JSON.stringify(
+        lines.map((l) => ({
+          type: l.type,
+          amount: l.amount.toString(),
+          taxGroup: l.taxGroup,
+          rateBps: l.rateBps,
+          tax: l.tax.toString(),
+        })),
+      );
+      // trip X : devis figé, capture, puis annulation du voyageur (T03 / T27, version 1) ; trip Y :
+      // devis figé seulement (ni capture ni règlement), même compte d'hôte
+      const extra = await payTx(worker, { virtualNow: SETTLED_AT, commit: true }, async (tx) => {
+        const x = await capturedTrip(tx, c, w.org, capture);
+        await tx.query(`SELECT test_fixture.us217_trip_quote($1, $2::jsonb, $3::jsonb, $4, $5)`, [
+          x.trip,
+          quote,
+          legsJson(capture),
+          'ESTÁNDAR',
+          share,
+        ]);
+        await recordAsSettlementWorker(
+          tx,
+          { tripId: x.trip, version: 1 },
+          recordOfVector(r.cancelled),
+        );
+        const y = uuid();
+        const yGuest = uuid();
+        await asWorker(tx, 'payment_command');
+        await tx.query(`SELECT test_fixture.rls_insert_trip($1, $2, $3, $4, $5, $6, $7, $8, $9)`, [
+          y,
+          yGuest,
+          w.org,
+          uuid(),
+          c.country,
+          c.currency,
+          c.timezone,
+          TRIP_START,
+          TRIP_END,
+        ]);
+        await tx.query(`SELECT test_fixture.us217_trip_quote($1, $2::jsonb, $3::jsonb, $4, $5)`, [
+          y,
+          quote,
+          legsJson(capture),
+          'ESTÁNDAR',
+          share,
+        ]);
+        return { x: x.trip, xGuest: x.guest, y, yGuest };
+      });
+      const kept = cancelled.expected.hostFromGuestMinor;
+      const debit = -penalty.expected.hostPenaltyMinor;
+      await withRole('app_api', async (api) => {
+        await withTestTransaction(api, {}, async (tx) => {
+          const hostHash = await session(tx, await holderOf(tx, w.booked));
+          const xHash = await session(tx, extra.xGuest);
+          const yHash = await session(tx, extra.yGuest);
+          const bookedHash = await session(tx, w.bookedGuest);
+
+          // N-337 : devis figé ET part du trip fee remboursée ⇒ taxe de ligne non rendue
+          const xr = await receipt(tx, xHash, extra.x);
+          expect(xr).toMatchObject({ outcome: 'OK', viewer_role: 'GUEST' });
+          const xReceipt = xr['receipt'] as Json;
+          expect(xReceipt).toMatchObject({
+            source: 'SETTLEMENT',
+            settlementVersion: 1,
+            totalPaidMinor: cancelled.trip.totalPaidMinor.toString(),
+            refundMinor: cancelled.expected.guestRefundMinor.toString(),
+            fiscalDocument: 'OFF_PLATFORM',
+          });
+          const xFee = xReceipt['tripFee'] as Json;
+          expect(xFee['chargedMinor']).toBe(cancelled.trip.linesMinor.tripFee.toString());
+          expect(BigInt(String(xFee['refundedMinor']))).toBeGreaterThan(0n);
+          expect(
+            BigInt(String(xFee['refundedMinor'])) + BigInt(String(xFee['retainedMinor'])),
+          ).toBe(cancelled.trip.linesMinor.tripFee);
+          // 08 T03 : trip fee 18,00, conservé 6,00 ; la taxe de ligne (1,26) n'est pas rendue
+          if (c.currency === 'USD') {
+            expect(xFee['retainedMinor']).toBe('600');
+            expect(fee.tax).toBe(126n);
+          }
+          expect(xFee['taxMinor']).toBeNull();
+          expect(xFee['taxRateBps']).toBeNull();
+          // rien du trip fee remboursé (capture seule) : la taxe de ligne du devis reste rendue
+          const booked = (await receipt(tx, bookedHash, w.booked))['receipt'] as Json;
+          expect(booked['tripFee']).toMatchObject({
+            taxMinor: fee.tax.toString(),
+            taxRateBps: fee.rateBps,
+            refundedMinor: '0',
+          });
+
+          // N-340 : devis seul ⇒ NO_RECEIPT pour le voyageur comme pour l'hôte (409 à l'API)
+          for (const [hash, role] of [
+            [yHash, 'GUEST'],
+            [hostHash, 'HOST'],
+          ] as const) {
+            const no = await receipt(tx, hash, extra.y);
+            expect(no).toMatchObject({
+              outcome: 'NO_RECEIPT',
+              viewer_role: role,
+              currency: c.currency,
+              timezone: c.timezone,
+              receipt: null,
+            });
+          }
+
+          // N-339 : acquis = jambes HOST des règlements (w.cancelled, w.penalised, X) + host_ledger ;
+          // à venir = jambe HOST capturée sans règlement (w.booked) ; Y n'a aucune ligne
+          const { rows } = await tx.query<Json>(EARNINGS, [hostHash, w.org, MONTH]);
+          const s = (rows[0]!['statements'] as Json[])[0]!;
+          const settled = kept + 0n + kept;
+          expect(s).toMatchObject({
+            currency: c.currency,
+            tripsCount: 4,
+            hostLegMinor: (capture.HOST + settled).toString(),
+            adjustmentsMinor: debit.toString(),
+            netMinor: (capture.HOST + settled + debit).toString(),
+            earnedMinor: (settled + debit).toString(),
+            pendingMinor: capture.HOST.toString(),
+          });
+          expect((s['lines'] as Json[]).some((l) => l['tripId'] === extra.y)).toBe(false);
+        });
+      });
+    });
+  });
 });

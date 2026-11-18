@@ -324,9 +324,6 @@ export const EN_PROTO = {
   'web.a08.status.scheduled': 'Scheduled',
   'web.a08.status.sent': 'Sent',
   'web.a08.status.onHold': 'On hold: {reason}',
-  'web.a08.empty': 'No earnings yet',
-  'web.a08.payoutsOff':
-    "Your earnings are recorded. Host payouts in {country} aren't open yet; we'll let you know.",
   'web.a10.saved': 'Saved',
   'web.a10.empty': "You haven't listed a car yet",
   'web.a10.meetPublic': 'We suggest this public place near you: {place}',
@@ -690,7 +687,6 @@ export const EN_PROTO = {
   'web.a12.submit': 'Post my review',
   'web.a12.sent.title': 'Thank you!',
   'web.a12.sent': "We'll publish your review when {guest} leaves theirs or when the period ends.",
-  'web.a08.title': 'Earnings',
   'web.a08.plan': 'Standard plan: you get {pct}% of each trip price.',
   'web.a08.trips': 'By trip',
   'web.a08.status.recorded': 'Recorded',

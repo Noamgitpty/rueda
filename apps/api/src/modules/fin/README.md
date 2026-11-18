@@ -23,6 +23,8 @@ FIN ne calcule ni le règlement ni les jambes (STL), et ne déplace pas de fonds
 
 En base (migration 0137), sans table nouvelle : `host_earnings_statement` et `host_earnings_line` (17 §3.2.13) sont une **lecture calculée** des lignes immuables (version en tête du règlement, capture, devis figé, `host_ledger`), jamais un recalcul. `core.finance_earning_lines` (lignes `EARNING`, `CXL_EARNING`, `ADJUSTMENT`), `core.finance_trip_receipt_view` (vues `HOST` et `GUEST`), `core.finance_host_statement` (mois `YYYY-MM` par devise) ; les routes sont servies par AVL (`GET /trips/{tripId}/receipt`, `GET /host/accounts/{orgId}/earnings/{month}`), FIN ne dépendant pas d'IAM. Facture électronique : hors plateforme en bêta (FIN-002 MANUEL) ; entité qui facture non tranchée (ADR-013, `finance_legal_entity` vide) : le reçu n'en présente aucune.
 
+Partie 217b (migration 0141, ADR-167) : taxe du trip fee non rendue dès qu'une part en est remboursée, aucun reçu du voyageur sans règlement ni capture, relevé séparé en acquis (`earnedMinor`) et à venir (`pendingMinor`) ; écrans A08 et S09 · reçu dans `apps/web`.
+
 ## Entités
 
 Entités de 17 §3.2.13 possédées par FIN (17 §2.2) :
