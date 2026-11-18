@@ -1083,6 +1083,18 @@
       "values": { "PA": false, "PY": false }
     },
     {
+      "key": "vehicle_default_value_class",
+      "type": "ENUM",
+      "allowedValues": ["STANDARD", "PREMIUM", "LUXE"],
+      "scopes": ["COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "08 BR-ACC-05 (classes STANDARD / PREMIUM / LUXE, seuils de valeur PROPOSÉS) ; BOARD N-83 : classe d'un véhicule dont ni la variante du catalogue ni une règle de marque ou de modèle ne donne la classe (douane, hors catalogue), attribuée à la publication ; absent : aucune classe, le véhicule n'est jamais couvert (fail-closed)",
+      "status": "PROPOSÉ (N-83, ADR-159 : STANDARD, comme Turo où la classe suit la valeur et où la plupart des véhicules sont standard ; les marques et modèles de valeur haute sont relevés par les règles de classement, jamais par ce défaut ; valeur définitive à confirmer avec l'assureur partenaire)",
+      "decision": "PROPOSED",
+      "decisionRef": "ADR-159 PROPOSÉ (N-83) ; COMME_TURO ; POUR_LE_FONDATEUR §3",
+      "values": { "PA": "STANDARD", "PY": "STANDARD" }
+    },
+    {
       "key": "price_ceiling_daily_minor",
       "type": "MONEY",
       "scopes": ["COUNTRY"],

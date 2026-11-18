@@ -1,0 +1,16 @@
+# Revue architecture — US-118 « classe de valeur à la publication d'une annonce (N-83) » (PR n° 229) — 2026-11-18
+
+Relecteur : revue-architecture / claude-sonnet-5-5 (famille A, modèle autre que l'auteur claude-opus-5-5 ; revue dégradée : famille B indisponible, TECH-007)
+Entrées : 66f46687..033481ee
+
+Contexte : Multi-stories : le même diff (N-83, ADR-159, migrations 0134 et 0135) est relu pour US-113 et US-118 ; ce rapport vaut pour US-118. Lus : ADR-159 (complète ADR-109, 111, 114, 123, 104), migrations 0134 / 0135, `seed-sql.ts`, `params.json`, `schema.md`, README CAT et `packages/db`, allowlists, passation. Branche à jour d'origin/main (0 commit de retard) ; main s'arrête à 0133.
+
+| #   | Gravité | Constat                                                                                                                                                                                                                                                                                                                                                               |
+| --- | ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | INFO    | **Numérotation.** 0134 (graine du paramètre, générée par `renderParamSeedSql` depuis `params.json` via `POST_SEED_PARAMS`) puis 0135 : contiguës avec 0133 de main ; entrée de `country-data-allowlist.json` justifiée. Expand / contract respecté (colonnes nulles, contraintes vraies pour l'existant, corps remplacé à signature identique), retour arrière écrit. |
+| 2   | INFO    | **Deux pays de premier rang.** Aucune constante de pays : règles communes (`country_code` NULL, surcharge possible par pays), défaut par paramètre `vehicle_default_value_class[pays]`, tests PA et PY. Frontières : aucune importation entre modules, aucun code TypeScript hors `seed-sql.ts` ; la logique reste dans le schéma `core` du catalogue.                |
+| 3   | INFO    | **Documentation.** ADR-159 PROPOSÉ, README CAT et `packages/db`, changelog, passation, `schema.md` recopié du job CI, GL-35, COMME_TURO, POUR_LE_FONDATEUR ; suites inscrites (valeur déclarée par l'hôte, révision par l'ops et curation, affichage, report dans 17 §3.2.3 et §7.2 par une PR de `docs/specs/`, assureur). Aucun texte visible : pas de clé i18n.    |
+| 4   | MINEUR  | Phrase d'ADR-159 (Conséquences) sur la « marque premium inconnue » à corriger : seule une marque ou un modèle listé est relevé (revue argent n° 3).                                                                                                                                                                                                                   |
+| 5   | MINEUR  | Le déclencheur `BEFORE UPDATE OF variant_id` couple le rattachement de l'ops (0074) à la règle ; acceptable, documenté dans ADR-159 §4 et testé, à revoir quand la commande de révision de l'ops existera.                                                                                                                                                            |
+
+Verdict : APPROUVÉ

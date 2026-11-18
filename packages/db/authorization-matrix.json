@@ -659,6 +659,19 @@
         "app_anon": []
       }
     },
+    "core.catalog_value_class_rule": {
+      "type": "table",
+      "droits": {
+        "app_api": {},
+        "app_worker": {},
+        "app_anon": {}
+      },
+      "politiques": {
+        "app_api": [],
+        "app_worker": [],
+        "app_anon": []
+      }
+    },
     "core.catalog_vehicle": {
       "type": "table",
       "droits": {
