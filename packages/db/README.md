@@ -1071,6 +1071,7 @@ Migration `0146_payment_deposit_hold`, fixture `9945_test_us701_deposit_hold_fix
 - **Fonctions** (cmd_hold_owner, RLS-15) : `payment_deposit_checkout(jeton, hold)` et `payment_cmd_record_deposit_decision(jeton, hold, décision)` (EXECUTE `app_api`, voyageur de la session, hold d'un autre ⇒ `HOLD_NOT_FOUND`) ; `payment_deposit_reauth_due(lot)` et `payment_cmd_deposit_transition(…)` (EXECUTE `app_worker`, nom `payment_command`). Revérifications de l'écriture : `deposit_decision_mismatch` (montant ≠ `deposit_amount[pays][classe]`, `NOT_REQUIRED` sur un pays ou une classe déclencheurs, classe inconnue), `deposit_rail_closed` (`CHARGE_THEN_REFUND` tant que `funds_holding_enabled` = faux).
 - **Droits ajoutés** à cmd_hold_owner : politiques de lecture `cmd_hold_deposit_read` de `config_param_value` (`deposit_always_required`, `deposit_trigger_classes`, `deposit_amount`, `funds_holding_enabled`) et de `config_param_definition` (`funds_holding_enabled`) ; `SELECT (conversion_operation_id)` de `booking_checkout_hold`.
 - **Preuves** : `test/l0/l0-us701-deposit-hold.test.ts` (PA USD, PY PYG ; `app_api`, `app_worker`).
+
 ## Durcissement avant l'ouverture d'un pays (US-224 ; suites N-354, N-342, N-313 ; ADR-171)
 
 Migration `0147_hardening_country_open`. Fixture `9935_test_hardening_fixtures` (restriction d'un genre donné, statut de l'adhésion du titulaire, co-hôte ACTIVE ; transactions de test).
