@@ -7,7 +7,7 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 
 ## Synthèse
 
-- 143 migrations ; 127 tables ; 3 vues ; 714 politiques RLS ; 285 fonctions `SECURITY DEFINER` ; 249 autres fonctions.
+- 144 migrations ; 128 tables ; 3 vues ; 720 politiques RLS ; 289 fonctions `SECURITY DEFINER` ; 251 autres fonctions.
 - Tables sans RLS `ENABLE` + `FORCE` : aucune.
 - Rôles applicatifs avec `SUPERUSER` ou `BYPASSRLS` : aucun.
 
@@ -158,6 +158,7 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 | `0140_booking_defaulted_host_trips_cancel` | AVL / SUP : hôte défaillant, annulation de ses trips à venir par l'ops, voyageurs remboursés |
 | `0141_payment_refund_multi_tender` | PAY : remboursement réparti sur les moyens d'origine (TJ16c / TJ16d) et reprise après un |
 | `0142_config_deposit_rail_params` | graine complémentaire : paramètres « deposit_always_required* » (US-225 ; 17 §7.2). |
+| `0143_payment_deposit_hold` | PAY : caution de la plateforme figée au checkout (`deposit_hold`), vue du voyageur sans champ [C2], |
 
 ## Rôles
 
@@ -4208,6 +4209,39 @@ Politiques RLS :
 Déclencheurs :
 
 - `touch_row` : `CREATE TRIGGER touch_row BEFORE UPDATE ON core.outbox_scheduled_job FOR EACH ROW EXECUTE FUNCTION platform.touch_row()`
+
+### `core.payment_deposit_hold`
+
+- RLS : ENABLE + FORCE ; propriétaire `migrator`
+- Droits : cmd_hold_owner: SELECT ; migrator: DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE
+
+| Colonne | Type | NOT NULL | Défaut |
+| ------- | ---- | -------- | ------ |
+| `id` | `uuid` | oui | `platform.uuid_v7()` |
+| `hold_id` | `uuid` | oui | — |
+| `country_code` | `text` | oui | — |
+| `currency` | `text` | oui | — |
+| `provider` | `text` | non | — |
+| `mechanism` | `text` | oui | — |
+| `triggers` | `text[]` | oui | — |
+| `params_snapshot` | `jsonb` | oui | — |
+| `amount_minor` | `bigint` | oui | — |
+| `h_required_hours` | `integer` | non | — |
+| `v_hours_snapshot` | `integer` | non | — |
+| `auth_at` | `timestamp with time zone` | non | — |
+| `auth_expiry_at` | `timestamp with time zone` | non | — |
+| `auth_provider_reference` | `text` | non | — |
+| `release_at` | `timestamp with time zone` | non | — |
+| `decision_at` | `timestamp with time zone` | non | — |
+| `reauth_due_at` | `timestamp with time zone` | non | — |
+| `reauth_seq` | `integer` | oui | `0` |
+| `status` | `text` | non | — |
+| `decided_at` | `timestamp with time zone` | oui | `platform.now()` |
+| `created_at` | `timestamp with time zone` | oui | `platform.now()` |
+| `updated_at` | `timestamp with time zone` | oui | `platform.now()` |
+| `row_version` | `integer` | oui | `0` |
+
+(section provisoire : recopiée de la sortie du job « base de données » au premier passage de la CI)
 
 ### `core.payment_payment_command`
 

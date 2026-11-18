@@ -1604,6 +1604,45 @@
         "row_version": "C1"
       }
     },
+    "core.payment_deposit_hold": {
+      "lifecycle": "B",
+      "export": "none",
+      "columns": {
+        "id": "C1",
+        "hold_id": "C1",
+        "country_code": "C1",
+        "currency": "C1",
+        "provider": "C1",
+        "mechanism": "C1",
+        "triggers": {
+          "class": "C2",
+          "erasure": "derogation",
+          "justification": "déclencheurs et instantané des paramètres de la décision de caution (08 BR-PAY-06, 17 §3.2.7), figés par la garde de la table comme preuve devant ACODECO / SEDECO : âge entier seulement, aucune date de naissance ni identifiant ; aucun droit d'app_api ni d'app_worker, lus par les fonctions de cmd_hold_owner sans ces colonnes ; effacement avec le trip",
+          "report": "US-536"
+        },
+        "params_snapshot": {
+          "class": "C2",
+          "erasure": "derogation",
+          "justification": "déclencheurs et instantané des paramètres de la décision de caution (08 BR-PAY-06, 17 §3.2.7), figés par la garde de la table comme preuve devant ACODECO / SEDECO : âge entier seulement, aucune date de naissance ni identifiant ; aucun droit d'app_api ni d'app_worker, lus par les fonctions de cmd_hold_owner sans ces colonnes ; effacement avec le trip",
+          "report": "US-536"
+        },
+        "amount_minor": "C1",
+        "h_required_hours": "C1",
+        "v_hours_snapshot": "C1",
+        "auth_at": "C1",
+        "auth_expiry_at": "C1",
+        "auth_provider_reference": "C1",
+        "release_at": "C1",
+        "decision_at": "C1",
+        "reauth_due_at": "C1",
+        "reauth_seq": "C1",
+        "status": "C1",
+        "decided_at": "C1",
+        "created_at": "C1",
+        "updated_at": "C1",
+        "row_version": "C1"
+      }
+    },
     "core.payment_payment_command": {
       "lifecycle": "T",
       "export": "none",

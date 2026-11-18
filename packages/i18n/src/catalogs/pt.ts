@@ -123,6 +123,8 @@ export const PT_MESSAGES = {
   },
   'web.deposit.unavailableNone':
     'Por enquanto, não conseguimos bloquear a caução no seu cartão para este carro.',
+  // US-701 (ADR-169) : S05, aucune caution pour ce trip (08 BR-PAY-06 : l'absence est affichée)
+  'web.deposit.none': 'Esta viagem não exige caução.',
   'web.catalog.title': 'Biblioteca de componentes',
   'web.catalog.intro':
     'Cada componente em todos os seus estados. Escolha o idioma, o tema e a largura para revisar.',
@@ -2159,6 +2161,9 @@ export const PT_MESSAGES = {
   // du paiement rendus par l'API (common.payment.*) ; aucune durée écrite (heures lues dans l'API)
   'common.payment.unavailable':
     'O pagamento on-line não está disponível no momento. Nada foi cobrado.',
+  // US-701 (ADR-169) : refus du paiement, caution impossible pour ces dates ou montant non fixé
+  'common.payment.depositUnavailable':
+    'Para essas datas não conseguimos bloquear a caução no seu cartão. Nada foi cobrado: mude as datas ou escolha outro carro.',
   // US-223c (ADR-146) : demandes de réservation de l'hôte (mode REQUEST, 17 §2.5 ; 16 HDB-002)
   'common.request.notFound': 'Não encontramos esta solicitação.',
   'common.request.expired': 'Esta solicitação expirou. Nada foi cobrado do viajante.',

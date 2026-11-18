@@ -119,6 +119,8 @@ export const ES_MESSAGES = {
   },
   'web.deposit.unavailableNone':
     'Por ahora no podemos tomar el depósito en tu tarjeta para este auto.',
+  // US-701 (ADR-169) : S05, aucune caution pour ce trip (08 BR-PAY-06 : l'absence est affichée)
+  'web.deposit.none': 'Este viaje no requiere depósito de garantía.',
   // Vitrine de la bibliothèque (US-032) : outil interne de revue du design, PROPOSÉ.
   'web.catalog.title': 'Biblioteca de componentes',
   'web.catalog.intro':
@@ -2154,6 +2156,9 @@ export const ES_MESSAGES = {
   // du paiement rendus par l'API (common.payment.*) ; aucune durée écrite (heures lues dans l'API)
   'common.payment.unavailable':
     'El pago en línea no está disponible por ahora. No se te cobró nada.',
+  // US-701 (ADR-169) : refus du paiement, caution impossible pour ces dates ou montant non fixé
+  'common.payment.depositUnavailable':
+    'Para estas fechas no podemos tomar el depósito en tu tarjeta. No se te cobró nada: cambia las fechas o elige otro auto.',
   // US-223c (ADR-146) : demandes de réservation de l'hôte (mode REQUEST, 17 §2.5 ; 16 HDB-002)
   'common.request.notFound': 'No encontramos esta solicitud.',
   'common.request.expired': 'Esta solicitud ya venció. No se le cobró nada al viajero.',

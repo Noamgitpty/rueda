@@ -24,6 +24,8 @@
  * | `trip_lifecycle`      | 10 s (US-215, ADR-148)                     | `TripCancellationProcessor` de STL : chaque demande d'annulation de l'ops (`core.booking_trip_cancellations_pending`) réglée dans sa propre transaction (`core.booking_trip_cancellation_begin`, moteur unique, `core.settlement_cmd_record`, `core.booking_cmd_trip_settle_cancellation`, ordres REFUND bornés de 0121) ; refus garés par `core.booking_cmd_trip_park_cancellation`, alertes `FIN_SETTLEMENT_REVIEW` ou `TRIP_CANCELLATION_FAILED` (P1) |
  * | `refund_scheduler`    | 10 s (US-224c, ADR-150)                    | `RefundScheduler` de STL sous le nom `payment_command` : file `core.payment_refunds_due` (0127), une instance par transaction ; `core.payment_cmd_submit_refund`, puis l'ordre stocké relu sous les verrous du trip et de l'ordre (`core.payment_cmd_refund_order_for_send`) et envoyé par `MoneyCommandSender` au connecteur du fournisseur ; report `core.settlement_cmd_apply_leg_movement` d'un remboursement prouvé ; alertes `FIN_REFUND_BLOCKED`, `FIN_REFUND_FAILED` (P1, une fois par état). Aucun connecteur en production avant le lot C : rien n'est autorisé ni envoyé |
  *
+ * | `deposit_timer`       | 60 s (US-701, ADR-169)                     | `DepositReauthTimer` de PAY sous le nom `payment_command` : file `core.payment_deposit_reauth_due` (0143), ré-autorisation de la caution (rail a) par le connecteur du fournisseur, report `core.payment_cmd_deposit_transition` ; refusée ⇒ décision avancée avant l'expiration, alerte `DEPOSIT_REAUTH_FAILED` (P1), aucun débit. Aucun connecteur en production avant le lot C : rien n'est envoyé |
+ *
  * Non déclarés ici, faute de port réel (tracé dans docs/team/handoffs/US-003.md) :
  * `payment_intent_sweeper` et `payment_command` (lisent ou appellent le PSP : adaptateurs du lot C,
  * consommateur `payment_command` d'US-061). `booking_conversion` est déclaré depuis US-223 : il ne lit
@@ -50,6 +52,7 @@ import { registerMoneyReconciliation } from './modules/fin/index.js';
 import {
   PgWebhookWorkStore,
   PRODUCTION_PAYMENT_CONNECTORS,
+  registerDepositTimers,
   WebhookProcessor,
 } from './modules/pay/index.js';
 import type { CountryConfig } from './modules/cfg/index.js';
@@ -312,6 +315,16 @@ export function registerWorkerTasks(registry: BusRegistry, deps: WorkerTaskDeps)
   // production avant le lot C : rien n'est autorisé ni envoyé (fail-closed) ; aucune option ne
   // permet d'injecter un autre registre (comme les webhooks, C19)
   registerRefundScheduler(
+    registry,
+    deps.transactions,
+    alerts,
+    deps.log,
+    PRODUCTION_PAYMENT_CONNECTORS,
+  );
+
+  // US-701 (ADR-169) : ré-autorisation de la caution avant l'échéance (rail a) ; refusée ⇒ ops,
+  // sans débit. Aucun connecteur en production avant le lot C : rien n'est envoyé
+  registerDepositTimers(
     registry,
     deps.transactions,
     alerts,

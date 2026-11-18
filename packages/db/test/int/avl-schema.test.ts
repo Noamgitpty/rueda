@@ -102,6 +102,8 @@ const PAY_PORT_TABLES = [
   'payment_psp_submerchant',
   // instance de remboursement (US-224b, 0123) : preuves dans test/l0/l0-us224b-*.test.ts
   'payment_refund_instance',
+  // caution figée au checkout (US-701, 0143) : preuves dans test/l0/l0-us701-deposit-hold.test.ts
+  'payment_deposit_hold',
 ] as const;
 
 // Socle de marque (US-034, 0042) : même socle RLS ; lecture publique d'app_api et commandes sous

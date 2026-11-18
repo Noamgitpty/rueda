@@ -44,6 +44,8 @@ describe('US-223b — paiement du hold (site)', () => {
       redirectUrl: 'https://psp.fake.invalid/pay/x',
       // US-223d : réservation immédiate (aucun champ `request`) ⇒ `null`
       request: null,
+      // US-701 : aucun champ `deposit` ⇒ `null`
+      deposit: null,
     });
     for (const url of ['http://psp.test/x', 'javascript:alert(1)', 'https://a b', 42]) {
       expect(checkoutPaymentOf(reply({ ...base, redirectUrl: url }, 201))?.redirectUrl).toBeNull();
@@ -124,6 +126,7 @@ describe('US-223d — demande à l’hôte (site)', () => {
     paymentInFlightUntil: null,
     redirectUrl: null,
     request: status === null ? null : { status, respondBy: RESPOND_BY },
+    deposit: null,
   });
 
   it('champ `request` : lu tel quel ; absent ⇒ null ; état inconnu, heure illisible ou attente sans heure limite ⇒ refus', () => {
