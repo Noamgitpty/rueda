@@ -142,7 +142,7 @@ export interface DepositRailRequest {
   readonly scheduledEnd: Date;
 }
 
-type CompleteRailParams = DepositRailParams & {
+export type CompleteRailParams = DepositRailParams & {
   readonly authLeadH: number;
   readonly releaseDelayH: number;
   readonly marginH: number;
@@ -333,6 +333,87 @@ export function depositReauthDueAt(
 ): Date | null {
   if (releaseAt.getTime() <= authExpiry.getTime() - safetyH * HOUR_MS) return null;
   return new Date(authExpiry.getTime() - reauthLeadH * HOUR_MS);
+}
+
+/**
+ * Échéancier planifié au checkout (US-701, ADR-169 ; 08 BR-PAY-06 « Libération à heure fixe »,
+ * « Mécanisme ») et écrit dans `deposit_hold` avec la décision :
+ * - `releaseAt = scheduled_end + release_delay_h` (le retour réel, s'il est connu, le remplacera) ;
+ * - `PREAUTH_SINGLE` : `decisionAt = min(release_at, (auth_at + V) − deposit_safety_h)` (T57 :
+ *   fin + 70 h) ; aucune ré-autorisation ;
+ * - `REAUTH` : première ré-autorisation à `(auth_at + V) − deposit_reauth_lead_h` ; la décision est
+ *   planifiée à `release_at` et ramenée avant l'expiration à chaque transition (acceptée : nouvelle
+ *   expiration ; refusée : `min(release_at, expiration − deposit_safety_h)`) ;
+ * - `CHARGE_THEN_REFUND` : aucune expiration ; décision (remboursement) à `release_at`.
+ * `auth_at + V` n'est qu'une PRÉVISION : `auth_expiry_at` réel vient de l'autorisation (PSP).
+ */
+export interface DepositSchedule {
+  readonly authAt: Date;
+  readonly releaseAt: Date;
+  readonly decisionAt: Date;
+  /** `null` : aucune ré-autorisation planifiée. */
+  readonly reauthDueAt: Date | null;
+}
+
+export function planDepositSchedule(
+  rail: Pick<DepositRailSelection, 'authAt' | 'vHours'> & { readonly mechanism: DepositRail },
+  params: Pick<CompleteRailParams, 'releaseDelayH' | 'safetyH' | 'reauthLeadH'>,
+  scheduledEnd: Date,
+): DepositSchedule {
+  const releaseAt = depositReleaseAt(null, scheduledEnd, params.releaseDelayH);
+  const authAt = rail.authAt;
+  if (rail.mechanism === 'CHARGE_THEN_REFUND') {
+    return { authAt, releaseAt, decisionAt: releaseAt, reauthDueAt: null };
+  }
+  const expiry = depositAuthExpiry(authAt, rail.vHours, null);
+  if (rail.mechanism === 'PREAUTH_SINGLE') {
+    return {
+      authAt,
+      releaseAt,
+      decisionAt: depositDecisionAt(releaseAt, expiry, params.safetyH),
+      reauthDueAt: null,
+    };
+  }
+  return {
+    authAt,
+    releaseAt,
+    decisionAt: releaseAt,
+    reauthDueAt: depositReauthDueAt(expiry, releaseAt, params.safetyH, params.reauthLeadH),
+  };
+}
+
+/**
+ * Échéances après une ré-autorisation (minuterie, US-701) : acceptée ⇒ nouvelle expiration
+ * `reauthorizedAt + V`, prochaine ré-autorisation si elle ne tient toujours pas jusqu'à
+ * `release_at`, décision `min(release_at, expiration − safety)` ; refusée ⇒ aucune nouvelle
+ * ré-autorisation, décision avancée avant l'expiration EN COURS (jamais de capture après
+ * `auth_expiry`, 08 BR-PAY-06).
+ */
+export function depositScheduleAfterReauth(
+  outcome: 'REAUTHORIZED' | 'REAUTH_REFUSED',
+  current: { readonly authExpiryAt: Date; readonly releaseAt: Date },
+  reauthorizedAt: Date,
+  vHours: number,
+  params: Pick<CompleteRailParams, 'safetyH' | 'reauthLeadH'>,
+): { readonly authExpiryAt: Date; readonly decisionAt: Date; readonly reauthDueAt: Date | null } {
+  if (outcome === 'REAUTH_REFUSED') {
+    return {
+      authExpiryAt: current.authExpiryAt,
+      decisionAt: depositDecisionAt(current.releaseAt, current.authExpiryAt, params.safetyH),
+      reauthDueAt: null,
+    };
+  }
+  const authExpiryAt = depositAuthExpiry(reauthorizedAt, vHours, null);
+  return {
+    authExpiryAt,
+    decisionAt: depositDecisionAt(current.releaseAt, authExpiryAt, params.safetyH),
+    reauthDueAt: depositReauthDueAt(
+      authExpiryAt,
+      current.releaseAt,
+      params.safetyH,
+      params.reauthLeadH,
+    ),
+  };
 }
 
 // --- décision : commandes au PSP ------------------------------------------------------------------

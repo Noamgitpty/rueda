@@ -20,9 +20,21 @@
  * signé, ADR-139) ; le statut brut de l'opération n'est jamais rendu ni lu pour confirmer : il ne
  * sert qu'à distinguer un refus (« payer de nouveau ») d'un paiement non prouvé (« ne paie pas de
  * nouveau, support »).
+ *
+ * US-701 (ADR-169 ; 08 BR-PAY-06 « Moment de l'évaluation ») : la caution est décidée AVANT le
+ * paiement. `payment` rend la vue du voyageur (`deposit` : aucune caution, montant et libération,
+ * ou réservation impossible et jours possibles ; jamais les déclencheurs ni l'instantané des
+ * paramètres, S-7) ; `pay` applique la porte avant T1 : refus ⇒ `DEPOSIT_RAIL_UNAVAILABLE` ou
+ * `DEPOSIT_PARAM_MISSING` sans écriture ni ordre ; sinon la décision est figée (`deposit_hold`),
+ * puis le paiement suit.
  */
 import { assertMovingLegs, isPaymentError, PAYMENT_METHODS } from '../../../pay/index.js';
-import type { PaymentMethod, PaymentProvider } from '../../../pay/index.js';
+import type {
+  DepositEnforcement,
+  DepositGuestView,
+  PaymentMethod,
+  PaymentProvider,
+} from '../../../pay/index.js';
 import { failureFields } from './checkout.service.js';
 import { isUuid } from './model.js';
 import { PaymentHttpError } from './payment-errors.js';
@@ -37,6 +49,50 @@ import type {
 
 /** Ce que l'API demande au connecteur d'un PSP pour le paiement du checkout. */
 export type HostedPaymentProvider = Pick<PaymentProvider, 'createHostedPayment' | 'getOperation'>;
+
+/** Porte de la caution du checkout (PAY, `DepositCheckoutGate`). */
+export interface DepositGatePort {
+  view(
+    proof: Buffer,
+    holdId: string,
+    evaluate: boolean,
+  ): Promise<DepositGuestView | null | 'AUTH_REQUIRED' | 'HOLD_NOT_FOUND'>;
+  enforce(proof: Buffer, holdId: string): Promise<DepositEnforcement>;
+}
+
+/**
+ * Caution vue par le voyageur (S05) : statut, montant (texte d'unités mineures), devise, nature
+ * (`HOLD` blocage sur la carte, `CHARGE` débit puis remboursement) et libération au plus tard ; ou
+ * réservation impossible et jours entiers possibles (`null` : aucun). Aucun champ [C2].
+ */
+export type CheckoutDepositView =
+  | { readonly status: 'NONE' }
+  | {
+      readonly status: 'REQUIRED';
+      readonly amountMinor: string;
+      readonly currency: string;
+      readonly kind: 'HOLD' | 'CHARGE';
+      readonly releaseAt: string;
+    }
+  | { readonly status: 'UNAVAILABLE'; readonly maxBookableDays: number | null };
+
+/** Sérialisation de la vue (liste blanche des champs : rien d'autre ne sort). */
+export function depositViewOf(v: DepositGuestView): CheckoutDepositView {
+  switch (v.status) {
+    case 'NONE':
+      return { status: 'NONE' };
+    case 'REQUIRED':
+      return {
+        status: 'REQUIRED',
+        amountMinor: v.amountMinor.toString(),
+        currency: v.currency,
+        kind: v.kind,
+        releaseAt: v.releaseAt.toISOString(),
+      };
+    case 'UNAVAILABLE':
+      return { status: 'UNAVAILABLE', maxBookableDays: v.maxBookableDays };
+  }
+}
 
 /**
  * États du paiement rendus au site (PROPOSÉS, ADR-142) :
@@ -79,6 +135,11 @@ export interface CheckoutPayment {
    * 223c-écrans.
    */
   readonly request?: { readonly status: RequestStatus; readonly respondBy: string | null };
+  /**
+   * Caution (US-701) : champ absent tant qu'elle n'est ni figée ni évaluable (paiement terminé sans
+   * décision, devis indisponible).
+   */
+  readonly deposit?: CheckoutDepositView;
 }
 
 /**
@@ -127,6 +188,13 @@ export function paymentStateOf(row: CheckoutPaymentRow): PaymentState {
   }
 }
 
+/** États où un paiement est possible : la caution y est évaluée (sans écriture) pour S05. */
+const PAYABLE_STATES: ReadonlySet<PaymentState> = new Set<PaymentState>([
+  'PAYABLE',
+  'DECLINED',
+  'INTERRUPTED',
+]);
+
 const viewOf = (holdId: string, row: CheckoutPaymentRow): CheckoutPayment => ({
   holdId,
   state: paymentStateOf(row),
@@ -150,7 +218,8 @@ export function parsePaymentDemand(body: unknown): PaymentMethod | null {
     : null;
 }
 
-export type PaymentOperation = 'read' | 'start' | 'provider' | 'lookup' | 'psp' | 'record';
+export type PaymentOperation =
+  'read' | 'start' | 'provider' | 'lookup' | 'psp' | 'record' | 'deposit';
 
 /** Journal d'exploitation : opération, nom de l'erreur, SQLSTATE et code PSP ; aucune valeur. */
 export type PaymentFailureLog = (operation: PaymentOperation, error: unknown) => void;
@@ -175,6 +244,8 @@ export class CheckoutPaymentService {
     private readonly store: CheckoutPaymentStore,
     /** Connecteurs servis par cette image, par fournisseur ; vide en production (lot C). */
     private readonly providers: ReadonlyMap<string, HostedPaymentProvider>,
+    /** Porte de la caution (US-701) ; sans base, elle échoue (503), jamais un paiement sans elle. */
+    private readonly deposits: DepositGatePort,
     private readonly logFailure: PaymentFailureLog = LOG_PAYMENT_FAILURE,
   ) {}
 
@@ -182,7 +253,22 @@ export class CheckoutPaymentService {
   async payment(proof: Buffer, holdId: string): Promise<CheckoutPayment> {
     if (!isUuid(holdId)) throw new PaymentHttpError('HOLD_NOT_FOUND');
     const id = holdId.toLowerCase();
-    return viewOf(id, await this.#read(proof, id));
+    return this.#withDeposit(proof, viewOf(id, await this.#read(proof, id)));
+  }
+
+  /**
+   * Vue de la caution ajoutée à l'état : décision figée, ou évaluée SANS écriture tant qu'un
+   * paiement est possible (S05 l'affiche avant le paiement, 08 BR-PAY-06).
+   */
+  async #withDeposit<T extends CheckoutPayment>(proof: Buffer, view: T): Promise<T> {
+    const evaluate = PAYABLE_STATES.has(view.state);
+    const deposit = await this.#guard('deposit', () =>
+      this.deposits.view(proof, view.holdId, evaluate),
+    );
+    if (deposit === 'AUTH_REQUIRED' || deposit === 'HOLD_NOT_FOUND') {
+      throw new PaymentHttpError(deposit);
+    }
+    return deposit === null ? view : { ...view, deposit: depositViewOf(deposit) };
   }
 
   /**
@@ -205,7 +291,23 @@ export class CheckoutPaymentService {
       before.state !== 'DECLINED' &&
       before.state !== 'INTERRUPTED'
     ) {
-      return { created: false, payment: { ...before, redirectUrl: null } };
+      const view = await this.#withDeposit(proof, before);
+      return { created: false, payment: { ...view, redirectUrl: null } };
+    }
+    // US-701 : caution décidée AVANT le paiement ; refus sans écriture ni ordre (08 BR-PAY-06)
+    const gate = await this.#guard('deposit', () => this.deposits.enforce(proof, id));
+    switch (gate.kind) {
+      case 'ACCEPTED':
+        break;
+      case 'REFUSED':
+        throw new PaymentHttpError(
+          gate.view.code === 'PARAM_MISSING' ? 'DEPOSIT_PARAM_MISSING' : 'DEPOSIT_RAIL_UNAVAILABLE',
+        );
+      case 'HOLD_NOT_PAYABLE':
+        // hold devenu terminal entre la lecture et la décision : l'état fait foi
+        return this.#current(proof, id, null);
+      default:
+        throw new PaymentHttpError(gate.kind);
     }
     // aucun connecteur dans cette image : refus AVANT T1 (le hold n'est pas mis en vol)
     if (this.providers.size === 0) throw new PaymentHttpError('PAYMENT_UNAVAILABLE');
@@ -297,7 +399,7 @@ export class CheckoutPaymentService {
     holdId: string,
     redirectUrl: string | null,
   ): Promise<{ readonly created: boolean; readonly payment: CheckoutPaymentStarted }> {
-    const view = viewOf(holdId, await this.#read(proof, holdId));
+    const view = await this.#withDeposit(proof, viewOf(holdId, await this.#read(proof, holdId)));
     // une redirection n'a de sens que tant que le paiement est en cours
     const url = view.state === 'VERIFYING' || view.state === 'INTERRUPTED' ? redirectUrl : null;
     return { created: url !== null, payment: { ...view, redirectUrl: url } };

@@ -83,40 +83,54 @@ export function holdAttemptKey(
 }
 
 /**
- * Opérations d'une caution (US-225, ADR-164 ; PROPOSÉ, à reporter dans 08 E4) : pose (`AUTH`
- * pré-autorisation, `CHARGE` débit du rail « débit puis remboursement »), ré-autorisation, capture
- * des frais, annulation, remboursement du débit, débit MIT des frais non capturés.
+ * Opérations d'une caution (US-225, ADR-164 ; alignées sur 08 E4 par US-701, ADR-169) : noms de
+ * 08 E4 quand ils existent (`DEPOSIT_CAPTURE`, `DEPOSIT_VOID`, `REFUND`, `MIT_CHARGE`) et de 17
+ * §3.2.7 (`payment_operation.kind` `DEPOSIT_AUTH`) ; `DEPOSIT_CHARGE` (débit du rail « débit puis
+ * remboursement ») et `DEPOSIT_REAUTH` (ré-autorisation) sont PROPOSÉS, à reporter dans 08 E4 (S-5).
  */
 export const DEPOSIT_OPERATION_TYPES = [
-  'AUTH',
-  'CHARGE',
-  'REAUTH',
-  'CAPTURE',
-  'VOID',
+  'DEPOSIT_AUTH',
+  'DEPOSIT_CHARGE',
+  'DEPOSIT_REAUTH',
+  'DEPOSIT_CAPTURE',
+  'DEPOSIT_VOID',
   'REFUND',
   'MIT_CHARGE',
 ] as const;
 export type DepositOperationType = (typeof DEPOSIT_OPERATION_TYPES)[number];
 
+export interface DepositKeyParts {
+  readonly tripId: string;
+  readonly segmentId: string;
+  /** `deposit_hold.id` : origine hors règlement (`v0-DEPOSIT-{deposit_id}`). */
+  readonly depositId: string;
+  readonly operationType: DepositOperationType;
+  /** Moyen de paiement du trip (opération de loyer capturée, comme les ordres de règlement). */
+  readonly tenderId: string;
+  readonly instanceSeq: number;
+  readonly attemptNo: number;
+}
+
 /**
- * `deposit:{deposit_id}:{opération}:i{instance_seq}:a{attempt_no}` : une clé par tentative, comme
- * la variante pré-trip ; `i{n}` distingue deux ré-autorisations successives.
+ * Variante « hors règlement » de 08 E4 appliquée à TOUTES les opérations d'une caution (US-701,
+ * ADR-169, suite S-6 d'US-225) : `{trip_id}:{segment_id}:v0-DEPOSIT-{deposit_id}:{opération}:
+ * {tender_id}:i{instance_seq}:a{attempt_no}`. Le remboursement du rail « débit puis
+ * remboursement » est exactement la clé `offSettlementRefundKey` d'origine `DEPOSIT` ; le segment
+ * `v0-…` n'entre jamais en collision avec une version de règlement. Une clé par tentative ;
+ * `i{n}` distingue deux ré-autorisations successives et le repli de 08 E3 (rang 2).
  */
-export function depositOperationKey(
-  depositId: string,
-  operation: DepositOperationType,
-  instanceSeq: number,
-  attemptNo: number,
-): string {
-  if (!(DEPOSIT_OPERATION_TYPES as readonly string[]).includes(operation)) {
-    throw new PaymentError('INVALID_REQUEST', `opération de caution inconnue : ${operation}`);
+export function depositOperationKey(p: DepositKeyParts): string {
+  if (!(DEPOSIT_OPERATION_TYPES as readonly string[]).includes(p.operationType)) {
+    throw new PaymentError('INVALID_REQUEST', `opération de caution inconnue : ${p.operationType}`);
   }
   return [
-    'deposit',
-    part('deposit_id', depositId),
-    operation,
-    `i${rank('instance_seq', instanceSeq)}`,
-    `a${rank('attempt_no', attemptNo)}`,
+    part('trip_id', p.tripId),
+    part('segment_id', p.segmentId),
+    `v0-DEPOSIT-${part('deposit_id', p.depositId)}`,
+    p.operationType,
+    part('tender_id', p.tenderId),
+    `i${rank('instance_seq', p.instanceSeq)}`,
+    `a${rank('attempt_no', p.attemptNo)}`,
   ].join(':');
 }
 

@@ -6,12 +6,16 @@
  * - Chaque commande porte son **montant explicite** et, si elle déplace des fonds, ses jambes
  *   (`chargeLegs` pour la pose, jambes des frais pour une capture ou un débit MIT) ; l'adaptateur les
  *   revérifie avant tout appel (`LEG_SUM_MISMATCH`).
- * - Clé d'idempotence par tentative (`depositOperationKey`), transmise telle quelle ou condensée selon
- *   `IDEMPOTENCY_KEY_MAX_LEN` : un rejeu avec la même tentative ne crée jamais un second mouvement.
+ * - Clé d'idempotence par tentative (`depositOperationKey`, variante hors règlement de 08 E4
+ *   `{trip}:{segment}:v0-DEPOSIT-{deposit}:{opération}:{moyen}:i{n}:a{m}`, US-701, ADR-169),
+ *   transmise telle quelle ou condensée selon `IDEMPOTENCY_KEY_MAX_LEN` : un rejeu avec la même
+ *   tentative ne crée jamais un second mouvement.
  * - **Aucun fonds de tiers détenu** : le rail « débit puis remboursement » est refusé sans appel tant
  *   que `funds_holding_enabled[pays]` = `false` (relu par l'appelant, jamais déduit ici).
  * - Ré-autorisation refusée (ou capacité non validée) : signal ops `DEPOSIT_REAUTH_FAILED`, **aucun
- *   débit** de remplacement.
+ *   débit** de remplacement. Issue inconnue ou en cours (`PENDING`, `SUBMITTED`, `UNKNOWN`,
+ *   `UNKNOWN_OUTCOME`) : `REAUTH_PENDING` (lire l'état puis rejouer la MÊME clé), jamais
+ *   `REAUTHORIZED` à tort (US-701, suite des revues d'US-225).
  */
 import { PaymentError, isPaymentError } from './errors.js';
 import { depositOperationKey, idempotencyKeyToSend } from './idempotency.js';
@@ -37,8 +41,13 @@ export type DepositPaymentProvider = Pick<
 export interface DepositReference {
   /** `deposit_hold.id`. */
   readonly depositId: string;
-  /** Trip dont le PSP tient les jambes. */
+  /** Trip dont le PSP tient les jambes (référence transmise au PSP). */
   readonly tripReference: string;
+  /** Trip et segment de la clé d'idempotence (08 E4). */
+  readonly tripId: string;
+  readonly segmentId: string;
+  /** Moyen de paiement du trip (opération de loyer capturée) : `tender_id` de la clé (08 E4). */
+  readonly tenderId: string;
   readonly currency: Currency;
 }
 
@@ -51,7 +60,18 @@ export interface PlaceDepositRequest {
 }
 
 export type DepositReauthOutcome =
+  /** Statut `SUCCEEDED` seulement : la nouvelle autorisation est prouvée. */
   | { readonly kind: 'REAUTHORIZED'; readonly result: OperationResult }
+  | {
+      /**
+       * Issue inconnue ou en cours : aucun changement d'état ; l'appelant lit l'état faisant foi
+       * (`getOperation`) avant tout rejeu, qui garde la MÊME clé (17 §4.3 point 3).
+       */
+      readonly kind: 'REAUTH_PENDING';
+      readonly needsLookup: true;
+      /** Statut rendu (`PENDING`, `SUBMITTED`, `UNKNOWN`) ; `null` : exception `UNKNOWN_OUTCOME`. */
+      readonly status: OperationStatus | null;
+    }
   | {
       readonly kind: 'REAUTH_REFUSED';
       /** Le trip est signalé à l'ops ; aucun débit. */
@@ -111,7 +131,15 @@ export class DepositRailExecutor {
   }
 
   #key(ref: DepositReference, op: DepositOperationType, instanceSeq: number, attemptNo: number) {
-    const plain = depositOperationKey(ref.depositId, op, instanceSeq, attemptNo);
+    const plain = depositOperationKey({
+      tripId: ref.tripId,
+      segmentId: ref.segmentId,
+      depositId: ref.depositId,
+      operationType: op,
+      tenderId: ref.tenderId,
+      instanceSeq,
+      attemptNo,
+    });
     return idempotencyKeyToSend(
       plain,
       this.#provider.capabilities().int('IDEMPOTENCY_KEY_MAX_LEN'),
@@ -133,7 +161,7 @@ export class DepositRailExecutor {
     const amount = money(req.amountMinor, ref.currency);
     const charge = req.mechanism === 'CHARGE_THEN_REFUND';
     return this.#provider.createHostedPayment({
-      idempotencyKey: this.#key(ref, charge ? 'CHARGE' : 'AUTH', 1, req.attemptNo),
+      idempotencyKey: this.#key(ref, charge ? 'DEPOSIT_CHARGE' : 'DEPOSIT_AUTH', 1, req.attemptNo),
       tripReference: ref.tripReference,
       method: 'CARD',
       amountMinor: amount.amountMinor,
@@ -144,9 +172,10 @@ export class DepositRailExecutor {
   }
 
   /**
-   * Ré-autorisation (rail a), demandée avant l'échéance. Refus reçu ou capacité non validée ⇒
-   * `REAUTH_REFUSED` (trip signalé à l'ops, sans débit). Issue inconnue : l'erreur remonte, la
-   * même clé est rejouée après lecture de l'état (17 §4.3 point 3).
+   * Ré-autorisation (rail a), demandée avant l'échéance. `SUCCEEDED` ⇒ `REAUTHORIZED` ; refus reçu
+   * (`FAILED`, `DECLINED`) ou capacité non validée ⇒ `REAUTH_REFUSED` (trip signalé à l'ops, sans
+   * débit) ; `PENDING` / `SUBMITTED` / `UNKNOWN` ou `UNKNOWN_OUTCOME` ⇒ `REAUTH_PENDING` (lecture de
+   * l'état, puis la même clé est rejouée, 17 §4.3 point 3). Toute autre erreur remonte.
    */
   async reauthorize(
     ref: DepositReference,
@@ -156,14 +185,18 @@ export class DepositRailExecutor {
   ): Promise<DepositReauthOutcome> {
     try {
       const result = await this.#provider.reauthorize({
-        idempotencyKey: this.#key(ref, 'REAUTH', instanceSeq, attemptNo),
+        idempotencyKey: this.#key(ref, 'DEPOSIT_REAUTH', instanceSeq, attemptNo),
         providerReference,
       });
+      if (result.status === 'SUCCEEDED') return { kind: 'REAUTHORIZED', result };
       if (result.status === 'FAILED') {
         return { kind: 'REAUTH_REFUSED', opsSignal: 'DEPOSIT_REAUTH_FAILED', reason: 'DECLINED' };
       }
-      return { kind: 'REAUTHORIZED', result };
+      return { kind: 'REAUTH_PENDING', needsLookup: true, status: result.status };
     } catch (error) {
+      if (isPaymentError(error, 'UNKNOWN_OUTCOME')) {
+        return { kind: 'REAUTH_PENDING', needsLookup: true, status: null };
+      }
       if (isPaymentError(error, 'DECLINED') || isPaymentError(error, 'UNSUPPORTED_CAPABILITY')) {
         return {
           kind: 'REAUTH_REFUSED',
@@ -252,7 +285,7 @@ export class DepositRailExecutor {
     switch (step.op) {
       case 'CAPTURE':
         return this.#provider.capture({
-          idempotencyKey: this.#key(ref, 'CAPTURE', i, a),
+          idempotencyKey: this.#key(ref, 'DEPOSIT_CAPTURE', i, a),
           providerReference: target.providerReference,
           amountMinor: step.amountMinor,
           currency,
@@ -260,7 +293,7 @@ export class DepositRailExecutor {
         });
       case 'VOID':
         return this.#provider.void({
-          idempotencyKey: this.#key(ref, 'VOID', i, a),
+          idempotencyKey: this.#key(ref, 'DEPOSIT_VOID', i, a),
           providerReference: target.providerReference,
         });
       case 'REFUND':

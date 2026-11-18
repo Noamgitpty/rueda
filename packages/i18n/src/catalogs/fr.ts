@@ -125,6 +125,8 @@ export const FR_MESSAGES = {
   },
   'web.deposit.unavailableNone':
     'Pour l’instant, nous ne pouvons pas bloquer le dépôt sur ta carte pour cette voiture.',
+  // US-701 (ADR-169) : S05, aucune caution pour ce trip (08 BR-PAY-06 : l'absence est affichée)
+  'web.deposit.none': 'Ce voyage ne demande pas de dépôt de garantie.',
   'web.catalog.title': 'Bibliothèque de composants',
   'web.catalog.intro':
     'Chaque composant dans ses états. Choisis la langue, le thème et la largeur pour les passer en revue.',
@@ -2207,6 +2209,9 @@ export const FR_MESSAGES = {
   // du paiement rendus par l'API (common.payment.*) ; aucune durée écrite (heures lues dans l'API)
   'common.payment.unavailable':
     'Le paiement en ligne n’est pas disponible pour le moment. Aucun débit n’a été effectué.',
+  // US-701 (ADR-169) : refus du paiement, caution impossible pour ces dates ou montant non fixé
+  'common.payment.depositUnavailable':
+    'Pour ces dates, nous ne pouvons pas bloquer le dépôt sur ta carte. Aucun débit n’a été effectué : change les dates ou choisis une autre voiture.',
   // US-223c (ADR-146) : demandes de réservation de l'hôte (mode REQUEST, 17 §2.5 ; 16 HDB-002)
   'common.request.notFound': 'Nous n’avons pas trouvé cette demande.',
   'common.request.expired': 'Cette demande a expiré. Le voyageur n’a pas été débité.',

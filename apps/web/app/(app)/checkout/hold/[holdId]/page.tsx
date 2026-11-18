@@ -5,7 +5,11 @@ import { Banner, ButtonLink, EmptyState, ErrorState } from '@rueda/ui';
 import type { MessageKey } from '@rueda/i18n';
 import { callApi, codeOf } from '../../../../../account/api-client.ts';
 import { checkoutHoldOf, holdPayable, isUuid } from '../../../../../account/checkout.ts';
-import { checkoutPaymentOf, paymentHref } from '../../../../../account/checkout-payment.ts';
+import {
+  checkoutPaymentOf,
+  depositRefusalMessage,
+  paymentHref,
+} from '../../../../../account/checkout-payment.ts';
 import { publicListingOf } from '../../../../../account/host-listings.ts';
 import { clientContext } from '../../../../../account/request.ts';
 import { getRequestI18n, getRequestLocaleTag } from '../../../../../i18n.ts';
@@ -134,6 +138,11 @@ export default async function HoldPage({
     currency: hold.currency,
     exponent: listing.currencyExponent,
   });
+  // US-701 (ADR-169 ; 08 BR-PAY-06) : caution décidée AVANT le paiement, rendue par l'API (montant,
+  // nature, libération ; jamais les déclencheurs) ; réservation impossible ⇒ aucun bouton « Pagar »
+  const deposit = payment?.deposit ?? null;
+  const depositBlocked = deposit?.status === 'UNAVAILABLE';
+  const depositRefusal = deposit?.status === 'UNAVAILABLE' ? depositRefusalMessage(deposit) : null;
   return (
     <Shell>
       <StateAnnouncer
@@ -222,9 +231,65 @@ export default async function HoldPage({
           ))}
         </ul>
       </section>
+      {/* US-701 : caution de la plateforme (10b §3.5, UX-24) : aucune, montant et libération au plus
+          tard, ou refus avant le paiement avec les jours possibles et une sortie */}
+      {deposit !== null && (
+        <section
+          className={styles['section']}
+          aria-labelledby="s05-deposit-title"
+          data-testid="s05-deposit"
+          data-state={deposit.status}
+        >
+          <h2 id="s05-deposit-title" className={accountStyles['h2']}>
+            {t('web.s03.deposit.title')}
+          </h2>
+          {deposit.status === 'NONE' && (
+            <p className={accountStyles['text']}>{t('web.deposit.none')}</p>
+          )}
+          {deposit.status === 'REQUIRED' && (
+            <>
+              <dl className={accountStyles['stackTight']}>
+                <div>
+                  <dt className={accountStyles['muted']}>{t('web.deposit.amount')}</dt>
+                  <dd className={styles['strong']} data-testid="s05-deposit-amount">
+                    {i18n.money({
+                      amountMinor: deposit.amountMinor,
+                      currency: deposit.currency,
+                      exponent: listing.currencyExponent,
+                    })}
+                  </dd>
+                </div>
+              </dl>
+              <p className={accountStyles['text']}>
+                {t(
+                  deposit.kind === 'CHARGE'
+                    ? 'web.deposit.how.chargeRefund'
+                    : 'web.deposit.how.preauth',
+                )}
+              </p>
+              <p className={accountStyles['muted']}>
+                {t('web.deposit.releaseBy', { date: i18n.dateTime(deposit.releaseAt, tz) })}
+              </p>
+            </>
+          )}
+          {depositRefusal !== null && (
+            <>
+              <Banner tone="danger" live="assertive">
+                {depositRefusal.key === 'web.deposit.unavailable'
+                  ? t(depositRefusal.key, { count: depositRefusal.count })
+                  : t(depositRefusal.key)}
+              </Banner>
+              <ButtonLink variant="secondary" href="/">
+                {t('web.listing.search')}
+              </ButtonLink>
+            </>
+          )}
+        </section>
+      )}
       {/* US-223b : paiement sur la page hébergée du PSP (10b UX-26), montant rendu par l'API ;
-          jamais pendant une revue avant le débit (US-209c, N-203) */}
-      {payable && payment?.request === null && (
+          jamais pendant une revue avant le débit (US-209c, N-203) ; jamais si la caution est
+          impossible (US-701) */}
+      {payable && !depositBlocked && payment?.request === null && (
         <section className={styles['section']} aria-labelledby="s05-pay-title">
           <h2 id="s05-pay-title" className={accountStyles['h2']}>
             {t('web.s05.pay.title')}
@@ -240,7 +305,7 @@ export default async function HoldPage({
       )}
       {/* US-223d : demande à l'hôte (10b S05 `web.s05.ctaRequest`) : le paiement est autorisé sur
           la page du PSP, débité seulement si l'hôte accepte (ADR-146) */}
-      {payable && payment !== null && payment.request !== null && (
+      {payable && !depositBlocked && payment !== null && payment.request !== null && (
         <section
           className={styles['section']}
           aria-labelledby="s05-pay-title"
