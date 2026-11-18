@@ -250,14 +250,14 @@ describe('configuration pays : structure et droits', () => {
             ...(t === 'config_param_value'
               ? [{ t, pol: 'cmd_hold_contract_param_read', cmd: 'r', roles: 'cmd_hold_owner' }]
               : []),
-            // détail du trip du voyageur (US-514, 0144) : fenêtre review_window_days seulement
-            ...(t === 'config_param_value'
-              ? [{ t, pol: 'cmd_hold_meeting_read', cmd: 'r', roles: 'cmd_hold_owner' }]
-              : []),
             // caution figée au checkout (US-701, 0146) : déclencheurs pays / classe, montant et
             // interrupteur funds_holding_enabled (valeur et définition) seulement
             ...(t === 'config_param_definition' || t === 'config_param_value'
               ? [{ t, pol: 'cmd_hold_deposit_read', cmd: 'r', roles: 'cmd_hold_owner' }]
+              : []),
+            // détail du trip du voyageur (US-514, 0144) : fenêtre review_window_days seulement
+            ...(t === 'config_param_value'
+              ? [{ t, pol: 'cmd_hold_meeting_read', cmd: 'r', roles: 'cmd_hold_owner' }]
               : []),
             // commandes d'occupation (0032, US-022) : clé buffer_minutes seulement, en lecture ;
             // checkout (US-208, 0108) : interrupteurs de l'hôte activable (définition et valeur)
