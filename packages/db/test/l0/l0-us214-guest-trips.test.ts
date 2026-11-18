@@ -11,7 +11,7 @@
  * dans le devis figé (lignes de test, PYG sans décimale) : la lecture les rend sans les recalculer.
  * Jamais le code testé comme oracle.
  *
- * Tout se passe dans une transaction ANNULÉE sous app_api (mondes des fixtures 9963 et 9948,
+ * Tout se passe dans une transaction ANNULÉE sous app_api (trips et demande de la fixture 9948, contrat signé par 9963,
  * sessions ouvertes par la vraie commande) ; aucun interrupteur n'est touché.
  */
 import type pg from 'pg';
@@ -20,7 +20,6 @@ import { connectAs, releaseClient } from '../../src/testing/index.ts';
 import { COUNTRIES, inTx, uuid } from '../support/avl.ts';
 import type { CountryCase } from '../support/avl.ts';
 import { newToken, openSession, setVirtualNow } from '../support/iam.ts';
-import { uniquePlate } from '../support/unique.ts';
 
 type Tx = pg.ClientBase;
 type Row = Record<string, unknown>;
@@ -33,10 +32,6 @@ const AMOUNTS: Readonly<
       readonly lines: readonly { type: string; amountMinor: string }[];
       readonly total: string;
       readonly request: string;
-      readonly deductibles: Readonly<Record<string, string>>;
-      readonly rc: string;
-      readonly deposit: string;
-      readonly extraKm: string;
     }
   >
 > = {
@@ -47,10 +42,6 @@ const AMOUNTS: Readonly<
     ],
     total: '12840',
     request: '9150',
-    deductibles: { BASICA: '50000', ESTANDAR: '25000', TOTAL: '0' },
-    rc: '10000000',
-    deposit: '25000',
-    extraKm: '35',
   },
   PYG: {
     lines: [
@@ -59,10 +50,6 @@ const AMOUNTS: Readonly<
     ],
     total: '1071000',
     request: '640000',
-    deductibles: { BASICA: '3500000', ESTANDAR: '1750000', TOTAL: '0' },
-    rc: '700000000',
-    deposit: '1750000',
-    extraKm: '2500',
   },
 };
 
@@ -70,7 +57,7 @@ const LIST = 'SELECT * FROM core.booking_guest_trips($1, $2, $3::uuid, $4)';
 const T0 = '2035-05-02T09:17:23.000Z';
 const at = (minutes: number): string => new Date(Date.parse(T0) + minutes * 60_000).toISOString();
 
-/** Monde d'un trip BOOKED (fixture 9963) ; l'heure virtuelle change à chaque monde (caution). */
+/** Trip BOOKED (fixture 9948 : sans assureur ni caution, répétable dans une transaction). */
 async function world(
   tx: Tx,
   c: CountryCase,
@@ -81,24 +68,11 @@ async function world(
 ): Promise<{ trip: string; holder: string }> {
   const a = AMOUNTS[c.currency]!;
   await setVirtualNow(tx, at(minute));
-  const plate = await uniquePlate(tx, 'G');
   const w = (
     await tx.query<{ trip_id: string; holder_id: string }>(
-      `SELECT * FROM test_fixture.us211_world($1, $2, 'Ana', 'Pérez', 'es', 'María', 'Gómez', $3,
-                                              'HOST', $4, $5, $6::jsonb, 'BASICA', 600, $7,
-                                              $8::jsonb, $9, $10)`,
-      [
-        c.country,
-        guest,
-        plate,
-        start,
-        end,
-        JSON.stringify(a.lines),
-        a.extraKm,
-        JSON.stringify(a.deductibles),
-        a.rc,
-        a.deposit,
-      ],
+      `SELECT * FROM test_fixture.us214_trip($1, $2, 'Ana', 'Pérez', 'María', 'Gómez', $3, $4,
+                                             $5::jsonb)`,
+      [c.country, guest, start, end, JSON.stringify(a.lines)],
     )
   ).rows[0]!;
   return { trip: w.trip_id, holder: w.holder_id };
