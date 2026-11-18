@@ -1,4 +1,4 @@
--- 9945 — fixtures des preuves de la caution figée au checkout (US-701, migration 0143 ; ADR-169).
+-- 9945 — fixtures des preuves de la caution figée au checkout (US-701, migration 0144 ; ADR-169).
 -- TESTS SEULEMENT.
 --
 -- JAMAIS appliquée hors tests : seul le harnais ajoute test-migrations/, et seulement à la base
@@ -9,7 +9,7 @@
 -- sous le propriétaire : la pose réelle à `auth_at` n'existe pas avant le lot C (S-1 d'ADR-164).
 -- Appelée par app_worker dans des transactions de test ANNULÉES (la contrainte différée de la
 -- conversion n'est jamais évaluée) ; elle sert à éprouver la file de la minuterie et les transitions
--- de 0143 sous le rôle de production. Les attendus du test viennent de 08 BR-PAY-06 (T57, T59),
+-- de 0144 sous le rôle de production. Les attendus du test viennent de 08 BR-PAY-06 (T57, T59),
 -- jamais de cette fixture. Aucun interrupteur de mise en service n'est écrit.
 --
 -- Retour arrière : DROP FUNCTION test_fixture.us701_converted_deposit(text, text, text, timestamptz,

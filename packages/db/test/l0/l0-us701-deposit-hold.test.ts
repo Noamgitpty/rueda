@@ -1,5 +1,5 @@
 /**
- * US-701 — caution figée au checkout (`core.payment_deposit_hold`, migration 0143, ADR-169) sous les
+ * US-701 — caution figée au checkout (`core.payment_deposit_hold`, migration 0144, ADR-169) sous les
  * rôles de PRODUCTION (assertion L0-05 en tête de chaque connexion : withRole), en USD (PA) et en
  * PYG sans décimale (PY), transactions annulées :
  * - `app_api` (voyageur de la session) : contexte du hold (devise et période du devis ENGAGÉ, classe

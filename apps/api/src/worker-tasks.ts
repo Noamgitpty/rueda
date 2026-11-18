@@ -11,6 +11,7 @@
  * | `disposition_sweeper` | `disposition_sweeper_period_s` (min. pays) | `core.booking_disposition_candidates` puis, une opération par transaction, `core.booking_disposition_repair` (0041, C17) |
  * | `booking_oracle`      | 24 h (ADR-068)                             | `core.booking_production_oracle_alert` (0045, C12)        |
  * | `reconciliation`      | 24 h (ADR-087)                             | contrôles de rapprochement de l'argent, lecture seule (FIN, US-047) ; alerte `FIN_MONEY_RECONCILIATION` |
+ * | `bordereau`           | 24 h (US-227, ADR-165)                     | `core.settlement_cmd_draft_insurer_bordereaux` (0143) : bordereaux DRAFT du mois clos par contrat d'assureur et projection `insurer_ledger_state` ; émission par FINANCE à deux personnes, aucun paiement |
  * | `risk_pruner`         | 1 h                                        | `core.risk_cmd_prune` (0047, US-052)                      |
  * | `ntf_dispatcher`, `ntf_sender` | événements, minuterie             | NTF (US-021) ; plafond SMS du pays (`ntfSmsBudget`, US-052) ; parties des réservations lues par `core.booking_notification_parties` (0133, adaptateur `postgresNotificationParties` d'AVL, US-213) |
  * | `ops_monitor`         | 60 s (ADR-080)                             | `core.ops_monitor_metrics` (0051) ; alertes sur le port `AlertChannel` (US-004) |
@@ -24,7 +25,7 @@
  * | `trip_lifecycle`      | 10 s (US-215, ADR-148)                     | `TripCancellationProcessor` de STL : chaque demande d'annulation de l'ops (`core.booking_trip_cancellations_pending`) réglée dans sa propre transaction (`core.booking_trip_cancellation_begin`, moteur unique, `core.settlement_cmd_record`, `core.booking_cmd_trip_settle_cancellation`, ordres REFUND bornés de 0121) ; refus garés par `core.booking_cmd_trip_park_cancellation`, alertes `FIN_SETTLEMENT_REVIEW` ou `TRIP_CANCELLATION_FAILED` (P1) |
  * | `refund_scheduler`    | 10 s (US-224c, ADR-150)                    | `RefundScheduler` de STL sous le nom `payment_command` : file `core.payment_refunds_due` (0127), une instance par transaction ; `core.payment_cmd_submit_refund`, puis l'ordre stocké relu sous les verrous du trip et de l'ordre (`core.payment_cmd_refund_order_for_send`) et envoyé par `MoneyCommandSender` au connecteur du fournisseur ; report `core.settlement_cmd_apply_leg_movement` d'un remboursement prouvé ; alertes `FIN_REFUND_BLOCKED`, `FIN_REFUND_FAILED` (P1, une fois par état). Aucun connecteur en production avant le lot C : rien n'est autorisé ni envoyé |
  *
- * | `deposit_timer`       | 60 s (US-701, ADR-169)                     | `DepositReauthTimer` de PAY sous le nom `payment_command` : file `core.payment_deposit_reauth_due` (0143), ré-autorisation de la caution (rail a) par le connecteur du fournisseur, report `core.payment_cmd_deposit_transition` ; refusée ⇒ décision avancée avant l'expiration, alerte `DEPOSIT_REAUTH_FAILED` (P1), aucun débit. Aucun connecteur en production avant le lot C : rien n'est envoyé |
+ * | `deposit_timer`       | 60 s (US-701, ADR-169)                     | `DepositReauthTimer` de PAY sous le nom `payment_command` : file `core.payment_deposit_reauth_due` (0144), ré-autorisation de la caution (rail a) par le connecteur du fournisseur, report `core.payment_cmd_deposit_transition` ; refusée ⇒ décision avancée avant l'expiration, alerte `DEPOSIT_REAUTH_FAILED` (P1), aucun débit. Aucun connecteur en production avant le lot C : rien n'est envoyé |
  *
  * Non déclarés ici, faute de port réel (tracé dans docs/team/handoffs/US-003.md) :
  * `payment_intent_sweeper` et `payment_command` (lisent ou appellent le PSP : adaptateurs du lot C,
@@ -66,7 +67,11 @@ import {
 } from './modules/ntf/index.js';
 import { resolveCancellationParams } from './modules/prc/index.js';
 import { ntfSmsBudget } from './modules/risk/index.js';
-import { registerRefundScheduler, registerTripCancellations } from './modules/stl/index.js';
+import {
+  registerInsurerBordereaux,
+  registerRefundScheduler,
+  registerTripCancellations,
+} from './modules/stl/index.js';
 
 export const HOLD_EXPIRY_WORKER = 'hold_expiry';
 /** Webhooks PSP reçus : rattachement et statut (17 §4.4 points 5 à 8 ; US-019, US-223). */
@@ -307,6 +312,9 @@ export function registerWorkerTasks(registry: BusRegistry, deps: WorkerTaskDeps)
   const alerts = deps.alerts ?? new LogAlertChannel(deps.log);
   registerOpsMonitor(registry, alerts, deps.log);
   registerMoneyReconciliation(registry, alerts, deps.log);
+  // Bordereau de l'assureur (US-227, ADR-165) : rédaction du mois clos, émission par FINANCE à
+  // deux personnes ; aucun paiement à l'assureur avant le lot C
+  registerInsurerBordereaux(registry, deps.log);
   // Annulations demandées par l'ops (US-215, ADR-148) : règlement, transition et remboursements
   // dans une transaction par demande ; refus garés (FIN_REVIEW, FAILED) et alertés
   registerTripCancellations(registry, deps.transactions, alerts, deps.log);

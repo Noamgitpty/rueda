@@ -391,7 +391,7 @@ export const CONSTRAINT_CODES: Readonly<Record<string, readonly [string, DbBusin
   host_ledger_settlement_unknown: [SQLSTATE.integrityConstraintViolation, 'INVARIANT_VIOLATION'],
   host_ledger_version_unsupported: [SQLSTATE.objectNotInPrerequisiteState, 'INVARIANT_VIOLATION'],
   host_ledger_entry_settlement_reason_unique: [SQLSTATE.uniqueViolation, 'INVARIANT_VIOLATION'],
-  // caution figée au checkout (0143, US-701, ADR-169) : décision incohérente avec la base, rail
+  // caution figée au checkout (0144, US-701, ADR-169) : décision incohérente avec la base, rail
   // « débit puis remboursement » fermé, décision figée ou transition refusée, commande réservée
   deposit_decision_mismatch: [SQLSTATE.checkViolation, 'INVARIANT_VIOLATION'],
   deposit_rail_closed: [SQLSTATE.objectNotInPrerequisiteState, 'FORBIDDEN'],
@@ -402,6 +402,12 @@ export const CONSTRAINT_CODES: Readonly<Record<string, readonly [string, DbBusin
   host_ledger_advance_unknown: [SQLSTATE.integrityConstraintViolation, 'INVARIANT_VIOLATION'],
   host_ledger_advance_unique: [SQLSTATE.uniqueViolation, 'INVARIANT_VIOLATION'],
   host_ledger_entry_version_reason_unique: [SQLSTATE.uniqueViolation, 'INVARIANT_VIOLATION'],
+  // registre de l'assureur et bordereau (0143, US-227, ADR-165)
+  insurer_ledger_command_forbidden: [SQLSTATE.insufficientPrivilege, 'FORBIDDEN'],
+  insurer_leg_on_bordereau: [SQLSTATE.objectNotInPrerequisiteState, 'INVARIANT_VIOLATION'],
+  insurer_bordereau_incoherent: [SQLSTATE.integrityConstraintViolation, 'INVARIANT_VIOLATION'],
+  insurer_bordereau_stale: [SQLSTATE.objectNotInPrerequisiteState, 'INVARIANT_VIOLATION'],
+  insurer_bordereau_line_frozen: [SQLSTATE.objectNotInPrerequisiteState, 'INVARIANT_VIOLATION'],
 };
 
 const own = (value: object, key: string): unknown =>

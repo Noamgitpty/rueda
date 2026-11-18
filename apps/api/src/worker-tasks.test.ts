@@ -85,6 +85,8 @@ describe('tâches du travailleur (US-003)', () => {
       'booking_contract',
       'booking_conversion',
       'booking_oracle',
+      // US-227 (ADR-165) : bordereau mensuel de l'assureur (rédaction seulement)
+      'bordereau',
       // US-701 (ADR-169) : ré-autorisations de la caution (aucun connecteur en production)
       'deposit_timer',
       'disposition_sweeper',
@@ -111,6 +113,7 @@ describe('tâches du travailleur (US-003)', () => {
     ).toEqual([
       ['booking_conversion', 10, 5],
       ['booking_oracle', 86_400, 5],
+      ['bordereau', 86_400, 5],
       ['deposit_timer', 60, 5],
       ['disposition_sweeper', 60, 5],
       ['hold_expiry', 60, 5],

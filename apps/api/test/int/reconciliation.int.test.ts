@@ -260,6 +260,9 @@ describe('US-047 — parcours doré de règlement puis rapprochement, dans chaqu
           expect(report.examined.legBalances[c.country]).toBe(after.balances);
           // US-217a : les deux trips du parcours sont examinés par l'invariant par jambe (relevé)
           expect(report.examined.trips[c.country] ?? 0).toBeGreaterThanOrEqual(2);
+          // US-227 : la jambe INSURER des règlements du parcours est portée au registre de
+          // l'assureur (variation de chaque version) et rapprochée sans écart
+          expect(report.examined.insurerTrips[c.country] ?? 0).toBeGreaterThanOrEqual(1);
           expect(after.totalPaid - before.totalPaid).toBe(
             a.trip.totalPaidMinor + 2n * b.trip.totalPaidMinor,
           );

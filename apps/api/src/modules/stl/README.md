@@ -13,30 +13,31 @@ STL ne déplace aucun fonds lui-même. Il planifie des commandes que PAY exécut
 - Le module Nest de ce dossier est un **squelette** : `internal/` contient `settlement-review.ts` (US-224) et `trip-cancellation.ts` (US-215) ; `index.ts` exporte `StlModule`, `settleOrFinReview` et le règlement des annulations (`TripCancellationProcessor`, `registerTripCancellations`, `planCancellation`).
 - Le **moteur pur** vit dans `packages/money` (US-017 : moteur des annulations ; US-018 : règlement persistable, versions, jambes). Voir [`packages/money/README.md`](../../../../../packages/money/README.md), sections « Moteur de règlement » et « Règlements persistés ».
 - La **persistance** vit en base (US-018, US-062, US-061). Voir [`packages/db/README.md`](../../../../../packages/db/README.md), sections « Règlements et jambes », « Rôle P2P_HOST, tables d'argent et minimisation » et « Port de place de marché ».
-- Restent à venir : le grand livre en partie double (US-530), le service qui ordonne les remboursements et alerte FIN sur un envoi retenu (US-224 partie 224c, US-215 ; l'instance et l'avance sont en base depuis 224b, ADR-147), le recouvrement des avances (US-709), l'assureur et les bordereaux (US-227), le moteur complet (US-518).
+- Restent à venir : le grand livre en partie double (US-530), le service qui ordonne les remboursements et alerte FIN sur un envoi retenu (US-224 partie 224c, US-215 ; l'instance et l'avance sont en base depuis 224b, ADR-147), le recouvrement des avances (US-709), l'ordre de reversement à l'assureur (lot C ; registre et bordereaux : US-227, ADR-165), le moteur complet (US-518).
 
 ## Entités
 
 Bêta (17 §10 point 3) : schéma unique `core`, tables préfixées `settlement_`.
 
-| Entité (17 §3.2.8)                         | État                                                            |
-| ------------------------------------------ | --------------------------------------------------------------- |
-| `settlement`                               | table `core.settlement_settlement` (migration 0027)             |
-| `settlement_line`                          | table `core.settlement_settlement_line` (migration 0027)        |
-| `settlement_leg`                           | table `core.settlement_settlement_leg` (migration 0027)         |
-| `trip_leg_balance`                         | table `core.settlement_trip_leg_balance` (migration 0027)       |
-| `finance_approval` (listée en 17 §3.2.9)   | table `core.settlement_finance_approval` (migration 0036)       |
-| `platform_advance`                         | table `core.settlement_platform_advance` (migration 0036)       |
-| `insurer_ledger_state`                     | table `core.settlement_insurer_ledger_state` (migration 0036)   |
-| `insurer_bordereau`                        | table `core.settlement_insurer_bordereau` (migration 0036)      |
-| `insurer_bordereau_line`                   | table `core.settlement_insurer_bordereau_line` (migration 0036) |
-| `ledger_account`                           | cible 17, pas encore créée                                      |
-| `journal_entry`                            | cible 17, pas encore créée                                      |
-| `journal_line`                             | cible 17, pas encore créée                                      |
-| `account_balance`                          | cible 17, pas encore créée                                      |
-| `host_ledger_state`                        | cible 17, pas encore créée                                      |
-| `host_ledger[hôte][devise]` (17 §2.9)      | table `core.settlement_host_ledger_entry` (migration 0129)      |
-| `insurer`, `insurer_contract` (17 §3.2.13) | cible 17, pas encore créées (US-227)                            |
+| Entité (17 §3.2.8)                         | État                                                                                                   |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------------------ |
+| `settlement`                               | table `core.settlement_settlement` (migration 0027)                                                    |
+| `settlement_line`                          | table `core.settlement_settlement_line` (migration 0027)                                               |
+| `settlement_leg`                           | table `core.settlement_settlement_leg` (migration 0027)                                                |
+| `trip_leg_balance`                         | table `core.settlement_trip_leg_balance` (migration 0027)                                              |
+| `finance_approval` (listée en 17 §3.2.9)   | table `core.settlement_finance_approval` (migration 0036)                                              |
+| `platform_advance`                         | table `core.settlement_platform_advance` (migration 0036)                                              |
+| `insurer_ledger_state`                     | table `core.settlement_insurer_ledger_state` (migration 0036)                                          |
+| `insurer_bordereau`                        | table `core.settlement_insurer_bordereau` (migration 0036)                                             |
+| `insurer_bordereau_line`                   | table `core.settlement_insurer_bordereau_line` (migration 0036)                                        |
+| `ledger_account`                           | cible 17, pas encore créée                                                                             |
+| `journal_entry`                            | cible 17, pas encore créée                                                                             |
+| `journal_line`                             | cible 17, pas encore créée                                                                             |
+| `account_balance`                          | cible 17, pas encore créée                                                                             |
+| `host_ledger_state`                        | cible 17, pas encore créée                                                                             |
+| `host_ledger[hôte][devise]` (17 §2.9)      | table `core.settlement_host_ledger_entry` (migration 0129)                                             |
+| `insurer`, `insurer_contract` (17 §3.2.13) | tables `core.settlement_insurer`, `core.settlement_insurer_contract` (0081 ; colonnes et clés de 0143) |
+| `insurer_ledger` (17 §2.9)                 | table `core.settlement_insurer_ledger_entry` (migration 0143)                                          |
 
 Tables présentes en base mais absentes des listes d'entités de 17 :
 
@@ -122,3 +123,7 @@ La pénalité de l'hôte qui annule (`host_penalty_minor` du règlement, 08 E7 r
 **Créance de la règle 3 bis (US-224e, ADR-163).** Quand une avance de Kmino sur une jambe `HOST` déjà versée devient effective (`OPEN`, au report du remboursement par `core.settlement_cmd_apply_leg_movement`, `RefundScheduler`), la base écrit dans la même instruction la créance de l'hôte (`RELEASED_LEG_ADVANCE`, montant de l'avance stockée, 08 TJ18b / TJ18d) par le déclencheur `platform_advance_receivable_posted`. Aucun code de l'API n'y participe ; aucun recouvrement (`NETTING`, SM-6b) avant US-709.
 
 **Remboursement réparti sur les moyens d'origine (US-224f, ADR-166).** Le processeur des annulations lit tous les encaissements réussis du loyer du trip (`tendersOf` : capture, débit MIT, recouvrement, devise du trip, ordre des captures, montant déjà engagé sur chacun) et `ordersByTender` (pur) en tire un ordre par moyen : 08 E2 décide le montant de chaque moyen (`refundsByTender` de `@rueda/money`), la règle 10 ses jambes ; la réaffectation est rattachée au premier moyen de la cascade ; clé `…:REFUND:{moyen}:i1:a1`. Bêta (fail-closed) : seule la carte est remboursée (`NATIVE_PARTIAL`) ; un moyen non natif ou un crédit qui doit rembourser quelque chose ⇒ `REFUND_RAIL_UNAVAILABLE`, rien n'est écrit, la demande est garée avec une alerte. L'ordonnanceur (`RefundScheduler`) fait passer une instance en échec confirmé à `PENDING_CUSTOMER_CHOICE` (`attempt_no` + 1, `PgRefundOrders.awaitChoice`) dans la transaction qui pose l'alerte `FIN_REFUND_FAILED` ; aucun autre rail n'est ouvert en bêta.
+
+## Registre et bordereau de l'assureur (US-227, ADR-165)
+
+La jambe `INSURER` est écrite au registre de l'assureur (`core.settlement_insurer_ledger_entry`, migration 0143) par la base elle-même, dans la transaction de sa source : chaque encaissement porté sur les soldes (`COLLECTION`, jambe de l'opération) et chaque version de règlement (`SETTLEMENT_VARIATION`, variation stockée ; une version n+1 n'écrit que sa variation depuis la version n). Une variation sur un trip déjà porté par un bordereau émis est refusée (`insurer_leg_on_bordereau`) : l'annulation de l'ops est garée `FIN_REVIEW`. La tâche `bordereau` (`internal/insurer-bordereau.ts`, 24 h, `registerInsurerBordereaux` dans `worker-tasks.ts`) appelle `core.settlement_cmd_draft_insurer_bordereaux(NULL)` : bordereau DRAFT du mois clos par contrat, projection `insurer_ledger_state`. L'émission reste `ISSUE_BORDEREAU` à deux personnes FINANCE (console d'US-101), gardée par `insurer_bordereau_issue_check`. Aucun paiement à l'assureur (lot C, GL-42). Preuves : `insurer-bordereau.test.ts`, `packages/db/test/l0/l0-us227-insurer-ledger.test.ts`.
