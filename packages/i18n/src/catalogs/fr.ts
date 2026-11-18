@@ -2131,6 +2131,8 @@ export const FR_MESSAGES = {
   'common.checkout.holdNotFound': 'Nous ne trouvons pas cette réservation dans ton compte.',
   'common.checkout.noticeTooShort':
     'L’hôte a besoin de plus de préavis. Choisis une heure de début plus tardive.',
+  'common.checkout.oneWayNotAllowed':
+    'Tu rends la voiture au même endroit que celui où tu la récupères.',
   'common.checkout.guestOverlap': 'Tu as déjà un trajet à ces dates. Choisis-en d’autres.',
   'common.checkout.holdAlreadyLive':
     'Tu es déjà en train de réserver cette voiture. Termine cette réservation ou attends quelques minutes.',

@@ -252,8 +252,11 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  remboursement réparti sur les moyens d’origine (US-224 partie 224f, ADR-166) :
  `backoffice.cancel.outcome.REFUND_RAIL_UNAVAILABLE`, `…REFUND_RAIL_NOT_NATIVE`,
  `…REFUND_EXCEEDS_TENDER` (codes d’une demande d’annulation garée, console).
+ Version 83 (la 82 est réservée à US-225, en cours ; la 81 est celle d’US-224f) : lieux de prise
+ et de retour (US-514, ADR-168) : `common.checkout.oneWayNotAllowed` (lieu de retour différent du
+ lieu de prise refusé au checkout, 16 BKG-016 : one-way interdit).
  */
-export const CATALOG_VERSION = 81;
+export const CATALOG_VERSION = 83;
 
 /** Catalogues de base par langue ; la langue d'un profil de locale choisit le sien. */
 export const CATALOGS: Readonly<Record<CatalogLanguage, VersionedCatalog<MessageKey>>> = {

@@ -466,6 +466,55 @@ describe('US-208 — contrat du checkout (partie back-end)', () => {
     expect((await hold(DEMAND)).status).toBe(503);
   });
 
+  it('US-514 critère 1 : lieu de retour différent ⇒ 422 ONE_WAY_NOT_ALLOWED sans pose du hold ; absent ⇒ aucune lecture du lieu ; identique ⇒ hold posé ; devis d’autrui ⇒ 404 ; lieu mal formé ⇒ 400 ; panne ⇒ 503', async () => {
+    const { a, store } = await app();
+    store.result = { outcome: 'DONE', holdId: HOLD, expiresAt: HOLD_VIEW.expiresAt };
+    store.holds.set(`${a.hash('voyageur')}:${HOLD}`, HOLD_VIEW);
+    const place = '00000000-0000-4000-8000-0000000514a1';
+    const hold = (body: unknown) =>
+      a.api.request('POST', `/checkout/quotes/${QUOTE}/hold`, {
+        headers: a.cookie('voyageur'),
+        body,
+      });
+
+    // absent (ou null) : retour au lieu de prise, aucune lecture du lieu, hold posé
+    expect((await hold(DEMAND)).status).toBe(201);
+    expect((await hold({ ...DEMAND, returnLocationId: null })).status).toBe(201);
+    expect(store.returnPlaces).toEqual([]);
+
+    // différent du lieu de prise (jugé en base) : refusé, aucune pose
+    store.returnPlaceOutcome = 'ONE_WAY_NOT_ALLOWED';
+    const posed = store.demands.length;
+    const refused = await hold({ ...DEMAND, returnLocationId: place.toUpperCase() });
+    expect(refused.status).toBe(422);
+    expect(refused.json).toEqual({
+      code: 'ONE_WAY_NOT_ALLOWED',
+      messageKey: 'common.checkout.oneWayNotAllowed',
+    });
+    expect(store.returnPlaces).toEqual([
+      { proof: a.hash('voyageur'), quoteId: QUOTE, returnLocationId: place },
+    ]);
+    expect(store.demands).toHaveLength(posed);
+
+    // identique au lieu de prise : hold posé, lieu transmis tel quel
+    store.returnPlaceOutcome = 'DONE';
+    const ok = await hold({ ...DEMAND, returnLocationId: place });
+    expect(ok.status).toBe(201);
+    expect(store.demands.at(-1)?.demand).toMatchObject({ returnLocationId: place });
+
+    // devis d'un autre voyageur ou inconnu : même réponse qu'un devis absent
+    store.returnPlaceOutcome = 'QUOTE_NOT_FOUND';
+    const foreign = await hold({ ...DEMAND, returnLocationId: place });
+    expect(foreign.status).toBe(404);
+    expect(foreign.json).toEqual({ code: 'QUOTE_NOT_FOUND', messageKey: 'common.quote.notFound' });
+
+    for (const returnLocationId of ['pas-un-uuid', 42, { id: place }]) {
+      expect((await hold({ ...DEMAND, returnLocationId })).status).toBe(400);
+    }
+    store.down = true;
+    expect((await hold({ ...DEMAND, returnLocationId: place })).status).toBe(503);
+  });
+
   it('critère 3 : récapitulatif du hold (versions exactes acceptées) au seul voyageur ; autre ou inconnu ⇒ 404 ; sans session ⇒ 401 ; panne ⇒ 503', async () => {
     const { a, store } = await app();
     store.holds.set(`${a.hash('voyageur')}:${HOLD}`, HOLD_VIEW);

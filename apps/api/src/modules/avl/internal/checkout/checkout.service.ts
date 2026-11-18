@@ -264,6 +264,17 @@ export class CheckoutService {
     if (!isUuid(quoteId)) throw new QuoteHttpError('QUOTE_NOT_FOUND');
     const demand = parseCheckoutDemand(body);
     if (demand === null) throw new CheckoutHttpError('REQUEST_INVALID');
+    // US-514 : lieu de retour demandé ⇒ jugé en base avant toute pose (one-way interdit)
+    const returnLocationId = demand.returnLocationId;
+    if (returnLocationId !== undefined) {
+      const place = await this.#safe('checkout', () =>
+        this.store.returnPlace(proof, quoteId.toLowerCase(), returnLocationId),
+      );
+      if (place === 'AUTH_REQUIRED' || place === 'QUOTE_NOT_FOUND') {
+        throw new QuoteHttpError(place);
+      }
+      if (place === 'ONE_WAY_NOT_ALLOWED') throw new CheckoutHttpError(place);
+    }
     const r = await this.#safe('checkout', () =>
       this.store.checkout(proof, quoteId.toLowerCase(), demand),
     );

@@ -1029,3 +1029,12 @@ Migration `0141_payment_refund_multi_tender`. Aucune fixture nouvelle.
 - **Reprise après un échec confirmé** : `core.payment_cmd_refund_await_choice(uuid)` (cmd_money_owner, EXECUTE app_worker, travailleur `payment_command`) : instance `FAILED` dont l'ordre est `FAILED` ⇒ `PENDING_CUSTOMER_CHOICE`, `attempt_no` + 1 (`refund_instance_not_failed` sinon) ; garde de l'instance (corps de 0127) : `attempt_no` ne change que sur cette transition, `PENDING_CUSTOMER_CHOICE → SUPERSEDED` ; supersession étendue à `PENDING_CUSTOMER_CHOICE`. Droit de colonne `UPDATE (attempt_no)` à cmd_money_owner.
 - **Codes** : `refund_exceeds_tender` ⇒ `REFUND_EXCEEDS_COLLECTED` ; `refund_rail_not_native` ⇒ `PAYMENT_METHOD_UNAVAILABLE` ; `refund_instance_not_failed` ⇒ `INVALID_TRANSITION`.
 - **Preuves** : `test/l0/l0-us224f-multi-tender.test.ts` (PA USD : TJ16a / TJ16b, moyens de T33 ; PY PYG : TJ16c / TJ16d ; refus de TJ16b / TJ16d sur tout rail en bêta ; reprise après échec ; supersession ; droits). `test/support/pay.ts` : `recordOperation` accepte un moyen (`method`, défaut `CARD`).
+
+## Lieux de prise et de retour (US-514 ; 16 BKG-016 ; 08 BR-BOOK-09 ; ADR-168)
+
+Migration `0142_booking_meeting_place`. Fixture `9939_test_us514_meeting_place_fixtures` (annonce d'un trip ; fermeture de `review_window_days` d'un pays, transaction annulée).
+
+- **One-way refusé** : `core.booking_checkout_return_place(bytea, uuid, uuid)` (cmd_hold_owner, EXECUTE app_api, lecture seule) : lieu de retour absent ou égal au lieu du véhicule du devis du voyageur de la session ⇒ `DONE` ; autre ⇒ `ONE_WAY_NOT_ALLOWED` ; devis d'un autre ou inconnu ⇒ `QUOTE_NOT_FOUND` ; session invalide ⇒ `AUTH_REQUIRED`. Le checkout (`booking_cmd_checkout`) est inchangé.
+- **Adresse bornée** : `core.catalog_guest_meeting_point` (0106) et `core.booking_guest_trips` (0136) remplacés à signature identique : l'adresse exacte n'est plus rendue au-delà de la fin prévue du trip + `review_window_days` du pays (paramètre absent ou mal formé ⇒ jamais). Aucune copie de l'adresse, rien à purger.
+- **Droits** : `SELECT (country_code, scheduled_end)` de `booking_trip` à catalog_cmd_owner ; politiques ajoutées `catalog_cmd_meeting_read`, `cmd_hold_meeting_read` sur `config_param_value` (clé `review_window_days`).
+- **Preuves** : `test/l0/l0-us514-meeting-place.test.ts` (PA USD, PY PYG : one-way, adresse après réservation seulement, borne de la fenêtre dans chaque état, paramètre absent, lieu non modifiable par aucun rôle, droits).

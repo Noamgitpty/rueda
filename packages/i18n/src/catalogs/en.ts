@@ -2025,6 +2025,7 @@ export const EN_MESSAGES = {
   'common.checkout.quoteAlreadyUsed': 'You already booked with this price. Check your booking.',
   'common.checkout.holdNotFound': 'We can’t find this booking in your account.',
   'common.checkout.noticeTooShort': 'The host needs more notice. Choose a later start time.',
+  'common.checkout.oneWayNotAllowed': 'You return the car to the same place you pick it up.',
   'common.checkout.guestOverlap': 'You already have a trip on these dates. Choose other dates.',
   'common.checkout.holdAlreadyLive':
     'You’re already booking this car. Finish that booking or wait a few minutes.',
