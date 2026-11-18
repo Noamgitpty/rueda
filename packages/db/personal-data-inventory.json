@@ -1992,7 +1992,9 @@
         "currency": "C0",
         "rc_amount_minor": "C0",
         "deductibles": "C0",
-        "exclusions": "C0"
+        "exclusions": "C0",
+        "bordereau_period": "C0",
+        "chargeback_clause": "C0"
       }
     },
     "core.settlement_insurer_bordereau": {
@@ -2005,6 +2007,7 @@
         "country_code": "C1",
         "currency": "C1",
         "period": "C1",
+        "period_month": "C1",
         "total_minor": "C1",
         "status": "C1",
         "issued_by": "C1",
@@ -2076,6 +2079,32 @@
         "settlement_id": "C1",
         "settlement_version": "C1",
         "reason": "C1",
+        "amount_minor": "C1",
+        "created_at": "C1"
+      }
+    },
+    "core.settlement_insurer_ledger_entry": {
+      "lifecycle": "A",
+      "subjects": [
+        {
+          "column": "org_id",
+          "type": "ORG"
+        }
+      ],
+      "export": "controller",
+      "columns": {
+        "id": "C1",
+        "trip_id": "C1",
+        "segment_no": "C1",
+        "org_id": "C1",
+        "country_code": "C1",
+        "currency": "C1",
+        "insurer_id": "C1",
+        "insurer_contract_id": "C1",
+        "reason": "C1",
+        "operation_id": "C1",
+        "settlement_id": "C1",
+        "settlement_version": "C1",
         "amount_minor": "C1",
         "created_at": "C1"
       }

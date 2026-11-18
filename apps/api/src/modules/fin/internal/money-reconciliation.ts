@@ -17,6 +17,9 @@
  * | `TRIP_CAPTURE_LEGS`              | trip encaissé : Σ capturé des soldes = Σ des encaissements portés = Σ de leurs jambes | 19 US-217 critère 3 ; 08 E7 règles 1, 8 |
  * | `TRIP_SETTLED_TOTAL`             | trip encaissé et réglé : total payé de la version en tête = Σ des encaissements portés | 19 US-217 critère 3 ; 17 §3.2.8 |
  * | `STATEMENT_HOST_LEG`             | jambe HOST du relevé = jambe HOST attendue (en-tête de la version en tête, sinon jambes HOST des encaissements, sinon solde capturé) | 19 US-217 critère 3 ; 08 E7 |
+ * | `INSURER_LEDGER_COLLECTION`      | par trip : Σ écritures d'encaissement du registre de l'assureur = Σ jambes INSURER des encaissements portés, à l'unité mineure | 19 US-227 ; 08 E7 règle 1 ; 17 §2.9 |
+ * | `INSURER_LEDGER_SETTLEMENT`      | par trip : Σ écritures de règlement du registre = Σ variations INSURER des versions stockées | 19 US-227 ; 08 E7 règle 3, E4 |
+ * | `INSURER_BORDEREAU_OVERBILLED`   | par trip : Σ porté par des bordereaux émis ≤ prime due (Σ écritures) | 19 US-227 ; 08 E7 règle 3 bis |
  *
  * La base refuse déjà la plupart de ces écarts (contraintes et trigger différé
  * `settlement_balanced`, 0027) : ce contrôle est le filet indépendant que demande 19 §1.8, au même
@@ -29,7 +32,10 @@
  * les opérations de paiement et le relevé de l'hôte ne lui sont pas lisibles autrement) ; la
  * requête n'en garde que des montants et un pays, le rapport que des comptes. Les deux premiers ne
  * portent que sur un trip dont un encaissement est porté (un solde posé sans opération n'a rien à
- * comparer).
+ * comparer). Les trois contrôles de la jambe assureur (US-227, ADR-165) lisent
+ * `core.finance_insurer_ledger_facts()` (0139, même garde) ; une écriture sans contrat d'assureur
+ * (aucun contrat en vigueur à la réservation) n'est pas un écart mais est COMPTÉE
+ * (`examined.insurerUnattributed`) : elle n'entre dans aucun bordereau (GL-42).
  *
  * Fail-closed : un contexte autre que le travailleur `reconciliation` (la RLS ne montrerait rien et
  * le contrôle rendrait des zéros trompeurs), un compte illisible ou un montant hors du format
@@ -56,6 +62,9 @@ export const MONEY_RECONCILIATION_CHECKS = [
   'TRIP_CAPTURE_LEGS',
   'TRIP_SETTLED_TOTAL',
   'STATEMENT_HOST_LEG',
+  'INSURER_LEDGER_COLLECTION',
+  'INSURER_LEDGER_SETTLEMENT',
+  'INSURER_BORDEREAU_OVERBILLED',
 ] as const;
 export type MoneyReconciliationCheck = (typeof MONEY_RECONCILIATION_CHECKS)[number];
 
@@ -114,6 +123,25 @@ export interface TripLegFact {
   readonly statementHost: bigint | null;
 }
 
+/** Faits de la jambe assureur d'un trip (`core.finance_insurer_ledger_facts()`, 0139). */
+export interface InsurerLedgerFact {
+  readonly country: string;
+  /** Σ écritures d'encaissement du registre de l'assureur. */
+  readonly collectedEntries: bigint;
+  /** Σ jambes INSURER des encaissements portés (CAPTURE, MIT_CHARGE, DEBT_COLLECTION). */
+  readonly collectedLegs: bigint;
+  /** Σ écritures de règlement du registre. */
+  readonly settledEntries: bigint;
+  /** Σ variations INSURER des versions de règlement stockées. */
+  readonly settledVariations: bigint;
+  /** Σ porté par des bordereaux émis (rédigés par la commande). */
+  readonly billed: bigint;
+  /** Prime due : Σ des écritures du trip. */
+  readonly due: bigint;
+  /** Une écriture au moins sans contrat d'assureur. */
+  readonly unattributed: boolean;
+}
+
 export interface CheckCount {
   readonly total: bigint;
   /** Violations par pays (seuls les pays en écart). */
@@ -128,6 +156,10 @@ export interface MoneyReconciliationReport {
     readonly settlements: Readonly<Record<string, number>>;
     readonly legBalances: Readonly<Record<string, number>>;
     readonly trips: Readonly<Record<string, number>>;
+    /** Trips dont la jambe assureur est examinée (US-227). */
+    readonly insurerTrips: Readonly<Record<string, number>>;
+    /** Trips dont une écriture du registre n'a pas de contrat d'assureur (comptés, pas un écart). */
+    readonly insurerUnattributed: Readonly<Record<string, number>>;
   };
 }
 
@@ -160,6 +192,11 @@ export const LEG_BALANCE_SOURCE = `SELECT country_code, captured_minor, refunded
 export const TRIP_LEG_FACTS_SOURCE = `SELECT country_code, captured_minor, collected_minor, collected_legs_minor,
          head_total_paid_minor, expected_host_minor, statement_host_minor
     FROM core.finance_trip_leg_facts()`;
+
+/** Faits de la jambe assureur (US-227, 0139) : montants et pays seulement. */
+export const INSURER_LEDGER_FACTS_SOURCE = `SELECT country_code, collected_entries_minor, collected_legs_minor,
+         settled_entries_minor, settled_variations_minor, billed_minor, due_minor, unattributed
+    FROM core.finance_insurer_ledger_facts()`;
 
 /**
  * Une ligne par version de règlement : en-tête, version remplacée et agrégats des jambes. Montants
@@ -231,10 +268,26 @@ SELECT f.country_code AS country,
   FROM f`;
 }
 
+/** Une ligne par trip dont la jambe assureur est tenue (US-227). */
+export function insurerLedgerFactsSql(facts: string = INSURER_LEDGER_FACTS_SOURCE): string {
+  return `
+WITH f AS (${facts})
+SELECT f.country_code AS country,
+       f.collected_entries_minor::text AS collected_entries,
+       f.collected_legs_minor::text AS collected_legs,
+       f.settled_entries_minor::text AS settled_entries,
+       f.settled_variations_minor::text AS settled_variations,
+       f.billed_minor::text AS billed,
+       f.due_minor::text AS due,
+       f.unattributed
+  FROM f`;
+}
+
 /** Requêtes de la tâche de production (sources réelles seulement). */
 export const SETTLEMENT_AGGREGATES_SQL = settlementAggregatesSql();
 export const LEG_BALANCE_AGGREGATES_SQL = legBalanceAggregatesSql();
 export const TRIP_LEG_FACTS_SQL = tripLegFactsSql();
+export const INSURER_LEDGER_FACTS_SQL = insurerLedgerFactsSql();
 
 const MINOR = /^-?[0-9]{1,19}$/;
 const COUNTRY = /^[A-Z]{2}$/;
@@ -321,6 +374,33 @@ export function parseTripLegFactRow(row: Record<string, unknown>): TripLegFact {
   };
 }
 
+/** Lit une ligne de `INSURER_LEDGER_FACTS_SQL` ; fail-closed. */
+export function parseInsurerLedgerFactRow(row: Record<string, unknown>): InsurerLedgerFact {
+  return {
+    country: country(row.country),
+    collectedEntries: minor(row.collected_entries, 'collected_entries'),
+    collectedLegs: minor(row.collected_legs, 'collected_legs'),
+    settledEntries: minor(row.settled_entries, 'settled_entries'),
+    settledVariations: minor(row.settled_variations, 'settled_variations'),
+    billed: minor(row.billed, 'billed'),
+    due: minor(row.due, 'due'),
+    unattributed: bool(row.unattributed, 'unattributed'),
+  };
+}
+
+/**
+ * Contrôles en écart de la jambe assureur d'un trip (fonction pure, US-227) : le registre est le
+ * miroir exact des jambes INSURER stockées, à l'unité mineure ; aucun bordereau émis ne porte plus
+ * que la prime due.
+ */
+export function insurerLedgerViolations(f: InsurerLedgerFact): MoneyReconciliationCheck[] {
+  const out: MoneyReconciliationCheck[] = [];
+  if (f.collectedEntries !== f.collectedLegs) out.push('INSURER_LEDGER_COLLECTION');
+  if (f.settledEntries !== f.settledVariations) out.push('INSURER_LEDGER_SETTLEMENT');
+  if (f.billed > f.due) out.push('INSURER_BORDEREAU_OVERBILLED');
+  return out;
+}
+
 /**
  * Contrôles en écart d'un trip (fonction pure, US-217a) : Σ jambes de chaque trip = montant
  * encaissé, à l'unité mineure près ; jambe HOST du relevé = jambe HOST attendue. Une jambe HOST
@@ -387,6 +467,7 @@ export function evaluateMoneyReconciliation(
   settlements: readonly SettlementAggregate[],
   legBalances: readonly LegBalanceAggregate[],
   tripFacts: readonly TripLegFact[] = [],
+  insurerFacts: readonly InsurerLedgerFact[] = [],
 ): MoneyReconciliationReport {
   const totals = new Map<MoneyReconciliationCheck, Map<string, bigint>>(
     MONEY_RECONCILIATION_CHECKS.map((c) => [c, new Map()]),
@@ -399,6 +480,8 @@ export function evaluateMoneyReconciliation(
   const examinedSettlements: Record<string, number> = {};
   const examinedBalances: Record<string, number> = {};
   const examinedTrips: Record<string, number> = {};
+  const examinedInsurer: Record<string, number> = {};
+  const unattributed: Record<string, number> = {};
   for (const s of settlements) {
     examinedSettlements[s.country] = (examinedSettlements[s.country] ?? 0) + 1;
     for (const check of settlementViolations(s)) hit(check, s.country);
@@ -410,6 +493,11 @@ export function evaluateMoneyReconciliation(
   for (const f of tripFacts) {
     examinedTrips[f.country] = (examinedTrips[f.country] ?? 0) + 1;
     for (const check of tripLegViolations(f)) hit(check, f.country);
+  }
+  for (const f of insurerFacts) {
+    examinedInsurer[f.country] = (examinedInsurer[f.country] ?? 0) + 1;
+    if (f.unattributed) unattributed[f.country] = (unattributed[f.country] ?? 0) + 1;
+    for (const check of insurerLedgerViolations(f)) hit(check, f.country);
   }
   let violations = 0n;
   const checks = Object.fromEntries(
@@ -429,6 +517,8 @@ export function evaluateMoneyReconciliation(
       settlements: examinedSettlements,
       legBalances: examinedBalances,
       trips: examinedTrips,
+      insurerTrips: examinedInsurer,
+      insurerUnattributed: unattributed,
     },
   };
 }
@@ -450,10 +540,12 @@ export async function runMoneyReconciliation(tx: SqlClient): Promise<MoneyReconc
   const settlements = await tx.query<Record<string, unknown>>(SETTLEMENT_AGGREGATES_SQL);
   const balances = await tx.query<Record<string, unknown>>(LEG_BALANCE_AGGREGATES_SQL);
   const trips = await tx.query<Record<string, unknown>>(TRIP_LEG_FACTS_SQL);
+  const insurer = await tx.query<Record<string, unknown>>(INSURER_LEDGER_FACTS_SQL);
   return evaluateMoneyReconciliation(
     settlements.rows.map(parseSettlementRow),
     balances.rows.map(parseLegBalanceRow),
     trips.rows.map(parseTripLegFactRow),
+    insurer.rows.map(parseInsurerLedgerFactRow),
   );
 }
 

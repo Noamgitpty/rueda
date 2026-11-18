@@ -711,6 +711,8 @@ describe('RLS-5, RLS-12, RLS-18', () => {
           'settlement_settlement',
           // US-709a (0129, ADR-153) : host_ledger, lecture FINANCE / ADMIN du pays (fin_read)
           'settlement_host_ledger_entry',
+          // US-227 (0139, ADR-165) : registre de l'assureur, lecture FINANCE / ADMIN du pays (fin_read)
+          'settlement_insurer_ledger_entry',
           'settlement_platform_advance', // US-062 : créance du titulaire, FINANCE / ADMIN
           'settlement_settlement_leg',
           'settlement_trip_leg_balance',

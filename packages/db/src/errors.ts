@@ -386,6 +386,12 @@ export const CONSTRAINT_CODES: Readonly<Record<string, readonly [string, DbBusin
   host_ledger_settlement_unknown: [SQLSTATE.integrityConstraintViolation, 'INVARIANT_VIOLATION'],
   host_ledger_version_unsupported: [SQLSTATE.objectNotInPrerequisiteState, 'INVARIANT_VIOLATION'],
   host_ledger_entry_settlement_reason_unique: [SQLSTATE.uniqueViolation, 'INVARIANT_VIOLATION'],
+  // registre de l'assureur et bordereau (0139, US-227, ADR-165)
+  insurer_ledger_command_forbidden: [SQLSTATE.insufficientPrivilege, 'FORBIDDEN'],
+  insurer_leg_on_bordereau: [SQLSTATE.objectNotInPrerequisiteState, 'INVARIANT_VIOLATION'],
+  insurer_bordereau_incoherent: [SQLSTATE.integrityConstraintViolation, 'INVARIANT_VIOLATION'],
+  insurer_bordereau_stale: [SQLSTATE.objectNotInPrerequisiteState, 'INVARIANT_VIOLATION'],
+  insurer_bordereau_line_frozen: [SQLSTATE.objectNotInPrerequisiteState, 'INVARIANT_VIOLATION'],
 };
 
 const own = (value: object, key: string): unknown =>

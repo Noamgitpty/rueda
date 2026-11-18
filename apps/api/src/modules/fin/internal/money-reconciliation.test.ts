@@ -14,12 +14,15 @@ import { assertSafeAlert } from '../../bus/index.js';
 import {
   alertOnViolations,
   evaluateMoneyReconciliation,
+  INSURER_LEDGER_FACTS_SQL,
+  insurerLedgerViolations,
   LEG_BALANCE_AGGREGATES_SQL,
   legBalanceOverdrawn,
   MONEY_RECONCILIATION_CHECKS,
   MONEY_RECONCILIATION_PERIOD_SECONDS,
   MONEY_RECONCILIATION_WORKER,
   MoneyReconciliationContractError,
+  parseInsurerLedgerFactRow,
   parseLegBalanceRow,
   parseSettlementRow,
   parseTripLegFactRow,
@@ -33,6 +36,7 @@ import {
   tripLegViolations,
 } from './money-reconciliation.js';
 import type {
+  InsurerLedgerFact,
   LegBalanceAggregate,
   MoneyReconciliationCheck,
   SettlementAggregate,
@@ -113,13 +117,21 @@ describe('US-047 — rapprochement de l’argent : agrégats cohérents', () => 
     expect(legBalanceOverdrawn(balanceOf(c))).toBe(false);
   });
 
-  it('rapport vide : onze contrôles à 0, rien examiné', () => {
+  it('rapport vide : quatorze contrôles à 0, rien examiné', () => {
     const r = evaluateMoneyReconciliation([], []);
     expect(Object.keys(r.checks)).toEqual([...MONEY_RECONCILIATION_CHECKS]);
-    expect(MONEY_RECONCILIATION_CHECKS).toHaveLength(11);
+    // US-227 : trois contrôles de la jambe assureur s'ajoutent aux onze d'US-047 et d'US-217a
+    expect(MONEY_RECONCILIATION_CHECKS).toHaveLength(14);
     expect(r.violations).toBe(0n);
-    // US-217a : les faits par trip sont un troisième ensemble examiné (vide ici)
-    expect(r.examined).toEqual({ settlements: {}, legBalances: {}, trips: {} });
+    // US-217a : les faits par trip sont un troisième ensemble examiné ; US-227 : la jambe
+    // assureur un quatrième, et les écritures sans contrat sont comptées à part (vides ici)
+    expect(r.examined).toEqual({
+      settlements: {},
+      legBalances: {},
+      trips: {},
+      insurerTrips: {},
+      insurerUnattributed: {},
+    });
   });
 });
 
@@ -419,6 +431,121 @@ describe('US-217a — invariant par jambe : chaque contrôle détecte son écart
   });
 });
 
+/**
+ * Jambe assureur d'un trip (US-227) tirée des vecteurs : capture TJ01 / TJ08a (jambe INSURER de
+ * l'encaissement porté), variation TJ02b / TJ08b de la version 1 ; prime due = capture + variation.
+ */
+function insurerFactOf(c: (typeof CASES)[number]): InsurerLedgerFact {
+  const collected = legVector(golden, c.capture).legsMinor.INSURER;
+  const varied = legVector(golden, c.variation).legsMinor.INSURER;
+  return {
+    country: c.country,
+    collectedEntries: collected,
+    collectedLegs: collected,
+    settledEntries: varied,
+    settledVariations: varied,
+    billed: 0n,
+    due: collected + varied,
+    unattributed: false,
+  };
+}
+
+/** Trip terminé sans règlement, porté en entier par un bordereau émis. */
+function billedFactOf(c: (typeof CASES)[number]): InsurerLedgerFact {
+  const collected = legVector(golden, c.capture).legsMinor.INSURER;
+  return {
+    ...insurerFactOf(c),
+    settledEntries: 0n,
+    settledVariations: 0n,
+    billed: collected,
+    due: collected,
+  };
+}
+
+const INSURER_CORRUPTIONS: readonly [
+  string,
+  (f: InsurerLedgerFact) => InsurerLedgerFact,
+  readonly MoneyReconciliationCheck[],
+][] = [
+  [
+    'écriture d’encaissement ≠ jambe INSURER portée (une unité mineure)',
+    (f) => ({ ...f, collectedEntries: f.collectedEntries + 1n }),
+    ['INSURER_LEDGER_COLLECTION'],
+  ],
+  [
+    'variation INSURER stockée sans son écriture de règlement (une unité mineure)',
+    (f) => ({ ...f, settledVariations: f.settledVariations - 1n }),
+    ['INSURER_LEDGER_SETTLEMENT'],
+  ],
+  [
+    'bordereau émis au-delà de la prime due (une unité mineure)',
+    (f) => ({ ...f, billed: f.due + 1n }),
+    ['INSURER_BORDEREAU_OVERBILLED'],
+  ],
+];
+
+describe('US-227 — jambe assureur : le registre est le miroir des jambes INSURER stockées (chaque pays configuré)', () => {
+  it.each(CASES)('$country : trip annulé (TJ02b / TJ08b) et trip porté par un bordereau ⇒ aucun écart', (c) => {
+    expect(insurerFactOf(c).due).toBe(0n);
+    expect(insurerLedgerViolations(insurerFactOf(c))).toEqual([]);
+    expect(insurerLedgerViolations(billedFactOf(c))).toEqual([]);
+    const r = evaluateMoneyReconciliation([], [], [], [insurerFactOf(c), billedFactOf(c)]);
+    expect(r.violations).toBe(0n);
+    expect(r.examined.insurerTrips).toEqual({ [c.country]: 2 });
+    expect(r.examined.insurerUnattributed).toEqual({});
+  });
+
+  for (const c of CASES) {
+    it.each(INSURER_CORRUPTIONS)(`${c.country} : %s`, (_label, corrupt, expected) => {
+      const bad = corrupt(billedFactOf(c));
+      expect(insurerLedgerViolations(bad)).toEqual(expected);
+      const r = evaluateMoneyReconciliation([], [], [], [billedFactOf(c), bad]);
+      for (const check of expected) {
+        expect(r.checks[check]).toEqual({ total: 1n, byCountry: { [c.country]: 1n } });
+      }
+      expect(r.violations).toBe(BigInt(expected.length));
+    });
+  }
+
+  it.each(CASES)('$country : écriture sans contrat d’assureur ⇒ comptée, pas un écart', (c) => {
+    const r = evaluateMoneyReconciliation([], [], [], [{ ...insurerFactOf(c), unattributed: true }]);
+    expect(r.violations).toBe(0n);
+    expect(r.examined.insurerUnattributed).toEqual({ [c.country]: 1 });
+  });
+
+  it('lecture fail-closed : montant illisible, booléen ou pays invalide ⇒ erreur de contrat', () => {
+    const row = {
+      country: FIRST.country,
+      collected_entries: '2550',
+      collected_legs: '2550',
+      settled_entries: '-2550',
+      settled_variations: '-2550',
+      billed: '0',
+      due: '0',
+      unattributed: false,
+    };
+    expect(parseInsurerLedgerFactRow(row)).toEqual({
+      country: FIRST.country,
+      collectedEntries: 2550n,
+      collectedLegs: 2550n,
+      settledEntries: -2550n,
+      settledVariations: -2550n,
+      billed: 0n,
+      due: 0n,
+      unattributed: false,
+    });
+    for (const bad of [
+      { ...row, collected_entries: 2550 },
+      { ...row, due: '1.5' },
+      { ...row, unattributed: 'false' },
+      { ...row, country: FIRST.country.toLowerCase() },
+      { ...row, billed: null },
+    ]) {
+      expect(() => parseInsurerLedgerFactRow(bad)).toThrow(MoneyReconciliationContractError);
+    }
+  });
+});
+
 /** Transaction programmée : contexte, puis lignes de règlement et de solde. */
 class ScriptedSql implements SqlClient {
   readonly texts: string[] = [];
@@ -540,6 +667,7 @@ describe('US-047 — tâche du travailleur reconciliation', () => {
       SETTLEMENT_AGGREGATES_SQL,
       LEG_BALANCE_AGGREGATES_SQL,
       TRIP_LEG_FACTS_SQL,
+      INSURER_LEDGER_FACTS_SQL,
     ]);
     expect(lines).toHaveLength(1);
     expect(JSON.parse(lines[0] ?? '{}')).toMatchObject({ level: 'error', violations: '1' });
@@ -554,7 +682,12 @@ describe('US-047 — tâche du travailleur reconciliation', () => {
   });
 
   it('les requêtes ne lisent ni horloge ni identifiant rendu (lecture seule)', () => {
-    for (const q of [SETTLEMENT_AGGREGATES_SQL, LEG_BALANCE_AGGREGATES_SQL, TRIP_LEG_FACTS_SQL]) {
+    for (const q of [
+      SETTLEMENT_AGGREGATES_SQL,
+      LEG_BALANCE_AGGREGATES_SQL,
+      TRIP_LEG_FACTS_SQL,
+      INSURER_LEDGER_FACTS_SQL,
+    ]) {
       expect(q).not.toMatch(/\b(now|current_timestamp|clock_timestamp)\b/i);
       expect(q).not.toMatch(/\b(INSERT|UPDATE|DELETE|TRUNCATE)\b/);
       // seules colonnes rendues : pays, versions, drapeaux et montants

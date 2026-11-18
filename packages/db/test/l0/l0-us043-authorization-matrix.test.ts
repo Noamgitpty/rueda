@@ -821,6 +821,16 @@ beforeAll(async () => {
         }
       }
     });
+    // US-227 (0139, ADR-165) : une écriture du registre de l'assureur sur le règlement en tête des
+    // trips a1, a2 et b1 (sans effet si le règlement a déjà la sienne), pour éprouver chaque cellule
+    // de la table sur des lignes réelles, par pays
+    await withTestTransaction(client, { commit: true }, async (tx) => {
+      for (const x of world.countries) {
+        for (const trip of [x.trips.a1.id, x.trips.a2.id, x.trips.b1.id]) {
+          await tx.query('SELECT test_fixture.us227_insert_entry($1)', [trip]);
+        }
+      }
+    });
   });
 }, 240_000);
 

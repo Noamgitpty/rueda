@@ -571,11 +571,15 @@ export function classifyOrUnexpected(error: unknown): CancellationOutcome {
   }
 }
 
-/** Contraintes de la base qui renvoient à la décision FINANCE d'US-224b (08 E7 règle 5). */
+/**
+ * Contraintes de la base qui renvoient à la décision FINANCE d'US-224b (08 E7 règle 5) ; US-227
+ * (ADR-165) : jambe INSURER déjà portée par un bordereau émis (08 E7 règle 3 bis, ADR-147).
+ */
 const FIN_CONSTRAINTS = new Set([
   'operation_settlement_fin_review',
   'refund_exceeds_collected',
   'advance_decision_required',
+  'insurer_leg_on_bordereau',
 ]);
 /** Interblocage, sérialisation : reprise au passage suivant. */
 const RETRY_STATES = new Set(['40P01', '40001']);

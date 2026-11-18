@@ -11,6 +11,7 @@
  * | `disposition_sweeper` | `disposition_sweeper_period_s` (min. pays) | `core.booking_disposition_candidates` puis, une opération par transaction, `core.booking_disposition_repair` (0041, C17) |
  * | `booking_oracle`      | 24 h (ADR-068)                             | `core.booking_production_oracle_alert` (0045, C12)        |
  * | `reconciliation`      | 24 h (ADR-087)                             | contrôles de rapprochement de l'argent, lecture seule (FIN, US-047) ; alerte `FIN_MONEY_RECONCILIATION` |
+ * | `bordereau`           | 24 h (US-227, ADR-165)                     | `core.settlement_cmd_draft_insurer_bordereaux` (0139) : bordereaux DRAFT du mois clos par contrat d'assureur et projection `insurer_ledger_state` ; émission par FINANCE à deux personnes, aucun paiement |
  * | `risk_pruner`         | 1 h                                        | `core.risk_cmd_prune` (0047, US-052)                      |
  * | `ntf_dispatcher`, `ntf_sender` | événements, minuterie             | NTF (US-021) ; plafond SMS du pays (`ntfSmsBudget`, US-052) ; parties des réservations lues par `core.booking_notification_parties` (0133, adaptateur `postgresNotificationParties` d'AVL, US-213) |
  * | `ops_monitor`         | 60 s (ADR-080)                             | `core.ops_monitor_metrics` (0051) ; alertes sur le port `AlertChannel` (US-004) |
@@ -63,7 +64,11 @@ import {
 } from './modules/ntf/index.js';
 import { resolveCancellationParams } from './modules/prc/index.js';
 import { ntfSmsBudget } from './modules/risk/index.js';
-import { registerRefundScheduler, registerTripCancellations } from './modules/stl/index.js';
+import {
+  registerInsurerBordereaux,
+  registerRefundScheduler,
+  registerTripCancellations,
+} from './modules/stl/index.js';
 
 export const HOLD_EXPIRY_WORKER = 'hold_expiry';
 /** Webhooks PSP reçus : rattachement et statut (17 §4.4 points 5 à 8 ; US-019, US-223). */
@@ -304,6 +309,9 @@ export function registerWorkerTasks(registry: BusRegistry, deps: WorkerTaskDeps)
   const alerts = deps.alerts ?? new LogAlertChannel(deps.log);
   registerOpsMonitor(registry, alerts, deps.log);
   registerMoneyReconciliation(registry, alerts, deps.log);
+  // Bordereau de l'assureur (US-227, ADR-165) : rédaction du mois clos, émission par FINANCE à
+  // deux personnes ; aucun paiement à l'assureur avant le lot C
+  registerInsurerBordereaux(registry, deps.log);
   // Annulations demandées par l'ops (US-215, ADR-148) : règlement, transition et remboursements
   // dans une transaction par demande ; refus garés (FIN_REVIEW, FAILED) et alertés
   registerTripCancellations(registry, deps.transactions, alerts, deps.log);
