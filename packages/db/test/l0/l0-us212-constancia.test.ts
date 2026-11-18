@@ -16,6 +16,12 @@
  * Tout se passe dans des transactions ANNULÉES sous app_api (monde du trip de la fixture 9963,
  * contrat posé par 9946 avec les faits du test, signature par 9963, sessions ouvertes par la vraie
  * commande) ; aucun interrupteur n'est touché.
+ *
+ * Partie 212b (migration 0147 ; BOARD N-345, N-346) : le nom de l'hôte de la constancia est celui
+ * FIGÉ au contrat (un nom légal changé après la réservation par la fixture 9938 ne la change pas),
+ * réduit à prénom et initiale par une règle du seul fait figé ; `core.booking_checkout_host_name`
+ * rend au voyageur du devis, et à lui seul, l'hôte en prénom et initiale pour S05 (19 US-212
+ * critère 3).
  */
 import type pg from 'pg';
 import { describe, expect, it } from 'vitest';
@@ -68,6 +74,8 @@ const AMOUNTS: Readonly<
 
 const READ = 'SELECT * FROM core.booking_trip_constancia($1, $2::uuid)';
 const SEARCH = 'SELECT * FROM core.booking_host_constancia_search($1, $2, $3::date)';
+const CHECKOUT_HOST = 'SELECT * FROM core.booking_checkout_host_name($1, $2::uuid)';
+const RENAME = 'SELECT test_fixture.us212b_rename($1, $2, $3)';
 const T0 = '2035-05-02T09:17:23.000Z';
 const START = '2035-06-10T15:00:00.000Z';
 const END = '2035-06-13T15:00:00.000Z';
@@ -100,10 +108,10 @@ async function world(
   c: CountryCase,
   guest: string,
   plate: string,
-): Promise<{ trip: string; holder: string }> {
+): Promise<{ trip: string; holder: string; quote: string }> {
   const a = AMOUNTS[c.currency]!;
   const w = (
-    await tx.query<{ trip_id: string; holder_id: string }>(
+    await tx.query<{ trip_id: string; holder_id: string; quote_id: string }>(
       `SELECT * FROM test_fixture.us211_world($1, $2, 'Ana', 'Pérez', 'pt-BR', 'María', 'Gómez',
                                               $3, 'HOST', $4, $5, $6::jsonb, 'BASICA', 600, $7,
                                               $8::jsonb, $9, $10)`,
@@ -121,7 +129,7 @@ async function world(
       ],
     )
   ).rows[0]!;
-  return { trip: w.trip_id, holder: w.holder_id };
+  return { trip: w.trip_id, holder: w.holder_id, quote: w.quote_id };
 }
 
 /** Faits figés du contrat posés par le test (forme de `terms` de 0122, valeurs du test). */
@@ -252,6 +260,16 @@ describe.each(COUNTRIES)('US-212 — constancia d’arrendamiento ($country, $cu
         });
         expect(h['terms']).toEqual(t1);
 
+        // N-345 : nom légal de l'hôte changé APRÈS la réservation : la constancia garde le nom
+        // figé au contrat, pour le voyageur comme pour l'hôte
+        await tx.query(RENAME, [w.holder, 'Rosa', 'Benítez']);
+        for (const s of [g.hash, host.hash]) {
+          const r = (await read(tx, s, w.trip))[0]!;
+          expect(r).toMatchObject({ outcome: 'OK', contract_version: 1, host_name: 'María G.' });
+          expect(JSON.stringify(r)).not.toContain('Rosa');
+          expect(JSON.stringify(r)).not.toContain('Benítez');
+        }
+
         // nouvelle version du contrat (plaque corrigée) : la constancia la suit, non signée
         const plate2 = await uniquePlate(tx, 'L');
         expect(await contract(tx, w.trip, t1, identity(plate2))).toBe(2);
@@ -348,9 +366,67 @@ describe.each(COUNTRIES)('US-212 — constancia d’arrendamiento ($country, $cu
   });
 });
 
+describe.each(COUNTRIES)('US-212b — hôte en prénom et initiale ($country, $currency)', (c) => {
+  it('N-345 : nom de l’hôte réduit depuis le seul fait figé (prénom composé, un mot, vide ⇒ ERASED) ; N-346 : hôte du devis pour S05, au seul voyageur du devis', async () => {
+    const api = await connectAs('app_api');
+    try {
+      await inTx(api, { virtualNow: T0 }, async (tx) => {
+        const guest = uuid();
+        const plate = await uniquePlate(tx, 'N');
+        const w = await world(tx, c, guest, plate);
+        await setVirtualNow(tx, at(1));
+        const g = await openSession(tx, guest);
+        const host = await openSession(tx, w.holder);
+        const other = await register(tx);
+        const o = await openSession(tx, other.userId);
+        const hostOf = async (hash: Buffer, quote: string): Promise<Row[]> =>
+          (await tx.query<Row>(CHECKOUT_HOST, [hash, quote])).rows;
+
+        // S05 (19 US-212 critère 3) : premier mot du prénom légal (nom public de la fiche, N-37)
+        // et initiale du nom légal ; jamais le nom complet
+        expect(await hostOf(g.hash, w.quote)).toEqual([
+          { quote_id: w.quote, host_name: 'María G.' },
+        ]);
+        await tx.query(RENAME, [w.holder, 'María José', 'Gómez Rojas']);
+        const s05 = await hostOf(g.hash, w.quote);
+        expect(s05).toEqual([{ quote_id: w.quote, host_name: 'María G.' }]);
+        expect(JSON.stringify(s05)).not.toContain('José');
+        expect(JSON.stringify(s05)).not.toContain('Rojas');
+        // l'hôte lui-même, un autre voyageur, un devis inconnu, une session inconnue : aucune ligne
+        expect(await hostOf(host.hash, w.quote)).toEqual([]);
+        expect(await hostOf(o.hash, w.quote)).toEqual([]);
+        expect(await hostOf(g.hash, uuid())).toEqual([]);
+        expect(await hostOf(newToken().hash, w.quote)).toEqual([]);
+
+        // constancia : la règle ne lit que le nom figé (premier mot, initiale du mot suivant)
+        const t = terms(c, 'K-FROZEN');
+        const named = (hostName: string): Row => ({ ...identity(plate), hostName });
+        expect(await contract(tx, w.trip, t, named('Ana María  Gómez Rojas'))).toBe(1);
+        const v1 = (await read(tx, g.hash, w.trip))[0]!;
+        expect(v1).toMatchObject({ outcome: 'OK', contract_version: 1, host_name: 'Ana M.' });
+        expect(JSON.stringify(v1)).not.toContain('Gómez');
+        expect(JSON.stringify(v1)).not.toContain('María José');
+        expect(await contract(tx, w.trip, t, named('Lucía'))).toBe(2);
+        expect((await read(tx, host.hash, w.trip))[0]).toMatchObject({
+          outcome: 'OK',
+          contract_version: 2,
+          host_name: 'Lucía',
+        });
+        // nom figé vide : aucun nom inventé (fail-closed)
+        expect(await contract(tx, w.trip, t, named('   '))).toBe(3);
+        const blank = await read(tx, g.hash, w.trip);
+        refused(blank, 'ERASED', 'GUEST');
+        expect(blank[0]!['contract_version']).toBe(3);
+      });
+    } finally {
+      await releaseClient(api);
+    }
+  });
+});
+
 describe('US-212 — la constancia est fermée aux autres rôles de production', () => {
   it.each(['app_worker', 'app_anon'] as const)(
-    '%s ne peut exécuter ni la lecture ni la recherche (42501)',
+    '%s ne peut exécuter ni la lecture, ni la recherche, ni l’hôte du checkout (42501)',
     async (role) => {
       const client = await connectAs(role);
       try {
@@ -360,6 +436,9 @@ describe('US-212 — la constancia est fermée aux autres rôles de production',
         await expect(
           client.query(SEARCH, [newToken().hash, 'ABC123', '2035-06-10']),
         ).rejects.toMatchObject({ code: '42501' });
+        await expect(client.query(CHECKOUT_HOST, [newToken().hash, uuid()])).rejects.toMatchObject({
+          code: '42501',
+        });
       } finally {
         await releaseClient(client);
       }

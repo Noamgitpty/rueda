@@ -35,6 +35,8 @@ export type QuoteLineType = (typeof QUOTE_LINE_TYPES)[number];
  */
 export const CHECKOUT_DOCUMENT_KINDS = ['TOS_GUEST', 'CANCELLATION_POLICY', 'GEO_TERMS'] as const;
 export type CheckoutDocumentKind = (typeof CHECKOUT_DOCUMENT_KINDS)[number];
+/** Longueur maximale du nom court de l'hôte (prénom et initiale, borne du schéma OpenAPI). */
+const HOST_NAME_MAX = 43;
 /** Longueur maximale d'un nom saisi (borne de l'API). */
 export const DRIVER_NAME_MAX = 100;
 
@@ -127,6 +129,11 @@ export interface CheckoutQuoteView {
   readonly driverAge: number | null;
   /** `insurer_contract_active` du pays (16 PRT-001) ; `false` : aucune réservation possible. */
   readonly insurerContractActive: boolean;
+  /**
+   * Hôte en prénom et initiale (US-212 critère 3, N-346) ; `null` : absent, mal formé ou
+   * pseudonymisé, S05 ne nomme alors personne (jamais un nom deviné).
+   */
+  readonly hostName: string | null;
   /** Niveaux vendus, par rang croissant, avec leur prix pour la période (US-226b, S05). */
   readonly protectionOptions: readonly ProtectionOptionView[];
   readonly expired: boolean;
@@ -305,6 +312,12 @@ export function checkoutQuoteOf(reply: ApiResult): CheckoutQuoteView | null {
   }
   const contract = q['insurerContractActive'];
   if (contract !== undefined && typeof contract !== 'boolean') return null;
+  // US-212b : nom court (borne du schéma OpenAPI) ; toute autre forme : aucun nom affiché
+  const rawHost = q['hostName'];
+  const hostName =
+    typeof rawHost === 'string' && rawHost.trim() !== '' && rawHost.length <= HOST_NAME_MAX
+      ? rawHost
+      : null;
   for (const flag of ['expired', 'manualTransmission', 'instantBook']) {
     if (typeof q[flag] !== 'boolean') return null;
   }
@@ -327,6 +340,7 @@ export function checkoutQuoteOf(reply: ApiResult): CheckoutQuoteView | null {
     driverAge,
     // absent d'une réponse antérieure à US-226 : aucune fermeture annoncée par le pays
     insurerContractActive: contract !== false,
+    hostName,
     protectionOptions: options,
     expired: q['expired'] === true,
     manualTransmission: q['manualTransmission'] === true,

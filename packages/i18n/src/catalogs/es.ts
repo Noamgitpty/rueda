@@ -1660,14 +1660,14 @@ export const ES_MESSAGES = {
   'ctr.contract.courtesy':
     'Traducción de cortesía ({language}). En caso de diferencia, el texto en español hace fe.',
   // US-212 : constancia d'arrendamiento et centre juridique (ADR-162), textes PROPOSÉS
-  'ctr.constancia.title': 'CONSTANCIA DE ARRENDAMIENTO ENTRE PARTICULARES',
+  'ctr.constancia.title': 'CONSTANCIA DE ALQUILER ENTRE PARTICULARES',
   'ctr.constancia.draft': 'BORRADOR: texto pendiente de validación jurídica; puede cambiar.',
   'ctr.constancia.ref': 'Viaje {ref} · según el contrato de alquiler, versión {version}',
   'ctr.constancia.partiesHeading': 'Las partes',
   'ctr.constancia.host': 'Anfitrión (particular): {name}, {capacity}',
   'ctr.constancia.driver': 'Conductor autorizado: {name}',
   'ctr.constancia.platform':
-    'Plataforma intermediaria entre particulares: {brand}. No es arrendadora ni propietaria del vehículo.',
+    'Plataforma intermediaria entre particulares: {brand}. No es empresa de alquiler ni propietaria del vehículo.',
   'ctr.constancia.tripHeading': 'Vehículo y período',
   'ctr.constancia.vehicle': 'Vehículo: {make} {model} {year}, placa {plate}',
   'ctr.constancia.period': 'Período: del {start} al {end} (hora local de {country})',
@@ -2129,6 +2129,10 @@ export const ES_MESSAGES = {
   'web.s05.priceChanged': 'El precio cambió',
   'web.s05.summary.title': 'Tu viaje',
   'web.s05.summary.host': 'Auto de {host_name}',
+  'web.s05.intermediary':
+    '{brand} es una plataforma entre particulares: intermedia y cobra el pago como comerciante de referencia, pero no es una empresa de alquiler ni la dueña del auto. El contrato de alquiler es entre {host_name} y tú.',
+  'web.s05.intermediaryNoHost':
+    '{brand} es una plataforma entre particulares: intermedia y cobra el pago como comerciante de referencia, pero no es una empresa de alquiler ni la dueña del auto. El contrato de alquiler es entre el anfitrión y tú.',
   'web.s05.summary.pickup': 'Recoges el auto',
   'web.s05.summary.return': 'Devuelves el auto',
   'web.s05.summary.place': 'Zona de entrega',
@@ -2460,16 +2464,16 @@ export const ES_MESSAGES = {
   'web.legalCenter.doc.GEO_TERMS': 'Zonas de circulación',
   'web.legalCenter.trip.title': 'Los documentos de cada viaje',
   'web.legalCenter.trip.body':
-    'Cada viaje confirmado tiene su contrato de alquiler y su constancia, en español y en su idioma. El viajero y el anfitrión los encuentran en el viaje.',
+    'Cada viaje confirmado tiene su contrato de alquiler y su constancia, en español y en tu idioma. El viajero y el anfitrión los encuentran en el viaje.',
   'web.legalCenter.trip.hostSearch':
     'Anfitriones: buscar la constancia de un viaje por placa y fecha',
   'web.legalCenter.disputes.title': 'Desacuerdos y reclamos',
   'web.legalCenter.disputes.body1':
-    'Si tiene un desacuerdo con la otra parte, escríbale primero por la mensajería del viaje.',
+    'Si tienes un desacuerdo con la otra parte, escríbele primero por la mensajería del viaje.',
   'web.legalCenter.disputes.body2':
-    'Si no se resuelve, escriba al soporte con el número del viaje: revisamos el caso con las dos partes y proponemos una solución (mediación).',
+    'Si no se resuelve, escribe al soporte con el número del viaje: revisamos el caso con las dos partes y proponemos una solución (mediación).',
   'web.legalCenter.disputes.body3':
-    'Siempre puede acudir a la autoridad de protección al consumidor o a los tribunales del lugar del viaje. Ninguna decisión de la plataforma se lo impide.',
+    'Siempre puedes acudir a la autoridad de protección al consumidor o a los tribunales del lugar del viaje. Ninguna decisión de la plataforma te lo impide.',
   'web.legalCenter.disputes.law':
     'Se aplica la ley del lugar donde se realiza el viaje. El texto en español hace fe.',
   'web.s09.contract.title': 'Tu contrato de alquiler',
@@ -2666,7 +2670,7 @@ export const ES_MESSAGES = {
   'web.s09.documents.contract.TO_SIGN': 'Por firmar',
   'web.s09.documents.contract.SIGNED': 'Firmado',
   'web.s09.documents.open': 'Abrir el contrato',
-  'web.s09.documents.constancia': 'Constancia de arrendamiento',
+  'web.s09.documents.constancia': 'Constancia de alquiler',
   'web.s09.documents.receipt': 'Recibo del pago',
   'web.s09.documents.soon': 'Disponible pronto',
   'web.s09.loadError': 'No pudimos cargar este viaje.',

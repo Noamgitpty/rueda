@@ -1072,6 +1072,15 @@ Migration `0146_payment_deposit_hold`, fixture `9945_test_us701_deposit_hold_fix
 - **Droits ajoutés** à cmd_hold_owner : politiques de lecture `cmd_hold_deposit_read` de `config_param_value` (`deposit_always_required`, `deposit_trigger_classes`, `deposit_amount`, `funds_holding_enabled`) et de `config_param_definition` (`funds_holding_enabled`) ; `SELECT (conversion_operation_id)` de `booking_checkout_hold`.
 - **Preuves** : `test/l0/l0-us701-deposit-hold.test.ts` (PA USD, PY PYG ; `app_api`, `app_worker`).
 
+## Hôte figé de la constancia et hôte du checkout S05 (US-212 partie 212b ; BOARD N-345, N-346 ; ADR-162)
+
+Migration `0147_ctr_constancia_frozen_host_checkout_host`. Fixture `9938_test_us212b_host_rename_fixtures` (nom légal d'un compte changé après la réservation, transaction annulée).
+
+- **Hôte figé** : `core.booking_trip_constancia(bytea, uuid)` (0138) remplacée à signature identique : le nom de l'hôte vient de `identity.hostName` de la dernière version du contrat (0122), réduit à prénom et initiale par une règle du seul fait figé (premier mot, initiale du mot suivant ; nom figé vide ⇒ `ERASED`) ; le compte n'est plus lu que pour sa pseudonymisation.
+- **Hôte du checkout** : `core.booking_checkout_host_name(bytea, uuid)` (cmd_hold_owner, EXECUTE app_api, lecture seule) : premier mot du prénom légal et initiale du nom de l'hôte de l'annonce du devis du voyageur de la session ; devis d'un autre ou inconnu ⇒ aucune ligne ; titulaire pseudonymisé ⇒ `NULL`.
+- **Droits** : aucun nouveau (colonnes déjà accordées par 0032, 0037, 0067, 0108, 0122).
+- **Preuves** : `test/l0/l0-us212-constancia.test.ts` (PA USD, PY PYG : nom changé après la réservation sans effet sur la constancia, règle de réduction, nom figé vide, hôte du checkout au seul voyageur du devis, `app_worker` et `app_anon` : 42501).
+
 ## Décision de la caution (US-702 ; 08 BR-PAY-06 ; ADR-172)
 
 Migration `0148_payment_deposit_decision`, fixture `9934_test_us702_deposit_decision_fixtures.sql` (`test_fixture.us702_converted_deposit` : caution autorisée d'un hold converti, rail au choix, EXECUTE `app_worker` ; `test_fixture.us702_deposit_schedule` : lecture de l'échéancier écrit, EXECUTE `app_api`).

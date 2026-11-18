@@ -13,6 +13,7 @@ import {
 } from '../../../../account/checkout.ts';
 import type { CheckoutQuoteView } from '../../../../account/checkout.ts';
 import { publicListingOf } from '../../../../account/host-listings.ts';
+import { getRequestBrand } from '../../../../brand-source.ts';
 import type { PublicListingView } from '../../../../account/host-listings.ts';
 import { clientContext } from '../../../../account/request.ts';
 import { getRequestI18n, getRequestLocaleTag } from '../../../../i18n.ts';
@@ -86,17 +87,23 @@ function Shell({ children }: { readonly children: ReactNode }) {
   );
 }
 
-/** Récapitulatif du trip (10b S05) : voiture, hôte, dates aux heures du lieu, zone approximative. */
+/**
+ * Récapitulatif du trip (10b S05) : voiture, hôte, dates aux heures du lieu, zone approximative ;
+ * mention d'intermédiaire entre particuliers et hôte en prénom et initiale (19 US-212 critère 3,
+ * BOARD N-346 ; nom lu de l'API, jamais le nom complet ; absent : la mention ne nomme personne).
+ */
 function Summary({
   i18n,
   quote,
   listing,
   timeZone,
+  brand,
 }: {
   readonly i18n: Translator;
   readonly quote: CheckoutQuoteView;
   readonly listing: PublicListingView;
   readonly timeZone: string;
+  readonly brand: string;
 }) {
   const t = i18n.t.bind(i18n);
   return (
@@ -107,9 +114,9 @@ function Summary({
       <p className={styles['strong']}>
         {`${listing.makeName} ${listing.modelName} ${listing.year}`}
       </p>
-      {listing.hostFirstName !== null && (
+      {quote.hostName !== null && (
         <p className={accountStyles['text']}>
-          {t('web.s05.summary.host', { host_name: listing.hostFirstName })}
+          {t('web.s05.summary.host', { host_name: quote.hostName })}
         </p>
       )}
       <dl className={accountStyles['stackTight']}>
@@ -129,6 +136,11 @@ function Summary({
         </div>
       </dl>
       <p className={accountStyles['muted']}>{t('web.listing.meet.approx')}</p>
+      <p className={accountStyles['muted']} data-testid="s05-intermediary">
+        {quote.hostName === null
+          ? t('web.s05.intermediaryNoHost', { brand })
+          : t('web.s05.intermediary', { brand, host_name: quote.hostName })}
+      </p>
     </section>
   );
 }
@@ -262,11 +274,12 @@ export default async function CheckoutPage({
   readonly params: Promise<{ readonly quoteId: string }>;
   readonly searchParams: Promise<Readonly<Record<string, string | string[] | undefined>>>;
 }) {
-  const [i18n, localeTag, { quoteId }, query] = await Promise.all([
+  const [i18n, localeTag, { quoteId }, query, brand] = await Promise.all([
     getRequestI18n(),
     getRequestLocaleTag(),
     params,
     searchParams,
+    getRequestBrand(),
   ]);
   const t = i18n.t.bind(i18n);
   const ctx = await clientContext();
@@ -340,7 +353,7 @@ export default async function CheckoutPage({
         </Banner>
       )}
 
-      <Summary i18n={i18n} quote={quote} listing={listing} timeZone={timeZone} />
+      <Summary i18n={i18n} quote={quote} listing={listing} timeZone={timeZone} brand={brand.name} />
 
       {/* US-226b : choix de la protection au-dessus du total et du bouton (10b S05) */}
       {!quote.expired && quote.insurerContractActive && quote.protectionOptions.length > 0 && (
