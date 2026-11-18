@@ -384,7 +384,8 @@ BEGIN
         INSERT INTO core.settlement_insurer_bordereau_line
                (bordereau_id, country_code, trip_id, segment_no, amount_minor)
         SELECT v_id, c.code, u.trip_id, 1, u.amount
-          FROM pg_catalog.unnest(v_trips, v_amounts) AS u(trip_id, amount);
+          FROM ROWS FROM (pg_catalog.unnest(v_trips), pg_catalog.unnest(v_amounts))
+               AS u(trip_id, amount);
         RETURN QUERY SELECT 'DRAFTED'::text, c.code, v_id, v_count, v_total;
       END LOOP;
     END IF;

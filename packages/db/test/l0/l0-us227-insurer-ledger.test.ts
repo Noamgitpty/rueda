@@ -526,7 +526,7 @@ describe.each(COUNTRIES)(
           const err = await caught(tx, () =>
             recordAsSettlementWorker(
               tx,
-              { tripId: w.completed!.trip, version: 1 },
+              { tripId: w.completed!.trip, version: 1, tripRowVersion: 1 },
               recordOfVector(r.cancelled),
             ),
           );
@@ -615,7 +615,7 @@ describe.each(COUNTRIES)(
         await payTx(worker, { commit: true }, async (tx) => {
           await recordAsSettlementWorker(
             tx,
-            { tripId: julyTrip, version: 1 },
+            { tripId: julyTrip, version: 1, tripRowVersion: 1 },
             recordOfVector(r.cancelled),
           );
         });
