@@ -1030,9 +1030,17 @@ Migration `0141_payment_refund_multi_tender`. Aucune fixture nouvelle.
 - **Codes** : `refund_exceeds_tender` ⇒ `REFUND_EXCEEDS_COLLECTED` ; `refund_rail_not_native` ⇒ `PAYMENT_METHOD_UNAVAILABLE` ; `refund_instance_not_failed` ⇒ `INVALID_TRANSITION`.
 - **Preuves** : `test/l0/l0-us224f-multi-tender.test.ts` (PA USD : TJ16a / TJ16b, moyens de T33 ; PY PYG : TJ16c / TJ16d ; refus de TJ16b / TJ16d sur tout rail en bêta ; reprise après échec ; supersession ; droits). `test/support/pay.ts` : `recordOperation` accepte un moyen (`method`, défaut `CARD`).
 
+## Paramètres de la caution « comme Turo » (US-225 ; 08 BR-PAY-06 ; ADR-108, ADR-164)
+
+Migration générée `0142_config_deposit_rail_params` (groupe `deposit_always_required` + clés nommées de `POST_SEED_PARAMS`), fixture `9943_test_us225_deposit_rail_fixtures.sql` (`test_fixture.us225_param_version`, clés fermées, transaction annulée, EXECUTE `app_api`).
+
+- **Valeurs PROPOSÉES**, identiques au PA et au PY, `fail_mode` BLOCK, portée pays : `deposit_always_required` faux, `deposit_trigger_classes` `["LUXE"]` (à confirmer par le fondateur), `deposit_young_driver_age` 30, `deposit_young_driver_classes` `[]` (DEC-FONDATEUR-21), `deposit_on_risk_flag` vrai, `risk_control_deployed` faux, `deposit_reauth_lead_h` 24, `deposit_fee_notice_h` 48. `deposit_amount`, `deposit_charge_cap` et `provider_max_hold_h` restent sans valeur (absent : caution exigée refusée, rail « débit puis remboursement » interdit, aucune pré-autorisation). Aucun interrupteur touché ; aucun droit nouveau.
+- **Lecture** : `PgDepositRailConfigReader` (module PAY) sous `app_api` ou `app_worker` : `core.config_param_value`, `core.config_go_live('funds_holding_enabled', pays)`, `core.payment_psp_capability`.
+- **Preuves** : `test/l0/l0-us225-deposit-rails.test.ts` (PA USD, PY PYG ; `app_api`, `app_worker`, `app_anon`) ; `apps/api/src/modules/pay/testing/deposit-rail-config.int.test.ts` (décision du checkout sur la configuration réelle, sous `app_api`).
+
 ## Lieux de prise et de retour (US-514 ; 16 BKG-016 ; 08 BR-BOOK-09 ; ADR-168)
 
-Migration `0142_booking_meeting_place`. Fixture `9939_test_us514_meeting_place_fixtures` (annonce d'un trip ; fermeture de `review_window_days` d'un pays, transaction annulée).
+Migration `0143_booking_meeting_place`. Fixture `9939_test_us514_meeting_place_fixtures` (annonce d'un trip ; fermeture de `review_window_days` d'un pays, transaction annulée).
 
 - **One-way refusé** : `core.booking_checkout_return_place(bytea, uuid, uuid)` (cmd_hold_owner, EXECUTE app_api, lecture seule) : lieu de retour absent ou égal au lieu du véhicule du devis du voyageur de la session ⇒ `DONE` ; autre ⇒ `ONE_WAY_NOT_ALLOWED` ; devis d'un autre ou inconnu ⇒ `QUOTE_NOT_FOUND` ; session invalide ⇒ `AUTH_REQUIRED`. Le checkout (`booking_cmd_checkout`) est inchangé.
 - **Adresse bornée** : `core.catalog_guest_meeting_point` (0106) et `core.booking_guest_trips` (0136) remplacés à signature identique : l'adresse exacte n'est plus rendue au-delà de la fin prévue du trip + `review_window_days` du pays (paramètre absent ou mal formé ⇒ jamais). Aucune copie de l'adresse, rien à purger.

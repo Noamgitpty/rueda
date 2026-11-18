@@ -2094,6 +2094,99 @@
       "decision": "PROPOSED",
       "decisionRef": "ADR-146 PROPOSÉ (US-223c) ; COMME_TURO",
       "values": { "PA": false, "PY": false }
+    },
+    {
+      "key": "deposit_always_required",
+      "type": "BOOL",
+      "scopes": ["COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "08 BR-PAY-06 (déclencheur COUNTRY : caution imposée à tout trip du pays) ; 17 §7.2 ; ADR-108 ; absent ou illisible : déclencheur vrai, caution exigée (fail-closed)",
+      "status": "PROPOSÉ comme Turo (ADR-108) : aucune caution par défaut",
+      "decision": "PROPOSED",
+      "decisionRef": "17 §7.2 PROPOSÉ (ADR-108 ; COMME_TURO OQ-P2P-04)",
+      "values": { "PA": false, "PY": false }
+    },
+    {
+      "key": "deposit_trigger_classes",
+      "type": "JSON",
+      "unit": "value_class_set",
+      "scopes": ["COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "08 BR-PAY-06 (déclencheur CLASS : classe de valeur du véhicule, ADR-159) ; 17 §7.2 ; ADR-108 ; absent : toutes les classes déclenchent (fail-closed)",
+      "status": "PROPOSÉ comme Turo ({LUXE}, équivalent Super Deluxe) ; à confirmer par le fondateur avant la mise en ligne",
+      "decision": "TO_DECIDE",
+      "decisionRef": "OQ-P2P-04 ; décision du fondateur du 2026-11-12 (hésitation sur le luxe) ; ADR-108",
+      "values": { "PA": ["LUXE"], "PY": ["LUXE"] }
+    },
+    {
+      "key": "deposit_young_driver_age",
+      "type": "INT",
+      "unit": "years",
+      "scopes": ["COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "08 BR-PAY-06 (déclencheur AGE, seuil strict, plus jeune conducteur approuvé) ; 17 §7.2 ; ADR-108 ; absent : tout âge déclenche (fail-closed)",
+      "status": "PROPOSÉ comme Turo (30 ans) ; sans effet tant que deposit_young_driver_classes est vide",
+      "decision": "PROPOSED",
+      "decisionRef": "17 §7.2 PROPOSÉ (ADR-108)",
+      "values": { "PA": 30, "PY": 30 }
+    },
+    {
+      "key": "deposit_young_driver_classes",
+      "type": "JSON",
+      "unit": "value_class_set",
+      "scopes": ["COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "08 BR-PAY-06 (déclencheur AGE : classes du catalogue concernées) ; 17 §7.2 ; absent : toutes les classes (fail-closed)",
+      "status": "décidé (DEC-FONDATEUR-21, 2026-11-12) : ensemble vide, aucune caution liée à l’âge au PA et au PY",
+      "decision": "DECIDED",
+      "decisionRef": "DEC-FONDATEUR-21 (2026-11-12) ; 17 §7.2",
+      "values": { "PA": [], "PY": [] }
+    },
+    {
+      "key": "deposit_on_risk_flag",
+      "type": "BOOL",
+      "scopes": ["COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "08 BR-PAY-06 (déclencheur RISK : trip signalé par le contrôle de risque, BR-VERIF-09, ADM-029) ; 17 §7.2 ; absent : déclencheur vrai (fail-closed)",
+      "status": "PROPOSÉ comme Turo (vrai) ; sans effet tant que risk_control_deployed est faux",
+      "decision": "PROPOSED",
+      "decisionRef": "17 §7.2 PROPOSÉ (ADR-108)",
+      "values": { "PA": true, "PY": true }
+    },
+    {
+      "key": "risk_control_deployed",
+      "type": "BOOL",
+      "scopes": ["COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "08 BR-PAY-06 (« contrôle non déployé ≠ en panne », risk_control_deployed) ; ADR-108 point 3 bis ; faux : RISK non évalué (risk_evaluated = false) ; absent : contrôle tenu pour déployé, une panne rend RISK vrai (fail-closed)",
+      "status": "PROPOSÉ (faux tant que la caution sur signal de risque n’est pas branchée au contrôle de risque de US-209 ; changé seulement par l’administration avec journal)",
+      "decision": "PROPOSED",
+      "decisionRef": "ADR-108 point 3 bis ; 08 BR-PAY-06 (à reporter dans 17 §7.2)",
+      "values": { "PA": false, "PY": false }
+    },
+    {
+      "key": "deposit_reauth_lead_h",
+      "type": "DURATION",
+      "unit": "h",
+      "scopes": ["COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "08 BR-PAY-06 « Mécanisme » rail (a) : ré-autorisation planifiée à auth_expiry − 24 h",
+      "status": "PROPOSÉ (08 BR-PAY-06 ; la capacité SUPPORTS_REAUTH reste à valider avec le PSP)",
+      "decision": "PROPOSED",
+      "decisionRef": "08 BR-PAY-06 ; ADR-164 (à reporter dans 17 §7.2)",
+      "values": { "PA": 24, "PY": 24 }
+    },
+    {
+      "key": "deposit_fee_notice_h",
+      "type": "DURATION",
+      "unit": "h",
+      "scopes": ["COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "08 BR-PAY-06 « Libération à heure fixe » : un frais annexe n’est capturé sur la caution que s’il a été notifié au voyageur au moins 48 h avant la décision (délai BR-REIMB-03) ; sinon débit MIT séparé",
+      "status": "PROPOSÉ (08 BR-PAY-06, BR-REIMB-03)",
+      "decision": "PROPOSED",
+      "decisionRef": "08 BR-PAY-06 ; ADR-164 (à reporter dans 17 §7.2)",
+      "values": { "PA": 48, "PY": 48 }
     }
   ]
 }

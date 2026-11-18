@@ -270,7 +270,13 @@ export class FakePsp {
     const order = this.#order(req.reference);
     return this.#execute('VOID', req.merchantReference, req, () => {
       this.#require('SUPPORTS_VOID', order.method);
-      if (order.status !== 'AUTHORIZED' || order.capturedMinor > 0n || order.voided) {
+      // US-225 (08 E3 repli 1, BR-PAY-06, T57) : après une capture PARTIELLE, le VOID libère le
+      // reste de l'autorisation ; une autorisation entièrement capturée ne s'annule plus
+      if (
+        order.status !== 'AUTHORIZED' ||
+        order.capturedMinor >= order.amountMinor ||
+        order.voided
+      ) {
         throw new FakePspError('INVALID_REQUEST', `annulation impossible : ${order.status}`);
       }
       return () => {

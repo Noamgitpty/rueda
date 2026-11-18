@@ -99,6 +99,7 @@ const EXPECTED_TO_DECIDE: Readonly<Record<string, string>> = {
   deposit_charge_cap: '17 statut OQ-PAY-06, OQ-PAY-19',
   deposit_max: '17 statut J-ADM-031',
   deposit_safety_h: '17 statut OQ-PAY-02',
+  deposit_trigger_classes: '17 statut « à confirmer par le fondateur » (OQ-P2P-04 ; US-225)',
   elig_age_years_ceiling: '16 HST-019 (« valeurs À DÉCIDER dans ADM-031 ») ; 22 OQ-P2P-02 (US-124)',
   elig_doc_compulsory_insurance: '16 HST-039 ; 22 OQ-P2P-02 (US-124)',
   elig_doc_inspection: '16 HST-039 ; 22 OQ-P2P-02 (US-124)',

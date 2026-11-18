@@ -252,7 +252,10 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  remboursement réparti sur les moyens d’origine (US-224 partie 224f, ADR-166) :
  `backoffice.cancel.outcome.REFUND_RAIL_UNAVAILABLE`, `…REFUND_RAIL_NOT_NATIVE`,
  `…REFUND_EXCEEDS_TENDER` (codes d’une demande d’annulation garée, console).
- Version 83 (la 82 est réservée à US-225, en cours ; la 81 est celle d’US-224f) : lieux de prise
+ Version 82 (la 79 qui lui était réservée a été dépassée par la 81 d’US-224f) : rails de la caution (US-225, ADR-164) : `web.deposit.unavailable` (refus avant le
+ paiement avec la durée possible, texte de 10b UX-24) et `web.deposit.unavailableNone` (aucune
+ durée possible, PROPOSÉ), affichés par l'écran S05 quand il branchera la décision de la caution.
+ Version 83 (la 82 est celle d’US-225) : lieux de prise
  et de retour (US-514, ADR-168) : `common.checkout.oneWayNotAllowed` (lieu de retour différent du
  lieu de prise refusé au checkout, 16 BKG-016 : one-way interdit).
  */

@@ -105,6 +105,72 @@ export type {
 export { COMMAND_KINDS, MoneyCommandSender } from './internal/money-command-sender.js';
 export type { CommandKind, MoneyCommand, SendOutcome } from './internal/money-command-sender.js';
 
+export { depositOperationKey, DEPOSIT_OPERATION_TYPES } from './internal/idempotency.js';
+export type { DepositOperationType } from './internal/idempotency.js';
+
+// Caution « comme Turo » : déclencheurs, rails, décision, exécution (US-225, ADR-164)
+export {
+  DEPOSIT_TRIGGERS,
+  DEPOSIT_VALUE_CLASSES,
+  depositAmountFor,
+  evaluateDepositTriggers,
+} from './internal/deposit-triggers.js';
+export type {
+  DepositStage,
+  DepositTrigger,
+  DepositTriggerContext,
+  DepositTriggerDecision,
+  DepositTriggerParams,
+  DepositValueClass,
+} from './internal/deposit-triggers.js';
+export {
+  chargeLegs,
+  completeRailParams,
+  decideDepositGate,
+  DEPOSIT_EVENTS,
+  DEPOSIT_HOLD_STATUSES,
+  DEPOSIT_MECHANISMS,
+  depositAuthAt,
+  depositAuthExpiry,
+  depositDecisionAt,
+  depositHoldValidityHours,
+  depositReauthDueAt,
+  depositReleaseAt,
+  isCapturableOnDeposit,
+  nextDepositStatus,
+  planDepositDecision,
+  requiredHoldMinutes,
+  selectDepositRail,
+} from './internal/deposit-rails.js';
+export type {
+  DepositDecisionInput,
+  DepositDecisionPlan,
+  DepositEvent,
+  DepositFeePart,
+  DepositGateDecision,
+  DepositGateInput,
+  DepositHoldStatus,
+  DepositIncidentalFee,
+  DepositMechanism,
+  DepositRail,
+  DepositRailCapabilities,
+  DepositRailParams,
+  DepositRailRequest,
+  DepositRailSelection,
+  DepositStep,
+} from './internal/deposit-rails.js';
+export { DepositRailExecutor } from './internal/deposit-executor.js';
+export type {
+  DepositExecution,
+  DepositPaymentProvider,
+  DepositReauthOutcome,
+  DepositReference,
+  DepositStepResult,
+  PlaceDepositRequest,
+} from './internal/deposit-executor.js';
+export { DEPOSIT_CONFIG_KEYS, PgDepositRailConfigReader } from './internal/pg-deposit-config.js';
+export type { DepositRailConfig } from './internal/pg-deposit-config.js';
+
 // Webhooks (17 §4.4)
 export {
   WEBHOOK_MAX_BODY_BYTES,

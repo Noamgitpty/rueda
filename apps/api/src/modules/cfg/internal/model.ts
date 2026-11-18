@@ -19,6 +19,13 @@ export type ParamScope = (typeof PARAM_SCOPES)[number];
 export const FAIL_MODES = ['BLOCK', 'FALSE', 'ZERO'] as const;
 export type FailMode = (typeof FAIL_MODES)[number];
 
+/**
+ * Classes de valeur d'un véhicule (08 BR-ACC-05 ; 17 §3.2.3 `vehicle.value_class`), vocabulaire
+ * fermé commun à tous les pays : forme des paramètres d'unité `value_class_set` (US-225).
+ */
+export const VALUE_CLASSES = ['STANDARD', 'PREMIUM', 'LUXE'] as const;
+export type ValueClass = (typeof VALUE_CLASSES)[number];
+
 /** Types de ligne d'un devis (17 §3.2 `quote_line.line_type`, 08 `LINES`) : `tax_line_config` les couvre tous. */
 export const TAX_LINE_TYPES = [
   'TRIP_PRICE',

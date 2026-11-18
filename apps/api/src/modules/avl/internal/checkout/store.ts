@@ -199,7 +199,7 @@ export interface CheckoutResult {
   readonly expiresAt: string | null;
 }
 
-/** Issues de `core.booking_checkout_return_place` (0142, US-514). */
+/** Issues de `core.booking_checkout_return_place` (0143, US-514). */
 export const RETURN_PLACE_OUTCOMES = [
   'DONE',
   'AUTH_REQUIRED',

@@ -1,5 +1,5 @@
 /**
- * US-514 (migration 0142, ADR-168 ; fixtures 9939, 9948, 9998) — lieux de prise et de retour, sous
+ * US-514 (migration 0143, ADR-168 ; fixtures 9939, 9948, 9998) — lieux de prise et de retour, sous
  * les rôles de PRODUCTION (assertion L0-05 en tête de chaque connexion : `withRole`, `connectAs`),
  * au Panama (USD) et au Paraguay (PYG sans décimale). Tout se passe dans des transactions ANNULÉES.
  *
@@ -295,7 +295,7 @@ describe.each(COUNTRIES)('US-514 — lieux de prise et de retour ($country, $cur
   });
 });
 
-describe('US-514 — lieu figé à la réservation et droits (0142)', () => {
+describe('US-514 — lieu figé à la réservation et droits (0143)', () => {
   it('aucun rôle applicatif ni propriétaire de commandes ne peut modifier un lieu ni le lieu d’un véhicule', async () => {
     const roles = [...APP_ROLES, ...OWNER_ROLES];
     const columns: [string, string][] = [
