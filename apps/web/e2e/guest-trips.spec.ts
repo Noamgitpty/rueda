@@ -103,6 +103,11 @@ test.describe(`Mis viajes S08 / détail du trip S09 · ${LANGUAGE}`, () => {
     const documents = page.locator('[data-testid="s09-documents"]');
     await expect(documents).toContainText(t.t('web.s09.documents.contract.TO_SIGN'));
     await expect(documents).toContainText(t.t('web.s09.documents.constancia'));
+    // constancia liée dès que le contrat existe (US-212)
+    await expect(page.locator('[data-testid="s09-constancia"]')).toHaveAttribute(
+      'href',
+      `/trips/${tripId}/constancia`,
+    );
     await expect(documents).toContainText(t.t('web.s09.documents.receipt'));
     await expect(main).toContainText(t.t('web.s09.changes'));
     // hôte en prénom et initiale seulement (L2-PM-35) : jamais « María » suivi d'un nom complet

@@ -35,7 +35,7 @@ const PAYMENT_KEYS = {
  * qu'il faut le jour J ») : horaires dans le fuseau du trip, lieu de remise (adresse exacte d'un
  * trip à venir ou en cours seulement), hôte en prénom et initiale, total payé (devis figé relu de
  * l'API, jamais recalculé ; PYG sans décimale), documents (contrat S09 · contrat d'US-211 ;
- * constancia d'US-212 et reçu d'US-217 annoncés « bientôt »), lien vers le remboursement (S10) d'un
+ * constancia d'US-212 liée dès que le contrat existe, reçu d'US-217 annoncé « bientôt »), lien vers le remboursement (S10) d'un
  * trip annulé ou remboursé. Lecture seule : toute modification passe par le support en bêta
  * (08 BR-MOD-01). Un trip d'une autre personne, ou inconnu, rend le même message (404 de l'API).
  * Check-in, retard, refus, urgence et messages (10b S09) : lot 3.
@@ -166,12 +166,26 @@ export default async function GuestTripPage({
               </a>
             )}
           </li>
-          <li className={styles['card']}>
-            <div className={styles['between']}>
-              <span className={styles['strong']}>{t('web.s09.documents.constancia')}</span>
-              <Badge tone="neutral">{t('web.s09.documents.soon')}</Badge>
-            </div>
-          </li>
+          {/* constancia d'arrendamiento (US-212) : tirée du contrat figé ; aucune pour un trip annulé */}
+          {trip.tab !== 'CANCELLED' && (
+            <li className={styles['card']}>
+              <div className={styles['between']}>
+                <span className={styles['strong']}>{t('web.s09.documents.constancia')}</span>
+                {contract === 'NONE' && (
+                  <Badge tone="neutral">{t('web.s09.documents.contract.NONE')}</Badge>
+                )}
+              </div>
+              {contract !== 'NONE' && (
+                <a
+                  className={styles['link']}
+                  href={`/trips/${trip.id}/constancia`}
+                  data-testid="s09-constancia"
+                >
+                  {t('web.contract.constancia')}
+                </a>
+              )}
+            </li>
+          )}
           <li className={styles['card']}>
             <div className={styles['between']}>
               <span className={styles['strong']}>{t('web.s09.documents.receipt')}</span>

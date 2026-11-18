@@ -598,6 +598,18 @@
     "POST /trips/{tripId}/contract/sign": {
       "acces": "session",
       "idor": "trip d'une autre personne (ni son voyageur ni le titulaire de son compte d'hôte), inconnu ou identifiant mal formé : 404 CONTRACT_NOT_FOUND, même réponse (17 §2.3 point 5) ; la partie est celle de la session, jugée en base (core.booking_trip_contract, core.booking_cmd_sign_contract ; signature : voyageur seulement) ; du voyageur seulement prénom et initiale (L2-PM-35) ; preuves base : l0-us211"
+    },
+    "GET /trips/{tripId}/constancia": {
+      "acces": "session",
+      "idor": "trip d'une autre personne (ni son voyageur ni le titulaire de son compte d'hôte), inconnu ou identifiant mal formé : 404 CONSTANCIA_NOT_FOUND, même réponse (17 §2.3 point 5) ; la partie est celle de la session, jugée en base (core.booking_trip_constancia, 0138) ; faits figés du dernier contrat ; hôte et conducteur en prénom et initiale, ni pièce ni adresse exacte (L2-PM-35) ; preuves base : l0-us212"
+    },
+    "GET /trips/{tripId}/constancia/pdf": {
+      "acces": "session",
+      "idor": "trip d'une autre personne (ni son voyageur ni le titulaire de son compte d'hôte), inconnu ou identifiant mal formé : 404 CONSTANCIA_NOT_FOUND, même réponse (17 §2.3 point 5) ; la partie est celle de la session, jugée en base (core.booking_trip_constancia, 0138) ; faits figés du dernier contrat ; hôte et conducteur en prénom et initiale, ni pièce ni adresse exacte (L2-PM-35) ; preuves base : l0-us212"
+    },
+    "POST /trips/constancias/search": {
+      "acces": "session",
+      "idor": "trips du seul compte d'hôte dont la session est le titulaire (core.booking_host_constancia_search, 0138) : un voyageur ou un tiers n'obtient aucune ligne ; plaque figée au dernier contrat, dans le corps (jamais dans l'URL) ; référence, statut et période locale seulement ; preuves base : l0-us212"
     }
   }
 }

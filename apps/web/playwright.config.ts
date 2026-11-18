@@ -61,6 +61,11 @@ const CONTRACT = /trip-contract\.spec\.ts$/;
 const REFUND = /trip-refund\.spec\.ts$/;
 /** « Mis viajes » (S08) et détail du trip (S09) du voyageur (US-214) : 360 px, une langue. */
 const GUEST_TRIPS = /guest-trips\.spec\.ts$/;
+/**
+ * Constancia d'arrendamiento et centre juridique (US-212) : 360 px et espagnol seulement (durée
+ * du job e2e, proche de sa limite ; les quatre langues sont prouvées par les catalogues et l'API).
+ */
+const CONSTANCIA = /trip-constancia\.spec\.ts$/;
 /** Balayage axe + captures de chaque écran du site (US-044). */
 const SCREENS = /screens\.spec\.ts$/;
 /** Balayage des écrans de la console interne (US-044). */
@@ -149,6 +154,7 @@ export default defineConfig({
         CONTRACT,
         REFUND,
         GUEST_TRIPS,
+        CONSTANCIA,
         SCREENS,
       ],
       use: { ...phone, viewport: { width: 360, height: 780 } },

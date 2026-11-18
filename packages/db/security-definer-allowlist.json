@@ -1793,6 +1793,20 @@
       "story": "US-213"
     },
     {
+      "signature": "core.booking_trip_constancia(bytea,uuid)",
+      "family": "cmd_hold",
+      "owner": "cmd_hold_owner",
+      "execute": ["app_api"],
+      "story": "US-212"
+    },
+    {
+      "signature": "core.booking_host_constancia_search(bytea,text,date)",
+      "family": "cmd_hold",
+      "owner": "cmd_hold_owner",
+      "execute": ["app_api"],
+      "story": "US-212"
+    },
+    {
       "signature": "core.booking_cmd_record_contract(uuid,text,jsonb,jsonb,jsonb,uuid,uuid,text,bytea)",
       "family": "cmd_hold",
       "owner": "cmd_hold_owner",

@@ -9,6 +9,7 @@ import { getRequestI18n, getRequestLocaleTag } from '../../../../../i18n.ts';
 import accountStyles from '../../../_account/account.module.css';
 import { ContractView } from '../../../_contract/contract-view.tsx';
 import contractStyles from '../../../_contract/contract.module.css';
+import { TripDocuments } from '../../../_contract/trip-documents.tsx';
 import { MAIN_ID } from '../../../_shell/main-id.ts';
 import styles from '../../../host/host.module.css';
 import { SignForm } from './sign-form.tsx';
@@ -143,6 +144,8 @@ export default async function TripContractPage({
       {contract.parts === null && (
         <p className={accountStyles['text']}>{t('common.contract.textErased')}</p>
       )}
+      {/* constancia et centre juridique (US-212) */}
+      <TripDocuments i18n={i18n} tripId={contract.tripId} role="GUEST" />
     </>,
   );
 }

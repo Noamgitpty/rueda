@@ -139,8 +139,11 @@ const LEVEL_KEYS: Readonly<Record<string, MessageKey>> = {
   TOTAL: 'ctr.contract.level.total',
 };
 
-/** Profil de la langue : l'espagnol du pays s'il est déclaré, sinon la locale par défaut. */
-function profileOf(config: LocaleConfig, language: 'es' | CourtesyLocale, country: string) {
+/**
+ * Profil de la langue : l'espagnol du pays s'il est déclaré, sinon la locale par défaut. Exporté
+ * pour la constancia (US-212), qui imprime ses deux langues comme le contrat.
+ */
+export function profileOf(config: LocaleConfig, language: 'es' | CourtesyLocale, country: string) {
   const tags = language === 'es' ? [`es-${country}`, config.defaultLocale] : [language];
   for (const tag of tags) {
     const found = config.locales.find((p) => p.tag === tag);
@@ -149,8 +152,16 @@ function profileOf(config: LocaleConfig, language: 'es' | CourtesyLocale, countr
   return getProfile(config, language);
 }
 
-/** Montant avec le code ISO de la devise (jamais un symbole hors de l'encodage du PDF). */
-function moneyText(profile: LocaleProfile, minor: string, currency: string, exponent: number) {
+/**
+ * Montant avec le code ISO de la devise (jamais un symbole hors de l'encodage du PDF). Exporté
+ * pour la constancia (US-212).
+ */
+export function moneyText(
+  profile: LocaleProfile,
+  minor: string,
+  currency: string,
+  exponent: number,
+) {
   if (!/^-?(0|[1-9][0-9]*)$/.test(minor)) throw new ContractInputError('montant mal formé');
   return formatMoney(
     { amountMinor: BigInt(minor), currency, exponent },
