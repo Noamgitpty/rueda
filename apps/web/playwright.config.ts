@@ -66,6 +66,11 @@ const GUEST_TRIPS = /guest-trips\.spec\.ts$/;
  * du job e2e, proche de sa limite ; les quatre langues sont prouvées par les catalogues et l'API).
  */
 const CONSTANCIA = /trip-constancia\.spec\.ts$/;
+/**
+ * Reçu du voyageur (S09 · reçu) et gains de l'hôte (A08), US-217 partie 217b : 360 px et espagnol
+ * seulement (durée du job e2e ; les deux écrans passent à 390 px et en tablette par SCREENS).
+ */
+const RECEIPT = /trip-receipt\.spec\.ts$/;
 /** Balayage axe + captures de chaque écran du site (US-044). */
 const SCREENS = /screens\.spec\.ts$/;
 /** Balayage des écrans de la console interne (US-044). */
@@ -155,6 +160,7 @@ export default defineConfig({
         REFUND,
         GUEST_TRIPS,
         CONSTANCIA,
+        RECEIPT,
         SCREENS,
       ],
       use: { ...phone, viewport: { width: 360, height: 780 } },
@@ -180,6 +186,7 @@ export default defineConfig({
         // d'abord) : job e2e proche de sa limite de 20 min (suite à la passation d'US-211b) ; REFUND
         // (US-224d) : 360 px seulement, ses deux écrans passent à 390 px par SCREENS
         // GUEST_TRIPS (US-214) : 360 px seulement, ses deux écrans passent à 390 px par SCREENS
+        // RECEIPT (US-217b) : 360 px seulement, ses deux écrans passent à 390 px par SCREENS
         SCREENS,
       ],
       use: { ...phone, viewport: { width: 390, height: 844 } },

@@ -7,7 +7,7 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 
 ## Synthèse
 
-- 145 migrations ; 128 tables ; 3 vues ; 722 politiques RLS ; 290 fonctions `SECURITY DEFINER` ; 251 autres fonctions.
+- 146 migrations ; 128 tables ; 3 vues ; 722 politiques RLS ; 290 fonctions `SECURITY DEFINER` ; 251 autres fonctions.
 - Tables sans RLS `ENABLE` + `FORCE` : aucune.
 - Rôles applicatifs avec `SUPERUSER` ou `BYPASSRLS` : aucun.
 
@@ -160,6 +160,7 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 | `0142_config_deposit_rail_params` | graine complémentaire : paramètres « deposit_always_required* » (US-225 ; 17 §7.2). |
 | `0143_settlement_insurer_ledger` | STL / FIN : jambe de l'assureur — registre `insurer_ledger`, bordereau mensuel à double |
 | `0144_booking_meeting_place` | AVL / CAT : lieux de prise et de retour (US-514 ; 19 US-514 ; 16 BKG-016 ; 08 BR-BOOK-09 ; |
+| `0145_finance_receipt_alignment` | FIN : alignement des reçus et du relevé des gains sur les décisions écrites d'US-217 |
 
 ## Rôles
 
