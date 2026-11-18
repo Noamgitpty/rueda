@@ -204,7 +204,7 @@ describe.each(CASES)('$country ($currency) — exécution sur le FAKE', (c) => {
 });
 
 /**
- * Port FAKE dont la capture rend un statut imposé (revues argent, code, qa de #236) : tous les
+ * Port FAKE dont la capture rend un statut imposé (revues argent, code, qa de la PR 236) : tous les
  * autres appels passent au PSP simulé.
  */
 function captureReturning(

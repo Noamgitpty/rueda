@@ -388,7 +388,7 @@ describe('machine d’état de deposit_hold.status (16 PAY-011)', () => {
 });
 
 describe.each(CASES)(
-  '$country ($currency) — repli et arrondi des frais scindés (revues de #236)',
+  '$country ($currency) — repli et arrondi des frais scindés (revues de la PR 236)',
   (c) => {
     const decisionAt = new Date(T + 142 * H);
     const fee = (amountMinor: bigint, share: [bigint, bigint]) => ({
