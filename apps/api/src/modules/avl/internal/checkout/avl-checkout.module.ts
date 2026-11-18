@@ -27,6 +27,11 @@
  */
 import { Module } from '@nestjs/common';
 import type { DynamicModule } from '@nestjs/common';
+import {
+  DepositCheckoutGate,
+  PgDepositCheckoutStore,
+  PgDepositRailConfigReader,
+} from '../../../pay/index.js';
 import { PgQuoteStore, UnavailableQuoteStore } from '../../../prc/index.js';
 import type { QuoteParamsOf, QuoteStore } from '../../../prc/index.js';
 import { CheckoutController } from './checkout.controller.js';
@@ -36,7 +41,7 @@ import { PgCheckoutStore, UnavailableCheckoutStore } from './store.js';
 import type { CheckoutStore, SqlExecutor } from './store.js';
 import { CheckoutPaymentController } from './payment.controller.js';
 import { CheckoutPaymentService, LOG_PAYMENT_FAILURE } from './payment.service.js';
-import type { HostedPaymentProvider } from './payment.service.js';
+import type { DepositGatePort, HostedPaymentProvider } from './payment.service.js';
 import { PgCheckoutPaymentStore, UnavailableCheckoutPaymentStore } from './payment-store.js';
 import type { CheckoutPaymentStore } from './payment-store.js';
 import { HostRequestsController } from './host-requests.controller.js';
@@ -74,7 +79,15 @@ export interface AvlCheckoutPaymentOptions {
   readonly store: CheckoutPaymentStore;
   /** Connecteurs par fournisseur (`payment_psp_account.provider`) ; vide : aucun paiement. */
   readonly providers: ReadonlyMap<string, HostedPaymentProvider>;
+  /** Porte de la caution (US-701, ADR-169) : décidée et figée AVANT le paiement. */
+  readonly deposits: DepositGatePort;
 }
+
+/** Porte de la caution sans base : 503 (jamais un paiement sans décision de caution). */
+export const UNAVAILABLE_DEPOSIT_GATE: DepositGatePort = {
+  view: () => Promise.reject(new Error('porte de la caution indisponible')),
+  enforce: () => Promise.reject(new Error('porte de la caution indisponible')),
+};
 
 /** Demandes de réservation de l'hôte (US-223c) : commandes de 0126 et connecteurs de capture. */
 export interface AvlHostRequestOptions {
@@ -93,6 +106,7 @@ export const UNAVAILABLE_HOST_REQUESTS: AvlHostRequestOptions = {
 export const UNAVAILABLE_CHECKOUT_PAYMENTS: AvlCheckoutPaymentOptions = {
   store: new UnavailableCheckoutPaymentStore(),
   providers: new Map(),
+  deposits: UNAVAILABLE_DEPOSIT_GATE,
 };
 
 export interface AvlCheckoutOptions {
@@ -141,7 +155,16 @@ export function postgresCheckoutAdapters(
     store: new PgCheckoutStore(db),
     ...(cancellationParamsOf === undefined ? {} : { cancellationParamsOf }),
     // aucun connecteur de PSP en production avant le lot C (PRODUCTION_PROVIDERS vide)
-    payments: { store: new PgCheckoutPaymentStore(db), providers: new Map() },
+    // US-701 : caution décidée et figée avant le paiement (0146), configuration du pays lue sous
+    // app_api
+    payments: {
+      store: new PgCheckoutPaymentStore(db),
+      providers: new Map(),
+      deposits: new DepositCheckoutGate(
+        new PgDepositCheckoutStore(db),
+        new PgDepositRailConfigReader(db),
+      ),
+    },
     // US-223c : refus et lecture des demandes ; aucune capture avant le lot C
     hostRequests: { store: new PgHostRequestStore(db), providers: new Map() },
     // US-224d : lecture du remboursement par la partie du trip (aucune écriture)
@@ -184,6 +207,7 @@ export class AvlCheckoutModule {
           useValue: new CheckoutPaymentService(
             (options.payments ?? UNAVAILABLE_CHECKOUT_PAYMENTS).store,
             (options.payments ?? UNAVAILABLE_CHECKOUT_PAYMENTS).providers,
+            (options.payments ?? UNAVAILABLE_CHECKOUT_PAYMENTS).deposits,
             LOG_PAYMENT_FAILURE,
           ),
         },

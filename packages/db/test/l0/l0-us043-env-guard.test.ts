@@ -70,6 +70,8 @@ const READERS = [
   'core.payment_cmd_receive_webhook',
   'core.payment_cmd_record_operation',
   'core.payment_cmd_register_submerchant',
+  // US-701 (0146) : compte marchand du pays de la caution, même choix que T1 (0116)
+  'core.payment_deposit_checkout',
   'core.payment_psp_account_fake_guard',
   'core.payment_resolve_webhook_account',
   'core.payment_startup_guard',
