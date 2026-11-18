@@ -227,8 +227,17 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  (demandes de réservation : reçue par l’hôte avec l’heure limite de la base ; refus, expiration,
  capture non aboutie), `web.s07.title`, `web.s07.documents`, `web.s07.safety` (S06 confirmé,
  10b S07).
+ Version 78 (74 à 77 réservées à des stories en cours ; la 73 est celle d’US-213) : constancia
+ d’arrendamiento et centre juridique (US-212, ADR-162) : `ctr.constancia.*` (texte du PDF de la
+ constancia, espagnol qui fait foi puis langue du lecteur, gabarit BROUILLON, GL-39),
+ `common.constancia.*` (réponses des routes `/trips/{id}/constancia` et
+ `/trips/constancias/search`), `web.constancia.*` (écran de la constancia et recherche de
+ l’hôte par plaque et date), `web.contract.documents`, `web.contract.constancia`,
+ `web.contract.constanciaSearch`, `web.contract.legalCenter` (liens depuis S09 · contrat et A03),
+ `web.legalCenter.*` (centre juridique : positionnement d’intermédiaire entre particuliers,
+ documents publiés, documents de chaque voyage, désaccords et médiation, loi applicable).
  */
-export const CATALOG_VERSION = 73;
+export const CATALOG_VERSION = 78;
 
 /** Catalogues de base par langue ; la langue d'un profil de locale choisit le sien. */
 export const CATALOGS: Readonly<Record<CatalogLanguage, VersionedCatalog<MessageKey>>> = {

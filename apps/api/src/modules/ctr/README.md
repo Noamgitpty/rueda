@@ -58,11 +58,21 @@ Commandes en base (`iam_auth_owner`) : `core.ctr_host_terms`, `core.ctr_cmd_acce
 
 Gardes `SessionGuard` puis `TermsGuard`. Toute autre personne, trip inconnu ou identifiant mal formé : même 404 `CONTRACT_NOT_FOUND`. Sans magasin (`contracts` absent des options) : 503. Codes et clés : `internal/contract/errors.ts` (`CONTRACT_MESSAGES`).
 
+## Constancia d'arrendamiento (US-212, ADR-162)
+
+| Route                                | Accès   | Rôle                                                                                                                                                                                                                                           |
+| ------------------------------------ | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /trips/{tripId}/constancia`     | session | voyageur ou titulaire du compte d'hôte : faits figés du dernier contrat (résumé), texte es puis langue du lecteur (équivalent HTML), empreinte ; 404 sinon ; 409 `CONSTANCIA_NOT_AVAILABLE` / `CONSTANCIA_NOT_GENERATED` / `CONSTANCIA_ERASED` |
+| `GET /trips/{tripId}/constancia/pdf` | session | PDF rendu à la demande (`ctr.pdf/1`, mêmes faits ⇒ mêmes octets), jamais stocké ; `X-Constancia-Sha256`, sans cache                                                                                                                            |
+| `POST /trips/constancias/search`     | session | recherche de l'hôte (EC-48) : `{ plate, date }` (plaque dans le corps) ; trips du compte dont la session est titulaire, plaque figée au contrat, jusqu'au lendemain de la fin (BR-TT-03)                                                       |
+
+Fonctions pures dans `internal/constancia/constancia.ts` (`parseConstanciaFacts`, `buildConstanciaBody`, `renderConstanciaPdf`) : hôte en prénom et initiale, conducteur du contrat, lieu de remise sans adresse exacte (L2-PM-35) ; textes `ctr.constancia.*` du catalogue, gabarit version 1 BROUILLON (GL-39). Magasin `PgTripConstanciaStore` (`core.booking_trip_constancia`, `core.booking_host_constancia_search`, 0136) ; sans magasin (`constancias` absent des options) : 503. Codes et clés : `internal/constancia/errors.ts` (`CONSTANCIA_MESSAGES`, `DOCUMENT_GENERATION_FAILED` de 16 LEG-026). FAKE : `testing/fake-trip-constancia-store.ts` ; suite de contrat : `testing/trip-constancia.contract.test.ts`.
+
 ## Événements
 
 Émis (cible 17 §4.5) : `contract.document.generated` (version enregistrée, acteur SYSTEM) et `contract.document.signed` (signature du voyageur) depuis US-211 (0122) ; `legal.consent.recorded` et `legal.document_template.published` : pas encore.
 
-Consommé (cible 17 §4.5) : `booking.trip.booked` par le travailleur `booking_contract` (AVL, US-211) : génération du contrat ; la constancia viendra avec US-212.
+Consommé (cible 17 §4.5) : `booking.trip.booked` par le travailleur `booking_contract` (AVL, US-211) : génération du contrat ; la constancia (US-212) n'a pas d'événement propre : elle est rendue à la demande depuis la dernière version du contrat.
 
 ## Ports
 

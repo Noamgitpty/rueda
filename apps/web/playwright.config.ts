@@ -59,6 +59,11 @@ const REQUEST_MODE = /request-mode\.spec\.ts$/;
 const CONTRACT = /trip-contract\.spec\.ts$/;
 /** Remboursement d'un trip : S10 · remboursement du voyageur, A05 de l'hôte (US-224 partie 224d) : 360 px. */
 const REFUND = /trip-refund\.spec\.ts$/;
+/**
+ * Constancia d'arrendamiento et centre juridique (US-212) : 360 px et espagnol seulement (durée
+ * du job e2e, proche de sa limite ; les quatre langues sont prouvées par les catalogues et l'API).
+ */
+const CONSTANCIA = /trip-constancia\.spec\.ts$/;
 /** Balayage axe + captures de chaque écran du site (US-044). */
 const SCREENS = /screens\.spec\.ts$/;
 /** Balayage des écrans de la console interne (US-044). */
@@ -146,6 +151,7 @@ export default defineConfig({
         REQUEST_MODE,
         CONTRACT,
         REFUND,
+        CONSTANCIA,
         SCREENS,
       ],
       use: { ...phone, viewport: { width: 360, height: 780 } },

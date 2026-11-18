@@ -429,10 +429,14 @@ describe('US-211 partie 211b — routes du contrat de location d’un trip', () 
   });
 
   it('couverture : chaque statut déclaré pour /trips est exercé', () => {
-    // remboursements d'un trip (US-224d) : leur propre suite (avl/testing/trip-refunds.contract)
+    // remboursements d'un trip (US-224d) : leur propre suite (avl/testing/trip-refunds.contract) ;
+    // constancia et recherche de l'hôte (US-212) : la leur (ctr/testing/trip-constancia.contract)
     expect(
       missingCoverage(contract, '/trips', coverageOf(...apps)).filter(
-        (d) => !d.includes(' /trips/{tripId}/refunds '),
+        (d) =>
+          !d.includes(' /trips/{tripId}/refunds ') &&
+          !d.includes(' /trips/{tripId}/constancia') &&
+          !d.includes(' /trips/constancias/'),
       ),
       'statuts',
     ).toEqual([]);

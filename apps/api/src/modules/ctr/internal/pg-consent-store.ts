@@ -16,6 +16,8 @@ import type {
   LegalDocumentSummary,
 } from './consent-store.js';
 import { ConsentDocumentsError } from './consent-store.js';
+import { PgTripConstanciaStore } from './constancia/constancia.store.js';
+import type { TripConstanciaStore } from './constancia/constancia.store.js';
 import { PgTripContractStore } from './contract/trip-contract.store.js';
 import type { TripContractStore } from './contract/trip-contract.store.js';
 
@@ -283,14 +285,22 @@ const HOST_TERMS_OUTCOMES: ReadonlySet<string> = new Set<HostTermsOutcome>([
  * IAM le vérifie déjà au démarrage (`postgresIamAdapters`) sur le même pool ; CTR le répète pour
  * qu'aucun montage ne lui donne une autre connexion.
  */
-export async function postgresCtrAdapters(
-  db: CtrSqlExecutor,
-): Promise<{ store: ConsentStore; contracts: TripContractStore }> {
+export async function postgresCtrAdapters(db: CtrSqlExecutor): Promise<{
+  store: ConsentStore;
+  contracts: TripContractStore;
+  constancias: TripConstanciaStore;
+}> {
   const { rows } = await db.query<{ current_user: string }>('SELECT current_user');
   if (rows[0]?.current_user !== 'app_api') {
     throw new Error('CTR : la connexion de l’API doit être app_api');
   }
   // contrat de location d'un trip (US-211 partie 211b) : core.booking_trip_contract et
   // core.booking_cmd_sign_contract (0122, EXECUTE app_api)
-  return { store: new PgConsentStore(db), contracts: new PgTripContractStore(db) };
+  // constancia d'arrendamiento (US-212) : core.booking_trip_constancia et
+  // core.booking_host_constancia_search (0136, EXECUTE app_api)
+  return {
+    store: new PgConsentStore(db),
+    contracts: new PgTripContractStore(db),
+    constancias: new PgTripConstanciaStore(db),
+  };
 }

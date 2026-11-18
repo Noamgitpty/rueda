@@ -1641,6 +1641,34 @@ export const PT_MESSAGES = {
   'ctr.contract.signatureId': 'Assinatura n.º: {value}',
   'ctr.contract.courtesy':
     'Tradução de cortesia ({language}). Em caso de diferença, o texto em espanhol prevalece.',
+  // US-212 : constancia d'arrendamiento et centre juridique (ADR-162), textes PROPOSÉS
+  'ctr.constancia.title': 'COMPROVANTE DE LOCAÇÃO ENTRE PARTICULARES',
+  'ctr.constancia.draft': 'RASCUNHO: texto pendente de validação jurídica; pode mudar.',
+  'ctr.constancia.ref': 'Viagem {ref} · conforme o contrato de locação, versão {version}',
+  'ctr.constancia.partiesHeading': 'As partes',
+  'ctr.constancia.host': 'Anfitrião (particular): {name}, {capacity}',
+  'ctr.constancia.driver': 'Condutor autorizado: {name}',
+  'ctr.constancia.platform':
+    'Plataforma intermediária entre particulares: {brand}. Não é locadora nem proprietária do veículo.',
+  'ctr.constancia.tripHeading': 'Veículo e período',
+  'ctr.constancia.vehicle': 'Veículo: {make} {model} {year}, placa {plate}',
+  'ctr.constancia.period': 'Período: de {start} a {end} (horário local de {country})',
+  'ctr.constancia.handover': 'Local de entrega e devolução: {place}',
+  'ctr.constancia.total': 'Total pago pelo viajante: {amount}',
+  'ctr.constancia.signed':
+    'Contrato de locação aceito eletronicamente pelo viajante em {date} (horário local)',
+  'ctr.constancia.unsigned': 'Contrato de locação ainda não assinado pelo viajante',
+  'ctr.constancia.noticeHeading': 'Alcance deste comprovante',
+  'ctr.constancia.notice.purpose':
+    'Este comprovante atesta que o veículo indicado está alugado entre particulares ao condutor nomeado durante o período indicado.',
+  'ctr.constancia.notice.parties':
+    'A locação é um contrato entre o anfitrião e o viajante; {brand} apenas intermedia e recebe o pagamento como comerciante de referência.',
+  'ctr.constancia.notice.documents':
+    'É apresentado junto com o documento de identidade e a carteira de habilitação válidos do condutor.',
+  'ctr.constancia.notice.fines':
+    'As multas e infrações cometidas durante o período cabem ao condutor, conforme o contrato de locação.',
+  'ctr.constancia.courtesy':
+    'Tradução ({language}). Em caso de divergência, prevalece o texto em espanhol.',
   // US-125 : avertissements réglementaires versionnés par pays (16 LEG-021), textes PROPOSÉS
   'common.regulatory.heading': 'Aviso importante',
   'common.regulatory.version': 'Versão {version} deste aviso',
@@ -2315,6 +2343,16 @@ export const PT_MESSAGES = {
     'O texto deste contrato não é mais guardado; sua impressão digital continua registrada.',
   'common.contract.unavailable':
     'O contrato não está disponível no momento. Tente de novo em alguns minutos.',
+  'common.constancia.notFound': 'Não encontramos este comprovante.',
+  'common.constancia.notAvailable':
+    'Esta viagem foi cancelada: ela não tem comprovante de locação.',
+  'common.constancia.notGenerated':
+    'O comprovante ficará pronto quando o contrato da viagem for gerado. Volte em alguns minutos.',
+  'common.constancia.erased': 'Os dados deste comprovante não são mais guardados.',
+  'common.constancia.generationFailed':
+    'Não conseguimos gerar o comprovante. Tente de novo mais tarde.',
+  'common.constancia.unavailable':
+    'O comprovante não está disponível agora. Tente de novo em alguns minutos.',
   'web.contract.summary': 'Resumo',
   'web.contract.ref': 'Contrato {ref} · versão {version}',
   'web.contract.draft': 'RASCUNHO: este contrato aguarda validação jurídica e pode mudar.',
@@ -2349,6 +2387,71 @@ export const PT_MESSAGES = {
   'web.contract.latest': 'Ver a versão vigente',
   'web.contract.loadError': 'Não conseguimos carregar o contrato.',
   'web.contract.retry': 'Tentar de novo',
+  'web.contract.documents': 'Outros documentos da viagem',
+  'web.contract.constancia': 'Ver o comprovante de locação',
+  'web.contract.constanciaSearch': 'Encontrar o comprovante de uma viagem por placa e data',
+  'web.contract.legalCenter': 'Central jurídica: como funciona a locação entre particulares',
+  'web.constancia.title': 'Comprovante de locação',
+  'web.constancia.lead':
+    'Mostre-o numa fiscalização junto com a sua habilitação: ele comprova que o carro está alugado entre particulares, em seu nome.',
+  'web.constancia.leadHost':
+    'Ele comprova para quem você alugou o carro e quando, por exemplo diante de uma multa recebida depois da viagem.',
+  'web.constancia.draft':
+    'RASCUNHO: o texto do comprovante está pendente de validação jurídica e pode mudar.',
+  'web.constancia.ref': 'Viagem {ref} · contrato, versão {version}',
+  'web.constancia.label.plate': 'Placa do carro',
+  'web.constancia.label.host': 'Anfitrião',
+  'web.constancia.label.driver': 'Condutor',
+  'web.constancia.label.place': 'Local de entrega',
+  'web.constancia.label.contract': 'Contrato de locação',
+  'web.constancia.signed': 'Assinado pelo viajante em {date}',
+  'web.constancia.unsigned': 'Ainda não assinado pelo viajante',
+  'web.constancia.pdf': 'Baixar o comprovante (PDF)',
+  'web.constancia.text': 'Texto do comprovante',
+  'web.constancia.loadError': 'Não conseguimos carregar o comprovante.',
+  'web.constancia.back': 'Voltar ao contrato',
+  'web.constancia.search.title': 'Encontrar um comprovante',
+  'web.constancia.search.lead':
+    'Recebeu uma multa? Digite a placa e a data da infração para encontrar a viagem e o comprovante.',
+  'web.constancia.search.plate': 'Placa do veículo',
+  'web.constancia.search.date': 'Data da infração (horário local)',
+  'web.constancia.search.submit': 'Encontrar a viagem',
+  'web.constancia.search.none':
+    'Não encontramos nenhuma viagem da sua conta com essa placa nessa data.',
+  'web.constancia.search.invalid': 'Confira a placa e a data.',
+  'web.constancia.search.result': 'Viagem {ref}: {start} até {end}',
+  'web.constancia.search.open': 'Ver o comprovante',
+  'web.legalCenter.title': 'Central jurídica',
+  'web.legalCenter.version': 'Versão {version} · {date}',
+  'web.legalCenter.lead':
+    'Como funciona a locação entre particulares, quais documentos a regem e o que fazer em caso de desacordo.',
+  'web.legalCenter.role.title': 'Uma plataforma entre particulares',
+  'web.legalCenter.role.body1':
+    'A plataforma conecta anfitriões particulares, que alugam o próprio carro, com viajantes. Ela não é uma locadora nem dona dos carros.',
+  'web.legalCenter.role.body2':
+    'O contrato de locação é celebrado entre o anfitrião e o viajante. A plataforma recebe o pagamento como comerciante de referência e paga o anfitrião depois da viagem.',
+  'web.legalCenter.role.body3':
+    'A proteção da viagem é prestada por uma seguradora parceira; a plataforma a oferece em nome dessa seguradora.',
+  'web.legalCenter.docs.title': 'Documentos disponíveis',
+  'web.legalCenter.doc.TOS_GUEST': 'Termos para viajantes',
+  'web.legalCenter.doc.TOS_HOST': 'Termos para anfitriões',
+  'web.legalCenter.doc.PRIVACY': 'Aviso de privacidade',
+  'web.legalCenter.doc.CANCELLATION_POLICY': 'Política de cancelamento',
+  'web.legalCenter.doc.GEO_TERMS': 'Áreas de circulação',
+  'web.legalCenter.trip.title': 'Os documentos de cada viagem',
+  'web.legalCenter.trip.body':
+    'Cada viagem confirmada tem o contrato de locação e o comprovante, em espanhol e no seu idioma. O viajante e o anfitrião os encontram na viagem.',
+  'web.legalCenter.trip.hostSearch':
+    'Anfitriões: encontrar o comprovante de uma viagem por placa e data',
+  'web.legalCenter.disputes.title': 'Desacordos e reclamações',
+  'web.legalCenter.disputes.body1':
+    'Se você tiver um desacordo com a outra parte, escreva primeiro pelas mensagens da viagem.',
+  'web.legalCenter.disputes.body2':
+    'Se não for resolvido, escreva ao suporte com o número da viagem: analisamos o caso com as duas partes e propomos uma solução (mediação).',
+  'web.legalCenter.disputes.body3':
+    'Você sempre pode recorrer ao órgão de defesa do consumidor ou aos tribunais do local da viagem. Nenhuma decisão da plataforma impede isso.',
+  'web.legalCenter.disputes.law':
+    'Aplica-se a lei do local onde a viagem acontece. Prevalece o texto em espanhol.',
   'web.s09.contract.title': 'Seu contrato de aluguel',
   'web.s09.contract.lead':
     'O contrato é entre o anfitrião e você. A plataforma só intermedeia: não é parte do contrato nem locadora.',

@@ -931,6 +931,14 @@ Migration `0133_booking_notification_parties` : une fonction de lecture AJOUTÉE
   - assertions ajoutées à `l0-us223-request.test.ts` (capture refusée et capture jamais confirmée d'une demande acceptée : faits lus du hold) ;
   - `apps/api/test/int/ntf.int.test.ts` (charge utile réelle de `booking.trip.booked`, trip réel, rejeu sans doublon).
 
+## Constancia d'arrendamiento et recherche de l'hôte (US-212 ; 16 LEG-026 ; ADR-162)
+
+Migration `0136_booking_trip_constancia_read` : deux fonctions de lecture AJOUTÉES, aucune table, aucun droit nouveau. Fixture `9946_test_us212_constancia_fixtures` (version de contrat aux faits écrits par le test ; partie nominative pseudonymisée).
+
+- `core.booking_trip_constancia(bytea, uuid)` (cmd_hold_owner, EXECUTE app_api) : pour le voyageur du trip ou le titulaire du compte d'hôte de la SESSION, les faits FIGÉS de la dernière version du contrat (`terms` ; plaque, conducteur, lieu de remise et ville de la partie nominative ; marque), l'hôte en prénom et initiale, la signature du voyageur sur cette version à l'heure locale du trip, la langue du lecteur. Issues : `OK`, `NOT_FOUND` (autre personne, trip inconnu, session absente : même réponse), `NOT_AVAILABLE` (trip annulé), `NOT_GENERATED` (aucun contrat), `ERASED` (partie nominative pseudonymisée).
+- `core.booking_host_constancia_search(bytea, text, date)` (cmd_hold_owner, EXECUTE app_api) : trips du compte dont la session est titulaire, plaque figée au dernier contrat (sans casse, espaces ni tirets), période locale couvrant la date jusqu'au lendemain de la fin (08 BR-TT-03), au plus vingt. Issues : `DONE`, `AUTH_REQUIRED`, `REQUEST_INVALID`.
+- **Preuves** : `test/l0/l0-us212-constancia.test.ts` (PA USD, PY PYG ; transactions annulées sous app_api ; monde de 9963, contrat de 9946 ; parties, IDOR, version suivante, signature, recherche, annulé, effacé ; refus d'app_worker et d'app_anon).
+
 ## Remboursement lu par le voyageur, l'hôte et la console (US-224 partie 224d ; 19 US-224 critère 1 ; 08 SM-8, BR-PAY-08 ; ADR-154)
 
 Migration `0130_payment_refund_read` : trois fonctions de lecture AJOUTÉES, aucune table, aucun droit sur une table.

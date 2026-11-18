@@ -75,3 +75,18 @@ export type {
   ContractSignOutcome,
   TripContractStore,
 } from './internal/contract/trip-contract.store.js';
+
+// Constancia d'arrendamiento d'un trip (US-212, ADR-162) : faits figés du dernier contrat, PDF
+// déterministe rendu à la demande ; port et adaptateur PostgreSQL du magasin, codes de réponse.
+export { CONSTANCIA_MESSAGES, ConstanciaHttpError } from './internal/constancia/errors.js';
+export {
+  ConstanciaStoreError,
+  PgTripConstanciaStore,
+  UnavailableTripConstanciaStore,
+} from './internal/constancia/constancia.store.js';
+export type {
+  ConstanciaReadResult,
+  ConstanciaSearchResult,
+  ConstanciaSearchRow,
+  TripConstanciaStore,
+} from './internal/constancia/constancia.store.js';
