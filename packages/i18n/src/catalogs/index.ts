@@ -214,8 +214,12 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  ordre envoyé, avance, motifs de blocage ADVANCE_CAP_UNSET, HOST_ADVANCE_CAP,
  PLATFORM_BALANCE_UNKNOWN et codes REFUND_EXCEEDS_COLLECTED, SETTLEMENT_SUPERSEDED,
  FIN_REVIEW_REQUIRED, SUPERSEDED_UNSENT, NO_TARGET, MISMATCH expliqués).
+ Version 72 (la 71 est celle d’US-224d) : correctifs serveur de la console, partie 215c (US-215,
+ ADR-156) : `backoffice.profile.hostTrips` et `backoffice.profile.noHostTrip` (fiche 360° : trips à
+ venir des comptes d'hôte de la personne, N-123) ; `ntf.tripHostRestrictionLifted.*` (voyageur d'un
+ trip à venir prévenu de la levée de la restriction de son hôte, N-126).
  */
-export const CATALOG_VERSION = 71;
+export const CATALOG_VERSION = 72;
 
 /** Catalogues de base par langue ; la langue d'un profil de locale choisit le sien. */
 export const CATALOGS: Readonly<Record<CatalogLanguage, VersionedCatalog<MessageKey>>> = {

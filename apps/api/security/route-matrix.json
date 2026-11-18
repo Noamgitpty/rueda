@@ -244,28 +244,28 @@
       "permission": "support.read_profile (dossier ou élément assigné ; ADMIN : sa portée), journalisé READ_C2_SUPPORT",
       "roles": ["SUPPORT_AGENT", "OPS_AGENT", "ADMIN"],
       "portee": "pays",
-      "idor": "personne de l’autre pays : 403 journalisé ; non couverte : 403 STAFF_CASE_REQUIRED, aucune donnée"
+      "idor": "personne de l’autre pays : 403 journalisé ; non couverte : 403 STAFF_CASE_REQUIRED, aucune donnée ; personne qui concerne l’agent (lui-même, ses comptes d’hôte, compte lié ; ADMIN compris) : 403 STAFF_SELF_FORBIDDEN journalisé, aucune ligne d’accès (preuve L0 l0-us215c-console-guards)"
     },
     "POST /console/users/{id}/notes": {
       "acces": "staff",
       "permission": "support.write_note (même couverture que la fiche)",
       "roles": ["SUPPORT_AGENT", "OPS_AGENT", "ADMIN"],
       "portee": "pays",
-      "idor": "personne de l’autre pays : 403 journalisé ; non couverte : 403 STAFF_CASE_REQUIRED"
+      "idor": "personne de l’autre pays : 403 journalisé ; non couverte : 403 STAFF_CASE_REQUIRED ; personne qui concerne l’agent : 403 STAFF_SELF_FORBIDDEN journalisé, aucune note (preuve L0 l0-us215c-console-guards)"
     },
     "POST /console/cases": {
       "acces": "staff",
       "permission": "support.case_write (dossier assigné à l’acteur, jamais un bris de glace)",
       "roles": ["SUPPORT_AGENT", "OPS_AGENT", "ADMIN"],
       "portee": "pays",
-      "idor": "demandeur de l’autre pays : 403 journalisé"
+      "idor": "demandeur de l’autre pays : 403 journalisé ; demandeur qui concerne l’agent : 403 STAFF_SELF_FORBIDDEN journalisé, aucun dossier (preuve L0 l0-us215c-console-guards)"
     },
     "POST /console/cases/{id}/status": {
       "acces": "staff",
       "permission": "support.case_write (assigné ; ADMIN : son pays)",
       "roles": ["SUPPORT_AGENT", "OPS_AGENT", "ADMIN"],
       "portee": "pays",
-      "idor": "dossier de l’autre pays : 403 journalisé ; dossier d’un autre assigné : 403 STAFF_CASE_REQUIRED"
+      "idor": "dossier de l’autre pays : 403 journalisé ; dossier d’un autre assigné : 403 STAFF_CASE_REQUIRED ; dossier qui concerne l’agent (ADMIN compris) : 403 STAFF_SELF_FORBIDDEN journalisé, état inchangé (preuve L0 l0-us215c-console-guards)"
     },
     "POST /console/evidence": {
       "acces": "staff",

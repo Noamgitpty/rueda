@@ -787,6 +787,8 @@ export const FR_MESSAGES = {
   'backoffice.profile.noHost': 'Pas hôte.',
   'backoffice.profile.trips': 'Voyages comme voyageur',
   'backoffice.profile.noTrip': 'Aucun voyage.',
+  'backoffice.profile.hostTrips': 'Voyages à venir comme hôte',
+  'backoffice.profile.noHostTrip': 'Aucun voyage à venir comme hôte.',
   'backoffice.profile.cases': 'Dossiers de support',
   'backoffice.profile.noCase': 'Aucun dossier.',
   'backoffice.profile.notes': 'Notes internes',
@@ -1342,6 +1344,12 @@ export const FR_MESSAGES = {
     'Bonjour {first_name}. Nous examinons le compte de l’hôte de ta réservation {booking_ref}. Ta réservation reste enregistrée et nous te tenons informé. Si l’hôte l’annule, tu es remboursé intégralement. Détails dans l’appli.',
   'ntf.tripHostRestricted.sms.body':
     '{brand} : nous examinons le compte de l’hôte de ta réservation {booking_ref}. Remboursement intégral si l’hôte l’annule. Détails dans l’appli.',
+  'ntf.tripHostRestrictionLifted.email.subject':
+    'Réservation {booking_ref} : du nouveau sur ton hôte',
+  'ntf.tripHostRestrictionLifted.email.body':
+    'Bonjour {first_name}. Nous avons fini d’examiner le compte de l’hôte de ta réservation {booking_ref}. Ta réservation est maintenue, sans changement. Détails dans l’appli.',
+  'ntf.tripHostRestrictionLifted.sms.body':
+    '{brand} : nous avons fini d’examiner l’hôte de ta réservation {booking_ref}. Ta réservation est maintenue. Détails dans l’appli.',
   'backoffice.catalog.open': 'Ouvrir la demande',
   'backoffice.catalog.heading': 'Demande d’ajout au catalogue',
   'backoffice.catalog.requested': 'Saisie de l’hôte',

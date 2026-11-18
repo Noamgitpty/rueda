@@ -332,6 +332,19 @@ export interface ProfileView {
     readonly status: string;
     readonly scheduledStart: string;
   }[];
+  /**
+   * Trips à venir des comptes d'hôte de la personne (F2-T-01, 08 BR-TRUST-09 : l'ops liste ceux
+   * d'un hôte défaillant), jamais le voyageur ; servis par la fiche depuis 0097 (US-215c, N-123).
+   * Absent d'une réponse plus ancienne : liste vide.
+   */
+  readonly hostTrips?:
+    | readonly {
+        readonly id: string;
+        readonly orgId: string;
+        readonly status: string;
+        readonly scheduledStart: string;
+      }[]
+    | undefined;
   readonly cases: readonly {
     readonly id: string;
     readonly category: string;
@@ -1401,6 +1414,27 @@ function ProfileDetails({
           },
         }))}
         empty={<EmptyState title={i18n.t('backoffice.profile.noTrip')} headingLevel={3} />}
+      />
+
+      <DataTable
+        id="profile-host-trips"
+        caption={i18n.t('backoffice.profile.hostTrips')}
+        columns={[
+          { key: 'trip', header: i18n.t('backoffice.queues.subject') },
+          { key: 'start', header: i18n.t('backoffice.queues.due') },
+        ]}
+        rows={(p.hostTrips ?? []).map((t) => ({
+          id: t.id,
+          cells: {
+            trip: (
+              <code className={styles['code']}>
+                {short(t.id)} · {short(t.orgId)} · {t.status}
+              </code>
+            ),
+            start: `${i18n.dateTime(t.scheduledStart, 'UTC')} UTC`,
+          },
+        }))}
+        empty={<EmptyState title={i18n.t('backoffice.profile.noHostTrip')} headingLevel={3} />}
       />
 
       <form

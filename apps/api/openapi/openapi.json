@@ -4107,7 +4107,7 @@
             "$ref": "#/components/responses/StaffAuthRequired"
           },
           "403": {
-            "$ref": "#/components/responses/StaffForbidden"
+            "$ref": "#/components/responses/StaffForbiddenOrSelf"
           },
           "415": {
             "$ref": "#/components/responses/NotJsonNoStore"
@@ -12255,6 +12255,26 @@
                     "STAFF_CASE_REQUIRED",
                     "STAFF_SELF_FORBIDDEN"
                   ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "StaffForbiddenOrSelf": {
+        "description": "Sans rôle interne ou sans la permission dans le pays du sujet (FORBIDDEN, journalisé) ; session non élevée (2FA_REQUIRED) ; sujet qui concerne l'agent : lui-même, une personne de ses comptes d'hôte ou un compte lié (STAFF_SELF_FORBIDDEN, journalisé, US-215c)",
+        "headers": {
+          "Cache-Control": {
+            "$ref": "#/components/headers/NoStore"
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/AuthBody",
+              "properties": {
+                "code": {
+                  "enum": ["FORBIDDEN", "2FA_REQUIRED", "STAFF_SELF_FORBIDDEN"]
                 }
               }
             }

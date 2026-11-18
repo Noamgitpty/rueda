@@ -91,6 +91,7 @@ export const TEMPLATE_KEYS = [
   'EVT_CATALOG_ADDITION_APPROVED',
   'EVT_CATALOG_ADDITION_REJECTED',
   'EVT_TRIP_HOST_RESTRICTED',
+  'EVT_TRIP_HOST_RESTRICTION_LIFTED',
 ] as const;
 export type TemplateKey = (typeof TEMPLATE_KEYS)[number];
 
@@ -189,6 +190,15 @@ export const TEMPLATES: Readonly<Record<TemplateKey, TemplateSpec>> = {
     channels: EMAIL_THEN_SMS,
     critical: true,
   },
+  // levée de la dernière restriction de l'hôte (08 BR-TRUST-09 ; US-215c, ADR-156, N-126) : le
+  // voyageur prévenu de la restriction apprend que sa réservation tient. PROPOSÉ ; message de trip
+  EVT_TRIP_HOST_RESTRICTION_LIFTED: {
+    key: 'EVT_TRIP_HOST_RESTRICTION_LIFTED',
+    slug: 'tripHostRestrictionLifted',
+    variables: { first_name: FIRST_NAME, brand: BRAND, booking_ref: BOOKING_REF },
+    channels: EMAIL_THEN_SMS,
+    critical: true,
+  },
 };
 
 const GUEST: RecipientSpec = { role: 'GUEST', field: 'guest_user_id' };
@@ -250,6 +260,14 @@ export const RULES: readonly RuleSpec[] = [
   {
     eventType: 'booking.trip.host_restricted',
     template: 'EVT_TRIP_HOST_RESTRICTED',
+    recipients: [GUEST],
+  },
+  // `booking.trip.host_restriction_lifted` (PROPOSÉ, à reporter dans 17 §4.5 ; US-215c, ADR-156) :
+  // un événement par trip à venir quand la DERNIÈRE restriction de l'hôte est levée, même charge
+  // que la pose, posé par la commande de restriction de 0132
+  {
+    eventType: 'booking.trip.host_restriction_lifted',
+    template: 'EVT_TRIP_HOST_RESTRICTION_LIFTED',
     recipients: [GUEST],
   },
 ];

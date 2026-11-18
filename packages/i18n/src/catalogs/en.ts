@@ -755,6 +755,8 @@ export const EN_MESSAGES = {
   'backoffice.profile.noHost': 'Not a host.',
   'backoffice.profile.trips': 'Trips as a guest',
   'backoffice.profile.noTrip': 'No trips yet.',
+  'backoffice.profile.hostTrips': 'Upcoming trips as a host',
+  'backoffice.profile.noHostTrip': 'No upcoming trips as a host.',
   'backoffice.profile.cases': 'Support cases',
   'backoffice.profile.noCase': 'No support cases.',
   'backoffice.profile.notes': 'Internal notes',
@@ -1274,6 +1276,11 @@ export const EN_MESSAGES = {
     'Hi {first_name}. We are reviewing the account of the host of your booking {booking_ref}. Your booking is still on record and we will keep you posted. If the host cancels it, you get a full refund. Details in the app.',
   'ntf.tripHostRestricted.sms.body':
     '{brand}: we are reviewing the host account for your booking {booking_ref}. Full refund if the host cancels it. Details in the app.',
+  'ntf.tripHostRestrictionLifted.email.subject': 'Booking {booking_ref}: news about your host',
+  'ntf.tripHostRestrictionLifted.email.body':
+    'Hi {first_name}. We have finished reviewing the account of the host of your booking {booking_ref}. Your booking stands, unchanged. Details in the app.',
+  'ntf.tripHostRestrictionLifted.sms.body':
+    '{brand}: we have finished reviewing the host of your booking {booking_ref}. Your booking stands. Details in the app.',
   'backoffice.catalog.open': 'Open the request',
   'backoffice.catalog.heading': 'Catalog addition request',
   'backoffice.catalog.requested': 'What the host entered',

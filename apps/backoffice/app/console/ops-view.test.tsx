@@ -531,6 +531,30 @@ describe('O01 : ce que chaque état montre', () => {
     expect(out).not.toContain('<img');
   });
 
+  it('fiche 360° (US-215c, N-123) : trips à venir des comptes d’hôte listés dans chaque langue, sans le voyageur ; aucun : état vide', () => {
+    const profile = FULL.profile;
+    if (profile === undefined) throw new Error('fiche attendue');
+    const withHostTrips: OpsState = {
+      ...FULL,
+      profile: {
+        ...profile,
+        hostTrips: [{ id: B, orgId: A, status: 'CHECKIN_OPEN', scheduledStart: AT }],
+      },
+    };
+    for (const p of LOCALE_CONFIG.locales) {
+      const messages = CATALOGS[p.language].messages;
+      const out = html(withHostTrips, p.tag);
+      expect(out, p.tag).toContain(messages['backoffice.profile.hostTrips']);
+      expect(out, p.tag).toContain('id="profile-host-trips"');
+      expect(out, p.tag).toContain('CHECKIN_OPEN');
+      expect(out, p.tag).not.toContain(messages['backoffice.profile.noHostTrip']);
+      const empty = html({ ...FULL, profile: { ...profile, hostTrips: [] } }, p.tag);
+      expect(empty, p.tag).toContain(messages['backoffice.profile.noHostTrip']);
+    }
+    // réponse sans le champ : liste vide, jamais une erreur
+    expect(html(FULL, tag)).toContain(es['backoffice.profile.noHostTrip']);
+  });
+
   it('lecture des files en échec : message d’erreur, jamais « aucun élément » ; file vide : état vide', () => {
     const failed = html(STATES[4] as OpsState, tag);
     expect(failed).toContain(es['backoffice.queues.error']);
