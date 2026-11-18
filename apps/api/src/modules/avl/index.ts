@@ -2,6 +2,15 @@
 // tout le reste (internal/, avl.module.ts) est privé (règle rueda/module-boundaries).
 export { AvlModule } from './avl.module.js';
 
+// Parties d'une réservation pour les notifications (US-213, ADR-157) : adaptateur du port
+// NotificationParties de NTF (même forme, sans dépendance AVL --> NTF), fonction 0133.
+export {
+  NotificationPartiesError,
+  parseBookingParties,
+  postgresNotificationParties,
+} from './internal/notification-parties.js';
+export type { BookingPartyFacts, BookingPartySubject } from './internal/notification-parties.js';
+
 // Oracle de production C12 (US-025, ADR-068) : tâche périodique du travailleur booking_oracle.
 export {
   BOOKING_ORACLE_WORKER,

@@ -97,7 +97,7 @@ class FakeGuestTripStore implements GuestTripStore {
     if (this.failing) return Promise.reject(new Error('base indisponible'));
     const all = this.rows.get(proof.toString('hex'));
     if (all === undefined) {
-      // session inconnue de la base : la base rend AUTH_REQUIRED (0133)
+      // session inconnue de la base : la base rend AUTH_REQUIRED (0134)
       return Promise.resolve([
         { ...tripRow(randomUUID(), 'XTS', 2, '1'), outcome: 'AUTH_REQUIRED' },
       ]);

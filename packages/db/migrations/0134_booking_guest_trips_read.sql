@@ -1,4 +1,4 @@
--- 0133 — AVL : « Mis viajes » et détail du trip du voyageur (S08, S09), lecture seule.
+-- 0134 — AVL : « Mis viajes » et détail du trip du voyageur (S08, S09), lecture seule.
 -- US-214 ; 19 US-214 (« Given un guest A, When il demande le trip de B, Then 404 (RLS-1) » ;
 -- « Given un trip BOOKED, When il ouvre le détail, Then contrat, constancia et reçu sont
 -- téléchargeables ; toute modification passe par le support en Bêta ») ; 16 BKG-027 (liste « Mis

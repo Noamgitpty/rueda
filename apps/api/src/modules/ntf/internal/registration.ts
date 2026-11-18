@@ -11,18 +11,30 @@ import locales from '@rueda/i18n/config/locales.json' with { type: 'json' };
 import type { RuleSpec } from './catalog.js';
 import { RULES, subscribedEventTypes } from './catalog.js';
 import { dispatchEvent, NTF_DISPATCHER_WORKER, NTF_SENDER_WORKER } from './dispatcher.js';
+import type { NotificationParties } from './parties.port.js';
 import type { CountryNotificationProfile, NotificationSender } from './sender.js';
+
+export interface NotificationRegistration {
+  readonly rules?: readonly RuleSpec[];
+  /**
+   * Parties des réservations lues en base (US-213, ADR-157 ; adaptateur
+   * `postgresNotificationParties` d'AVL). Absent : les règles `parties` échouent en erreur de
+   * contrat (lettre morte et alerte), jamais un envoi deviné.
+   */
+  readonly parties?: NotificationParties;
+}
 
 export function registerNotifications(
   registry: BusRegistry,
   sender: NotificationSender,
-  rules: readonly RuleSpec[] = RULES,
+  options: NotificationRegistration = {},
 ): void {
+  const rules = options.rules ?? RULES;
   registry.registerConsumer(
     NTF_DISPATCHER_WORKER,
     subscribedEventTypes(rules),
     async (event, tx) => {
-      await dispatchEvent(event, tx, rules);
+      await dispatchEvent(event, tx, rules, options.parties);
     },
   );
   registry.registerTimer(NTF_SENDER_WORKER, (payload, tx) => sender.handle(payload, tx));

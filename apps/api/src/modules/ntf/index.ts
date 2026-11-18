@@ -14,9 +14,18 @@ export type {
 } from './internal/messaging-channel.port.js';
 
 // Moteur de notifications (US-021, ADR-061) : catalogue, envoi, montage sur le module BUS.
-export { RULES, TEMPLATE_KEYS, TEMPLATES, subscribedEventTypes } from './internal/catalog.js';
+export {
+  isDeclinedRequestCapture,
+  RULES,
+  TEMPLATE_KEYS,
+  TEMPLATES,
+  subscribedEventTypes,
+} from './internal/catalog.js';
 export type {
   ChannelSpec,
+  PartiesSpec,
+  PartyFacts,
+  PartySubject,
   RecipientRole,
   RuleSpec,
   TemplateKey,
@@ -28,9 +37,13 @@ export {
   NTF_SENDER_WORKER,
   NotificationContractError,
   dispatchEvent,
+  partyKey,
   planDispatches,
+  requiredParties,
 } from './internal/dispatcher.js';
-export type { PlannedDispatch } from './internal/dispatcher.js';
+export type { PartyFactsMap, PlannedDispatch } from './internal/dispatcher.js';
+// Parties des réservations lues en base (US-213, ADR-157) : port ; adaptateur fourni par AVL.
+export type { NotificationParties } from './internal/parties.port.js';
 export type { RecipientContact, RecipientDirectory } from './internal/recipient-directory.port.js';
 export type { SmsBudget, SmsReserveResult } from './internal/sms-budget.port.js';
 export {
@@ -38,6 +51,7 @@ export {
   registerNotifications,
   repositoryLocaleConfig,
 } from './internal/registration.js';
+export type { NotificationRegistration } from './internal/registration.js';
 export { MAX_SEND_ATTEMPTS, NotificationSender, RETRY_BASE_SECONDS } from './internal/sender.js';
 export type {
   CountryNotificationProfile,

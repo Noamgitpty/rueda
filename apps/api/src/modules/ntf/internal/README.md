@@ -7,7 +7,8 @@ Le `README.md` du module donne la fiche (responsabilité, entités, événements
 ```text
 événement (outbox, US-008)
   └─ relais ─▶ ntf_dispatcher (consommateur, dans la transaction du reçu)
-                 règles → destinataires (charge utile) → canaux du gabarit
+                 règles → destinataires (charge utile, ou parties lues en base par le port
+                 NotificationParties : US-213) → canaux du gabarit
                  INSERT notification_dispatch … ON CONFLICT DO NOTHING   (critère 2)
                  + une tâche ntf_sender par envoi créé
   └─ ntf_sender (minuterie, une tâche par tentative)
@@ -18,21 +19,27 @@ Le `README.md` du module donne la fiche (responsabilité, entités, événements
        sans repli ⇒ FAILED + notification.dispatch.failed
 ```
 
-| Élément (`index.ts`)                                | Rôle                                                                                                                                                                                                                                                                   |
-| --------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `TEMPLATES`, `RULES`, `TEMPLATE_KEYS`               | Catalogue réduit de la bêta (16 NTF-001) : `EVT_KYC_APPROVED`, `EVT_BOOKING_CONFIRMED`, `EVT_BOOKING_CANCELLED`, `EVT_TRIP_OVERDUE`, `EVT_PAYOUT_SENT`, `EVT_PAYOUT_ON_HOLD`.                                                                                          |
-| `planDispatches`, `dispatchEvent`                   | Résolution et création des envois d'un événement (travailleur `ntf_dispatcher`).                                                                                                                                                                                       |
-| `NotificationSender`                                | Une tentative d'envoi (travailleur `ntf_sender`) : langue, rendu, port, réessais, repli, événements `notification.*`.                                                                                                                                                  |
-| `registerNotifications`                             | Abonne `ntf_dispatcher` aux types du catalogue et déclare la minuterie `ntf_sender` sur un `BusRegistry`.                                                                                                                                                              |
-| `notificationCountryData`, `repositoryLocaleConfig` | Fuseau, locales et exposants lus dans CFG et `@rueda/i18n` (aucune constante pays).                                                                                                                                                                                    |
-| `RecipientDirectory` (port)                         | Coordonnées au moment de l'envoi ; adaptateur `postgresNotificationContacts` exporté par IAM.                                                                                                                                                                          |
-| `MessagingChannel` (port, US-020)                   | Transport d'un texte déjà rendu ; FAKE dans `@rueda/fake-adapters/messaging`, jamais en production.                                                                                                                                                                    |
-| `SmsBudget` (port, US-052)                          | Plafond journalier SMS du pays avant chaque SMS (1re tentative) ; adaptateur `ntfSmsBudget` exporté par RISK. Gabarit `critical` : toujours envoyé ; sinon refus (`SMS_DAILY_CAP`), repli e-mail s'il existe, alerte `notification.sms_cap.reached` une fois par jour. |
+| Élément (`index.ts`)                                | Rôle                                                                                                                                                                                                                                                                                                  |
+| --------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `TEMPLATES`, `RULES`, `TEMPLATE_KEYS`               | Catalogue réduit de la bêta (16 NTF-001) : `EVT_KYC_APPROVED`, `EVT_BOOKING_CONFIRMED`, `EVT_BOOKING_CONFIRMED_HOST`, `EVT_BOOKING_CANCELLED`, `EVT_TRIP_OVERDUE`, `EVT_PAYOUT_SENT`, `EVT_PAYOUT_ON_HOLD`, `EVT_BOOKING_REQUEST_*` (US-213) ; ajout au catalogue (US-114) ; hôte restreint (US-122). |
+| `planDispatches`, `dispatchEvent`                   | Résolution et création des envois d'un événement (travailleur `ntf_dispatcher`).                                                                                                                                                                                                                      |
+| `NotificationSender`                                | Une tentative d'envoi (travailleur `ntf_sender`) : langue, rendu, port, réessais, repli, événements `notification.*`.                                                                                                                                                                                 |
+| `registerNotifications`                             | Abonne `ntf_dispatcher` aux types du catalogue et déclare la minuterie `ntf_sender` sur un `BusRegistry`.                                                                                                                                                                                             |
+| `notificationCountryData`, `repositoryLocaleConfig` | Fuseau, locales et exposants lus dans CFG et `@rueda/i18n` (aucune constante pays).                                                                                                                                                                                                                   |
+| `RecipientDirectory` (port)                         | Coordonnées au moment de l'envoi ; adaptateur `postgresNotificationContacts` exporté par IAM.                                                                                                                                                                                                         |
+| `NotificationParties` (port, US-213)                | Parties d'un trip ou d'un hold au moment de la résolution (voyageur, titulaire du compte d'hôte ; type, statut, motif d'un hold) ; adaptateur `postgresNotificationParties` exporté par AVL (`core.booking_notification_parties`, 0133, `ntf_dispatcher` seulement).                                  |
+| `MessagingChannel` (port, US-020)                   | Transport d'un texte déjà rendu ; FAKE dans `@rueda/fake-adapters/messaging`, jamais en production.                                                                                                                                                                                                   |
+| `SmsBudget` (port, US-052)                          | Plafond journalier SMS du pays avant chaque SMS (1re tentative) ; adaptateur `ntfSmsBudget` exporté par RISK. Gabarit `critical` : toujours envoyé ; sinon refus (`SMS_DAILY_CAP`), repli e-mail s'il existe, alerte `notification.sms_cap.reached` une fois par jour.                                |
 
 ## Gabarits
 
 - Textes : `packages/i18n/src/catalogs/{es,en,fr}.ts`, clés `ntf.<slug>.email.subject`, `ntf.<slug>.email.body`, `ntf.<slug>.sms.body`. Toute clé ajoutée l'est dans les trois langues (sinon `pnpm typecheck` échoue) ; `CATALOG_VERSION` monte d'un cran et est enregistrée avec chaque envoi (`template_version`).
-- Variables nommées, déclarées par gabarit avec leur origine et leur type (10b UX-59) : `first_name` (relu à l'envoi), `brand` (donnée de thème), `booking_ref` (8 derniers chiffres de `trip_id`), instants (fuseau du pays de l'événement), montants (unités mineures + devise, `formatMoney`).
+- Variables nommées, déclarées par gabarit avec leur origine et leur type (10b UX-59) :
+  - `first_name` (relu à l'envoi) ;
+  - `brand` (donnée de thème) ;
+  - `booking_ref` : les 8 **premiers** caractères de `trip_id`, ou de `hold_id` pour une demande, comme les écrans et le contrat (US-213) ;
+  - instants : fuseau du pays de l'événement (`respond_by` : heure limite de la base) ;
+  - montants : unités mineures et devise, `formatMoney`.
 - Rendu refusé (`TEMPLATE_VARIABLE_MISSING`) si une variable manque ou s'il reste `{…}`, `%s`, `undefined`, `null` ou `NaN` (10b UX-60) : l'envoi échoue et se replie, jamais un « {6} » envoyé.
 - Contrôles en CI (`templates.test.ts`) : chaque gabarit × chaque locale active de chaque pays × chaque canal (repli compris), avec des noms accentués, longs, un montant à 0 et un trip de plus de 30 jours ; titre d'e-mail ≤ 60 caractères, SMS ≤ 3 segments selon l'encodage réel (GSM-7 ou UCS-2, 10b UX-61).
 
@@ -40,17 +47,22 @@ Le `README.md` du module donne la fiche (responsabilité, entités, événements
 
 **Tous** les champs lus par NTF. Colonne « 17 §4.5 » : champs que 17 donne déjà ; colonne « Extensions NTF » : champs que le producteur doit ajouter (ADR-061 point 9).
 
-| Événement                         | Champ de statut et valeurs déclenchantes              | Champs de 17 §4.5 lus                         | Extensions NTF (à reporter)                                 |
-| --------------------------------- | ----------------------------------------------------- | --------------------------------------------- | ----------------------------------------------------------- |
-| `kyc.verification.status_changed` | `to` = `APPROVED`                                     | `user_id`, `to`                               | —                                                           |
-| `booking.trip.booked`             | —                                                     | `trip_id`, `scheduled_start`, `scheduled_end` | `guest_user_id`, `host_user_id`                             |
-| `trip.status_changed`             | `to` commençant par `CANCELLED_`                      | `trip_id`, `to`                               | `guest_user_id`, `host_user_id`                             |
-| `trip.overdue.detected`           | —                                                     | `trip_id`                                     | `guest_user_id`, `host_user_id`, `scheduled_end`            |
-| `payout.batch.status_changed`     | `status` = `INITIATED` (envoyé) ou `ON_HOLD` (retenu) | `status`, `net_minor` (chaîne)                | `host_user_id` (**dérivé de `org_id`** par PYO), `currency` |
+| Événement                                                      | Champ de statut et valeurs déclenchantes                               | Champs de 17 §4.5 lus                         | Extensions NTF (à reporter)                                 |
+| -------------------------------------------------------------- | ---------------------------------------------------------------------- | --------------------------------------------- | ----------------------------------------------------------- |
+| `kyc.verification.status_changed`                              | `to` = `APPROVED`                                                      | `user_id`, `to`                               | —                                                           |
+| `booking.trip.booked`                                          | —                                                                      | `trip_id`, `scheduled_start`, `scheduled_end` | aucune : parties du trip lues en base (US-213)              |
+| `trip.status_changed`                                          | `to` commençant par `CANCELLED_`                                       | `trip_id`, `to`                               | aucune : parties du trip lues en base (US-213)              |
+| `booking.request.received`                                     | —                                                                      | `hold_id`, `request_respond_by`               | aucune : parties du hold lues en base (US-213)              |
+| `booking.request.declined`, `.expired`, `.capture_unconfirmed` | —                                                                      | `hold_id`                                     | aucune : parties du hold lues en base (US-213)              |
+| `booking.hold.released`                                        | faits lus en base : `REQUEST` autorisé, `RELEASED`, `PAYMENT_DECLINED` | `hold_id`                                     | aucune (US-213)                                             |
+| `trip.overdue.detected`                                        | —                                                                      | `trip_id`                                     | `guest_user_id`, `host_user_id`, `scheduled_end`            |
+| `payout.batch.status_changed`                                  | `status` = `INITIATED` (envoyé) ou `ON_HOLD` (retenu)                  | `status`, `net_minor` (chaîne)                | `host_user_id` (**dérivé de `org_id`** par PYO), `currency` |
 
 - Les noms des champs de statut sont ceux de 17 §4.5 (`to` pour KYC et trip, `status` pour les lots de versement). Un événement d'un type abonné **sans** son champ de statut (ou avec un autre nom) est une erreur de contrat, jamais un événement ignoré en silence (revue architecture US-021, constat 1).
 - `host_user_id` : un `payout_batch` et un trip appartiennent à un compte d'hôte (`org_id`, 17 §3.2). NTF ne lit pas IAM (17 §2.2) : le producteur ajoute l'identifiant du titulaire du compte d'hôte (une personne physique, `organization.holder_user_id`). Écart à reporter dans 17 §4.5 ; alternative : un port `RecipientDirectory.holderOf(org_id)` fourni par IAM.
 - `currency` : ajoutée à `payout.batch.status_changed` (absente de 17), nécessaire à l'affichage du montant.
+
+Parties lues en base (règle `parties`, US-213, ADR-157) : la base fait foi. Si la charge utile porte aussi `guest_user_id` ou `host_user_id`, il doit désigner la même personne, sinon c'est une erreur de contrat. Un sujet inconnu (NULL) ou un port absent donne aussi une erreur de contrat. Une condition `when` sur les faits (capture refusée d'une demande) rend la règle sans effet si elle est fausse.
 
 Champ absent ou mal formé ⇒ `NotificationContractError` : la tâche échoue, est réessayée, puis part en lettre morte avec **alerte** (`Alerter` du module BUS, 17 §4.2). Aucun envoi partiel. Une valeur de statut non déclenchante (ex. `NETTING`) est ignorée normalement.
 
