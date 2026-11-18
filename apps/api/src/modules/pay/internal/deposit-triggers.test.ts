@@ -2,7 +2,7 @@
  * Déclencheurs de la caution « comme Turo » (US-225 ; 08 BR-PAY-06, ADR-108). Attendus tirés des
  * contrôles de l'oracle `docs/specs/tools/check_t49plus.py` (T69–T73, export
  * `@rueda/money/golden-vectors`), jamais du code testé ; paramètres PROPOSÉS = ceux de la graine
- * 0138 (relus dans `params.json`, sans importer le module CFG).
+ * 0139 (relus dans `params.json`, sans importer le module CFG).
  */
 import { readFileSync } from 'node:fs';
 import { checksFor, loadGoldenVectors } from '@rueda/money/golden-vectors';
@@ -34,7 +34,7 @@ const PARAMS = JSON.parse(
 const valueOf = (key: string, country: string): unknown =>
   PARAMS.params.find((p) => p.key === key)?.values[country];
 
-/** Paramètres PROPOSÉS du pays, tels que la graine 0138 les charge. */
+/** Paramètres PROPOSÉS du pays, tels que la graine 0139 les charge. */
 function proposed(country: string): DepositTriggerParams {
   return {
     alwaysRequired: valueOf('deposit_always_required', country) as boolean,

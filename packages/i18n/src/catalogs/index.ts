@@ -239,11 +239,20 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  disponible, indisponible) et `common.earnings.*` (réponses de la route
  `/host/accounts/{orgId}/earnings/{month}` : introuvable, indisponible). Les écrans A08 et S09
  (Bêta L3) viendront avec leurs propres clés.
- Version 78 : rails de la caution (US-225, ADR-164) : `web.deposit.unavailable` (refus avant le
+ Version 78 (la 77 est celle d’US-217a) : constancia
+ d’arrendamiento et centre juridique (US-212, ADR-162) : `ctr.constancia.*` (texte du PDF de la
+ constancia, espagnol qui fait foi puis langue du lecteur, gabarit BROUILLON, GL-39),
+ `common.constancia.*` (réponses des routes `/trips/{id}/constancia` et
+ `/trips/constancias/search`), `web.constancia.*` (écran de la constancia et recherche de
+ l’hôte par plaque et date), `web.contract.documents`, `web.contract.constancia`,
+ `web.contract.constanciaSearch`, `web.contract.legalCenter` (liens depuis S09 · contrat et A03),
+ `web.legalCenter.*` (centre juridique : positionnement d’intermédiaire entre particuliers,
+ documents publiés, documents de chaque voyage, désaccords et médiation, loi applicable).
+ Version 79 (la 78 est celle d’US-212) : rails de la caution (US-225, ADR-164) : `web.deposit.unavailable` (refus avant le
  paiement avec la durée possible, texte de 10b UX-24) et `web.deposit.unavailableNone` (aucune
  durée possible, PROPOSÉ), affichés par l'écran S05 quand il branchera la décision de la caution.
  */
-export const CATALOG_VERSION = 78;
+export const CATALOG_VERSION = 79;
 
 /** Catalogues de base par langue ; la langue d'un profil de locale choisit le sien. */
 export const CATALOGS: Readonly<Record<CatalogLanguage, VersionedCatalog<MessageKey>>> = {

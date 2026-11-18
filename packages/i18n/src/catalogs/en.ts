@@ -1602,6 +1602,34 @@ export const EN_MESSAGES = {
   'ctr.contract.signatureId': 'Signature no.: {value}',
   'ctr.contract.courtesy':
     'Courtesy translation ({language}). If there is any difference, the Spanish text prevails.',
+  // US-212 : constancia d'arrendamiento et centre juridique (ADR-162), textes PROPOSÉS
+  'ctr.constancia.title': 'CERTIFICATE OF RENTAL BETWEEN PRIVATE INDIVIDUALS',
+  'ctr.constancia.draft': 'DRAFT: text pending legal review; it may change.',
+  'ctr.constancia.ref': 'Trip {ref} · under the rental contract, version {version}',
+  'ctr.constancia.partiesHeading': 'The parties',
+  'ctr.constancia.host': 'Host (private individual): {name}, {capacity}',
+  'ctr.constancia.driver': 'Authorized driver: {name}',
+  'ctr.constancia.platform':
+    'Intermediary platform between private individuals: {brand}. It is neither the lessor nor the owner of the vehicle.',
+  'ctr.constancia.tripHeading': 'Vehicle and period',
+  'ctr.constancia.vehicle': 'Vehicle: {make} {model} {year}, license plate {plate}',
+  'ctr.constancia.period': 'Period: from {start} to {end} (local time in {country})',
+  'ctr.constancia.handover': 'Handover and return place: {place}',
+  'ctr.constancia.total': 'Total paid by the guest: {amount}',
+  'ctr.constancia.signed':
+    'Rental contract accepted electronically by the guest on {date} (local time)',
+  'ctr.constancia.unsigned': 'Rental contract not yet signed by the guest',
+  'ctr.constancia.noticeHeading': 'Scope of this certificate',
+  'ctr.constancia.notice.purpose':
+    'This certificate attests that the vehicle above is rented between private individuals to the named driver for the period above.',
+  'ctr.constancia.notice.parties':
+    'The rental is a contract between the host and the guest; {brand} only acts as intermediary and collects the payment as merchant of record.',
+  'ctr.constancia.notice.documents':
+    'It is shown together with the driver’s valid identity document and driver’s license.',
+  'ctr.constancia.notice.fines':
+    'Fines and offenses committed during the period are the driver’s responsibility, under the rental contract.',
+  'ctr.constancia.courtesy':
+    'Translation ({language}). In case of discrepancy, the Spanish text prevails.',
   // US-125 : avertissements réglementaires versionnés par pays (16 LEG-021), textes PROPOSÉS
   'common.regulatory.heading': 'Important notice',
   'common.regulatory.version': 'Version {version} of this notice',
@@ -2257,6 +2285,14 @@ export const EN_MESSAGES = {
     'The text of this agreement is no longer kept; its fingerprint is still on record.',
   'common.contract.unavailable':
     'The agreement isn’t available right now. Try again in a few minutes.',
+  'common.constancia.notFound': 'We couldn’t find this certificate.',
+  'common.constancia.notAvailable': 'This trip was canceled: it has no rental certificate.',
+  'common.constancia.notGenerated':
+    'The certificate will be ready once the trip’s contract is generated. Check back in a few minutes.',
+  'common.constancia.erased': 'The details of this certificate are no longer kept.',
+  'common.constancia.generationFailed': 'We couldn’t generate the certificate. Try again later.',
+  'common.constancia.unavailable':
+    'The certificate isn’t available right now. Try again in a few minutes.',
   'web.contract.summary': 'Summary',
   'web.contract.ref': 'Agreement {ref} · version {version}',
   'web.contract.draft': 'DRAFT: this agreement is pending legal review and may change.',
@@ -2291,6 +2327,68 @@ export const EN_MESSAGES = {
   'web.contract.latest': 'See the current version',
   'web.contract.loadError': 'We couldn’t load the agreement.',
   'web.contract.retry': 'Try again',
+  'web.contract.documents': 'Other trip documents',
+  'web.contract.constancia': 'View the rental certificate',
+  'web.contract.constanciaSearch': 'Find a trip’s certificate by license plate and date',
+  'web.contract.legalCenter': 'Legal center: how renting between private individuals works',
+  'web.constancia.title': 'Rental certificate',
+  'web.constancia.lead':
+    'Show it at a traffic stop together with your license: it proves the car is rented between private individuals, in your name.',
+  'web.constancia.leadHost':
+    'Use it to prove who rented your car and when, for example for a fine received after the trip.',
+  'web.constancia.draft': 'DRAFT: the certificate text is pending legal review and may change.',
+  'web.constancia.ref': 'Trip {ref} · contract version {version}',
+  'web.constancia.label.plate': 'License plate',
+  'web.constancia.label.host': 'Host',
+  'web.constancia.label.driver': 'Driver',
+  'web.constancia.label.place': 'Handover place',
+  'web.constancia.label.contract': 'Rental contract',
+  'web.constancia.signed': 'Signed by the guest on {date}',
+  'web.constancia.unsigned': 'Not yet signed by the guest',
+  'web.constancia.pdf': 'Download the certificate (PDF)',
+  'web.constancia.text': 'Certificate text',
+  'web.constancia.loadError': 'We couldn’t load the certificate.',
+  'web.constancia.back': 'Back to the contract',
+  'web.constancia.search.title': 'Find a certificate',
+  'web.constancia.search.lead':
+    'Got a fine? Enter the license plate and the date of the offense to find the trip and its certificate.',
+  'web.constancia.search.plate': 'Car license plate',
+  'web.constancia.search.date': 'Date of the offense (local time)',
+  'web.constancia.search.submit': 'Find the trip',
+  'web.constancia.search.none': 'We found no trip on your account with that plate on that date.',
+  'web.constancia.search.invalid': 'Check the license plate and the date.',
+  'web.constancia.search.result': 'Trip {ref}: from {start} to {end}',
+  'web.constancia.search.open': 'View the certificate',
+  'web.legalCenter.title': 'Legal center',
+  'web.legalCenter.version': 'Version {version} · {date}',
+  'web.legalCenter.lead':
+    'How renting between private individuals works, which documents govern it and what to do if there is a disagreement.',
+  'web.legalCenter.role.title': 'A platform between private individuals',
+  'web.legalCenter.role.body1':
+    'The platform connects private hosts, who rent out their own car, with guests. It is not a rental company and does not own the cars.',
+  'web.legalCenter.role.body2':
+    'The rental contract is between the host and the guest. The platform collects the payment as merchant of record and pays the host after the trip.',
+  'web.legalCenter.role.body3':
+    'Trip protection is provided by a partner insurer; the platform offers it on that insurer’s behalf.',
+  'web.legalCenter.docs.title': 'Published documents',
+  'web.legalCenter.doc.TOS_GUEST': 'Terms for guests',
+  'web.legalCenter.doc.TOS_HOST': 'Terms for hosts',
+  'web.legalCenter.doc.PRIVACY': 'Privacy notice',
+  'web.legalCenter.doc.CANCELLATION_POLICY': 'Cancellation policy',
+  'web.legalCenter.doc.GEO_TERMS': 'Driving areas',
+  'web.legalCenter.trip.title': 'Each trip’s documents',
+  'web.legalCenter.trip.body':
+    'Each confirmed trip has its rental contract and its certificate, in Spanish and in your language. The guest and the host find them in the trip.',
+  'web.legalCenter.trip.hostSearch': 'Hosts: find a trip’s certificate by license plate and date',
+  'web.legalCenter.disputes.title': 'Disagreements and claims',
+  'web.legalCenter.disputes.body1':
+    'If you have a disagreement with the other party, first write to them through the trip messages.',
+  'web.legalCenter.disputes.body2':
+    'If it is not resolved, write to support with the trip number: we review the case with both parties and propose a solution (mediation).',
+  'web.legalCenter.disputes.body3':
+    'You can always turn to the consumer protection authority or to the courts where the trip takes place. No decision by the platform prevents you from doing so.',
+  'web.legalCenter.disputes.law':
+    'The law of the place where the trip takes place applies. The Spanish text prevails.',
   'web.s09.contract.title': 'Your rental agreement',
   'web.s09.contract.lead':
     'The agreement is between the host and you. The platform only acts as an intermediary: it is not a party to the agreement nor a rental company.',

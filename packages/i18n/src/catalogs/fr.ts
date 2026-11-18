@@ -1688,6 +1688,34 @@ export const FR_MESSAGES = {
   'ctr.contract.signatureId': 'Signature n° : {value}',
   'ctr.contract.courtesy':
     'Traduction de courtoisie ({language}). En cas de différence, le texte espagnol fait foi.',
+  // US-212 : constancia d'arrendamiento et centre juridique (ADR-162), textes PROPOSÉS
+  'ctr.constancia.title': 'ATTESTATION DE LOCATION ENTRE PARTICULIERS',
+  'ctr.constancia.draft': 'BROUILLON : texte en attente de validation juridique ; il peut changer.',
+  'ctr.constancia.ref': 'Voyage {ref} · selon le contrat de location, version {version}',
+  'ctr.constancia.partiesHeading': 'Les parties',
+  'ctr.constancia.host': 'Hôte (particulier) : {name}, {capacity}',
+  'ctr.constancia.driver': 'Conducteur autorisé : {name}',
+  'ctr.constancia.platform':
+    'Plateforme intermédiaire entre particuliers : {brand}. Elle n’est ni le loueur ni le propriétaire du véhicule.',
+  'ctr.constancia.tripHeading': 'Véhicule et période',
+  'ctr.constancia.vehicle': 'Véhicule : {make} {model} {year}, immatriculation {plate}',
+  'ctr.constancia.period': 'Période : du {start} au {end} (heure locale, {country})',
+  'ctr.constancia.handover': 'Lieu de remise et de retour : {place}',
+  'ctr.constancia.total': 'Total payé par le voyageur : {amount}',
+  'ctr.constancia.signed':
+    'Contrat de location accepté électroniquement par le voyageur le {date} (heure locale)',
+  'ctr.constancia.unsigned': 'Contrat de location pas encore signé par le voyageur',
+  'ctr.constancia.noticeHeading': 'Portée de cette attestation',
+  'ctr.constancia.notice.purpose':
+    'Cette attestation certifie que le véhicule indiqué est loué entre particuliers au conducteur nommé pendant la période indiquée.',
+  'ctr.constancia.notice.parties':
+    'La location est un contrat entre l’hôte et le voyageur ; {brand} est seulement intermédiaire et encaisse le paiement en tant que marchand de référence.',
+  'ctr.constancia.notice.documents':
+    'Elle se présente avec la pièce d’identité et le permis de conduire en cours de validité du conducteur.',
+  'ctr.constancia.notice.fines':
+    'Les amendes et infractions commises pendant la période incombent au conducteur, selon le contrat de location.',
+  'ctr.constancia.courtesy':
+    'Traduction ({language}). En cas de différence, le texte espagnol fait foi.',
   // US-125 : avertissements réglementaires versionnés par pays (16 LEG-021), textes PROPOSÉS
   'common.regulatory.heading': 'Avertissement important',
   'common.regulatory.version': 'Version {version} de cet avertissement',
@@ -2374,6 +2402,16 @@ export const FR_MESSAGES = {
     'Le texte de ce contrat n’est plus conservé ; son empreinte reste enregistrée.',
   'common.contract.unavailable':
     'Le contrat n’est pas disponible pour le moment. Réessaie dans quelques minutes.',
+  'common.constancia.notFound': 'Nous ne trouvons pas cette attestation.',
+  'common.constancia.notAvailable':
+    'Ce voyage a été annulé : il n’a pas d’attestation de location.',
+  'common.constancia.notGenerated':
+    'L’attestation sera prête dès que le contrat du voyage sera généré. Reviens dans quelques minutes.',
+  'common.constancia.erased': 'Les données de cette attestation ne sont plus conservées.',
+  'common.constancia.generationFailed':
+    'Nous n’avons pas pu générer l’attestation. Réessaie plus tard.',
+  'common.constancia.unavailable':
+    'L’attestation n’est pas disponible pour le moment. Réessaie dans quelques minutes.',
   'web.contract.summary': 'Résumé',
   'web.contract.ref': 'Contrat {ref} · version {version}',
   'web.contract.draft': 'BROUILLON : ce contrat attend la validation juridique et peut changer.',
@@ -2408,6 +2446,72 @@ export const FR_MESSAGES = {
   'web.contract.latest': 'Voir la version en vigueur',
   'web.contract.loadError': 'Nous n’avons pas pu charger le contrat.',
   'web.contract.retry': 'Réessayer',
+  'web.contract.documents': 'Autres documents du voyage',
+  'web.contract.constancia': 'Voir l’attestation de location',
+  'web.contract.constanciaSearch': 'Trouver l’attestation d’un voyage par immatriculation et date',
+  'web.contract.legalCenter':
+    'Centre juridique : comment fonctionne la location entre particuliers',
+  'web.constancia.title': 'Attestation de location',
+  'web.constancia.lead':
+    'Montre-la lors d’un contrôle avec ton permis : elle prouve que la voiture est louée entre particuliers, à ton nom.',
+  'web.constancia.leadHost':
+    'Elle prouve à qui tu as loué ta voiture et quand, par exemple pour une amende reçue après le voyage.',
+  'web.constancia.draft':
+    'BROUILLON : le texte de l’attestation attend la validation juridique et peut changer.',
+  'web.constancia.ref': 'Voyage {ref} · contrat, version {version}',
+  'web.constancia.label.plate': 'Immatriculation',
+  'web.constancia.label.host': 'Hôte',
+  'web.constancia.label.driver': 'Conducteur',
+  'web.constancia.label.place': 'Lieu de remise',
+  'web.constancia.label.contract': 'Contrat de location',
+  'web.constancia.signed': 'Signé par le voyageur le {date}',
+  'web.constancia.unsigned': 'Pas encore signé par le voyageur',
+  'web.constancia.pdf': 'Télécharger l’attestation (PDF)',
+  'web.constancia.text': 'Texte de l’attestation',
+  'web.constancia.loadError': 'Nous n’avons pas pu charger l’attestation.',
+  'web.constancia.back': 'Retour au contrat',
+  'web.constancia.search.title': 'Trouver une attestation',
+  'web.constancia.search.lead':
+    'Tu as reçu une amende ? Saisis l’immatriculation et la date de l’infraction pour retrouver le voyage et son attestation.',
+  'web.constancia.search.plate': 'Immatriculation de la voiture',
+  'web.constancia.search.date': 'Date de l’infraction (heure locale)',
+  'web.constancia.search.submit': 'Trouver le voyage',
+  'web.constancia.search.none':
+    'Nous n’avons trouvé aucun voyage de ton compte avec cette immatriculation à cette date.',
+  'web.constancia.search.invalid': 'Vérifie l’immatriculation et la date.',
+  'web.constancia.search.result': 'Voyage {ref} : du {start} au {end}',
+  'web.constancia.search.open': 'Voir l’attestation',
+  'web.legalCenter.title': 'Centre juridique',
+  'web.legalCenter.version': 'Version {version} · {date}',
+  'web.legalCenter.lead':
+    'Comment fonctionne la location entre particuliers, quels documents l’encadrent et que faire en cas de désaccord.',
+  'web.legalCenter.role.title': 'Une plateforme entre particuliers',
+  'web.legalCenter.role.body1':
+    'La plateforme met en relation des hôtes particuliers, qui louent leur propre voiture, avec des voyageurs. Elle n’est ni une entreprise de location ni propriétaire des voitures.',
+  'web.legalCenter.role.body2':
+    'Le contrat de location est conclu entre l’hôte et le voyageur. La plateforme encaisse le paiement en tant que marchand de référence et paie l’hôte après le voyage.',
+  'web.legalCenter.role.body3':
+    'La protection du voyage est fournie par un assureur partenaire ; la plateforme la propose pour le compte de cet assureur.',
+  'web.legalCenter.docs.title': 'Documents publiés',
+  'web.legalCenter.doc.TOS_GUEST': 'Conditions pour les voyageurs',
+  'web.legalCenter.doc.TOS_HOST': 'Conditions pour les hôtes',
+  'web.legalCenter.doc.PRIVACY': 'Politique de confidentialité',
+  'web.legalCenter.doc.CANCELLATION_POLICY': 'Politique d’annulation',
+  'web.legalCenter.doc.GEO_TERMS': 'Zones de circulation',
+  'web.legalCenter.trip.title': 'Les documents de chaque voyage',
+  'web.legalCenter.trip.body':
+    'Chaque voyage confirmé a son contrat de location et son attestation, en espagnol et dans votre langue. Le voyageur et l’hôte les trouvent dans le voyage.',
+  'web.legalCenter.trip.hostSearch':
+    'Hôtes : retrouver l’attestation d’un voyage par immatriculation et date',
+  'web.legalCenter.disputes.title': 'Désaccords et réclamations',
+  'web.legalCenter.disputes.body1':
+    'En cas de désaccord avec l’autre partie, écrivez-lui d’abord par la messagerie du voyage.',
+  'web.legalCenter.disputes.body2':
+    'Si le désaccord persiste, écrivez au support avec le numéro du voyage : nous examinons le cas avec les deux parties et proposons une solution (médiation).',
+  'web.legalCenter.disputes.body3':
+    'Vous pouvez toujours saisir l’autorité de protection des consommateurs ou les tribunaux du lieu du voyage. Aucune décision de la plateforme ne vous en empêche.',
+  'web.legalCenter.disputes.law':
+    'La loi du lieu où se déroule le voyage s’applique. Le texte espagnol fait foi.',
   'web.s09.contract.title': 'Ton contrat de location',
   'web.s09.contract.lead':
     'Le contrat est entre l’hôte et toi. La plateforme n’est qu’intermédiaire : elle n’est ni partie au contrat ni loueur.',

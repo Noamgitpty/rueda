@@ -9,10 +9,17 @@
  *
  * Contrat de location d'un trip (US-211 partie 211b) : routes `/trips/{tripId}/contract` ; sans
  * magasin (`contracts` absent), elles répondent 503 après les gardes (fail-closed).
+ *
+ * Constancia d'arrendamiento (US-212) : routes `/trips/{tripId}/constancia` et
+ * `/trips/constancias/search` ; sans magasin (`constancias` absent), 503 (fail-closed).
  */
 import { Module } from '@nestjs/common';
 import type { DynamicModule } from '@nestjs/common';
 import { CfgModule } from '../../cfg/index.js';
+import { TripConstanciaController } from './constancia/constancia.controller.js';
+import { TripConstanciaService } from './constancia/constancia.service.js';
+import { UnavailableTripConstanciaStore } from './constancia/constancia.store.js';
+import type { TripConstanciaStore } from './constancia/constancia.store.js';
 import type { ConsentStore } from './consent-store.js';
 import { TripContractController } from './contract/trip-contract.controller.js';
 import { TripContractService } from './contract/trip-contract.service.js';
@@ -22,12 +29,14 @@ import { HostTermsController } from './host-terms.controller.js';
 import { LegalController } from './legal.controller.js';
 import { LegalService } from './legal.service.js';
 import { TermsGuard } from './terms.guard.js';
-import { CTR_CONSENT_STORE, CTR_CONTRACT_STORE } from './tokens.js';
+import { CTR_CONSENT_STORE, CTR_CONSTANCIA_STORE, CTR_CONTRACT_STORE } from './tokens.js';
 
 export interface CtrLegalOptions {
   readonly store: ConsentStore;
   /** Contrat de location d'un trip (US-211 partie 211b) ; absent : 503. */
   readonly contracts?: TripContractStore;
+  /** Constancia d'arrendamiento d'un trip (US-212) ; absente : 503. */
+  readonly constancias?: TripConstanciaStore;
 }
 
 @Module({})
@@ -37,16 +46,26 @@ export class CtrLegalModule {
       module: CtrLegalModule,
       global: true,
       imports: [CfgModule],
-      controllers: [LegalController, HostTermsController, TripContractController],
+      controllers: [
+        LegalController,
+        HostTermsController,
+        TripContractController,
+        TripConstanciaController,
+      ],
       providers: [
         { provide: CTR_CONSENT_STORE, useValue: options.store },
         {
           provide: CTR_CONTRACT_STORE,
           useValue: options.contracts ?? new UnavailableTripContractStore(),
         },
+        {
+          provide: CTR_CONSTANCIA_STORE,
+          useValue: options.constancias ?? new UnavailableTripConstanciaStore(),
+        },
         LegalService,
         TermsGuard,
         TripContractService,
+        TripConstanciaService,
       ],
       exports: [LegalService, TermsGuard],
     };
