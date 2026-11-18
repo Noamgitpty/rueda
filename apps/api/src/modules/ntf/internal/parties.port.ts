@@ -4,7 +4,7 @@
  *
  * NTF ne dépend que de CFG (17 §2.2) : il ne lit pas les tables d'AVL ni d'IAM. Le module AVL
  * fournit l'adaptateur PostgreSQL (`postgresNotificationParties`, fonction
- * `core.booking_notification_parties`, migration 0131 : SECURITY DEFINER, EXECUTE au seul
+ * `core.booking_notification_parties`, migration 0133 : SECURITY DEFINER, EXECUTE au seul
  * app_worker, refus hors du travailleur `ntf_dispatcher`) ; la racine de composition
  * (`worker-tasks.ts`) l'injecte. AVL ne dépend pas de NTF : son adaptateur a la même forme, par
  * typage structurel, sans importer ce fichier.

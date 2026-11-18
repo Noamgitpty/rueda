@@ -112,7 +112,7 @@ Dépendances fail-closed en attendant d'autres modules : `core.booking_vehicle_p
 
 `postgresNotificationParties` (`internal/notification-parties.ts`, exporté par `index.ts`) réalise le port `NotificationParties` de NTF. Il a la même forme par typage structurel : AVL ne dépend pas de NTF. La racine de composition (`worker-tasks.ts`) l'injecte dans `registerNotifications`.
 
-- **Lecture** : `core.booking_notification_parties(sujet, id)` (0131, `SECURITY DEFINER`, `ntf_dispatcher` seulement).
+- **Lecture** : `core.booking_notification_parties(sujet, id)` (0133, `SECURITY DEFINER`, `ntf_dispatcher` seulement).
 - **Faits rendus** : pour un trip ou un hold, le voyageur et le titulaire du compte d'hôte ; pour un hold, en plus, son type, son statut, son motif et la demande autorisée.
 - **Validation** : une réponse mal formée lève `NotificationPartiesError` (la tâche échoue, puis lettre morte avec alerte). `null` désigne un sujet inconnu.
 - **Tests** : `internal/notification-parties.test.ts` (unitaires), `test/int/ntf.int.test.ts`, L0 `l0-us213-notification-parties`.

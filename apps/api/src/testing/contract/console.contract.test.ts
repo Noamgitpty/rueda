@@ -1451,6 +1451,19 @@ describe('contrat HTTP — /console', () => {
     expect((await post(status, { requestId: randomUUID(), status: 'CLOSED' })).status).toBe(403);
     await refusals(a, 'POST', status);
 
+    // US-215c (ADR-156, N-116) : personne ou dossier qui concerne l'agent ⇒ 403 STAFF_SELF_FORBIDDEN
+    for (const [store, path, body] of [
+      ['profile', profile, { requestId: randomUUID(), purpose }],
+      ['addNote', notes, { requestId: randomUUID(), body: 'Appel reçu' }],
+      ['openCase', '/console/cases', { ...caseBody, requestId: randomUUID() }],
+      ['setCaseStatus', status, { requestId: randomUUID(), status: 'CLOSED' }],
+    ] as const) {
+      ops.outcome[store] = 'SELF_FORBIDDEN';
+      const r = await post(path, body);
+      expect(r.status, store).toBe(403);
+      expect(r.json, store).toMatchObject({ code: 'STAFF_SELF_FORBIDDEN' });
+    }
+
     // pièces : 201, 200, 400, 403, 422 (taille, type réel, antivirus), 503 (antivirus en panne)
     const upload = (over: Record<string, unknown> = {}) =>
       post('/console/evidence', {

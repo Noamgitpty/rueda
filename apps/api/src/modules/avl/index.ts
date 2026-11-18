@@ -3,7 +3,7 @@
 export { AvlModule } from './avl.module.js';
 
 // Parties d'une réservation pour les notifications (US-213, ADR-157) : adaptateur du port
-// NotificationParties de NTF (même forme, sans dépendance AVL --> NTF), fonction 0131.
+// NotificationParties de NTF (même forme, sans dépendance AVL --> NTF), fonction 0133.
 export {
   NotificationPartiesError,
   parseBookingParties,

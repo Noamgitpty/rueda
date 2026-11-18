@@ -1,7 +1,7 @@
 /**
  * Adaptateur PostgreSQL du port `NotificationParties` de NTF (US-213, ADR-157) : AVL, propriétaire
  * des trips et des holds, fournit les parties d'une réservation par la seule fonction
- * `core.booking_notification_parties` (migration 0131 : SECURITY DEFINER, EXECUTE au seul
+ * `core.booking_notification_parties` (migration 0133 : SECURITY DEFINER, EXECUTE au seul
  * app_worker, refus hors du travailleur `ntf_dispatcher`). Requête paramétrée, aucune donnée
  * journalisée.
  *

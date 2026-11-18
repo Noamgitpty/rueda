@@ -59,7 +59,7 @@ export type Worker =
   | 'booking_oracle'
   // contrat de location hôte–voyageur (US-211, 0122) : génération au passage BOOKED
   | 'booking_contract'
-  // destinataires des notifications (US-213, 0131) : parties d'un trip ou d'un hold
+  // destinataires des notifications (US-213, 0133) : parties d'un trip ou d'un hold
   | 'ntf_dispatcher';
 
 export const uuid = (): string => randomUUID();

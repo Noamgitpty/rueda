@@ -34,7 +34,7 @@ Consommés (cible 17 §4.5) : `contract.document.generated` / `.signed` (CTR) et
 
 ## Ports
 
-`index.ts` expose `AudModule` et, depuis US-004 (ADR-080), la porte des lectures de données personnelles par le staff : `readPersonalDataAsStaff(tx, empreinteDuJeton, demande, lecture)` et `recordStaffDataAccess`. La porte (`core.iam_staff_cmd_data_access`, migration 0051) juge session, TOTP, `kyc.read_sensitive` dans le pays du dossier (`support_case`) et le dossier lui-même, écrit `data_access_log` puis une ligne chaînée `STAFF_DATA_ACCESS` ; la lecture n'a lieu que sur GRANTED, dans la même transaction (sinon `StaffDataAccessDenied`, aucune lecture). **Toute route qui rend une donnée C3 au staff passe par elle** (US-106 en premier).
+`index.ts` expose `AudModule` et, depuis US-004 (ADR-080), la porte des lectures de données personnelles par le staff : `readPersonalDataAsStaff(tx, empreinteDuJeton, demande, lecture)` et `recordStaffDataAccess`. La porte (`core.iam_staff_cmd_data_access`, migration 0051) juge session, TOTP, `kyc.read_sensitive` dans le pays du dossier (`support_case`) et le dossier lui-même, écrit `data_access_log` puis une ligne chaînée `STAFF_DATA_ACCESS` ; la lecture n'a lieu que sur GRANTED, dans la même transaction (sinon `StaffDataAccessDenied`, aucune lecture). **Toute route qui rend une donnée C3 au staff passe par elle** (US-106 en premier). Depuis US-215c (ADR-156), la porte refuse aussi un dossier ou un sujet qui concerne l'agent (garde ADR-122, `USER` lu comme `USER_ACCOUNT`, type inconnu = conflit) : issue `SELF_FORBIDDEN`, rendue par `StaffDataAccessDenied`.
 
 Ports du socle d'audit, dans `@rueda/db/audit` (US-009, US-020, ADR-058) :
 

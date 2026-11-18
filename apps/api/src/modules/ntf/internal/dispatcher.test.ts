@@ -25,7 +25,7 @@ const holdId = '7d4b0190-8a1f-4c3e-9b2d-4a6f3c5e0190';
 /** Faits d'un trip lus en base (US-213, ADR-157), clés de `partyKey`. */
 const tripMap = (facts: PartyFacts | null = tripFacts(guest, host)) =>
   new Map([[partyKey('TRIP', tripId), facts]]);
-/** Faits d'un hold (0131 : type, statut, motif, demande autorisée). */
+/** Faits d'un hold (0133 : type, statut, motif, demande autorisée). */
 const holdFacts = (over: Partial<PartyFacts> = {}): PartyFacts => ({
   ...tripFacts(guest, host),
   holdKind: 'REQUEST',
@@ -48,6 +48,7 @@ describe('abonnement', () => {
       'booking.request.received',
       'booking.trip.booked',
       'booking.trip.host_restricted',
+      'booking.trip.host_restriction_lifted',
       'catalog.addition_request.resolved',
       'kyc.verification.status_changed',
       'payout.batch.status_changed',
@@ -275,6 +276,27 @@ describe.each(COUNTRY_CASES)('planDispatches — $country ($currency)', (c) => {
     expect(() =>
       planDispatches(
         event('booking.trip.host_restricted', { trip_id: tripId, org_id: tripId }, c.country),
+      ),
+    ).toThrow(NotificationContractError);
+  });
+
+  it('restriction de l’hôte levée (US-215c, ADR-156) : le voyageur du trip à venir est prévenu, l’hôte jamais ; voyageur absent : erreur de contrat', () => {
+    const payload = { trip_id: tripId, guest_user_id: guest, org_id: tripId };
+    expect(
+      planDispatches(event('booking.trip.host_restriction_lifted', payload, c.country)).map((p) => [
+        p.recipientRole,
+        p.recipientUserId,
+        p.channel,
+        p.template,
+      ]),
+    ).toEqual([['GUEST', guest, 'EMAIL', 'EVT_TRIP_HOST_RESTRICTION_LIFTED']]);
+    expect(() =>
+      planDispatches(
+        event(
+          'booking.trip.host_restriction_lifted',
+          { trip_id: tripId, org_id: tripId },
+          c.country,
+        ),
       ),
     ).toThrow(NotificationContractError);
   });

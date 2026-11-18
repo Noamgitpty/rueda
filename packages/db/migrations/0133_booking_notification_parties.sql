@@ -1,4 +1,4 @@
--- 0131 — AVL / NTF : parties d'une réservation lues par le travailleur des notifications.
+-- 0133 — AVL / NTF : parties d'une réservation lues par le travailleur des notifications.
 -- US-213 (confirmation de réservation) ; 19 US-213 (critère 2 : « la confirmation est envoyée au
 -- voyageur et à l'hôte […] sans doublon si l'événement est rejoué ») ; 16 BKG-022, NTF-007
 -- (`EVT_BOOKING_CONFIRMED`, voyageur et hôte) ; 17 §2.2 (NTF ne lit pas les tables d'IAM ni

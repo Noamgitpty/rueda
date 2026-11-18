@@ -1,12 +1,13 @@
 /**
  * Détecteur de PAN (17 §4.4 point 3, F26 ; portée SAQ A, 17 §1.6). Numéros de test publics des
- * réseaux (jamais une carte réelle) ; même définition que `core.payment_text_has_pan` (0029).
- * Vecteurs : table UNIQUE `packages/db/test/support/pan-vectors.json`, jouée aussi en base par
- * `packages/db/test/l0/l0-pay-pan.test.ts` (identité vérifiée par `test/support/pan.test.ts`).
+ * réseaux (jamais une carte réelle) ; même définition que `core.payment_text_has_pan` (0029,
+ * 0131). Vecteurs : table UNIQUE `packages/db/test/support/pan-vectors.json`, jouée aussi en base
+ * par `packages/db/test/l0/l0-pay-pan.test.ts` (identité vérifiée par `test/support/pan.test.ts`).
  */
 import { randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
+import { idempotencyKeyToSend, settlementOperationKey } from './idempotency.js';
 import { containsPan, luhnValid, maskPan, maskPanDeep, panScanStats } from './pan.js';
 
 interface Vector {
@@ -56,9 +57,9 @@ function containsPan0028(text: string): boolean {
 }
 
 describe('PAN', () => {
-  it('table partagée : 34 PAN (dont UnionPay et 19 chiffres), 17 non-PAN', () => {
-    expect(VECTORS.pans).toHaveLength(34);
-    expect(VECTORS.notPans).toHaveLength(17);
+  it('table partagée : 41 PAN (dont UnionPay, 19 chiffres, bords des empreintes de 0131), 20 non-PAN', () => {
+    expect(VECTORS.pans).toHaveLength(41);
+    expect(VECTORS.notPans).toHaveLength(20);
     const notes = VECTORS.pans.map((v) => v.note).join(' | ');
     expect(notes).toMatch(/UnionPay 16/);
     expect(notes).toMatch(/UnionPay 19/);
@@ -87,6 +88,64 @@ describe('PAN', () => {
     // mutation : l'ancienne définition est tuée par ce corpus et par la reproduction fixe
     expect(corpus.filter((t) => containsPan0028(t)).length).toBeGreaterThan(0);
     expect(containsPan0028(EVT_FALSE_POSITIVE)).toBe(true);
+  });
+
+  it('0131 / ADR-155 : 200 000 clés réduites par idempotencyKeyToSend, aucun PAN ni masque ; le mutant 0029 en refuse', () => {
+    // clés de remboursement (08 E4) : UUID à graine fixe, 126 caractères > 64 ⇒ hex(sha256)
+    const next = rng(20261117);
+    const uuid = (): string => {
+      const h = Array.from({ length: 32 }, () => Math.floor(next() * 16).toString(16)).join('');
+      return `${h.slice(0, 8)}-${h.slice(8, 12)}-4${h.slice(13, 16)}-a${h.slice(17, 20)}-${h.slice(20)}`;
+    };
+    let mutantKilled = 0;
+    const leaks: string[] = [];
+    for (let i = 0; i < 200_000; i++) {
+      const plain = settlementOperationKey({
+        tripId: uuid(),
+        segmentId: uuid(),
+        settlementVersion: 1 + (i % 3),
+        operationType: 'REFUND',
+        tenderId: uuid(),
+        instanceSeq: 1,
+        attemptNo: 1 + (i % 2),
+      });
+      const sent = idempotencyKeyToSend(plain, 64);
+      if (!/^[0-9a-f]{64}$/.test(sent)) leaks.push(`forme : ${sent}`);
+      // formes reçues : la référence seule, et l'événement normalisé du webhook de preuve
+      const event = JSON.stringify([{ merchantReference: sent, status: 'SUCCEEDED' }]);
+      if (containsPan(sent) || containsPan(event) || maskPan(event).masked > 0) leaks.push(sent);
+      // mutant « définition de 0029 » : une lettre collée (sans chiffre) retire l'exclusion
+      if (containsPan(`g${sent}`)) mutantKilled += 1;
+    }
+    expect(leaks).toEqual([]);
+    // environ 0,32 % attendu (QA d'US-122 : 638 sur 200 000)
+    expect(mutantKilled).toBeGreaterThan(300);
+    console.log(`[US-019 PAN] 200 000 clés réduites : 0 refus (0029 en refusait ${mutantKilled})`);
+  });
+
+  it('0131 / ADR-155 : un vrai PAN reste refusé et masqué à côté d’une empreinte, empreinte intacte', () => {
+    const sent = idempotencyKeyToSend(`${'x'.repeat(70)}:a1`, 64);
+    expect(sent).toMatch(/^[0-9a-f]{64}$/);
+    for (const text of [
+      `${sent} ${VISA_TEST}`,
+      `${sent}-4111-1111-1111-1111`,
+      `${VISA_TEST}-${sent}`,
+      JSON.stringify({ merchantReference: sent, card: AMEX_TEST }),
+    ]) {
+      expect(containsPan(text), text).toBe(true);
+      const r = maskPan(text);
+      expect(r.masked, text).toBeGreaterThan(0);
+      expect(containsPan(r.text), text).toBe(false);
+      expect(r.text, text).toContain(sent);
+    }
+    // jetons hors forme exacte : toujours analysés (capitales, 65 caractères, lettre collée)
+    for (const text of [
+      `${VISA_TEST}${'F'.repeat(48)}`,
+      `${'a'.repeat(24)}${VISA_TEST}${'a'.repeat(25)}`,
+      `g${VISA_TEST}${'a'.repeat(48)}`,
+    ]) {
+      expect(containsPan(text), text).toBe(true);
+    }
   });
 
   it('10 000 UUID aléatoires (crypto) : aucun PAN', () => {

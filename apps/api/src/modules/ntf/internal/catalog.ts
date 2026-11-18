@@ -72,7 +72,7 @@ export type PartySubject = 'TRIP' | 'HOLD';
 
 /**
  * Parties d'une réservation lues en base au moment de la résolution (fonction
- * `core.booking_notification_parties`, migration 0131) : identifiants et codes seulement.
+ * `core.booking_notification_parties`, migration 0133) : identifiants et codes seulement.
  */
 export interface PartyFacts {
   readonly guestUserId: string;
@@ -130,6 +130,7 @@ export const TEMPLATE_KEYS = [
   'EVT_CATALOG_ADDITION_APPROVED',
   'EVT_CATALOG_ADDITION_REJECTED',
   'EVT_TRIP_HOST_RESTRICTED',
+  'EVT_TRIP_HOST_RESTRICTION_LIFTED',
   // confirmation et demandes de réservation (US-213, ADR-157)
   'EVT_BOOKING_CONFIRMED_HOST',
   'EVT_BOOKING_REQUEST_RECEIVED',
@@ -235,6 +236,15 @@ export const TEMPLATES: Readonly<Record<TemplateKey, TemplateSpec>> = {
   EVT_TRIP_HOST_RESTRICTED: {
     key: 'EVT_TRIP_HOST_RESTRICTED',
     slug: 'tripHostRestricted',
+    variables: { first_name: FIRST_NAME, brand: BRAND, booking_ref: BOOKING_REF },
+    channels: EMAIL_THEN_SMS,
+    critical: true,
+  },
+  // levée de la dernière restriction de l'hôte (08 BR-TRUST-09 ; US-215c, ADR-156, N-126) : le
+  // voyageur prévenu de la restriction apprend que sa réservation tient. PROPOSÉ ; message de trip
+  EVT_TRIP_HOST_RESTRICTION_LIFTED: {
+    key: 'EVT_TRIP_HOST_RESTRICTION_LIFTED',
+    slug: 'tripHostRestrictionLifted',
     variables: { first_name: FIRST_NAME, brand: BRAND, booking_ref: BOOKING_REF },
     channels: EMAIL_THEN_SMS,
     critical: true,
@@ -388,6 +398,14 @@ export const RULES: readonly RuleSpec[] = [
   {
     eventType: 'booking.trip.host_restricted',
     template: 'EVT_TRIP_HOST_RESTRICTED',
+    recipients: [GUEST],
+  },
+  // `booking.trip.host_restriction_lifted` (PROPOSÉ, à reporter dans 17 §4.5 ; US-215c, ADR-156) :
+  // un événement par trip à venir quand la DERNIÈRE restriction de l'hôte est levée, même charge
+  // que la pose, posé par la commande de restriction de 0132
+  {
+    eventType: 'booking.trip.host_restriction_lifted',
+    template: 'EVT_TRIP_HOST_RESTRICTION_LIFTED',
     recipients: [GUEST],
   },
   // demandes de réservation (0126, US-223c ; charges utiles : hold_id, vehicle_id, org_id, et

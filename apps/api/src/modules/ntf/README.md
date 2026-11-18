@@ -8,7 +8,7 @@ D'après 17 §2.2 et §2.13 : moteur unique de notifications (NTF-001) ; canaux 
 
 État du code : **livré pour la bêta e-mail et SMS** par US-020 (port `MessagingChannel`, ADR-058) et US-021 (moteur, ADR-061). Le catalogue réduit compte quinze gabarits (deux de la file d'ajout au catalogue, US-114 ; la confirmation de l'hôte et les demandes de réservation, US-213). Textes en es, en, fr et pt (pt-BR, DEC-FONDATEUR-18).
 
-US-213 (ADR-157) : les parties d'une réservation (voyageur, titulaire du compte d'hôte) sont lues **en base** par le port `NotificationParties`. AVL fournit l'adaptateur (`core.booking_notification_parties`, 0131). Les producteurs de `booking.trip.booked`, `trip.status_changed` et `booking.request.*` ne portent en effet aucun identifiant de personne.
+US-213 (ADR-157) : les parties d'une réservation (voyageur, titulaire du compte d'hôte) sont lues **en base** par le port `NotificationParties`. AVL fournit l'adaptateur (`core.booking_notification_parties`, 0133). Les producteurs de `booking.trip.booked`, `trip.status_changed` et `booking.request.*` ne portent en effet aucun identifiant de personne.
 
 Non câblé (reports) : processus `worker.ts` (US-003), accusés de remise, préférences et désinscription, WhatsApp (US-526), rappels de trip, e-mail de vérification d'IAM, habillage de marque, purge à 13 mois.
 
@@ -44,6 +44,7 @@ Déjà consommés par le code (travailleur `ntf_dispatcher`, `RULES` de `interna
 - `payout.batch.status_changed` (`status` = `INITIATED` ou `ON_HOLD`) ;
 - `catalog.addition_request.resolved` (`status` = `APPROVED` ou `MERGED` : ajout ; `REJECTED` : refus ; hôte demandeur `host_user_id`, US-114).
 - `booking.trip.host_restricted` (voyageur `guest_user_id` d'un trip à venir dont l'hôte est restreint, gabarit `EVT_TRIP_HOST_RESTRICTED` ; US-122, ADR-124).
+- `booking.trip.host_restriction_lifted` (même voyageur, quand la DERNIÈRE restriction de l'hôte est levée, gabarit `EVT_TRIP_HOST_RESTRICTION_LIFTED`, textes `ntf.tripHostRestrictionLifted.*` ; US-215c, ADR-156). Depuis 0129, `booking.trip.host_restricted` n'est émis qu'au passage « aucune restriction active → restreint ».
 - Demandes de réservation (US-213, ADR-157 ; parties du hold lues en base) :
   - `booking.request.received` (hôte, avec l'heure limite) ;
   - `booking.request.declined` et `booking.request.expired` (voyageur) ;

@@ -1,6 +1,6 @@
 /**
  * Adaptateur `postgresNotificationParties` (US-213, ADR-157) : lecture de
- * `core.booking_notification_parties` (0131) et validation de la réponse. Une réponse mal formée
+ * `core.booking_notification_parties` (0133) et validation de la réponse. Une réponse mal formée
  * est une erreur (la tâche du dispatcher échoue, puis lettre morte avec alerte), jamais un
  * destinataire deviné. Preuve sur PostgreSQL réel : packages/db/test/l0/l0-us213-notification-parties.test.ts
  * et apps/api/test/int/ntf.int.test.ts.
@@ -28,7 +28,7 @@ function client(value: unknown): { tx: SqlClient; calls: [string, readonly unkno
   return { tx, calls };
 }
 
-describe('parties d’une réservation (0131)', () => {
+describe('parties d’une réservation (0133)', () => {
   it('trip : voyageur et titulaire du compte d’hôte, requête paramétrée', async () => {
     const { tx, calls } = client({ guestUserId: guest.toUpperCase(), hostUserId: host });
     const id = randomUUID();

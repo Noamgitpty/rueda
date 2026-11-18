@@ -19,7 +19,7 @@
  */
 import { fileURLToPath } from 'node:url';
 import type { Page, TestInfo } from '@playwright/test';
-import { expect } from '@playwright/test';
+import { expect, test } from '@playwright/test';
 import type { Language } from './fixtures.ts';
 
 export type Scheme = 'light' | 'dark';
@@ -41,6 +41,26 @@ export const STABLE_CAPTURE_STYLE = fileURLToPath(
   new URL('./capture-sans-calques.css', import.meta.url),
 );
 
+/**
+ * Feuille de capture des téléphones (échelle 2) : `text-rendering: geometricPrecision`, qui rend
+ * le tramage de chaque police indépendant de l'échelle à laquelle Blink l'a créée (course de la
+ * première mise en page, N-180 ; voir la feuille).
+ */
+export const PHONE_FONT_CAPTURE_STYLE = fileURLToPath(
+  new URL('./capture-polices.css', import.meta.url),
+);
+
+/** Feuilles appliquées pendant la capture, selon le projet et l'écran. */
+export function captureStyles(
+  info: TestInfo,
+  options: { readonly stableCompositing?: boolean } = {},
+): string[] {
+  const styles: string[] = [];
+  if ((info.project.use.deviceScaleFactor ?? 1) > 1) styles.push(PHONE_FONT_CAPTURE_STYLE);
+  if (options.stableCompositing === true) styles.push(STABLE_CAPTURE_STYLE);
+  return styles;
+}
+
 /** Capture pleine page comparée à la référence ; un écart n'arrête pas les autres contrôles. */
 export async function expectScreen(
   page: Page,
@@ -51,6 +71,6 @@ export async function expectScreen(
 ): Promise<void> {
   await expect.soft(page).toHaveScreenshot([screen, `${language}-${scheme}.png`], {
     fullPage: true,
-    ...(options.stableCompositing === true ? { stylePath: STABLE_CAPTURE_STYLE } : {}),
+    stylePath: captureStyles(test.info(), options),
   });
 }

@@ -20,7 +20,7 @@ NTF ne lit ni les tables d'AVL ni celles d'IAM (17 §2.2).
 
 ## Décision
 
-1. **Parties lues en base par un port** (migration 0131) :
+1. **Parties lues en base par un port** (migration 0133) :
    - **Fonction** : `core.booking_notification_parties(sujet, id)` (`cmd_hold_owner`, `SECURITY DEFINER`, EXECUTE `app_worker`). Elle refuse tout appelant autre que le travailleur `ntf_dispatcher` (`notification_parties_forbidden`, 42501 → `FORBIDDEN`).
    - **Sujet `TRIP`** : voyageur et **titulaire** du compte d'hôte (`organization.holder_user_id`, comme le contrat, ADR-149).
    - **Sujet `HOLD`** : les mêmes, plus le type, le statut, le motif de libération et la présence d'une heure limite de réponse.

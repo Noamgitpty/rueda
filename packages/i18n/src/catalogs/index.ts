@@ -214,7 +214,11 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  ordre envoyé, avance, motifs de blocage ADVANCE_CAP_UNSET, HOST_ADVANCE_CAP,
  PLATFORM_BALANCE_UNKNOWN et codes REFUND_EXCEEDS_COLLECTED, SETTLEMENT_SUPERSEDED,
  FIN_REVIEW_REQUIRED, SUPERSEDED_UNSENT, NO_TARGET, MISMATCH expliqués).
- Version 73 (la 72 est réservée à US-215c, PR #220) : confirmation de réservation (US-213,
+ Version 72 (la 71 est celle d’US-224d) : correctifs serveur de la console, partie 215c (US-215,
+ ADR-156) : `backoffice.profile.hostTrips` et `backoffice.profile.noHostTrip` (fiche 360° : trips à
+ venir des comptes d'hôte de la personne, N-123) ; `ntf.tripHostRestrictionLifted.*` (voyageur d'un
+ trip à venir prévenu de la levée de la restriction de son hôte, N-126).
+ Version 73 (la 72 est celle d’US-215c) : confirmation de réservation (US-213,
  ADR-157) : `ntf.bookingConfirmed.*` revu (adresse exacte, contrat à signer, permis physique,
  conseils de sécurité de 10b `web.s07.safety` ; jamais le téléphone de l’hôte ; numéros du
  support et de l’assistance de l’assureur : GL-36), `ntf.bookingConfirmedHost.*` (confirmation à

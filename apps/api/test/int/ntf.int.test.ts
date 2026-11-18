@@ -11,7 +11,7 @@
  * (Critère 1, gabarits es / en / fr / pt : tests unitaires `templates.test.ts`.)
  *
  * US-213 (ADR-157) : les parties d'une réservation sont lues en base par l'adaptateur
- * `postgresNotificationParties` d'AVL (`core.booking_notification_parties`, 0131), sous
+ * `postgresNotificationParties` d'AVL (`core.booking_notification_parties`, 0133), sous
  * `ntf_dispatcher` ; un trip réel (monde de la fixture 9963) et la charge utile réelle de
  * `booking.trip.booked` (0126, sans identifiant de personne).
  * Chaque cas tourne en USD (PA) et en PYG sans décimale (PY).

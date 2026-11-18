@@ -503,7 +503,7 @@ async function sentRequest(
 }
 
 /**
- * US-213 (0131, ADR-157) : parties du hold lues par le travailleur des notifications. Assertions
+ * US-213 (0133, ADR-157) : parties du hold lues par le travailleur des notifications. Assertions
  * AJOUTÉES aux issues « capture refusée » et « capture jamais confirmée » (aucune assertion
  * existante modifiée) : la règle NTF de la capture refusée lit ces faits en base.
  */
