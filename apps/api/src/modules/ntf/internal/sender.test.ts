@@ -9,6 +9,7 @@
 import { randomUUID } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import { formatDateTime, getProfile } from '@rueda/i18n';
+import { RULES } from './catalog.js';
 import { createDispatch, dispatchEvent } from './dispatcher.js';
 import type { MemoryDb as MemoryDbType } from './ntf.test-support.js';
 import {
@@ -17,7 +18,9 @@ import {
   event,
   LOCALE_CONFIG,
   MemoryDb,
+  MemoryParties,
   senderHarness,
+  tripFacts,
 } from './ntf.test-support.js';
 import { MAX_SEND_ATTEMPTS, NotificationSender, RETRY_BASE_SECONDS } from './sender.js';
 
@@ -54,10 +57,11 @@ describe.each(COUNTRY_CASES)('NotificationSender — $country ($currency)', (c) 
     });
     h.directory.set(guest, contactOf('guest'));
     h.directory.set(host, contactOf('host'));
+    const tripId = randomUUID();
     const booked = event(
       'booking.trip.booked',
       {
-        trip_id: randomUUID(),
+        trip_id: tripId,
         guest_user_id: guest,
         host_user_id: host,
         scheduled_start: START,
@@ -66,12 +70,15 @@ describe.each(COUNTRY_CASES)('NotificationSender — $country ($currency)', (c) 
       c.country,
     );
     const sender = new NotificationSender(h.deps);
-    return { h, db, guest, host, booked, sender };
+    // parties du trip lues en base (US-213, ADR-157) : les mêmes que la charge utile
+    const parties = new MemoryParties().set('TRIP', tripId, tripFacts(guest, host));
+    const dispatchBooked = () => dispatchEvent(booked, db, RULES, parties);
+    return { h, db, guest, host, booked, sender, dispatchBooked };
   }
 
   it('envoi réussi : langue du destinataire, date au fuseau du pays, empreinte, clé ntf:<id>', async () => {
-    const { h, db, booked, sender, guest } = setup({ locale: 'fr' });
-    await dispatchEvent(booked, db);
+    const { h, db, dispatchBooked, sender, guest } = setup({ locale: 'fr' });
+    await dispatchBooked();
     expect(await drain(db, sender)).toBe(2);
 
     const sent = h.email.sent();
@@ -93,8 +100,8 @@ describe.each(COUNTRY_CASES)('NotificationSender — $country ($currency)', (c) 
   });
 
   it('portugais du Brésil (DEC-FONDATEUR-18) : texte pt, date au format pt-BR', async () => {
-    const { h, db, booked, sender } = setup({ locale: 'pt' });
-    await dispatchEvent(booked, db);
+    const { h, db, dispatchBooked, sender } = setup({ locale: 'pt' });
+    await dispatchBooked();
     await drain(db, sender);
     const toGuest = h.email.sent().find((m) => m.to === 'guest@example.test');
     expect(toGuest?.locale).toBe('pt');
@@ -113,16 +120,16 @@ describe.each(COUNTRY_CASES)('NotificationSender — $country ($currency)', (c) 
       ['pt-BR', 'pt'],
       ['pt-PT', 'pt'],
     ] as const) {
-      const { h, db, booked, sender } = setup({ locale: preferred });
-      await dispatchEvent(booked, db);
+      const { h, db, dispatchBooked, sender } = setup({ locale: preferred });
+      await dispatchBooked();
       await drain(db, sender);
       expect(h.email.sent().map((m) => m.locale)).toEqual([expected, expected]);
     }
   });
 
   it('tâche rejouée après l’envoi : rien de plus (envoi déjà SENT)', async () => {
-    const { h, db, booked, sender } = setup();
-    await dispatchEvent(booked, db);
+    const { h, db, dispatchBooked, sender } = setup();
+    await dispatchBooked();
     const jobs = db.pendingSends();
     await drain(db, sender);
     for (const job of jobs) await sender.handle(job.payload, db);
@@ -151,9 +158,9 @@ describe.each(COUNTRY_CASES)('NotificationSender — $country ($currency)', (c) 
   });
 
   it('issue inconnue (TIMEOUT après départ) : rejeu de la même clé, un seul message parti', async () => {
-    const { h, db, booked, sender } = setup();
+    const { h, db, dispatchBooked, sender } = setup();
     h.email.runtime.script.script('send', { kind: 'TIMEOUT_AFTER' });
-    await dispatchEvent(booked, db);
+    await dispatchBooked();
     await drain(db, sender);
     // le premier envoi est parti malgré le TIMEOUT : rejoué, le FAKE rend le premier résultat
     expect(h.email.sent()).toHaveLength(2);
@@ -161,12 +168,14 @@ describe.each(COUNTRY_CASES)('NotificationSender — $country ($currency)', (c) 
   });
 
   it(`critère 3 : ${String(MAX_SEND_ATTEMPTS)} échecs ⇒ repli SMS et notification.fallback.triggered`, async () => {
-    const { h, db, booked, sender, guest } = setup({ locale: country.defaultLocale });
+    const { h, db, booked, dispatchBooked, sender, guest } = setup({
+      locale: country.defaultLocale,
+    });
     h.email.runtime.script.script(
       'send',
       ...Array.from({ length: 2 * MAX_SEND_ATTEMPTS }, () => ({ kind: 'UNAVAILABLE' as const })),
     );
-    await dispatchEvent(booked, db);
+    await dispatchBooked();
     await drain(db, sender);
 
     const primary = db.dispatches.filter((d) => d.channel === 'EMAIL');
@@ -195,9 +204,9 @@ describe.each(COUNTRY_CASES)('NotificationSender — $country ($currency)', (c) 
   });
 
   it('refus définitif (destinataire bloqué) : repli immédiat, sans réessai', async () => {
-    const { h, db, booked, sender } = setup();
+    const { h, db, dispatchBooked, sender } = setup();
     h.email.block('guest@example.test');
-    await dispatchEvent(booked, db);
+    await dispatchBooked();
     await drain(db, sender);
     const blocked = db.dispatches.find((d) => d.channel === 'EMAIL' && d.status !== 'SENT');
     expect(blocked).toMatchObject({
@@ -209,9 +218,9 @@ describe.each(COUNTRY_CASES)('NotificationSender — $country ($currency)', (c) 
   });
 
   it('repli impossible (aucun numéro vérifié) : FAILED et notification.dispatch.failed, pas de second repli', async () => {
-    const { h, db, booked, sender } = setup({ phone: null });
+    const { h, db, dispatchBooked, sender } = setup({ phone: null });
     h.email.block('guest@example.test');
-    await dispatchEvent(booked, db);
+    await dispatchBooked();
     await drain(db, sender);
     const sms = db.dispatches.filter((d) => d.channel === 'SMS');
     expect(sms.map((d) => [d.status, d.last_error])).toEqual([['FAILED', 'NO_CONTACT']]);
@@ -230,9 +239,9 @@ describe.each(COUNTRY_CASES)('NotificationSender — $country ($currency)', (c) 
   });
 
   it('canal sans adaptateur (capacité inconnue = « non ») : repli', async () => {
-    const { h, db, booked } = setup();
+    const { h, db, dispatchBooked } = setup();
     const sender = new NotificationSender({ ...h.deps, channels: { SMS: h.sms } });
-    await dispatchEvent(booked, db);
+    await dispatchBooked();
     await drain(db, sender);
     expect(db.dispatches.filter((d) => d.channel === 'EMAIL').map((d) => d.last_error)).toEqual([
       'CHANNEL_UNAVAILABLE',
@@ -392,9 +401,9 @@ describe.each(COUNTRY_CASES)('NotificationSender — $country ($currency)', (c) 
   });
 
   it('journaux : identifiants et codes seulement — ni adresse, ni numéro, ni prénom, ni texte', async () => {
-    const { h, db, booked, sender } = setup();
+    const { h, db, dispatchBooked, sender } = setup();
     h.email.block('guest@example.test');
-    await dispatchEvent(booked, db);
+    await dispatchBooked();
     await drain(db, sender);
     expect(h.logs.length).toBeGreaterThan(0);
     const text =

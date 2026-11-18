@@ -95,6 +95,7 @@ describe('translateDbError (17 §2.5 2d, §4.4, L0-08)', () => {
     ['55000', 'trip_contract_not_signed', 'CONTRACT_NOT_SIGNED'],
     ['23000', 'contract_record_immutable', 'IMMUTABLE_RECORD'],
     ['42501', 'contract_command_forbidden', 'FORBIDDEN'],
+    ['42501', 'notification_parties_forbidden', 'FORBIDDEN'],
     // annulations déclenchées par l'ops, réglées dans la transition (0124, US-215, ADR-148)
     ['55000', 'trip_cancellation_closed', 'CANCELLATION_NOT_PENDING'],
     ['23505', 'trip_cancellation_live_unique', 'CANCELLATION_PENDING'],

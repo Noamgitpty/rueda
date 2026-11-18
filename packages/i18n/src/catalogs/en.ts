@@ -755,6 +755,8 @@ export const EN_MESSAGES = {
   'backoffice.profile.noHost': 'Not a host.',
   'backoffice.profile.trips': 'Trips as a guest',
   'backoffice.profile.noTrip': 'No trips yet.',
+  'backoffice.profile.hostTrips': 'Upcoming trips as a host',
+  'backoffice.profile.noHostTrip': 'No upcoming trips as a host.',
   'backoffice.profile.cases': 'Support cases',
   'backoffice.profile.noCase': 'No support cases.',
   'backoffice.profile.notes': 'Internal notes',
@@ -807,9 +809,9 @@ export const EN_MESSAGES = {
   'ntf.kycApproved.sms.body': '{brand}: {first_name}, your identity is verified. You can now book.',
   'ntf.bookingConfirmed.email.subject': 'Booking {booking_ref} confirmed',
   'ntf.bookingConfirmed.email.body':
-    'Hi {first_name}. Your booking {booking_ref} is confirmed: from {start_at} to {end_at}. In the app you will find the pickup spot, the contract and the booking messages.',
+    "Hi {first_name}. Your booking {booking_ref} is confirmed: from {start_at} to {end_at}. In your booking on {brand} you will find the exact handover address, the contract to read and sign before handover and the messages with your host. Bring your physical driver's license and your ID: the host will check them at handover. For your safety: meet in a public, well-lit place, tell someone you trust where you'll be, and keep all messages on {brand}.",
   'ntf.bookingConfirmed.sms.body':
-    '{brand}: booking {booking_ref} confirmed, from {start_at} to {end_at}. Details in the app.',
+    '{brand}: booking {booking_ref} confirmed, from {start_at} to {end_at}. Bring your physical license. Address and contract in the app.',
   'ntf.bookingCancelled.email.subject': 'Booking {booking_ref} cancelled',
   'ntf.bookingCancelled.email.body':
     'Hi {first_name}. Booking {booking_ref} was cancelled. In the app you can see the details and, if it applies, your refund.',
@@ -1274,6 +1276,42 @@ export const EN_MESSAGES = {
     'Hi {first_name}. We are reviewing the account of the host of your booking {booking_ref}. Your booking is still on record and we will keep you posted. If the host cancels it, you get a full refund. Details in the app.',
   'ntf.tripHostRestricted.sms.body':
     '{brand}: we are reviewing the host account for your booking {booking_ref}. Full refund if the host cancels it. Details in the app.',
+  'ntf.tripHostRestrictionLifted.email.subject': 'Booking {booking_ref}: news about your host',
+  'ntf.tripHostRestrictionLifted.email.body':
+    'Hi {first_name}. We have finished reviewing the account of the host of your booking {booking_ref}. Your booking stands, unchanged. Details in the app.',
+  'ntf.tripHostRestrictionLifted.sms.body':
+    '{brand}: we have finished reviewing the host of your booking {booking_ref}. Your booking stands. Details in the app.',
+  // confirmation et demandes de réservation (US-213, ADR-157)
+  'ntf.bookingConfirmedHost.email.subject': 'Booking {booking_ref} confirmed',
+  'ntf.bookingConfirmedHost.email.body':
+    "Hi {first_name}. The booking {booking_ref} for your car is confirmed: from {start_at} to {end_at}. {brand} has received the guest's payment. In your host space you can see the trip and the messages with the guest. At handover, check their physical driver's license and that their name matches the booking.",
+  'ntf.bookingConfirmedHost.sms.body':
+    '{brand}: booking {booking_ref} confirmed, from {start_at} to {end_at}. Details in your host space.',
+  'ntf.bookingRequestReceived.email.subject': 'New booking request {booking_ref}',
+  'ntf.bookingRequestReceived.email.body':
+    "Hi {first_name}. A guest sent you the booking request {booking_ref}. You have until {respond_by} to accept or decline it in your {brand} host space. If you don't reply in time, the request expires and the guest is not charged.",
+  'ntf.bookingRequestReceived.sms.body':
+    '{brand}: new request {booking_ref}. Reply before {respond_by} in your host space.',
+  'ntf.bookingRequestDeclined.email.subject': 'Request {booking_ref} not accepted',
+  'ntf.bookingRequestDeclined.email.body':
+    'Hi {first_name}. The host did not accept your request {booking_ref}. You were not charged: we cancelled your payment authorization. You can look for another car for the same dates on {brand}.',
+  'ntf.bookingRequestDeclined.sms.body':
+    '{brand}: your request {booking_ref} was not accepted. You were not charged. Find another car in the app.',
+  'ntf.bookingRequestExpired.email.subject': 'Request {booking_ref} expired',
+  'ntf.bookingRequestExpired.email.body':
+    'Hi {first_name}. The host did not reply to your request {booking_ref} in time. You were not charged: we cancelled your payment authorization. You can look for another car for the same dates on {brand}.',
+  'ntf.bookingRequestExpired.sms.body':
+    '{brand}: your request {booking_ref} expired without a reply. You were not charged. Find another car in the app.',
+  'ntf.bookingRequestFailed.email.subject': 'Booking {booking_ref} not confirmed',
+  'ntf.bookingRequestFailed.email.body':
+    "Hi {first_name}. The host accepted your request {booking_ref}, but we could not confirm the charge and the booking was not made. Don't pay again: we cancelled your payment authorization. If you see a charge, write to us from your booking on {brand} and we will refund the whole payment.",
+  'ntf.bookingRequestFailed.sms.body':
+    "{brand}: booking {booking_ref} was not confirmed. Don't pay again. If you see a charge, we refund it all. Details in the app.",
+  'ntf.bookingRequestFailedHost.email.subject': 'Booking {booking_ref} not confirmed',
+  'ntf.bookingRequestFailedHost.email.body':
+    "Hi {first_name}. You accepted the request {booking_ref}, but we could not confirm the guest's payment and the booking was not made. The dates are free again in your {brand} calendar. Do not hand over the car for this request.",
+  'ntf.bookingRequestFailedHost.sms.body':
+    '{brand}: the request {booking_ref} you accepted was not confirmed. Dates released. Do not hand over the car.',
   'backoffice.catalog.open': 'Open the request',
   'backoffice.catalog.heading': 'Catalog addition request',
   'backoffice.catalog.requested': 'What the host entered',
@@ -2069,7 +2107,6 @@ export const EN_MESSAGES = {
   'web.s06.interrupted.body':
     'Try again: we check your previous payment first and never create a second charge.',
   'web.s06.interrupted.retry': 'Retry payment',
-  'web.s06.confirmed.title': 'Payment confirmed!',
   'web.s06.confirmed.body':
     'Your booking is confirmed. The car’s page now shows the exact pickup spot.',
   'web.s06.confirmed.cta': 'View the car',
@@ -2268,6 +2305,12 @@ export const EN_MESSAGES = {
   'web.a03.contract.back': 'Back to the booking',
   'web.a05.contract': 'View the agreement',
   'web.s06.confirmed.contract': 'Read and sign the agreement',
+  // S06 confirmé, contenu de 10b S07 (US-213, ADR-157)
+  'web.s07.title': 'Your booking is confirmed!',
+  'web.s07.documents':
+    "Bring your physical driver's license and your ID: the host will check them at handover.",
+  'web.s07.safety':
+    "For your safety: meet in a public, well-lit place, tell someone you trust where you'll be, and keep all messages on {brand}.",
   // US-215b (v69) : annulation d’un voyage par l’ops et état réel de la demande (console O01)
   'backoffice.cancel.heading': 'Cancel a trip',
   'backoffice.cancel.intro':

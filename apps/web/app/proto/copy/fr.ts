@@ -112,11 +112,8 @@ export const FR_PROTO = {
   'web.s05.review.notice':
     'Nous examinons chaque réservation. Si nous ne pouvons pas l’accepter, nous te remboursons tout.',
   'web.s06.pre.title': 'Sur ton relevé, tu verras : {merchant_name}',
-  'web.s07.title': 'Réservation confirmée !',
   'web.s07.message': 'Écrire à {host_name}',
   'web.s07.checkinOpens': 'Le check-in avec photos ouvre le {date}.',
-  'web.s07.safety':
-    'Pour ta sécurité : retrouvez-vous dans un lieu public et éclairé, dis à une personne de confiance où tu seras et échange uniquement sur {brand}.',
   'web.s08.tabs.upcoming': 'À venir',
   'web.s08.tabs.past': 'Passés',
   'web.s08.empty': 'Tu n’as encore aucun voyage',

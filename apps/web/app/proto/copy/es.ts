@@ -115,11 +115,8 @@ export const ES_PROTO = {
     'Autorizo cargos posteriores al viaje en esta tarjeta solo por gastos del viaje, mi franquicia o daños, siempre con aviso y prueba.',
   'web.s05.review.notice': 'Revisamos cada reserva. Si no podemos aprobarla, te devolvemos todo.',
   'web.s06.pre.title': 'En tu estado de cuenta verás: {merchant_name}',
-  'web.s07.title': '¡Reserva confirmada!',
   'web.s07.message': 'Escribir a {host_name}',
   'web.s07.checkinOpens': 'El check-in con fotos se abre el {date}.',
-  'web.s07.safety':
-    'Para tu seguridad: encuéntrense en un lugar público e iluminado, avisa a alguien de confianza dónde estarás y escribe solo por {brand}.',
   'web.s08.tabs.upcoming': 'Próximos',
   'web.s08.tabs.past': 'Anteriores',
   'web.s08.empty': 'Aún no tienes viajes',

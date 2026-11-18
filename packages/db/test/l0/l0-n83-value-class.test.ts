@@ -1,6 +1,6 @@
 /**
- * N-83 — classe de valeur attribuée à la publication d'un véhicule non classé (migrations 0132 et
- * 0133 ; ADR-159 ; fixture 9944) sous le rôle de production app_api (assertion L0-05 en tête de
+ * N-83 — classe de valeur attribuée à la publication d'un véhicule non classé (migrations 0134 et
+ * 0135 ; ADR-159 ; fixture 9944) sous le rôle de production app_api (assertion L0-05 en tête de
  * chaque connexion, withRole), en USD (PA) et en PYG (PY), transactions ANNULÉES :
  * - variante de la douane sans classe (Geely Coolray) ⇒ classe du défaut du pays
  *   (`vehicle_default_value_class`, lu dans le fichier de paramètres) ⇒ couverte par le contrat ⇒

@@ -215,7 +215,7 @@ describe('configuration pays : structure et droits', () => {
             ...(t === 'config_param_definition' || t === 'config_param_value'
               ? [{ t, pol: 'catalog_cmd_upload_read', cmd: 'r', roles: 'catalog_cmd_owner' }]
               : []),
-            // classe de valeur à la publication (N-83, 0133) : défaut du pays seulement
+            // classe de valeur à la publication (N-83, 0135) : défaut du pays seulement
             ...(t === 'config_param_value'
               ? [{ t, pol: 'catalog_cmd_value_class_read', cmd: 'r', roles: 'catalog_cmd_owner' }]
               : []),

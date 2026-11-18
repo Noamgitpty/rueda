@@ -140,7 +140,7 @@ export const POST_SEED_PARAMS: readonly {
   },
   {
     prefix: 'vehicle_default_value_class',
-    file: '0132_config_vehicle_value_class_params.sql',
+    file: '0134_config_vehicle_value_class_params.sql',
     story: 'US-113',
     refs: '08 BR-ACC-05 ; BOARD N-83 ; ADR-159',
   },

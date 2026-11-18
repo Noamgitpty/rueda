@@ -66,7 +66,7 @@ function expectedOf(t: Translator, state: string): { title: string; body: string
     case 'INTERRUPTED':
       return { title: t.t('web.s06.interrupted.title'), body: t.t('web.s06.interrupted.body') };
     case 'CONFIRMED':
-      return { title: t.t('web.s06.confirmed.title'), body: t.t('web.s06.confirmed.body') };
+      return { title: t.t('web.s07.title'), body: t.t('web.s06.confirmed.body') };
     case 'DECLINED':
       return {
         title: t.t('web.s06.declined.title'),
@@ -147,7 +147,7 @@ async function expectStateTexts(page: Page, language: Language, state: string): 
   await expect(page.locator('[data-testid="s06-title"]')).toHaveText(title);
   await expect(page.locator(MAIN)).toContainText(body);
   if (state !== 'CONFIRMED') {
-    await expect(page.locator(MAIN)).not.toContainText(t.t('web.s06.confirmed.title'));
+    await expect(page.locator(MAIN)).not.toContainText(t.t('web.s07.title'));
   }
 }
 
@@ -199,6 +199,17 @@ for (const language of LANGUAGES) {
       await webhook(holdId, 'SUCCEEDED');
       await openS06(page, language, holdId, 'CONFIRMED');
       await expect(page.locator(`${MAIN} a[href="/listings/${PUBLIC_ID}"]`)).toBeVisible();
+      // US-213 (10b S07) : numéro du TRIP né (préfixe fixe du double), pièces à présenter,
+      // conseils de sécurité ; jamais un numéro de téléphone de l'hôte
+      const tc = translator(language);
+      await expect(page.locator('[data-testid="s06-reference"]')).toContainText('21300000');
+      await expect(page.locator('[data-testid="s07-documents"]')).toHaveText(
+        tc.t('web.s07.documents'),
+      );
+      await expect(page.locator('[data-testid="s07-safety"]')).toContainText(
+        fixedPart(tc, 'web.s07.safety', 'brand'),
+      );
+      await expect(page.locator(MAIN)).not.toContainText(/\+\d{7,}/);
       await expectAccessible(page);
       await expectMobileFriendly(page);
 
@@ -224,9 +235,7 @@ for (const language of LANGUAGES) {
       await expectStateTexts(page, language, 'CONFIRMED');
       await expect(page).toHaveURL(S06_URL);
       const t = translator(language);
-      await expect(page.locator('[data-testid="s06-live"]')).toContainText(
-        t.t('web.s06.confirmed.title'),
-      );
+      await expect(page.locator('[data-testid="s06-live"]')).toContainText(t.t('web.s07.title'));
       await expect(page.locator('[data-testid="s06-title"]')).toBeFocused();
     });
 

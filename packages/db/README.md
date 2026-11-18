@@ -908,13 +908,28 @@ Migration `0122_ctr_rental_contract`, fixture `9963_test_us211_rental_contract_f
 
 ## Classe de valeur attribuée à la publication (N-83 ; US-113, US-118 ; 08 BR-ACC-05 ; ADR-159)
 
-Migrations `0132_config_vehicle_value_class_params` (générée : `vehicle_default_value_class`, STANDARD au Panama et au Paraguay, PROPOSÉ) et `0133_catalog_vehicle_value_class`, fixture `9944_test_n83_value_class_fixtures.sql` (relecture de la classe et de sa règle, défaut du pays posé dans une transaction annulée).
+Migrations `0134_config_vehicle_value_class_params` (générée : `vehicle_default_value_class`, STANDARD au Panama et au Paraguay, PROPOSÉ) et `0135_catalog_vehicle_value_class`, fixture `9944_test_n83_value_class_fixtures.sql` (relecture de la classe et de sa règle, défaut du pays posé dans une transaction annulée).
 
 - **Table** `core.catalog_value_class_rule` (classe C, RLS `ENABLE` + `FORCE`, aucun droit applicatif ; lecture par `catalog_cmd_owner` ; jamais supprimée, retirée par `status`) : marque, modèle facultatif (slug exact ou préfixe suivi d'un tiret), pays facultatif, classe ; graine PROPOSÉE sans code pays.
 - **Colonnes** `catalog_vehicle.value_class_source` (`CATALOG`, `MODEL_RULE`, `MAKE_RULE`, `COUNTRY_DEFAULT`) et `value_class_rule_id` ; contraintes `catalog_vehicle_value_class_source_known` et `catalog_vehicle_value_class_rule_match`.
 - **Fonctions** (SECURITY INVOKER, propriétaire `migrator`, EXECUTE `catalog_cmd_owner`) : `core.catalog_value_class_resolve(pays, variante, marque saisie, modèle saisi)` (lecture seule ; variante, puis règle la plus précise, puis défaut du pays ; sinon aucune classe) et `core.catalog_vehicle_assign_value_class(véhicule)` (pose la classe d'un véhicule SANS classe, jamais un recalcul) ; déclencheur `catalog_vehicle_value_class_follow` (`BEFORE UPDATE OF variant_id`, seulement pour un véhicule déjà classé par cette règle).
 - **Publication** : `core.catalog_cmd_submit_listing` (corps de 0084 recopié) attribue la classe après les photos, avant les contrôles automatiques. Interrupteurs inchangés : sans contrat ni `insurer_contract_active`, toujours `INSURER_CONTRACT_INACTIVE`.
 - **Preuves** : `test/l0/l0-n83-value-class.test.ts` (PA USD, PY PYG, transactions annulées) ; `test/l0/l0-n101-catalogue-pa.test.ts` (parcours jusqu'à l'annonce publique sur une variante sans fiche, sans classe posée à la main).
+
+## Parties d'une réservation pour les notifications (US-213 ; 16 BKG-022, NTF-007 ; 17 §2.2, §4.5 ; ADR-157)
+
+Migration `0133_booking_notification_parties` : une fonction de lecture AJOUTÉE. Aucune table, aucun droit sur une table : `cmd_hold_owner` lisait déjà les colonnes lues.
+
+- `core.booking_notification_parties(text, uuid)` (`cmd_hold_owner`, EXECUTE `app_worker`) :
+  - **Appelant** : le seul travailleur `ntf_dispatcher` (`app.actor_kind` = WORKER) ; tout autre appelant reçoit `notification_parties_forbidden` (42501 → `FORBIDDEN`).
+  - **`TRIP`** : `guestUserId` et `hostUserId` (titulaire du compte d'hôte).
+  - **`HOLD`** : les mêmes, plus `holdKind`, `holdStatus`, `releaseReason` et `requestAuthorized` (heure limite de réponse posée).
+  - **Sujet inconnu** : NULL. Identifiants et codes seulement.
+- **Lecteur** : l'adaptateur `postgresNotificationParties` d'AVL, injecté dans NTF (port `NotificationParties`).
+- **Preuves** :
+  - `test/l0/l0-us213-notification-parties.test.ts` (PA USD, PY PYG ; monde de la fixture 9963 dans une transaction annulée) : faits exacts, minimisation, sujets inconnus, refus des autres travailleurs, d'`app_worker` sans contexte, d'`app_api` et d'`app_anon` ;
+  - assertions ajoutées à `l0-us223-request.test.ts` (capture refusée et capture jamais confirmée d'une demande acceptée : faits lus du hold) ;
+  - `apps/api/test/int/ntf.int.test.ts` (charge utile réelle de `booking.trip.booked`, trip réel, rejeu sans doublon).
 
 ## Remboursement lu par le voyageur, l'hôte et la console (US-224 partie 224d ; 19 US-224 critère 1 ; 08 SM-8, BR-PAY-08 ; ADR-154)
 
@@ -933,6 +948,14 @@ Migration `0128_support_console_trip_cancellation` : trois fonctions de lecture 
 - `core.booking_staff_trip_cancellation(uuid)` (cmd_hold_owner, EXECUTE iam_staff_owner) : dernière demande du trip, jamais l'agent demandeur.
 - `core.settlement_staff_cancellation_summary(uuid)` (cmd_money_owner, EXECUTE iam_staff_owner) : règlement d'annulation, variation par jambe, ordres REFUND ; montants en texte.
 - **Preuves** : `test/l0/l0-us215-trip-cancellation.test.ts`, bloc « console (215b) » (en attente puis réglée sur T03 / TJ02b en PA, aucune demande et `FIN_REVIEW` en PY, refus FINANCE, autre pays, trip inconnu, sans session, EXECUTE refusé à app_worker).
+
+## Garde de la console et avis de restriction (US-215 partie 215c ; N-116, N-126 ; ADR-156)
+
+Migration `0132_support_console_self_guard_restriction_notices` : corps remplacés à signature, propriétaire et droits identiques ; une fonction ajoutée.
+
+- **N-116** : `core.support_staff_profile`, `core.support_staff_add_note`, `core.support_staff_open_case`, `core.support_staff_set_case_status` et `core.iam_staff_cmd_data_access` appellent `core.support_actor_conflict` (ADR-122) : issue `SELF_FORBIDDEN`, journalisée `STAFF_FORBIDDEN` (`reason` = `SELF`), ADMIN compris, rien d'écrit. Porte C3 : dossier ET sujet jugés, `USER` lu comme `USER_ACCOUNT`, type inconnu = conflit.
+- **N-126** : `core.iam_manual_action_restriction` ne prévient les voyageurs qu'au passage « aucune restriction active → restreint » ; la levée de la dernière restriction émet `booking.trip.host_restriction_lifted` par trip à venir (`core.booking_notify_host_restriction_lifted`, cmd_hold_owner, EXECUTE iam_auth_owner ; politique `cmd_hold_trip_notice_ins` élargie à ce type) ; verrou consultatif de la personne avant celui de la sorte.
+- **Preuves** : `test/l0/l0-us215c-console-guards.test.ts` (PA et PY, app_api : refus et cas légitime de chaque entrée, co-hôte, type inconnu, aucune ligne d'accès ; un seul avis par passage, avis de levée, `hostTrips` servi).
 
 ## Annulations déclenchées par l'ops, réglées dans la transition (US-215 partie 215a ; 16 BKG-028, BKG-032, BKG-035, ADM-006 ; 08 BR-CXL, SM-1 invariant 4 ; ADR-148)
 

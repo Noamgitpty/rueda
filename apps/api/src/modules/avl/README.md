@@ -108,6 +108,15 @@ Dépendances fail-closed en attendant d'autres modules : `core.booking_vehicle_p
 
 `test:int` et `test:l0` demandent PostgreSQL : guide `docs/ops/INSTALL.md` (compose de dev) ou `RUEDA_PG_TESTCONTAINERS=1` (Docker) ; variables dans `packages/db/README.md`, section « Commandes ».
 
+## Parties d'une réservation pour les notifications (US-213, ADR-157)
+
+`postgresNotificationParties` (`internal/notification-parties.ts`, exporté par `index.ts`) réalise le port `NotificationParties` de NTF. Il a la même forme par typage structurel : AVL ne dépend pas de NTF. La racine de composition (`worker-tasks.ts`) l'injecte dans `registerNotifications`.
+
+- **Lecture** : `core.booking_notification_parties(sujet, id)` (0133, `SECURITY DEFINER`, `ntf_dispatcher` seulement).
+- **Faits rendus** : pour un trip ou un hold, le voyageur et le titulaire du compte d'hôte ; pour un hold, en plus, son type, son statut, son motif et la demande autorisée.
+- **Validation** : une réponse mal formée lève `NotificationPartiesError` (la tâche échoue, puis lettre morte avec alerte). `null` désigne un sujet inconnu.
+- **Tests** : `internal/notification-parties.test.ts` (unitaires), `test/int/ntf.int.test.ts`, L0 `l0-us213-notification-parties`.
+
 ## Contrat de location hôte–voyageur (US-211 partie 211a, ADR-143)
 
 Travailleur `booking_contract` (`internal/contract/contract-generator.ts`, déclaré dans `worker-tasks.ts`), consommateur de `booking.trip.booked`, dans la transaction du reçu de l'événement :

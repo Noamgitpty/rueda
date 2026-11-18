@@ -1,5 +1,5 @@
 -- 9944 — fixtures des preuves de la classe de valeur attribuée à la publication (BOARD N-83,
--- migrations 0132 et 0133 ; ADR-159). TESTS SEULEMENT.
+-- migrations 0134 et 0135 ; ADR-159). TESTS SEULEMENT.
 --
 -- JAMAIS appliquée hors tests : seul le harnais ajoute test-migrations/, et seulement à la base
 -- jetable principale `rueda_test_*` (le schéma test_fixture est créé par 9001).

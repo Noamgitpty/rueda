@@ -86,7 +86,7 @@
       "justification": "Graine complémentaire du paramètre booking_request_mode_enabled (08 BR-BOOK-01 : mode REQUEST au choix de l'hôte ; 17 §2.5 « Hold de demande REQUEST » ; 19 US-223 DoR 2 : une annonce sur demande n'est jamais réservée en INSTANT), valeurs PROPOSÉES PA / PY (faux tant que les écrans du mode sur demande ne sont pas livrés), générée par apps/api/src/modules/cfg/internal/seed-sql.ts (renderParamSeedSql) depuis les données CFG ; le test seed-sql.test.ts échoue si le fichier diffère du rendu. 0009 est immuable (ADR-044, ADR-075). US-223, ADR-146."
     },
     {
-      "path": "packages/db/migrations/0132_config_vehicle_value_class_params.sql",
+      "path": "packages/db/migrations/0134_config_vehicle_value_class_params.sql",
       "justification": "Graine complémentaire du paramètre vehicle_default_value_class (08 BR-ACC-05 : classes STANDARD / PREMIUM / LUXE ; BOARD N-83 : classe d'un véhicule que ni la variante du catalogue ni une règle de marque ou de modèle ne classe, attribuée à la publication), valeurs PROPOSÉES PA / PY (STANDARD, comme Turo), générée par apps/api/src/modules/cfg/internal/seed-sql.ts (renderParamSeedSql) depuis les données CFG ; le test seed-sql.test.ts échoue si le fichier diffère du rendu. 0009 est immuable (ADR-044, ADR-075). US-113, ADR-159."
     }
   ]
