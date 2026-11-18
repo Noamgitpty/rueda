@@ -283,9 +283,11 @@ describe.each(COUNTRIES)(
             insurer_contract_id: w.contract,
           });
           expect(BigInt(set!.amount_minor)).toBe(variation);
-          // horodatage = horloge de la base (platform.now() de la transaction)
+          // horodatage = horloge de la base (platform.now() à l'écriture, avant cette lecture)
           const now = await tx.query<{ n: Date }>('SELECT platform.now() AS n');
-          expect(col!.created_at.getTime()).toBe(now.rows[0]!.n.getTime());
+          const nowMs = now.rows[0]!.n.getTime();
+          expect(col!.created_at.getTime()).toBeLessThanOrEqual(nowMs);
+          expect(col!.created_at.getTime()).toBeGreaterThan(nowMs - 120_000);
           expect(e.reduce((s, x) => s + BigInt(x.amount_minor), 0n)).toBe(0n);
 
           // rejeu du report de la capture : aucune seconde écriture
