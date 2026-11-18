@@ -2,7 +2,7 @@
  * US-225 — configuration des rails de la caution lue sur PostgreSQL réel sous le rôle de production
  * `app_api` (`connectAs` exécute l'assertion L0-05 en tête de chaque test), dans chaque pays
  * configuré (USD, PYG sans décimale), transactions ANNULÉES :
- * - graine 0139 (défauts PROPOSÉS) : aucune caution par défaut — un STANDARD n'évalue aucun rail
+ * - graine 0141 (défauts PROPOSÉS) : aucune caution par défaut — un STANDARD n'évalue aucun rail
  *   (T70) ; un LUXE est refusé avant le paiement tant que `deposit_amount` n'est pas fixé
  *   (`PARAM_MISSING`, T72 c) ; capacités inconnues ⇒ aucune pré-autorisation ;
  * - valeurs de test de 08 posées dans la transaction (fixture 9943, capacités par 9800) : T57 ⇒
@@ -104,7 +104,7 @@ function gateFor(
 describe.each(countryCases())('$country ($currency) — rails de la caution sous app_api', (c) => {
   const major = (units: bigint): bigint => units * 10n ** BigInt(EXPONENTS.get(c.currency) ?? -1);
 
-  it('graine 0139 : paramètres PROPOSÉS lus tels que params.json ; aucune caution par défaut', async () => {
+  it('graine 0141 : paramètres PROPOSÉS lus tels que params.json ; aucune caution par défaut', async () => {
     await inApiTx(async (client) => {
       const config = await new PgDepositRailConfigReader(client).read(c.country, PROVIDER);
       expect(config.triggerParams).toEqual({

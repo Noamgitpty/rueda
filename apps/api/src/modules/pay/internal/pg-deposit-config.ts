@@ -1,7 +1,7 @@
 /**
  * Lecture de la configuration des rails de la caution (US-225, ADR-164) sous un rôle de production
  * (`app_api` au checkout, `app_worker` pour les minuteries) : paramètres du pays (17 §7.2 ; graines
- * 0009 et 0139), interrupteur `funds_holding_enabled` (`core.config_go_live`, fail-closed) et
+ * 0009 et 0141), interrupteur `funds_holding_enabled` (`core.config_go_live`, fail-closed) et
  * matrice `psp_capability` du fournisseur (seule une ligne `VALIDATED_*` compte, `CapabilitySet`).
  *
  * Lecture seule, aucune écriture : le rail se choisit par configuration (19 US-225, notes

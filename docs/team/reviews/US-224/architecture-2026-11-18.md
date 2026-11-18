@@ -1,0 +1,19 @@
+# Revue architecture — US-224 « critères 4 et 5 restants : créance de la règle 3 bis, hôte défaillant (224e) » (PR n° 235) — 2026-11-18
+
+Relecteur : revue-architecture / claude-sonnet-5-5 (famille A, modèle autre que l'auteur claude-opus-5-5)
+Entrées : 6ba37530..9fed913f68cdd8c7ae2783f4f00c82575a16ebae
+
+Contexte : tête 9fed913f de `story/US-224-criteres-restants` (CI run 44317670985 vert) ; diff relu en entier ; ADR-145, 147, 150, 153, 163, 08 (règle 3 bis, BR-TRUST-09, BR-CXL-14) et 19 US-224 (critères 4, 5, 6) lus.
+
+| #   | Gravité | Constat                                                                                                                                                                                                                                                                                                                                                                                                    |
+| --- | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | INFO    | Numérotation : `origin/main` = 0138, branche 0139-0140 contiguë ; ADR-163 suit ADR-162 ; `schema.md` (141 migrations, +1 politique, +3 SECURITY DEFINER, contraintes recréées) et GL-40 cohérents ; fixture 9941 libre. Attention : `story/US-225-caution` et `story/US-227-insurer-ledger` visent aussi 0139 ; renumérotation selon l'ordre de fusion (règle de l'orchestrateur).                         |
+| 2   | INFO    | Frontières : le déclencheur reste dans STL (table STL), la commande d'annulation dans AVL (`cmd_hold_owner`) avec liaison console (SUP) ; aucun import entre modules, aucun TypeScript métier ; `iam_restriction` lue par `cmd_hold_owner` selon le droit de 0064. Séparation des rôles et ports intacte ; aucun PSP, aucun interrupteur.                                                                  |
+| 3   | INFO    | Décisions PROPOSÉ tracées : ADR-163 (créance à `OPEN`, une par avance, montant stocké ; hôte d'abord restreint ; motif `HOST_ACCOUNT_CLOSED`), COMME_TURO (2 entrées), POUR_LE_FONDATEUR §3 (sanction de l'hôte défaillant : BR-HP-05, hors argent). Alternatives écartées argumentées. Le déclencheur plutôt que 300 lignes d'`apply_leg_movement` recopiées évite une nouvelle dérive de corps recopiés. |
+| 4   | INFO    | Critère 4 (créance de 75,00, plafond `host_advance_cap_minor` hérité de 224b) et critère 5 couverts ; critère 6 (N-238 : TJ16c / TJ16d, multi-moyens) laissé en suite explicite, US-224 maintenue `IN_PROGRESS`. Reports dans 17 §2.9 / §10 et 16 A.8 annoncés (`docs/specs` non touché : bon).                                                                                                            |
+| 5   | MINEUR  | 0140 : précondition « restreint » = toute restriction active (`UNPAID_BALANCE`...), pas « défaillant » ; le recouvrement de la créance (US-709) pourra poser une telle restriction : décider tôt si l'action doit être limitée à certains genres. Repris dans la revue securite.                                                                                                                           |
+| 6   | MINEUR  | BOARD (N-274, N-236, suites N-238 et bouton O01) non modifié par la PR ; à mettre à jour par l'orchestrateur à la fusion.                                                                                                                                                                                                                                                                                  |
+
+Aucun défaut majeur ni bloquant.
+
+Verdict : APPROUVÉ
