@@ -60,8 +60,8 @@ export interface GuestTripView {
     readonly address: string | null;
     readonly city: string | null;
   };
-  /** Total du devis figé en unités mineures (bigint, jamais un `number`). */
-  readonly totalMinor: bigint;
+  /** Total du devis figé en unités mineures (bigint, jamais un `number`) ; `null` : sans devis. */
+  readonly totalMinor: bigint | null;
   readonly contract: ContractState | null;
 }
 
@@ -107,8 +107,9 @@ function tripOf(t: unknown): GuestTripView | null {
     !isInstant(t['endsAt']) ||
     respondBy === undefined ||
     [reference, make, model, year, hostName, place, address, city].includes(undefined) ||
-    typeof t['totalMinor'] !== 'string' ||
-    !MINOR.test(t['totalMinor']) ||
+    (t['totalMinor'] !== null &&
+      (typeof t['totalMinor'] !== 'string' || !MINOR.test(t['totalMinor']))) ||
+    (kind === 'REQUEST' && t['totalMinor'] === null) ||
     (t['paymentStatus'] !== null && paymentStatus === null) ||
     (t['contract'] !== null && contract === null) ||
     // un trip porte un statut de paiement et un état du contrat ; une demande, ni l'un ni l'autre
@@ -133,7 +134,7 @@ function tripOf(t: unknown): GuestTripView | null {
     vehicle: { make: make ?? null, model: model ?? null, year: year ?? null },
     hostName: hostName ?? null,
     handover: { place: place ?? null, address: address ?? null, city: city ?? null },
-    totalMinor: BigInt(t['totalMinor']),
+    totalMinor: typeof t['totalMinor'] === 'string' ? BigInt(t['totalMinor']) : null,
     contract,
   };
 }

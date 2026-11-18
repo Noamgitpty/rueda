@@ -81,12 +81,17 @@ export default async function GuestTripPage({
       />,
     );
   }
-  const total = i18n.money({
-    amountMinor: trip.totalMinor,
-    currency: trip.currency,
-    exponent: trip.currencyExponent,
-  });
+  const total =
+    trip.totalMinor === null
+      ? null
+      : i18n.money({
+          amountMinor: trip.totalMinor,
+          currency: trip.currency,
+          exponent: trip.currencyExponent,
+        });
   const contract = trip.contract ?? 'NONE';
+  // trip annulé ou terminé sans signature : rien à signer (jamais une invitation trompeuse)
+  const unsigned = contract !== 'SIGNED' && (trip.tab === 'CANCELLED' || trip.tab === 'DONE');
   return shell(
     <>
       <GuestTripCard i18n={i18n} trip={trip} headingLevel={2} link={false} />
@@ -113,12 +118,14 @@ export default async function GuestTripPage({
         <h2 id="s09-payment" className={accountStyles['h2']}>
           {t('web.s09.payment.title')}
         </h2>
-        <div className={styles['between']}>
-          <span>{t('web.s09.payment.total')}</span>
-          <span className={styles['strong']} data-testid="s09-total">
-            {total}
-          </span>
-        </div>
+        {total !== null && (
+          <div className={styles['between']}>
+            <span>{t('web.s09.payment.total')}</span>
+            <span className={styles['strong']} data-testid="s09-total">
+              {total}
+            </span>
+          </div>
+        )}
         {trip.paymentStatus !== null && (
           <div>
             <Badge tone={trip.paymentStatus === 'CONFIRMED' ? 'success' : 'neutral'}>
@@ -145,11 +152,11 @@ export default async function GuestTripPage({
           <li className={styles['card']}>
             <div className={styles['between']}>
               <span className={styles['strong']}>{t('web.s09.documents.contract')}</span>
-              <Badge tone={contract === 'SIGNED' ? 'success' : 'warning'}>
-                {t(CONTRACT_KEYS[contract])}
+              <Badge tone={contract === 'SIGNED' ? 'success' : unsigned ? 'neutral' : 'warning'}>
+                {unsigned ? t('web.s09.documents.contract.UNSIGNED') : t(CONTRACT_KEYS[contract])}
               </Badge>
             </div>
-            {contract !== 'NONE' && (
+            {contract !== 'NONE' && !unsigned && (
               <a
                 className={styles['link']}
                 href={`/trips/${trip.id}/contract`}

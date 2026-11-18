@@ -1,10 +1,10 @@
 /**
  * « Mis viajes » (S08) et détail du trip (S09) du voyageur — US-214, comme un utilisateur réel, à
- * 360 px seulement (ses deux écrans passent aussi par `screens.spec.ts` dans les quatre langues et à
- * 390 px), contre le build de production du site et le double de l'API (`e2e/stub-api.mjs`, appelé
+ * 360 px seulement (ses deux écrans passent aussi par `screens.spec.ts` : quatre langues, axe à 360
+ * et 390 px, captures à 360 px et en tablette), contre le build de production du site et le double de l'API (`e2e/stub-api.mjs`, appelé
  * par le SERVEUR du site). Une seule langue ici (job e2e proche de sa limite) :
  *
- * - après la réservation : le trip à venir dans S08, son détail (S09) : lieu de remise et adresse,
+ * - après la réservation : S06 confirmé mène à S08 ; le trip à venir dans S08, son détail (S09) : lieu de remise et adresse,
  *   hôte en prénom et initiale, total tel que l'API le rend, contrat « à signer » qui mène à
  *   S09 · contrat, constancia et reçu annoncés, modification par le support (BR-MOD-01) ;
  * - après l'annulation : section « annulés », adresse retirée, lien vers le remboursement (S10) ;
@@ -84,7 +84,9 @@ test.describe(`Mis viajes S08 / détail du trip S09 · ${LANGUAGE}`, () => {
     const tripId = await bookTrip(page);
     const main = page.locator(MAIN);
 
-    await page.goto('/trips');
+    // point d'entrée depuis S06 confirmé
+    await page.locator('[data-testid="s06-trips"]').click();
+    await expect(page).toHaveURL(/\/trips$/);
     await expect(page).toHaveTitle(t.t('web.s08.heading'));
     const upcoming = page.locator('[data-testid="s08-upcoming"]');
     await expect(upcoming.locator('h2')).toHaveText(t.t('web.s08.section.UPCOMING'));
@@ -103,8 +105,9 @@ test.describe(`Mis viajes S08 / détail du trip S09 · ${LANGUAGE}`, () => {
     await expect(documents).toContainText(t.t('web.s09.documents.constancia'));
     await expect(documents).toContainText(t.t('web.s09.documents.receipt'));
     await expect(main).toContainText(t.t('web.s09.changes'));
-    // aucune plaque ni nom complet de l'hôte
-    await expect(main).not.toContainText('Gómez');
+    // hôte en prénom et initiale seulement (L2-PM-35) : jamais « María » suivi d'un nom complet
+    await expect(main).toContainText(t.t('web.s08.host', { name: 'María G.' }));
+    await expect(main).not.toContainText(/María (?!G\.)\p{L}{2,}/u);
     await expect(page.locator('[data-testid="s09-refund"]')).toHaveCount(0);
     await expectAccessible(page);
     await expectMobileFriendly(page);

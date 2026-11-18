@@ -2543,6 +2543,10 @@ export const PT_MESSAGES = {
   'web.s09.loadError': 'Não conseguimos carregar esta viagem.',
   'web.s09.changes':
     'Precisa alterar ou cancelar uma viagem? Por enquanto, qualquer alteração passa pelo nosso suporte.',
+  'web.s08.requestAccepted':
+    'O anfitrião aceitou sua solicitação. Estamos confirmando seu pagamento.',
+  'web.s09.documents.contract.UNSIGNED': 'Não assinado',
+  'web.s06.confirmed.trips': 'Ver minhas viagens',
   // US-224 partie 224d (ADR-154) : remboursement lu par le voyageur (S10), l’hôte (A05) et la console
   'common.refund.notFound': 'Não encontramos este reembolso.',
   'common.refund.unavailable':

@@ -22,7 +22,7 @@ export async function generateMetadata(): Promise<Metadata> {
  * l'ordre de l'API : demandes en attente de l'hôte, à venir, en cours, passés, annulés (seules les
  * sections non vides sont montrées, PROPOSÉ comme Turo). Le serveur lit l'API avec la session du
  * voyageur : la liste ne contient que SES trips (jugés en base). Lecture seule ; états : sans
- * session (connexion), vide, erreur, chargement (`loading.tsx`).
+ * session (connexion), vide, erreur (squelettes de chargement : suite, ADR-160).
  */
 export default async function GuestTripsPage() {
   const i18n = await getRequestI18n();

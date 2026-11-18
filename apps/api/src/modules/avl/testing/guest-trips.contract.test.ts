@@ -182,6 +182,24 @@ describe('US-214 — Mis viajes et détail du trip du voyageur', () => {
     },
   );
 
+  it('demande acceptée (capture en vol, heure limite gardée) et trip sans devis source : servis, la liste reste entière', async () => {
+    const w = await world();
+    const trip = randomUUID();
+    const hold = randomUUID();
+    w.store.set(w.app.hash('voyageur'), [
+      { ...requestRow(hold, 'XTS', 2, '4200'), status: 'PAYMENT_IN_FLIGHT' },
+      { ...tripRow(trip, 'XTS', 2, '100'), totalMinor: null },
+    ]);
+    const r = await w.app.api.request('GET', '/trips', { headers: w.app.cookie('voyageur') });
+    expect(r.status).toBe(200);
+    const items = (r.json as { trips: { id: string; status: string; totalMinor: unknown }[] })
+      .trips;
+    expect(items.map((x) => [x.id, x.status, x.totalMinor])).toEqual([
+      [hold, 'PAYMENT_IN_FLIGHT', '4200'],
+      [trip, 'BOOKED', null],
+    ]);
+  });
+
   it('liste vide : 200 sans élément', async () => {
     const w = await world();
     w.store.set(w.app.hash('voyageur'), []);
@@ -234,7 +252,7 @@ describe('US-214 — Mis viajes et détail du trip du voyageur', () => {
       { ...good, totalMinor: '1.5' },
       { ...good, totalMinor: '-100' },
       { ...good, totalMinor: 100 },
-      { ...good, totalMinor: null },
+      { ...req, totalMinor: null },
       { ...good, status: 'CANCELLED_BY_GUEST' }, // onglet incohérent avec l'état
       { ...good, status: 'HELD' },
       { ...good, tab: 'PAST' },

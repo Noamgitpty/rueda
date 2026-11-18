@@ -2597,6 +2597,9 @@ export const FR_MESSAGES = {
   'web.s09.loadError': 'Nous n’avons pas pu charger ce voyage.',
   'web.s09.changes':
     'Besoin de modifier ou d’annuler un voyage ? Pour l’instant, toute modification passe par notre support.',
+  'web.s08.requestAccepted': 'L’hôte a accepté ta demande. Nous confirmons ton paiement.',
+  'web.s09.documents.contract.UNSIGNED': 'Non signé',
+  'web.s06.confirmed.trips': 'Voir mes voyages',
   // US-224 partie 224d (ADR-154) : remboursement lu par le voyageur (S10), l’hôte (A05) et la console
   'common.refund.notFound': 'Nous ne trouvons pas ce remboursement.',
   'common.refund.unavailable':

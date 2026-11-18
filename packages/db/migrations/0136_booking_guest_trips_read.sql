@@ -16,8 +16,11 @@
 --       CHECKIN_OPEN), IN_PROGRESS (START_WINDOW_EXPIRED, IN_PROGRESS, OVERDUE, UNRETURNED), DONE
 --       (RETURNED, TERMINATED_EARLY, VEHICLE_LOST, POST_TRIP, COMPLETED, IN_DISPUTE), CANCELLED
 --       (CANCELLED_BY_*, REFUSED_AT_PICKUP, NO_SHOW_*) : même partition que l'hôte (0101) ;
---     - ses demandes en attente de l'hôte (hold REQUEST en AWAITING_HOST ou PAYMENT_IN_FLIGHT,
---       0126), onglet REQUESTED, avec l'heure limite de réponse écrite par la base ;
+--     - ses demandes envoyées à l'hôte (hold REQUEST, 0126), onglet REQUESTED, avec l'heure limite
+--       de réponse écrite par la base : en attente de l'hôte (AWAITING_HOST) ou acceptée dont la
+--       capture est en vol (PAYMENT_IN_FLIGHT avec heure limite) ; une demande dont l'autorisation
+--       est encore en vol (PAYMENT_IN_FLIGHT SANS heure limite : le voyageur est en train de payer)
+--       n'est pas encore envoyée à l'hôte et n'est pas rendue (sa page de paiement la suit) ;
 --   et, pour chacune : statut, statut du paiement du trip, devise et fuseau, période, auto (marque,
 --   modèle, année ; jamais la plaque), hôte en PRÉNOM et INITIALE (L2-PM-35 ; compte pseudonymisé :
 --   rien), total du devis figé (unités mineures, jamais recalculé), état du contrat (aucune version,
@@ -134,7 +137,8 @@ BEGIN
         JOIN core.catalog_vehicle AS v ON v.id = h.vehicle_id AND v.org_id = h.org_id
        WHERE h.guest_user_id = v_user
          AND h.kind = 'REQUEST'
-         AND h.status IN ('AWAITING_HOST', 'PAYMENT_IN_FLIGHT')
+         AND (h.status = 'AWAITING_HOST'
+              OR (h.status = 'PAYMENT_IN_FLIGHT' AND h.request_respond_by IS NOT NULL))
          AND p_trip_id IS NULL
     ) AS i
     LEFT JOIN core.pricing_quote AS pq ON pq.id = i.quote_id

@@ -2477,6 +2477,9 @@ export const EN_MESSAGES = {
   'web.s09.loadError': 'We couldn’t load this trip.',
   'web.s09.changes':
     'Need to change or cancel a trip? For now, any change goes through our support team.',
+  'web.s08.requestAccepted': 'The host accepted your request. We’re confirming your payment.',
+  'web.s09.documents.contract.UNSIGNED': 'Not signed',
+  'web.s06.confirmed.trips': 'See my trips',
   // US-224 partie 224d (ADR-154) : remboursement lu par le voyageur (S10), l’hôte (A05) et la console
   'common.refund.notFound': 'We can’t find this refund.',
   'common.refund.unavailable':

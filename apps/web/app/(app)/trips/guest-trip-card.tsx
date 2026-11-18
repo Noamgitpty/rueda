@@ -63,11 +63,17 @@ export function GuestTripCard({
       <p className={accountStyles['text']}>
         {t('web.s08.host', { name: trip.hostName ?? t('web.s08.hostHidden') })}
       </p>
-      {trip.respondBy !== null && (
-        <p className={styles['hint']}>
-          {t('web.s08.respondBy', { date: i18n.dateTime(trip.respondBy, trip.timezone) })}
-        </p>
+      {/* demande acceptée, capture en vol : l'hôte a répondu, le paiement se confirme */}
+      {trip.kind === 'REQUEST' && trip.status === 'PAYMENT_IN_FLIGHT' && (
+        <p className={styles['hint']}>{t('web.s08.requestAccepted')}</p>
       )}
+      {trip.kind === 'REQUEST' &&
+        trip.status !== 'PAYMENT_IN_FLIGHT' &&
+        trip.respondBy !== null && (
+          <p className={styles['hint']}>
+            {t('web.s08.respondBy', { date: i18n.dateTime(trip.respondBy, trip.timezone) })}
+          </p>
+        )}
       {link && (
         <a
           className={styles['link']}

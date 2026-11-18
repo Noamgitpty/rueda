@@ -15275,7 +15275,8 @@
             }
           },
           "totalMinor": {
-            "$ref": "#/components/schemas/MinorUnits"
+            "anyOf": [{ "$ref": "#/components/schemas/MinorUnits" }, { "type": "null" }],
+            "description": "total du devis figé ; null : trip sans devis source (la ligne reste servie)"
           },
           "contract": {
             "anyOf": [

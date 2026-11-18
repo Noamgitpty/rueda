@@ -10,8 +10,9 @@
 --   occupations), SANS contrat d'assureur ni caution (la lecture du voyageur n'en lit rien) : la
 --   fixture 9963 en pose un par appel, ce qu'une même transaction ne peut répéter (exclusion
 --   `settlement_insurer_contract_no_overlap`) ;
---   `us214_request` : demande de réservation (hold REQUEST) d'un voyageur EXISTANT, en attente de
---   l'hôte (AWAITING_HOST), telle que la pose (0126) puis la preuve de l'autorisation l'écrivent :
+--   `us214_request` : demande de réservation (hold REQUEST) d'un voyageur EXISTANT au stade voulu :
+--   autorisation en vol (IN_FLIGHT, heure limite NULL), en attente de l'hôte (AWAITING) ou acceptée,
+--   capture en vol (ACCEPTED), telle que la pose (0126) puis la preuve de l'autorisation l'écrivent :
 --   hôte nommé, véhicule, lieu, annonce, devis figé, occupation du hold, passage ACTIVE →
 --   PAYMENT_IN_FLIGHT → AWAITING_HOST avec l'heure limite (seule écriture que la garde des colonnes
 --   admet). Valeurs posées par le test, jamais tirées de cette fixture. Appelée SEULEMENT dans une
@@ -19,7 +20,7 @@
 --
 -- Retour arrière : DROP FUNCTION test_fixture.us214_trip(text, uuid, text, text, text, text,
 --   timestamptz, timestamptz, jsonb), test_fixture.us214_request(text, uuid, text, text, text,
---   timestamptz, timestamptz, bigint, timestamptz).
+--   timestamptz, timestamptz, bigint, timestamptz, text).
 
 CREATE FUNCTION test_fixture.us214_trip(
   p_country     text,
@@ -122,7 +123,8 @@ CREATE FUNCTION test_fixture.us214_request(
   p_start      timestamptz,
   p_end        timestamptz,
   p_total      bigint,
-  p_respond_by timestamptz
+  p_respond_by timestamptz,
+  p_stage      text
 )
   RETURNS TABLE (hold_id uuid, org_id uuid, vehicle_id uuid, holder_id uuid)
   LANGUAGE plpgsql
@@ -178,11 +180,20 @@ BEGIN
           expires_at, quote_id)
   VALUES (v_hold, p_guest, v_vehicle, v_org, p_country, v_hold_occ, 'REQUEST', 'ACTIVE',
           platform.now() + interval '10 minutes', v_quote);
-  -- autorisation en vol, puis preuve : en attente de l'hôte (heure limite écrite une fois)
+  -- autorisation en vol (IN_FLIGHT : heure limite encore NULL, 0126) ; preuve : en attente de
+  -- l'hôte (AWAITING, heure limite écrite une fois) ; acceptation : capture en vol (ACCEPTED)
+  IF p_stage NOT IN ('IN_FLIGHT', 'AWAITING', 'ACCEPTED') THEN
+    RAISE EXCEPTION 'us214_request: stage % inconnu', p_stage;
+  END IF;
   UPDATE core.booking_checkout_hold SET status = 'PAYMENT_IN_FLIGHT' WHERE id = v_hold;
-  UPDATE core.booking_checkout_hold
-     SET status = 'AWAITING_HOST', request_respond_by = p_respond_by, expires_at = p_respond_by
-   WHERE id = v_hold;
+  IF p_stage <> 'IN_FLIGHT' THEN
+    UPDATE core.booking_checkout_hold
+       SET status = 'AWAITING_HOST', request_respond_by = p_respond_by, expires_at = p_respond_by
+     WHERE id = v_hold;
+  END IF;
+  IF p_stage = 'ACCEPTED' THEN
+    UPDATE core.booking_checkout_hold SET status = 'PAYMENT_IN_FLIGHT' WHERE id = v_hold;
+  END IF;
 
   RETURN QUERY SELECT v_hold, v_org, v_vehicle, v_holder;
 END
@@ -193,7 +204,7 @@ REVOKE ALL ON FUNCTION test_fixture.us214_trip(text, uuid, text, text, text, tex
 GRANT EXECUTE ON FUNCTION test_fixture.us214_trip(text, uuid, text, text, text, text, timestamptz,
                                                   timestamptz, jsonb) TO app_api;
 REVOKE ALL ON FUNCTION test_fixture.us214_request(text, uuid, text, text, text, timestamptz,
-                                                  timestamptz, bigint, timestamptz) FROM PUBLIC;
+                                                  timestamptz, bigint, timestamptz, text) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION test_fixture.us214_request(text, uuid, text, text, text, timestamptz,
-                                                     timestamptz, bigint, timestamptz)
+                                                     timestamptz, bigint, timestamptz, text)
   TO app_api;

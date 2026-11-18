@@ -125,37 +125,62 @@ describe.each(COUNTRIES)('US-214 — Mis viajes et détail du trip ($country, $c
           cancelled.trip,
           'CANCELLED_BY_HOST',
         ]);
-        // demande en attente de l'hôte (fixture 9948), heure limite posée par le test
+        // demandes (fixture 9948), heure limite posée par le test : en attente de l'hôte ;
+        // acceptée, capture en vol (PAYMENT_IN_FLIGHT avec heure limite) ; autorisation encore en
+        // vol (PAYMENT_IN_FLIGHT SANS heure limite, 0126 : le voyageur paie, rien n'est envoyé à
+        // l'hôte) : absente de la liste, qui reste servie en entier
         await setVirtualNow(tx, at(4));
         const respondBy = '2035-05-03T09:17:23.000Z';
-        const request = (
-          await tx.query<{ hold_id: string }>(
-            `SELECT * FROM test_fixture.us214_request($1, $2, 'Luis', 'Benítez', 'Ciudad de prueba',
-                                                      $3, $4, $5, $6)`,
-            [
-              c.country,
-              guest,
-              '2035-08-01T15:00:00.000Z',
-              '2035-08-03T15:00:00.000Z',
-              a.request,
-              respondBy,
-            ],
-          )
-        ).rows[0]!.hold_id;
+        const requestAt = async (start: string, end: string, stage: string): Promise<string> =>
+          (
+            await tx.query<{ hold_id: string }>(
+              `SELECT * FROM test_fixture.us214_request($1, $2, 'Luis', 'Benítez',
+                                                        'Ciudad de prueba', $3, $4, $5, $6, $7)`,
+              [c.country, guest, start, end, a.request, respondBy, stage],
+            )
+          ).rows[0]!.hold_id;
+        const request = await requestAt(
+          '2035-08-01T15:00:00.000Z',
+          '2035-08-03T15:00:00.000Z',
+          'AWAITING',
+        );
+        const accepted = await requestAt(
+          '2035-09-01T15:00:00.000Z',
+          '2035-09-03T15:00:00.000Z',
+          'ACCEPTED',
+        );
+        const inFlight = await requestAt(
+          '2035-10-01T15:00:00.000Z',
+          '2035-10-03T15:00:00.000Z',
+          'IN_FLIGHT',
+        );
 
         await setVirtualNow(tx, at(5));
         const g = await openSession(tx, guest);
         const o = await openSession(tx, other);
         const host = await openSession(tx, upcoming.holder);
 
-        // liste : demande d'abord, puis à venir, puis annulés
+        // liste : demandes d'abord (début le plus proche), puis à venir, puis annulés ; la demande
+        // dont l'autorisation est en vol n'y figure pas
         const rows = await read(tx, g.hash);
         expect(rows.map((r) => [r['outcome'], r['kind'], r['item_id'], r['tab']])).toEqual([
           ['DONE', 'REQUEST', request, 'REQUESTED'],
+          ['DONE', 'REQUEST', accepted, 'REQUESTED'],
           ['DONE', 'TRIP', upcoming.trip, 'UPCOMING'],
           ['DONE', 'TRIP', cancelled.trip, 'CANCELLED'],
         ]);
-        const [req, up, cx] = rows as [Row, Row, Row];
+        expect(rows.map((r) => r['item_id'])).not.toContain(inFlight);
+        const [req, acc, up, cx] = rows as [Row, Row, Row, Row];
+        // demande acceptée, capture en vol : même forme, heure limite gardée
+        expect(acc).toMatchObject({
+          status: 'PAYMENT_IN_FLIGHT',
+          public_ref: null,
+          payment_status: null,
+          contract_state: null,
+          place_address: null,
+          total_minor: a.request,
+        });
+        expect((acc['respond_by'] as Date).toISOString()).toBe(respondBy);
         expect(up).toMatchObject({
           public_ref: `K-${upcoming.trip.slice(0, 8).toUpperCase()}`,
           status: 'BOOKED',
@@ -212,7 +237,10 @@ describe.each(COUNTRIES)('US-214 — Mis viajes et détail du trip ($country, $c
         expect((await read(tx, g.hash, 'CANCELLED')).map((r) => r['item_id'])).toEqual([
           cancelled.trip,
         ]);
-        expect((await read(tx, g.hash, 'REQUESTED')).map((r) => r['item_id'])).toEqual([request]);
+        expect((await read(tx, g.hash, 'REQUESTED')).map((r) => r['item_id'])).toEqual([
+          request,
+          accepted,
+        ]);
         expect(await read(tx, g.hash, 'DONE')).toEqual([]);
         expect((await read(tx, g.hash, null, null, 1)).map((r) => r['item_id'])).toEqual([request]);
 

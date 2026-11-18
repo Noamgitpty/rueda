@@ -118,8 +118,12 @@ export interface GuestTrip {
     readonly address: string | null;
     readonly city: string | null;
   };
-  /** Total du devis figé, unités mineures (texte) ; jamais recalculé. */
-  readonly totalMinor: string;
+  /**
+   * Total du devis figé, unités mineures (texte) ; jamais recalculé. `null` : trip sans devis source
+   * (aucun chemin de production n'en crée : conversion gardée seule) ; la ligne reste servie, sans
+   * montant, au lieu de faire tomber toute la liste.
+   */
+  readonly totalMinor: string | null;
   readonly contract: (typeof CONTRACT_STATES)[number] | null;
 }
 
@@ -277,8 +281,8 @@ export function guestTripOf(r: GuestTripRow): GuestTrip | null {
     endsAt === undefined ||
     respondBy === undefined ||
     [reference, make, model, hostName, place, address, city, year].includes(undefined) ||
-    typeof r.totalMinor !== 'string' ||
-    !MINOR.test(r.totalMinor)
+    (r.totalMinor !== null && (typeof r.totalMinor !== 'string' || !MINOR.test(r.totalMinor))) ||
+    (kind === 'REQUEST' && r.totalMinor === null)
   ) {
     return null;
   }
@@ -330,7 +334,7 @@ export function guestTripOf(r: GuestTripRow): GuestTrip | null {
     vehicle: { make: make ?? null, model: model ?? null, year: year ?? null },
     hostName: hostName ?? null,
     handover: { place: place ?? null, address: address ?? null, city: city ?? null },
-    totalMinor: r.totalMinor,
+    totalMinor: r.totalMinor as string | null,
     contract,
   };
 }
