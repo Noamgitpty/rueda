@@ -510,6 +510,16 @@ describe('US-227 — jambe assureur : le registre est le miroir des jambes INSUR
     });
   }
 
+  it.each(CASES)(
+    '$country : aucun bordereau émis et prime due négative (capture hors registre) ⇒ aucun écart',
+    (c) => {
+      const base = insurerFactOf(c);
+      const f = { ...base, collectedEntries: 0n, collectedLegs: 0n, due: base.settledEntries };
+      expect(f.due < 0n).toBe(true);
+      expect(insurerLedgerViolations(f)).toEqual([]);
+    },
+  );
+
   it.each(CASES)('$country : écriture sans contrat d’assureur ⇒ comptée, pas un écart', (c) => {
     const r = evaluateMoneyReconciliation(
       [],

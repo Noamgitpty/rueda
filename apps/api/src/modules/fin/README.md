@@ -21,7 +21,7 @@ FIN ne calcule ni le règlement ni les jambes (STL), et ne déplace pas de fonds
 
 ## Jambe de l'assureur au rapprochement (US-227, ADR-165)
 
-Trois contrôles s'ajoutent au rapprochement nocturne, lus de `core.finance_insurer_ledger_facts()` (0139, travailleur `reconciliation`) : `INSURER_LEDGER_COLLECTION` (écritures d'encaissement du registre = jambes `INSURER` des encaissements portés), `INSURER_LEDGER_SETTLEMENT` (écritures de règlement = variations `INSURER` stockées), `INSURER_BORDEREAU_OVERBILLED` (porté par un bordereau émis ≤ prime due), à l'unité mineure, par pays. Une écriture sans contrat d'assureur est comptée (`examined.insurerUnattributed`), pas un écart.
+Trois contrôles s'ajoutent au rapprochement nocturne, lus de `core.finance_insurer_ledger_facts()` (0141, travailleur `reconciliation`) : `INSURER_LEDGER_COLLECTION` (écritures d'encaissement du registre = jambes `INSURER` des encaissements portés), `INSURER_LEDGER_SETTLEMENT` (écritures de règlement = variations `INSURER` stockées), `INSURER_BORDEREAU_OVERBILLED` (porté par un bordereau émis ≤ prime due), à l'unité mineure, par pays. Une écriture sans contrat d'assureur est comptée (`examined.insurerUnattributed`), pas un écart.
 
 ## Reçu des gains, reçu du trip fee, relevé mensuel (US-217 partie 217a, ADR-161)
 

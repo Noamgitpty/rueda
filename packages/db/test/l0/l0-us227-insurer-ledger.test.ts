@@ -1,5 +1,5 @@
 /**
- * US-227 (migration 0139, ADR-165) — jambe de l'assureur : registre `insurer_ledger` alimenté dans la
+ * US-227 (migration 0141, ADR-165) — jambe de l'assureur : registre `insurer_ledger` alimenté dans la
  * transaction de sa source (encaissement porté, version de règlement), bordereau mensuel rédigé par
  * le travailleur `bordereau` et émis par DEUX personnes FINANCE distinctes, gardes d'émission (ligne
  * gelée, prime changée), refus d'une variation sur une jambe déjà portée par un bordereau émis, RLS

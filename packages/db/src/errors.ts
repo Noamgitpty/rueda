@@ -386,7 +386,11 @@ export const CONSTRAINT_CODES: Readonly<Record<string, readonly [string, DbBusin
   host_ledger_settlement_unknown: [SQLSTATE.integrityConstraintViolation, 'INVARIANT_VIOLATION'],
   host_ledger_version_unsupported: [SQLSTATE.objectNotInPrerequisiteState, 'INVARIANT_VIOLATION'],
   host_ledger_entry_settlement_reason_unique: [SQLSTATE.uniqueViolation, 'INVARIANT_VIOLATION'],
-  // registre de l'assureur et bordereau (0139, US-227, ADR-165)
+  // créance de la règle 3 bis au host_ledger (0139, US-224e, ADR-163) ; unique de 0129 (N-277)
+  host_ledger_advance_unknown: [SQLSTATE.integrityConstraintViolation, 'INVARIANT_VIOLATION'],
+  host_ledger_advance_unique: [SQLSTATE.uniqueViolation, 'INVARIANT_VIOLATION'],
+  host_ledger_entry_version_reason_unique: [SQLSTATE.uniqueViolation, 'INVARIANT_VIOLATION'],
+  // registre de l'assureur et bordereau (0141, US-227, ADR-165)
   insurer_ledger_command_forbidden: [SQLSTATE.insufficientPrivilege, 'FORBIDDEN'],
   insurer_leg_on_bordereau: [SQLSTATE.objectNotInPrerequisiteState, 'INVARIANT_VIOLATION'],
   insurer_bordereau_incoherent: [SQLSTATE.integrityConstraintViolation, 'INVARIANT_VIOLATION'],

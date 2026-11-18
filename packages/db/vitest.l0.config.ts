@@ -48,6 +48,11 @@ const ISOLATED = [
   // US-217a : compte d'hôte et trips préparés et VALIDÉS par le travailleur (capture, règlement,
   // host_ledger), compte PSP ACTIVE du pays partagé (fixture 9800) ; lectures annulées
   'test/l0/l0-us217-host-receipt.test.ts',
+  // US-224e : avance de Kmino décidée par deux personnes (comme US-224b) puis créance au host_ledger ;
+  // hôte défaillant : préparation, restriction et action de la console commitées (comme US-709a),
+  // compte PSP ACTIVE du pays partagé (fixture 9800)
+  'test/l0/l0-us224e-host-receivable.test.ts',
+  'test/l0/l0-us224e-defaulted-host.test.ts',
   // US-227 : trips, contrat d'assureur de test (période passée), bordereaux et décisions FINANCE
   // VALIDÉS (deux rôles), compte PSP ACTIVE du pays partagé (fixture 9800)
   'test/l0/l0-us227-insurer-ledger.test.ts',

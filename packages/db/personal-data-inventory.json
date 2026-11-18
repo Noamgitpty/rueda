@@ -2080,7 +2080,8 @@
         "settlement_version": "C1",
         "reason": "C1",
         "amount_minor": "C1",
-        "created_at": "C1"
+        "created_at": "C1",
+        "advance_id": "C1"
       }
     },
     "core.settlement_insurer_ledger_entry": {

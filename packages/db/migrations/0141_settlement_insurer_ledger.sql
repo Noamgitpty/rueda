@@ -1,4 +1,4 @@
--- 0139 — STL / FIN : jambe de l'assureur — registre `insurer_ledger`, bordereau mensuel à double
+-- 0141 — STL / FIN : jambe de l'assureur — registre `insurer_ledger`, bordereau mensuel à double
 -- validation FINANCE et rapprochement.
 -- US-227 (agent back-end / argent) ; 19 US-227 (critères 1 à 3 ; critère 4 : aucun ordre de
 -- reversement en bêta, suite lot C) ; 16 PRT-003 ; 08 E4 (versions, variation n → n+1), E7 règles
