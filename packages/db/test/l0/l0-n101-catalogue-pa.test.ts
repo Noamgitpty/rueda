@@ -8,10 +8,10 @@
  * - retour arrière de l'import : la fixture 9953 l'a joué sous migrator (retrait par RETIRED,
  *   DELETE refusé, NOT NULL impossibles à rétablir avec des lignes sans fiche) et l'a annulé ;
  * - parcours de l'hôte jusqu'à l'annonce publique sur une variante SANS FICHE (revue qa US-113
- *   n° 3) : véhicule créé (l'hôte saisit boîte, places, carburant), classe de valeur inconnue ⇒
- *   VEHICLE_NOT_COVERED (une donnée inconnue n'est jamais couverte, US-108, N-83) ; classe connue
- *   et véhicule confirmé ⇒ LISTED, fiche publique lisible (marque et modèle du catalogue, boîte,
- *   places et carburant de l'hôte).
+ *   n° 3) : véhicule créé (l'hôte saisit boîte, places, carburant), sans classe de valeur ; à la
+ *   publication, classe du défaut du pays (N-83, ADR-159 : la douane n'en donne pas), couverte ;
+ *   véhicule confirmé ⇒ LISTED, fiche publique lisible (marque et modèle du catalogue, boîte,
+ *   places et carburant de l'hôte). Preuves de la règle de classement : l0-n83-value-class.
  * Transactions ANNULÉES : les interrupteurs ne s'ouvrent que par la procédure à deux personnes
  * d'US-125, dans la transaction du test, et rien ne survit.
  * Valeurs attendues : le fichier de données `vehicle-catalog-dnit.json` (lu ici sans le code de
@@ -327,7 +327,7 @@ const rolledBack = (body: (tx: Tx) => Promise<void>) =>
 
 describe('parcours de l’hôte jusqu’à l’annonce publique sur une variante sans fiche (N-101)', () => {
   it.each(byCountry)(
-    '%s (%s) : Geely Coolray de la douane ⇒ véhicule créé ; classe de valeur inconnue ⇒ VEHICLE_NOT_COVERED ; classe connue, véhicule confirmé ⇒ LISTED, fiche publique ; JMC Vigor (lot 2) ⇒ véhicule créé',
+    '%s (%s) : Geely Coolray de la douane ⇒ véhicule créé ; classe de valeur attribuée à la publication (N-83) ⇒ couvert ; véhicule confirmé ⇒ LISTED, fiche publique ; JMC Vigor (lot 2) ⇒ véhicule créé',
     async (country, _currency, cc) => {
       await rolledBack(async (tx) => {
         await countryRules(tx, country);
@@ -345,14 +345,13 @@ describe('parcours de l’hôte jusqu’à l’annonce publique sur une variante
         expect(v.outcome).toBe('DONE');
         if (!v.id) throw new Error('véhicule absent');
         const id = await listing(tx, h, cc, v.id);
-        // la douane ne donne aucune classe de valeur : jamais couvert, l'annonce reste DRAFT
-        expect(await publish(tx, h, id)).toBe('VEHICLE_NOT_COVERED');
+        // N-83 (ADR-159) : la douane ne donne aucune classe ; la publication attribue celle du
+        // défaut du pays, couverte par le contrat : le contrôle suivant (véhicule à confirmer)
+        // parle, l'annonce reste DRAFT et invisible
+        expect(await publish(tx, h, id)).toBe('VEHICLE_ELIGIBILITY_REQUIRED');
         expect(
           (await tx.query('SELECT * FROM core.catalog_public_listing($1)', [id])).rows,
         ).toEqual([]);
-        // TÉMOIN : classe de valeur connue (ce que l'ops ou l'assureur fixera, N-83)
-        await tx.query('SELECT test_fixture.us108_set_value_class($1, $2)', [v.id, 'STANDARD']);
-        expect(await publish(tx, h, id)).toBe('VEHICLE_ELIGIBILITY_REQUIRED');
         await confirmVehicle(tx, h, v.id);
         expect(await publish(tx, h, id)).toBe('LISTED');
         const pub = await tx.query<{

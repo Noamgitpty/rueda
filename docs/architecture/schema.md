@@ -1633,6 +1633,22 @@ Politiques RLS :
 - `cmd_hold_read` (SELECT, PERMISSIVE, cmd_hold_owner) USING `true`
 - `migrator_all` (ALL, PERMISSIVE, migrator) USING `true` WITH CHECK `true`
 
+### `core.catalog_value_class_rule`
+
+- RLS : ENABLE + FORCE ; propriétaire `migrator`
+- Droits : catalog_cmd_owner: SELECT
+
+| Colonne | Type | NOT NULL | Défaut |
+| ------- | ---- | -------- | ------ |
+| `id` | `uuid` | oui | `gen_random_uuid()` |
+| `country_code` | `text` | non | — |
+| `make_slug` | `text` | oui | — |
+| `model_slug` | `text` | non | — |
+| `value_class` | `text` | oui | — |
+| `status` | `text` | oui | `'ACTIVE'::text` |
+| `source_ref` | `text` | oui | — |
+| `created_at` | `timestamp with time zone` | oui | `platform.now()` |
+
 ### `core.catalog_vehicle`
 
 - RLS : ENABLE + FORCE ; propriétaire `migrator`
@@ -1671,6 +1687,8 @@ Politiques RLS :
 | `released_at` | `timestamp with time zone` | non | — |
 | `ownership_attested_at` | `timestamp with time zone` | non | — |
 | `lien_attested_at` | `timestamp with time zone` | non | — |
+| `value_class_source` | `text` | non | — |
+| `value_class_rule_id` | `uuid` | non | — |
 
 Contraintes :
 
