@@ -15,4 +15,4 @@ Contexte : lecture de ADR-169, de la passation `US-701.md`, de la migration 0146
 | 6   | MINEUR  | `provider` et l'échéancier sont calculés par PAY puis écrits tels quels ; la recomputation côté base serait plus robuste (voir revues argent et sécurité) ; suite naturelle d'US-702, non bloquante.                                                                                                                                                                                                                                        |
 | 7   | MINEUR  | Le contrat `DepositGatePort` est dupliqué dans AVL et PAY (types `DepositGuestView`, `DepositEnforcement` importés de PAY) : acceptable, mais à surveiller si un deuxième consommateur apparaît.                                                                                                                                                                                                                                            |
 
-Verdict : APPROUVÉ au SHA 36ab9f95cc3dbb26ff7c733ec499027a35dac61c
+Verdict : APPROUVÉ
