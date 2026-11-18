@@ -423,9 +423,15 @@ export const CONTRACT_SUITES: Readonly<Record<string, string>> = {
   '/trips': 'modules/ctr/testing/trip-contract.contract.test.ts',
   // remboursements d'un trip lus par sa partie (US-224 partie 224d, module AVL)
   '/trips/{tripId}/refunds': 'modules/avl/testing/trip-refunds.contract.test.ts',
+  // reçu d'un trip et relevé des gains de l'hôte (US-217 partie 217a, module AVL)
+  '/trips/{tripId}/receipt': 'modules/avl/testing/trip-receipt.contract.test.ts',
+  '/host/accounts/{orgId}/earnings/{month}': 'modules/avl/testing/trip-receipt.contract.test.ts',
   // « Mis viajes » et détail du trip du voyageur (US-214, module AVL) : GET /trips et
   // GET /trips/{tripId} seulement (les sous-routes ont leur propre suite)
   '/trips/{tripId}': 'modules/avl/testing/guest-trips.contract.test.ts',
+  // constancia d'arrendamiento d'un trip et recherche de l'hôte par plaque et date (US-212, CTR)
+  '/trips/{tripId}/constancia': 'modules/ctr/testing/trip-constancia.contract.test.ts',
+  '/trips/constancias': 'modules/ctr/testing/trip-constancia.contract.test.ts',
   '/staff': 'testing/contract/staff.contract.test.ts',
   '/console': 'testing/contract/console.contract.test.ts',
   '/webhooks': 'testing/contract/webhooks.contract.test.ts',

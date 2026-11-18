@@ -234,8 +234,22 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  `web.s08.none`, texte de `web.s08.empty` de 10b §4.3 dont la clé est tenue par le prototype),
  `web.s09.*` (S09 : lieu de remise, hôte particulier, total payé,
  documents — contrat ; constancia et reçu annoncés —, modification par le support, BR-MOD-01).
+ Version 77 (la 76 est celle d’US-214 ; 74 et 75 restent sautées) : reçu des gains de l’hôte et reçu du trip fee, partie 217a (US-217, ADR-161) :
+ `common.receipt.*` (réponses de la route `/trips/{id}/receipt` : introuvable, pas encore
+ disponible, indisponible) et `common.earnings.*` (réponses de la route
+ `/host/accounts/{orgId}/earnings/{month}` : introuvable, indisponible). Les écrans A08 et S09
+ (Bêta L3) viendront avec leurs propres clés.
+ Version 78 (la 77 est celle d’US-217a) : constancia
+ d’arrendamiento et centre juridique (US-212, ADR-162) : `ctr.constancia.*` (texte du PDF de la
+ constancia, espagnol qui fait foi puis langue du lecteur, gabarit BROUILLON, GL-39),
+ `common.constancia.*` (réponses des routes `/trips/{id}/constancia` et
+ `/trips/constancias/search`), `web.constancia.*` (écran de la constancia et recherche de
+ l’hôte par plaque et date), `web.contract.documents`, `web.contract.constancia`,
+ `web.contract.constanciaSearch`, `web.contract.legalCenter` (liens depuis S09 · contrat et A03),
+ `web.legalCenter.*` (centre juridique : positionnement d’intermédiaire entre particuliers,
+ documents publiés, documents de chaque voyage, désaccords et médiation, loi applicable).
  */
-export const CATALOG_VERSION = 76;
+export const CATALOG_VERSION = 78;
 
 /** Catalogues de base par langue ; la langue d'un profil de locale choisit le sien. */
 export const CATALOGS: Readonly<Record<CatalogLanguage, VersionedCatalog<MessageKey>>> = {

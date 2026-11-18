@@ -386,7 +386,7 @@ export const CONSTRAINT_CODES: Readonly<Record<string, readonly [string, DbBusin
   host_ledger_settlement_unknown: [SQLSTATE.integrityConstraintViolation, 'INVARIANT_VIOLATION'],
   host_ledger_version_unsupported: [SQLSTATE.objectNotInPrerequisiteState, 'INVARIANT_VIOLATION'],
   host_ledger_entry_settlement_reason_unique: [SQLSTATE.uniqueViolation, 'INVARIANT_VIOLATION'],
-  // créance de la règle 3 bis au host_ledger (0137, US-224e, ADR-163) ; unique de 0129 (N-277)
+  // créance de la règle 3 bis au host_ledger (0139, US-224e, ADR-163) ; unique de 0129 (N-277)
   host_ledger_advance_unknown: [SQLSTATE.integrityConstraintViolation, 'INVARIANT_VIOLATION'],
   host_ledger_advance_unique: [SQLSTATE.uniqueViolation, 'INVARIANT_VIOLATION'],
   host_ledger_entry_version_reason_unique: [SQLSTATE.uniqueViolation, 'INVARIANT_VIOLATION'],

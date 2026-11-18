@@ -43,7 +43,13 @@ function Line({ line }: { readonly line: ContractLineView }) {
   }
 }
 
-function Part({ part, t }: { readonly part: ContractPartView; readonly t: Translator['t'] }) {
+export function Part({
+  part,
+  t,
+}: {
+  readonly part: ContractPartView;
+  readonly t: Translator['t'];
+}) {
   const label = t(part.authoritative ? 'web.contract.authoritative' : 'web.contract.courtesy');
   return (
     <section className={styles['part']} aria-label={label}>

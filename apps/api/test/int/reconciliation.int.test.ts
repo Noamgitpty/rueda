@@ -38,11 +38,14 @@ import {
   MoneyReconciliationContractError,
   parseLegBalanceRow,
   parseSettlementRow,
+  parseTripLegFactRow,
   reconciliationReportJson,
   runMoneyReconciliation,
   SETTLEMENT_LEG_SOURCE,
   SETTLEMENT_SOURCE,
   settlementAggregatesSql,
+  TRIP_LEG_FACTS_SOURCE,
+  tripLegFactsSql,
 } from '../../src/modules/fin/index.js';
 import type {
   MoneyReconciliationCheck,
@@ -255,6 +258,8 @@ describe('US-047 — parcours doré de règlement puis rapprochement, dans chaqu
           expect(report.examined.settlements[c.country]).toBe(after.settlements);
           expect(after.balances - before.balances).toBe(8);
           expect(report.examined.legBalances[c.country]).toBe(after.balances);
+          // US-217a : les deux trips du parcours sont examinés par l'invariant par jambe (relevé)
+          expect(report.examined.trips[c.country] ?? 0).toBeGreaterThanOrEqual(2);
           expect(after.totalPaid - before.totalPaid).toBe(
             a.trip.totalPaidMinor + 2n * b.trip.totalPaidMinor,
           );
@@ -521,6 +526,83 @@ describe('US-047 — un écart injecté est détecté par l’agrégat SQL (Post
             released: captured + 1n,
           });
           expect(r.checks.LEG_BALANCE_OVERDRAWN.byCountry[c.country]).toBe(1n);
+          expect(r.violations).toBe(1n);
+        }),
+      );
+    });
+  }
+});
+
+// --- US-217a (ADR-161) : invariant par jambe, fait injecté ---------------------------------------
+// La base refuse d'écrire une capture dont les jambes ne font pas le montant (0028) : on ajoute donc
+// un fait en écart à la SOURCE de la requête (`core.finance_trip_leg_facts()` UNION ALL une ligne),
+// sur PostgreSQL réel, sous le travailleur reconciliation. Ligne de départ : capture TJ01 / TJ08a
+// réglée (jambe HOST retenue = capture + variation TJ02b / TJ08b, 08 E7 règle 3).
+describe('US-217a — un fait en écart est détecté par la requête de l’invariant par jambe (PostgreSQL réel)', () => {
+  const FACTS: readonly [string, MoneyReconciliationCheck, (f: bigint[]) => bigint[]][] = [
+    // [captured, collected, collected_legs, head_total_paid, expected_host, statement_host]
+    [
+      'Σ capturé ≠ encaissé (une unité mineure)',
+      'TRIP_CAPTURE_LEGS',
+      (f) => [f[0]! + 1n, ...f.slice(1)],
+    ],
+    [
+      'total payé ≠ encaissé',
+      'TRIP_SETTLED_TOTAL',
+      (f) => [...f.slice(0, 3), f[3]! + 1n, ...f.slice(4)],
+    ],
+    [
+      'jambe HOST du relevé ≠ attendue',
+      'STATEMENT_HOST_LEG',
+      (f) => [...f.slice(0, 5), f[5]! - 1n],
+    ],
+  ];
+
+  for (const c of CASES) {
+    const capture = legVector(golden, c.journey.capture);
+    const kept = capture.legsMinor.HOST + legVector(golden, c.journey.variation).legsMinor.HOST;
+    const base = [
+      capture.totalMinor,
+      capture.totalMinor,
+      capture.totalMinor,
+      capture.totalMinor,
+      kept,
+      kept,
+    ];
+    const factsWith = async (tx: pg.ClientBase, row: readonly bigint[]) => {
+      await asWorker(tx, 'reconciliation');
+      const source = `${TRIP_LEG_FACTS_SOURCE}
+        UNION ALL SELECT * FROM (VALUES ($1::text, $2::bigint, $3::bigint, $4::bigint, $5::bigint,
+                                         $6::bigint, $7::bigint))
+          AS v(country_code, captured_minor, collected_minor, collected_legs_minor,
+               head_total_paid_minor, expected_host_minor, statement_host_minor)`;
+      const { rows } = await tx.query<Record<string, unknown>>(tripLegFactsSql(source), [
+        c.country,
+        ...row.map((v) => v.toString()),
+      ]);
+      return evaluateMoneyReconciliation([], [], rows.map(parseTripLegFactRow));
+    };
+
+    it(`${c.country} : fait cohérent ⇒ 0 écart ; la vraie source est lue sous reconciliation seulement`, async () => {
+      await withRole('app_worker', (client) =>
+        withTestTransaction(client, {}, async (tx) => {
+          const r = await factsWith(tx, base);
+          expect(reconciliationReportJson(r).violations).toBe('0');
+          expect(r.examined.trips[c.country] ?? 0).toBeGreaterThanOrEqual(1);
+          await asWorker(tx, 'settlement');
+          await expect(tx.query(tripLegFactsSql())).rejects.toMatchObject({ code: '42501' });
+        }),
+      );
+    });
+
+    it.each(FACTS)(`${c.country} : %s ⇒ %s`, async (_label, check, corrupt) => {
+      await withRole('app_worker', (client) =>
+        withTestTransaction(client, {}, async (tx) => {
+          const r = await factsWith(tx, corrupt(base));
+          expect(
+            r.checks[check].byCountry[c.country],
+            JSON.stringify(reconciliationReportJson(r)),
+          ).toBe(1n);
           expect(r.violations).toBe(1n);
         }),
       );

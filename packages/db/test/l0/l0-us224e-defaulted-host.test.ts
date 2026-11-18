@@ -1,5 +1,5 @@
 /**
- * US-224 (partie 224e, migration 0138, ADR-163) — hôte défaillant (19 US-224 critère 5 : « Given un
+ * US-224 (partie 224e, migration 0140, ADR-163) — hôte défaillant (19 US-224 critère 5 : « Given un
  * hôte défaillant (BR-TRUST-09), When ses trips futurs sont annulés, Then chaque voyageur est
  * remboursé intégralement sans attendre l'hôte » ; BOARD N-236 ; 08 BR-TRUST-09, BR-CXL-14,
  * table de décision n° 13), en USD (PA) et en PYG sans décimale (PY).

@@ -12000,6 +12000,208 @@
         }
       }
     },
+    "/trips/{tripId}/receipt": {
+      "get": {
+        "operationId": "tripReceipt",
+        "tags": ["avl"],
+        "summary": "Reçu d'un trip lu par sa partie (US-217a, ADR-161 ; 19 US-217 critères 1 et 2 ; 16 FIN-018 / PYO-013, FIN-002) : le titulaire du compte d'hôte lit ses gains (jambe HOST de la version en tête du règlement ou de la capture, plan et part figés, frais retenus par Kmino, pénalité du host_ledger en ligne séparée, net) ; le voyageur lit son paiement (total payé, remboursé, trip fee et sa taxe de ligne ; facture électronique émise hors plateforme en bêta) ; montants lus, jamais recalculés",
+        "parameters": [
+          {
+            "name": "tripId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Vue de la partie de la session",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TripReceipt"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthRequired"
+          },
+          "404": {
+            "description": "Trip inconnu, d'une autre personne ou identifiant mal formé : même réponse (17 §2.3 point 5)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "RECEIPT_NOT_FOUND"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Trip sans capture ni règlement : aucun montant à montrer (jamais un reçu deviné)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "RECEIPT_NOT_READY"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Base indisponible ou réponse inattendue : rien n’est servi (fail-closed)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "RECEIPT_UNAVAILABLE"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/host/accounts/{orgId}/earnings/{month}": {
+      "get": {
+        "operationId": "hostEarnings",
+        "tags": ["avl"],
+        "summary": "Relevé des gains d'un mois (YYYY-MM, fuseau du trip) pour un compte d'hôte dont la session est titulaire (US-217a, ADR-161 ; 19 US-217 critères 2 et 3 ; 16 PYO-013) : par devise, Σ jambes HOST (version en tête du règlement, sinon capture), Σ ajustements du host_ledger (pénalité de l'hôte en ligne séparée), net et lignes ; aucun versement promis (payouts_enabled = false en production)",
+        "parameters": [
+          {
+            "name": "orgId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "month",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Relevé du mois, une entrée par devise (aucune : aucun gain ce mois)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HostEarnings"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Mois mal formé (attendu : YYYY-MM)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "REQUEST_INVALID"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthRequired"
+          },
+          "404": {
+            "description": "Compte d'un autre, co-hôte, inconnu ou identifiant mal formé : même réponse (17 §2.3 point 5)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "EARNINGS_NOT_FOUND"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Base indisponible ou réponse inattendue : rien n’est servi (fail-closed)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "EARNINGS_UNAVAILABLE"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/trips/{tripId}/contract/sign": {
       "post": {
         "operationId": "signTripContract",
@@ -12125,6 +12327,310 @@
                   "properties": {
                     "code": {
                       "const": "CONTRACT_UNAVAILABLE"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/trips/{tripId}/constancia": {
+      "get": {
+        "operationId": "tripConstancia",
+        "tags": ["ctr"],
+        "summary": "Constancia d'arrendamiento d'un trip pour sa partie de la session (voyageur ou titulaire du compte d'hôte) : faits figés du dernier contrat, équivalent HTML du PDF (es puis langue du lecteur), empreinte (US-212)",
+        "parameters": [
+          {
+            "name": "tripId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Constancia",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TripConstancia"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthRequired"
+          },
+          "404": {
+            "description": "Trip inconnu, d'une autre personne ou identifiant mal formé : même réponse (17 §2.3 point 5)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "CONSTANCIA_NOT_FOUND"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Trip annulé (aucune location à attester), contrat pas encore généré, ou partie nominative pseudonymisée (rétention)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "enum": [
+                        "CONSTANCIA_NOT_AVAILABLE",
+                        "CONSTANCIA_NOT_GENERATED",
+                        "CONSTANCIA_ERASED"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Faits figés illisibles (rien n’est servi) ou base indisponible",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "enum": ["DOCUMENT_GENERATION_FAILED", "CONSTANCIA_UNAVAILABLE"]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/trips/{tripId}/constancia/pdf": {
+      "get": {
+        "operationId": "tripConstanciaPdf",
+        "tags": ["ctr"],
+        "summary": "PDF de la constancia (ctr.pdf/1), rendu à chaque demande depuis les faits figés, jamais stocké, servi sans cache (US-212)",
+        "parameters": [
+          {
+            "name": "tripId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "PDF déterministe ; son empreinte est dans X-Constancia-Sha256",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              },
+              "Content-Disposition": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "pattern": "^attachment; filename=\"constancia-[A-Za-z0-9-]+-v[1-9][0-9]*-es-(en|fr|pt)\\.pdf\"$"
+                }
+              },
+              "X-Content-Type-Options": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "const": "nosniff"
+                }
+              },
+              "X-Constancia-Sha256": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$"
+                }
+              }
+            },
+            "content": {
+              "application/pdf": {
+                "schema": {
+                  "type": "string",
+                  "contentMediaType": "application/pdf"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthRequired"
+          },
+          "404": {
+            "description": "Trip inconnu, d'une autre personne ou identifiant mal formé : même réponse (17 §2.3 point 5)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "CONSTANCIA_NOT_FOUND"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Trip annulé (aucune location à attester), contrat pas encore généré, ou partie nominative pseudonymisée (rétention)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "enum": [
+                        "CONSTANCIA_NOT_AVAILABLE",
+                        "CONSTANCIA_NOT_GENERATED",
+                        "CONSTANCIA_ERASED"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Faits figés illisibles (rien n’est servi) ou base indisponible",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "enum": ["DOCUMENT_GENERATION_FAILED", "CONSTANCIA_UNAVAILABLE"]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/trips/constancias/search": {
+      "post": {
+        "operationId": "hostConstanciaSearch",
+        "tags": ["ctr"],
+        "summary": "Recherche de l'hôte (EC-48) : trips du compte dont la session est titulaire, par plaque figée au contrat et date locale (jusqu'au lendemain de la fin, BR-TT-03) ; plaque dans le corps (US-212)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConstanciaSearchRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Trips trouvés (zéro à vingt)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConstanciaSearchResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Corps mal formé (clés, plaque de 2 à 12 caractères utiles, date AAAA-MM-JJ)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "REQUEST_INVALID"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthRequired"
+          },
+          "415": {
+            "$ref": "#/components/responses/NotJson"
+          },
+          "503": {
+            "description": "Base indisponible",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "CONSTANCIA_UNAVAILABLE"
                     }
                   }
                 }
@@ -12727,6 +13233,244 @@
           "sealSha256": {
             "type": "string",
             "pattern": "^[0-9a-f]{64}$"
+          }
+        }
+      },
+      "TripConstancia": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "tripId",
+          "viewerRole",
+          "contractVersion",
+          "courtesyLocale",
+          "sha256",
+          "renderer",
+          "templateVersion",
+          "draft",
+          "summary",
+          "parts"
+        ],
+        "properties": {
+          "tripId": {
+            "$ref": "#/components/schemas/Uuid"
+          },
+          "viewerRole": {
+            "enum": ["GUEST", "HOST"]
+          },
+          "contractVersion": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "courtesyLocale": {
+            "enum": ["en", "fr", "pt"]
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "renderer": {
+            "type": "string",
+            "pattern": "^ctr\\.pdf/[0-9]{1,3}$"
+          },
+          "templateVersion": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "draft": {
+            "type": "boolean"
+          },
+          "summary": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "tripRef",
+              "tripStatus",
+              "country",
+              "startLocal",
+              "endLocal",
+              "vehicle",
+              "plate",
+              "hostName",
+              "hostCapacity",
+              "driverName",
+              "handoverPlace",
+              "handoverCity",
+              "currency",
+              "currencyExponent",
+              "priceTotalMinor",
+              "signedAtLocal"
+            ],
+            "properties": {
+              "tripRef": {
+                "type": "string"
+              },
+              "tripStatus": {
+                "type": "string"
+              },
+              "country": {
+                "type": "string",
+                "pattern": "^[A-Z]{2}$"
+              },
+              "startLocal": {
+                "type": "string",
+                "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}$"
+              },
+              "endLocal": {
+                "type": "string",
+                "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}$"
+              },
+              "vehicle": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["make", "model", "year"],
+                "properties": {
+                  "make": {
+                    "type": "string"
+                  },
+                  "model": {
+                    "type": "string"
+                  },
+                  "year": {
+                    "type": "integer"
+                  }
+                }
+              },
+              "plate": {
+                "type": "string"
+              },
+              "hostName": {
+                "type": "string"
+              },
+              "hostCapacity": {
+                "enum": ["OWNER", "AUTHORIZED"]
+              },
+              "driverName": {
+                "type": "string"
+              },
+              "handoverPlace": {
+                "oneOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "handoverCity": {
+                "type": "string"
+              },
+              "currency": {
+                "type": "string",
+                "pattern": "^[A-Z]{3}$"
+              },
+              "currencyExponent": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 4
+              },
+              "priceTotalMinor": {
+                "type": "string",
+                "pattern": "^(0|[1-9][0-9]{0,17})$"
+              },
+              "signedAtLocal": {
+                "oneOf": [
+                  {
+                    "type": "string",
+                    "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}$"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            }
+          },
+          "parts": {
+            "type": "array",
+            "minItems": 2,
+            "maxItems": 2,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["lang", "authoritative", "lines"],
+              "properties": {
+                "lang": {
+                  "enum": ["es", "en", "fr", "pt"]
+                },
+                "authoritative": {
+                  "type": "boolean"
+                },
+                "lines": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["style", "text"],
+                    "properties": {
+                      "style": {
+                        "enum": ["title", "h", "p", "kv", "note", "sig"]
+                      },
+                      "text": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "ConstanciaSearchRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["plate", "date"],
+        "properties": {
+          "plate": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 32
+          },
+          "date": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+          }
+        }
+      },
+      "ConstanciaSearchResult": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["trips"],
+        "properties": {
+          "trips": {
+            "type": "array",
+            "maxItems": 20,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["tripId", "tripRef", "status", "startLocal", "endLocal"],
+              "properties": {
+                "tripId": {
+                  "$ref": "#/components/schemas/Uuid"
+                },
+                "tripRef": {
+                  "type": "string"
+                },
+                "status": {
+                  "type": "string"
+                },
+                "startLocal": {
+                  "type": "string",
+                  "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}$"
+                },
+                "endLocal": {
+                  "type": "string",
+                  "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}$"
+                }
+              }
+            }
           }
         }
       },
@@ -15315,6 +16059,423 @@
           }
         }
       },
+      "SignedMinorUnits": {
+        "type": "string",
+        "pattern": "^(0|-?[1-9][0-9]{0,17})$",
+        "description": "montant signé en unités mineures (texte, bigint exact) : ajustement ou net de l'hôte"
+      },
+      "TripReceipt": {
+        "description": "US-217a (ADR-161) : reçu d'un trip pour la partie de la session ; montants en unités mineures (texte, bigint exact), lus de la base, jamais recalculés.",
+        "oneOf": [
+          {
+            "type": "object",
+            "required": [
+              "tripId",
+              "viewerRole",
+              "tripStatus",
+              "currency",
+              "currencyExponent",
+              "timezone",
+              "receipt"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "tripId": {
+                "$ref": "#/components/schemas/Uuid"
+              },
+              "tripStatus": {
+                "type": "string",
+                "pattern": "^[A-Z][A-Z0-9_]{1,63}$"
+              },
+              "currency": {
+                "type": "string",
+                "pattern": "^[A-Z]{3}$"
+              },
+              "currencyExponent": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 4,
+                "description": "exposant de la devise (config), pour l'affichage seulement"
+              },
+              "timezone": {
+                "type": "string",
+                "pattern": "^[A-Za-z_]+(/[A-Za-z0-9_+-]+){0,2}$",
+                "description": "fuseau IANA du trip (affichage des dates)"
+              },
+              "viewerRole": {
+                "const": "GUEST"
+              },
+              "receipt": {
+                "type": "object",
+                "required": [
+                  "source",
+                  "settlementVersion",
+                  "totalPaidMinor",
+                  "refundMinor",
+                  "tripFee",
+                  "fiscalDocument"
+                ],
+                "additionalProperties": false,
+                "properties": {
+                  "source": {
+                    "type": "string",
+                    "enum": ["CAPTURE", "SETTLEMENT"],
+                    "description": "version en tête du règlement, ou capture tant qu'aucun règlement n'existe"
+                  },
+                  "settlementVersion": {
+                    "type": ["integer", "null"],
+                    "minimum": 1
+                  },
+                  "totalPaidMinor": {
+                    "$ref": "#/components/schemas/MinorUnits"
+                  },
+                  "refundMinor": {
+                    "$ref": "#/components/schemas/MinorUnits"
+                  },
+                  "tripFee": {
+                    "oneOf": [
+                      {
+                        "type": "object",
+                        "required": [
+                          "chargedMinor",
+                          "taxMinor",
+                          "taxRateBps",
+                          "refundedMinor",
+                          "retainedMinor"
+                        ],
+                        "additionalProperties": false,
+                        "properties": {
+                          "chargedMinor": {
+                            "$ref": "#/components/schemas/MinorUnits"
+                          },
+                          "taxMinor": {
+                            "oneOf": [
+                              {
+                                "$ref": "#/components/schemas/MinorUnits"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ],
+                            "description": "taxe de LIGNE du devis figé (08 BR-PRICE-12) ; null sans devis figé lisible (jamais recalculée)"
+                          },
+                          "taxRateBps": {
+                            "type": ["integer", "null"],
+                            "minimum": 0,
+                            "maximum": 10000
+                          },
+                          "refundedMinor": {
+                            "$ref": "#/components/schemas/MinorUnits"
+                          },
+                          "retainedMinor": {
+                            "$ref": "#/components/schemas/MinorUnits"
+                          }
+                        }
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "fiscalDocument": {
+                    "const": "OFF_PLATFORM",
+                    "description": "facture électronique (PAC / SIFEN) émise hors plateforme en bêta (16 FIN-002 MANUEL)"
+                  }
+                }
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "tripId",
+              "viewerRole",
+              "tripStatus",
+              "currency",
+              "currencyExponent",
+              "timezone",
+              "receipt"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "tripId": {
+                "$ref": "#/components/schemas/Uuid"
+              },
+              "tripStatus": {
+                "type": "string",
+                "pattern": "^[A-Z][A-Z0-9_]{1,63}$"
+              },
+              "currency": {
+                "type": "string",
+                "pattern": "^[A-Z]{3}$"
+              },
+              "currencyExponent": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 4,
+                "description": "exposant de la devise (config), pour l'affichage seulement"
+              },
+              "timezone": {
+                "type": "string",
+                "pattern": "^[A-Za-z_]+(/[A-Za-z0-9_+-]+){0,2}$",
+                "description": "fuseau IANA du trip (affichage des dates)"
+              },
+              "viewerRole": {
+                "const": "HOST"
+              },
+              "receipt": {
+                "type": "object",
+                "required": [
+                  "kind",
+                  "source",
+                  "settlementVersion",
+                  "periodMonth",
+                  "eventAt",
+                  "hostPlanCode",
+                  "hostSharePct",
+                  "shareBaseMinor",
+                  "kminoFeeMinor",
+                  "hostLegMinor",
+                  "adjustments",
+                  "adjustmentsMinor",
+                  "netMinor"
+                ],
+                "additionalProperties": false,
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "enum": ["EARNING", "CXL_EARNING"]
+                  },
+                  "source": {
+                    "type": "string",
+                    "enum": ["CAPTURE", "SETTLEMENT"],
+                    "description": "version en tête du règlement, ou capture tant qu'aucun règlement n'existe"
+                  },
+                  "settlementVersion": {
+                    "type": ["integer", "null"],
+                    "minimum": 1
+                  },
+                  "periodMonth": {
+                    "type": "string",
+                    "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])$"
+                  },
+                  "eventAt": {
+                    "type": "string",
+                    "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+                  },
+                  "hostPlanCode": {
+                    "type": ["string", "null"],
+                    "pattern": "^[A-Z][A-Z0-9_ÁÉÍÓÚÑ]{0,31}$",
+                    "description": "plan de gains figé au devis (08 BR-PROT-06 ; défaut ESTÁNDAR) ; null si le trip n'a pas de devis figé lisible"
+                  },
+                  "hostSharePct": {
+                    "type": ["string", "null"],
+                    "pattern": "^[0-9]{1,9}/[1-9][0-9]{0,8}$",
+                    "description": "part de l'hôte figée (hostSharePctFrozen), fraction exacte « n/d »"
+                  },
+                  "shareBaseMinor": {
+                    "oneOf": [
+                      {
+                        "$ref": "#/components/schemas/SignedMinorUnits"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "kminoFeeMinor": {
+                    "oneOf": [
+                      {
+                        "$ref": "#/components/schemas/SignedMinorUnits"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "description": "frais retenus par Kmino = base partageable − jambe HOST (deux montants stockés)"
+                  },
+                  "hostLegMinor": {
+                    "$ref": "#/components/schemas/MinorUnits"
+                  },
+                  "adjustments": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "required": ["reason", "amountMinor", "periodMonth", "at"],
+                      "additionalProperties": false,
+                      "properties": {
+                        "reason": {
+                          "type": "string",
+                          "enum": ["HOST_CANCELLATION_PENALTY"]
+                        },
+                        "amountMinor": {
+                          "$ref": "#/components/schemas/SignedMinorUnits"
+                        },
+                        "periodMonth": {
+                          "type": "string",
+                          "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])$"
+                        },
+                        "at": {
+                          "type": "string",
+                          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+                        }
+                      }
+                    }
+                  },
+                  "adjustmentsMinor": {
+                    "$ref": "#/components/schemas/SignedMinorUnits"
+                  },
+                  "netMinor": {
+                    "$ref": "#/components/schemas/SignedMinorUnits"
+                  }
+                }
+              }
+            }
+          }
+        ]
+      },
+      "HostEarnings": {
+        "description": "US-217a (ADR-161) : relevé des gains d'un mois pour un compte d'hôte titulaire ; montants en unités mineures (texte, bigint exact), lus de la base, jamais recalculés ; la pénalité de l'hôte est une ligne ADJUSTMENT séparée (08 E7 règle 7).",
+        "type": "object",
+        "required": ["orgId", "month", "country", "statements"],
+        "additionalProperties": false,
+        "properties": {
+          "orgId": {
+            "$ref": "#/components/schemas/Uuid"
+          },
+          "month": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])$"
+          },
+          "country": {
+            "type": "string",
+            "pattern": "^[A-Z]{2}$"
+          },
+          "statements": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "currency",
+                "currencyExponent",
+                "tripsCount",
+                "hostLegMinor",
+                "adjustmentsMinor",
+                "netMinor",
+                "lines"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "currency": {
+                  "type": "string",
+                  "pattern": "^[A-Z]{3}$"
+                },
+                "currencyExponent": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 4
+                },
+                "tripsCount": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "hostLegMinor": {
+                  "$ref": "#/components/schemas/MinorUnits"
+                },
+                "adjustmentsMinor": {
+                  "$ref": "#/components/schemas/SignedMinorUnits"
+                },
+                "netMinor": {
+                  "$ref": "#/components/schemas/SignedMinorUnits"
+                },
+                "lines": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "kind",
+                      "tripId",
+                      "tripStatus",
+                      "source",
+                      "settlementVersion",
+                      "reason",
+                      "eventAt",
+                      "amountMinor",
+                      "shareBaseMinor",
+                      "kminoFeeMinor",
+                      "hostPlanCode",
+                      "hostSharePct"
+                    ],
+                    "additionalProperties": false,
+                    "properties": {
+                      "kind": {
+                        "type": "string",
+                        "enum": ["EARNING", "CXL_EARNING", "ADJUSTMENT"]
+                      },
+                      "tripId": {
+                        "$ref": "#/components/schemas/Uuid"
+                      },
+                      "tripStatus": {
+                        "type": "string",
+                        "pattern": "^[A-Z][A-Z0-9_]{1,63}$"
+                      },
+                      "source": {
+                        "type": "string",
+                        "enum": ["CAPTURE", "SETTLEMENT", "HOST_LEDGER"]
+                      },
+                      "settlementVersion": {
+                        "type": ["integer", "null"],
+                        "minimum": 1
+                      },
+                      "reason": {
+                        "type": ["string", "null"],
+                        "enum": ["HOST_CANCELLATION_PENALTY", null]
+                      },
+                      "eventAt": {
+                        "type": "string",
+                        "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+                      },
+                      "amountMinor": {
+                        "$ref": "#/components/schemas/SignedMinorUnits"
+                      },
+                      "shareBaseMinor": {
+                        "oneOf": [
+                          {
+                            "$ref": "#/components/schemas/SignedMinorUnits"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "kminoFeeMinor": {
+                        "oneOf": [
+                          {
+                            "$ref": "#/components/schemas/SignedMinorUnits"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "hostPlanCode": {
+                        "type": ["string", "null"],
+                        "pattern": "^[A-Z][A-Z0-9_ÁÉÍÓÚÑ]{0,31}$",
+                        "description": "plan de gains figé au devis (08 BR-PROT-06 ; défaut ESTÁNDAR) ; null si le trip n'a pas de devis figé lisible"
+                      },
+                      "hostSharePct": {
+                        "type": ["string", "null"],
+                        "pattern": "^[0-9]{1,9}/[1-9][0-9]{0,8}$",
+                        "description": "part de l'hôte figée (hostSharePctFrozen), fraction exacte « n/d »"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
       "TripRefunds": {
         "description": "US-224d (ADR-154) : remboursements d'un trip pour la partie de la session ; montants en unités mineures (texte, bigint exact), lus de la base, jamais recalculés.",
         "oneOf": [
@@ -17552,7 +18713,9 @@
           },
           "ratings": {
             "oneOf": [
-              { "type": "null" },
+              {
+                "type": "null"
+              },
               {
                 "type": "object",
                 "additionalProperties": false,
@@ -17576,9 +18739,19 @@
         "additionalProperties": false,
         "required": ["averageX100", "reviewCount", "tripCount"],
         "properties": {
-          "averageX100": { "type": ["integer", "null"], "minimum": 100, "maximum": 500 },
-          "reviewCount": { "type": "integer", "minimum": 0 },
-          "tripCount": { "type": "integer", "minimum": 0 }
+          "averageX100": {
+            "type": ["integer", "null"],
+            "minimum": 100,
+            "maximum": 500
+          },
+          "reviewCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "tripCount": {
+            "type": "integer",
+            "minimum": 0
+          }
         }
       },
       "CheckoutError": {
@@ -17661,16 +18834,30 @@
           "mileage": {
             "description": "Distance figée dans le devis (US-205b ; 16 LST-012 ; 19 US-205 critère 2) : km par jour × jours facturables, prix du km supplémentaire ; null : devis figé avant US-205b",
             "oneOf": [
-              { "type": "null" },
+              {
+                "type": "null"
+              },
               {
                 "type": "object",
                 "additionalProperties": false,
                 "required": ["mode", "includedKm", "extraKmPriceMinor"],
                 "properties": {
-                  "mode": { "enum": ["UNLIMITED", "INCLUDED"] },
-                  "includedKm": { "type": ["integer", "null"], "minimum": 1 },
+                  "mode": {
+                    "enum": ["UNLIMITED", "INCLUDED"]
+                  },
+                  "includedKm": {
+                    "type": ["integer", "null"],
+                    "minimum": 1
+                  },
                   "extraKmPriceMinor": {
-                    "oneOf": [{ "type": "null" }, { "$ref": "#/components/schemas/MinorUnits" }]
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "$ref": "#/components/schemas/MinorUnits"
+                      }
+                    ]
                   }
                 }
               }
@@ -17679,19 +18866,28 @@
           "cancellation": {
             "description": "Annulation gratuite si la réservation a lieu maintenant (08 BR-CXL-01, calculée par la base pour le départ du devis) ; null : aucune promesse (US-205b)",
             "oneOf": [
-              { "type": "null" },
+              {
+                "type": "null"
+              },
               {
                 "type": "object",
                 "additionalProperties": false,
                 "required": ["lastMinute", "freeUntil", "lastMinuteWindowMinutes", "endsAtStart"],
                 "properties": {
-                  "lastMinute": { "type": "boolean" },
+                  "lastMinute": {
+                    "type": "boolean"
+                  },
                   "freeUntil": {
                     "type": "string",
                     "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
                   },
-                  "lastMinuteWindowMinutes": { "type": "integer", "minimum": 1 },
-                  "endsAtStart": { "type": "boolean" }
+                  "lastMinuteWindowMinutes": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "endsAtStart": {
+                    "type": "boolean"
+                  }
                 }
               }
             ]
@@ -17699,14 +18895,20 @@
           "lateCancellation": {
             "description": "Retenue d'une annulation volontaire hors fenêtre gratuite (08 BR-CXL-06 ; 10b UX-54), calculée par le moteur de règlement sur le devis figé rejoué : jours de location retenus et montant TTC ; null : non calculable (US-205b)",
             "oneOf": [
-              { "type": "null" },
+              {
+                "type": "null"
+              },
               {
                 "type": "object",
                 "additionalProperties": false,
                 "required": ["penaltyDays", "retainedMinor"],
                 "properties": {
-                  "penaltyDays": { "enum": ["1", "1/2"] },
-                  "retainedMinor": { "$ref": "#/components/schemas/MinorUnits" }
+                  "penaltyDays": {
+                    "enum": ["1", "1/2"]
+                  },
+                  "retainedMinor": {
+                    "$ref": "#/components/schemas/MinorUnits"
+                  }
                 }
               }
             ]
@@ -18023,7 +19225,9 @@
         ],
         "additionalProperties": false,
         "properties": {
-          "holdId": { "$ref": "#/components/schemas/Uuid" },
+          "holdId": {
+            "$ref": "#/components/schemas/Uuid"
+          },
           "state": {
             "$ref": "#/components/schemas/CheckoutPaymentState"
           },
@@ -18039,12 +19243,32 @@
               "RELEASED"
             ]
           },
-          "tripId": { "oneOf": [{ "type": "null" }, { "$ref": "#/components/schemas/Uuid" }] },
-          "expiresAt": { "$ref": "#/components/schemas/DateTime" },
-          "paymentInFlightUntil": {
-            "oneOf": [{ "type": "null" }, { "$ref": "#/components/schemas/DateTime" }]
+          "tripId": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/Uuid"
+              }
+            ]
           },
-          "request": { "$ref": "#/components/schemas/CheckoutRequestState" }
+          "expiresAt": {
+            "$ref": "#/components/schemas/DateTime"
+          },
+          "paymentInFlightUntil": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/DateTime"
+              }
+            ]
+          },
+          "request": {
+            "$ref": "#/components/schemas/CheckoutRequestState"
+          }
         }
       },
       "CheckoutPaymentStart": {
@@ -18060,7 +19284,9 @@
         ],
         "additionalProperties": false,
         "properties": {
-          "holdId": { "$ref": "#/components/schemas/Uuid" },
+          "holdId": {
+            "$ref": "#/components/schemas/Uuid"
+          },
           "state": {
             "$ref": "#/components/schemas/CheckoutPaymentState"
           },
@@ -18076,12 +19302,32 @@
               "RELEASED"
             ]
           },
-          "tripId": { "oneOf": [{ "type": "null" }, { "$ref": "#/components/schemas/Uuid" }] },
-          "expiresAt": { "$ref": "#/components/schemas/DateTime" },
-          "paymentInFlightUntil": {
-            "oneOf": [{ "type": "null" }, { "$ref": "#/components/schemas/DateTime" }]
+          "tripId": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/Uuid"
+              }
+            ]
           },
-          "request": { "$ref": "#/components/schemas/CheckoutRequestState" },
+          "expiresAt": {
+            "$ref": "#/components/schemas/DateTime"
+          },
+          "paymentInFlightUntil": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/DateTime"
+              }
+            ]
+          },
+          "request": {
+            "$ref": "#/components/schemas/CheckoutRequestState"
+          },
           "redirectUrl": {
             "type": ["string", "null"],
             "description": "Page hébergée du PSP (https), seulement si un ordre vient d'être créé"
@@ -18142,7 +19388,9 @@
               "cancellation": {
                 "description": "Annulation gratuite pour ce départ si la réservation avait lieu maintenant (08 BR-CXL-01, platform.now()) : départ − free_cancel_lead, ou en dernière minute min(maintenant + last_minute_free_window_minutes, départ) ; null : paramètres du pays absents (US-205, US-205b)",
                 "oneOf": [
-                  { "type": "null" },
+                  {
+                    "type": "null"
+                  },
                   {
                     "type": "object",
                     "required": [
@@ -18153,12 +19401,17 @@
                     ],
                     "additionalProperties": false,
                     "properties": {
-                      "lastMinute": { "type": "boolean" },
+                      "lastMinute": {
+                        "type": "boolean"
+                      },
                       "freeUntil": {
                         "type": "string",
                         "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
                       },
-                      "lastMinuteWindowMinutes": { "type": "integer", "minimum": 1 },
+                      "lastMinuteWindowMinutes": {
+                        "type": "integer",
+                        "minimum": 1
+                      },
                       "endsAtStart": {
                         "type": "boolean",
                         "description": "Dernière minute et départ dans moins que la fenêtre : annulation gratuite jusqu'au départ seulement"
@@ -18173,11 +19426,26 @@
                 "required": ["mode", "includedKmPerDay", "includedKm", "extraKmPriceMinor"],
                 "additionalProperties": false,
                 "properties": {
-                  "mode": { "enum": ["UNLIMITED", "INCLUDED"] },
-                  "includedKmPerDay": { "type": ["integer", "null"], "minimum": 1 },
-                  "includedKm": { "type": ["integer", "null"], "minimum": 1 },
+                  "mode": {
+                    "enum": ["UNLIMITED", "INCLUDED"]
+                  },
+                  "includedKmPerDay": {
+                    "type": ["integer", "null"],
+                    "minimum": 1
+                  },
+                  "includedKm": {
+                    "type": ["integer", "null"],
+                    "minimum": 1
+                  },
                   "extraKmPriceMinor": {
-                    "oneOf": [{ "type": "null" }, { "$ref": "#/components/schemas/MinorUnits" }]
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "$ref": "#/components/schemas/MinorUnits"
+                      }
+                    ]
                   }
                 }
               },
@@ -18194,15 +19462,25 @@
               },
               "price": {
                 "oneOf": [
-                  { "type": "null" },
+                  {
+                    "type": "null"
+                  },
                   {
                     "type": "object",
                     "required": ["totalMinor", "currency", "billableDays"],
                     "additionalProperties": false,
                     "properties": {
-                      "totalMinor": { "$ref": "#/components/schemas/MinorUnits" },
-                      "currency": { "type": "string", "pattern": "^[A-Z]{3}$" },
-                      "billableDays": { "type": "integer", "minimum": 1 }
+                      "totalMinor": {
+                        "$ref": "#/components/schemas/MinorUnits"
+                      },
+                      "currency": {
+                        "type": "string",
+                        "pattern": "^[A-Z]{3}$"
+                      },
+                      "billableDays": {
+                        "type": "integer",
+                        "minimum": 1
+                      }
                     }
                   }
                 ]
@@ -18221,11 +19499,18 @@
             "additionalProperties": false,
             "required": ["currency", "timezone", "cancellation", "deposit", "protection"],
             "properties": {
-              "currency": { "type": "string", "pattern": "^[A-Z]{3}$" },
-              "timezone": { "type": "string" },
+              "currency": {
+                "type": "string",
+                "pattern": "^[A-Z]{3}$"
+              },
+              "timezone": {
+                "type": "string"
+              },
               "cancellation": {
                 "oneOf": [
-                  { "type": "null" },
+                  {
+                    "type": "null"
+                  },
                   {
                     "type": "object",
                     "required": [
@@ -18235,29 +19520,44 @@
                     ],
                     "additionalProperties": false,
                     "properties": {
-                      "freeCancelLeadHours": { "type": "integer", "minimum": 0 },
-                      "lastMinuteThresholdHours": { "type": "integer", "minimum": 0 },
-                      "lastMinuteWindowMinutes": { "type": "integer", "minimum": 1 }
+                      "freeCancelLeadHours": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "lastMinuteThresholdHours": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "lastMinuteWindowMinutes": {
+                        "type": "integer",
+                        "minimum": 1
+                      }
                     }
                   }
                 ]
               },
               "deposit": {
                 "oneOf": [
-                  { "type": "null" },
+                  {
+                    "type": "null"
+                  },
                   {
                     "type": "object",
                     "required": ["amountMinor"],
                     "additionalProperties": false,
                     "properties": {
-                      "amountMinor": { "$ref": "#/components/schemas/MinorUnits" }
+                      "amountMinor": {
+                        "$ref": "#/components/schemas/MinorUnits"
+                      }
                     }
                   }
                 ]
               },
               "protection": {
                 "oneOf": [
-                  { "type": "null" },
+                  {
+                    "type": "null"
+                  },
                   {
                     "type": "object",
                     "required": [
@@ -18272,20 +19572,39 @@
                     ],
                     "additionalProperties": false,
                     "properties": {
-                      "insurerName": { "type": "string" },
-                      "insurerLicenseRef": { "type": ["string", "null"] },
-                      "brokerName": { "type": ["string", "null"] },
-                      "brokerLicenseRef": { "type": ["string", "null"] },
-                      "contractVersion": { "type": "integer", "minimum": 1 },
-                      "rcAmountMinor": { "$ref": "#/components/schemas/MinorUnits" },
+                      "insurerName": {
+                        "type": "string"
+                      },
+                      "insurerLicenseRef": {
+                        "type": ["string", "null"]
+                      },
+                      "brokerName": {
+                        "type": ["string", "null"]
+                      },
+                      "brokerLicenseRef": {
+                        "type": ["string", "null"]
+                      },
+                      "contractVersion": {
+                        "type": "integer",
+                        "minimum": 1
+                      },
+                      "rcAmountMinor": {
+                        "$ref": "#/components/schemas/MinorUnits"
+                      },
                       "deductibles": {
                         "type": "object",
                         "required": ["BASICA", "ESTANDAR", "TOTAL"],
                         "additionalProperties": false,
                         "properties": {
-                          "BASICA": { "$ref": "#/components/schemas/MinorUnits" },
-                          "ESTANDAR": { "$ref": "#/components/schemas/MinorUnits" },
-                          "TOTAL": { "$ref": "#/components/schemas/MinorUnits" }
+                          "BASICA": {
+                            "$ref": "#/components/schemas/MinorUnits"
+                          },
+                          "ESTANDAR": {
+                            "$ref": "#/components/schemas/MinorUnits"
+                          },
+                          "TOTAL": {
+                            "$ref": "#/components/schemas/MinorUnits"
+                          }
                         }
                       },
                       "exclusions": {
@@ -18293,10 +19612,18 @@
                         "required": ["es", "en", "fr", "pt-BR"],
                         "additionalProperties": false,
                         "properties": {
-                          "es": { "type": "string" },
-                          "en": { "type": "string" },
-                          "fr": { "type": "string" },
-                          "pt-BR": { "type": "string" }
+                          "es": {
+                            "type": "string"
+                          },
+                          "en": {
+                            "type": "string"
+                          },
+                          "fr": {
+                            "type": "string"
+                          },
+                          "pt-BR": {
+                            "type": "string"
+                          }
                         }
                       }
                     }
@@ -18497,7 +19824,14 @@
             "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
           },
           "depositAmountMinor": {
-            "oneOf": [{ "type": "null" }, { "$ref": "#/components/schemas/MinorUnits" }],
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/MinorUnits"
+              }
+            ],
             "description": "Caution par carte de la plateforme (deposit_policy du pays et de la classe, 16 SRC-011, 08 T70 c), unités mineures de `currency` ; null : aucune caution annoncée avant le checkout, mention générique (US-203)"
           },
           "totalMinor": {
@@ -18511,15 +19845,27 @@
           },
           "rating": {
             "oneOf": [
-              { "type": "null" },
+              {
+                "type": "null"
+              },
               {
                 "type": "object",
                 "additionalProperties": false,
                 "required": ["averageX100", "reviewCount", "tripCount"],
                 "properties": {
-                  "averageX100": { "type": ["integer", "null"], "minimum": 100, "maximum": 500 },
-                  "reviewCount": { "type": "integer", "minimum": 0 },
-                  "tripCount": { "type": "integer", "minimum": 0 }
+                  "averageX100": {
+                    "type": ["integer", "null"],
+                    "minimum": 100,
+                    "maximum": 500
+                  },
+                  "reviewCount": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "tripCount": {
+                    "type": "integer",
+                    "minimum": 0
+                  }
                 }
               }
             ],

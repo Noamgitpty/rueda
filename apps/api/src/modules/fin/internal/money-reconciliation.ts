@@ -14,14 +14,22 @@
  * | `SETTLEMENT_VARIATIONS_REFUND`   | Σ variations = − remboursement (v1) ou − écart de remboursement depuis la version n (v n+1) | 08 E7 règle 3 ; E4 |
  * | `SETTLEMENT_VERSION_CHAIN`       | v1 sans prédécesseur ; v n+1 remplace la version n du même trip           | 08 E4                       |
  * | `LEG_BALANCE_OVERDRAWN`          | remboursé + réaffecté sortant + libéré ≤ capturé + réaffecté entrant, par jambe | 17 §2.9 « Invariants par jambe » |
+ * | `TRIP_CAPTURE_LEGS`              | trip encaissé : Σ capturé des soldes = Σ des encaissements portés = Σ de leurs jambes | 19 US-217 critère 3 ; 08 E7 règles 1, 8 |
+ * | `TRIP_SETTLED_TOTAL`             | trip encaissé et réglé : total payé de la version en tête = Σ des encaissements portés | 19 US-217 critère 3 ; 17 §3.2.8 |
+ * | `STATEMENT_HOST_LEG`             | jambe HOST du relevé = jambe HOST attendue (en-tête de la version en tête, sinon jambes HOST des encaissements, sinon solde capturé) | 19 US-217 critère 3 ; 08 E7 |
  *
  * La base refuse déjà la plupart de ces écarts (contraintes et trigger différé
  * `settlement_balanced`, 0027) : ce contrôle est le filet indépendant que demande 19 §1.8, au même
  * titre que l'oracle C12 l'est pour la réservation. Il ne lit AUCUNE donnée personnelle et ne rend
  * que des COMPTES, par contrôle et par pays (17 §6.3) ; un écart lève une alerte P1
  * `FIN_MONEY_RECONCILIATION` par pays (port `AlertChannel`, US-004). Le rapprochement par jambe
- * avec l'export du PSP arrive avec US-311, l'invariant du relevé mensuel avec US-217, l'égalité
- * Σ débits = Σ crédits avec le grand livre (lot 5).
+ * avec l'export du PSP arrive avec US-311, l'égalité Σ débits = Σ crédits avec le grand livre
+ * (lot 5). Les trois derniers contrôles (US-217a, ADR-161) lisent les faits par trip de
+ * `core.finance_trip_leg_facts()` (0137, SECURITY DEFINER, travailleur `reconciliation` seulement :
+ * les opérations de paiement et le relevé de l'hôte ne lui sont pas lisibles autrement) ; la
+ * requête n'en garde que des montants et un pays, le rapport que des comptes. Les deux premiers ne
+ * portent que sur un trip dont un encaissement est porté (un solde posé sans opération n'a rien à
+ * comparer).
  *
  * Fail-closed : un contexte autre que le travailleur `reconciliation` (la RLS ne montrerait rien et
  * le contrôle rendrait des zéros trompeurs), un compte illisible ou un montant hors du format
@@ -45,6 +53,9 @@ export const MONEY_RECONCILIATION_CHECKS = [
   'SETTLEMENT_VARIATIONS_REFUND',
   'SETTLEMENT_VERSION_CHAIN',
   'LEG_BALANCE_OVERDRAWN',
+  'TRIP_CAPTURE_LEGS',
+  'TRIP_SETTLED_TOTAL',
+  'STATEMENT_HOST_LEG',
 ] as const;
 export type MoneyReconciliationCheck = (typeof MONEY_RECONCILIATION_CHECKS)[number];
 
@@ -86,6 +97,23 @@ export interface LegBalanceAggregate {
   readonly released: bigint;
 }
 
+/** Faits de l'invariant par jambe d'un trip tenu (`core.finance_trip_leg_facts()`, 0137). */
+export interface TripLegFact {
+  readonly country: string;
+  /** Σ capturé des soldes du trip (toutes jambes). */
+  readonly captured: bigint;
+  /** Σ des encaissements portés (CAPTURE, MIT_CHARGE, DEBT_COLLECTION) ; null si aucun. */
+  readonly collected: bigint | null;
+  /** Σ des jambes de ces encaissements ; null si aucun. */
+  readonly collectedLegs: bigint | null;
+  /** Total payé de la version en tête du règlement ; null sans règlement. */
+  readonly headTotalPaid: bigint | null;
+  /** Jambe HOST attendue, lue d'une autre source que le relevé. */
+  readonly expectedHost: bigint | null;
+  /** Jambe HOST du relevé de l'hôte (`core.finance_earning_lines`). */
+  readonly statementHost: bigint | null;
+}
+
 export interface CheckCount {
   readonly total: bigint;
   /** Violations par pays (seuls les pays en écart). */
@@ -99,6 +127,7 @@ export interface MoneyReconciliationReport {
   readonly examined: {
     readonly settlements: Readonly<Record<string, number>>;
     readonly legBalances: Readonly<Record<string, number>>;
+    readonly trips: Readonly<Record<string, number>>;
   };
 }
 
@@ -126,6 +155,11 @@ export const SETTLEMENT_LEG_SOURCE = `SELECT settlement_id, leg, kept_minor, adv
 export const LEG_BALANCE_SOURCE = `SELECT country_code, captured_minor, refunded_minor,
          reallocated_in_minor, reallocated_out_minor, released_minor
     FROM core.settlement_trip_leg_balance`;
+
+/** Faits par trip (US-217a, 0137) : montants et pays seulement, jamais l'identifiant du trip. */
+export const TRIP_LEG_FACTS_SOURCE = `SELECT country_code, captured_minor, collected_minor, collected_legs_minor,
+         head_total_paid_minor, expected_host_minor, statement_host_minor
+    FROM core.finance_trip_leg_facts()`;
 
 /**
  * Une ligne par version de règlement : en-tête, version remplacée et agrégats des jambes. Montants
@@ -183,9 +217,24 @@ SELECT b.country_code AS country,
   FROM b`;
 }
 
+/** Une ligne par trip tenu (faits de l'invariant par jambe, US-217a). */
+export function tripLegFactsSql(facts: string = TRIP_LEG_FACTS_SOURCE): string {
+  return `
+WITH f AS (${facts})
+SELECT f.country_code AS country,
+       f.captured_minor::text AS captured,
+       f.collected_minor::text AS collected,
+       f.collected_legs_minor::text AS collected_legs,
+       f.head_total_paid_minor::text AS head_total_paid,
+       f.expected_host_minor::text AS expected_host,
+       f.statement_host_minor::text AS statement_host
+  FROM f`;
+}
+
 /** Requêtes de la tâche de production (sources réelles seulement). */
 export const SETTLEMENT_AGGREGATES_SQL = settlementAggregatesSql();
 export const LEG_BALANCE_AGGREGATES_SQL = legBalanceAggregatesSql();
+export const TRIP_LEG_FACTS_SQL = tripLegFactsSql();
 
 const MINOR = /^-?[0-9]{1,19}$/;
 const COUNTRY = /^[A-Z]{2}$/;
@@ -259,6 +308,38 @@ export function parseLegBalanceRow(row: Record<string, unknown>): LegBalanceAggr
   };
 }
 
+/** Lit une ligne de `TRIP_LEG_FACTS_SQL` ; fail-closed. */
+export function parseTripLegFactRow(row: Record<string, unknown>): TripLegFact {
+  return {
+    country: country(row.country),
+    captured: minor(row.captured, 'captured'),
+    collected: minorOrNull(row.collected, 'collected'),
+    collectedLegs: minorOrNull(row.collected_legs, 'collected_legs'),
+    headTotalPaid: minorOrNull(row.head_total_paid, 'head_total_paid'),
+    expectedHost: minorOrNull(row.expected_host, 'expected_host'),
+    statementHost: minorOrNull(row.statement_host, 'statement_host'),
+  };
+}
+
+/**
+ * Contrôles en écart d'un trip (fonction pure, US-217a) : Σ jambes de chaque trip = montant
+ * encaissé, à l'unité mineure près ; jambe HOST du relevé = jambe HOST attendue. Une jambe HOST
+ * absente d'un côté est un écart (jamais « égal » par défaut).
+ */
+export function tripLegViolations(f: TripLegFact): MoneyReconciliationCheck[] {
+  const out: MoneyReconciliationCheck[] = [];
+  if (f.collected !== null && (f.captured !== f.collected || f.collectedLegs !== f.collected)) {
+    out.push('TRIP_CAPTURE_LEGS');
+  }
+  if (f.collected !== null && f.headTotalPaid !== null && f.headTotalPaid !== f.collected) {
+    out.push('TRIP_SETTLED_TOTAL');
+  }
+  if (f.statementHost === null || f.expectedHost === null || f.statementHost !== f.expectedHost) {
+    out.push('STATEMENT_HOST_LEG');
+  }
+  return out;
+}
+
 /** Contrôles en écart d'une version de règlement (fonction pure). */
 export function settlementViolations(s: SettlementAggregate): MoneyReconciliationCheck[] {
   const out: MoneyReconciliationCheck[] = [];
@@ -305,6 +386,7 @@ export function legBalanceOverdrawn(b: LegBalanceAggregate): boolean {
 export function evaluateMoneyReconciliation(
   settlements: readonly SettlementAggregate[],
   legBalances: readonly LegBalanceAggregate[],
+  tripFacts: readonly TripLegFact[] = [],
 ): MoneyReconciliationReport {
   const totals = new Map<MoneyReconciliationCheck, Map<string, bigint>>(
     MONEY_RECONCILIATION_CHECKS.map((c) => [c, new Map()]),
@@ -316,6 +398,7 @@ export function evaluateMoneyReconciliation(
   };
   const examinedSettlements: Record<string, number> = {};
   const examinedBalances: Record<string, number> = {};
+  const examinedTrips: Record<string, number> = {};
   for (const s of settlements) {
     examinedSettlements[s.country] = (examinedSettlements[s.country] ?? 0) + 1;
     for (const check of settlementViolations(s)) hit(check, s.country);
@@ -323,6 +406,10 @@ export function evaluateMoneyReconciliation(
   for (const b of legBalances) {
     examinedBalances[b.country] = (examinedBalances[b.country] ?? 0) + 1;
     if (legBalanceOverdrawn(b)) hit('LEG_BALANCE_OVERDRAWN', b.country);
+  }
+  for (const f of tripFacts) {
+    examinedTrips[f.country] = (examinedTrips[f.country] ?? 0) + 1;
+    for (const check of tripLegViolations(f)) hit(check, f.country);
   }
   let violations = 0n;
   const checks = Object.fromEntries(
@@ -338,7 +425,11 @@ export function evaluateMoneyReconciliation(
   return {
     checks,
     violations,
-    examined: { settlements: examinedSettlements, legBalances: examinedBalances },
+    examined: {
+      settlements: examinedSettlements,
+      legBalances: examinedBalances,
+      trips: examinedTrips,
+    },
   };
 }
 
@@ -358,9 +449,11 @@ export async function runMoneyReconciliation(tx: SqlClient): Promise<MoneyReconc
   }
   const settlements = await tx.query<Record<string, unknown>>(SETTLEMENT_AGGREGATES_SQL);
   const balances = await tx.query<Record<string, unknown>>(LEG_BALANCE_AGGREGATES_SQL);
+  const trips = await tx.query<Record<string, unknown>>(TRIP_LEG_FACTS_SQL);
   return evaluateMoneyReconciliation(
     settlements.rows.map(parseSettlementRow),
     balances.rows.map(parseLegBalanceRow),
+    trips.rows.map(parseTripLegFactRow),
   );
 }
 

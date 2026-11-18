@@ -1,4 +1,4 @@
--- 9941 — Fixtures de TEST d'US-224e (migrations 0137 et 0138, ADR-163) : créance de la règle 3 bis
+-- 9941 — Fixtures de TEST d'US-224e (migrations 0139 et 0140, ADR-163) : créance de la règle 3 bis
 -- au host_ledger et hôte défaillant. Jamais en production (test-migrations/ seulement).
 -- SECURITY DEFINER sous migrator (politique migrator_all) ; l'appelant reste sous un rôle de
 -- production (L0-05).

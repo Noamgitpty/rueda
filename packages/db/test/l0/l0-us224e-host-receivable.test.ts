@@ -1,5 +1,5 @@
 /**
- * US-224 (partie 224e, migration 0137, ADR-163) — créance de l'hôte de la règle 3 bis portée au
+ * US-224 (partie 224e, migration 0139, ADR-163) — créance de l'hôte de la règle 3 bis portée au
  * `host_ledger` (19 US-224 critère 4 : « une créance de 75,00 est inscrite au `host_ledger` » ;
  * 08 E7 règle 3 bis, E5, TJ18a à TJ18d ; BOARD N-274). Même chaîne qu'US-224b
  * (`l0-us224b-advance-decision`) : la jambe HOST retenue par la version 1 est déjà versée ; la

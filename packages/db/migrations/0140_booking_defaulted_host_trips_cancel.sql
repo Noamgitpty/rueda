@@ -1,4 +1,4 @@
--- 0138 — AVL / SUP : hôte défaillant, annulation de ses trips à venir par l'ops, voyageurs remboursés
+-- 0140 — AVL / SUP : hôte défaillant, annulation de ses trips à venir par l'ops, voyageurs remboursés
 -- intégralement par le règlement, sans attendre l'hôte.
 -- US-224 (partie 224e, argent / back-end) ; 19 US-224 critère 5 (« Given un hôte défaillant
 -- (BR-TRUST-09), When ses trips futurs sont annulés, Then chaque voyageur est remboursé intégralement
