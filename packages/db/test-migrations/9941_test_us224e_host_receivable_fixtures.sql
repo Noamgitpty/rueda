@@ -9,11 +9,14 @@
 --     de l'appelant (gardes de la commande : travailleur, avance, idempotence) ;
 --   - us224e_org_holder : titulaire d'un compte d'hôte posé par la fixture 9300 (sujet de la
 --     restriction RESTRICT_ACCOUNT) ;
---   - us224e_cancellations : demandes d'annulation d'un compte d'hôte (lecture de contrôle).
+--   - us224e_cancellations : demandes d'annulation d'un compte d'hôte (lecture de contrôle) ;
+--   - us224e_restrict : restriction active (TS_HOLD) posée sur le titulaire d'un compte d'hôte de la
+--     fixture 9300 (qui n'a pas de pays déclaré, donc hors de portée de RESTRICT_ACCOUNT : l'action
+--     elle-même est prouvée par l0-us109-review-queues-360).
 --
 -- Retour arrière : DROP FUNCTION test_fixture.us224e_ledger_entries(uuid),
 --   test_fixture.us224e_call_post_receivable(uuid), test_fixture.us224e_org_holder(uuid),
---   test_fixture.us224e_cancellations(uuid);
+--   test_fixture.us224e_cancellations(uuid), test_fixture.us224e_restrict(uuid);
 
 CREATE FUNCTION test_fixture.us224e_ledger_entries(p_trip_id uuid)
   RETURNS TABLE (id uuid, org_id uuid, country_code text, currency text, trip_id uuid,
@@ -65,13 +68,24 @@ AS $fn$
    ORDER BY t.scheduled_start, t.id, c.created_at
 $fn$;
 
+CREATE FUNCTION test_fixture.us224e_restrict(p_user_id uuid)
+  RETURNS void
+  LANGUAGE sql
+  SECURITY DEFINER
+  SET search_path = pg_catalog, pg_temp
+AS $fn$
+  INSERT INTO core.iam_restriction (id, user_id, kind, active, reason)
+  VALUES (pg_catalog.gen_random_uuid(), p_user_id, 'TS_HOLD', true, 'Hôte défaillant (test US-224e)')
+$fn$;
+
 REVOKE ALL ON FUNCTION
   test_fixture.us224e_ledger_entries(uuid), test_fixture.us224e_call_post_receivable(uuid),
-  test_fixture.us224e_org_holder(uuid), test_fixture.us224e_cancellations(uuid)
+  test_fixture.us224e_org_holder(uuid), test_fixture.us224e_cancellations(uuid),
+  test_fixture.us224e_restrict(uuid)
   FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION
   test_fixture.us224e_ledger_entries(uuid), test_fixture.us224e_org_holder(uuid),
-  test_fixture.us224e_cancellations(uuid)
+  test_fixture.us224e_cancellations(uuid), test_fixture.us224e_restrict(uuid)
   TO app_api, app_worker;
 
 -- La commande de production n'a AUCUN EXECUTE (appelée par son déclencheur seulement) et migrator

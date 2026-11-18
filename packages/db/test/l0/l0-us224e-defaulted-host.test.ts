@@ -5,10 +5,11 @@
  * table de décision n° 13), en USD (PA) et en PYG sans décimale (PY).
  *
  * Parcours : un compte d'hôte a deux trips à venir encaissés (jambes TJ01 / TJ08a) ; l'ops ne peut
- * pas annuler ses trips tant qu'il n'est pas suspendu (HOST_NOT_RESTRICTED, rien d'écrit) ; elle le
- * restreint (RESTRICT_ACCOUNT, vraie action), puis `CANCEL_HOST_TRIPS` écrit UNE demande PENDING
- * par trip à venir de ce compte (motif dérivé HOST_ACCOUNT_CLOSED, initiateur PLATFORM), aucune pour
- * le trip d'un autre hôte ; rejeu ⇒ DUPLICATE ; nouvelle demande ⇒ NO_TRIP_TO_CANCEL. Chaque demande
+ * pas annuler ses trips tant qu'il n'est pas suspendu (HOST_NOT_RESTRICTED, rien d'écrit) ; il est
+ * restreint (restriction active posée par la fixture 9941), puis `CANCEL_HOST_TRIPS` écrit UNE
+ * demande PENDING par trip à venir de ce compte (motif dérivé HOST_ACCOUNT_CLOSED, initiateur
+ * PLATFORM), aucune pour le trip d'un autre hôte ; rejeu ⇒ DUPLICATE ; nouvelle demande ⇒
+ * NO_TRIP_TO_CANCEL. Chaque demande
  * est réglée par le travailleur comme toute annulation (0124) : remboursement intégral = total payé,
  * variation négative de TOUTES les jambes (TJ06), aucune pénalité ni gain de l'hôte, instance de
  * remboursement PLANNED sans avance de Kmino (la jambe HOST n'a jamais été versée : rien n'attend
@@ -231,10 +232,9 @@ describe.each(CASES)('critère 5 d’US-224 — hôte défaillant — $c.country
         });
         expect(await cancellationsOf(api, org)).toEqual([]);
 
-        // suspendu (ADR-124 : plus aucune nouvelle réservation), puis ses trips à venir annulés
-        expect((await act(api, k, 'RESTRICT_ACCOUNT', holder, { kind: 'TS_HOLD' })).outcome).toBe(
-          'DONE',
-        );
+        // suspendu (ADR-124 : plus aucune nouvelle réservation ; restriction posée par la fixture 9941,
+        // l'action RESTRICT_ACCOUNT est prouvée par l0-us109), puis ses trips à venir annulés
+        await api.query('SELECT test_fixture.us224e_restrict($1)', [holder]);
         const request = uuid();
         expect((await act(api, k, 'CANCEL_HOST_TRIPS', org, {}, request)).outcome).toBe('DONE');
         const pending = await cancellationsOf(api, org);
