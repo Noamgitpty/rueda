@@ -111,7 +111,7 @@ export interface CheckoutQuote {
   /** `insurer_contract_active` du pays : `false` ⇒ `INSURER_CONTRACT_INACTIVE` (16 PRT-001). */
   readonly insurerContractActive: boolean;
   /**
-   * Hôte de l'annonce en prénom et initiale (US-212 critère 3, N-346 ; 0146) ; `null` : titulaire
+   * Hôte de l'annonce en prénom et initiale (US-212 critère 3, N-346 ; 0147) ; `null` : titulaire
    * pseudonymisé ou sans prénom, l'écran ne nomme personne.
    */
   readonly hostName: string | null;
@@ -356,7 +356,7 @@ export class PgCheckoutStore implements CheckoutStore {
     // US-205b : documents canoniques et distance figée (core.pricing_checkout_terms, 0118) ;
     // annulation gratuite pour le départ du devis si la réservation a lieu maintenant
     // (core.catalog_public_terms) ; même requête
-    // US-212b (N-346, 0146) : hôte en prénom et initiale (core.booking_checkout_host_name), même
+    // US-212b (N-346, 0147) : hôte en prénom et initiale (core.booking_checkout_host_name), même
     // garde du voyageur de la session
     const { rows } = await this.db.query(
       `SELECT q.*, p.protection_level, p.driver_age, p.frozen_at, p.insurer_contract_active,

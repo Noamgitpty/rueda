@@ -8,11 +8,16 @@
 import { assertMovingLegs, PaymentError } from '../../pay/index.js';
 import type {
   CreateHostedPaymentRequest,
+  DepositEnforcement,
+  DepositGuestView,
   HostedPayment,
   OperationLookup,
   ProviderOperation,
 } from '../../pay/index.js';
-import type { HostedPaymentProvider } from '../internal/checkout/payment.service.js';
+import type {
+  DepositGatePort,
+  HostedPaymentProvider,
+} from '../internal/checkout/payment.service.js';
 import type {
   CheckoutPaymentRow,
   CheckoutPaymentStore,
@@ -123,3 +128,31 @@ export class RecordingHostedPayments implements HostedPaymentProvider {
 }
 
 export { PaymentError };
+
+/**
+ * Porte de la caution imposée (US-701) — TESTS SEULEMENT. Par défaut, AUCUNE vue (champ `deposit`
+ * absent, forme de 223b inchangée) et décision « aucune caution » : les contrats d'US-223 ne
+ * portent pas sur la caution. Les règles (déclencheurs, montant, rail, écriture unique) sont
+ * prouvées par PAY (`deposit-checkout.test.ts`) et en base (`l0-us701-deposit-hold`).
+ */
+export class FakeDepositGate implements DepositGatePort {
+  /** Vue rendue à la lecture ; `null` : champ `deposit` absent. */
+  shown: DepositGuestView | null = null;
+  enforcement: DepositEnforcement = { kind: 'ACCEPTED', view: { status: 'NONE' } };
+  down = false;
+  /** Appels de `view` (évaluation demandée ou non) et de `enforce`. */
+  views: boolean[] = [];
+  enforced: string[] = [];
+
+  view(_proof: Buffer, _holdId: string, evaluate: boolean): Promise<DepositGuestView | null> {
+    this.views.push(evaluate);
+    if (this.down) return Promise.reject(new Error('base indisponible'));
+    return Promise.resolve(this.shown);
+  }
+
+  enforce(_proof: Buffer, holdId: string): Promise<DepositEnforcement> {
+    this.enforced.push(holdId);
+    if (this.down) return Promise.reject(new Error('base indisponible'));
+    return Promise.resolve(this.enforcement);
+  }
+}

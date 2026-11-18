@@ -1063,9 +1063,18 @@ Migration `0144_booking_meeting_place`. Fixture `9939_test_us514_meeting_place_f
 - **Droits** : `SELECT (country_code, scheduled_end)` de `booking_trip` à catalog_cmd_owner ; politiques ajoutées `catalog_cmd_meeting_read`, `cmd_hold_meeting_read` sur `config_param_value` (clé `review_window_days`).
 - **Preuves** : `test/l0/l0-us514-meeting-place.test.ts` (PA USD, PY PYG : one-way, adresse après réservation seulement, borne de la fenêtre dans chaque état, paramètre absent, lieu non modifiable par aucun rôle, droits).
 
+## Caution figée au checkout (US-701 ; 08 BR-PAY-06 ; ADR-169)
+
+Migration `0146_payment_deposit_hold`, fixture `9945_test_us701_deposit_hold_fixtures.sql` (`test_fixture.us701_converted_deposit` : caution autorisée d'un hold converti, transaction annulée, EXECUTE `app_worker`).
+
+- **Table** `core.payment_deposit_hold` : une décision par hold (`hold_id` unique ; trip par `converted_trip_id`) ; `NOT_REQUIRED` ⇔ aucun déclencheur ⇔ montant 0, sans état ni échéance ; `REFUSED` jamais écrit ; `triggers` et `params_snapshot` [C2] ; garde de la décision et des transitions (`deposit_hold_guarded`), aucune suppression ; décision jamais après la libération ni après l'expiration (sauf ré-autorisation planifiée avant elle) ; RLS ENABLE + FORCE, **aucun droit** d'`app_api`, `app_worker`, `app_anon`.
+- **Fonctions** (cmd_hold_owner, RLS-15) : `payment_deposit_checkout(jeton, hold)` et `payment_cmd_record_deposit_decision(jeton, hold, décision)` (EXECUTE `app_api`, voyageur de la session, hold d'un autre ⇒ `HOLD_NOT_FOUND`) ; `payment_deposit_reauth_due(lot)` et `payment_cmd_deposit_transition(…)` (EXECUTE `app_worker`, nom `payment_command`). Revérifications de l'écriture : `deposit_decision_mismatch` (montant ≠ `deposit_amount[pays][classe]`, `NOT_REQUIRED` sur un pays ou une classe déclencheurs, classe inconnue), `deposit_rail_closed` (`CHARGE_THEN_REFUND` tant que `funds_holding_enabled` = faux).
+- **Droits ajoutés** à cmd_hold_owner : politiques de lecture `cmd_hold_deposit_read` de `config_param_value` (`deposit_always_required`, `deposit_trigger_classes`, `deposit_amount`, `funds_holding_enabled`) et de `config_param_definition` (`funds_holding_enabled`) ; `SELECT (conversion_operation_id)` de `booking_checkout_hold`.
+- **Preuves** : `test/l0/l0-us701-deposit-hold.test.ts` (PA USD, PY PYG ; `app_api`, `app_worker`).
+
 ## Hôte figé de la constancia et hôte du checkout S05 (US-212 partie 212b ; BOARD N-345, N-346 ; ADR-162)
 
-Migration `0146_ctr_constancia_frozen_host_checkout_host`. Fixture `9938_test_us212b_host_rename_fixtures` (nom légal d'un compte changé après la réservation, transaction annulée).
+Migration `0147_ctr_constancia_frozen_host_checkout_host`. Fixture `9938_test_us212b_host_rename_fixtures` (nom légal d'un compte changé après la réservation, transaction annulée).
 
 - **Hôte figé** : `core.booking_trip_constancia(bytea, uuid)` (0138) remplacée à signature identique : le nom de l'hôte vient de `identity.hostName` de la dernière version du contrat (0122), réduit à prénom et initiale par une règle du seul fait figé (premier mot, initiale du mot suivant ; nom figé vide ⇒ `ERASED`) ; le compte n'est plus lu que pour sa pseudonymisation.
 - **Hôte du checkout** : `core.booking_checkout_host_name(bytea, uuid)` (cmd_hold_owner, EXECUTE app_api, lecture seule) : premier mot du prénom légal et initiale du nom de l'hôte de l'annonce du devis du voyageur de la session ; devis d'un autre ou inconnu ⇒ aucune ligne ; titulaire pseudonymisé ⇒ `NULL`.

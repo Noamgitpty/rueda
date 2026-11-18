@@ -265,7 +265,12 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  pénalité en ligne séparée ; `web.a08.empty`, `web.a08.payoutsOff` de 10b §4.3 et
  `web.a08.title` du prototype US-033 devenues officielles),
  `web.host.earningsLink`.
- Version 85 (la 84 est celle d’US-217b) : fin d’US-212 (partie 212b, ADR-162 n° 6 et n° 10) :
+ Version 85 (la 84 est celle d’US-217b) : caution figée au checkout (US-701, ADR-169) :
+ `web.deposit.none` (S05 : aucune caution pour ce trip, 08 BR-PAY-06) et
+ `common.payment.depositUnavailable` (réponse 409 `DEPOSIT_RAIL_UNAVAILABLE` /
+ `DEPOSIT_PARAM_MISSING` de `POST /checkout/holds/{id}/payment`, avec une sortie : autres dates,
+ autre voiture).
+ Version 86 (la 85 est celle d’US-701) : fin d’US-212 (partie 212b, ADR-162 n° 6 et n° 10) :
  `web.s05.intermediary` et `web.s05.intermediaryNoHost` (mention d’intermédiaire entre
  particuliers et hôte en prénom et initiale au checkout S05, 19 US-212 critère 3) ; « constancia de
  alquiler » et « empresa de alquiler » au lieu d’« arrendamiento » / « arrendadora » en espagnol
@@ -273,7 +278,7 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  du centre juridique (`web.legalCenter.trip.body`, `web.legalCenter.disputes.body1` à `body3`, es
  et fr). Textes juridiques toujours BROUILLON (GL-39).
  */
-export const CATALOG_VERSION = 85;
+export const CATALOG_VERSION = 86;
 
 /** Catalogues de base par langue ; la langue d'un profil de locale choisit le sien. */
 export const CATALOGS: Readonly<Record<CatalogLanguage, VersionedCatalog<MessageKey>>> = {

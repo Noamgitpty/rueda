@@ -17,7 +17,7 @@
  * contrat posé par 9946 avec les faits du test, signature par 9963, sessions ouvertes par la vraie
  * commande) ; aucun interrupteur n'est touché.
  *
- * Partie 212b (migration 0146 ; BOARD N-345, N-346) : le nom de l'hôte de la constancia est celui
+ * Partie 212b (migration 0147 ; BOARD N-345, N-346) : le nom de l'hôte de la constancia est celui
  * FIGÉ au contrat (un nom légal changé après la réservation par la fixture 9938 ne la change pas),
  * réduit à prénom et initiale par une règle du seul fait figé ; `core.booking_checkout_host_name`
  * rend au voyageur du devis, et à lui seul, l'hôte en prénom et initiale pour S05 (19 US-212

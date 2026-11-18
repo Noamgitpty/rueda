@@ -110,6 +110,8 @@ export const EN_MESSAGES = {
       "We can't place the deposit on your card for these dates. You can book up to {count} days.",
   },
   'web.deposit.unavailableNone': "For now, we can't place the deposit on your card for this car.",
+  // US-701 (ADR-169) : S05, aucune caution pour ce trip (08 BR-PAY-06 : l'absence est affichée)
+  'web.deposit.none': "This trip doesn't require a security deposit.",
   'web.catalog.title': 'Component library',
   'web.catalog.intro':
     'Every component in each of its states. Pick the language, theme and width to review them.',
@@ -2102,6 +2104,9 @@ export const EN_MESSAGES = {
   // du paiement rendus par l'API (common.payment.*) ; aucune durée écrite (heures lues dans l'API)
   'common.payment.unavailable':
     'Online payment isn’t available right now. You haven’t been charged.',
+  // US-701 (ADR-169) : refus du paiement, caution impossible pour ces dates ou montant non fixé
+  'common.payment.depositUnavailable':
+    "We can't place the deposit on your card for these dates. You haven't been charged: change the dates or choose another car.",
   // US-223c (ADR-146) : demandes de réservation de l'hôte (mode REQUEST, 17 §2.5 ; 16 HDB-002)
   'common.request.notFound': 'We couldn’t find this request.',
   'common.request.expired': 'This request has expired. The guest wasn’t charged.',

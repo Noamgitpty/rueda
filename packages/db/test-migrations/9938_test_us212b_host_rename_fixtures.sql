@@ -1,5 +1,5 @@
 -- 9938 — fixture des preuves de l'hôte figé de la constancia et de l'hôte du checkout S05 (US-212,
--- partie 212b, migration 0146 ; BOARD N-345, N-346). TESTS SEULEMENT.
+-- partie 212b, migration 0147 ; BOARD N-345, N-346). TESTS SEULEMENT.
 --
 -- JAMAIS appliquée hors tests : seul le harnais ajoute test-migrations/, et seulement à la base
 -- jetable principale `rueda_test_*` (le schéma test_fixture est créé par 9001).

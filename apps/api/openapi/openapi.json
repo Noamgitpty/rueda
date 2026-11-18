@@ -7241,7 +7241,7 @@
         "operationId": "checkoutHoldPayment",
         "tags": ["avl"],
         "summary": "État du paiement du hold du checkout (US-223b ; 16 PAY-034 ; écran S06, 10b UX-27)",
-        "description": "Route de réservation : SessionGuard puis TermsGuard. État dérivé de l'état du hold et du trip né de la conversion : CONFIRMED seulement si le hold est CONVERTED et qu'un trip existe (preuve par webhook signé, ADR-139). Le statut de l'opération chez le PSP n'est jamais rendu. Aucun montant ni référence du PSP.",
+        "description": "Route de réservation : SessionGuard puis TermsGuard. État dérivé de l'état du hold et du trip né de la conversion : CONFIRMED seulement si le hold est CONVERTED et qu'un trip existe (preuve par webhook signé, ADR-139). Le statut de l'opération chez le PSP n'est jamais rendu. Aucun montant ni référence du PSP. US-701 : payment.deposit porte la vue de la caution (décision figée, ou évaluée sans écriture tant qu'un paiement est possible ; montant de la caution seulement) ; absent sinon.",
         "parameters": [
           {
             "name": "holdId",
@@ -7317,7 +7317,7 @@
         "operationId": "checkoutPayHold",
         "tags": ["avl"],
         "summary": "Paiement du hold du checkout (US-223b ; 17 §2.5 étapes 3a à 3c ; 16 PAY-006, PAY-019 ; 08 E7 règle 1) : intention de paiement (T1), ordre chez le PSP avec le montant explicite de chaque jambe, enregistrement de l'ordre (T2)",
-        "description": "Route de réservation : SessionGuard puis TermsGuard. Le corps ne porte que le moyen de paiement (défaut CARD) : aucun montant ni jambe n'est reçu, tout champ inconnu est refusé. Montant et jambes viennent du devis engagé au checkout, rejoués par la base. Idempotent par la base : un seul ordre vivant par hold ; pendant un ordre actif, aucun nouvel ordre (200 avec l'état). 201 : ordre créé, redirectUrl = page hébergée du PSP. Aucun connecteur servi (production jusqu'au lot C) : 503 PAYMENT_UNAVAILABLE sans toucher au hold.",
+        "description": "Route de réservation : SessionGuard puis TermsGuard. Le corps ne porte que le moyen de paiement (défaut CARD) : aucun montant ni jambe n'est reçu, tout champ inconnu est refusé. Montant et jambes viennent du devis engagé au checkout, rejoués par la base. Idempotent par la base : un seul ordre vivant par hold ; pendant un ordre actif, aucun nouvel ordre (200 avec l'état). 201 : ordre créé, redirectUrl = page hébergée du PSP. Aucun connecteur servi (production jusqu'au lot C) : 503 PAYMENT_UNAVAILABLE sans toucher au hold. US-701 : la caution est décidée avant T1 (08 BR-PAY-06) ; refus 409 DEPOSIT_RAIL_UNAVAILABLE ou DEPOSIT_PARAM_MISSING sans écriture ; sinon la décision est figée une fois (deposit_hold) et la vue du voyageur est rendue dans payment.deposit.",
         "parameters": [
           {
             "name": "holdId",
@@ -7439,7 +7439,7 @@
             }
           },
           "409": {
-            "description": "Hold échu ou déjà payé, réservation en revue avant tout débit (BOOKING_UNDER_REVIEW), début du trip dépassé, tentatives épuisées (PAY-017), capacité bloquante du PSP non validée (HOST_PAYOUT_RAIL_UNAVAILABLE, inconnue = non)",
+            "description": "Hold échu ou déjà payé, réservation en revue avant tout débit (BOOKING_UNDER_REVIEW), début du trip dépassé, tentatives épuisées (PAY-017), capacité bloquante du PSP non validée (HOST_PAYOUT_RAIL_UNAVAILABLE, inconnue = non) ; caution exigée sans rail possible pour ces dates (DEPOSIT_RAIL_UNAVAILABLE) ou sans montant fixé (DEPOSIT_PARAM_MISSING), avant tout ordre et sans écriture (US-701)",
             "headers": {
               "Cache-Control": {
                 "$ref": "#/components/headers/NoStore"
@@ -7457,7 +7457,9 @@
                         "BOOKING_UNDER_REVIEW",
                         "START_PASSED",
                         "PAYMENT_ATTEMPTS_EXCEEDED",
-                        "HOST_PAYOUT_RAIL_UNAVAILABLE"
+                        "HOST_PAYOUT_RAIL_UNAVAILABLE",
+                        "DEPOSIT_RAIL_UNAVAILABLE",
+                        "DEPOSIT_PARAM_MISSING"
                       ]
                     }
                   }
@@ -19292,8 +19294,65 @@
           },
           "request": {
             "$ref": "#/components/schemas/CheckoutRequestState"
+          },
+          "deposit": {
+            "$ref": "#/components/schemas/CheckoutDeposit"
           }
         }
+      },
+      "CheckoutDeposit": {
+        "description": "Caution vue par le voyageur (US-701, ADR-169 ; 08 BR-PAY-06) : NONE (aucune caution), REQUIRED (montant en unités mineures, devise, HOLD = blocage sur la carte ou CHARGE = débit puis remboursement, libération au plus tard) ou UNAVAILABLE (réservation impossible avant le paiement ; maxBookableDays = jours entiers possibles, null ou 0 : aucun). Jamais les déclencheurs, l'âge, le signal de risque ni l'instantané des paramètres [C2].",
+        "oneOf": [
+          {
+            "type": "object",
+            "required": ["status"],
+            "additionalProperties": false,
+            "properties": {
+              "status": {
+                "const": "NONE"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": ["status", "amountMinor", "currency", "kind", "releaseAt"],
+            "additionalProperties": false,
+            "properties": {
+              "status": {
+                "const": "REQUIRED"
+              },
+              "amountMinor": {
+                "type": "string",
+                "pattern": "^[1-9][0-9]{0,17}$"
+              },
+              "currency": {
+                "type": "string",
+                "pattern": "^[A-Z]{3}$"
+              },
+              "kind": {
+                "type": "string",
+                "enum": ["HOLD", "CHARGE"]
+              },
+              "releaseAt": {
+                "$ref": "#/components/schemas/DateTime"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": ["status", "maxBookableDays"],
+            "additionalProperties": false,
+            "properties": {
+              "status": {
+                "const": "UNAVAILABLE"
+              },
+              "maxBookableDays": {
+                "type": ["integer", "null"],
+                "minimum": 0
+              }
+            }
+          }
+        ]
       },
       "CheckoutPaymentStart": {
         "type": "object",
@@ -19351,6 +19410,9 @@
           },
           "request": {
             "$ref": "#/components/schemas/CheckoutRequestState"
+          },
+          "deposit": {
+            "$ref": "#/components/schemas/CheckoutDeposit"
           },
           "redirectUrl": {
             "type": ["string", "null"],

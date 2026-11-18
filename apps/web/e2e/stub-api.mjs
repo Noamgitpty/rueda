@@ -723,6 +723,33 @@ const PAYMENT_REFUSALS = {
 // (`reviewed_at`, prolongation unique : échéance APPROVED_EXPIRES_AT, fenêtre de paiement),
 // REJECTED (RELEASED / REVIEW_REJECTED) ou LAPSE (revue non faite dans le délai : même état).
 const REVIEW_DAY = '-12-19T';
+// ---- Caution de la plateforme (US-701, ADR-169) -----------------------------------------------
+// Le 12 décembre : caution exigée mais impossible pour ces dates (T59) : vue `UNAVAILABLE` avec
+// 3 jours possibles, paiement refusé (409 DEPOSIT_RAIL_UNAVAILABLE) avant tout ordre. Le 13 :
+// caution exigée, blocage de 300,00 (T57, valeur de test) libéré au plus tard à fin + 72 h. Les
+// autres jours : aucun champ `deposit` (forme d'US-223 inchangée).
+const DEPOSIT_UNAVAILABLE_DAY = '-12-12T';
+const DEPOSIT_REQUIRED_DAY = '-12-13T';
+const DEPOSIT_RELEASE_DELAY_MS = 72 * 3_600_000;
+const depositJson = (h) => {
+  if (h.kind === 'REQUEST') return {};
+  if (h.quote.startAt.includes(DEPOSIT_UNAVAILABLE_DAY)) {
+    return { deposit: { status: 'UNAVAILABLE', maxBookableDays: 3 } };
+  }
+  if (h.quote.startAt.includes(DEPOSIT_REQUIRED_DAY)) {
+    const releaseAt = new Date(Date.parse(h.quote.endAt) + DEPOSIT_RELEASE_DELAY_MS).toISOString();
+    return {
+      deposit: {
+        status: 'REQUIRED',
+        amountMinor: '30000',
+        currency: MARKET.currency,
+        kind: 'HOLD',
+        releaseAt,
+      },
+    };
+  }
+  return {};
+};
 const REVIEW_EXPIRES_AT = '2036-11-30T17:00:00.000Z';
 const APPROVED_EXPIRES_AT = '2036-11-30T15:40:00.000Z';
 const PAYMENT_IN_FLIGHT_UNTIL = '2036-11-30T15:16:00.000Z';
@@ -776,6 +803,7 @@ const paymentJson = (h, redirectUrl) => ({
   ...(h.kind === 'REQUEST'
     ? { request: { status: requestStatusOf(h), respondBy: h.respondBy ?? null } }
     : {}),
+  ...depositJson(h),
 });
 
 async function paymentRoute(req, res, url) {
@@ -886,6 +914,10 @@ async function paymentRoute(req, res, url) {
   // revue avant le débit pas encore décidée : aucune intention de paiement (UXQ-08)
   if (h.review === 'PENDING') {
     return err(res, 409, 'BOOKING_UNDER_REVIEW', 'common.payment.underReview');
+  }
+  // US-701 : caution décidée avant le paiement ; impossible ⇒ aucun ordre
+  if (h.quote.startAt.includes(DEPOSIT_UNAVAILABLE_DAY)) {
+    return err(res, 409, 'DEPOSIT_RAIL_UNAVAILABLE', 'common.payment.depositUnavailable');
   }
   const refusal = Object.entries(PAYMENT_REFUSALS).find(([day]) => h.quote.startAt.includes(day));
   if (refusal !== undefined) return err(res, refusal[1][0], refusal[1][1], refusal[1][2]);
