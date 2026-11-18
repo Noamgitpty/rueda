@@ -199,11 +199,30 @@ export interface CheckoutResult {
   readonly expiresAt: string | null;
 }
 
+/** Issues de `core.booking_checkout_return_place` (0144, US-514). */
+export const RETURN_PLACE_OUTCOMES = [
+  'DONE',
+  'AUTH_REQUIRED',
+  'QUOTE_NOT_FOUND',
+  'ONE_WAY_NOT_ALLOWED',
+] as const;
+export type ReturnPlaceOutcome = (typeof RETURN_PLACE_OUTCOMES)[number];
+const RETURN_PLACE = new Set<string>(RETURN_PLACE_OUTCOMES);
+
 export interface CheckoutStore {
   /** Annonce LISTED et instant serveur ; `null` : inconnue ou non publiée. */
   listing(listingId: string): Promise<CheckoutListing | null>;
   /** Devis figé du voyageur ; `null` : inconnu ou d'un autre voyageur. */
   quote(proof: Buffer, quoteId: string): Promise<CheckoutQuoteRow | null>;
+  /**
+   * Lieu de retour demandé pour le devis du voyageur (US-514) : `DONE` s'il est le lieu de prise,
+   * `ONE_WAY_NOT_ALLOWED` sinon ; lecture seule.
+   */
+  returnPlace(
+    proof: Buffer,
+    quoteId: string,
+    returnLocationId: string,
+  ): Promise<ReturnPlaceOutcome>;
   /** Contrôles, consentements et pose du hold, en une transaction (base). */
   checkout(proof: Buffer, quoteId: string, demand: CheckoutDemand): Promise<CheckoutResult>;
   /** Hold de checkout du voyageur ; `null` : inconnu ou d'un autre voyageur. */
@@ -220,6 +239,7 @@ export class UnavailableCheckoutStore implements CheckoutStore {
     Promise.reject(new CheckoutStoreError('magasin du checkout indisponible'));
   listing = (): Promise<CheckoutListing | null> => this.#fail();
   quote = (): Promise<CheckoutQuoteRow | null> => this.#fail();
+  returnPlace = (): Promise<ReturnPlaceOutcome> => this.#fail();
   checkout = (): Promise<CheckoutResult> => this.#fail();
   hold = (): Promise<CheckoutHold | null> => this.#fail();
 }
@@ -392,6 +412,25 @@ export class PgCheckoutStore implements CheckoutStore {
       mileage: mileageOf(r),
       cancellation: cancellationOf(r, iso(r['start_at'])),
     };
+  }
+
+  async returnPlace(
+    proof: Buffer,
+    quoteId: string,
+    returnLocationId: string,
+  ): Promise<ReturnPlaceOutcome> {
+    const { rows } = await this.db.query(
+      'SELECT outcome FROM core.booking_checkout_return_place($1, $2::uuid, $3::uuid)',
+      [proof, quoteId, returnLocationId],
+    );
+    const outcome = rows[0] === undefined ? '' : String(rows[0]['outcome']);
+    // issue inconnue (version N de la base pendant un déploiement) : indisponible, fail-closed
+    if (!RETURN_PLACE.has(outcome)) {
+      throw new CheckoutStoreError(
+        `issue inattendue de booking_checkout_return_place : ${outcome}`,
+      );
+    }
+    return outcome as ReturnPlaceOutcome;
   }
 
   async checkout(proof: Buffer, quoteId: string, d: CheckoutDemand): Promise<CheckoutResult> {

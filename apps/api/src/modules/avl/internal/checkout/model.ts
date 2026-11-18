@@ -89,14 +89,19 @@ export interface CheckoutDemand {
   readonly manualTransmissionConfirmed: boolean;
   /** Versions affichées et acceptées (16 BKG-008) ; absentes : aucune (TERMS_NOT_ACCEPTED). */
   readonly acceptedDocuments: readonly AcceptedDocument[];
+  /**
+   * Lieu de retour demandé (US-514, 16 BKG-016) ; absent : retour au lieu de prise. La base juge
+   * qu'il est le lieu de prise (sinon `ONE_WAY_NOT_ALLOWED`, one-way interdit au lancement).
+   */
+  readonly returnLocationId?: string;
 }
 
 const name = (value: unknown): string | null =>
   typeof value === 'string' && value.length <= NAME_MAX ? value : null;
 
 /**
- * Demande de checkout : forme seulement (la base juge le nom, la case et les versions) ; corps
- * mal formé ⇒ `null`.
+ * Demande de checkout : forme seulement (la base juge le nom, la case, les versions et le lieu de
+ * retour) ; corps mal formé ⇒ `null`.
  */
 export function parseCheckoutDemand(body: unknown): CheckoutDemand | null {
   if (!isRecord(body) || !isRecord(body['driver'])) return null;
@@ -105,6 +110,10 @@ export function parseCheckoutDemand(body: unknown): CheckoutDemand | null {
   if (first === null || last === null) return null;
   const manual = body['manualTransmissionConfirmed'];
   if (manual !== undefined && typeof manual !== 'boolean') return null;
+  const returnLocation = body['returnLocationId'];
+  if (returnLocation !== undefined && returnLocation !== null && !isUuid(returnLocation)) {
+    return null;
+  }
   const raw = body['acceptedDocuments'] ?? [];
   if (!Array.isArray(raw) || raw.length > DOCUMENTS_MAX) return null;
   const documents: AcceptedDocument[] = [];
@@ -121,5 +130,6 @@ export function parseCheckoutDemand(body: unknown): CheckoutDemand | null {
     driverLastName: last,
     manualTransmissionConfirmed: manual === true,
     acceptedDocuments: documents,
+    ...(isUuid(returnLocation) ? { returnLocationId: returnLocation.toLowerCase() } : {}),
   };
 }

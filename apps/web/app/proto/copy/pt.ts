@@ -326,9 +326,6 @@ export const PT_PROTO = {
   'web.a08.status.scheduled': 'Agendado',
   'web.a08.status.sent': 'Transferido',
   'web.a08.status.onHold': 'Retido: {reason}',
-  'web.a08.empty': 'Você ainda não tem ganhos',
-  'web.a08.payoutsOff':
-    'Seus ganhos ficam registrados. Os pagamentos a anfitriões em {country} ainda não foram abertos; avisaremos você.',
   'web.a10.saved': 'Salvo',
   'web.a10.empty': 'Você ainda não anunciou nenhum carro',
   'web.a10.meetPublic': 'Sugerimos este lugar público perto de você: {place}',
@@ -695,7 +692,6 @@ export const PT_PROTO = {
   'web.a12.sent.title': 'Obrigado!',
   'web.a12.sent':
     'Publicaremos sua avaliação quando {guest} deixar a dela ou quando o prazo terminar.',
-  'web.a08.title': 'Ganhos',
   'web.a08.plan': 'Plano Padrão: você recebe {pct}% do preço de cada viagem.',
   'web.a08.trips': 'Por viagem',
   'web.a08.status.recorded': 'Registrado',

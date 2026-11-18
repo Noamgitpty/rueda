@@ -210,6 +210,16 @@ export default async function HostPage({
           {t('web.host.verificationLink')}
         </a>
       </p>
+      {/* A08 (US-217 partie 217b) : gains par mois et par voyage */}
+      <p className={accountStyles['text']}>
+        <a
+          className={styles['link']}
+          href={`/host/earnings?${new URLSearchParams({ org: account.orgId }).toString()}`}
+          data-testid="a10-earnings"
+        >
+          {t('web.host.earningsLink')}
+        </a>
+      </p>
       {accounts.length > 1 && (
         <nav aria-labelledby="a10-accounts">
           <h2 id="a10-accounts" className={accountStyles['h2']}>

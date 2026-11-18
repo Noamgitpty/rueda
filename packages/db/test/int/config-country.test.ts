@@ -160,7 +160,7 @@ describe('configuration pays : structure et droits', () => {
     );
   });
 
-  it('base de production : seules les politiques migrator_all et app_read (SELECT) existent, plus la lecture du tampon par cmd_hold_owner, celle des codes pays par iam_staff_owner (US-012) et celle des fuseaux par risk_limit_owner (US-052) et celle des interrupteurs par cmd_money_owner (US-049), et celle des codes pays par iam_auth_owner (US-102), et celle de l’âge minimal de l’hôte par iam_auth_owner (US-107), et celle des délais des files par iam_staff_owner (US-109), et celle des paramètres de l’OTP par iam_auth_owner (US-104), et celle du pas de prix, du minimum de photos et de l’ouverture aux hôtes par catalog_cmd_owner (US-115), et celle des pays et de la rétention biométrique par kyc_cmd_owner (US-105), et la lecture et l’écriture des interrupteurs par cmd_golive_owner (US-125), et celle de l’âge minimal, du numéro fiscal et des interrupteurs de l’hôte par kyc_cmd_owner (US-123), et celles de la revue par exception par kyc_cmd_owner et du contrat d’assureur par catalog_cmd_owner (US-108), et celle du registre et des durées de la vie privée par privacy_cmd_owner (US-111), et celle des délais de notification d’une violation par iam_staff_owner (US-112), et celle du plafond des contestations par catalog_cmd_owner (US-122), et celle des plafonds de téléversement par catalog_cmd_owner (US-122, passe n° 2), et celles des paramètres et des taxes du rejeu du devis par cmd_money_owner (US-202), et celle de la durée maximale et du tampon par catalog_cmd_owner (US-201), et celle de la fenêtre de notation par review_cmd_owner (US-218), et celle des interrupteurs de l’hôte activable par cmd_hold_owner (US-208), et celle de l’annulation et du minimum de RC par catalog_cmd_owner (US-205), et celle des paramètres d’annulation réglée par cmd_hold_owner (US-215)', async () => {
+  it('base de production : seules les politiques migrator_all et app_read (SELECT) existent, plus la lecture du tampon par cmd_hold_owner, celle des codes pays par iam_staff_owner (US-012) et celle des fuseaux par risk_limit_owner (US-052) et celle des interrupteurs par cmd_money_owner (US-049), et celle des codes pays par iam_auth_owner (US-102), et celle de l’âge minimal de l’hôte par iam_auth_owner (US-107), et celle des délais des files par iam_staff_owner (US-109), et celle des paramètres de l’OTP par iam_auth_owner (US-104), et celle du pas de prix, du minimum de photos et de l’ouverture aux hôtes par catalog_cmd_owner (US-115), et celle des pays et de la rétention biométrique par kyc_cmd_owner (US-105), et la lecture et l’écriture des interrupteurs par cmd_golive_owner (US-125), et celle de l’âge minimal, du numéro fiscal et des interrupteurs de l’hôte par kyc_cmd_owner (US-123), et celles de la revue par exception par kyc_cmd_owner et du contrat d’assureur par catalog_cmd_owner (US-108), et celle du registre et des durées de la vie privée par privacy_cmd_owner (US-111), et celle des délais de notification d’une violation par iam_staff_owner (US-112), et celle du plafond des contestations par catalog_cmd_owner (US-122), et celle des plafonds de téléversement par catalog_cmd_owner (US-122, passe n° 2), et celles des paramètres et des taxes du rejeu du devis par cmd_money_owner (US-202), et celle de la durée maximale et du tampon par catalog_cmd_owner (US-201), et celle de la fenêtre de notation par review_cmd_owner (US-218), et celle des interrupteurs de l’hôte activable par cmd_hold_owner (US-208), et celle de l’annulation et du minimum de RC par catalog_cmd_owner (US-205), et celle des paramètres d’annulation réglée par cmd_hold_owner (US-215), et celle de la fenêtre de la vue de l’adresse par catalog_cmd_owner et cmd_hold_owner (US-514)', async () => {
     await withRole(
       'app_api',
       async (client) => {
@@ -186,6 +186,10 @@ describe('configuration pays : structure et droits', () => {
             // soumission d'une annonce (US-108, 0081) : interrupteur insurer_contract_active seulement
             ...(t === 'config_param_definition' || t === 'config_param_value'
               ? [{ t, pol: 'catalog_cmd_insurer_read', cmd: 'r', roles: 'catalog_cmd_owner' }]
+              : []),
+            // lieu exact de la fiche (US-514, 0144) : fenêtre review_window_days seulement
+            ...(t === 'config_param_value'
+              ? [{ t, pol: 'catalog_cmd_meeting_read', cmd: 'r', roles: 'catalog_cmd_owner' }]
               : []),
             // plans de gains de l'hôte (US-226, 0110) : host_share_pct et host_default_plan seulement
             ...(t === 'config_param_value'
@@ -245,6 +249,10 @@ describe('configuration pays : structure et droits', () => {
             // contrat de location (US-211, 0122) : tolérance de retard (grace_minutes) seulement
             ...(t === 'config_param_value'
               ? [{ t, pol: 'cmd_hold_contract_param_read', cmd: 'r', roles: 'cmd_hold_owner' }]
+              : []),
+            // détail du trip du voyageur (US-514, 0144) : fenêtre review_window_days seulement
+            ...(t === 'config_param_value'
+              ? [{ t, pol: 'cmd_hold_meeting_read', cmd: 'r', roles: 'cmd_hold_owner' }]
               : []),
             // commandes d'occupation (0032, US-022) : clé buffer_minutes seulement, en lecture ;
             // checkout (US-208, 0108) : interrupteurs de l'hôte activable (définition et valeur)

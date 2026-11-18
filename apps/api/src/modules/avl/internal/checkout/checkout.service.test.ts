@@ -27,7 +27,7 @@ class DbError extends Error {
 
 function failingStore(error: unknown): CheckoutStore {
   const fail = (): Promise<never> => Promise.reject(error);
-  return { listing: fail, quote: fail, checkout: fail, hold: fail };
+  return { listing: fail, quote: fail, returnPlace: fail, checkout: fail, hold: fail };
 }
 
 const NO_QUOTES = {} as QuoteStore;

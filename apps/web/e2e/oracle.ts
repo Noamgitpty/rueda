@@ -32,7 +32,8 @@ export const SPEC_TEXT: Readonly<
     | 'kmIncluded'
     | 'verifyingTitle'
     | 'verifyingBody'
-    | 'reviewTitle',
+    | 'reviewTitle'
+    | 'earningsEmpty',
     Readonly<Partial<Record<Language, string>>>
   >
 > = {
@@ -168,5 +169,11 @@ export const SPEC_TEXT: Readonly<
     es: 'Reserva en revisión: no se te cobró nada',
     en: "Booking under review: you haven't been charged",
     fr: 'Réservation en cours d’examen : tu n’as rien payé',
+  },
+  // 10b §4.3, ligne `web.a08.empty` (A08, UX-45 ; US-217 partie 217b)
+  earningsEmpty: {
+    es: 'Aún no tienes ganancias',
+    en: 'No earnings yet',
+    fr: 'Pas encore de gains',
   },
 };
