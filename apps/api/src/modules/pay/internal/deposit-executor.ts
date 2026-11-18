@@ -16,8 +16,8 @@
 import { PaymentError, isPaymentError } from './errors.js';
 import { depositOperationKey, idempotencyKeyToSend } from './idempotency.js';
 import type { DepositOperationType } from './idempotency.js';
-import type { HostedPayment, OperationResult, PaymentProvider } from './port.js';
-import { chargeLegs } from './deposit-rails.js';
+import type { HostedPayment, OperationResult, OperationStatus, PaymentProvider } from './port.js';
+import { chargeLegs, fallbackAfterCaptureFailure } from './deposit-rails.js';
 import type { DepositDecisionPlan, DepositRail, DepositStep } from './deposit-rails.js';
 import { money } from '@rueda/money';
 import type { Currency } from '@rueda/money';
@@ -65,11 +65,43 @@ export interface DepositStepResult {
   readonly result: OperationResult | null;
 }
 
+/** Étape où l'exécution s'est arrêtée. */
+export interface DepositStepFailure {
+  readonly step: DepositStep;
+  /** Exception du port (refus, issue inconnue, capacité absente) ; `null` si un statut a été rendu. */
+  readonly error: unknown;
+  /** Statut rendu par le port autre que `SUCCEEDED` ; `null` si une exception a été levée. */
+  readonly status: OperationStatus | null;
+  /**
+   * Issue inconnue ou en cours (`UNKNOWN_OUTCOME`, `UNKNOWN`, `PENDING`, `SUBMITTED`) : l'appelant
+   * lit l'état faisant foi (`getOperation`) AVANT tout rejeu, qui garde les MÊMES clés (17 §4.3).
+   */
+  readonly needsLookup: boolean;
+}
+
 export interface DepositExecution {
   readonly completed: readonly DepositStepResult[];
-  /** Première étape en échec : l'exécution s'arrête ; un rejeu reprend avec les MÊMES clés. */
-  readonly failed: { readonly step: DepositStep; readonly error: unknown } | null;
+  /**
+   * Première étape qui n'a pas abouti (exception ou statut autre que `SUCCEEDED`) : l'exécution
+   * s'arrête, AUCUNE étape suivante ne part (un VOID n'est jamais envoyé après une capture non
+   * prouvée) ; un rejeu reprend avec les mêmes clés.
+   */
+  readonly failed: DepositStepFailure | null;
+  /** Repli exécuté après un REFUS de capture (08 E3 repli 2 : VOID total puis MIT) ; sinon `null`. */
+  readonly fallback: DepositDecisionPlan | null;
 }
+
+type Target = {
+  readonly providerReference: string;
+  readonly instrumentToken: string;
+  readonly attemptNo: number;
+};
+
+const UNSETTLED: ReadonlySet<OperationStatus> = new Set<OperationStatus>([
+  'PENDING',
+  'SUBMITTED',
+  'UNKNOWN',
+]);
 
 export class DepositRailExecutor {
   readonly #provider: DepositPaymentProvider;
@@ -156,32 +188,71 @@ export class DepositRailExecutor {
     },
   ): Promise<DepositExecution> {
     const completed: DepositStepResult[] = [];
+    const first = await this.#steps(ref, plan.steps, 1, target, completed);
+    if (first === null) return { completed, failed: null, fallback: null };
+    if (!first.captureRefused) return { completed, failed: first.failure, fallback: null };
+    // 08 E3 repli 2 : capture refusée ⇒ aucun frais sur la caution, VOID total puis MIT de tous les
+    // frais ; clés de rang i2 (le plan d'origine n'a envoyé que la capture refusée)
+    const fallback = fallbackAfterCaptureFailure(plan, {
+      capabilities: this.#provider.capabilities(),
+    });
+    if (fallback === null) return { completed, failed: first.failure, fallback: null };
+    const second = await this.#steps(ref, fallback.steps, 2, target, completed);
+    return { completed, failed: second === null ? null : second.failure, fallback };
+  }
+
+  /** Étapes dans l'ordre ; `null` si toutes ont abouti, sinon la première qui n'a pas abouti. */
+  async #steps(
+    ref: DepositReference,
+    steps: readonly DepositStep[],
+    instanceSeq: number,
+    target: Target,
+    completed: DepositStepResult[],
+  ): Promise<{ readonly failure: DepositStepFailure; readonly captureRefused: boolean } | null> {
     const code = ref.currency.code;
-    for (const step of plan.steps) {
+    for (const step of steps) {
+      let result: OperationResult | null;
       try {
-        completed.push({ step, result: await this.#run(ref, step, code, target) });
+        result = await this.#run(ref, step, code, target, instanceSeq);
       } catch (error) {
-        return { completed, failed: { step, error } };
+        return {
+          failure: {
+            step,
+            error,
+            status: null,
+            needsLookup: isPaymentError(error, 'UNKNOWN_OUTCOME'),
+          },
+          captureRefused: step.op === 'CAPTURE' && isPaymentError(error, 'DECLINED'),
+        };
       }
+      if (result !== null && result.status !== 'SUCCEEDED') {
+        return {
+          failure: {
+            step,
+            error: null,
+            status: result.status,
+            needsLookup: UNSETTLED.has(result.status),
+          },
+          captureRefused: step.op === 'CAPTURE' && result.status === 'FAILED',
+        };
+      }
+      completed.push({ step, result });
     }
-    return { completed, failed: null };
+    return null;
   }
 
   async #run(
     ref: DepositReference,
     step: DepositStep,
     currency: string,
-    target: {
-      readonly providerReference: string;
-      readonly instrumentToken: string;
-      readonly attemptNo: number;
-    },
+    target: Target,
+    i: number,
   ): Promise<OperationResult | null> {
     const a = target.attemptNo;
     switch (step.op) {
       case 'CAPTURE':
         return this.#provider.capture({
-          idempotencyKey: this.#key(ref, 'CAPTURE', 1, a),
+          idempotencyKey: this.#key(ref, 'CAPTURE', i, a),
           providerReference: target.providerReference,
           amountMinor: step.amountMinor,
           currency,
@@ -189,12 +260,12 @@ export class DepositRailExecutor {
         });
       case 'VOID':
         return this.#provider.void({
-          idempotencyKey: this.#key(ref, 'VOID', 1, a),
+          idempotencyKey: this.#key(ref, 'VOID', i, a),
           providerReference: target.providerReference,
         });
       case 'REFUND':
         return this.#provider.refund({
-          idempotencyKey: this.#key(ref, 'REFUND', 1, a),
+          idempotencyKey: this.#key(ref, 'REFUND', i, a),
           providerReference: target.providerReference,
           amountMinor: step.amountMinor,
           currency,
@@ -202,7 +273,7 @@ export class DepositRailExecutor {
         });
       case 'MIT_CHARGE':
         return this.#provider.chargeMIT({
-          idempotencyKey: this.#key(ref, 'MIT_CHARGE', 1, a),
+          idempotencyKey: this.#key(ref, 'MIT_CHARGE', i, a),
           tripReference: ref.tripReference,
           reason: step.reason,
           instrumentToken: target.instrumentToken,

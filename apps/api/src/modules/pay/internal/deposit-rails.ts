@@ -422,6 +422,25 @@ const part = (fee: DepositIncidentalFee, amount: Money): DepositFeePart => ({
   legs: feeLegs(amount, fee.hostShare),
 });
 
+/**
+ * Reste d'un frais scindé (plafond de la caution) : la part de l'hôte est arrondie UNE fois sur la
+ * ligne entière (`allocHost` par ligne, 08 BR-PAY-06 « Jambes des frais annexes »), la part capturée
+ * prend `allocHost` de son montant et le reste le complément, borné à [0 ; reste] : Σ des deux parts
+ * = jambes de la ligne entière (aucun écart d'arrondi en faveur de l'un ou de l'autre).
+ */
+function restPart(fee: DepositIncidentalFee, taken: Money, rest: Money): DepositFeePart {
+  const wholeHost = allocHost(fee.amount, fee.hostShare).amountMinor;
+  const takenHost = allocHost(taken, fee.hostShare).amountMinor;
+  let host = wholeHost - takenHost;
+  if (host < 0n) host = 0n;
+  if (host > rest.amountMinor) host = rest.amountMinor;
+  return {
+    feeId: fee.id,
+    amount: rest,
+    legs: { ...ZERO_LEGS, HOST: host, PLATFORM: rest.amountMinor - host },
+  };
+}
+
 const sumParts = (parts: readonly DepositFeePart[]): { amountMinor: bigint; legs: LegAmounts } =>
   parts.reduce(
     (acc, p) => ({
@@ -478,7 +497,7 @@ export function planDepositDecision(input: DepositDecisionInput): DepositDecisio
     onDeposit.push(part(fee, taken));
     room = subtract(room, taken);
     const rest = subtract(fee.amount, taken);
-    if (!isZero(rest)) separate.push(part(fee, rest));
+    if (!isZero(rest)) separate.push(restPart(fee, taken, rest));
   }
 
   const steps: DepositStep[] = [];
@@ -540,6 +559,54 @@ export function planDepositDecision(input: DepositDecisionInput): DepositDecisio
     finalStatus,
     capturedMinor: captured,
     releasedMinor: released,
+    mitMinor: mit.amountMinor,
+  };
+}
+
+/**
+ * Repli quand la CAPTURE des frais sur la caution est refusée (statut `FAILED` ou refus reçu) :
+ * 08 E3 repli 2 — aucun frais n'est pris sur la caution ; elle est libérée en entier (`VOID`, ou
+ * expiration sans `SUPPORTS_VOID`) et TOUS les frais passent par MIT `DELAYED_CHARGES` (ou dette
+ * sans MIT). Sans étape de capture dans le plan : `null` (rien à replier).
+ */
+export function fallbackAfterCaptureFailure(
+  plan: DepositDecisionPlan,
+  caps: DepositRailCapabilities,
+): DepositDecisionPlan | null {
+  const capture = plan.steps.find((s) => s.op === 'CAPTURE');
+  if (capture === undefined || capture.op !== 'CAPTURE') return null;
+  const network = caps.network ?? '*';
+  const has = (name: 'SUPPORTS_VOID' | 'SUPPORTS_MIT'): boolean =>
+    caps.capabilities.bool(name, CARD, network);
+  const amountMinor = plan.capturedMinor + plan.releasedMinor;
+  const mitParts: DepositFeePart[] = [...capture.parts];
+  for (const s of plan.steps) {
+    if (s.op === 'MIT_CHARGE' || s.op === 'DEBT') mitParts.push(...s.parts);
+  }
+  const mit = sumParts(mitParts);
+  const steps: DepositStep[] = [
+    has('SUPPORTS_VOID')
+      ? { op: 'VOID', releasedMinor: amountMinor }
+      : { op: 'LET_EXPIRE', releasedMinor: amountMinor },
+  ];
+  if (mit.amountMinor > 0n) {
+    steps.push(
+      has('SUPPORTS_MIT')
+        ? {
+            op: 'MIT_CHARGE',
+            reason: 'DELAYED_CHARGES',
+            amountMinor: mit.amountMinor,
+            legs: mit.legs,
+            parts: mitParts,
+          }
+        : { op: 'DEBT', amountMinor: mit.amountMinor, parts: mitParts },
+    );
+  }
+  return {
+    steps,
+    finalStatus: has('SUPPORTS_VOID') ? 'VOIDED' : 'EXPIRED',
+    capturedMinor: 0n,
+    releasedMinor: amountMinor,
     mitMinor: mit.amountMinor,
   };
 }

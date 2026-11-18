@@ -11,6 +11,8 @@ import { createCurrencyRegistry, money, ratio } from '@rueda/money';
 import { describe, expect, it } from 'vitest';
 import { CapabilitySet } from '../internal/capabilities.js';
 import { DepositRailExecutor } from '../internal/deposit-executor.js';
+import type { DepositPaymentProvider } from '../internal/deposit-executor.js';
+import type { OperationStatus } from '../internal/port.js';
 import { planDepositDecision } from '../internal/deposit-rails.js';
 import { isPaymentError } from '../internal/errors.js';
 import { countryCases } from '../../../../test/support/countries.js';
@@ -200,3 +202,101 @@ describe.each(CASES)('$country ($currency) — exécution sur le FAKE', (c) => {
     expect(s.stack.psp.calls('CREATE_ORDER')).toBe(0);
   });
 });
+
+/**
+ * Port FAKE dont la capture rend un statut imposé (revues argent, code, qa de #236) : tous les
+ * autres appels passent au PSP simulé.
+ */
+function captureReturning(
+  s: ReturnType<typeof setup>,
+  status: OperationStatus,
+): DepositRailExecutor {
+  const p = s.stack.provider;
+  const port: DepositPaymentProvider = {
+    capabilities: () => p.capabilities(),
+    createHostedPayment: (r) => p.createHostedPayment(r),
+    capture: (r) => Promise.resolve({ providerReference: r.providerReference, status }),
+    void: (r) => p.void(r),
+    refund: (r) => p.refund(r),
+    chargeMIT: (r) => p.chargeMIT(r),
+    reauthorize: (r) => p.reauthorize(r),
+  };
+  return new DepositRailExecutor(port);
+}
+
+describe.each(CASES)(
+  '$country ($currency) — capture non aboutie : arrêt ou repli, jamais un VOID du reste',
+  (c) => {
+    const target = (providerReference: string) => ({
+      providerReference,
+      instrumentToken: 'tok_card',
+      attemptNo: 1,
+    });
+
+    it('capture REFUSÉE (exception) ⇒ repli 08 E3 : VOID de la caution ENTIÈRE puis MIT du carburant (jambe HOST) ; rejeu sans second mouvement', async () => {
+      const s = setup(c, {
+        scenario: { responses: { CAPTURE: [{ kind: 'DECLINE', code: 'do_not_honor' }] } },
+      });
+      const reference = await authorized(c, s);
+      const p = plan(c, new CapabilitySet(s.stack.capabilities));
+      const run = await s.executor.execute(s.ref, p, target(reference));
+      expect(run.failed).toBeNull();
+      expect(run.fallback?.steps.map((x) => x.op)).toEqual(['VOID', 'MIT_CHARGE']);
+      expect(run.fallback?.releasedMinor).toBe(c.deposit);
+      expect(run.completed.map((r) => r.step.op)).toEqual(['VOID', 'MIT_CHARGE']);
+      const moves = () =>
+        s.stack.psp.movements().map((m) => [m.operation, m.amountMinor, m.legs?.HOST]);
+      expect(moves()).toEqual([['MIT_CHARGE', c.fuel, c.fuel]]);
+      // rejeu de la même tentative : mêmes clés ⇒ aucun nouveau mouvement
+      const again = await s.executor.execute(s.ref, p, target(reference));
+      expect(again.failed).toBeNull();
+      expect(moves()).toEqual([['MIT_CHARGE', c.fuel, c.fuel]]);
+    });
+
+    it('capture rendue FAILED (statut) ⇒ même repli, aucun VOID partiel du reste', async () => {
+      const s = setup(c);
+      const reference = await authorized(c, s);
+      const p = plan(c, new CapabilitySet(s.stack.capabilities));
+      const run = await captureReturning(s, 'FAILED').execute(s.ref, p, target(reference));
+      expect(run.failed).toBeNull();
+      expect(run.completed.map((r) => r.step.op)).toEqual(['VOID', 'MIT_CHARGE']);
+      expect(s.stack.psp.movements().map((m) => [m.operation, m.amountMinor])).toEqual([
+        ['MIT_CHARGE', c.fuel],
+      ]);
+    });
+
+    it.each(['PENDING', 'SUBMITTED', 'UNKNOWN'] as const)(
+      'capture rendue %s ⇒ arrêt : ni VOID ni MIT, lecture de l’état exigée avant tout rejeu',
+      async (status) => {
+        const s = setup(c);
+        const reference = await authorized(c, s);
+        const p = plan(c, new CapabilitySet(s.stack.capabilities));
+        const run = await captureReturning(s, status).execute(s.ref, p, target(reference));
+        expect(run.failed).toMatchObject({ status, needsLookup: true, error: null });
+        expect(run.failed?.step.op).toBe('CAPTURE');
+        expect(run.completed).toEqual([]);
+        expect(run.fallback).toBeNull();
+        expect([s.stack.psp.calls('VOID'), s.stack.psp.calls('MIT_CHARGE')]).toEqual([0, 0]);
+        expect(s.stack.psp.movements()).toEqual([]);
+      },
+    );
+
+    it('capture en issue inconnue (réponse perdue après succès) ⇒ arrêt sans VOID ; rejeu avec les mêmes clés ⇒ une seule capture, puis VOID du reste', async () => {
+      const s = setup(c, {
+        scenario: { responses: { CAPTURE: [{ kind: 'TIMEOUT_AFTER_SUCCESS' }] } },
+      });
+      const reference = await authorized(c, s);
+      const p = plan(c, new CapabilitySet(s.stack.capabilities));
+      const run = await s.executor.execute(s.ref, p, target(reference));
+      expect(run.failed?.needsLookup).toBe(true);
+      expect(isPaymentError(run.failed?.error, 'UNKNOWN_OUTCOME')).toBe(true);
+      expect(s.stack.psp.calls('VOID')).toBe(0);
+      const again = await s.executor.execute(s.ref, p, target(reference));
+      expect(again.failed).toBeNull();
+      expect(again.completed.map((r) => r.step.op)).toEqual(['CAPTURE', 'VOID']);
+      expect(s.stack.psp.movements().map((m) => [m.operation, m.amountMinor])).toEqual([
+        ['CAPTURE', c.fuel],
+      ]);
+    });
+  },
+);

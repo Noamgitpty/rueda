@@ -5,7 +5,7 @@
  * montants de test de T73 (1 500 000 PYG) — jamais le code testé. Chaque cas en USD et en PYG.
  */
 import { readFileSync } from 'node:fs';
-import { createCurrencyRegistry, money, ratio } from '@rueda/money';
+import { allocHost, createCurrencyRegistry, money, ratio } from '@rueda/money';
 import { checksFor, loadGoldenVectors } from '@rueda/money/golden-vectors';
 import type { GoldenValue } from '@rueda/money/golden-vectors';
 import { describe, expect, it } from 'vitest';
@@ -19,6 +19,7 @@ import {
   depositReleaseAt,
   nextDepositStatus,
   planDepositDecision,
+  fallbackAfterCaptureFailure,
   selectDepositRail,
 } from './deposit-rails.js';
 import type { DepositGateInput, DepositRailParams } from './deposit-rails.js';
@@ -385,3 +386,77 @@ describe('machine d’état de deposit_hold.status (16 PAY-011)', () => {
     expect(() => nextDepositStatus('PLANNED', 'CAPTURED')).toThrow(/transition/);
   });
 });
+
+describe.each(CASES)(
+  '$country ($currency) — repli et arrondi des frais scindés (revues de #236)',
+  (c) => {
+    const decisionAt = new Date(T + 142 * H);
+    const fee = (amountMinor: bigint, share: [bigint, bigint]) => ({
+      id: 'late',
+      amount: money(amountMinor, c.cur),
+      hostShare: ratio(share[0], share[1]),
+      proven: true,
+      notifiedAt: new Date(decisionAt.getTime() - 50 * H),
+      disputed: false,
+    });
+
+    it('frais scindé au plafond : part HOST arrondie une fois sur la ligne entière (allocHost par ligne, 08 BR-PAY-06)', () => {
+      for (const [deposit, amount, share] of [
+        [1001n, 1003n, [3n, 4n]],
+        [7n, 9n, [1n, 3n]],
+        [5n, 6n, [1n, 2n]],
+        [c.deposit, c.deposit + 1n, [3n, 4n]],
+      ] as const) {
+        const f = fee(amount, [share[0], share[1]]);
+        const plan = planDepositDecision({
+          mechanism: 'PREAUTH_SINGLE',
+          amount: money(deposit, c.cur),
+          decisionAt,
+          feeNoticeH: 48,
+          fees: [f],
+          caps: { capabilities: caps() },
+        });
+        const legs = plan.steps.flatMap((x) =>
+          x.op === 'CAPTURE' || x.op === 'MIT_CHARGE' ? [x.legs] : [],
+        );
+        const host = legs.reduce((a, l) => a + l.HOST, 0n);
+        const platform = legs.reduce((a, l) => a + l.PLATFORM, 0n);
+        expect([host, host + platform]).toEqual([
+          allocHost(f.amount, f.hostShare).amountMinor,
+          amount,
+        ]);
+        for (const l of legs) expect(l.HOST >= 0n && l.PLATFORM >= 0n).toBe(true);
+      }
+    });
+
+    it('repli après refus de capture : VOID de la caution entière, tous les frais par MIT (T58) ; sans capture : rien à replier', () => {
+      const f = { ...fee(c.fuel, [1n, 1n]), id: 'fuel' };
+      const base = planDepositDecision({
+        mechanism: 'PREAUTH_SINGLE',
+        amount: money(c.deposit, c.cur),
+        decisionAt,
+        feeNoticeH: 48,
+        fees: [f, { ...f, id: 'late', notifiedAt: decisionAt }],
+        caps: { capabilities: caps() },
+      });
+      expect(base.steps.map((x) => x.op)).toEqual(['CAPTURE', 'VOID', 'MIT_CHARGE']);
+      const fb = fallbackAfterCaptureFailure(base, { capabilities: caps() });
+      expect(fb?.steps.map((x) => x.op)).toEqual(['VOID', 'MIT_CHARGE']);
+      expect([fb?.capturedMinor, fb?.releasedMinor, fb?.mitMinor, fb?.finalStatus]).toEqual([
+        0n,
+        c.deposit,
+        2n * c.fuel,
+        'VOIDED',
+      ]);
+      const noCapture = planDepositDecision({
+        mechanism: 'PREAUTH_SINGLE',
+        amount: money(c.deposit, c.cur),
+        decisionAt,
+        feeNoticeH: 48,
+        fees: [],
+        caps: { capabilities: caps() },
+      });
+      expect(fallbackAfterCaptureFailure(noCapture, { capabilities: caps() })).toBeNull();
+    });
+  },
+);
