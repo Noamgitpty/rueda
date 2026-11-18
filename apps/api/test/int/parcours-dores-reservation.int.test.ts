@@ -456,20 +456,52 @@ async function soleFakeAccount(country: string): Promise<void> {
   throw new Error('un compte marchand actif d’un autre fournisseur reste ouvert dans le pays');
 }
 
-/**
- * Fournisseurs que T1 peut retenir dans le pays, À CET INSTANT : FAKE et le premier compte ACTIVE
- * dans l'ordre de `booking_cmd_checkout_pay` (environnement LIVE d'abord, fournisseur,
- * identifiant). Segment A seulement (transaction annulée) : capacités et PSP FAKE posés pour chacun,
- * pour que le parcours ne dépende pas d'un compte de passage d'un autre fichier (constat C-1).
- */
-async function checkoutProviders(country: string): Promise<string[]> {
+/** Fournisseur du compte que T1 retiendrait À CET INSTANT (ordre de `booking_cmd_checkout_pay`). */
+async function firstProvider(country: string): Promise<string | null> {
   const worker = await open('app_worker');
   const { rows } = await worker.query<{ provider: string }>(
     `SELECT provider FROM core.payment_psp_account WHERE country_code = $1 AND status = 'ACTIVE'
       ORDER BY (environment = 'LIVE') DESC, provider, id LIMIT 1`,
     [country],
   );
-  return [...new Set(['FAKE', ...rows.map((r) => r.provider)])];
+  return rows[0]?.provider ?? null;
+}
+
+/**
+ * Essai de T1 sur le compte FAKE du pays (constat C-1) : les scènes de
+ * `concurrence-webhook.int.test.ts` ouvrent, le temps d'un test, un compte ACTIVE BAC ou EBANX du
+ * même pays, retenu AVANT FAKE par `booking_cmd_checkout_pay`. Un essai n'est retenu (réussite OU
+ * refus) que si FAKE est en tête juste avant ET juste après lui ; sinon il est annulé par son point
+ * de sauvegarde et rejoué dès que FAKE est de nouveau en tête (au plus 60 s). Transaction ANNULÉE
+ * du segment A seulement ; le résultat retenu est affirmé tel quel par l'appelant.
+ */
+async function onFakeAccount<T>(
+  tx: pg.ClientBase,
+  country: string,
+  attempt: () => Promise<T>,
+): Promise<{ ok: true; value: T } | { ok: false; error: unknown }> {
+  for (let i = 0; i < 240; i++) {
+    if ((await firstProvider(country)) === 'FAKE') {
+      await tx.query('SAVEPOINT us221_fake');
+      let out: { ok: true; value: T } | { ok: false; error: unknown };
+      try {
+        out = { ok: true, value: await attempt() };
+      } catch (error) {
+        out = { ok: false, error };
+      }
+      if ((await firstProvider(country)) === 'FAKE') {
+        await tx.query(
+          out.ok ? 'RELEASE SAVEPOINT us221_fake' : 'ROLLBACK TO SAVEPOINT us221_fake',
+        );
+        return out;
+      }
+      await tx.query('ROLLBACK TO SAVEPOINT us221_fake');
+    }
+    await new Promise((resolve) => setTimeout(resolve, 250));
+  }
+  throw new Error(
+    `le compte FAKE n'est jamais resté en tête : ${await accountsDiagnostic(tx, country)}`,
+  );
 }
 
 // --- état partagé des segments (par pays) --------------------------------------------------------
@@ -516,224 +548,219 @@ describe.each(CASES)('US-221 — parcours dorés « réservation » ($country, $
     const START_LOCAL = '2026-12-10T10:00';
     const END_LOCAL = '2026-12-13T10:00';
 
-    it('chaîne réelle jusqu’à T2 : carte = fiche = devis ; hold posé ; capacité bloquante inconnue ⇒ HOST_PAYOUT_RAIL_UNAVAILABLE avant T1 ; ordre envoyé au PSP avec chaque jambe explicite ; Σ jambes = total ; interrupteurs refermés hors de la transaction', async () => {
-      const api = await open('app_api');
-      const service = new QuoteService(new CountryConfigService());
-      const exponent = service.params({ country: c.country, at: new Date(NOW) }).currency.exponent;
-      const want = CHECKOUT[exponent];
-      if (want === undefined) throw new Error(`aucun attendu pour l'exposant ${exponent}`);
-      expect(sum(want.legs).toString()).toBe(want.total);
+    it(
+      'chaîne réelle jusqu’à T2 : carte = fiche = devis ; hold posé ; capacité bloquante inconnue ⇒ HOST_PAYOUT_RAIL_UNAVAILABLE avant T1 ; ordre envoyé au PSP avec chaque jambe explicite ; Σ jambes = total ; interrupteurs refermés hors de la transaction',
+      { timeout: 180_000 },
+      async () => {
+        const api = await open('app_api');
+        const service = new QuoteService(new CountryConfigService());
+        const exponent = service.params({ country: c.country, at: new Date(NOW) }).currency
+          .exponent;
+        const want = CHECKOUT[exponent];
+        if (want === undefined) throw new Error(`aucun attendu pour l'exposant ${exponent}`);
+        expect(sum(want.legs).toString()).toBe(want.total);
 
-      await inTx(api, { at: NOW }, async (tx) => {
-        await openSwitch(tx, 'p2p_private_hosts_enabled', c.country);
-        await openSwitch(tx, 'insurer_contract_active', c.country);
-        const acc = await tx.query<{ id: string }>(
-          'SELECT test_fixture.us024_psp_account($1) AS id',
-          [c.country],
-        );
-        expect(acc.rows[0]?.id).toBeTruthy();
+        await inTx(api, { at: NOW }, async (tx) => {
+          await openSwitch(tx, 'p2p_private_hosts_enabled', c.country);
+          await openSwitch(tx, 'insurer_contract_active', c.country);
+          const acc = await tx.query<{ id: string }>(
+            'SELECT test_fixture.us024_psp_account($1) AS id',
+            [c.country],
+          );
+          expect(acc.rows[0]?.id).toBeTruthy();
 
-        // annonce LISTED (fixture 9998) dans une ville propre au parcours (fixture 9937)
-        const { rows } = await tx.query<{ listing_id: string }>(
-          'SELECT * FROM test_fixture.us208_listed_listing($1, $2, $3, $4)',
-          [c.country, want.daily, 'AUTOMATIC', true],
-        );
-        const listingId = rows[0]!.listing_id;
-        const serial = await tx.query<{ n: string }>(
-          'SELECT test_fixture.next_unique_serial()::text AS n',
-        );
-        const city = `Villa US221 ${serial.rows[0]!.n}`;
-        await tx.query('SELECT test_fixture.us221_listing_city($1, $2)', [listingId, city]);
+          // annonce LISTED (fixture 9998) dans une ville propre au parcours (fixture 9937)
+          const { rows } = await tx.query<{ listing_id: string }>(
+            'SELECT * FROM test_fixture.us208_listed_listing($1, $2, $3, $4)',
+            [c.country, want.daily, 'AUTOMATIC', true],
+          );
+          const listingId = rows[0]!.listing_id;
+          const serial = await tx.query<{ n: string }>(
+            'SELECT test_fixture.next_unique_serial()::text AS n',
+          );
+          const city = `Villa US221 ${serial.rows[0]!.n}`;
+          await tx.query('SELECT test_fixture.us221_listing_city($1, $2)', [listingId, city]);
 
-        // inscription et conducteur vérifié (KYC de fixture 9967), session du voyageur
-        const guest = await register(tx, c.country);
-        await tx.query('SELECT test_fixture.us209_driver($1, $2, $3::date, $4::date, $5)', [
-          guest,
-          c.country,
-          '1990-01-01',
-          '2030-12-31',
-          c.country,
-        ]);
-        const hash = await openSession(tx, guest);
+          // inscription et conducteur vérifié (KYC de fixture 9967), session du voyageur
+          const guest = await register(tx, c.country);
+          await tx.query('SELECT test_fixture.us209_driver($1, $2, $3::date, $4::date, $5)', [
+            guest,
+            c.country,
+            '1990-01-01',
+            '2030-12-31',
+            c.country,
+          ]);
+          const hash = await openSession(tx, guest);
 
-        // S01 → résultats : l'annonce est trouvée dans sa ville, aux dates locales du pays
-        const search = new PgSearchStore(tx);
-        const found = await search.search({
-          country: c.country,
-          city,
-          area: null,
-          startLocal: START_LOCAL,
-          endLocal: END_LOCAL,
-          limit: 50,
-        });
-        if (found.outcome !== 'OK') throw new Error(`recherche : ${found.outcome}`);
-        const card = found.results.find((r) => r.id === listingId);
-        if (card === undefined) throw new Error('annonce absente des résultats');
-        expect(card).toMatchObject({ dailyPriceMinor: want.daily, currency: c.currency });
-        expect(Date.parse(card.endAt) - Date.parse(card.startAt)).toBe(3 * DAY);
-
-        // S03 : fiche (prix de l'annonce, conditions) ; carte et fiche au même total (16 SRC-042)
-        const pricer = searchQuotePricer((ctx) => service.params(ctx));
-        const slot = await search.listingPrice(listingId);
-        if (slot === null) throw new Error('prix de la fiche introuvable');
-        expect(await search.terms(listingId, card.startAt)).not.toBeNull();
-        const priced = (dailyPriceMinor: string, quotedAt: string) =>
-          pricer.price({
-            listingId,
+          // S01 → résultats : l'annonce est trouvée dans sa ville, aux dates locales du pays
+          const search = new PgSearchStore(tx);
+          const found = await search.search({
             country: c.country,
-            currency: card.currency,
-            dailyPriceMinor,
-            startAt: card.startAt,
-            endAt: card.endAt,
-            quotedAt,
+            city,
+            area: null,
+            startLocal: START_LOCAL,
+            endLocal: END_LOCAL,
+            limit: 50,
           });
-        expect(priced(slot.dailyPriceMinor, slot.quotedAt)).toEqual({
-          totalMinor: want.total,
-          billableDays: 3,
-        });
-        expect(priced(card.dailyPriceMinor, card.quotedAt)).toEqual({
-          totalMinor: want.total,
-          billableDays: 3,
-        });
+          if (found.outcome !== 'OK') throw new Error(`recherche : ${found.outcome}`);
+          const card = found.results.find((r) => r.id === listingId);
+          if (card === undefined) throw new Error('annonce absente des résultats');
+          expect(card).toMatchObject({ dailyPriceMinor: want.daily, currency: c.currency });
+          expect(Date.parse(card.endAt) - Date.parse(card.startAt)).toBe(3 * DAY);
 
-        // S05 : devis figé (composition de CheckoutService.createQuote, prouvée par
-        // pg-checkout.int.test.ts) — moteur de PRC, commande de gel rejouée par la base
-        const checkout = new PgCheckoutStore(tx);
-        const listing = await checkout.listing(listingId);
-        if (listing === null) throw new Error('annonce du checkout introuvable');
-        const params = service.params({
-          country: listing.country,
-          at: new Date(listing.quotedAtMs),
-          hostPlan: listing.hostPlan,
-        });
-        const level = params.protectionGrid?.minLevel;
-        expect(level).toBe('BASICA');
-        const { frozen } = freezeQuote(
-          {
-            startAtMs: Date.parse(card.startAt),
-            endAtMs: Date.parse(card.endAt),
-            quotedAtMs: listing.quotedAtMs,
-            rateType: 'REFUNDABLE',
-            dailyRate: money(BigInt(listing.dailyPriceMinor), params.currency),
-            ...(level === undefined ? {} : { protectionLevel: level }),
-            mileage: { mode: 'UNLIMITED' },
-          },
-          params,
-        );
-        const gel = await new PgQuoteStore(tx).freeze(hash, listingId, frozen);
-        expect(gel.outcome).toBe('DONE');
-        const quoteId = gel.quoteId!;
-        const quote = await checkout.quote(hash, quoteId);
-        if (quote === null) throw new Error('devis figé illisible');
-        expect(quote).toMatchObject({
-          currency: c.currency,
-          billableDays: 3,
-          totalMinor: want.total,
-          protectionLevel: 'BASICA',
-          insurerContractActive: true,
-        });
-        expect(Object.fromEntries(quote.lines.map((l) => [l.type, l.amountMinor]))).toEqual(
-          want.lines,
-        );
-        expect(Object.fromEntries(quote.lines.map((l) => [l.type, l.taxMinor]))).toEqual(
-          want.taxes,
-        );
-        // jambes du devis figé (08 E7 règle 2) : celles que l'ordre au PSP devra porter
-        const outputs = JSON.parse(frozen.outputs) as { legs: Record<string, string> };
-        expect(outputs.legs).toEqual(legsText(want.legs));
+          // S03 : fiche (prix de l'annonce, conditions) ; carte et fiche au même total (16 SRC-042)
+          const pricer = searchQuotePricer((ctx) => service.params(ctx));
+          const slot = await search.listingPrice(listingId);
+          if (slot === null) throw new Error('prix de la fiche introuvable');
+          expect(await search.terms(listingId, card.startAt)).not.toBeNull();
+          const priced = (dailyPriceMinor: string, quotedAt: string) =>
+            pricer.price({
+              listingId,
+              country: c.country,
+              currency: card.currency,
+              dailyPriceMinor,
+              startAt: card.startAt,
+              endAt: card.endAt,
+              quotedAt,
+            });
+          expect(priced(slot.dailyPriceMinor, slot.quotedAt)).toEqual({
+            totalMinor: want.total,
+            billableDays: 3,
+          });
+          expect(priced(card.dailyPriceMinor, card.quotedAt)).toEqual({
+            totalMinor: want.total,
+            billableDays: 3,
+          });
 
-        // S05 → hold posé (conducteur titulaire, versions affichées acceptées)
-        const placed = await checkout.checkout(hash, quoteId, {
-          driverFirstName: 'Ana',
-          driverLastName: 'Pérez',
-          manualTransmissionConfirmed: false,
-          acceptedDocuments: quote.documents.map((d) => ({ kind: d.kind, version: d.version })),
-        });
-        expect(placed.outcome).toBe('DONE');
-        const holdId = placed.holdId!;
-        expect(await checkout.hold(hash, holdId)).toMatchObject({
-          status: 'ACTIVE',
-          quoteId,
-          totalMinor: want.total,
-          reviewState: 'NONE',
-        });
+          // S05 : devis figé (composition de CheckoutService.createQuote, prouvée par
+          // pg-checkout.int.test.ts) — moteur de PRC, commande de gel rejouée par la base
+          const checkout = new PgCheckoutStore(tx);
+          const listing = await checkout.listing(listingId);
+          if (listing === null) throw new Error('annonce du checkout introuvable');
+          const params = service.params({
+            country: listing.country,
+            at: new Date(listing.quotedAtMs),
+            hostPlan: listing.hostPlan,
+          });
+          const level = params.protectionGrid?.minLevel;
+          expect(level).toBe('BASICA');
+          const { frozen } = freezeQuote(
+            {
+              startAtMs: Date.parse(card.startAt),
+              endAtMs: Date.parse(card.endAt),
+              quotedAtMs: listing.quotedAtMs,
+              rateType: 'REFUNDABLE',
+              dailyRate: money(BigInt(listing.dailyPriceMinor), params.currency),
+              ...(level === undefined ? {} : { protectionLevel: level }),
+              mileage: { mode: 'UNLIMITED' },
+            },
+            params,
+          );
+          const gel = await new PgQuoteStore(tx).freeze(hash, listingId, frozen);
+          expect(gel.outcome).toBe('DONE');
+          const quoteId = gel.quoteId!;
+          const quote = await checkout.quote(hash, quoteId);
+          if (quote === null) throw new Error('devis figé illisible');
+          expect(quote).toMatchObject({
+            currency: c.currency,
+            billableDays: 3,
+            totalMinor: want.total,
+            protectionLevel: 'BASICA',
+            insurerContractActive: true,
+          });
+          expect(Object.fromEntries(quote.lines.map((l) => [l.type, l.amountMinor]))).toEqual(
+            want.lines,
+          );
+          expect(Object.fromEntries(quote.lines.map((l) => [l.type, l.taxMinor]))).toEqual(
+            want.taxes,
+          );
+          // jambes du devis figé (08 E7 règle 2) : celles que l'ordre au PSP devra porter
+          const outputs = JSON.parse(frozen.outputs) as { legs: Record<string, string> };
+          expect(outputs.legs).toEqual(legsText(want.legs));
 
-        // critère 2 (FAKE hostile) : capacité bloquante inconnue ⇒ refus AVANT T1, aucun ordre
-        const at = (m: number) => iso(Date.parse(NOW) + m * MINUTE);
-        const psp = new FakeHostedPsp();
-        const providers = await checkoutProviders(c.country);
-        const pay = paymentService(tx, psp, providers);
-        await capabilities(tx, c.country, at(-3), undefined, 'VALIDATED_SANDBOX', providers);
-        // capacité inconnue posée dans un point de sauvegarde, retirée avec lui après le refus
-        await tx.query('SAVEPOINT us221_capability');
-        await capabilities(tx, c.country, at(-2), 'SUPPORTS_PER_LEG_AMOUNTS', 'UNKNOWN', providers);
-        await expect(pay.pay(hash, holdId, { method: 'CARD' })).rejects.toMatchObject({
-          code: 'HOST_PAYOUT_RAIL_UNAVAILABLE',
-        });
-        await tx.query('ROLLBACK TO SAVEPOINT us221_capability');
-        expect(psp.orders).toEqual([]);
-        expect(await pay.payment(hash, holdId)).toMatchObject({
-          state: 'PAYABLE',
-          holdStatus: 'ACTIVE',
-          tripId: null,
-        });
+          // S05 → hold posé (conducteur titulaire, versions affichées acceptées)
+          const placed = await checkout.checkout(hash, quoteId, {
+            driverFirstName: 'Ana',
+            driverLastName: 'Pérez',
+            manualTransmissionConfirmed: false,
+            acceptedDocuments: quote.documents.map((d) => ({ kind: d.kind, version: d.version })),
+          });
+          expect(placed.outcome).toBe('DONE');
+          const holdId = placed.holdId!;
+          expect(await checkout.hold(hash, holdId)).toMatchObject({
+            status: 'ACTIVE',
+            quoteId,
+            totalMinor: want.total,
+            reviewState: 'NONE',
+          });
 
-        // capacités validées : T1 (jambes du devis engagé), ordre au PSP, T2
-        // Compte de passage d'un autre fichier (constat C-1) : T1 peut viser un compte ACTIVE
-        // ouvert APRÈS la lecture des fournisseurs. Chaque essai est isolé par un point de
-        // sauvegarde ; un refus relit les fournisseurs, valide le nouveau et rejoue (3 essais au
-        // plus). Un refus qui persiste sur les mêmes comptes échoue avec son diagnostic.
-        let started: Awaited<ReturnType<CheckoutPaymentService['pay']>> | undefined;
-        let seen = providers;
-        for (let attempt = 1; started === undefined; attempt++) {
-          await tx.query('SAVEPOINT us221_t1');
-          try {
-            started = await paymentService(tx, psp, seen).pay(hash, holdId, { method: 'CARD' });
-            await tx.query('RELEASE SAVEPOINT us221_t1');
-          } catch (error) {
-            await tx.query('ROLLBACK TO SAVEPOINT us221_t1');
-            const code = String((error as { code?: unknown }).code);
-            const now = await checkoutProviders(c.country);
-            const fresh = now.filter((x) => !seen.includes(x));
-            if (attempt >= 3 || fresh.length === 0) {
-              const diagnostic = await accountsDiagnostic(tx, c.country);
-              throw new Error(`paiement refusé : ${code} (essai ${attempt}) ${diagnostic}`, {
-                cause: error,
-              });
-            }
-            seen = [...seen, ...fresh];
-            await capabilities(tx, c.country, at(-3), undefined, 'VALIDATED_SANDBOX', fresh);
+          // critère 2 (FAKE hostile) : capacité bloquante inconnue ⇒ refus AVANT T1, aucun ordre
+          const at = (m: number) => iso(Date.parse(NOW) + m * MINUTE);
+          const psp = new FakeHostedPsp();
+          const pay = paymentService(tx, psp);
+          await capabilities(tx, c.country, at(-3));
+          // capacité inconnue posée dans un point de sauvegarde, retirée avec lui après le refus
+          await tx.query('SAVEPOINT us221_capability');
+          await capabilities(tx, c.country, at(-2), 'SUPPORTS_PER_LEG_AMOUNTS', 'UNKNOWN');
+          const refused = await onFakeAccount(tx, c.country, () =>
+            pay.pay(hash, holdId, { method: 'CARD' }),
+          );
+          expect(refused.ok).toBe(false);
+          if (!refused.ok) {
+            expect(refused.error).toMatchObject({ code: 'HOST_PAYOUT_RAIL_UNAVAILABLE' });
           }
-        }
-        expect(started.created).toBe(true);
-        expect(started.payment).toMatchObject({
-          state: 'VERIFYING',
-          holdStatus: 'PAYMENT_IN_FLIGHT',
-          tripId: null,
-        });
-        expect(psp.orders).toHaveLength(1);
-        const order = psp.orders[0]!;
-        expect(order).toMatchObject({
-          amountMinor: BigInt(want.total),
-          currency: c.currency,
-          method: 'CARD',
-          capture: 'AUTO',
-          idempotencyKey: `hold:${holdId}:CAPTURE:a1`,
-        });
-        // 17 NN4 : montant EXPLICITE de chaque jambe, jamais un prorata ; Σ jambes = total
-        expect({ ...order.legs }).toEqual(want.legs);
-        expect(sum({ ...order.legs } as Legs)).toBe(order.amountMinor);
-        // second clic : aucun second ordre (l'état fait foi)
-        const again = await pay.pay(hash, holdId, { method: 'CARD' });
-        expect(again.created).toBe(false);
-        expect(psp.orders).toHaveLength(1);
-      });
+          await tx.query('ROLLBACK TO SAVEPOINT us221_capability');
+          expect(psp.orders).toEqual([]);
+          expect(await pay.payment(hash, holdId)).toMatchObject({
+            state: 'PAYABLE',
+            holdStatus: 'ACTIVE',
+            tripId: null,
+          });
 
-      // transaction annulée : aucun interrupteur ouvert ne survit (17 §0.1)
-      await inTx(api, { at: NOW }, async (tx) => {
-        expect(await switches(tx, c.country)).toEqual(ALL_CLOSED);
-      });
-    });
+          // capacités validées : T1 (jambes du devis engagé), ordre au PSP, T2
+          const paid = await onFakeAccount(tx, c.country, () =>
+            pay.pay(hash, holdId, { method: 'CARD' }),
+          );
+          if (!paid.ok) {
+            const code = String((paid.error as { code?: unknown }).code);
+            throw new Error(
+              `paiement refusé : ${code} ${await accountsDiagnostic(tx, c.country)}`,
+              {
+                cause: paid.error,
+              },
+            );
+          }
+          const started = paid.value;
+          expect(started.created).toBe(true);
+          expect(started.payment).toMatchObject({
+            state: 'VERIFYING',
+            holdStatus: 'PAYMENT_IN_FLIGHT',
+            tripId: null,
+          });
+          expect(psp.orders).toHaveLength(1);
+          const order = psp.orders[0]!;
+          expect(order).toMatchObject({
+            amountMinor: BigInt(want.total),
+            currency: c.currency,
+            method: 'CARD',
+            capture: 'AUTO',
+            idempotencyKey: `hold:${holdId}:CAPTURE:a1`,
+          });
+          // 17 NN4 : montant EXPLICITE de chaque jambe, jamais un prorata ; Σ jambes = total
+          expect({ ...order.legs }).toEqual(want.legs);
+          expect(sum({ ...order.legs } as Legs)).toBe(order.amountMinor);
+          // second clic : aucun second ordre (l'état fait foi)
+          const again = await pay.pay(hash, holdId, { method: 'CARD' });
+          expect(again.created).toBe(false);
+          expect(psp.orders).toHaveLength(1);
+        });
+
+        // transaction annulée : aucun interrupteur ouvert ne survit (17 §0.1)
+        await inTx(api, { at: NOW }, async (tx) => {
+          expect(await switches(tx, c.country)).toEqual(ALL_CLOSED);
+        });
+      },
+    );
   });
 
   // ---------------------------------------------------------------------------------------------
