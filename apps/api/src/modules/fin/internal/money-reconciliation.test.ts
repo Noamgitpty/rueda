@@ -22,17 +22,21 @@ import {
   MoneyReconciliationContractError,
   parseLegBalanceRow,
   parseSettlementRow,
+  parseTripLegFactRow,
   reconciliationLogLine,
   RECONCILIATION_CONTEXT_SQL,
   registerMoneyReconciliation,
   runMoneyReconciliation,
   SETTLEMENT_AGGREGATES_SQL,
   settlementViolations,
+  TRIP_LEG_FACTS_SQL,
+  tripLegViolations,
 } from './money-reconciliation.js';
 import type {
   LegBalanceAggregate,
   MoneyReconciliationCheck,
   SettlementAggregate,
+  TripLegFact,
 } from './money-reconciliation.js';
 
 const golden = loadGoldenVectors();
@@ -109,11 +113,13 @@ describe('US-047 — rapprochement de l’argent : agrégats cohérents', () => 
     expect(legBalanceOverdrawn(balanceOf(c))).toBe(false);
   });
 
-  it('rapport vide : huit contrôles à 0, rien examiné', () => {
+  it('rapport vide : onze contrôles à 0, rien examiné', () => {
     const r = evaluateMoneyReconciliation([], []);
     expect(Object.keys(r.checks)).toEqual([...MONEY_RECONCILIATION_CHECKS]);
+    expect(MONEY_RECONCILIATION_CHECKS).toHaveLength(11);
     expect(r.violations).toBe(0n);
-    expect(r.examined).toEqual({ settlements: {}, legBalances: {} });
+    // US-217a : les faits par trip sont un troisième ensemble examiné (vide ici)
+    expect(r.examined).toEqual({ settlements: {}, legBalances: {}, trips: {} });
   });
 });
 
@@ -296,6 +302,123 @@ describe('US-047 — lecture des lignes : fail-closed', () => {
   });
 });
 
+/**
+ * US-217a (ADR-161) — faits de l'invariant par jambe d'un trip : trip capturé (TJ01 / TJ08a, sans
+ * règlement) et trip réglé (version 1 : jambe HOST retenue = capture + variation TJ02b / TJ08b).
+ */
+function capturedFactOf(c: (typeof CASES)[number]): TripLegFact {
+  const capture = legVector(golden, c.capture);
+  return {
+    country: c.country,
+    captured: capture.totalMinor,
+    collected: capture.totalMinor,
+    collectedLegs: LEGS.reduce((a, l) => a + capture.legsMinor[l], 0n),
+    headTotalPaid: null,
+    expectedHost: capture.legsMinor.HOST,
+    statementHost: capture.legsMinor.HOST,
+  };
+}
+function settledFactOf(c: (typeof CASES)[number]): TripLegFact {
+  const kept = v1Of(c).hostKept;
+  return {
+    ...capturedFactOf(c),
+    headTotalPaid: legVector(golden, c.capture).totalMinor,
+    expectedHost: kept,
+    statementHost: kept,
+  };
+}
+
+const TRIP_CORRUPTIONS: readonly [
+  string,
+  (f: TripLegFact) => TripLegFact,
+  readonly MoneyReconciliationCheck[],
+][] = [
+  [
+    'Σ capturé des soldes ≠ Σ des encaissements (une unité mineure)',
+    (f) => ({ ...f, captured: f.captured + 1n }),
+    ['TRIP_CAPTURE_LEGS'],
+  ],
+  [
+    'Σ des jambes de l’encaissement ≠ son montant',
+    (f) => ({ ...f, collectedLegs: (f.collectedLegs ?? 0n) - 1n }),
+    ['TRIP_CAPTURE_LEGS'],
+  ],
+  [
+    'total payé de la version en tête ≠ encaissé',
+    (f) => ({ ...f, headTotalPaid: (f.headTotalPaid ?? 0n) + 1n }),
+    ['TRIP_SETTLED_TOTAL'],
+  ],
+  [
+    'jambe HOST du relevé ≠ jambe HOST attendue (une unité mineure)',
+    (f) => ({ ...f, statementHost: (f.statementHost ?? 0n) + 1n }),
+    ['STATEMENT_HOST_LEG'],
+  ],
+  ['jambe HOST absente du relevé', (f) => ({ ...f, statementHost: null }), ['STATEMENT_HOST_LEG']],
+  ['jambe HOST attendue absente', (f) => ({ ...f, expectedHost: null }), ['STATEMENT_HOST_LEG']],
+];
+
+describe('US-217a — invariant par jambe : chaque contrôle détecte son écart (chaque pays configuré)', () => {
+  it.each(CASES)('$country : trip capturé et trip réglé tirés des vecteurs ⇒ aucun écart', (c) => {
+    expect(tripLegViolations(capturedFactOf(c))).toEqual([]);
+    expect(tripLegViolations(settledFactOf(c))).toEqual([]);
+    const r = evaluateMoneyReconciliation([], [], [capturedFactOf(c), settledFactOf(c)]);
+    expect(r.violations).toBe(0n);
+    expect(r.examined.trips).toEqual({ [c.country]: 2 });
+  });
+
+  for (const c of CASES) {
+    it.each(TRIP_CORRUPTIONS)(`${c.country} : %s`, (_label, corrupt, expected) => {
+      const bad = corrupt(settledFactOf(c));
+      expect(tripLegViolations(bad)).toEqual(expected);
+      const r = evaluateMoneyReconciliation([], [], [settledFactOf(c), bad]);
+      for (const check of expected) {
+        expect(r.checks[check]).toEqual({ total: 1n, byCountry: { [c.country]: 1n } });
+      }
+      expect(r.violations).toBe(BigInt(expected.length));
+    });
+  }
+
+  it.each(CASES)(
+    '$country : solde posé sans encaissement porté ⇒ seule la jambe HOST est comparée',
+    (c) => {
+      const f = { ...settledFactOf(c), collected: null, collectedLegs: null, captured: 0n };
+      expect(tripLegViolations(f)).toEqual([]);
+      expect(tripLegViolations({ ...f, statementHost: (f.statementHost ?? 0n) + 1n })).toEqual([
+        'STATEMENT_HOST_LEG',
+      ]);
+    },
+  );
+
+  it('lecture fail-closed : montant illisible ou pays invalide ⇒ erreur de contrat', () => {
+    const row = {
+      country: FIRST.country,
+      captured: '25666',
+      collected: '25666',
+      collected_legs: '25666',
+      head_total_paid: null,
+      expected_host: '13125',
+      statement_host: '13125',
+    };
+    expect(parseTripLegFactRow(row)).toEqual({
+      country: FIRST.country,
+      captured: 25666n,
+      collected: 25666n,
+      collectedLegs: 25666n,
+      headTotalPaid: null,
+      expectedHost: 13125n,
+      statementHost: 13125n,
+    });
+    for (const bad of [
+      { ...row, captured: 25666 },
+      { ...row, statement_host: '1.5' },
+      { ...row, country: FIRST.country.toLowerCase() },
+      { ...row, captured: null },
+    ]) {
+      expect(() => parseTripLegFactRow(bad)).toThrow(MoneyReconciliationContractError);
+    }
+  });
+});
+
 /** Transaction programmée : contexte, puis lignes de règlement et de solde. */
 class ScriptedSql implements SqlClient {
   readonly texts: string[] = [];
@@ -416,6 +539,7 @@ describe('US-047 — tâche du travailleur reconciliation', () => {
       RECONCILIATION_CONTEXT_SQL,
       SETTLEMENT_AGGREGATES_SQL,
       LEG_BALANCE_AGGREGATES_SQL,
+      TRIP_LEG_FACTS_SQL,
     ]);
     expect(lines).toHaveLength(1);
     expect(JSON.parse(lines[0] ?? '{}')).toMatchObject({ level: 'error', violations: '1' });
@@ -430,7 +554,7 @@ describe('US-047 — tâche du travailleur reconciliation', () => {
   });
 
   it('les requêtes ne lisent ni horloge ni identifiant rendu (lecture seule)', () => {
-    for (const q of [SETTLEMENT_AGGREGATES_SQL, LEG_BALANCE_AGGREGATES_SQL]) {
+    for (const q of [SETTLEMENT_AGGREGATES_SQL, LEG_BALANCE_AGGREGATES_SQL, TRIP_LEG_FACTS_SQL]) {
       expect(q).not.toMatch(/\b(now|current_timestamp|clock_timestamp)\b/i);
       expect(q).not.toMatch(/\b(INSERT|UPDATE|DELETE|TRUNCATE)\b/);
       // seules colonnes rendues : pays, versions, drapeaux et montants

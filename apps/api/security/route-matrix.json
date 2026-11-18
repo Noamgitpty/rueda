@@ -455,6 +455,10 @@
       "acces": "session",
       "idor": "compte {orgId} qui n'est pas un compte titulaire de la session (co-hôte compris), demande d'un autre compte, inconnue ou qui n'est pas une demande : 404 REQUEST_NOT_FOUND, même réponse, sans état révélé, refus journalisé en base (booking.request.access_denied) ; aucun montant reçu du client ; du voyageur, prénom, âge, note et vérification seulement (17 §2.3 point 5, §2.5 exigences de sécurité 1 et 2 ; preuves base : l0-us223-request)"
     },
+    "GET /host/accounts/{orgId}/earnings/{month}": {
+      "acces": "session",
+      "idor": "compte {orgId} qui n'est pas un compte titulaire de la session (co-hôte compris), inconnu ou mal formé : 404 EARNINGS_NOT_FOUND, même réponse, sans état révélé (core.booking_host_earnings, 0137, titulaire par core.iam_host_accounts) ; mois mal formé : 400 ; aucune donnée du voyageur ; montants lus, jamais recalculés ; preuves base : l0-us217-host-receipt"
+    },
     "GET /host/accounts/{orgId}/requests/{holdId}": {
       "acces": "session",
       "idor": "compte {orgId} qui n'est pas un compte titulaire de la session (co-hôte compris), demande d'un autre compte, inconnue ou qui n'est pas une demande : 404 REQUEST_NOT_FOUND, même réponse, sans état révélé, refus journalisé en base (booking.request.access_denied) ; aucun montant reçu du client ; du voyageur, prénom, âge, note et vérification seulement (17 §2.3 point 5, §2.5 exigences de sécurité 1 et 2 ; preuves base : l0-us223-request)"
@@ -583,6 +587,10 @@
       "acces": "session",
       "idor": "trip d'une autre personne (ni son voyageur ni le titulaire de son compte d'hôte), inconnu ou identifiant mal formé : 404 REFUND_NOT_FOUND, même réponse (17 §2.3 point 5) ; la partie est celle de la session, jugée en base (core.booking_trip_refunds, 0130) ; l'hôte ne lit que la jambe HOST, aucune donnée du voyageur ; preuves base : l0-us224d-refund-read"
     },
+    "GET /trips/{tripId}/receipt": {
+      "acces": "session",
+      "idor": "trip d'une autre personne (ni son voyageur ni le titulaire de son compte d'hôte), inconnu ou identifiant mal formé : 404 RECEIPT_NOT_FOUND, même réponse (17 §2.3 point 5) ; la partie est celle de la session, jugée en base (core.booking_trip_receipt, 0137) ; le voyageur ne lit ni jambe, ni plan, ni pénalité de l'hôte ; l'hôte ne lit rien du voyageur ; montants lus, jamais recalculés ; preuves base : l0-us217-host-receipt"
+    },
     "GET /trips/{tripId}/contract/pdf": {
       "acces": "session",
       "idor": "trip d'une autre personne (ni son voyageur ni le titulaire de son compte d'hôte), inconnu ou identifiant mal formé : 404 CONTRACT_NOT_FOUND, même réponse (17 §2.3 point 5) ; la partie est celle de la session, jugée en base (core.booking_trip_contract, core.booking_cmd_sign_contract ; signature : voyageur seulement) ; du voyageur seulement prénom et initiale (L2-PM-35) ; preuves base : l0-us211"
@@ -593,15 +601,15 @@
     },
     "GET /trips/{tripId}/constancia": {
       "acces": "session",
-      "idor": "trip d'une autre personne (ni son voyageur ni le titulaire de son compte d'hôte), inconnu ou identifiant mal formé : 404 CONSTANCIA_NOT_FOUND, même réponse (17 §2.3 point 5) ; la partie est celle de la session, jugée en base (core.booking_trip_constancia, 0137) ; faits figés du dernier contrat ; hôte et conducteur en prénom et initiale, ni pièce ni adresse exacte (L2-PM-35) ; preuves base : l0-us212"
+      "idor": "trip d'une autre personne (ni son voyageur ni le titulaire de son compte d'hôte), inconnu ou identifiant mal formé : 404 CONSTANCIA_NOT_FOUND, même réponse (17 §2.3 point 5) ; la partie est celle de la session, jugée en base (core.booking_trip_constancia, 0138) ; faits figés du dernier contrat ; hôte et conducteur en prénom et initiale, ni pièce ni adresse exacte (L2-PM-35) ; preuves base : l0-us212"
     },
     "GET /trips/{tripId}/constancia/pdf": {
       "acces": "session",
-      "idor": "trip d'une autre personne (ni son voyageur ni le titulaire de son compte d'hôte), inconnu ou identifiant mal formé : 404 CONSTANCIA_NOT_FOUND, même réponse (17 §2.3 point 5) ; la partie est celle de la session, jugée en base (core.booking_trip_constancia, 0137) ; faits figés du dernier contrat ; hôte et conducteur en prénom et initiale, ni pièce ni adresse exacte (L2-PM-35) ; preuves base : l0-us212"
+      "idor": "trip d'une autre personne (ni son voyageur ni le titulaire de son compte d'hôte), inconnu ou identifiant mal formé : 404 CONSTANCIA_NOT_FOUND, même réponse (17 §2.3 point 5) ; la partie est celle de la session, jugée en base (core.booking_trip_constancia, 0138) ; faits figés du dernier contrat ; hôte et conducteur en prénom et initiale, ni pièce ni adresse exacte (L2-PM-35) ; preuves base : l0-us212"
     },
     "POST /trips/constancias/search": {
       "acces": "session",
-      "idor": "trips du seul compte d'hôte dont la session est le titulaire (core.booking_host_constancia_search, 0137) : un voyageur ou un tiers n'obtient aucune ligne ; plaque figée au dernier contrat, dans le corps (jamais dans l'URL) ; référence, statut et période locale seulement ; preuves base : l0-us212"
+      "idor": "trips du seul compte d'hôte dont la session est le titulaire (core.booking_host_constancia_search, 0138) : un voyageur ou un tiers n'obtient aucune ligne ; plaque figée au dernier contrat, dans le corps (jamais dans l'URL) ; référence, statut et période locale seulement ; preuves base : l0-us212"
     }
   }
 }

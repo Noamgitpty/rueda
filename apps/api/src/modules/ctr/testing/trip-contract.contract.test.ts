@@ -434,8 +434,10 @@ describe('US-211 partie 211b — routes du contrat de location d’un trip', () 
     // constancia et recherche de l'hôte (US-212) : la leur (ctr/testing/trip-constancia.contract)
     expect(
       missingCoverage(contract, '/trips', coverageOf(...apps)).filter(
+        // reçu d'un trip (US-217a) : sa propre suite (avl/testing/trip-receipt.contract)
         (d) =>
           !d.includes(' /trips/{tripId}/refunds ') &&
+          !d.includes(' /trips/{tripId}/receipt ') &&
           !/^GET \/trips(\/\{tripId\})? \d{3}$/.test(d) &&
           !d.includes(' /trips/{tripId}/constancia') &&
           !d.includes(' /trips/constancias/'),

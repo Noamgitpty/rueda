@@ -234,7 +234,12 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  `web.s08.none`, texte de `web.s08.empty` de 10b §4.3 dont la clé est tenue par le prototype),
  `web.s09.*` (S09 : lieu de remise, hôte particulier, total payé,
  documents — contrat ; constancia et reçu annoncés —, modification par le support, BR-MOD-01).
- Version 78 (77 réservée à US-217a ; la 76 est celle d’US-214 ; 74 et 75 réservées à des stories en cours) : constancia
+ Version 77 (la 76 est celle d’US-214 ; 74 et 75 restent sautées) : reçu des gains de l’hôte et reçu du trip fee, partie 217a (US-217, ADR-161) :
+ `common.receipt.*` (réponses de la route `/trips/{id}/receipt` : introuvable, pas encore
+ disponible, indisponible) et `common.earnings.*` (réponses de la route
+ `/host/accounts/{orgId}/earnings/{month}` : introuvable, indisponible). Les écrans A08 et S09
+ (Bêta L3) viendront avec leurs propres clés.
+ Version 78 (la 77 est celle d’US-217a) : constancia
  d’arrendamiento et centre juridique (US-212, ADR-162) : `ctr.constancia.*` (texte du PDF de la
  constancia, espagnol qui fait foi puis langue du lecteur, gabarit BROUILLON, GL-39),
  `common.constancia.*` (réponses des routes `/trips/{id}/constancia` et

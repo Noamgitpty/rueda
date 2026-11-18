@@ -2,7 +2,7 @@
  * Constancia d'arrendamiento d'un trip (US-212, ADR-162 ; 16 LEG-026 ; 19 US-212 critère 1 ; 08
  * BR-TT-03). Fonctions PURES :
  *   - `parseConstanciaFacts` : lecture stricte des faits rendus par la base
- *     (`core.booking_trip_constancia`, 0137) : faits FIGÉS de la dernière version du contrat de
+ *     (`core.booking_trip_constancia`, 0138) : faits FIGÉS de la dernière version du contrat de
  *     location (période locale, véhicule, plaque, lieu de remise, total payé), hôte en prénom et
  *     initiale, conducteur du contrat, signature à l'heure locale ; une forme inattendue est
  *     refusée, jamais devinée ;
