@@ -90,11 +90,6 @@ export const FR_PROTO = {
     'Il te faudra : un permis de conduire valide, un passeport ou une carte d’identité, et un selfie. Compte environ 3 minutes.',
   'web.s03.kyc.90days':
     'Tu peux conduire avec ton permis étranger jusqu’au {date_limit}. Ta location se termine le {date_end}.',
-  'web.deposit.unavailable': {
-    one: 'Pour ces dates, nous ne pouvons pas bloquer le dépôt sur ta carte. Tu peux réserver jusqu’à {count} jour.',
-    other:
-      'Pour ces dates, nous ne pouvons pas bloquer le dépôt sur ta carte. Tu peux réserver jusqu’à {count} jours.',
-  },
   'web.s04.status.question': 'Quelle est ta situation au {country} ?',
   'web.s04.status.tourist': 'Tu es au {country} depuis moins de 90 jours, avec un passeport',
   'web.s04.status.resident': 'Tu as une pièce d’identité du {country}',
