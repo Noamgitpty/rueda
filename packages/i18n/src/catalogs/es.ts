@@ -2118,9 +2118,9 @@ export const ES_MESSAGES = {
   'web.s05.summary.title': 'Tu viaje',
   'web.s05.summary.host': 'Auto de {host_name}',
   'web.s05.intermediary':
-    '{brand} es una plataforma entre particulares: intermedia y cobra el pago como comerciante de referencia, pero no es una empresa de alquiler ni la dueña del auto. El contrato de alquiler es entre tú y {host_name}.',
+    '{brand} es una plataforma entre particulares: intermedia y cobra el pago como comerciante de referencia, pero no es una empresa de alquiler ni la dueña del auto. El contrato de alquiler es entre {host_name} y tú.',
   'web.s05.intermediaryNoHost':
-    '{brand} es una plataforma entre particulares: intermedia y cobra el pago como comerciante de referencia, pero no es una empresa de alquiler ni la dueña del auto. El contrato de alquiler es entre tú y el anfitrión.',
+    '{brand} es una plataforma entre particulares: intermedia y cobra el pago como comerciante de referencia, pero no es una empresa de alquiler ni la dueña del auto. El contrato de alquiler es entre el anfitrión y tú.',
   'web.s05.summary.pickup': 'Recoges el auto',
   'web.s05.summary.return': 'Devuelves el auto',
   'web.s05.summary.place': 'Zona de entrega',

@@ -2170,9 +2170,9 @@ export const FR_MESSAGES = {
   'web.s05.summary.title': 'Ton voyage',
   'web.s05.summary.host': 'Voiture de {host_name}',
   'web.s05.intermediary':
-    '{brand} est une place de marché entre particuliers : elle sert d’intermédiaire et encaisse le paiement en tant que marchand de référence, mais ce n’est pas une société de location et la voiture ne lui appartient pas. Le contrat de location est entre toi et {host_name}.',
+    '{brand} est une place de marché entre particuliers : elle sert d’intermédiaire et encaisse le paiement en tant que marchand de référence, mais ce n’est pas une société de location et la voiture ne lui appartient pas. Le contrat de location est entre {host_name} et toi.',
   'web.s05.intermediaryNoHost':
-    '{brand} est une place de marché entre particuliers : elle sert d’intermédiaire et encaisse le paiement en tant que marchand de référence, mais ce n’est pas une société de location et la voiture ne lui appartient pas. Le contrat de location est entre toi et l’hôte.',
+    '{brand} est une place de marché entre particuliers : elle sert d’intermédiaire et encaisse le paiement en tant que marchand de référence, mais ce n’est pas une société de location et la voiture ne lui appartient pas. Le contrat de location est entre l’hôte et toi.',
   'web.s05.summary.pickup': 'Prise en charge',
   'web.s05.summary.return': 'Retour',
   'web.s05.summary.place': 'Zone de remise',
