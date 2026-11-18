@@ -79,6 +79,11 @@ const CHROME_ARGS = ['--disable-lcd-text'] as const;
  * quelle que soit l'échelle de la requête, soit l'état que l'échelle 2 donne déjà (références
  * inchangées) ; la branche « ajustée » de la course disparaît. La tablette (échelle 1, ajustement
  * « slight » dans ses références) n'en reçoit pas.
+ * Ces deux drapeaux ne ferment pas la course (runs 44138991977, 44171328704) : Blink crée une
+ * police avec l'échelle globale du processus de rendu, à 1 jusqu'à la première mise en page
+ * (`FontCache::DeviceScaleFactor()`). La capture la neutralise par `e2e/capture-polices.css`
+ * (`text-rendering: geometricPrecision`, e2e/visual.ts) ; les drapeaux restent, sans effet sur les
+ * références.
  */
 const phone = {
   isMobile: true,

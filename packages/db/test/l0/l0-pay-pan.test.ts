@@ -1,9 +1,13 @@
 /**
- * US-019 (correctif, migration 0029) — détecteur `core.payment_text_has_pan` et contrainte
+ * US-019 (correctifs, migrations 0029 et 0131) — détecteur `core.payment_text_has_pan` et contrainte
  * `webhook_inbox_no_pan`, sous les rôles de PRODUCTION (assertion L0-05 par withRole / connectAs) :
- * - table partagée avec l'API (`test/support/pan-vectors.json`) : 34 PAN de test publics (Visa,
- *   Mastercard, Amex, Diners, Discover, JCB, UnionPay, Mir ; tout groupage, zéros de tête) refusés,
- *   17 non-PAN (UUID, `evt-<uuid>`, Luhn invalide, 12 ou 20 chiffres, préfixes 1 et 9) acceptés ;
+ * - table partagée avec l'API (`test/support/pan-vectors.json`) : 41 PAN de test publics (Visa,
+ *   Mastercard, Amex, Diners, Discover, JCB, UnionPay, Mir ; tout groupage, zéros de tête ; bords
+ *   des empreintes de 0131) refusés, 20 non-PAN (UUID, `evt-<uuid>`, empreintes hex(sha256), Luhn
+ *   invalide, 12 ou 20 chiffres, préfixes 1 et 9, limite d'ADR-155) acceptés ;
+ * - 0131 / ADR-155 : 20 000 clés d'idempotence réduites (hex(sha256), 08 E4) acceptées, le mutant
+ *   0029 en refuse ; webhook de preuve PA (USD) et PY (PYG) qui porte l'empreinte en
+ *   `merchantReference` accepté, un PAN voisin refusé (23514) ;
  * - 10 000 `evt-<uuid>` générés à graine fixe : acceptés ;
  * - complexité linéaire : 64 ko de groupes d'un chiffre sous `statement_timeout` (la version
  *   cubique de la première 0029 n'aboutit pas) ;
@@ -18,11 +22,13 @@ import { inTx } from '../support/avl.ts';
 import { caught } from '../support/pay.ts';
 import {
   EVT_FALSE_POSITIVE,
+  HEX_FALSE_POSITIVE,
   NOT_PANS,
   PANS,
   VISA_TEST,
   containsPan0028,
   evtCorpus,
+  reducedKeyCorpus,
 } from '../support/pan.ts';
 
 async function hasPan(tx: pg.ClientBase, texts: readonly string[]): Promise<Map<string, boolean>> {
@@ -108,4 +114,71 @@ describe('US-019 / 0029 — détecteur de PAN sans faux positif sur les UUID', (
       await releaseClient(worker);
     }
   });
+
+  it('0131 / ADR-155 : 20 000 clés réduites hex(sha256) acceptées ; le mutant 0029 en refuse', async () => {
+    const corpus = reducedKeyCorpus(20_000);
+    expect(new Set(corpus).size).toBe(20_000);
+    expect(corpus.every((k) => /^[0-9a-f]{64}$/.test(k))).toBe(true);
+    await withRole('app_worker', async (client) => {
+      const got = await hasPan(client, corpus);
+      expect([...got].filter(([, pan]) => pan).map(([t]) => t)).toEqual([]);
+      // mutant « définition de 0029 » : une lettre collée (sans chiffre) retire l'exclusion
+      const glued = await hasPan(
+        client,
+        corpus.map((k) => `g${k}`),
+      );
+      const killed = [...glued].filter(([, pan]) => pan).length;
+      expect(killed).toBeGreaterThan(20); // environ 0,32 % attendu
+      // reproduction fixe (hors corpus) : refusée collée, acceptée seule
+      const repro = await hasPan(client, [`g${HEX_FALSE_POSITIVE}`, HEX_FALSE_POSITIVE]);
+      expect(repro.get(`g${HEX_FALSE_POSITIVE}`)).toBe(true);
+      expect(repro.get(HEX_FALSE_POSITIVE)).toBe(false);
+      console.log(`[US-019 PAN] base, 20 000 clés réduites : 0 refus (0029 en refusait ${killed})`);
+    });
+  });
+
+  it.each([
+    { country: 'PA', currency: 'USD', amountMinor: '12550' },
+    { country: 'PY', currency: 'PYG', amountMinor: '1250000' },
+  ])(
+    '0131 / ADR-155, $country : preuve avec l’empreinte en merchantReference acceptée, PAN voisin refusé',
+    async ({ currency, amountMinor }) => {
+      const worker = await connectAs('app_worker');
+      try {
+        await inTx(worker, { worker: 'webhook_ingest' }, async (tx) => {
+          const insert = (eventId: string, events: unknown[]): Promise<unknown> =>
+            tx.query(
+              `INSERT INTO core.payment_webhook_inbox (id, provider, psp_account_id, provider_event_id,
+                                                       dedup_key, signature_valid, processing_status,
+                                                       normalized_events)
+               VALUES ($1, 'FAKE', NULL, $2, convert_to($2, 'UTF8'), true, 'PROCESSED', $3::jsonb)`,
+              [randomUUID(), eventId, JSON.stringify(events)],
+            );
+          const event = {
+            type: 'REFUND',
+            status: 'SUCCEEDED',
+            merchantReference: HEX_FALSE_POSITIVE,
+            currency,
+            amountMinor,
+          };
+          // refusé par 0029 (23514), accepté par 0131 ; identifiant d'événement = empreinte aussi
+          expect(await caught(tx, () => insert(`evt-${randomUUID()}`, [event]))).toBeNull();
+          expect(await caught(tx, () => insert(HEX_FALSE_POSITIVE, [event]))).toBeNull();
+          for (const leak of [
+            { ...event, card: VISA_TEST },
+            { ...event, merchantReference: `${HEX_FALSE_POSITIVE} 4111 1111 1111 1111` },
+            { ...event, merchantReference: `g${HEX_FALSE_POSITIVE}` },
+            { ...event, merchantReference: HEX_FALSE_POSITIVE.toUpperCase() },
+          ]) {
+            expect(await caught(tx, () => insert(`evt-${randomUUID()}`, [leak]))).toMatchObject({
+              code: '23514',
+              constraint: 'webhook_inbox_no_pan',
+            });
+          }
+        });
+      } finally {
+        await releaseClient(worker);
+      }
+    },
+  );
 });

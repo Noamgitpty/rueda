@@ -1,0 +1,21 @@
+/*
+ * Feuille appliquée par Playwright PENDANT LA CAPTURE seulement (`stylePath` de
+ * `toHaveScreenshot`, e2e/visual.ts), sur les projets téléphone (échelle 2) : jamais servie par
+ * le site, jamais active pendant le balayage axe.
+ *
+ * Pourquoi (N-180, docs/qa/REGRESSION_VISUELLE.md, « Polices créées avant la première mise en
+ * page ») : sous Linux, Blink règle le tramage d'une police (ajustement des glyphes,
+ * positionnement sous-pixel, métriques linéaires) en interrogeant le système avec
+ * `FontCache::DeviceScaleFactor()`, valeur globale du processus de rendu, à 1 au départ et mise à
+ * jour seulement par `LayoutView::LayoutRoot()`. Une police créée avant la première mise en page
+ * (unité `ch` de l'accueil) l'est à l'échelle 1, les suivantes à 2 ; laquelle l'est à quelle
+ * échelle dépend du minutage et du processus réutilisé : capture instable au hasard.
+ * `text-rendering: geometricPrecision` fixe positionnement sous-pixel et aucun ajustement quelle
+ * que soit l'échelle de la requête (`QuerySystemRenderStyle`, font_platform_data.cc) : c'est le
+ * réglage que l'échelle 2 donne déjà, et il ne dépend plus d'aucune course.
+ */
+*,
+*::before,
+*::after {
+  text-rendering: geometricPrecision !important;
+}
