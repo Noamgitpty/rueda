@@ -7,7 +7,7 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 
 ## Synthèse
 
-- 131 migrations ; 126 tables ; 3 vues ; 710 politiques RLS ; 270 fonctions `SECURITY DEFINER` ; 246 autres fonctions.
+- 132 migrations ; 126 tables ; 3 vues ; 710 politiques RLS ; 270 fonctions `SECURITY DEFINER` ; 246 autres fonctions.
 - Tables sans RLS `ENABLE` + `FORCE` : aucune.
 - Rôles applicatifs avec `SUPERUSER` ou `BYPASSRLS` : aucun.
 
@@ -146,6 +146,7 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 | `0128_support_console_trip_cancellation` | SUP / AVL / STL : état d'une demande d'annulation lu par la console (O01). |
 | `0129_settlement_host_ledger` | STL : grand livre minimal de l'hôte (`host_ledger`) ; pénalité d'annulation de l'hôte. |
 | `0130_payment_refund_read` | PAY / AVL / SUP : lecture du remboursement par le voyageur, l'hôte et la console (S10). |
+| `0131_mutation_us124_chassis` | MUTATION TEMPORAIRE (suite N-99 d'US-124, ADR-158) : JAMAIS FUSIONNÉE. |
 
 ## Rôles
 
