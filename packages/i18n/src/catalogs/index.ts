@@ -258,8 +258,15 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  Version 83 (la 82 est celle d’US-225) : lieux de prise
  et de retour (US-514, ADR-168) : `common.checkout.oneWayNotAllowed` (lieu de retour différent du
  lieu de prise refusé au checkout, 16 BKG-016 : one-way interdit).
+ Version 85 (la 84 est celle d’US-217b) : fin d’US-212 (partie 212b, ADR-162 n° 6 et n° 10) :
+ `web.s05.intermediary` et `web.s05.intermediaryNoHost` (mention d’intermédiaire entre
+ particuliers et hôte en prénom et initiale au checkout S05, 19 US-212 critère 3) ; « constancia de
+ alquiler » et « empresa de alquiler » au lieu d’« arrendamiento » / « arrendadora » en espagnol
+ (`ctr.constancia.title`, `ctr.constancia.platform`, `web.s09.documents.constancia`) ; tutoiement
+ du centre juridique (`web.legalCenter.trip.body`, `web.legalCenter.disputes.body1` à `body3`, es
+ et fr). Textes juridiques toujours BROUILLON (GL-39).
  */
-export const CATALOG_VERSION = 83;
+export const CATALOG_VERSION = 85;
 
 /** Catalogues de base par langue ; la langue d'un profil de locale choisit le sien. */
 export const CATALOGS: Readonly<Record<CatalogLanguage, VersionedCatalog<MessageKey>>> = {

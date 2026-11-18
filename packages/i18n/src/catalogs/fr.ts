@@ -2169,6 +2169,10 @@ export const FR_MESSAGES = {
   'web.s05.priceChanged': 'Le prix a changé',
   'web.s05.summary.title': 'Ton voyage',
   'web.s05.summary.host': 'Voiture de {host_name}',
+  'web.s05.intermediary':
+    '{brand} est une place de marché entre particuliers : elle sert d’intermédiaire et encaisse le paiement en tant que marchand de référence, mais ce n’est pas une société de location et la voiture ne lui appartient pas. Le contrat de location est entre toi et {host_name}.',
+  'web.s05.intermediaryNoHost':
+    '{brand} est une place de marché entre particuliers : elle sert d’intermédiaire et encaisse le paiement en tant que marchand de référence, mais ce n’est pas une société de location et la voiture ne lui appartient pas. Le contrat de location est entre toi et l’hôte.',
   'web.s05.summary.pickup': 'Prise en charge',
   'web.s05.summary.return': 'Retour',
   'web.s05.summary.place': 'Zone de remise',
@@ -2502,16 +2506,16 @@ export const FR_MESSAGES = {
   'web.legalCenter.doc.GEO_TERMS': 'Zones de circulation',
   'web.legalCenter.trip.title': 'Les documents de chaque voyage',
   'web.legalCenter.trip.body':
-    'Chaque voyage confirmé a son contrat de location et son attestation, en espagnol et dans votre langue. Le voyageur et l’hôte les trouvent dans le voyage.',
+    'Chaque voyage confirmé a son contrat de location et son attestation, en espagnol et dans ta langue. Le voyageur et l’hôte les trouvent dans le voyage.',
   'web.legalCenter.trip.hostSearch':
     'Hôtes : retrouver l’attestation d’un voyage par immatriculation et date',
   'web.legalCenter.disputes.title': 'Désaccords et réclamations',
   'web.legalCenter.disputes.body1':
-    'En cas de désaccord avec l’autre partie, écrivez-lui d’abord par la messagerie du voyage.',
+    'En cas de désaccord avec l’autre partie, écris-lui d’abord par la messagerie du voyage.',
   'web.legalCenter.disputes.body2':
-    'Si le désaccord persiste, écrivez au support avec le numéro du voyage : nous examinons le cas avec les deux parties et proposons une solution (médiation).',
+    'Si le désaccord persiste, écris au support avec le numéro du voyage : nous examinons le cas avec les deux parties et proposons une solution (médiation).',
   'web.legalCenter.disputes.body3':
-    'Vous pouvez toujours saisir l’autorité de protection des consommateurs ou les tribunaux du lieu du voyage. Aucune décision de la plateforme ne vous en empêche.',
+    'Tu peux toujours saisir l’autorité de protection des consommateurs ou les tribunaux du lieu du voyage. Aucune décision de la plateforme ne t’en empêche.',
   'web.legalCenter.disputes.law':
     'La loi du lieu où se déroule le voyage s’applique. Le texte espagnol fait foi.',
   'web.s09.contract.title': 'Ton contrat de location',

@@ -2122,6 +2122,10 @@ export const PT_MESSAGES = {
   'web.s05.priceChanged': 'O preço mudou',
   'web.s05.summary.title': 'Sua viagem',
   'web.s05.summary.host': 'Carro de {host_name}',
+  'web.s05.intermediary':
+    '{brand} é uma plataforma entre particulares: faz a intermediação e recebe o pagamento como comerciante de referência, mas não é uma locadora nem dona do carro. O contrato de aluguel é entre você e {host_name}.',
+  'web.s05.intermediaryNoHost':
+    '{brand} é uma plataforma entre particulares: faz a intermediação e recebe o pagamento como comerciante de referência, mas não é uma locadora nem dona do carro. O contrato de aluguel é entre você e o anfitrião.',
   'web.s05.summary.pickup': 'Retirada',
   'web.s05.summary.return': 'Devolução',
   'web.s05.summary.place': 'Área de entrega',

@@ -18825,6 +18825,7 @@
           "protectionLevel",
           "driverAge",
           "insurerContractActive",
+          "hostName",
           "protectionOptions",
           "mileage",
           "cancellation",
@@ -19018,6 +19019,11 @@
           "insurerContractActive": {
             "description": "insurer_contract_active du pays : false ⇒ aucune réservation (INSURER_CONTRACT_INACTIVE, 16 PRT-001)",
             "type": "boolean"
+          },
+          "hostName": {
+            "description": "Hôte de l'annonce en prénom et initiale (premier mot du prénom légal, initiale du nom légal ; 19 US-212 critère 3, BOARD N-346) ; null : titulaire pseudonymisé ou sans prénom. Jamais le nom complet.",
+            "type": ["string", "null"],
+            "maxLength": 43
           },
           "protectionOptions": {
             "description": "Niveaux vendus (au moins le minimum du pays) et leur prix pour la période, par rang croissant (16 BKG-003, PRT-001) ; un niveau refusé à l'âge déclaré reste listé, eligible = false. Choisir un autre niveau = demander un nouveau devis.",

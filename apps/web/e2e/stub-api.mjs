@@ -445,6 +445,8 @@ const quoteJson = (q) => ({
       : []),
   ],
   totalMinor: String(q.rent + q.tax + q.protection),
+  // US-212b (N-346) : hôte de l'annonce en prénom et initiale (la fiche dit « Ana »)
+  hostName: 'Ana P.',
   ...(q.protection > 0
     ? {
         protectionLevel: q.level,
@@ -2086,10 +2088,7 @@ const constanciaPdf = (version, lang) =>
   Buffer.from(`%PDF-1.4\n% constancia fictive v${version} es-${lang}\n%%EOF\n`, 'latin1');
 const constanciaLines = (lang) =>
   ({
-    es: [
-      'CONSTANCIA DE ARRENDAMIENTO ENTRE PARTICULARES',
-      'Vehículo: Toyota Yaris 2021, placa AB 1234',
-    ],
+    es: ['CONSTANCIA DE ALQUILER ENTRE PARTICULARES', 'Vehículo: Toyota Yaris 2021, placa AB 1234'],
     en: [
       'CERTIFICATE OF RENTAL BETWEEN PRIVATE INDIVIDUALS',
       'Vehicle: Toyota Yaris 2021, license plate AB 1234',

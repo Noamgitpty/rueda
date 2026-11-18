@@ -1058,3 +1058,12 @@ Migration `0144_booking_meeting_place`. Fixture `9939_test_us514_meeting_place_f
 - **Adresse bornée** : `core.catalog_guest_meeting_point` (0106) et `core.booking_guest_trips` (0136) remplacés à signature identique : l'adresse exacte n'est plus rendue au-delà de la fin prévue du trip + `review_window_days` du pays (paramètre absent ou mal formé ⇒ jamais). Aucune copie de l'adresse, rien à purger.
 - **Droits** : `SELECT (country_code, scheduled_end)` de `booking_trip` à catalog_cmd_owner ; politiques ajoutées `catalog_cmd_meeting_read`, `cmd_hold_meeting_read` sur `config_param_value` (clé `review_window_days`).
 - **Preuves** : `test/l0/l0-us514-meeting-place.test.ts` (PA USD, PY PYG : one-way, adresse après réservation seulement, borne de la fenêtre dans chaque état, paramètre absent, lieu non modifiable par aucun rôle, droits).
+
+## Hôte figé de la constancia et hôte du checkout S05 (US-212 partie 212b ; BOARD N-345, N-346 ; ADR-162)
+
+Migration `0145_ctr_constancia_frozen_host_checkout_host`. Fixture `9938_test_us212b_host_rename_fixtures` (nom légal d'un compte changé après la réservation, transaction annulée).
+
+- **Hôte figé** : `core.booking_trip_constancia(bytea, uuid)` (0138) remplacée à signature identique : le nom de l'hôte vient de `identity.hostName` de la dernière version du contrat (0122), réduit à prénom et initiale par une règle du seul fait figé (premier mot, initiale du mot suivant ; nom figé vide ⇒ `ERASED`) ; le compte n'est plus lu que pour sa pseudonymisation.
+- **Hôte du checkout** : `core.booking_checkout_host_name(bytea, uuid)` (cmd_hold_owner, EXECUTE app_api, lecture seule) : premier mot du prénom légal et initiale du nom de l'hôte de l'annonce du devis du voyageur de la session ; devis d'un autre ou inconnu ⇒ aucune ligne ; titulaire pseudonymisé ⇒ `NULL`.
+- **Droits** : aucun nouveau (colonnes déjà accordées par 0032, 0037, 0067, 0108, 0122).
+- **Preuves** : `test/l0/l0-us212-constancia.test.ts` (PA USD, PY PYG : nom changé après la réservation sans effet sur la constancia, règle de réduction, nom figé vide, hôte du checkout au seul voyageur du devis, `app_worker` et `app_anon` : 42501).

@@ -110,6 +110,11 @@ export interface CheckoutQuote {
   readonly driverAge: number | null;
   /** `insurer_contract_active` du pays : `false` ⇒ `INSURER_CONTRACT_INACTIVE` (16 PRT-001). */
   readonly insurerContractActive: boolean;
+  /**
+   * Hôte de l'annonce en prénom et initiale (US-212 critère 3, N-346 ; 0145) ; `null` : titulaire
+   * pseudonymisé ou sans prénom, l'écran ne nomme personne.
+   */
+  readonly hostName: string | null;
   /** Niveaux vendus et leur prix pour la période (calculés par l'API, devis provisoires). */
   readonly protectionOptions: readonly CheckoutProtectionOption[];
   /** Distance figée (US-205b) ; `null` : devis figé avant US-205b, aucune distance promise. */
@@ -351,6 +356,8 @@ export class PgCheckoutStore implements CheckoutStore {
     // US-205b : documents canoniques et distance figée (core.pricing_checkout_terms, 0118) ;
     // annulation gratuite pour le départ du devis si la réservation a lieu maintenant
     // (core.catalog_public_terms) ; même requête
+    // US-212b (N-346, 0145) : hôte en prénom et initiale (core.booking_checkout_host_name), même
+    // garde du voyageur de la session
     const { rows } = await this.db.query(
       `SELECT q.*, p.protection_level, p.driver_age, p.frozen_at, p.insurer_contract_active,
               m.engine_version AS frozen_engine_version, m.inputs AS frozen_inputs,
@@ -359,11 +366,13 @@ export class PgCheckoutStore implements CheckoutStore {
               m.included_km AS quote_included_km,
               m.extra_km_price_minor::text AS quote_extra_km_price_minor,
               t.last_minute AS cancel_last_minute, t.free_until AS cancel_free_until,
-              t.last_minute_window_minutes AS cancel_window_minutes
+              t.last_minute_window_minutes AS cancel_window_minutes,
+              hn.host_name AS checkout_host_name
          FROM core.booking_checkout_quote($1, $2::uuid) AS q
          JOIN core.booking_checkout_protection($1, $2::uuid) AS p ON p.quote_id = q.quote_id
          LEFT JOIN core.pricing_checkout_terms($1, $2::uuid) AS m ON m.quote_id = q.quote_id
-         LEFT JOIN LATERAL core.catalog_public_terms(q.listing_id, q.start_at) AS t ON true`,
+         LEFT JOIN LATERAL core.catalog_public_terms(q.listing_id, q.start_at) AS t ON true
+         LEFT JOIN core.booking_checkout_host_name($1, $2::uuid) AS hn ON hn.quote_id = q.quote_id`,
       [proof, quoteId],
     );
     const r = rows[0];
@@ -395,6 +404,7 @@ export class PgCheckoutStore implements CheckoutStore {
       protectionLevel: textOrNull(r['protection_level']),
       driverAge: intOrNull(r['driver_age']),
       insurerContractActive: bool(r['insurer_contract_active']),
+      hostName: textOrNull(r['checkout_host_name']),
       frozenAtMs: Date.parse(iso(r['frozen_at'])),
       frozen:
         r['frozen_inputs'] === null || r['frozen_inputs'] === undefined
