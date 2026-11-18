@@ -470,3 +470,183 @@ describe('engagements de l’hôte : historique ajout seul, version et libellé 
     });
   });
 });
+
+// ---------------------------------------------------------------------------------------------
+// Suite N-99 (BOARD ; revues de la PR #127) : châssis courts réels, bornes, clé de contrôle non
+// exigée, ancienne signature, engagement repris à chaque déclaration (ADR-158).
+
+/**
+ * Chiffre de contrôle ISO 3779 (position 9) calculé ici, indépendamment de la base :
+ * translittération des lettres et poids de la pratique nord-américaine (49 CFR 565.15), seule
+ * juridiction qui l'impose.
+ */
+const VIN_VALUES: Readonly<Record<string, number>> = {
+  A: 1,
+  B: 2,
+  C: 3,
+  D: 4,
+  E: 5,
+  F: 6,
+  G: 7,
+  H: 8,
+  J: 1,
+  K: 2,
+  L: 3,
+  M: 4,
+  N: 5,
+  P: 7,
+  R: 9,
+  S: 2,
+  T: 3,
+  U: 4,
+  V: 5,
+  W: 6,
+  X: 7,
+  Y: 8,
+  Z: 9,
+};
+const VIN_WEIGHTS = [8, 7, 6, 5, 4, 3, 2, 10, 0, 9, 8, 7, 6, 5, 4, 3, 2] as const;
+function checkDigit(vin: string): string {
+  let sum = 0;
+  for (let i = 0; i < 17; i++) {
+    const ch = vin.charAt(i);
+    const value = /\d/.test(ch) ? Number(ch) : (VIN_VALUES[ch] ?? 0);
+    sum += value * (VIN_WEIGHTS[i] ?? 0);
+  }
+  const r = sum % 11;
+  return r === 10 ? 'X' : String(r);
+}
+const withCheck = (vin: string, digit: string): string =>
+  `${vin.slice(0, 8)}${digit}${vin.slice(9)}`;
+
+/** Formes réelles de châssis japonais « code modèle-numéro de série », de 9 à 12 caractères. */
+const JP_SHAPES: readonly (readonly [string, (c: pg.ClientBase) => Promise<string>, number])[] = [
+  ['K11-123456 (Nissan March)', async (c) => `K11-${await uniqueDigits(c, 6)}`, 9],
+  ['EK9-1234567 (Honda Civic)', async (c) => `EK9-${await uniqueDigits(c, 7)}`, 10],
+  ['AE86-1234567 (Toyota Corolla)', async (c) => `AE86-${await uniqueDigits(c, 7)}`, 11],
+  ['ZVW30-1234567 (Toyota Prius)', async (c) => `ZVW30-${await uniqueDigits(c, 7)}`, 12],
+];
+
+describe('suite N-99 : châssis libre borné, clé de contrôle non exigée, engagement repris (ADR-158)', () => {
+  it.each(byCountry)(
+    '%s (%s) : châssis japonais réels de 9 à 12 caractères acceptés et normalisés ; 16 caractères (I, O, Q admis hors ISO) accepté, borne haute ; véhicule à châssis de 9 caractères ELIGIBLE',
+    async (country, _currency, cc: CountryCase) => {
+      await withRole('app_api', async (client) => {
+        await noDocs(client, country);
+        const h = await host(client, country);
+        const year = localYear(cc) - 3;
+        for (const [label, make, length] of JP_SHAPES) {
+          const raw = await make(client);
+          const created = await vehicle(client, h, country, year, { vin: raw });
+          expect(created.outcome, label).toBe('DONE');
+          const stored = await vinOf(client, created.id);
+          expect(stored, label).toBe(normalized(raw));
+          expect(stored?.length, label).toBe(length);
+        }
+        const nine = await vehicle(client, h, country, year, {
+          vin: `k11 ${await uniqueDigits(client, 6)}`,
+        });
+        expect(nine.outcome).toBe('DONE');
+        expect(await declare(client, h, nine.id)).toBe('DONE');
+        expect((await submit(client, h, nine.id))?.outcome).toBe('ELIGIBLE');
+        // borne haute du format non ISO : 16 caractères, lettres I, O, Q admises (hors ISO 3779)
+        const sixteen = `QZO100-${await uniqueDigits(client, 10)}`;
+        expect(normalized(sixteen)).toHaveLength(16);
+        const s = await vehicle(client, h, country, year, { vin: sixteen });
+        expect(s.outcome).toBe('DONE');
+        expect(await vinOf(client, s.id)).toBe(normalized(sixteen));
+        // témoin : 17 caractères avec ces mêmes lettres ⇒ lu comme ISO 3779, refusé
+        expect((await vehicle(client, h, country, year, { vin: `${sixteen}7` })).outcome).toBe(
+          'VEHICLE_VIN_INVALID',
+        );
+      });
+    },
+  );
+
+  it.each(byCountry)(
+    '%s (%s) : VIN ISO de 17 caractères à clé de contrôle fausse accepté comme à clé juste, récent ou ancien (aucun pays opéré ne l’exige, ADR-158)',
+    async (country, _currency, cc: CountryCase) => {
+      await withRole('app_api', async (client) => {
+        const h = await host(client, country);
+        for (const year of [localYear(cc) - 1, 1990]) {
+          const base = await isoVin(client);
+          const right = withCheck(base, checkDigit(base));
+          expect(checkDigit(right)).toBe(right.charAt(8));
+          const created = await vehicle(client, h, country, year, { vin: right });
+          expect(created.outcome).toBe('DONE');
+          const other = await isoVin(client);
+          const wrong = withCheck(other, checkDigit(other) === '0' ? '1' : '0');
+          expect(checkDigit(wrong)).not.toBe(wrong.charAt(8));
+          const w = await vehicle(client, h, country, year, { vin: wrong });
+          expect(w.outcome).toBe('DONE');
+          expect(await vinOf(client, w.id)).toBe(wrong);
+        }
+      });
+    },
+  );
+
+  it.each(byCountry)(
+    '%s (%s) : ancienne signature (version N) — format refusé ⇒ VEHICLE_VIN_INVALID, rien n’est écrit ; témoin châssis court accepté et normalisé',
+    async (country, _currency, cc: CountryCase) => {
+      await withRole('app_api', async (client) => {
+        const h = await host(client, country);
+        const v = await vehicle(client, h, country, localYear(cc) - 2, { vin: null });
+        expect(v.outcome).toBe('DONE');
+        const legacy = async (vin: string): Promise<string> =>
+          (
+            await client.query<{ outcome: string }>(
+              `SELECT * FROM core.catalog_cmd_declare_vehicle($1, $2, $3, 'HOST', false, 42000,
+                                                              true, false, $4)`,
+              [h.hash, h.org, v.id, vin],
+            )
+          ).rows[0]?.outcome ?? '';
+        const witness = await isoVin(client);
+        for (const bad of [`${witness.slice(0, 16)}Q`, 'AB12', `${witness}A`, 'GRJ150/0012345']) {
+          expect(await legacy(bad), bad).toBe('VEHICLE_VIN_INVALID');
+        }
+        expect(await vinOf(client, v.id)).toBeNull();
+        expect(await attestations(client, v.id)).toEqual([]);
+        const raw = (await jpChassis(client)).toLowerCase();
+        expect(await legacy(raw)).toBe('DONE');
+        expect(await vinOf(client, v.id)).toBe(normalized(raw));
+      });
+    },
+  );
+
+  it.each(byCountry)(
+    '%s (%s) : engagement retiré à une nouvelle déclaration ⇒ non éligible (VEHICLE_TITLE_MISMATCH, VEHICLE_LENDER_CONSENT_REQUIRED) ; l’historique garde les engagements passés, sans ligne pour l’engagement retiré',
+    async (country, _currency, cc: CountryCase) => {
+      await withRole('app_api', async (client) => {
+        await noDocs(client, country);
+        const h = await host(client, country);
+        const v = await vehicle(client, h, country, localYear(cc) - 2, {
+          vin: await jpChassis(client),
+        });
+        expect(v.outcome).toBe('DONE');
+        const count = async (): Promise<Record<string, number>> => {
+          const out: Record<string, number> = {};
+          for (const r of await attestations(client, v.id)) {
+            out[r.statement] = (out[r.statement] ?? 0) + 1;
+          }
+          return out;
+        };
+        // 1. propriété cochée ⇒ ELIGIBLE (témoin)
+        expect(await declare(client, h, v.id)).toBe('DONE');
+        expect((await submit(client, h, v.id))?.outcome).toBe('ELIGIBLE');
+        // 2. propriété décochée ⇒ l'engagement en vigueur tombe, l'historique reste
+        expect(await declare(client, h, v.id, { owner: false })).toBe('DONE');
+        expect((await submit(client, h, v.id))?.reasons).toEqual(['VEHICLE_TITLE_MISMATCH']);
+        expect(await count()).toEqual({ OWNERSHIP: 1 });
+        // 3. financé, accord coché ⇒ ELIGIBLE (témoin)
+        expect(await declare(client, h, v.id, { lien: true })).toBe('DONE');
+        expect((await submit(client, h, v.id))?.outcome).toBe('ELIGIBLE');
+        // 4. financé, accord décoché ⇒ VEHICLE_LENDER_CONSENT_REQUIRED
+        expect(await declare(client, h, v.id, { lien: true, lienOk: false })).toBe('DONE');
+        expect((await submit(client, h, v.id))?.reasons).toEqual([
+          'VEHICLE_LENDER_CONSENT_REQUIRED',
+        ]);
+        expect(await count()).toEqual({ OWNERSHIP: 3, LIEN: 1 });
+      });
+    },
+  );
+});
