@@ -6,4 +6,4 @@ module: Finance
 - Corrigé : après une annulation qui rembourse une part du trip fee, le reçu ne montre plus la taxe du trip fee facturé en entier à côté de la part conservée (US-217)
 - Corrigé : un voyage sans paiement enregistré n'a plus de reçu du voyageur deviné à partir du devis : « pas encore disponible », comme pour l'hôte (US-217)
 - Modifié : le relevé mensuel des gains sépare l'acquis (voyages réglés et pénalités) de l'à venir (voyages capturés sans règlement) (US-217)
-- Modifié : textes en espagnol, anglais, français et portugais du Brésil (catalogue v83) (US-217)
+- Modifié : textes en espagnol, anglais, français et portugais du Brésil (catalogue v84) (US-217)

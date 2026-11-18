@@ -7088,7 +7088,7 @@
             }
           },
           "422": {
-            "description": "Ligne non rejouée par la base, devis sans protection (PROTECTION_LEVEL_REQUIRED, 16 PRT-011), boîte manuelle non confirmée, conducteur différent du titulaire, conditions non acceptées, préavis du lieu",
+            "description": "Ligne non rejouée par la base, devis sans protection (PROTECTION_LEVEL_REQUIRED, 16 PRT-011), boîte manuelle non confirmée, conducteur différent du titulaire, conditions non acceptées, préavis du lieu, lieu de retour différent du lieu de prise (ONE_WAY_NOT_ALLOWED, US-514, 16 BKG-016 : one-way interdit)",
             "headers": {
               "Cache-Control": {
                 "$ref": "#/components/headers/NoStore"
@@ -7106,7 +7106,8 @@
                         "MANUAL_TRANSMISSION_NOT_CONFIRMED",
                         "DRIVER_MUST_BE_ACCOUNT_HOLDER",
                         "TERMS_NOT_ACCEPTED",
-                        "DATES_NOTICE_TOO_SHORT"
+                        "DATES_NOTICE_TOO_SHORT",
+                        "ONE_WAY_NOT_ALLOWED"
                       ]
                     }
                   }
@@ -19104,6 +19105,11 @@
                 "maxLength": 100
               }
             }
+          },
+          "returnLocationId": {
+            "type": ["string", "null"],
+            "format": "uuid",
+            "description": "Lieu de retour demandé (US-514, 16 BKG-016) ; absent ou null : retour au lieu de prise. Tout autre lieu que celui de prise ⇒ 422 ONE_WAY_NOT_ALLOWED (one-way interdit au lancement). Le lieu de prise est celui de l'annonce, jamais choisi par le client en bêta."
           },
           "manualTransmissionConfirmed": {
             "type": "boolean"
