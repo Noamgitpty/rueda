@@ -1,0 +1,14 @@
+# Revue code — US-019 « correctif : détecteur de PAN et empreintes hex(sha256) » (PR n° 219) — 2026-11-17
+
+Relecteur : code / claude-sonnet-5-5 (famille A, autre modèle que l'auteur claude-opus-5-5)
+Entrées : 3187c948..18a8ff8278e596070ce70fa326f07d2fbd47c803
+
+Contexte : Lu : CLAUDE.md, fiches de revue, ADR-155, passation US-019, 0028, 0029, 0131 (diff de la fonction contre 0029 : seule l'étape 1 et le commentaire changent), pan.ts, vecteurs et tests. CI du run 44171328704 au SHA revu : base de données (test:int, test:l0 sous app_worker), qualité, argent, revues, gitleaks verts ; seul e2e web échoue (capture S01 de l'accueil, instabilité N-180 connue : la PR ne touche aucun fichier web), rien relancé. Sondes locales rejouées sur pan.ts ; PostgreSQL non démarré en local : le SQL est prouvé par la CI. Chemins protégés (.github, scripts/ci, scripts/team, review-requirements.json) : non touchés.
+
+| #   | Gravité | Constat                                                                                                                                                                                                                                                                                                                                 | Preuve                  | Décision |
+| --- | ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------- | -------- |
+| 1   | INFO    | Cohérence base / API : mêmes classes de bord (`[^0-9A-Za-z]` en base, lookbehind et lookahead en TypeScript), même remplacement, mêmes vecteurs ; `maskPan` conserve l'empreinte via ID_SPLIT (indices impairs, un seul groupe de capture), sonde : texte identique, 0 masque. Fonction 0131 identique à 0029 hors étape 1 (diff relu). | pan.ts ; 0131           | accepté  |
+| 2   | INFO    | Numérotation 0131 contiguë avec origin/main (0130, merge-base ebbab4da) ; schema.md (132 migrations, ligne ajoutée), README db et pay, changelog.d, ADR-155 PROPOSÉ, passation à jour avec la liste de renumérotation.                                                                                                                  | git ls-tree ; diff docs | accepté  |
+| 3   | MINEUR  | Le report « 17 §4.4 point 3 » est annoncé dans l'ADR et la passation mais reste à confier à une story de reports de specs : à inscrire au BOARD par l'orchestrateur.                                                                                                                                                                    | ADR-155 Conséquences    | accepté  |
+
+Verdict : APPROUVÉ
