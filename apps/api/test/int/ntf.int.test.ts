@@ -9,6 +9,11 @@
  *  - « Given un échec d'envoi, When il est remonté, Then repli sur l'autre canal et
  *    notification.fallback.triggered ».
  * (Critère 1, gabarits es / en / fr / pt : tests unitaires `templates.test.ts`.)
+ *
+ * US-213 (ADR-157) : les parties d'une réservation sont lues en base par l'adaptateur
+ * `postgresNotificationParties` d'AVL (`core.booking_notification_parties`, 0133), sous
+ * `ntf_dispatcher` ; un trip réel (monde de la fixture 9963) et la charge utile réelle de
+ * `booking.trip.booked` (0126, sans identifiant de personne).
  * Chaque cas tourne en USD (PA) et en PYG sans décimale (PY).
  */
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
@@ -21,7 +26,8 @@ import type { DeadLetterAlert, LeasedSqlClient } from '../../src/modules/bus/ind
 import { BusRegistry, JobRunner, workerTransactions } from '../../src/modules/bus/index.js';
 import { CountryConfigService } from '../../src/modules/cfg/index.js';
 import { postgresNotificationContacts } from '../../src/modules/iam/index.js';
-import type { NtfLogEntry } from '../../src/modules/ntf/index.js';
+import { postgresNotificationParties } from '../../src/modules/avl/index.js';
+import type { NotificationParties, NtfLogEntry } from '../../src/modules/ntf/index.js';
 import {
   dispatchEvent,
   MAX_SEND_ATTEMPTS,
@@ -31,6 +37,7 @@ import {
   NTF_SENDER_WORKER,
   registerNotifications,
   repositoryLocaleConfig,
+  RULES,
 } from '../../src/modules/ntf/index.js';
 
 const CASES = countryCases();
@@ -96,6 +103,19 @@ async function verifiedAccount(
   }
   return userId;
 }
+
+/** Parties fixes d'un trip (le trip de l'événement de test n'existe pas en base). */
+const fixedParties = (guest: string, host: string): NotificationParties => ({
+  partiesOf: () =>
+    Promise.resolve({
+      guestUserId: guest,
+      hostUserId: host,
+      holdKind: null,
+      holdStatus: null,
+      releaseReason: null,
+      requestAuthorized: null,
+    }),
+});
 
 class RecordingAlerter {
   readonly alerts: DeadLetterAlert[] = [];
@@ -190,9 +210,14 @@ describe.each(CASES)('NTF sur PostgreSQL réel — $country ($currency)', (c) =>
     const host = await verifiedAccount(api, 'en', null);
     const e = engine(worker);
     const event = bookedEvent(guest, host);
+    const parties = fixedParties(guest, host);
 
-    const first = await e.tx.run(NTF_DISPATCHER_WORKER, (sql) => dispatchEvent(event, sql));
-    const replay = await e.tx.run(NTF_DISPATCHER_WORKER, (sql) => dispatchEvent(event, sql));
+    const first = await e.tx.run(NTF_DISPATCHER_WORKER, (sql) =>
+      dispatchEvent(event, sql, RULES, parties),
+    );
+    const replay = await e.tx.run(NTF_DISPATCHER_WORKER, (sql) =>
+      dispatchEvent(event, sql, RULES, parties),
+    );
     expect(first).toHaveLength(2);
     expect(replay).toEqual([]);
     await e.drain();
@@ -269,5 +294,104 @@ describe.each(CASES)('NTF sur PostgreSQL réel — $country ($currency)', (c) =>
         },
       },
     ]);
+  });
+
+  it('US-213 : `booking.trip.booked` réel (sans identifiant de personne) ⇒ voyageur et titulaire du compte d’hôte lus en base, un envoi chacun, aucun doublon au rejeu ; hors ntf_dispatcher : refus', async () => {
+    const worker = await open('app_worker');
+    const sql = asSql(worker);
+    const as = (name: string) =>
+      worker.query(
+        `SELECT pg_catalog.set_config('app.actor_kind', 'WORKER', true),
+                pg_catalog.set_config('app.worker_name', $1, true)`,
+        [name],
+      );
+    const { rows: serial } = await worker.query<{ n: string }>(
+      'SELECT test_fixture.next_unique_serial()::text AS n',
+    );
+    const guest = randomUUID();
+    // montants de TEST (120 unités de la devise du pays) ; aucun montant n'est lu par NTF ici
+    const lines = JSON.stringify([{ type: 'TRIP_PRICE', amountMinor: c.amountMinor }]);
+    const deductibles = JSON.stringify({
+      BASICA: c.amountMinor,
+      ESTANDAR: c.amountMinor,
+      TOTAL: '0',
+    });
+    // transaction ANNULÉE : le monde de la fixture 9963 (contrat d'assureur compris) ne reste pas
+    await worker.query('BEGIN');
+    try {
+      await as(NTF_DISPATCHER_WORKER);
+      const { rows: world } = await worker.query<{
+        trip_id: string;
+        hold_id: string;
+        holder_id: string;
+      }>(
+        `SELECT trip_id::text, hold_id::text, holder_id::text
+           FROM test_fixture.us211_world($1, $2::uuid, 'Ana', 'Pérez', 'es', 'María', 'Gómez', $3,
+                                         'HOST', $4::timestamptz, $5::timestamptz, $6::jsonb,
+                                         'BASICA', 600, 35, $7::jsonb, $9::bigint, $8::bigint)`,
+        [
+          c.country,
+          guest,
+          `U213${serial[0]?.n ?? ''}`,
+          '2034-04-10T15:00:00.000Z',
+          '2034-04-13T15:00:00.000Z',
+          lines,
+          deductibles,
+          c.amountMinor,
+          // RC de TEST au-dessus du minimum du pays (garde 0115) : 10^7 fois 120 unités
+          (BigInt(c.amountMinor) * 10_000_000n).toString(),
+        ],
+      );
+      const w = world[0];
+      if (w === undefined) throw new Error('monde 9963 absent');
+      // charge utile de 0126 : trip_id, hold_id, vehicle_id, org_id, scheduled_* (aucune personne)
+      const event = {
+        ...bookedEvent(guest, guest),
+        aggregateId: w.trip_id,
+        payload: {
+          trip_id: w.trip_id,
+          hold_id: w.hold_id,
+          vehicle_id: randomUUID(),
+          org_id: randomUUID(),
+          scheduled_start: '2034-04-10T15:00:00.000000+00:00',
+          scheduled_end: '2034-04-13T15:00:00.000000+00:00',
+        },
+      };
+      const first = await dispatchEvent(event, sql, RULES, postgresNotificationParties);
+      const replay = await dispatchEvent(event, sql, RULES, postgresNotificationParties);
+      expect(first).toHaveLength(2);
+      expect(replay).toEqual([]);
+
+      await as(NTF_SENDER_WORKER);
+      const { rows } = await worker.query<{
+        recipient_user_id: string;
+        recipient_role: string;
+        template_key: string;
+        variables: Record<string, unknown>;
+      }>(
+        `SELECT recipient_user_id::text, recipient_role, template_key, variables
+           FROM core.ntf_notification_dispatch WHERE event_id = $1::uuid ORDER BY recipient_role`,
+        [event.eventId],
+      );
+      expect(rows.map((r) => [r.recipient_role, r.recipient_user_id, r.template_key])).toEqual([
+        ['GUEST', guest, 'EVT_BOOKING_CONFIRMED'],
+        ['HOST', w.holder_id, 'EVT_BOOKING_CONFIRMED_HOST'],
+      ]);
+      // référence du trip (8 premiers chiffres, comme le contrat et les écrans) ; aucun nom stocké
+      for (const r of rows) {
+        expect(r.variables['booking_ref']).toBe(w.trip_id.slice(0, 8).toUpperCase());
+        expect(JSON.stringify(r.variables)).not.toMatch(/Ana|Pérez|María|Gómez/);
+      }
+
+      // tout autre travailleur : la base refuse la lecture des parties (42501), aucun envoi
+      await as('booking_contract');
+      await worker.query('SAVEPOINT other_worker');
+      await expect(
+        dispatchEvent({ ...event, eventId: randomUUID() }, sql, RULES, postgresNotificationParties),
+      ).rejects.toMatchObject({ code: '42501' });
+      await worker.query('ROLLBACK TO SAVEPOINT other_worker');
+    } finally {
+      await worker.query('ROLLBACK');
+    }
   });
 });

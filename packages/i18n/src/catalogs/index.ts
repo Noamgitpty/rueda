@@ -218,8 +218,17 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  ADR-156) : `backoffice.profile.hostTrips` et `backoffice.profile.noHostTrip` (fiche 360° : trips à
  venir des comptes d'hôte de la personne, N-123) ; `ntf.tripHostRestrictionLifted.*` (voyageur d'un
  trip à venir prévenu de la levée de la restriction de son hôte, N-126).
+ Version 73 (la 72 est celle d’US-215c) : confirmation de réservation (US-213,
+ ADR-157) : `ntf.bookingConfirmed.*` revu (adresse exacte, contrat à signer, permis physique,
+ conseils de sécurité de 10b `web.s07.safety` ; jamais le téléphone de l’hôte ; numéros du
+ support et de l’assistance de l’assureur : GL-36), `ntf.bookingConfirmedHost.*` (confirmation à
+ l’hôte, sans donnée du voyageur), `ntf.bookingRequestReceived.*`, `ntf.bookingRequestDeclined.*`,
+ `ntf.bookingRequestExpired.*`, `ntf.bookingRequestFailed.*` et `ntf.bookingRequestFailedHost.*`
+ (demandes de réservation : reçue par l’hôte avec l’heure limite de la base ; refus, expiration,
+ capture non aboutie), `web.s07.title`, `web.s07.documents`, `web.s07.safety` (S06 confirmé,
+ 10b S07).
  */
-export const CATALOG_VERSION = 72;
+export const CATALOG_VERSION = 73;
 
 /** Catalogues de base par langue ; la langue d'un profil de locale choisit le sien. */
 export const CATALOGS: Readonly<Record<CatalogLanguage, VersionedCatalog<MessageKey>>> = {

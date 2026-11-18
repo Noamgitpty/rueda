@@ -105,11 +105,8 @@ export const EN_PROTO = {
   'web.s05.review.notice':
     "We review every booking. If we can't approve it, you get a full refund.",
   'web.s06.pre.title': 'Your statement will show: {merchant_name}',
-  'web.s07.title': 'Your booking is confirmed!',
   'web.s07.message': 'Message {host_name}',
   'web.s07.checkinOpens': 'Photo check-in opens on {date}.',
-  'web.s07.safety':
-    "For your safety: meet in a public, well-lit place, tell someone you trust where you'll be, and keep all messages on {brand}.",
   'web.s08.tabs.upcoming': 'Upcoming',
   'web.s08.tabs.past': 'Past',
   'web.s08.empty': "You don't have any trips yet",

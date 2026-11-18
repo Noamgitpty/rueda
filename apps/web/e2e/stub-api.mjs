@@ -709,6 +709,7 @@ async function checkoutRoute(req, res, path) {
 // ordre enregistré (PSP sans réponse), reprise possible par « Reintentar el pago ».
 const PSP_PAGE = 'https://psp.fake.invalid/pay/';
 const HOLD_ID_PREFIX = '22300000';
+const TRIP_ID_PREFIX = '21300000';
 const PAYMENT_REFUSALS = {
   '-12-18T': [409, 'HOST_PAYOUT_RAIL_UNAVAILABLE', 'common.payment.payoutRailUnavailable'],
   '-12-21T': [503, 'PAYMENT_UNAVAILABLE', 'common.payment.unavailable'],
@@ -837,7 +838,9 @@ async function paymentRoute(req, res, url) {
     } else if (event === 'SUCCEEDED' && status === 'PAYMENT_IN_FLIGHT') {
       h.status = 'CONVERTED';
       h.op = 'SUCCEEDED';
-      h.tripId = uuid();
+      // préfixe fixe (US-213) : S06 confirmé montre le numéro du trip (8 premiers caractères),
+      // stable dans les captures ; le reste reste unique
+      h.tripId = `${TRIP_ID_PREFIX}${uuid().slice(8)}`;
       // contrat de location du trip né (US-211 partie 211b), partie : le voyageur du hold
       newContract(
         h.tripId,
