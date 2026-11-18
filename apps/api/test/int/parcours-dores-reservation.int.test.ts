@@ -457,8 +457,7 @@ async function soleFakeAccount(country: string): Promise<void> {
 }
 
 /** Fournisseur du compte que T1 retiendrait À CET INSTANT (ordre de `booking_cmd_checkout_pay`). */
-async function firstProvider(country: string): Promise<string | null> {
-  const worker = await open('app_worker');
+async function firstProvider(worker: pg.ClientBase, country: string): Promise<string | null> {
   const { rows } = await worker.query<{ provider: string }>(
     `SELECT provider FROM core.payment_psp_account WHERE country_code = $1 AND status = 'ACTIVE'
       ORDER BY (environment = 'LIVE') DESC, provider, id LIMIT 1`,
@@ -480,8 +479,10 @@ async function onFakeAccount<T>(
   country: string,
   attempt: () => Promise<T>,
 ): Promise<{ ok: true; value: T } | { ok: false; error: unknown }> {
+  // UNE connexion app_worker pour toute l'attente (libérée par afterEach), jamais une par lecture
+  const worker = await open('app_worker');
   for (let i = 0; i < 240; i++) {
-    if ((await firstProvider(country)) === 'FAKE') {
+    if ((await firstProvider(worker, country)) === 'FAKE') {
       await tx.query('SAVEPOINT us221_fake');
       let out: { ok: true; value: T } | { ok: false; error: unknown };
       try {
@@ -489,7 +490,7 @@ async function onFakeAccount<T>(
       } catch (error) {
         out = { ok: false, error };
       }
-      if ((await firstProvider(country)) === 'FAKE') {
+      if ((await firstProvider(worker, country)) === 'FAKE') {
         await tx.query(
           out.ok ? 'RELEASE SAVEPOINT us221_fake' : 'ROLLBACK TO SAVEPOINT us221_fake',
         );
@@ -560,6 +561,11 @@ describe.each(CASES)('US-221 — parcours dorés « réservation » ($country, $
         if (want === undefined) throw new Error(`aucun attendu pour l'exposant ${exponent}`);
         expect(sum(want.legs).toString()).toBe(want.total);
 
+        // compte FAKE ACTIVE du pays VALIDÉ hors de la transaction annulée (comme le segment B) :
+        // la lecture des comptes de `onFakeAccount` (autre connexion) doit le voir
+        await inTx(api, { commit: true }, async (tx) => {
+          await tx.query('SELECT test_fixture.us024_psp_account($1)', [c.country]);
+        });
         await inTx(api, { at: NOW }, async (tx) => {
           await openSwitch(tx, 'p2p_private_hosts_enabled', c.country);
           await openSwitch(tx, 'insurer_contract_active', c.country);
