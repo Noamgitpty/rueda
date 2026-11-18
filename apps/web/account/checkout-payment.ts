@@ -52,6 +52,22 @@ export interface PaymentRequestView {
   readonly respondBy: string | null;
 }
 
+/**
+ * Caution vue par le voyageur (US-701, ADR-169 ; 08 BR-PAY-06) : aucune, montant et libération, ou
+ * réservation impossible avant le paiement. L'API ne rend jamais les déclencheurs (S-7).
+ */
+export type DepositView =
+  | { readonly status: 'NONE' }
+  | {
+      readonly status: 'REQUIRED';
+      readonly amountMinor: bigint;
+      readonly currency: string;
+      /** `HOLD` : blocage sur la carte ; `CHARGE` : débit puis remboursement. */
+      readonly kind: 'HOLD' | 'CHARGE';
+      readonly releaseAt: string;
+    }
+  | { readonly status: 'UNAVAILABLE'; readonly maxBookableDays: number | null };
+
 export interface CheckoutPaymentView {
   readonly holdId: string;
   readonly state: PaymentStateView;
@@ -62,12 +78,76 @@ export interface CheckoutPaymentView {
   readonly redirectUrl: string | null;
   /** Demande à l'hôte (hold `REQUEST`, US-223c) ; `null` : réservation immédiate. */
   readonly request: PaymentRequestView | null;
+  /** Caution (US-701) ; `null` : ni figée ni évaluable (champ absent). */
+  readonly deposit: DepositView | null;
 }
 
 const isObj = (v: unknown): v is Record<string, unknown> =>
   typeof v === 'object' && v !== null && !Array.isArray(v);
 const instantOrNull = (v: unknown): string | null | undefined =>
   v === null ? null : typeof v === 'string' && INSTANT.test(v) ? v : undefined;
+
+const DEPOSIT_MINOR = /^[1-9][0-9]{0,17}$/;
+const CURRENCY_CODE = /^[A-Z]{3}$/;
+
+/**
+ * Champ `deposit` (US-701) : absent ⇒ `null` ; mal formé ou porteur d'un champ inattendu
+ * (déclencheurs, âge…) ⇒ `undefined` (réponse refusée, fail-closed).
+ */
+function depositOf(v: unknown): DepositView | null | undefined {
+  if (v === undefined) return null;
+  if (!isObj(v)) return undefined;
+  const keys = Object.keys(v).sort().join(',');
+  switch (v['status']) {
+    case 'NONE':
+      return keys === 'status' ? { status: 'NONE' } : undefined;
+    case 'REQUIRED': {
+      const amount = v['amountMinor'];
+      const currency = v['currency'];
+      const kind = v['kind'];
+      const releaseAt = v['releaseAt'];
+      if (
+        keys !== 'amountMinor,currency,kind,releaseAt,status' ||
+        typeof amount !== 'string' ||
+        !DEPOSIT_MINOR.test(amount) ||
+        typeof currency !== 'string' ||
+        !CURRENCY_CODE.test(currency) ||
+        (kind !== 'HOLD' && kind !== 'CHARGE') ||
+        typeof releaseAt !== 'string' ||
+        !INSTANT.test(releaseAt)
+      ) {
+        return undefined;
+      }
+      return { status: 'REQUIRED', amountMinor: BigInt(amount), currency, kind, releaseAt };
+    }
+    case 'UNAVAILABLE': {
+      const days = v['maxBookableDays'];
+      if (keys !== 'maxBookableDays,status') return undefined;
+      if (days === null) return { status: 'UNAVAILABLE', maxBookableDays: null };
+      return typeof days === 'number' && Number.isSafeInteger(days) && days >= 0
+        ? { status: 'UNAVAILABLE', maxBookableDays: days }
+        : undefined;
+    }
+    default:
+      return undefined;
+  }
+}
+
+/**
+ * Message du refus de la caution sur S05 (suite S-8 d'US-225 ; 10b UX-24) : au moins un jour
+ * possible ⇒ `web.deposit.unavailable` (« tu peux réserver jusqu'à {count} jours ») ; 0 ou aucun
+ * (montant non fixé) ⇒ `web.deposit.unavailableNone` (jamais « jusqu'à 0 jour »).
+ */
+export function depositRefusalMessage(deposit: DepositView & { readonly status: 'UNAVAILABLE' }):
+  | { readonly key: 'web.deposit.unavailable'; readonly count: number }
+  | {
+      readonly key: 'web.deposit.unavailableNone';
+    } {
+  const days = deposit.maxBookableDays;
+  return days !== null && days >= 1
+    ? { key: 'web.deposit.unavailable', count: days }
+    : { key: 'web.deposit.unavailableNone' };
+}
 
 /** Champ `request` du paiement : absent ⇒ `null` (réservation immédiate), mal formé ⇒ `undefined`. */
 function requestOf(v: unknown): PaymentRequestView | null | undefined {
@@ -169,6 +249,8 @@ export function checkoutPaymentOf(reply: ApiResult): CheckoutPaymentView | null 
   if (state === 'CONFIRMED' && tripId === null) return null;
   const request = requestOf(p['request']);
   if (request === undefined) return null;
+  const deposit = depositOf(p['deposit']);
+  if (deposit === undefined) return null;
   const redirectUrl =
     typeof url === 'string' && HOSTED.test(url) && url.length <= HOSTED_MAX ? url : null;
   return {
@@ -179,6 +261,7 @@ export function checkoutPaymentOf(reply: ApiResult): CheckoutPaymentView | null 
     paymentInFlightUntil: inFlight,
     redirectUrl,
     request,
+    deposit,
   };
 }
 
@@ -192,6 +275,9 @@ const PAYMENT_KEYS: Readonly<Record<string, MessageKey>> = {
   HOLD_EXPIRED: 'common.payment.holdExpired',
   HOLD_NOT_PAYABLE: 'common.payment.holdNotPayable',
   BOOKING_UNDER_REVIEW: 'common.payment.underReview',
+  // US-701 (ADR-169) : caution impossible pour ces dates, ou montant non fixé
+  DEPOSIT_RAIL_UNAVAILABLE: 'common.payment.depositUnavailable',
+  DEPOSIT_PARAM_MISSING: 'common.payment.depositUnavailable',
   START_PASSED: 'common.payment.startPassed',
   PAYMENT_ATTEMPTS_EXCEEDED: 'common.payment.attemptsExceeded',
   HOST_PAYOUT_RAIL_UNAVAILABLE: 'common.payment.payoutRailUnavailable',

@@ -8,7 +8,7 @@
  *   ouverts par la procédure à deux personnes d'US-125, dans la transaction du test) ;
  * - marque ou modèle de valeur haute, du catalogue ou saisi hors catalogue ⇒ classe haute, jamais
  *   STANDARD (contrat limité à STANDARD ⇒ VEHICLE_NOT_COVERED : jamais sous-assuré) ;
- * - N-313 (migration 0146, ADR-171) : écritures courantes d'une saisie libre (« G 500 », « S580 »,
+ * - N-313 (migration 0147, ADR-171) : écritures courantes d'une saisie libre (« G 500 », « S580 »,
  *   « LandCruiser », « MercedesBenz »), marques et modèles ajoutés à la graine ;
  * - aucune régression : un véhicule déjà classé garde sa classe ; une variante générale de la
  *   graine v1 suit le défaut ; un véhicule jamais publié reste sans classe au rattachement ;
@@ -159,7 +159,7 @@ const OFF_CATALOG_CASES: ReadonlyArray<{
   { make: 'Mercedes', model: 'C 200', expected: 'PREMIUM', source: 'MAKE_RULE' },
   { make: 'Range Rover', model: 'Velar', expected: 'LUXE', source: 'MAKE_RULE' },
   { make: 'Marca Inventada', model: 'Modelo Uno', expected: 'DEFAULT', source: 'COUNTRY_DEFAULT' },
-  // N-313 (migration 0146, ADR-171) : écritures d'une saisie libre (espaces, casse, tirets
+  // N-313 (migration 0147, ADR-171) : écritures d'une saisie libre (espaces, casse, tirets
   // absents, chiffres collés), marques et modèles ajoutés ; jamais une règle qui déborde
   { make: 'Mercedes-Benz', model: 'G 500', expected: 'LUXE', source: 'MODEL_RULE' },
   { make: 'MERCEDES', model: 'S580', expected: 'LUXE', source: 'MODEL_RULE' },

@@ -106,7 +106,7 @@ export { COMMAND_KINDS, MoneyCommandSender } from './internal/money-command-send
 export type { CommandKind, MoneyCommand, SendOutcome } from './internal/money-command-sender.js';
 
 export { depositOperationKey, DEPOSIT_OPERATION_TYPES } from './internal/idempotency.js';
-export type { DepositOperationType } from './internal/idempotency.js';
+export type { DepositKeyParts, DepositOperationType } from './internal/idempotency.js';
 
 // Caution « comme Turo » : déclencheurs, rails, décision, exécution (US-225, ADR-164)
 export {
@@ -136,9 +136,11 @@ export {
   depositHoldValidityHours,
   depositReauthDueAt,
   depositReleaseAt,
+  depositScheduleAfterReauth,
   isCapturableOnDeposit,
   nextDepositStatus,
   planDepositDecision,
+  planDepositSchedule,
   requiredHoldMinutes,
   selectDepositRail,
 } from './internal/deposit-rails.js';
@@ -157,7 +159,9 @@ export type {
   DepositRailParams,
   DepositRailRequest,
   DepositRailSelection,
+  DepositSchedule,
   DepositStep,
+  CompleteRailParams,
 } from './internal/deposit-rails.js';
 export { DepositRailExecutor } from './internal/deposit-executor.js';
 export type {
@@ -170,6 +174,39 @@ export type {
 } from './internal/deposit-executor.js';
 export { DEPOSIT_CONFIG_KEYS, PgDepositRailConfigReader } from './internal/pg-deposit-config.js';
 export type { DepositRailConfig } from './internal/pg-deposit-config.js';
+// Caution au checkout, vue du voyageur, minuterie de ré-autorisation (US-701, ADR-169)
+export {
+  DepositCheckoutGate,
+  evaluateDepositCheckout,
+  guestViewOfRecorded,
+} from './internal/deposit-checkout.js';
+export type {
+  DepositCheckoutContext,
+  DepositCheckoutRead,
+  DepositCheckoutStore,
+  DepositConfigSource,
+  DepositDecisionRecord,
+  DepositEnforcement,
+  DepositGuestView,
+  DepositReadRefusal,
+  DepositRecordOutcome,
+  RecordedDeposit,
+} from './internal/deposit-checkout.js';
+export { PgDepositCheckoutStore } from './internal/pg-deposit-checkout.js';
+export {
+  DEPOSIT_TIMER_BATCH,
+  DEPOSIT_TIMER_PERIOD_SECONDS,
+  DEPOSIT_TIMER_WORKER,
+  DepositReauthTimer,
+  PgDepositTimerStore,
+  postgresDepositTimerDeps,
+  registerDepositTimers,
+} from './internal/deposit-timer.js';
+export type {
+  DepositTimerDeps,
+  DepositTimerStep,
+  DueDepositReauth,
+} from './internal/deposit-timer.js';
 
 // Webhooks (17 §4.4)
 export {

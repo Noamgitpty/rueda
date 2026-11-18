@@ -1063,9 +1063,17 @@ Migration `0144_booking_meeting_place`. Fixture `9939_test_us514_meeting_place_f
 - **Droits** : `SELECT (country_code, scheduled_end)` de `booking_trip` à catalog_cmd_owner ; politiques ajoutées `catalog_cmd_meeting_read`, `cmd_hold_meeting_read` sur `config_param_value` (clé `review_window_days`).
 - **Preuves** : `test/l0/l0-us514-meeting-place.test.ts` (PA USD, PY PYG : one-way, adresse après réservation seulement, borne de la fenêtre dans chaque état, paramètre absent, lieu non modifiable par aucun rôle, droits).
 
+## Caution figée au checkout (US-701 ; 08 BR-PAY-06 ; ADR-169)
+
+Migration `0146_payment_deposit_hold`, fixture `9945_test_us701_deposit_hold_fixtures.sql` (`test_fixture.us701_converted_deposit` : caution autorisée d'un hold converti, transaction annulée, EXECUTE `app_worker`).
+
+- **Table** `core.payment_deposit_hold` : une décision par hold (`hold_id` unique ; trip par `converted_trip_id`) ; `NOT_REQUIRED` ⇔ aucun déclencheur ⇔ montant 0, sans état ni échéance ; `REFUSED` jamais écrit ; `triggers` et `params_snapshot` [C2] ; garde de la décision et des transitions (`deposit_hold_guarded`), aucune suppression ; décision jamais après la libération ni après l'expiration (sauf ré-autorisation planifiée avant elle) ; RLS ENABLE + FORCE, **aucun droit** d'`app_api`, `app_worker`, `app_anon`.
+- **Fonctions** (cmd_hold_owner, RLS-15) : `payment_deposit_checkout(jeton, hold)` et `payment_cmd_record_deposit_decision(jeton, hold, décision)` (EXECUTE `app_api`, voyageur de la session, hold d'un autre ⇒ `HOLD_NOT_FOUND`) ; `payment_deposit_reauth_due(lot)` et `payment_cmd_deposit_transition(…)` (EXECUTE `app_worker`, nom `payment_command`). Revérifications de l'écriture : `deposit_decision_mismatch` (montant ≠ `deposit_amount[pays][classe]`, `NOT_REQUIRED` sur un pays ou une classe déclencheurs, classe inconnue), `deposit_rail_closed` (`CHARGE_THEN_REFUND` tant que `funds_holding_enabled` = faux).
+- **Droits ajoutés** à cmd_hold_owner : politiques de lecture `cmd_hold_deposit_read` de `config_param_value` (`deposit_always_required`, `deposit_trigger_classes`, `deposit_amount`, `funds_holding_enabled`) et de `config_param_definition` (`funds_holding_enabled`) ; `SELECT (conversion_operation_id)` de `booking_checkout_hold`.
+- **Preuves** : `test/l0/l0-us701-deposit-hold.test.ts` (PA USD, PY PYG ; `app_api`, `app_worker`).
 ## Durcissement avant l'ouverture d'un pays (US-224 ; suites N-354, N-342, N-313 ; ADR-171)
 
-Migration `0146_hardening_country_open`. Fixture `9935_test_hardening_fixtures` (restriction d'un genre donné, statut de l'adhésion du titulaire, co-hôte ACTIVE ; transactions de test).
+Migration `0147_hardening_country_open`. Fixture `9935_test_hardening_fixtures` (restriction d'un genre donné, statut de l'adhésion du titulaire, co-hôte ACTIVE ; transactions de test).
 
 - **N-354** : corps de `core.booking_manual_action_cancel_host_trips` (0140) remplacé : `CANCEL_HOST_TRIPS` exige une restriction active de sûreté du titulaire (`TS_HOLD`, `POLICY_VIOLATION`, `KYC_REVOKED`) ; une restriction d'argent seule (`UNPAID_BALANCE`, `PAYMENT_PLAN_ACTIVE`, `CHARGEBACK`) ⇒ `HOST_NOT_RESTRICTED`, rien d'écrit. `GRANT SELECT (kind) ON core.iam_restriction TO cmd_hold_owner` ajouté.
 - **N-342** : corps de `core.booking_trip_receipt` (0137) remplacé : l'hôte est jugé par `core.iam_host_accounts` (titulaire au rôle `P2P_HOST` `ACTIVE`, comme `booking_host_earnings`) ; co-hôte ou adhésion retirée ⇒ `NOT_FOUND`.

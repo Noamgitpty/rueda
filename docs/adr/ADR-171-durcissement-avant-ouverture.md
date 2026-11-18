@@ -2,7 +2,7 @@
 
 - **Statut** : PROPOSÉ (US-224, suites N-354, N-342, N-313 ; agent back-end, claude-opus-5-5, 2026-11-18). Revues exigées : celles de `check-story-reviews.mjs` (US-224 : code, architecture, sécurité, argent, ux, qa) ; `SECURITY DEFINER`, rôles et action de masse sur un autre modèle que l'auteur.
 - **Complète** : ADR-163 (hôte défaillant, `CANCEL_HOST_TRIPS`), ADR-124 (hôte restreint), ADR-161 (reçus et relevé des gains), ADR-159 (classe de valeur à la publication, corrigé par celui-ci).
-- **Sources** : 08 BR-TRUST-09 (hôte défaillant), BR-ACC-05 (classes et seuils PROPOSÉS), BR-COHOST ; revues de #235 (sécurité n° 4, architecture n° 5), de #231 (sécurité n° 4) et de #229 (N-313) ; BOARD N-354, N-342, N-313 ; CLAUDE.md contraintes 3, 7 et 9. Migration 0146.
+- **Sources** : 08 BR-TRUST-09 (hôte défaillant), BR-ACC-05 (classes et seuils PROPOSÉS), BR-COHOST ; revues de #235 (sécurité n° 4, architecture n° 5), de #231 (sécurité n° 4) et de #229 (N-313) ; BOARD N-354, N-342, N-313 ; CLAUDE.md contraintes 3, 7 et 9. Migration 0147.
 
 ## Contexte
 

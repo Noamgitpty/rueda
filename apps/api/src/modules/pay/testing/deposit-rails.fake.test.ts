@@ -45,6 +45,9 @@ function setup(c: (typeof CASES)[number], options: FakeStackOptions = {}) {
   const ref = {
     depositId: `dep-${c.country}`,
     tripReference: `trip-${c.country}`,
+    tripId: `trip-${c.country}`,
+    segmentId: `seg-${c.country}`,
+    tenderId: `tnd-${c.country}`,
     currency: CURRENCIES.get(c.currency),
   };
   return { stack, executor, ref };

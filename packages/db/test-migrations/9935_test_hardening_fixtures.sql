@@ -1,4 +1,4 @@
--- 9935 — Fixtures de TEST du durcissement avant l'ouverture d'un pays (migration 0146, ADR-171 ;
+-- 9935 — Fixtures de TEST du durcissement avant l'ouverture d'un pays (migration 0147, ADR-171 ;
 -- BOARD N-354, N-342). Jamais en production (test-migrations/ seulement). SECURITY DEFINER sous
 -- migrator (politique migrator_all), search_path figé ; l'appelant reste sous un rôle de
 -- production (L0-05), dans une transaction de test.

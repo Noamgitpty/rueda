@@ -332,6 +332,41 @@ for (const language of LANGUAGES) {
       await expectMobileFriendly(page);
     });
 
+    test('US-701 : caution impossible pour ces dates (T59) ⇒ S05 l’annonce avant le paiement, avec les jours possibles et une sortie ; aucun bouton « Pagar »', async ({
+      page,
+      context,
+    }) => {
+      await signInGuest(context, language);
+      await placeHold(page, 12);
+      const t = translator(language);
+      const section = page.locator('[data-testid="s05-deposit"]');
+      await expect(section).toHaveAttribute('data-state', 'UNAVAILABLE');
+      await expect(section.locator('[role="alert"]')).toHaveText(
+        t.t('web.deposit.unavailable', { count: 3 }),
+      );
+      await expect(section.getByRole('link', { name: t.t('web.listing.search') })).toBeVisible();
+      await expect(page.locator('[data-testid="s05-pay-submit"]')).toHaveCount(0);
+      await expectAccessible(page);
+      await expectMobileFriendly(page);
+    });
+
+    test('US-701 : caution exigée ⇒ montant, blocage temporaire et libération au plus tard sur S05 ; « Pagar » reste offert', async ({
+      page,
+      context,
+    }) => {
+      await signInGuest(context, language);
+      await placeHold(page, 13);
+      const t = translator(language);
+      const section = page.locator('[data-testid="s05-deposit"]');
+      await expect(section).toHaveAttribute('data-state', 'REQUIRED');
+      await expect(section.locator('[data-testid="s05-deposit-amount"]')).toHaveText(/300[.,]00/);
+      await expect(section).toContainText(t.t('web.deposit.how.preauth'));
+      await expect(section).toContainText(fixedPart(t, 'web.deposit.releaseBy', 'date'));
+      await expect(page.locator('[data-testid="s05-pay-submit"]')).toBeVisible();
+      await expectAccessible(page);
+      await expectMobileFriendly(page);
+    });
+
     for (const [day, key] of [
       [18, 'common.payment.payoutRailUnavailable'],
       // le 19 (réservation en revue) : aucun bouton « Pagar » (US-209c, checkout-review.spec.ts)
