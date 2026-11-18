@@ -253,6 +253,7 @@ describe('configuration pays : structure et droits', () => {
             // détail du trip du voyageur (US-514, 0144) : fenêtre review_window_days seulement
             ...(t === 'config_param_value'
               ? [{ t, pol: 'cmd_hold_meeting_read', cmd: 'r', roles: 'cmd_hold_owner' }]
+              : []),
             // caution figée au checkout (US-701, 0146) : déclencheurs pays / classe, montant et
             // interrupteur funds_holding_enabled (valeur et définition) seulement
             ...(t === 'config_param_definition' || t === 'config_param_value'
