@@ -36,15 +36,20 @@ DECLARE
   v_op      uuid := pg_catalog.gen_random_uuid();
   v_hold    uuid := pg_catalog.gen_random_uuid();
   v_occ     uuid := pg_catalog.gen_random_uuid();
-  v_seg     uuid := pg_catalog.gen_random_uuid();
+  v_seg     uuid;
   v_deposit uuid;
 BEGIN
   SELECT * INTO v_l FROM test_fixture.us208_listed_listing(p_country, 4000, 'AUTOMATIC', true);
   PERFORM test_fixture.rls_insert_trip(v_trip, v_guest, v_l.org_id, v_l.vehicle_id, p_country,
                                        p_currency, p_timezone, p_start, p_end);
   PERFORM test_fixture.rls_insert_trip_operation(v_op, v_trip, p_amount_minor);
-  INSERT INTO core.booking_trip_segment (id, trip_id, seq, period)
-  VALUES (v_seg, v_trip, 1, pg_catalog.tstzrange(p_start, p_end, '[)'));
+  -- segment n° 1 : créé avec le trip s'il existe déjà, sinon posé ici
+  SELECT s.id INTO v_seg FROM core.booking_trip_segment AS s WHERE s.trip_id = v_trip AND s.seq = 1;
+  IF v_seg IS NULL THEN
+    v_seg := pg_catalog.gen_random_uuid();
+    INSERT INTO core.booking_trip_segment (id, trip_id, seq, period)
+    VALUES (v_seg, v_trip, 1, pg_catalog.tstzrange(p_start, p_end, '[)'));
+  END IF;
   -- occupation du hold inactive (le trip tient le créneau)
   INSERT INTO core.booking_vehicle_occupancy
          (id, vehicle_id, org_id, country_code, kind, source, period, active, expires_at,

@@ -544,9 +544,7 @@ COMMENT ON FUNCTION core.payment_cmd_deposit_transition(uuid, text, integer, tim
   'Transitions AUTHORIZED, REAUTHORIZED, REAUTH_REFUSED de deposit_hold (machine d''état gardée). '
   'SECURITY DEFINER, EXECUTE app_worker (payment_command). US-701 (ADR-169).';
 
-RESET ROLE;
-REVOKE CREATE ON SCHEMA core FROM cmd_hold_owner;
-
+-- droits posés par le propriétaire (un REVOKE de migrator, non propriétaire, serait sans effet)
 REVOKE ALL ON FUNCTION core.payment_deposit_checkout(bytea, uuid),
   core.payment_cmd_record_deposit_decision(bytea, uuid, jsonb),
   core.payment_deposit_reauth_due(integer),
@@ -560,3 +558,6 @@ GRANT EXECUTE ON FUNCTION core.payment_deposit_reauth_due(integer),
   core.payment_cmd_deposit_transition(uuid, text, integer, timestamptz, timestamptz, timestamptz,
                                       text)
   TO app_worker;
+
+RESET ROLE;
+REVOKE CREATE ON SCHEMA core FROM cmd_hold_owner;
