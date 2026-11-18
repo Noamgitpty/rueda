@@ -7,7 +7,7 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 
 ## Synthèse
 
-- 139 migrations ; 127 tables ; 3 vues ; 713 politiques RLS ; 281 fonctions `SECURITY DEFINER` ; 249 autres fonctions.
+- 141 migrations ; 127 tables ; 3 vues ; 714 politiques RLS ; 284 fonctions `SECURITY DEFINER` ; 249 autres fonctions.
 - Tables sans RLS `ENABLE` + `FORCE` : aucune.
 - Rôles applicatifs avec `SUPERUSER` ou `BYPASSRLS` : aucun.
 
