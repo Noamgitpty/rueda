@@ -7,7 +7,7 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 
 ## Synthèse
 
-- 137 migrations ; 127 tables ; 3 vues ; 713 politiques RLS ; 273 fonctions `SECURITY DEFINER` ; 249 autres fonctions.
+- 139 migrations ; 127 tables ; 3 vues ; 714 politiques RLS ; 276 fonctions `SECURITY DEFINER` ; 249 autres fonctions.
 - Tables sans RLS `ENABLE` + `FORCE` : aucune.
 - Rôles applicatifs avec `SUPERUSER` ou `BYPASSRLS` : aucun.
 
@@ -5305,7 +5305,7 @@ Déclencheurs :
 Contraintes :
 
 - `host_ledger_advance_fk` : `FOREIGN KEY (advance_id) REFERENCES core.settlement_platform_advance(id)`
-- `host_ledger_advance_shape` : `CHECK ((((reason = 'RELEASED_LEG_ADVANCE'::text) = (advance_id IS NOT NULL)) AND ((reason <> 'RELEASED_LEG_ADVANCE'::text) OR (amount_minor < 0))))`
+- `host_ledger_advance_shape` : `CHECK ((reason = 'RELEASED_LEG_ADVANCE'::text) = (advance_id IS NOT NULL) AND (reason <> 'RELEASED_LEG_ADVANCE'::text OR amount_minor < 0))`
 - `host_ledger_advance_unique` : `UNIQUE (advance_id)`
 - `host_ledger_amount_nonzero` : `CHECK (amount_minor <> 0)`
 - `host_ledger_country_format` : `CHECK (country_code ~ '^[A-Z]{2}$'::text)`
@@ -5666,6 +5666,7 @@ Déclencheurs :
 - `advance_transition_guard` : `CREATE TRIGGER advance_transition_guard BEFORE UPDATE ON core.settlement_platform_advance FOR EACH ROW EXECUTE FUNCTION core.settlement_platform_advance_guard()`
 - `money_no_delete` : `CREATE TRIGGER money_no_delete BEFORE DELETE ON core.settlement_platform_advance FOR EACH ROW EXECUTE FUNCTION core.settlement_no_delete()`
 - `money_no_truncate` : `CREATE TRIGGER money_no_truncate BEFORE TRUNCATE ON core.settlement_platform_advance FOR EACH STATEMENT EXECUTE FUNCTION core.settlement_no_delete()`
+- `platform_advance_receivable_posted` : `CREATE TRIGGER platform_advance_receivable_posted AFTER UPDATE OF status ON core.settlement_platform_advance FOR EACH ROW WHEN (old.status = 'PLANNED'::text AND new.status = 'OPEN'::text AND new.cause = 'RELEASED_LEG'::text) EXECUTE FUNCTION core.settlement_post_advance_receivable()`
 - `touch_row` : `CREATE TRIGGER touch_row BEFORE UPDATE ON core.settlement_platform_advance FOR EACH ROW EXECUTE FUNCTION platform.touch_row()`
 
 ### `core.settlement_settlement`
@@ -6372,6 +6373,7 @@ Chacune a un propriétaire `NOLOGIN` dédié (ADR-053) et un `search_path` figé
 | `core.booking_host_guest_rows()` | `TABLE(trip_id uuid, first_name text, age_years integer, rating numeric, verification_status text)` | `host_view_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; host_view_owner: EXECUTE |
 | `core.booking_host_requests(p_token_hash bytea, p_org uuid, p_hold_id uuid, p_limit integer)` | `TABLE(outcome text, hold_id uuid, status text, vehicle_id uuid, scheduled_start timestamp with time zone, scheduled_end timestamp with time zone, timezone text, request_respond_by timestamp with time zone, currency text, total_minor bigint, host_leg_minor bigint, guest_first_name text, guest_age_years integer, guest_rating numeric, guest_verified boolean)` | `host_view_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; host_view_owner: EXECUTE |
 | `core.booking_host_trips(p_token_hash bytea, p_org uuid, p_tab text, p_vehicle_id uuid, p_from date, p_to date, p_trip_id uuid, p_limit integer)` | `TABLE(outcome text, trip_id uuid, public_ref text, tab text, status text, vehicle_id uuid, scheduled_start timestamp with time zone, scheduled_end timestamp with time zone, timezone text, booked_at timestamp with time zone, payment_status text, currency text, host_leg_minor bigint, guest_first_name text, guest_age_years integer, guest_rating numeric, guest_verified boolean)` | `host_view_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; host_view_owner: EXECUTE |
+| `core.booking_manual_action_cancel_host_trips(p_token_hash bytea, p_action_id uuid, p_action_code text, p_subject_id uuid, p_input jsonb, p_reason text, p_actor uuid, p_actor_role text)` | `TABLE(outcome text, ref_id uuid, emitted_event_ids uuid[])` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | cmd_hold_owner: EXECUTE ; iam_staff_owner: EXECUTE |
 | `core.booking_manual_action_cancel_trip(p_token_hash bytea, p_action_id uuid, p_action_code text, p_subject_id uuid, p_input jsonb, p_reason text, p_actor uuid, p_actor_role text)` | `TABLE(outcome text, ref_id uuid, emitted_event_ids uuid[])` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | cmd_hold_owner: EXECUTE ; iam_staff_owner: EXECUTE |
 | `core.booking_manual_action_review_flagged(p_token_hash bytea, p_action_id uuid, p_action_code text, p_subject_id uuid, p_input jsonb, p_reason text, p_actor uuid, p_actor_role text)` | `TABLE(outcome text, ref_id uuid, emitted_event_ids uuid[])` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | cmd_hold_owner: EXECUTE ; iam_staff_owner: EXECUTE |
 | `core.booking_notification_parties(p_subject text, p_id uuid)` | `jsonb` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; cmd_hold_owner: EXECUTE |
@@ -6567,9 +6569,11 @@ Chacune a un propriétaire `NOLOGIN` dédié (ADR-053) et un `search_path` figé
 | `core.settlement_cancellation_of(p_settlement_id uuid)` | `TABLE(id uuid, trip_id uuid, segment_no integer, version integer, supersedes_id uuid, kind text, requested_reason text, reason text, origin text, target_state text, inputs jsonb, superseded boolean)` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | cmd_hold_owner: EXECUTE ; cmd_money_owner: EXECUTE |
 | `core.settlement_cmd_apply_leg_movement(p_operation_id uuid)` | `text` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; cmd_money_owner: EXECUTE |
 | `core.settlement_cmd_approve_finance_action(p_token_hash bytea, p_approval_id uuid)` | `TABLE(outcome text, approval_id uuid)` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; cmd_money_owner: EXECUTE |
+| `core.settlement_cmd_post_advance_receivable(p_advance_id uuid)` | `uuid` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | cmd_money_owner: EXECUTE |
 | `core.settlement_cmd_post_host_penalty(p_settlement_id uuid)` | `uuid` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | cmd_money_owner: EXECUTE |
 | `core.settlement_cmd_record(p_settlement_id uuid, p_trip_id uuid, p_segment_no integer, p_version integer, p_supersedes_id uuid, p_trip_row_version integer, p_record jsonb)` | `uuid` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; cmd_money_owner: EXECUTE |
 | `core.settlement_cmd_request_finance_action(p_token_hash bytea, p_request_id uuid, p_action text, p_subject_id uuid, p_reason text)` | `TABLE(outcome text, approval_id uuid)` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; cmd_money_owner: EXECUTE |
+| `core.settlement_post_advance_receivable()` | `trigger` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | cmd_money_owner: EXECUTE |
 | `core.settlement_post_cancellation_penalty()` | `trigger` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | cmd_money_owner: EXECUTE |
 | `core.settlement_staff_cancellation_summary(p_settlement_id uuid)` | `jsonb` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | cmd_money_owner: EXECUTE ; iam_staff_owner: EXECUTE |
 | `core.support_close_review_item(p_item_id uuid, p_status text, p_decision text, p_actor uuid)` | `TABLE(outcome text, item_id uuid)` | `iam_staff_owner` | search_path=pg_catalog, pg_temp | cmd_hold_owner: EXECUTE ; iam_staff_owner: EXECUTE ; kyc_cmd_owner: EXECUTE |
