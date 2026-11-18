@@ -11,6 +11,14 @@ export { assertPayableAmounts, type PayableAmounts } from './amounts.ts';
 export { computeCaptureLegs, computeLegs, legVariation } from './legs.ts';
 export { settlementOrders, type SettlementOrders } from './refunds.ts';
 export {
+  refundsByTender,
+  tenderRefundOrders,
+  type PaidTender,
+  type TenderRefund,
+  type TenderRefundLegs,
+  type TenderRefundOrders,
+} from './tender-refunds.ts';
+export {
   TENDER_KINDS,
   cascadeTenders,
   creditCap,

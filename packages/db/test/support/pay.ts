@@ -130,6 +130,8 @@ export interface RecordInput {
    * tout appel passe par celle à 15 arguments.
    */
   readonly settlement?: SettlementRef | null;
+  /** US-224f : moyen de l'encaissement (défaut `CARD`, comme avant). */
+  readonly method?: string;
 }
 
 /** Version d'un règlement portée par un ordre (US-224). */
@@ -169,7 +171,7 @@ export async function recordOperation(
 ): Promise<{ operation_id: string; replayed: boolean }> {
   const { rows } = await tx.query<{ operation_id: string; replayed: boolean }>(
     `SELECT operation_id, replayed
-       FROM core.payment_cmd_record_operation($1, NULL, $2, $3, 'CARD', $4, $5, $6, $7, $8, $9,
+       FROM core.payment_cmd_record_operation($1, NULL, $2, $3, $14, $4, $5, $6, $7, $8, $9,
                                               $10, $11::jsonb, $12::uuid, $13::integer)`,
     [
       r.id ?? uuid(),
@@ -185,6 +187,7 @@ export async function recordOperation(
       r.legs === null ? null : legsJson(r.legs),
       r.settlement?.id ?? null,
       r.settlement?.version ?? null,
+      r.method ?? 'CARD',
     ],
   );
   const row = rows[0];

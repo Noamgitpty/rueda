@@ -472,6 +472,22 @@ export class PgRefundOrders {
     return rows[0]?.changed === true;
   }
 
+  /**
+   * US-224f (ADR-166, 08 SM-8) : instance `FAILED` après un rejet confirmé ⇒ `PENDING_CUSTOMER_CHOICE`
+   * (`attempt_no` + 1) ; déjà en attente ⇒ `DUPLICATE` ; remplacée ⇒ `SUPERSEDED`.
+   */
+  async awaitChoice(instanceId: string): Promise<'AWAITING_CHOICE' | 'DUPLICATE' | 'SUPERSEDED'> {
+    const { rows } = await this.#tx.query<{ outcome: string }>(
+      'SELECT core.payment_cmd_refund_await_choice($1) AS outcome',
+      [instanceId],
+    );
+    const outcome = rows[0]?.outcome;
+    if (outcome !== 'AWAITING_CHOICE' && outcome !== 'DUPLICATE' && outcome !== 'SUPERSEDED') {
+      throw new Error('PAY : attente du choix du rail sans issue connue');
+    }
+    return outcome;
+  }
+
   /** Opération d'une instance (report après confirmation). */
   async operationOf(instanceId: string): Promise<string> {
     const { rows } = await this.#tx.query<{ operation_id: string }>(

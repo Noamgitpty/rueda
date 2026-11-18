@@ -279,7 +279,9 @@ describe('annulation (215b) : étapes', () => {
         'NOT_FOUND',
       ].sort(),
     );
-    expect(Object.keys(CANCEL_OUTCOME_KEYS)).toHaveLength(13);
+    // US-224f (ADR-166) : trois codes ajoutés (REFUND_RAIL_UNAVAILABLE, REFUND_RAIL_NOT_NATIVE,
+    // REFUND_EXCEEDS_TENDER), chacun contrôlé ci-dessus dans les quatre langues
+    expect(Object.keys(CANCEL_OUTCOME_KEYS)).toHaveLength(16);
   });
 });
 
