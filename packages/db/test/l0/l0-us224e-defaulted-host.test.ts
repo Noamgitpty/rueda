@@ -5,8 +5,10 @@
  * table de décision n° 13), en USD (PA) et en PYG sans décimale (PY).
  *
  * Parcours : un compte d'hôte a deux trips à venir encaissés (jambes TJ01 / TJ08a) ; l'ops ne peut
- * pas annuler ses trips tant qu'il n'est pas suspendu (HOST_NOT_RESTRICTED, rien d'écrit) ; il est
- * restreint (restriction active posée par la fixture 9941), puis `CANCEL_HOST_TRIPS` écrit UNE
+ * pas annuler ses trips tant qu'il n'est pas suspendu (HOST_NOT_RESTRICTED, rien d'écrit), ni
+ * quand il n'a que des restrictions d'argent (N-354, migration 0146, ADR-171 : UNPAID_BALANCE,
+ * PAYMENT_PLAN_ACTIVE, CHARGEBACK, fixture 9935) ; il est restreint pour la sûreté (TS_HOLD posée
+ * par la fixture 9941 ; POLICY_VIOLATION et KYC_REVOKED prouvés à part), puis `CANCEL_HOST_TRIPS` écrit UNE
  * demande PENDING par trip à venir de ce compte (motif dérivé HOST_ACCOUNT_CLOSED, initiateur
  * PLATFORM), aucune pour le trip d'un autre hôte ; rejeu ⇒ DUPLICATE ; nouvelle demande ⇒
  * NO_TRIP_TO_CANCEL. Chaque demande
@@ -63,6 +65,11 @@ const iso = (ms: number): string => new Date(ms).toISOString();
 const ACTED_AT_MS = Date.UTC(2031, 4, 20, 12, 0, 0);
 /** Départ des trips : 10 h après l'action (T22 : demande à T−10 h). */
 const LEAD_MINUTES = 600;
+
+/** Genres de restriction d'argent : jamais une défaillance (N-354, ADR-171). */
+const MONEY_KINDS = ['UNPAID_BALANCE', 'PAYMENT_PLAN_ACTIVE', 'CHARGEBACK'] as const;
+/** Genres de sûreté qui rendent l'hôte défaillant, autres que TS_HOLD (N-354, ADR-171). */
+const SAFETY_KINDS = ['POLICY_VIOLATION', 'KYC_REVOKED'] as const;
 
 interface CaseOf {
   readonly c: CountryCase;
@@ -232,6 +239,18 @@ describe.each(CASES)('critère 5 d’US-224 — hôte défaillant — $c.country
         });
         expect(await cancellationsOf(api, org)).toEqual([]);
 
+        // N-354 (ADR-171) : une restriction d'ARGENT (dette, plan de paiement, rétrofacturation)
+        // bloque les nouvelles réservations mais ne rend pas l'hôte défaillant : toujours refusé,
+        // rien d'écrit, même avec les trois genres actifs ensemble
+        for (const kind of MONEY_KINDS) {
+          await api.query('SELECT test_fixture.hard_restrict($1, $2)', [holder, kind]);
+          expect(await act(api, k, 'CANCEL_HOST_TRIPS', org, {}), kind).toMatchObject({
+            outcome: 'REFUSED',
+            detail: 'HOST_NOT_RESTRICTED',
+          });
+          expect(await cancellationsOf(api, org)).toEqual([]);
+        }
+
         // suspendu (ADR-124 : plus aucune nouvelle réservation ; restriction posée par la fixture 9941,
         // l'action RESTRICT_ACCOUNT est prouvée par l0-us109), puis ses trips à venir annulés
         await api.query('SELECT test_fixture.us224e_restrict($1)', [holder]);
@@ -362,6 +381,34 @@ describe.each(CASES)('critère 5 d’US-224 — hôte défaillant — $c.country
       });
     });
   });
+
+  it.each(SAFETY_KINDS)(
+    'N-354 : hôte suspendu pour la sûreté (%s) ⇒ CANCEL_HOST_TRIPS annule son trip à venir (HOST_ACCOUNT_CLOSED)',
+    async (kind) => {
+      await withRole('app_api', async (api) => {
+        await withRole('app_worker', async (worker) => {
+          const org = uuid();
+          const t = await trip(worker, k, org);
+          const { rows: h } = await api.query<{ id: string }>(
+            'SELECT test_fixture.us224e_org_holder($1) AS id',
+            [org],
+          );
+          const holder = h[0]?.id ?? '';
+          expect(holder).not.toBe('');
+          await api.query('SELECT test_fixture.hard_restrict($1, $2)', [holder, kind]);
+          expect((await act(api, k, 'CANCEL_HOST_TRIPS', org, {})).outcome).toBe('DONE');
+          const pending = await cancellationsOf(api, org);
+          expect(pending.map((x) => x.trip_id)).toEqual([t.trip]);
+          expect(pending[0]).toMatchObject({
+            action_code: 'CANCEL_TRIP_PLATFORM',
+            requested_reason: 'HOST_ACCOUNT_CLOSED',
+            initiator: 'PLATFORM',
+            status: 'PENDING',
+          });
+        });
+      });
+    },
+  );
 
   it('un agent SUPPORT (sans ops.platform_cancel) est refusé ; un compte inconnu n’annule rien', async () => {
     await withRole('app_api', async (api) => {
