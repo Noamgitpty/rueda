@@ -34,7 +34,11 @@ import {
   UnavailableBrandFileStore,
   UnavailableBrandScanner,
 } from '../modules/cfg/index.js';
-import { PgConsentStore, PgTripContractStore } from '../modules/ctr/index.js';
+import {
+  PgConsentStore,
+  PgTripConstanciaStore,
+  PgTripContractStore,
+} from '../modules/ctr/index.js';
 import { postgresIamAdapters, postgresStaffAdapters } from '../modules/iam/index.js';
 import { postgresKycAdapters } from '../modules/kyc/index.js';
 import type { StaffOptions } from '../modules/iam/index.js';
@@ -812,6 +816,18 @@ async function requestOf(
         path: `/trips/${randomUUID()}/contract/sign`,
         body: { accepted: true, documentId: randomUUID(), sha256: 'a'.repeat(64) },
       };
+    // constancia d'arrendamiento (US-212) : trip inconnu de l'acteur ⇒ 404 ; recherche de l'hôte :
+    // plaque dans le corps, aucun trip d'un autre compte
+    case 'GET /trips/{tripId}/constancia':
+      return { method: 'GET', path: `/trips/${randomUUID()}/constancia` };
+    case 'GET /trips/{tripId}/constancia/pdf':
+      return { method: 'GET', path: `/trips/${randomUUID()}/constancia/pdf` };
+    case 'POST /trips/constancias/search':
+      return {
+        method: 'POST',
+        path: '/trips/constancias/search',
+        body: { plate: 'RT-1234', date: '2036-12-10' },
+      };
     // recherche publique (US-201) : zones du pays ; recherche datée loin dans le futur
     case 'GET /search/areas':
       return { method: 'GET', path: `/search/areas?country=${country}` };
@@ -1124,7 +1140,11 @@ beforeAll(async () => {
         board: new PgAbuseBoardStore(client),
         rhythm: { record: () => false },
       },
-      { store: new PgConsentStore(client), contracts: new PgTripContractStore(client) },
+      {
+        store: new PgConsentStore(client),
+        contracts: new PgTripContractStore(client),
+        constancias: new PgTripConstanciaStore(client),
+      },
       postgresCatAdapters(client),
       postgresKycAdapters(client),
       undefined,

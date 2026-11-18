@@ -2075,6 +2075,120 @@ async function contractRoute(req, res, url) {
   return json(res, 200, contractView(m[1], c, role, d, n));
 }
 
+// ---- Constancia d'arrendamiento d'un trip (US-212) : lecture, PDF, recherche de l'hôte ---------
+// La partie est celle du contrat du trip (voyageur du hold, hôte de ses autos) ; toute autre
+// session ⇒ 404 CONSTANCIA_NOT_FOUND (comme l'API). Faits fixes du contrat fictif (captures
+// stables), langue du lecteur = courtoisie du contrat ; empreinte = SHA-256 du PDF fictif. La
+// recherche (corps : plaque, date) rend les trips dont la session est l'hôte, plaque fictive
+// `AB 1234`, du 10 au 14 décembre 2036 (lendemain de la fin compris).
+const CONSTANCIA_PLATE = 'AB1234';
+const constanciaPdf = (version, lang) =>
+  Buffer.from(`%PDF-1.4\n% constancia fictive v${version} es-${lang}\n%%EOF\n`, 'latin1');
+const constanciaLines = (lang) =>
+  ({
+    es: [
+      'CONSTANCIA DE ARRENDAMIENTO ENTRE PARTICULARES',
+      'Vehículo: Toyota Yaris 2021, placa AB 1234',
+    ],
+    en: [
+      'CERTIFICATE OF RENTAL BETWEEN PRIVATE INDIVIDUALS',
+      'Vehicle: Toyota Yaris 2021, license plate AB 1234',
+    ],
+    fr: [
+      'ATTESTATION DE LOCATION ENTRE PARTICULIERS',
+      'Véhicule : Toyota Yaris 2021, immatriculation AB 1234',
+    ],
+    pt: ['COMPROVANTE DE LOCAÇÃO ENTRE PARTICULARES', 'Veículo: Toyota Yaris 2021, placa AB 1234'],
+  })[lang].map((text, i) => ({ style: i === 0 ? 'title' : 'kv', text }));
+
+async function constanciaRoute(req, res, url) {
+  const path = url.pathname;
+  if (req.method === 'POST' && path === '/trips/constancias/search') {
+    const token = tokenOf(req);
+    if (token === undefined) return err(res, 401, 'AUTH_REQUIRED', 'common.auth.sessionRequired');
+    const b = (await readBody(req)) ?? {};
+    const plate =
+      typeof b.plate === 'string' ? b.plate.replace(/[^A-Za-z0-9]/g, '').toUpperCase() : '';
+    if (
+      Object.keys(b).length !== 2 ||
+      plate.length < 2 ||
+      plate.length > 12 ||
+      typeof b.date !== 'string' ||
+      !/^\d{4}-\d{2}-\d{2}$/.test(b.date)
+    ) {
+      return err(res, 400, 'REQUEST_INVALID', 'common.auth.requestInvalid');
+    }
+    const trips = [...contracts.entries()]
+      .filter(([, c]) => c.host === token && c.status !== 'CANCELLED')
+      .filter(() => plate === CONSTANCIA_PLATE && b.date >= '2036-12-10' && b.date <= '2036-12-14')
+      .map(([tripId]) => ({
+        tripId,
+        tripRef: 'KM-2110',
+        status: 'BOOKED',
+        startLocal: '2036-12-10 10:00',
+        endLocal: '2036-12-13 10:00',
+      }));
+    return json(res, 200, { trips });
+  }
+  const m = /^\/trips\/([^/]+)\/constancia(\/pdf)?$/.exec(path);
+  if (m === null || req.method !== 'GET') return false;
+  const token = tokenOf(req);
+  if (token === undefined) return err(res, 401, 'AUTH_REQUIRED', 'common.auth.sessionRequired');
+  const c = contracts.get(m[1]);
+  const role =
+    c === undefined ? null : token === c.guest ? 'GUEST' : token === c.host ? 'HOST' : null;
+  if (c === undefined || role === null) {
+    return err(res, 404, 'CONSTANCIA_NOT_FOUND', 'common.constancia.notFound');
+  }
+  const n = c.docs.length;
+  const lang = c.courtesy;
+  const bytes = constanciaPdf(n, lang);
+  if (m[2] === '/pdf') {
+    res.writeHead(200, {
+      'content-type': 'application/pdf',
+      'content-disposition': `attachment; filename="constancia-KM-2110-v${n}-es-${lang}.pdf"`,
+      'cache-control': 'no-store',
+      'x-content-type-options': 'nosniff',
+      'x-constancia-sha256': sha256hex(bytes),
+    });
+    res.end(bytes);
+    return true;
+  }
+  const signed = c.docs[n - 1].signature !== null;
+  return json(res, 200, {
+    tripId: m[1],
+    viewerRole: role,
+    contractVersion: n,
+    courtesyLocale: lang,
+    sha256: sha256hex(bytes),
+    renderer: 'ctr.pdf/1',
+    templateVersion: 1,
+    draft: true,
+    summary: {
+      tripRef: 'KM-2110',
+      tripStatus: 'BOOKED',
+      country: CONTRACT_COUNTRY,
+      startLocal: '2036-12-10 10:00',
+      endLocal: '2036-12-13 10:00',
+      vehicle: { make: 'Toyota', model: 'Yaris', year: 2021 },
+      plate: 'AB 1234',
+      hostName: 'María G.',
+      hostCapacity: 'OWNER',
+      driverName: 'Lucía G.',
+      handoverPlace: 'Casa',
+      handoverCity: 'Ciudad Ficticia',
+      currency: 'XXX',
+      currencyExponent: 0,
+      priceTotalMinor: '128400',
+      signedAtLocal: signed ? '2036-11-30 15:20' : null,
+    },
+    parts: [
+      { lang: 'es', authoritative: true, lines: constanciaLines('es') },
+      { lang, authoritative: false, lines: constanciaLines(lang) },
+    ],
+  });
+}
+
 // ---- Remboursement d'un trip (US-224 partie 224d) : lecture par la partie du trip ---------------
 // La partie est celle du contrat du trip (voyageur du hold, hôte du premier trip à venir) ; toute
 // autre session ⇒ 404 REFUND_NOT_FOUND (comme l'API). `GET /__e2e/refund/cancel?trip=&state=`
@@ -2187,6 +2301,7 @@ createServer(async (req, res) => {
   if ((await paymentRoute(req, res, url)) !== false) return;
   if ((await hostRequestRoute(req, res, url)) !== false) return;
   if ((await contractRoute(req, res, url)) !== false) return;
+  if ((await constanciaRoute(req, res, url)) !== false) return;
   if (refundRoute(req, res, url) !== false) return;
   if (guestTripsRoute(req, res, url) !== false) return;
   if ((await checkoutRoute(req, res, path)) !== false) return;

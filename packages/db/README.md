@@ -948,6 +948,14 @@ Migration `0136_booking_guest_trips_read` : une fonction de lecture AJOUTÉE, au
 - `core.booking_guest_trips(bytea, text, uuid, integer)` (cmd_hold_owner, EXECUTE app_api) : trips du voyageur de la SESSION (onglets UPCOMING, IN_PROGRESS, DONE, CANCELLED, partition de 0101) et ses demandes en attente (REQUESTED : hold REQUEST en `AWAITING_HOST` ou `PAYMENT_IN_FLIGHT`, heure limite de la base) ; auto sans plaque ; hôte en prénom et initiale ; nom du lieu, adresse et ville d'un trip à venir ou en cours seulement, ville seule d'une demande ; total du devis figé (jamais recalculé) ; état du contrat (`NONE`, `TO_SIGN`, `SIGNED`). Trip d'une autre personne (y compris celui que la session héberge) ou inconnu : aucune ligne. Issues : `DONE`, `AUTH_REQUIRED`, `REQUEST_INVALID`.
 - **Preuves** : `test/l0/l0-us214-guest-trips.test.ts` (PA USD, PY PYG ; transaction annulée sous app_api ; trips et demande de la fixture 9948, contrat signé par 9963 ; IDOR, onglets, minimisation, refus d'app_worker et d'app_anon).
 
+## Constancia d'arrendamiento et recherche de l'hôte (US-212 ; 16 LEG-026 ; ADR-162)
+
+Migration `0138_booking_trip_constancia_read` : deux fonctions de lecture AJOUTÉES, aucune table, aucun droit nouveau. Fixture `9946_test_us212_constancia_fixtures` (version de contrat aux faits écrits par le test ; partie nominative pseudonymisée).
+
+- `core.booking_trip_constancia(bytea, uuid)` (cmd_hold_owner, EXECUTE app_api) : pour le voyageur du trip ou le titulaire du compte d'hôte de la SESSION, les faits FIGÉS de la dernière version du contrat (`terms` ; plaque, conducteur, lieu de remise et ville de la partie nominative ; marque), l'hôte en prénom et initiale, la signature du voyageur sur cette version à l'heure locale du trip, la langue du lecteur. Issues : `OK`, `NOT_FOUND` (autre personne, trip inconnu, session absente : même réponse), `NOT_AVAILABLE` (trip annulé), `NOT_GENERATED` (aucun contrat), `ERASED` (partie nominative pseudonymisée).
+- `core.booking_host_constancia_search(bytea, text, date)` (cmd_hold_owner, EXECUTE app_api) : trips du compte dont la session est titulaire, plaque figée au dernier contrat (sans casse, espaces ni tirets), période locale couvrant la date jusqu'au lendemain de la fin (08 BR-TT-03), au plus vingt. Issues : `DONE`, `AUTH_REQUIRED`, `REQUEST_INVALID`.
+- **Preuves** : `test/l0/l0-us212-constancia.test.ts` (PA USD, PY PYG ; transactions annulées sous app_api ; monde de 9963, contrat de 9946 ; parties, IDOR, version suivante, signature, recherche, annulé, effacé ; refus d'app_worker et d'app_anon).
+
 ## Remboursement lu par le voyageur, l'hôte et la console (US-224 partie 224d ; 19 US-224 critère 1 ; 08 SM-8, BR-PAY-08 ; ADR-154)
 
 Migration `0130_payment_refund_read` : trois fonctions de lecture AJOUTÉES, aucune table, aucun droit sur une table.

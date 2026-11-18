@@ -429,6 +429,9 @@ export const CONTRACT_SUITES: Readonly<Record<string, string>> = {
   // « Mis viajes » et détail du trip du voyageur (US-214, module AVL) : GET /trips et
   // GET /trips/{tripId} seulement (les sous-routes ont leur propre suite)
   '/trips/{tripId}': 'modules/avl/testing/guest-trips.contract.test.ts',
+  // constancia d'arrendamiento d'un trip et recherche de l'hôte par plaque et date (US-212, CTR)
+  '/trips/{tripId}/constancia': 'modules/ctr/testing/trip-constancia.contract.test.ts',
+  '/trips/constancias': 'modules/ctr/testing/trip-constancia.contract.test.ts',
   '/staff': 'testing/contract/staff.contract.test.ts',
   '/console': 'testing/contract/console.contract.test.ts',
   '/webhooks': 'testing/contract/webhooks.contract.test.ts',
