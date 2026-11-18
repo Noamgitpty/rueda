@@ -2535,6 +2535,13 @@ export const EN_MESSAGES = {
   'backoffice.cancel.outcome.ADVANCE_DECISION_REQUIRED':
     'A FINANCE decision on a platform advance is needed.',
   'backoffice.cancel.outcome.SETTLEMENT_INPUT_INVALID': 'The settlement data isn’t valid.',
+  // US-224f (ADR-166) : remboursement réparti sur les moyens d’origine (codes garés)
+  'backoffice.cancel.outcome.REFUND_RAIL_UNAVAILABLE':
+    'A refund would go to a payment method that can’t be refunded automatically yet. Nothing was recorded; FINANCE handles it.',
+  'backoffice.cancel.outcome.REFUND_RAIL_NOT_NATIVE':
+    'A card refund was requested on another payment method. Nothing was recorded.',
+  'backoffice.cancel.outcome.REFUND_EXCEEDS_TENDER':
+    'A refund exceeds what one payment method paid.',
   // US-214 (ADR-160) : « Mis viajes » (S08) et détail du trip du voyageur (S09)
   'common.trips.notFound': 'We couldn’t find this trip.',
   'common.trips.unavailable':

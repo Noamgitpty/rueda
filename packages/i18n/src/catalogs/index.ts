@@ -248,11 +248,15 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  `web.contract.constanciaSearch`, `web.contract.legalCenter` (liens depuis S09 · contrat et A03),
  `web.legalCenter.*` (centre juridique : positionnement d’intermédiaire entre particuliers,
  documents publiés, documents de chaque voyage, désaccords et médiation, loi applicable).
- Version 79 (la 78 est celle d’US-212) : rails de la caution (US-225, ADR-164) : `web.deposit.unavailable` (refus avant le
+ Version 81 (79 et 80 réservées à US-225 et US-227, en cours ; la 78 est celle d’US-212) :
+ remboursement réparti sur les moyens d’origine (US-224 partie 224f, ADR-166) :
+ `backoffice.cancel.outcome.REFUND_RAIL_UNAVAILABLE`, `…REFUND_RAIL_NOT_NATIVE`,
+ `…REFUND_EXCEEDS_TENDER` (codes d’une demande d’annulation garée, console).
+ Version 82 (la 79 qui lui était réservée a été dépassée par la 81 d’US-224f) : rails de la caution (US-225, ADR-164) : `web.deposit.unavailable` (refus avant le
  paiement avec la durée possible, texte de 10b UX-24) et `web.deposit.unavailableNone` (aucune
  durée possible, PROPOSÉ), affichés par l'écran S05 quand il branchera la décision de la caution.
  */
-export const CATALOG_VERSION = 79;
+export const CATALOG_VERSION = 82;
 
 /** Catalogues de base par langue ; la langue d'un profil de locale choisit le sien. */
 export const CATALOGS: Readonly<Record<CatalogLanguage, VersionedCatalog<MessageKey>>> = {

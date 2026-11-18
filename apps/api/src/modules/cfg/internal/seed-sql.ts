@@ -151,7 +151,7 @@ export const POST_SEED_PARAMS: readonly {
   },
   {
     prefix: 'deposit_always_required',
-    file: '0141_config_deposit_rail_params.sql',
+    file: '0142_config_deposit_rail_params.sql',
     story: 'US-225',
     refs: '08 BR-PAY-06 ; 17 §7.2 ; ADR-108 ; ADR-164',
     extraKeys: [

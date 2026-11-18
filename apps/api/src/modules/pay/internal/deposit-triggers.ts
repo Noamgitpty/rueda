@@ -4,7 +4,7 @@
  *
  * **Aucune caution par défaut** : un trip n'a de caution que si un déclencheur est vrai. Fonction
  * pure, sans horloge ni base : les paramètres du pays sont lus par `PgDepositRailConfigReader`
- * (17 §7.2 ; graine 0141) et passés ici. Aucune constante de pays.
+ * (17 §7.2 ; graine 0142) et passés ici. Aucune constante de pays.
  *
  * Fail-closed (l'erreur sûre est de PRENDRE une caution, jamais de l'omettre) : un paramètre absent
  * ou illisible (`undefined`), une classe inconnue (`null`), un âge inconnu ou un contrôle de risque

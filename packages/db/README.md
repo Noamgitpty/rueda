@@ -1021,9 +1021,18 @@ Migrations `0139_settlement_host_ledger_advance_receivable` et `0140_booking_def
 - **Codes** : `host_ledger_advance_unknown`, `host_ledger_advance_unique`, `host_ledger_entry_version_reason_unique` ⇒ `INVARIANT_VIOLATION`.
 - **Preuves** : `test/l0/l0-us224e-host-receivable.test.ts` (TJ18a à TJ18d, PA USD, PY PYG), `test/l0/l0-us224e-defaulted-host.test.ts` (T22, trip D de T48 ; PA, PY) ; groupe isolé ; catalogue de la console (`l0-us101-console-actions`).
 
+## Remboursement réparti sur les moyens d'origine (US-224 partie 224f ; 08 E2, E3, E4, E7 règle 10, SM-8 ; ADR-166)
+
+Migration `0141_payment_refund_multi_tender`. Aucune fixture nouvelle.
+
+- **Planification** (`core.payment_cmd_plan_refund`, corps de 0123 recopié) : rail natif (`NATIVE_PARTIAL`, `ROLLBACK_AND_RECHARGE`) sur une carte seulement (`refund_rail_not_native`) ; moyen remboursé dans la devise du trip ; **jamais plus que le payé d'un moyen** (08 E2) : Σ instances du moyen, toutes versions, hors `CANCELLED` et `SUPERSEDED` (`FAILED` et `PENDING_CUSTOMER_CHOICE` compris) ≤ montant de l'encaissement (`refund_exceeds_tender`), contrôlé après la garde du trip de 0121.
+- **Reprise après un échec confirmé** : `core.payment_cmd_refund_await_choice(uuid)` (cmd_money_owner, EXECUTE app_worker, travailleur `payment_command`) : instance `FAILED` dont l'ordre est `FAILED` ⇒ `PENDING_CUSTOMER_CHOICE`, `attempt_no` + 1 (`refund_instance_not_failed` sinon) ; garde de l'instance (corps de 0127) : `attempt_no` ne change que sur cette transition, `PENDING_CUSTOMER_CHOICE → SUPERSEDED` ; supersession étendue à `PENDING_CUSTOMER_CHOICE`. Droit de colonne `UPDATE (attempt_no)` à cmd_money_owner.
+- **Codes** : `refund_exceeds_tender` ⇒ `REFUND_EXCEEDS_COLLECTED` ; `refund_rail_not_native` ⇒ `PAYMENT_METHOD_UNAVAILABLE` ; `refund_instance_not_failed` ⇒ `INVALID_TRANSITION`.
+- **Preuves** : `test/l0/l0-us224f-multi-tender.test.ts` (PA USD : TJ16a / TJ16b, moyens de T33 ; PY PYG : TJ16c / TJ16d ; refus de TJ16b / TJ16d sur tout rail en bêta ; reprise après échec ; supersession ; droits). `test/support/pay.ts` : `recordOperation` accepte un moyen (`method`, défaut `CARD`).
+
 ## Paramètres de la caution « comme Turo » (US-225 ; 08 BR-PAY-06 ; ADR-108, ADR-164)
 
-Migration générée `0141_config_deposit_rail_params` (groupe `deposit_always_required` + clés nommées de `POST_SEED_PARAMS`), fixture `9943_test_us225_deposit_rail_fixtures.sql` (`test_fixture.us225_param_version`, clés fermées, transaction annulée, EXECUTE `app_api`).
+Migration générée `0142_config_deposit_rail_params` (groupe `deposit_always_required` + clés nommées de `POST_SEED_PARAMS`), fixture `9943_test_us225_deposit_rail_fixtures.sql` (`test_fixture.us225_param_version`, clés fermées, transaction annulée, EXECUTE `app_api`).
 
 - **Valeurs PROPOSÉES**, identiques au PA et au PY, `fail_mode` BLOCK, portée pays : `deposit_always_required` faux, `deposit_trigger_classes` `["LUXE"]` (à confirmer par le fondateur), `deposit_young_driver_age` 30, `deposit_young_driver_classes` `[]` (DEC-FONDATEUR-21), `deposit_on_risk_flag` vrai, `risk_control_deployed` faux, `deposit_reauth_lead_h` 24, `deposit_fee_notice_h` 48. `deposit_amount`, `deposit_charge_cap` et `provider_max_hold_h` restent sans valeur (absent : caution exigée refusée, rail « débit puis remboursement » interdit, aucune pré-autorisation). Aucun interrupteur touché ; aucun droit nouveau.
 - **Lecture** : `PgDepositRailConfigReader` (module PAY) sous `app_api` ou `app_worker` : `core.config_param_value`, `core.config_go_live('funds_holding_enabled', pays)`, `core.payment_psp_capability`.

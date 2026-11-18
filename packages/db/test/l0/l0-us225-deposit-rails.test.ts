@@ -1,5 +1,5 @@
 /**
- * US-225 — paramètres des déclencheurs et des rails de la caution (migration 0141 ; ADR-108,
+ * US-225 — paramètres des déclencheurs et des rails de la caution (migration 0142 ; ADR-108,
  * ADR-164) sous les rôles de production `app_api` et `app_worker` (assertion L0-05 en tête de chaque
  * connexion, withRole), en USD (PA) et en PYG (PY) :
  * - **aucune caution par défaut** : chaque clé du groupe a sa valeur dans chaque pays, égale au
@@ -30,7 +30,7 @@ const PARAMS = JSON.parse(
 const seeded = (key: string, country: string): unknown =>
   PARAMS.params.find((p) => p.key === key)?.values[country];
 
-/** Groupe de la graine 0141 et valeurs PROPOSÉES (ADR-108 point 2, 17 §7.2, DEC-FONDATEUR-21). */
+/** Groupe de la graine 0142 et valeurs PROPOSÉES (ADR-108 point 2, 17 §7.2, DEC-FONDATEUR-21). */
 const PROPOSED: Readonly<Record<string, unknown>> = {
   deposit_always_required: false,
   deposit_trigger_classes: ['LUXE'],
@@ -55,7 +55,7 @@ async function current(client: pg.ClientBase, country: string): Promise<Map<stri
   return new Map(rows.map((r) => [r.key, r.value]));
 }
 
-describe.each(COUNTRIES)('$country ($currency) — graine 0141 des rails de la caution', (c) => {
+describe.each(COUNTRIES)('$country ($currency) — graine 0142 des rails de la caution', (c) => {
   it.each(['app_api', 'app_worker'] as const)(
     '%s : aucune caution par défaut, valeurs PROPOSÉES lues telles que params.json',
     async (role) => {
