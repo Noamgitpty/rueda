@@ -1012,6 +1012,10 @@ Migration `0129_settlement_host_ledger`. Fixture `9949_test_us709_host_ledger_fi
 - **Codes** : `host_ledger_command_forbidden` ⇒ `FORBIDDEN` ; `host_ledger_settlement_unknown`, `host_ledger_version_unsupported`, `host_ledger_entry_settlement_reason_unique` ⇒ `INVARIANT_VIOLATION`.
 - **Preuves** : `test/l0/l0-us709a-host-ledger.test.ts` (T14, T15, T48, T03, T27 ; PA USD, PY PYG ; groupe isolé) ; matrice d'autorisations peuplée (`l0-us043-authorization-matrix`).
 
+## Alignement des reçus et du relevé (US-217 partie 217b ; suites N-337, N-339, N-340 ; ADR-167)
+
+Migration `0145_finance_receipt_alignment` : corps de `core.finance_trip_receipt_view` et `core.finance_host_statement` (0137) remplacés à signature, propriétaire (`cmd_money_owner`) et droits identiques ; aucune table ni droit. Vue `GUEST` : taxe de ligne du trip fee (`taxMinor`, `taxRateBps`) rendue seulement si rien du trip fee n'est remboursé (N-337 : la taxe du trip fee conservé attend OQ-BR-14) ; sans règlement ni solde capturé, aucun reçu (`NO_RECEIPT`, comme la vue `HOST` ; le total du devis n'est plus jamais rendu, N-340). Relevé : `earnedMinor` (jambes HOST des règlements en tête + `host_ledger`) et `pendingMinor` (jambes HOST capturées sans règlement) ajoutés par devise (N-339). Preuve : bloc « 217b » de `test/l0/l0-us217-host-receipt.test.ts` (T03 / T27 avec devis figé ; trip avec devis seul ; relevé acquis / à venir ; PA USD, PY PYG).
+
 ## Créance de la règle 3 bis et hôte défaillant (US-224 partie 224e ; 08 E7 règle 3 bis, BR-TRUST-09, BR-CXL-14 ; ADR-163)
 
 Migrations `0139_settlement_host_ledger_advance_receivable` et `0140_booking_defaulted_host_trips_cancel`. Fixture `9941_test_us224e_host_receivable_fixtures.sql` (écritures d'un trip avec l'avance citée, appel de la commande, titulaire d'un compte d'hôte, demandes d'annulation d'un compte).
@@ -1061,7 +1065,7 @@ Migration `0144_booking_meeting_place`. Fixture `9939_test_us514_meeting_place_f
 
 ## Hôte figé de la constancia et hôte du checkout S05 (US-212 partie 212b ; BOARD N-345, N-346 ; ADR-162)
 
-Migration `0145_ctr_constancia_frozen_host_checkout_host`. Fixture `9938_test_us212b_host_rename_fixtures` (nom légal d'un compte changé après la réservation, transaction annulée).
+Migration `0146_ctr_constancia_frozen_host_checkout_host`. Fixture `9938_test_us212b_host_rename_fixtures` (nom légal d'un compte changé après la réservation, transaction annulée).
 
 - **Hôte figé** : `core.booking_trip_constancia(bytea, uuid)` (0138) remplacée à signature identique : le nom de l'hôte vient de `identity.hostName` de la dernière version du contrat (0122), réduit à prénom et initiale par une règle du seul fait figé (premier mot, initiale du mot suivant ; nom figé vide ⇒ `ERASED`) ; le compte n'est plus lu que pour sa pseudonymisation.
 - **Hôte du checkout** : `core.booking_checkout_host_name(bytea, uuid)` (cmd_hold_owner, EXECUTE app_api, lecture seule) : premier mot du prénom légal et initiale du nom de l'hôte de l'annonce du devis du voyageur de la session ; devis d'un autre ou inconnu ⇒ aucune ligne ; titulaire pseudonymisé ⇒ `NULL`.

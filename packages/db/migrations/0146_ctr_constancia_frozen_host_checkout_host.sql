@@ -1,4 +1,4 @@
--- 0145 — CTR / AVL : hôte de la constancia lu du contrat FIGÉ ; hôte en prénom et initiale au
+-- 0146 — CTR / AVL : hôte de la constancia lu du contrat FIGÉ ; hôte en prénom et initiale au
 -- checkout S05 (US-212, partie 212b ; BOARD N-345, N-346 ; 19 US-212 critère 3 ; ADR-162 n° 1 et
 -- n° 7). Appliquée sous `migrator`, en une transaction.
 --
@@ -128,7 +128,7 @@ COMMENT ON FUNCTION core.booking_trip_constancia(bytea, uuid) IS
   'compte d''hôte) : faits figés de la dernière version du contrat (période, véhicule, plaque, lieu '
   'de remise, total, nom de l''hôte réduit à prénom et initiale), conducteur du contrat, signature '
   'horodatée à l''heure locale ; NOT_FOUND, NOT_AVAILABLE (annulé), NOT_GENERATED, ERASED sinon. '
-  'SECURITY DEFINER, EXECUTE app_api. US-212 (ADR-162 ; hôte figé : 0145, N-345).';
+  'SECURITY DEFINER, EXECUTE app_api. US-212 (ADR-162 ; hôte figé : 0146, N-345).';
 
 -- 2. Hôte du devis en prénom et initiale pour S05 (N-346) -------------------------------------------
 CREATE FUNCTION core.booking_checkout_host_name(p_token_hash bytea, p_quote_id uuid)

@@ -331,9 +331,6 @@ export const FR_PROTO = {
   'web.a08.status.scheduled': 'Programmé',
   'web.a08.status.sent': 'Envoyé',
   'web.a08.status.onHold': 'Retenu : {reason}',
-  'web.a08.empty': 'Pas encore de gains',
-  'web.a08.payoutsOff':
-    'Tes gains sont enregistrés. Les versements aux hôtes ne sont pas encore ouverts au {country} ; nous te préviendrons.',
   'web.a10.saved': 'Enregistré',
   'web.a10.empty': 'Tu n’as encore publié aucune voiture',
   'web.a10.meetPublic': 'Nous te suggérons ce lieu public près de chez toi : {place}',
@@ -711,7 +708,6 @@ export const FR_PROTO = {
   'web.a12.submit': 'Publier mon avis',
   'web.a12.sent.title': 'Merci !',
   'web.a12.sent': 'Nous publierons ton avis quand {guest} aura donné le sien ou à la fin du délai.',
-  'web.a08.title': 'Gains',
   'web.a08.plan': 'Plan Standard : tu reçois {pct} % du prix de chaque voyage.',
   'web.a08.trips': 'Par voyage',
   'web.a08.status.recorded': 'Enregistré',
