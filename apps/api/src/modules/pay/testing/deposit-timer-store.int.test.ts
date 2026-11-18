@@ -7,8 +7,8 @@
  *   `::timestamptz`, file des ré-autorisations échues et transition `REAUTHORIZED` (rang attendu) ;
  * - `PgDepositDecisionStore` (0148) : file des décisions échues (montant en `bigint`, rail,
  *   expiration) et transition finale ; `DepositDecisionTimer` de bout en bout avec la configuration
- *   lue en base (capacités du FAKE inconnues en base ⇒ aucune annulation possible : l'autorisation
- *   est laissée expirer, aucun appel au PSP, 08 E3 repli 4).
+ *   et les capacités lues en base (posées dans la transaction) et le PSP simulé : VOID de la caution
+ *   entière à fin + 70 h, aucune capture (19 US-702 critère 2).
  * Attendus : 08 BR-PAY-06 (T57 : décision à fin + 70 h ; T59 en rail a), T73 (1 500 000 PYG),
  * `currencies.json` (lu comme donnée) — jamais le code testé.
  */
@@ -27,6 +27,8 @@ import { PgDepositTimerStore } from '../internal/deposit-timer.js';
 import { PgDepositRailConfigReader } from '../internal/pg-deposit-config.js';
 import { countryCases } from '../../../../test/support/countries.js';
 import { fakeStack } from './fake-stack.js';
+import { DepositRailExecutor } from '../internal/deposit-executor.js';
+import { createCurrencyRegistry } from '@rueda/money';
 
 const H = 3_600_000;
 const read = (file: string): unknown =>
@@ -121,11 +123,44 @@ describe.each(countryCases())(
       });
     });
 
-    it('PgDepositDecisionStore et DepositDecisionTimer : décision échue à fin + 70 h lue (montant bigint, rail, expiration), configuration relue en base, autorisation laissée expirer sans appel au PSP, puis STALE', async () => {
+    it('PgDepositDecisionStore et DepositDecisionTimer : décision échue à fin + 70 h lue (montant bigint, rail, expiration), configuration relue en base, VOID de la caution entière, puis STALE', async () => {
       // T57 : trip de 72 h, expiration fin + 72 h, décision fin + 70 h
       const start = '2031-09-01T10:00:00.000Z';
       const end = at(start, 72);
       await workerTx(at(end, 69), async (tx) => {
+        // pose sur le FAKE (lot C : à `auth_at`) : la référence du PSP est celle de la caution
+        const stack = fakeStack();
+        const order = await new DepositRailExecutor(stack.provider).place(
+          {
+            depositId: randomUUID(),
+            tripReference: randomUUID(),
+            tripId: randomUUID(),
+            segmentId: randomUUID(),
+            tenderId: randomUUID(),
+            currency: createCurrencyRegistry([{ code: c.currency, exponent: exponent ?? 0 }]).get(
+              c.currency,
+            ),
+          },
+          {
+            mechanism: 'PREAUTH_SINGLE',
+            amountMinor: amount,
+            fundsHoldingEnabled: false,
+            attemptNo: 1,
+          },
+        );
+        stack.psp.customerPays(order.providerReference);
+        // capacités du FAKE pour la carte, posées dans la transaction annulée (inconnue = non)
+        for (const name of [
+          'SUPPORTS_PREAUTH',
+          'SUPPORTS_VOID',
+          'SUPPORTS_PARTIAL_CAPTURE',
+          'SUPPORTS_MIT',
+        ]) {
+          await tx.query(
+            `SELECT test_fixture.us024_set_capability('FAKE', $1, '*', $2, 'true'::jsonb, 'VALIDATED_SANDBOX', $3::timestamptz)`,
+            [c.country, name, at(end, 69)],
+          );
+        }
         const seeded = await tx.query<{ deposit_id: string; trip_id: string }>(
           `SELECT * FROM test_fixture.us702_converted_deposit($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
           [
@@ -139,7 +174,7 @@ describe.each(countryCases())(
             at(end, 72),
             at(end, 72),
             at(end, 70),
-            `fake-${randomUUID()}`,
+            order.providerReference,
           ],
         );
         const id = seeded.rows[0]!.deposit_id;
@@ -160,7 +195,6 @@ describe.each(countryCases())(
         });
         expect(due?.decisionAt.toISOString()).toBe(at(end, 70));
         expect(due?.authExpiryAt?.toISOString()).toBe(at(end, 72));
-        const stack = fakeStack();
         const decided: string[] = [];
         const timer = new DepositDecisionTimer({
           config: (country, provider) => new PgDepositRailConfigReader(tx).read(country, provider),
@@ -175,10 +209,12 @@ describe.each(countryCases())(
           alerts: { send: () => Promise.resolve() },
           connectors: { get: (name) => (name === 'FAKE' ? stack.provider : undefined) },
         });
-        expect(await timer.process(due!)).toBe('EXPIRED');
-        expect(decided).toEqual([`EXPIRED:0:${amount}:APPLIED`]);
-        expect(stack.psp.calls('VOID')).toBe(0);
+        expect(await timer.process(due!)).toBe('VOIDED');
+        // critère 2 : VOID de la caution entière, rien de capturé, aucun mouvement de fonds
+        expect(decided).toEqual([`VOIDED:0:${amount}:APPLIED`]);
+        expect(stack.psp.calls('VOID')).toBe(1);
         expect(stack.psp.calls('CAPTURE')).toBe(0);
+        expect(stack.psp.movements()).toEqual([]);
         expect(await mine()).toEqual([]);
         expect(
           await store.decide(id, 0, { status: 'VOIDED', capturedMinor: 0n, releasedMinor: amount }),
