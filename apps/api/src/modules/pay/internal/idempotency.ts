@@ -83,6 +83,44 @@ export function holdAttemptKey(
 }
 
 /**
+ * Opérations d'une caution (US-225, ADR-164 ; PROPOSÉ, à reporter dans 08 E4) : pose (`AUTH`
+ * pré-autorisation, `CHARGE` débit du rail « débit puis remboursement »), ré-autorisation, capture
+ * des frais, annulation, remboursement du débit, débit MIT des frais non capturés.
+ */
+export const DEPOSIT_OPERATION_TYPES = [
+  'AUTH',
+  'CHARGE',
+  'REAUTH',
+  'CAPTURE',
+  'VOID',
+  'REFUND',
+  'MIT_CHARGE',
+] as const;
+export type DepositOperationType = (typeof DEPOSIT_OPERATION_TYPES)[number];
+
+/**
+ * `deposit:{deposit_id}:{opération}:i{instance_seq}:a{attempt_no}` : une clé par tentative, comme
+ * la variante pré-trip ; `i{n}` distingue deux ré-autorisations successives.
+ */
+export function depositOperationKey(
+  depositId: string,
+  operation: DepositOperationType,
+  instanceSeq: number,
+  attemptNo: number,
+): string {
+  if (!(DEPOSIT_OPERATION_TYPES as readonly string[]).includes(operation)) {
+    throw new PaymentError('INVALID_REQUEST', `opération de caution inconnue : ${operation}`);
+  }
+  return [
+    'deposit',
+    part('deposit_id', depositId),
+    operation,
+    `i${rank('instance_seq', instanceSeq)}`,
+    `a${rank('attempt_no', attemptNo)}`,
+  ].join(':');
+}
+
+/**
  * Variante hors règlement (caution, surfacturation de dommage, révision d'un frais annexe) :
  * `{trip_id}:{segment_id}:v0-{origin_type}-{origin_id}:REFUND:{tender_id}:i{n}:a{m}` ; le segment
  * `v0-…` ne peut entrer en collision avec une version de règlement.

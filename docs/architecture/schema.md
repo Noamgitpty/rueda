@@ -7,7 +7,7 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 
 ## Synthèse
 
-- 142 migrations ; 127 tables ; 3 vues ; 714 politiques RLS ; 285 fonctions `SECURITY DEFINER` ; 249 autres fonctions.
+- 143 migrations ; 127 tables ; 3 vues ; 714 politiques RLS ; 285 fonctions `SECURITY DEFINER` ; 249 autres fonctions.
 - Tables sans RLS `ENABLE` + `FORCE` : aucune.
 - Rôles applicatifs avec `SUPERUSER` ou `BYPASSRLS` : aucun.
 
@@ -157,6 +157,7 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 | `0139_settlement_host_ledger_advance_receivable` | STL : créance de l'hôte de la règle 3 bis portée au `host_ledger` (avance de Kmino). |
 | `0140_booking_defaulted_host_trips_cancel` | AVL / SUP : hôte défaillant, annulation de ses trips à venir par l'ops, voyageurs remboursés |
 | `0141_payment_refund_multi_tender` | PAY : remboursement réparti sur les moyens d'origine (TJ16c / TJ16d) et reprise après un |
+| `0142_config_deposit_rail_params` | graine complémentaire : paramètres « deposit_always_required* » (US-225 ; 17 §7.2). |
 
 ## Rôles
 

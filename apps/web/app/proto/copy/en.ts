@@ -83,11 +83,6 @@ export const EN_PROTO = {
     "You'll need a valid driver's license, a passport or ID card, and a selfie. It takes about 3 minutes.",
   'web.s03.kyc.90days':
     'You can drive with your foreign license until {date_limit}. Your rental ends on {date_end}.',
-  'web.deposit.unavailable': {
-    one: "We can't place the deposit on your card for these dates. You can book up to {count} day.",
-    other:
-      "We can't place the deposit on your card for these dates. You can book up to {count} days.",
-  },
   'web.s04.status.question': "What's your status in {country}?",
   'web.s04.status.tourist': 'You entered {country} less than 90 days ago with a passport',
   'web.s04.status.resident': 'You have a {country} ID document',

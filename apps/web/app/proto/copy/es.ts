@@ -94,11 +94,6 @@ export const ES_PROTO = {
     'Necesitarás: licencia vigente, pasaporte o cédula y una selfie. Tarda unos 3 minutos.',
   'web.s03.kyc.90days':
     'Puedes manejar con tu licencia extranjera hasta el {date_limit}. Tu alquiler termina el {date_end}.',
-  'web.deposit.unavailable': {
-    one: 'Para estas fechas no podemos tomar el depósito en tu tarjeta. Puedes reservar hasta {count} día.',
-    other:
-      'Para estas fechas no podemos tomar el depósito en tu tarjeta. Puedes reservar hasta {count} días.',
-  },
   'web.s04.status.question': '¿Cuál es tu situación en {country}?',
   'web.s04.status.tourist': 'Entraste a {country} hace menos de 90 días con pasaporte',
   'web.s04.status.resident': 'Tienes un documento de identidad de {country}',

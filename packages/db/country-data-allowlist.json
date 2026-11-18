@@ -88,6 +88,10 @@
     {
       "path": "packages/db/migrations/0134_config_vehicle_value_class_params.sql",
       "justification": "Graine complémentaire du paramètre vehicle_default_value_class (08 BR-ACC-05 : classes STANDARD / PREMIUM / LUXE ; BOARD N-83 : classe d'un véhicule que ni la variante du catalogue ni une règle de marque ou de modèle ne classe, attribuée à la publication), valeurs PROPOSÉES PA / PY (STANDARD, comme Turo), générée par apps/api/src/modules/cfg/internal/seed-sql.ts (renderParamSeedSql) depuis les données CFG ; le test seed-sql.test.ts échoue si le fichier diffère du rendu. 0009 est immuable (ADR-044, ADR-075). US-113, ADR-159."
+    },
+    {
+      "path": "packages/db/migrations/0142_config_deposit_rail_params.sql",
+      "justification": "Graine complémentaire des paramètres des déclencheurs et des rails de la caution (08 BR-PAY-06 « Caution conditionnelle », « Mécanisme » ; 17 §7.2 ; ADR-108 : aucune caution par défaut, deposit_trigger_classes {LUXE}, deposit_young_driver_classes vide par DEC-FONDATEUR-21, risk_control_deployed faux), valeurs PROPOSÉES PA / PY, générée par apps/api/src/modules/cfg/internal/seed-sql.ts (renderParamSeedSql) depuis les données CFG ; le test seed-sql.test.ts échoue si le fichier diffère du rendu. 0009 est immuable (ADR-044, ADR-075). US-225, ADR-164."
     }
   ]
 }
