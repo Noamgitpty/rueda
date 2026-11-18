@@ -2515,6 +2515,14 @@ export const FR_MESSAGES = {
   'backoffice.cancel.outcome.SETTLEMENT_INPUT_INVALID':
     'Les données du règlement ne sont pas valides.',
   // US-224 partie 224d (ADR-154) : remboursement lu par le voyageur (S10), l’hôte (A05) et la console
+  'common.receipt.notFound': 'Nous ne trouvons pas ce reçu.',
+  'common.receipt.notReady':
+    'Ce reçu n’est pas encore disponible : le paiement du voyage n’est pas encore enregistré.',
+  'common.receipt.unavailable':
+    'Nous ne pouvons pas afficher ton reçu pour le moment. Réessaie dans quelques minutes.',
+  'common.earnings.notFound': 'Nous ne trouvons pas ces gains.',
+  'common.earnings.unavailable':
+    'Nous ne pouvons pas afficher tes gains pour le moment. Réessaie dans quelques minutes.',
   'common.refund.notFound': 'Nous ne trouvons pas ce remboursement.',
   'common.refund.unavailable':
     'Nous ne pouvons pas afficher ton remboursement pour le moment. Réessaie dans quelques minutes.',

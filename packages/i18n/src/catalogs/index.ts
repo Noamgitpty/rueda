@@ -218,8 +218,14 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  ADR-156) : `backoffice.profile.hostTrips` et `backoffice.profile.noHostTrip` (fiche 360° : trips à
  venir des comptes d'hôte de la personne, N-123) ; `ntf.tripHostRestrictionLifted.*` (voyageur d'un
  trip à venir prévenu de la levée de la restriction de son hôte, N-126).
+ Version 77 (les 73 à 76 sont réservées à d’autres stories en cours ; la 72 est celle
+ d’US-215c) : reçu des gains de l’hôte et reçu du trip fee, partie 217a (US-217, ADR-161) :
+ `common.receipt.*` (réponses de la route `/trips/{id}/receipt` : introuvable, pas encore
+ disponible, indisponible) et `common.earnings.*` (réponses de la route
+ `/host/accounts/{orgId}/earnings/{month}` : introuvable, indisponible). Les écrans A08 et S09
+ (Bêta L3) viendront avec leurs propres clés.
  */
-export const CATALOG_VERSION = 72;
+export const CATALOG_VERSION = 77;
 
 /** Catalogues de base par langue ; la langue d'un profil de locale choisit le sien. */
 export const CATALOGS: Readonly<Record<CatalogLanguage, VersionedCatalog<MessageKey>>> = {

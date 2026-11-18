@@ -1202,6 +1202,8 @@ describe('contrat HTTP — /host/accounts/{orgId} et /listings (US-115)', () => 
           !d.includes(' /host/accounts/{orgId}/trips') &&
           // demandes de l'hôte (US-223c) : avl/testing/host-requests.contract
           !d.includes(' /host/accounts/{orgId}/requests') &&
+          // relevé des gains de l'hôte (US-217a) : avl/testing/trip-receipt.contract
+          !d.includes(' /host/accounts/{orgId}/earnings') &&
           !d.includes(' /host/accounts/{orgId}/verification') &&
           !d.includes(' /host/accounts/{orgId}/vehicle-') &&
           !/ \/host\/accounts\/\{orgId\}\/vehicles\/\{vehicleId\}\/(declaration|documents|eligibility) /.test(

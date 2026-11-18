@@ -794,6 +794,11 @@ async function requestOf(
       return { method: 'GET', path: `/trips/${randomUUID()}/contract` };
     case 'GET /trips/{tripId}/refunds':
       return { method: 'GET', path: `/trips/${randomUUID()}/refunds` };
+    // US-217a : reçu d'un trip inconnu de l'acteur ⇒ 404 ; relevé d'un compte qui n'est pas le sien
+    case 'GET /trips/{tripId}/receipt':
+      return { method: 'GET', path: `/trips/${randomUUID()}/receipt` };
+    case 'GET /host/accounts/{orgId}/earnings/{month}':
+      return { method: 'GET', path: `/host/accounts/${randomUUID()}/earnings/2034-05` };
     case 'GET /trips/{tripId}/contract/pdf':
       return { method: 'GET', path: `/trips/${randomUUID()}/contract/pdf` };
     case 'POST /trips/{tripId}/contract/sign':

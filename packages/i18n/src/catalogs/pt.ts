@@ -2461,6 +2461,14 @@ export const PT_MESSAGES = {
     'É preciso uma decisão de FINANCE sobre um adiantamento da plataforma.',
   'backoffice.cancel.outcome.SETTLEMENT_INPUT_INVALID': 'Os dados da liquidação não são válidos.',
   // US-224 partie 224d (ADR-154) : remboursement lu par le voyageur (S10), l’hôte (A05) et la console
+  'common.receipt.notFound': 'Não encontramos este recibo.',
+  'common.receipt.notReady':
+    'Este recibo ainda não está disponível: o pagamento da viagem ainda não foi registrado.',
+  'common.receipt.unavailable':
+    'Não conseguimos mostrar seu recibo agora. Tente de novo em alguns minutos.',
+  'common.earnings.notFound': 'Não encontramos estes ganhos.',
+  'common.earnings.unavailable':
+    'Não conseguimos mostrar seus ganhos agora. Tente de novo em alguns minutos.',
   'common.refund.notFound': 'Não encontramos este reembolso.',
   'common.refund.unavailable':
     'Não conseguimos mostrar seu reembolso agora. Tente de novo em alguns minutos.',

@@ -17,6 +17,7 @@
 5. **Demande au Registro de Automotores** (§1.2, §2.12) : pour couvrir les voitures entrées avant 1997 et les modèles rares.
 6. **Second approbateur** (§2.7) et **jeton du bot GitHub** (§2.8), avant le premier déploiement.
 7. **Sans urgence** (§5) : un « oui » pour supprimer les branches des PR fermées.
+8. **Comptable : entité qui facture le trip fee et mentions du reçu** (§4.7 bis) : les reçus de l'hôte et du voyageur existent, sans valeur fiscale ; la facture reste hors plateforme.
 
 **Problèmes à connaître** : voir §7 (aucun ne demande d'action immédiate de ta part).
 
@@ -150,6 +151,9 @@ Pour chaque point : la question, puis **ma suggestion** de réponse à faire val
 
 **4.7 Facturation électronique et ITBMS au Panama** (comptable).
 → **Suggestion** : Kmino facture uniquement **sa commission** ; vérifier qu'un hôte particulier n'a pas à émettre de facture électronique pour une location occasionnelle, ou que la plateforme peut émettre un reçu pour lui.
+
+**4.7 bis Reçu de l'hôte et facture du trip fee** (US-217, comptable et avocat, à la recette ; OQ-MK-06, ADR-013, OQ-BR-14). Depuis US-217a, l'hôte peut lire, pour chaque voyage, sa part selon son plan, les frais retenus par Kmino et sa pénalité d'annulation éventuelle (ligne à part), et un relevé par mois ; le voyageur peut lire un reçu de ce qu'il a payé, avec le trip fee et sa taxe. Ce sont des **reçus sans valeur fiscale** : la facture électronique (PAC au Panama, SIFEN au Paraguay) reste **émise hors de la plateforme** pendant la bêta, et le reçu ne nomme **aucune société émettrice** tant que tu n'as pas choisi l'entité de Kmino qui facture dans chaque pays. Rien n'est versé (`payouts_enabled` reste à non).
+→ **Suggestion** (comme Turo, le moins de limitations possible) : (1) choisir avec le comptable l'entité qui facture le trip fee dans chaque pays (une par pays, ou une entité étrangère) ; (2) lui faire confirmer les mentions minimales du reçu (nom de l'entité, numéro fiscal, « reçu sans valeur fiscale ; la facture électronique est envoyée à part ») ; (3) lui demander, après une annulation, comment déclarer la taxe du trip fee **conservé** (aujourd'hui, le reçu montre le trip fee conservé sans recalculer sa taxe). Tant que ce n'est pas fait, la liste de mise en service (GL-38) bloque l'ouverture.
 
 **4.8 Incident de données personnelles : délai et personnes à prévenir** (avocat, OQ-MK-09 ; US-112). Par défaut, l'équipe applique **72 heures depuis la détection**, d'abord pour l'**autorité**, puis pour les **personnes touchées**. Le plan de reprise et le registre des incidents existent (`docs/ops/INCIDENT_RESPONSE.md`) ; des gabarits d'avis en espagnol sont à valider (`docs/legal/notificacion-violacion-datos-borrador.md`).
 → **Suggestion** : garder 72 h pour les deux pays, tant que l'avocat ne confirme pas un délai plus court. Panama : l'autorité de contrôle de la Ley 81 de 2019 (l'ANTAI, à confirmer) puis les personnes touchées. Paraguay : l'autorité compétente selon le texte applicable (à confirmer par l'avocat) puis les personnes touchées. Dans les deux pays, on notifie **ce qui est su** à l'échéance et on complète ensuite ; toi (ou ta personne de confiance, voir 2.7) fais l'envoi, jamais un agent.
