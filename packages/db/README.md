@@ -1081,9 +1081,18 @@ Migration `0147_ctr_constancia_frozen_host_checkout_host`. Fixture `9938_test_us
 - **Droits** : aucun nouveau (colonnes déjà accordées par 0032, 0037, 0067, 0108, 0122).
 - **Preuves** : `test/l0/l0-us212-constancia.test.ts` (PA USD, PY PYG : nom changé après la réservation sans effet sur la constancia, règle de réduction, nom figé vide, hôte du checkout au seul voyageur du devis, `app_worker` et `app_anon` : 42501).
 
+## Durcissement avant l'ouverture d'un pays (US-224 ; suites N-354, N-342, N-313 ; ADR-171)
+
+Migration `0148_hardening_country_open`. Fixture `9935_test_hardening_fixtures` (restriction d'un genre donné, statut de l'adhésion du titulaire, co-hôte ACTIVE ; transactions de test).
+
+- **N-354** : corps de `core.booking_manual_action_cancel_host_trips` (0140) remplacé : `CANCEL_HOST_TRIPS` exige une restriction active de sûreté du titulaire (`TS_HOLD`, `POLICY_VIOLATION`, `KYC_REVOKED`) ; une restriction d'argent seule (`UNPAID_BALANCE`, `PAYMENT_PLAN_ACTIVE`, `CHARGEBACK`) ⇒ `HOST_NOT_RESTRICTED`, rien d'écrit. `GRANT SELECT (kind) ON core.iam_restriction TO cmd_hold_owner` ajouté.
+- **N-342** : corps de `core.booking_trip_receipt` (0137) remplacé : l'hôte est jugé par `core.iam_host_accounts` (titulaire au rôle `P2P_HOST` `ACTIVE`, comme `booking_host_earnings`) ; co-hôte ou adhésion retirée ⇒ `NOT_FOUND`.
+- **N-313** : corps de `core.catalog_value_class_resolve` (0135) remplacé : marque comparée sans ses tirets, modèle de la règle reconnu au début du modèle saisi (tirets facultatifs, suivi de la fin, d'un tiret, d'un chiffre ou d'une lettre selon la fin de la règle) ; graine `core.catalog_value_class_rule` complétée (`source_ref` « N-313 »). Une classe posée n'est jamais recalculée.
+- **Preuves** : `test/l0/l0-us224e-defaulted-host.test.ts`, `test/l0/l0-us217-host-receipt.test.ts`, `test/l0/l0-n83-value-class.test.ts` (PA USD, PY PYG ; rôles de production).
+
 ## Décision de la caution (US-702 ; 08 BR-PAY-06 ; ADR-172)
 
-Migration `0148_payment_deposit_decision`, fixture `9934_test_us702_deposit_decision_fixtures.sql` (`test_fixture.us702_converted_deposit` : caution autorisée d'un hold converti, rail au choix, EXECUTE `app_worker` ; `test_fixture.us702_deposit_schedule` : lecture de l'échéancier écrit, EXECUTE `app_api`).
+Migration `0149_payment_deposit_decision`, fixture `9934_test_us702_deposit_decision_fixtures.sql` (`test_fixture.us702_converted_deposit` : caution autorisée d'un hold converti, rail au choix, EXECUTE `app_worker` ; `test_fixture.us702_deposit_schedule` : lecture de l'échéancier écrit, EXECUTE `app_api`).
 
 - **Table** `core.payment_deposit_hold` : colonnes ajoutées `captured_minor`, `released_minor`, `decision_executed_at`, posées une fois par la transition finale (`deposit_hold_final_shape` : état final ⇔ décision exécutée, Σ = montant, capture > 0 ⇔ `PARTIALLY_CAPTURED`) ; index `deposit_hold_decision_due_idx`.
 - **Fonctions** (cmd_hold_owner, RLS-15) : `payment_cmd_record_deposit_decision` remplacée (fournisseur et échéancier recalculés par la base) ; `payment_deposit_decision_due(lot)` et `payment_cmd_deposit_decide(…)` (EXECUTE `app_worker`, nom `payment_command`) : jamais avant l'heure de décision sauf expiration, aucune capture après l'expiration, `REFUNDED` ⇔ rail b, rang attendu (`STALE`), événement `deposit.decision.executed`.

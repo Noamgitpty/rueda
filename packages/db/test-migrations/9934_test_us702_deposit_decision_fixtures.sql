@@ -1,4 +1,4 @@
--- 9934 — fixtures des preuves de la décision de la caution (US-702, migration 0148 ; ADR-172).
+-- 9934 — fixtures des preuves de la décision de la caution (US-702, migration 0149 ; ADR-172).
 -- TESTS SEULEMENT.
 --
 -- JAMAIS appliquée hors tests : seul le harnais ajoute test-migrations/, et seulement à la base
@@ -9,7 +9,7 @@
 -- `us701_converted_deposit` (9945 : annonce de 9998, trip et opération de loyer de 9300, segment
 -- n° 1), écrite directement sous le propriétaire : la pose réelle à `auth_at` n'existe pas avant le
 -- lot C (S-1 d'ADR-164). Appelée par app_worker dans des transactions de test ANNULÉES ; elle sert à
--- éprouver la file de la décision et la transition finale de 0148 sous le rôle de production. Les
+-- éprouver la file de la décision et la transition finale de 0149 sous le rôle de production. Les
 -- attendus du test viennent de 08 BR-PAY-06 (T57, T58, T73), jamais de cette fixture. Aucun
 -- interrupteur de mise en service n'est écrit.
 --

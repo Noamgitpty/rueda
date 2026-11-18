@@ -318,7 +318,7 @@ export const TEMPLATES: Readonly<Record<TemplateKey, TemplateSpec>> = {
     channels: EMAIL_THEN_SMS,
     critical: true,
   },
-  // `deposit.decision.executed` (0148 : deposit_id, trip_id, status, captured_minor,
+  // `deposit.decision.executed` (0149 : deposit_id, trip_id, status, captured_minor,
   // released_minor, currency) ; 16 PAY-011 `EVT_DEPOSIT_RELEASED` (PROPOSÉ, ADR-172)
   EVT_DEPOSIT_RELEASED: {
     key: 'EVT_DEPOSIT_RELEASED',
@@ -494,7 +494,7 @@ export const RULES: readonly RuleSpec[] = [
     recipients: [HOST],
     parties: CAPTURE_DECLINED_PARTIES,
   },
-  // décision de la caution exécutée (0148, US-702, ADR-172 ; 16 PAY-011 « Notifications ») :
+  // décision de la caution exécutée (0149, US-702, ADR-172 ; 16 PAY-011 « Notifications ») :
   // voyageur du trip (parties lues en base) ; libération entière ou frais annoncés capturés
   {
     eventType: 'deposit.decision.executed',

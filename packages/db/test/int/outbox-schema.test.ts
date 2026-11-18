@@ -180,7 +180,7 @@ describe('schéma outbox (US-008)', () => {
           expect(r).toMatchObject({ roles: 'cmd_hold_owner', cmd: 'a' });
           continue;
         }
-        // décision de la caution (0148, US-702, ADR-172) : deposit.decision.executed seulement,
+        // décision de la caution (0149, US-702, ADR-172) : deposit.decision.executed seulement,
         // acteur SYSTEM, travailleur payment_command
         if (r.pol === 'outbox_outbox_event.cmd_hold_deposit_event_ins') {
           expect(r).toMatchObject({ roles: 'cmd_hold_owner', cmd: 'a' });

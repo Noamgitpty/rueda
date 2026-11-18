@@ -15,6 +15,8 @@
  * `hostFromGuestMinor`, = TJ02a en USD) ; annulation de l'hôte T14 / T48 (jambe HOST 0, pénalité
  * `hostPenaltyMinor` en ligne séparée, 08 E7 règle 7) ; lignes, taux et taxe payée des trips A et D
  * (08 BR-PRICE-12 : taxe par ligne, `roundHalfUp` unique). 19 US-217 critères 1 à 3.
+ * N-342 (migration 0148, ADR-171) : un co-hôte ou un titulaire dont l'adhésion P2P_HOST n'est plus
+ * ACTIVE lit le reçu comme un tiers (NOT_FOUND), comme pour le relevé.
  */
 import { ratio, roundHalfUp } from '@rueda/money';
 import { legVector, settlementVector } from '@rueda/money/golden-vectors';
@@ -390,6 +392,19 @@ describe.each(COUNTRIES)('US-217a — reçu des gains et du trip fee — $countr
           ] as const) {
             expect((await tx.query<Json>(READ, [hash, trip])).rows).toEqual([notFound]);
           }
+
+          // N-342 (migration 0148, ADR-171) : l'hôte du reçu est jugé comme celui du relevé
+          // (titulaire au rôle P2P_HOST ACTIVE) : un co-hôte ACTIVE du compte, puis le titulaire
+          // dont l'adhésion est retirée (fixture 9935, transaction annulée) ⇒ la réponse d'un tiers
+          const cohost = (
+            await tx.query<{ id: string }>('SELECT test_fixture.hard_add_cohost($1) AS id', [w.org])
+          ).rows[0]!.id;
+          const cohostHash = await session(tx, cohost);
+          expect((await tx.query<Json>(READ, [cohostHash, w.booked])).rows).toEqual([notFound]);
+          await tx.query('SELECT test_fixture.hard_membership_status($1, $2)', [w.org, 'REMOVED']);
+          expect((await tx.query<Json>(READ, [hostHash, w.booked])).rows).toEqual([notFound]);
+          // le voyageur n'est pas touché
+          expect((await receipt(tx, guestHash, w.booked))['viewer_role']).toBe('GUEST');
         });
 
         // les vues internes ne sont jamais appelables par app_api

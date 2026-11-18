@@ -34,7 +34,7 @@ Entités de 17 §3.2.7 :
 | `mit_consent`              | cible 17, pas encore créée                                                                                                                                                                           |
 | `tender`                   | cible 17, pas encore créée                                                                                                                                                                           |
 | `refund_instance`          | cible 17, pas encore créée                                                                                                                                                                           |
-| `deposit_hold`             | `core.payment_deposit_hold` (0146, US-701 ; 0148, US-702) : décision figée par hold avant le paiement, décision exécutée (capturé, libéré), lue et écrite par les seules fonctions de cmd_hold_owner |
+| `deposit_hold`             | `core.payment_deposit_hold` (0146, US-701 ; 0149, US-702) : décision figée par hold avant le paiement, décision exécutée (capturé, libéré), lue et écrite par les seules fonctions de cmd_hold_owner |
 | `chargeback`               | cible 17, pas encore créée                                                                                                                                                                           |
 | `debt_balance`             | cible 17, pas encore créée                                                                                                                                                                           |
 | `payment_plan`             | cible 17, pas encore créée                                                                                                                                                                           |
@@ -57,13 +57,13 @@ Hors entités de 17 : `core.payment_psp_capability_catalog` (catalogue des capac
 
 ### Décision de la caution à l'heure de décision (US-702 ; ADR-172)
 
-- **Échéancier recalculé par la base** : `core.payment_cmd_record_deposit_decision` (0148) ignore `provider`, `authAt`, `releaseAt`, `decisionAt`, `reauthDueAt` de la décision envoyée et les recalcule (compte marchand du pays, durées `auth_lead_h`, `release_delay_h`, `deposit_safety_h`, `deposit_reauth_lead_h` lues en base) ; `V` reste l'instantané, borné. Le site lit toujours la libération figée en base.
+- **Échéancier recalculé par la base** : `core.payment_cmd_record_deposit_decision` (0149) ignore `provider`, `authAt`, `releaseAt`, `decisionAt`, `reauthDueAt` de la décision envoyée et les recalcule (compte marchand du pays, durées `auth_lead_h`, `release_delay_h`, `deposit_safety_h`, `deposit_reauth_lead_h` lues en base) ; `V` reste l'instantané, borné. Le site lit toujours la libération figée en base.
 - `DepositDecisionTimer` / `PgDepositDecisionStore` (`internal/deposit-decision.ts`), dans la tâche `deposit_timer` après les ré-autorisations : file `core.payment_deposit_decision_due` (décision échue ou autorisation expirée ; rien ne la suspend), plan `planDepositDecision`, exécution `DepositRailExecutor.execute` hors transaction, transition finale `core.payment_cmd_deposit_decide` (rang attendu, Σ capturé + libéré = montant) qui écrit `deposit.decision.executed`. Autorisation expirée ⇒ `EXPIRED` sans appel ; issue inconnue ⇒ même clé au passage suivant ; VOID refusé ⇒ laissée expirer, `DEPOSIT_DECISION_FAILED` ; MIT impossible ⇒ libérée quand même, `DEPOSIT_FEES_UNCOLLECTED`.
 - `DepositFeeSource` : frais annexes et carte du consentement MIT ; en production `NO_DEPOSIT_FEES` (aucun registre des frais annexes encore : caution libérée en entier, frais ensuite par MIT, PROPOSÉ).
 
 ## Événements
 
-Émis par une fonction de la base appelée par PAY : `deposit.decision.executed` (0148, US-702 ; `deposit_id`, `trip_id`, `status`, `captured_minor`, `released_minor`, `currency`, `decided_at`), consommé par NTF (avis au voyageur). Aucun autre événement de domaine n'est émis ni consommé par le code de PAY aujourd'hui. Chaque statut reçu est écrit dans `core.payment_payment_operation_event` (pas un événement d'outbox). La commande `CANCEL_ORDER` est écrite dans `core.payment_payment_command` par les commandes du hold (AVL, migration 0040), pas par un événement.
+Émis par une fonction de la base appelée par PAY : `deposit.decision.executed` (0149, US-702 ; `deposit_id`, `trip_id`, `status`, `captured_minor`, `released_minor`, `currency`, `decided_at`), consommé par NTF (avis au voyageur). Aucun autre événement de domaine n'est émis ni consommé par le code de PAY aujourd'hui. Chaque statut reçu est écrit dans `core.payment_payment_operation_event` (pas un événement d'outbox). La commande `CANCEL_ORDER` est écrite dans `core.payment_payment_command` par les commandes du hold (AVL, migration 0040), pas par un événement.
 
 Cible (17 §2.2, §4.5) :
 

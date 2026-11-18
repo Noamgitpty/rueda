@@ -5,7 +5,7 @@
  * chaque pays configuré (USD, PYG sans décimale), transactions ANNULÉES :
  * - `PgDepositTimerStore` (0146) : jointure `config_currency` (exposant de la devise), paramètres
  *   `::timestamptz`, file des ré-autorisations échues et transition `REAUTHORIZED` (rang attendu) ;
- * - `PgDepositDecisionStore` (0148) : file des décisions échues (montant en `bigint`, rail,
+ * - `PgDepositDecisionStore` (0149) : file des décisions échues (montant en `bigint`, rail,
  *   expiration) et transition finale ; `DepositDecisionTimer` de bout en bout avec la configuration
  *   et les capacités lues en base (posées dans la transaction) et le PSP simulé : VOID de la caution
  *   entière à fin + 70 h, aucune capture (19 US-702 critère 2).

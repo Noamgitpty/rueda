@@ -1,5 +1,5 @@
 /**
- * US-702 — décision de la caution (migration 0148, ADR-172) sous les rôles de PRODUCTION (assertion
+ * US-702 — décision de la caution (migration 0149, ADR-172) sous les rôles de PRODUCTION (assertion
  * L0-05 en tête de chaque connexion : withRole), en USD (PA) et en PYG sans décimale (PY),
  * transactions annulées :
  * - `app_api` (voyageur de la session) : l'écriture de la décision RECALCULE le fournisseur et
@@ -10,7 +10,7 @@
  *   [C2] ; transition FINALE gardée (jamais avant l'heure de décision, jamais de capture après
  *   l'expiration, Σ capturé + libéré = montant, `REFUNDED` ⇔ rail b, rang attendu) et événement
  *   `deposit.decision.executed` dans la même transaction ; autre travailleur ⇒ rien lu, refus ;
- * - `app_anon` : aucune des fonctions de la caution (0146, 0148) n'est exécutable.
+ * - `app_anon` : aucune des fonctions de la caution (0146, 0149) n'est exécutable.
  * Attendus : 08 BR-PAY-06 (T57 : 300,00 de test, décision à fin + 70 h, libération fin + 72 h ; T73 :
  * 1 500 000 PYG), 16 PAY-011 « États », 17 §3.2.7, la graine (durées 24 / 72 / 2 / 24 h de 0009 et
  * 0142) — jamais le code testé. Personnes, devis et checkout par les VRAIES commandes (US-208,
