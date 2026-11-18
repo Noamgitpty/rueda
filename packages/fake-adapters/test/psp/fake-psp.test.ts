@@ -385,6 +385,47 @@ describe('capacités simulées : inconnue ou non validée = non (17 §2.8)', () 
         legs: LEGS_100,
       }).status,
     ).toBe('SUCCEEDED');
+    // autorisation entièrement capturée : plus de VOID possible
+    expectFakeError(
+      () => psp.void({ merchantReference: 'void-after-full', reference: order.reference }),
+      'INVALID_REQUEST',
+    );
+  });
+
+  it('US-225 (08 E3 repli 1, T57) : capture partielle puis VOID du reste ; plus de capture ensuite', () => {
+    const { psp } = setup();
+    const order = psp.createOrder({
+      merchantReference: 'deposit:d1:AUTH:i1:a1',
+      method: 'CARD',
+      amountMinor: 100n,
+      currency: CUR,
+      legs: legs(0n, 0n, 0n, 100n),
+      capture: 'MANUAL',
+    });
+    psp.customerPays(order.reference);
+    psp.capture({
+      merchantReference: 'deposit:d1:CAPTURE:i1:a1',
+      reference: order.reference,
+      amountMinor: 4n,
+      currency: CUR,
+      legs: legs(4n, 0n, 0n, 0n),
+    });
+    expect(
+      psp.void({ merchantReference: 'deposit:d1:VOID:i1:a1', reference: order.reference }).status,
+    ).toBe('SUCCEEDED');
+    expectFakeError(
+      () =>
+        psp.capture({
+          merchantReference: 'deposit:d1:CAPTURE:i2:a1',
+          reference: order.reference,
+          amountMinor: 1n,
+          currency: CUR,
+          legs: legs(1n, 0n, 0n, 0n),
+        }),
+      'INVALID_REQUEST',
+    );
+    // seule la capture a déplacé des fonds : 4, sur la jambe HOST
+    expect(psp.movements().map((m) => [m.operation, m.amountMinor])).toEqual([['CAPTURE', 4n]]);
   });
 
   it('recherche par clé du marchand sans capacité ⇒ UNSUPPORTED ; par référence du PSP : permise', () => {

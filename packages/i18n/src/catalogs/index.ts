@@ -252,8 +252,11 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  remboursement réparti sur les moyens d’origine (US-224 partie 224f, ADR-166) :
  `backoffice.cancel.outcome.REFUND_RAIL_UNAVAILABLE`, `…REFUND_RAIL_NOT_NATIVE`,
  `…REFUND_EXCEEDS_TENDER` (codes d’une demande d’annulation garée, console).
+ Version 82 (la 79 qui lui était réservée a été dépassée par la 81 d’US-224f) : rails de la caution (US-225, ADR-164) : `web.deposit.unavailable` (refus avant le
+ paiement avec la durée possible, texte de 10b UX-24) et `web.deposit.unavailableNone` (aucune
+ durée possible, PROPOSÉ), affichés par l'écran S05 quand il branchera la décision de la caution.
  */
-export const CATALOG_VERSION = 81;
+export const CATALOG_VERSION = 82;
 
 /** Catalogues de base par langue ; la langue d'un profil de locale choisit le sien. */
 export const CATALOGS: Readonly<Record<CatalogLanguage, VersionedCatalog<MessageKey>>> = {

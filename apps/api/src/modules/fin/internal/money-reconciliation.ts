@@ -33,7 +33,7 @@
  * requête n'en garde que des montants et un pays, le rapport que des comptes. Les deux premiers ne
  * portent que sur un trip dont un encaissement est porté (un solde posé sans opération n'a rien à
  * comparer). Les trois contrôles de la jambe assureur (US-227, ADR-165) lisent
- * `core.finance_insurer_ledger_facts()` (0142, même garde) ; une écriture sans contrat d'assureur
+ * `core.finance_insurer_ledger_facts()` (0143, même garde) ; une écriture sans contrat d'assureur
  * (aucun contrat en vigueur à la réservation) n'est pas un écart mais est COMPTÉE
  * (`examined.insurerUnattributed`) : elle n'entre dans aucun bordereau (GL-42).
  *
@@ -123,7 +123,7 @@ export interface TripLegFact {
   readonly statementHost: bigint | null;
 }
 
-/** Faits de la jambe assureur d'un trip (`core.finance_insurer_ledger_facts()`, 0142). */
+/** Faits de la jambe assureur d'un trip (`core.finance_insurer_ledger_facts()`, 0143). */
 export interface InsurerLedgerFact {
   readonly country: string;
   /** Σ écritures d'encaissement du registre de l'assureur. */
@@ -193,7 +193,7 @@ export const TRIP_LEG_FACTS_SOURCE = `SELECT country_code, captured_minor, colle
          head_total_paid_minor, expected_host_minor, statement_host_minor
     FROM core.finance_trip_leg_facts()`;
 
-/** Faits de la jambe assureur (US-227, 0142) : montants et pays seulement. */
+/** Faits de la jambe assureur (US-227, 0143) : montants et pays seulement. */
 export const INSURER_LEDGER_FACTS_SOURCE = `SELECT country_code, collected_entries_minor, collected_legs_minor,
          settled_entries_minor, settled_variations_minor, billed_minor, due_minor, unattributed
     FROM core.finance_insurer_ledger_facts()`;

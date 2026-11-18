@@ -111,6 +111,14 @@ export const ES_MESSAGES = {
   'web.deposit.contest': 'Revisar y responder',
   'web.deposit.debitWarning':
     'El depósito se cobra y luego se reembolsa. Emitiremos el reembolso el {date}; tu banco puede tardar de 3 a 10 días hábiles en mostrarlo.',
+  // US-225 (ADR-164) : refus de la caution avant le paiement (10b UX-24 ; 08 BR-PAY-06, T59)
+  'web.deposit.unavailable': {
+    one: 'Para estas fechas no podemos tomar el depósito en tu tarjeta. Puedes reservar hasta {count} día.',
+    other:
+      'Para estas fechas no podemos tomar el depósito en tu tarjeta. Puedes reservar hasta {count} días.',
+  },
+  'web.deposit.unavailableNone':
+    'Por ahora no podemos tomar el depósito en tu tarjeta para este auto.',
   // Vitrine de la bibliothèque (US-032) : outil interne de revue du design, PROPOSÉ.
   'web.catalog.title': 'Biblioteca de componentes',
   'web.catalog.intro':

@@ -1,7 +1,7 @@
 /**
  * Bordereau mensuel de l'assureur partenaire (US-227, ADR-165 ; 08 E7 règles 6 et 7 ; 17 §2.9
  * `insurer_ledger`) : tâche périodique du travailleur `bordereau`. Chaque passage appelle
- * `core.settlement_cmd_draft_insurer_bordereaux(NULL)` (0142) : pour le mois clos de chaque pays,
+ * `core.settlement_cmd_draft_insurer_bordereaux(NULL)` (0143) : pour le mois clos de chaque pays,
  * un bordereau DRAFT par contrat d'assureur (lignes = prime due des trips terminés, jamais une
  * ligne gelée par un chargeback ouvert), puis la projection `insurer_ledger_state`. La base décide
  * tout (mois, éligibilité, montants lus du registre) ; ce module ne calcule aucun montant.
@@ -13,7 +13,7 @@
  */
 import type { BusRegistry } from '../../bus/index.js';
 
-/** Travailleur du bordereau (liste des politiques `cmd_money_ins` de 0036 et 0142). */
+/** Travailleur du bordereau (liste des politiques `cmd_money_ins` de 0036 et 0143). */
 export const INSURER_BORDEREAU_WORKER = 'bordereau';
 
 /** Une passe par 24 h (PROPOSÉ, ADR-165) : la rédaction est idempotente par (contrat, mois). */

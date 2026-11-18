@@ -1030,9 +1030,17 @@ Migration `0141_payment_refund_multi_tender`. Aucune fixture nouvelle.
 - **Codes** : `refund_exceeds_tender` ⇒ `REFUND_EXCEEDS_COLLECTED` ; `refund_rail_not_native` ⇒ `PAYMENT_METHOD_UNAVAILABLE` ; `refund_instance_not_failed` ⇒ `INVALID_TRANSITION`.
 - **Preuves** : `test/l0/l0-us224f-multi-tender.test.ts` (PA USD : TJ16a / TJ16b, moyens de T33 ; PY PYG : TJ16c / TJ16d ; refus de TJ16b / TJ16d sur tout rail en bêta ; reprise après échec ; supersession ; droits). `test/support/pay.ts` : `recordOperation` accepte un moyen (`method`, défaut `CARD`).
 
+## Paramètres de la caution « comme Turo » (US-225 ; 08 BR-PAY-06 ; ADR-108, ADR-164)
+
+Migration générée `0142_config_deposit_rail_params` (groupe `deposit_always_required` + clés nommées de `POST_SEED_PARAMS`), fixture `9943_test_us225_deposit_rail_fixtures.sql` (`test_fixture.us225_param_version`, clés fermées, transaction annulée, EXECUTE `app_api`).
+
+- **Valeurs PROPOSÉES**, identiques au PA et au PY, `fail_mode` BLOCK, portée pays : `deposit_always_required` faux, `deposit_trigger_classes` `["LUXE"]` (à confirmer par le fondateur), `deposit_young_driver_age` 30, `deposit_young_driver_classes` `[]` (DEC-FONDATEUR-21), `deposit_on_risk_flag` vrai, `risk_control_deployed` faux, `deposit_reauth_lead_h` 24, `deposit_fee_notice_h` 48. `deposit_amount`, `deposit_charge_cap` et `provider_max_hold_h` restent sans valeur (absent : caution exigée refusée, rail « débit puis remboursement » interdit, aucune pré-autorisation). Aucun interrupteur touché ; aucun droit nouveau.
+- **Lecture** : `PgDepositRailConfigReader` (module PAY) sous `app_api` ou `app_worker` : `core.config_param_value`, `core.config_go_live('funds_holding_enabled', pays)`, `core.payment_psp_capability`.
+- **Preuves** : `test/l0/l0-us225-deposit-rails.test.ts` (PA USD, PY PYG ; `app_api`, `app_worker`, `app_anon`) ; `apps/api/src/modules/pay/testing/deposit-rail-config.int.test.ts` (décision du checkout sur la configuration réelle, sous `app_api`).
+
 ## Registre et bordereau de l'assureur (US-227 ; 08 E7 règles 3, 3 bis, 6, 7 ; 17 §2.9 ; ADR-165)
 
-Migration `0142_settlement_insurer_ledger`. Fixture `9947_test_us227_insurer_ledger_fixtures.sql` (contrat de test sur une période, lecture des écritures, écriture posée dans le monde de la matrice, essais d'immuabilité ; assureur et contrat « de structure » des fixtures de 9700, dont `us062_insert_bordereau` et `us062_insert_insurer_ledger` sont remplacées à signature égale pour les clés étrangères de 0142).
+Migration `0143_settlement_insurer_ledger`. Fixture `9947_test_us227_insurer_ledger_fixtures.sql` (contrat de test sur une période, lecture des écritures, écriture posée dans le monde de la matrice, essais d'immuabilité ; assureur et contrat « de structure » des fixtures de 9700, dont `us062_insert_bordereau` et `us062_insert_insurer_ledger` sont remplacées à signature égale pour les clés étrangères de 0143).
 
 - **Table** `core.settlement_insurer_ledger_entry` (classe C1, sujet ORG) : écriture signée en unités mineures de la devise du trip, motif `COLLECTION` (jambe `INSURER` d'un encaissement porté, clé vers `settlement_leg_movement`) ou `SETTLEMENT_VARIATION` (variation stockée d'une version, clé composite `settlement_ledger_scope_unique`), contrat de l'assureur en vigueur à la réservation (NULL si aucun) ; unique par opération et par règlement ; immuable. La politique d'insertion de `cmd_money_owner` exige la source au montant exact.
 - **Écriture** : déclencheurs `insurer_ledger_collection_posted` (`settlement_leg_movement`) et `insurer_ledger_variation_posted` (`settlement_settlement_leg`), fonctions SECURITY DEFINER de cmd_money_owner sans EXECUTE ; refus `insurer_leg_on_bordereau` si le trip est porté par un bordereau émis.

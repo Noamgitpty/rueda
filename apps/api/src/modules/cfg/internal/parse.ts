@@ -16,6 +16,7 @@ import {
   PARAM_SCOPES,
   PARAM_TYPES,
   TAX_LINE_TYPES,
+  VALUE_CLASSES,
 } from './model.js';
 import type {
   CountryConfig,
@@ -36,6 +37,7 @@ import type {
   TaxLineConfig,
   TaxLineType,
   TimeZoneCheck,
+  ValueClass,
   PhoneNumberingConfig,
   RegulatoryNotice,
 } from './model.js';
@@ -734,6 +736,16 @@ function checkJsonShape(c: Collector, path: string, def: ParamDefinition, value:
     if (isShare(value)) return true;
     c.add(path, 'part « n/d » dans [0 ; 1] attendue');
     return false;
+  }
+  if (unit === 'value_class_set') {
+    // US-225 (ADR-164) : ensemble de classes de valeur (08 BR-ACC-05) ; vide permis (aucune
+    // classe, DEC-FONDATEUR-21) ; sans doublon, dans l'ordre du vocabulaire fermé
+    const rank = (v: unknown): number => VALUE_CLASSES.indexOf(v as ValueClass);
+    const ok =
+      Array.isArray(value) &&
+      value.every((v, i) => rank(v) >= 0 && (i === 0 || rank(v) > rank(value[i - 1])));
+    if (!ok) c.add(path, `ensemble de classes attendu, ordonné : ${VALUE_CLASSES.join(', ')}`);
+    return ok;
   }
   if (unit.endsWith('_list')) {
     const ok =

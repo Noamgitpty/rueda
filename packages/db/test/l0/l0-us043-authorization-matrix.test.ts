@@ -821,7 +821,7 @@ beforeAll(async () => {
         }
       }
     });
-    // US-227 (0142, ADR-165) : une écriture du registre de l'assureur sur le règlement en tête des
+    // US-227 (0143, ADR-165) : une écriture du registre de l'assureur sur le règlement en tête des
     // trips a1, a2 et b1 (sans effet si le règlement a déjà la sienne), pour éprouver chaque cellule
     // de la table sur des lignes réelles, par pays
     await withTestTransaction(client, { commit: true }, async (tx) => {
