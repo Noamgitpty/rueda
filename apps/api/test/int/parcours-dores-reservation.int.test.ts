@@ -493,12 +493,16 @@ async function firstProvider(worker: pg.ClientBase, country: string): Promise<st
  * `concurrence-webhook.int.test.ts` ouvrent, le temps d'un test, un compte ACTIVE BAC ou EBANX du
  * même pays, retenu AVANT FAKE par `booking_cmd_checkout_pay`. Un essai n'est retenu (réussite OU
  * refus) que si FAKE est en tête juste avant ET juste après lui ; sinon il est annulé par son point
- * de sauvegarde et rejoué dès que FAKE est de nouveau en tête (au plus 60 s). Transaction ANNULÉE
- * du segment A seulement ; le résultat retenu est affirmé tel quel par l'appelant.
+ * de sauvegarde et rejoué dès que FAKE est de nouveau en tête (au plus 60 s). Un essai annulé
+ * retire aussi du PSP FAKE les ordres qu'il lui a envoyés : rejoué depuis le point de sauvegarde, il
+ * renvoie le MÊME ordre (même clé d'idempotence `hold:…:CAPTURE:a1`), qu'un PSP réel dédoublonne.
+ * Transaction ANNULÉE du segment A seulement ; le résultat retenu est affirmé tel quel par
+ * l'appelant.
  */
 async function onFakeAccount<T>(
   tx: pg.ClientBase,
   country: string,
+  psp: FakeHostedPsp,
   attempt: () => Promise<T>,
 ): Promise<{ ok: true; value: T } | { ok: false; error: unknown }> {
   // UNE connexion app_worker pour toute l'attente (libérée par afterEach), jamais une par lecture
@@ -506,6 +510,7 @@ async function onFakeAccount<T>(
   for (let i = 0; i < 240; i++) {
     if ((await firstProvider(worker, country)) === 'FAKE') {
       await tx.query('SAVEPOINT us221_fake');
+      const sent = psp.orders.length;
       let out: { ok: true; value: T } | { ok: false; error: unknown };
       try {
         out = { ok: true, value: await attempt() };
@@ -519,6 +524,7 @@ async function onFakeAccount<T>(
         return out;
       }
       await tx.query('ROLLBACK TO SAVEPOINT us221_fake');
+      psp.orders.splice(sent);
     }
     await new Promise((resolve) => setTimeout(resolve, 250));
   }
@@ -730,7 +736,7 @@ describe.each(CASES)('US-221 — parcours dorés « réservation » ($country, $
           // capacité inconnue posée dans un point de sauvegarde, retirée avec lui après le refus
           await tx.query('SAVEPOINT us221_capability');
           await capabilities(tx, c.country, at(-2), 'SUPPORTS_PER_LEG_AMOUNTS', 'UNKNOWN');
-          const refused = await onFakeAccount(tx, c.country, () =>
+          const refused = await onFakeAccount(tx, c.country, psp, () =>
             pay.pay(hash, holdId, { method: 'CARD' }),
           );
           expect(refused.ok).toBe(false);
@@ -746,7 +752,7 @@ describe.each(CASES)('US-221 — parcours dorés « réservation » ($country, $
           });
 
           // capacités validées : T1 (jambes du devis engagé), ordre au PSP, T2
-          const paid = await onFakeAccount(tx, c.country, () =>
+          const paid = await onFakeAccount(tx, c.country, psp, () =>
             pay.pay(hash, holdId, { method: 'CARD' }),
           );
           if (!paid.ok) {
