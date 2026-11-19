@@ -56,6 +56,9 @@ const ISOLATED = [
   // US-227 : trips, contrat d'assureur de test (période passée), bordereaux et décisions FINANCE
   // VALIDÉS (deux rôles), compte PSP ACTIVE du pays partagé (fixture 9800)
   'test/l0/l0-us227-insurer-ledger.test.ts',
+  // US-221b : paiement prouvé puis conversion (report de la capture sur les soldes par jambe), à
+  // deux sessions, données commitées, compte PSP ACTIVE du pays partagé (comme US-223a)
+  'test/l0/l0-us221b-conversion-capture.test.ts',
 ];
 const C11 = ['test/l0/l0-c11-fuzz.test.ts'];
 // US-049 : les attaques de la red team (test/redteam/<axe>/) tournent seules, après tous les autres

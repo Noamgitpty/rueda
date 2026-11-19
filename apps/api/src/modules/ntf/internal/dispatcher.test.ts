@@ -114,7 +114,7 @@ describe.each(COUNTRY_CASES)('planDispatches — $country ($currency)', (c) => {
   });
 
   it('US-702 : décision de la caution exécutée ⇒ le voyageur du trip (base) ; libérée en entier ou frais annoncés capturés ; montants dans la devise du pays', () => {
-    // 0149 : deposit_id, trip_id, status, captured_minor, released_minor, currency, decided_at
+    // 0150 : deposit_id, trip_id, status, captured_minor, released_minor, currency, decided_at
     const decided = (status: string, captured: string, released: string) =>
       event(
         'deposit.decision.executed',

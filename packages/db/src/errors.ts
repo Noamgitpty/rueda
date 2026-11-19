@@ -398,7 +398,7 @@ export const CONSTRAINT_CODES: Readonly<Record<string, readonly [string, DbBusin
   deposit_hold_guarded: [SQLSTATE.objectNotInPrerequisiteState, 'INVARIANT_VIOLATION'],
   deposit_hold_command_forbidden: [SQLSTATE.insufficientPrivilege, 'FORBIDDEN'],
   deposit_hold_hold_unique: [SQLSTATE.uniqueViolation, 'INVARIANT_VIOLATION'],
-  // décision exécutée de la caution (0149, US-702, ADR-172) : forme d'un état final (Σ = montant)
+  // décision exécutée de la caution (0150, US-702, ADR-172) : forme d'un état final (Σ = montant)
   deposit_hold_final_shape: [SQLSTATE.checkViolation, 'INVARIANT_VIOLATION'],
   // créance de la règle 3 bis au host_ledger (0139, US-224e, ADR-163) ; unique de 0129 (N-277)
   host_ledger_advance_unknown: [SQLSTATE.integrityConstraintViolation, 'INVARIANT_VIOLATION'],
@@ -410,6 +410,8 @@ export const CONSTRAINT_CODES: Readonly<Record<string, readonly [string, DbBusin
   insurer_bordereau_incoherent: [SQLSTATE.integrityConstraintViolation, 'INVARIANT_VIOLATION'],
   insurer_bordereau_stale: [SQLSTATE.objectNotInPrerequisiteState, 'INVARIANT_VIOLATION'],
   insurer_bordereau_line_frozen: [SQLSTATE.objectNotInPrerequisiteState, 'INVARIANT_VIOLATION'],
+  // rattachement de la capture convertie à son trip (0149, US-221 partie 221b, ADR-170)
+  operation_trip_attach_invalid: [SQLSTATE.integrityConstraintViolation, 'INVARIANT_VIOLATION'],
 };
 
 const own = (value: object, key: string): unknown =>

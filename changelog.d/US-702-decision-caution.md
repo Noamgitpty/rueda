@@ -1,7 +1,7 @@
 lot: L2
 module: Paiements
 
-- Ajouté : décision automatique de la caution à l'heure de décision (fin + 72 h, 70 h dans le cas T57), par la tâche de la caution du travailleur : annulation de l'autorisation, capture des seuls frais annexes annoncés si le PSP le permet, débit séparé sinon ; jamais suspendue par une réclamation (migration 0149, US-702, ADR-172)
+- Ajouté : décision automatique de la caution à l'heure de décision (fin + 72 h, 70 h dans le cas T57), par la tâche de la caution du travailleur : annulation de l'autorisation, capture des seuls frais annexes annoncés si le PSP le permet, débit séparé sinon ; jamais suspendue par une réclamation (migration 0150, US-702, ADR-172)
 - Ajouté : état final de la caution enregistré une fois (capturé, libéré, heure) et événement `deposit.decision.executed` ; une autorisation expirée n'est jamais capturée (US-702)
 - Ajouté : avis au voyageur « caution libérée » ou « frais capturés, reste libéré » par e-mail puis SMS, en espagnol, anglais, français et portugais du Brésil (catalogue v87, US-702)
 - Ajouté : alertes ops `DEPOSIT_DECISION_FAILED` et `DEPOSIT_FEES_UNCOLLECTED` (US-702)

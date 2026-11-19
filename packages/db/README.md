@@ -1090,9 +1090,19 @@ Migration `0148_hardening_country_open`. Fixture `9935_test_hardening_fixtures` 
 - **N-313** : corps de `core.catalog_value_class_resolve` (0135) remplacé : marque comparée sans ses tirets, modèle de la règle reconnu au début du modèle saisi (tirets facultatifs, suivi de la fin, d'un tiret, d'un chiffre ou d'une lettre selon la fin de la règle) ; graine `core.catalog_value_class_rule` complétée (`source_ref` « N-313 »). Une classe posée n'est jamais recalculée.
 - **Preuves** : `test/l0/l0-us224e-defaulted-host.test.ts`, `test/l0/l0-us217-host-receipt.test.ts`, `test/l0/l0-n83-value-class.test.ts` (PA USD, PY PYG ; rôles de production).
 
+## Report de la capture convertie (US-221 partie 221b ; défauts D1 et D2 d'US-221 ; 08 E7 règles 1, 2, 10 ; ADR-170)
+
+Migration `0149_settlement_conversion_capture_legs`. Fixture `9936_test_us221b_conversion_capture_fixtures.sql` (disposition `CONVERSION` sans report, forme d'avant 0149, transaction annulée ; état de rattachement et de report d'une opération).
+
+- **Conversion** : `core.booking_convert_payment` (0126) remplacé à signature, propriétaire et droits identiques : la conversion d'une `CAPTURE` appelle, dans sa transaction, `core.settlement_cmd_apply_conversion_capture(uuid)` (cmd_money_owner, EXECUTE app_worker, travailleurs `booking_conversion`, `disposition_sweeper`, `payment_intent_sweeper`) : rattachement de l'opération et de ses jambes au trip de la disposition `CONVERSION`, chaque jambe portée à son montant explicite, mouvement `CAPTURE` (écriture `COLLECTION` de l'assureur par 0143) ; `DUPLICATE` au rejeu ; un refus annule la conversion.
+- **Droits** : `SELECT (operation_id, hold_id, disposition, trip_id)` de `booking_payment_disposition` et `UPDATE (trip_id)` de `payment_payment_operation` et `payment_payment_operation_leg` à cmd_money_owner ; politiques `cmd_money_conversion_attach`, `cmd_money_conversion_ins`, `cmd_money_conversion_upd` (travailleurs de conversion, miroir exact de la capture) ; déclencheurs `operation_trip_attach_guard`, `operation_leg_trip_attach_guard` (tous rôles).
+- **Rapprochement** : `core.finance_trip_leg_facts()` (0137) remplacé : tout trip dont la disposition `CONVERSION` porte une capture prouvée est tenu ; « encaissé » = encaissements portés et cette capture.
+- **Codes** : `operation_trip_attach_invalid` ⇒ `INVARIANT_VIOLATION` ; refus du report sous les noms de 0123 (`leg_movement_unsupported`, `leg_movement_unproven`, `leg_movement_not_succeeded`, `leg_funds_holding_disabled`).
+- **Preuves** : `test/l0/l0-us221b-conversion-capture.test.ts` (TJ01 PA USD, TJ08a PY PYG ; groupe isolé) ; inventaire des écrivains de `trip_leg_balance` mis à jour (`test/int/stl-schema.test.ts`).
+
 ## Décision de la caution (US-702 ; 08 BR-PAY-06 ; ADR-172)
 
-Migration `0149_payment_deposit_decision`, fixture `9934_test_us702_deposit_decision_fixtures.sql` (`test_fixture.us702_converted_deposit` : caution autorisée d'un hold converti, rail au choix, EXECUTE `app_worker` ; `test_fixture.us702_deposit_schedule` : lecture de l'échéancier écrit, EXECUTE `app_api`).
+Migration `0150_payment_deposit_decision`, fixture `9934_test_us702_deposit_decision_fixtures.sql` (`test_fixture.us702_converted_deposit` : caution autorisée d'un hold converti, rail au choix, EXECUTE `app_worker` ; `test_fixture.us702_deposit_schedule` : lecture de l'échéancier écrit, EXECUTE `app_api`).
 
 - **Table** `core.payment_deposit_hold` : colonnes ajoutées `captured_minor`, `released_minor`, `decision_executed_at`, posées une fois par la transition finale (`deposit_hold_final_shape` : état final ⇔ décision exécutée, Σ = montant, capture > 0 ⇔ `PARTIALLY_CAPTURED`) ; index `deposit_hold_decision_due_idx`.
 - **Fonctions** (cmd_hold_owner, RLS-15) : `payment_cmd_record_deposit_decision` remplacée (fournisseur et échéancier recalculés par la base) ; `payment_deposit_decision_due(lot)` et `payment_cmd_deposit_decide(…)` (EXECUTE `app_worker`, nom `payment_command`) : jamais avant l'heure de décision sauf expiration, aucune capture après l'expiration, `REFUNDED` ⇔ rail b, rang attendu (`STALE`), événement `deposit.decision.executed`.

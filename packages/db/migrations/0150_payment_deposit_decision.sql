@@ -1,4 +1,4 @@
--- 0149 — PAY : décision de la caution à l'heure de décision (libération automatique, transitions
+-- 0150 — PAY : décision de la caution à l'heure de décision (libération automatique, transitions
 -- finales) et échéancier recalculé par la base.
 -- US-702 ; 19 US-702 (critères 1 et 2 : T58 « VOID 300,00 puis MIT 12,00 » ; « fin + 72 h ⇒ VOID
 -- automatique, journalisé, notifié au voyageur ; une réclamation de dommage ne la suspend jamais ») ;
