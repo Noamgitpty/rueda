@@ -412,6 +412,7 @@ describe.each(COUNTRIES)('US-535a — changement revu d’un paramètre ($countr
       expect((await approve(tx, d, ra.request_id as string)).outcome).toBe('APPLIED');
     });
     await unchanged(BOOL_KEY, c.country);
+    await allFalse(c.country);
   });
 
   it('critère 4 : clé go_live_switch (les quatre interrupteurs, toute casse, blancs) ⇒ FORBIDDEN journalisé sans demande ; écriture directe par le propriétaire des commandes ⇒ trigger param_value_go_live_guard (0073) ou aucune ligne', async () => {
@@ -527,6 +528,7 @@ describe.each(COUNTRIES)('US-535a — changement revu d’un paramètre ($countr
       expect((await ask(tx, who, ENUM_KEY, c.country, 'PREMIUM')).outcome).toBe('REQUESTED');
     });
     for (const key of [GRACE, MONEY_KEY, ENUM_KEY]) await unchanged(key, c.country);
+    await allFalse(c.country);
   });
 
   it('critères 6 et 8 : valid_from passé ou pas postérieur à la dernière version ⇒ PARAM_RETROACTIVE ; valeur non décidée ⇒ PARAM_UNDECIDED ; valid_from égal à maintenant ⇒ en vigueur à l’approbation ; versions successives sans trou ni recouvrement', async () => {
@@ -613,6 +615,7 @@ describe.each(COUNTRIES)('US-535a — changement revu d’un paramètre ($countr
       );
     });
     await unchanged(BOOL_KEY, c.country);
+    await allFalse(c.country);
   });
 
   it('critère 1 : échéance 72 h ⇒ EXPIRED (une demande échue ne bloque pas la suivante) ; annulation par le demandeur ou un SUPERADMIN ; demandeur sans droit ou compte suspendu à l’approbation ⇒ REJECTED', async () => {
@@ -671,6 +674,7 @@ describe.each(COUNTRIES)('US-535a — changement revu d’un paramètre ($countr
     });
     await unchanged(BOOL_KEY, c.country);
     await unchanged(ENUM_KEY, c.country);
+    await allFalse(c.country);
   });
 
   it('critère 10 : paramètres hostiles — valid_from, clé ou pays nuls, motif trop court ⇒ 22023 ; pays hors de la portée du contexte ou du rôle ⇒ FORBIDDEN ; contexte voyageur ou hôte ⇒ AUTH_REQUIRED', async () => {
@@ -721,6 +725,7 @@ describe.each(COUNTRIES)('US-535a — changement revu d’un paramètre ($countr
       expect(await statusOf(tx, BOOL_KEY, c.country, r.request_id as string)).toBe('PENDING');
     });
     await unchanged(BOOL_KEY, c.country);
+    await allFalse(c.country);
   });
 });
 
@@ -732,6 +737,14 @@ describe('US-535a — RLS et droits (base de production, rôles de production)',
       await withRole(
         role,
         async (client) => {
+          if (role === 'app_anon') {
+            // app_anon n'a même pas l'usage du schéma core : aucune table n'est atteignable
+            const { rows: u } = await client.query<{ u: boolean }>(
+              `SELECT has_schema_privilege('core', 'USAGE') AS u`,
+            );
+            expect(u[0]?.u).toBe(false);
+            return;
+          }
           const { rows } = await client.query<{
             t: string;
             sel: boolean;
@@ -756,7 +769,7 @@ describe('US-535a — RLS et droits (base de production, rôles de production)',
               trunc: false,
             });
             // seule la configuration versionnée est lisible (app_worker ; app_api par colonnes)
-            if (r.t !== 'config_param_value' || role === 'app_anon') {
+            if (r.t !== 'config_param_value') {
               expect(r.sel, `${role} ${r.t}`).toBe(false);
             }
           }

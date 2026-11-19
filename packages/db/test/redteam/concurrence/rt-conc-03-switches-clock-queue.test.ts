@@ -319,9 +319,16 @@ describe.each(COUNTRIES)(
                 AND p.prosrc ~* '(insert\\s+into|update|delete\\s+from)\\s+(core\\.)?config_param_value'
                 AND p.proname <> 'config_param_value_guard'`,
             );
-            // US-125 : la seule fonction qui écrit la table est l'approbation à deux personnes
-            expect(writers.rows, 'fonctions écrivant config_param_value').toEqual([
-              { fn: 'core.config_cmd_approve_go_live_switch' },
+            // US-125 : la seule fonction qui écrit la table est l'approbation à deux personnes ;
+            // US-535a (0157) : l'approbation à deux personnes d'un changement de paramètre aussi
+            // (propriétaire cmd_param_owner, clés gardées refusées par le trigger de 0073) ; ordre
+            // fixé par tri, la requête n'en impose aucun
+            expect(
+              writers.rows.map((r) => r.fn).sort(),
+              'fonctions écrivant config_param_value',
+            ).toEqual([
+              'core.config_cmd_approve_go_live_switch',
+              'core.config_cmd_approve_param_change',
             ]);
             // fonctions « go live » : la lecture (invocateur), les gardes (invocateur, aucune écriture)
             // et les deux commandes, SECURITY DEFINER, exécutables par app_api seulement

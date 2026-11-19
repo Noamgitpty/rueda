@@ -302,7 +302,8 @@ REVOKE ALL ON FUNCTION core.config_param_change_check(text, text, jsonb, text) F
 
 -- 5. Socle de cmd_param_owner (NOLOGIN, amorçage) : droits au plus juste --------------------------
 GRANT USAGE ON SCHEMA core, app, platform TO cmd_param_owner;
-GRANT EXECUTE ON FUNCTION platform.now() TO cmd_param_owner;
+-- uuid_v7 : défaut de l'identifiant du journal et de l'événement (comme cmd_golive_owner, 0073)
+GRANT EXECUTE ON FUNCTION platform.now(), platform.uuid_v7() TO cmd_param_owner;
 GRANT EXECUTE ON FUNCTION app.actor_kind(), app.country_scope() TO cmd_param_owner;
 GRANT EXECUTE ON FUNCTION core.config_param_change_check(text, text, jsonb, text) TO cmd_param_owner;
 -- la garde de 0008, exécutée sous l'écrivain, appelle la règle des interrupteurs de 0073 : sans ce
