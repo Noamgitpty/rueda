@@ -279,7 +279,9 @@ export default async function HoldPage({
                   ? t(depositRefusal.key, { count: depositRefusal.count })
                   : t(depositRefusal.key)}
               </Banner>
-              <ButtonLink variant="secondary" href="/">
+              {/* US-702 (revue ux d'US-701) : sortie vers la recherche elle-même, autres dates ou
+                  autre voiture */}
+              <ButtonLink variant="secondary" href="/search">
                 {t('web.listing.search')}
               </ButtonLink>
             </>

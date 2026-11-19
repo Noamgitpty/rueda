@@ -344,7 +344,11 @@ for (const language of LANGUAGES) {
       await expect(section.locator('[role="alert"]')).toHaveText(
         t.t('web.deposit.unavailable', { count: 3 }),
       );
-      await expect(section.getByRole('link', { name: t.t('web.listing.search') })).toBeVisible();
+      // US-702 (revue ux d'US-701) : la sortie mène à la recherche elle-même
+      await expect(section.getByRole('link', { name: t.t('web.listing.search') })).toHaveAttribute(
+        'href',
+        '/search',
+      );
       await expect(page.locator('[data-testid="s05-pay-submit"]')).toHaveCount(0);
       await expectAccessible(page);
       await expectMobileFriendly(page);

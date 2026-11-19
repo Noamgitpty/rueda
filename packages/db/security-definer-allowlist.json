@@ -2085,6 +2085,20 @@
       "owner": "cmd_hold_owner",
       "execute": ["app_worker"],
       "story": "US-701"
+    },
+    {
+      "signature": "core.payment_deposit_decision_due(integer)",
+      "family": "cmd_hold",
+      "owner": "cmd_hold_owner",
+      "execute": ["app_worker"],
+      "story": "US-702"
+    },
+    {
+      "signature": "core.payment_cmd_deposit_decide(uuid,integer,text,bigint,bigint)",
+      "family": "cmd_hold",
+      "owner": "cmd_hold_owner",
+      "execute": ["app_worker"],
+      "story": "US-702"
     }
   ]
 }

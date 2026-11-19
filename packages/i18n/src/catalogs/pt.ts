@@ -1360,6 +1360,16 @@ export const PT_MESSAGES = {
     'Olá, {first_name}. Você aceitou o pedido {booking_ref}, mas não conseguimos confirmar o pagamento do viajante e a reserva não foi feita. As datas estão livres de novo no seu calendário da {brand}. Não entregue o carro para este pedido.',
   'ntf.bookingRequestFailedHost.sms.body':
     '{brand}: o pedido {booking_ref} que você aceitou não foi confirmado. Datas liberadas. Não entregue o carro.',
+  'ntf.depositReleased.email.subject': 'Sua caução de {amount} foi liberada',
+  'ntf.depositReleased.email.body':
+    'Olá, {first_name}. Liberamos a sua caução de {amount} da viagem {booking_ref}. O banco pode levar alguns dias para mostrar.',
+  'ntf.depositReleased.sms.body':
+    '{brand}: liberamos a sua caução de {amount} da viagem {booking_ref}. O banco pode levar alguns dias para mostrar.',
+  'ntf.depositPartiallyCaptured.email.subject': 'Sua caução: {captured} cobrado, o resto liberado',
+  'ntf.depositPartiallyCaptured.email.body':
+    'Olá, {first_name}. Da caução da viagem {booking_ref}, cobramos {captured} pelas taxas extras já avisadas e liberamos {amount}. O banco pode levar alguns dias para mostrar.',
+  'ntf.depositPartiallyCaptured.sms.body':
+    '{brand}: da sua caução da viagem {booking_ref}, cobramos {captured} de taxas já avisadas e liberamos {amount}.',
   'backoffice.catalog.open': 'Abrir o pedido',
   'backoffice.catalog.heading': 'Pedido de inclusão no catálogo',
   'backoffice.catalog.requested': 'O que o anfitrião digitou',

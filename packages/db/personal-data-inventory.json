@@ -1640,7 +1640,10 @@
         "decided_at": "C1",
         "created_at": "C1",
         "updated_at": "C1",
-        "row_version": "C1"
+        "row_version": "C1",
+        "captured_minor": "C1",
+        "released_minor": "C1",
+        "decision_executed_at": "C1"
       }
     },
     "core.payment_payment_command": {

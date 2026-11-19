@@ -1101,3 +1101,12 @@ Migration `0149_settlement_conversion_capture_legs`. Fixture `9936_test_us221b_c
 - **Rapprochement** : `core.finance_trip_leg_facts()` (0137) remplacé : tout trip dont la disposition `CONVERSION` porte une capture prouvée est tenu ; « encaissé » = encaissements portés et cette capture.
 - **Codes** : `operation_trip_attach_invalid` ⇒ `INVARIANT_VIOLATION` ; refus du report sous les noms de 0123 (`leg_movement_unsupported`, `leg_movement_unproven`, `leg_movement_not_succeeded`, `leg_funds_holding_disabled`).
 - **Preuves** : `test/l0/l0-us221b-conversion-capture.test.ts` (TJ01 PA USD, TJ08a PY PYG ; groupe isolé) ; inventaire des écrivains de `trip_leg_balance` mis à jour (`test/int/stl-schema.test.ts`).
+
+## Décision de la caution (US-702 ; 08 BR-PAY-06 ; ADR-172)
+
+Migration `0150_payment_deposit_decision`, fixture `9934_test_us702_deposit_decision_fixtures.sql` (`test_fixture.us702_converted_deposit` : caution autorisée d'un hold converti, rail au choix, EXECUTE `app_worker` ; `test_fixture.us702_deposit_schedule` : lecture de l'échéancier écrit, EXECUTE `app_api`).
+
+- **Table** `core.payment_deposit_hold` : colonnes ajoutées `captured_minor`, `released_minor`, `decision_executed_at`, posées une fois par la transition finale (`deposit_hold_final_shape` : état final ⇔ décision exécutée, Σ = montant, capture > 0 ⇔ `PARTIALLY_CAPTURED`) ; index `deposit_hold_decision_due_idx`.
+- **Fonctions** (cmd_hold_owner, RLS-15) : `payment_cmd_record_deposit_decision` remplacée (fournisseur et échéancier recalculés par la base) ; `payment_deposit_decision_due(lot)` et `payment_cmd_deposit_decide(…)` (EXECUTE `app_worker`, nom `payment_command`) : jamais avant l'heure de décision sauf expiration, aucune capture après l'expiration, `REFUNDED` ⇔ rail b, rang attendu (`STALE`), événement `deposit.decision.executed`.
+- **Droits** : politique `cmd_hold_deposit_read` de `config_param_value` élargie (`auth_lead_h`, `release_delay_h`, `deposit_safety_h`, `deposit_reauth_lead_h`) ; politique ajoutée `cmd_hold_deposit_event_ins` sur `outbox_outbox_event` ; `UPDATE` des trois colonnes à cmd_hold_owner.
+- **Preuves** : `test/l0/l0-us702-deposit-decision.test.ts` (PA USD, PY PYG ; `app_api`, `app_worker`, `app_anon` par `has_function_privilege`).

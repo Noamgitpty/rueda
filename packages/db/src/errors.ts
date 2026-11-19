@@ -398,6 +398,8 @@ export const CONSTRAINT_CODES: Readonly<Record<string, readonly [string, DbBusin
   deposit_hold_guarded: [SQLSTATE.objectNotInPrerequisiteState, 'INVARIANT_VIOLATION'],
   deposit_hold_command_forbidden: [SQLSTATE.insufficientPrivilege, 'FORBIDDEN'],
   deposit_hold_hold_unique: [SQLSTATE.uniqueViolation, 'INVARIANT_VIOLATION'],
+  // décision exécutée de la caution (0150, US-702, ADR-172) : forme d'un état final (Σ = montant)
+  deposit_hold_final_shape: [SQLSTATE.checkViolation, 'INVARIANT_VIOLATION'],
   // créance de la règle 3 bis au host_ledger (0139, US-224e, ADR-163) ; unique de 0129 (N-277)
   host_ledger_advance_unknown: [SQLSTATE.integrityConstraintViolation, 'INVARIANT_VIOLATION'],
   host_ledger_advance_unique: [SQLSTATE.uniqueViolation, 'INVARIANT_VIOLATION'],
