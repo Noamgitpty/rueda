@@ -309,7 +309,12 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  `common.inspection.*` (refus des routes `/trips/{id}/inspections/…`), `web.inspection.*` (écran
  des photos de départ et de retour de l’hôte et du voyageur, angles du gabarit) et `web.s09c.done`
  de 10b §4.3 (texte portugais ajouté).
- Version 98 (95 à 97 réservées à US-707, US-525 et US-310) : remise et retour du véhicule entre
+ Version 95 (la 94 est celle d’US-303) : compte de versement de l’hôte (US-707) : réponses de
+ l’API `common.payoutAccount.*` (état, enregistrement, co-hôte refusé, numéro fiscal exigé,
+ numéro de compte ou rail refusés, titulaire discordant, coffre, base ou rail du pays
+ indisponibles) et écran `web.a07.payout.*` (compte masqué aux 4 derniers chiffres, statut, retenue de 48 h après un
+ changement, formulaire).
+ Version 98 (la 95 est celle d’US-707 ; 96 et 97 réservées à US-525 et US-310) : remise et retour du véhicule entre
  particuliers (US-315, ADR-183) : `common.handover.*` (refus des routes `/trips/{id}/handover/…`,
  dont `common.handover.unavailable` : sans réseau, réessayer, aucune file hors ligne au lot 3),
  `web.a03.arrived`, `web.a03.refuse`, `web.a03.handover` et les 6 points `web.a03.check.*` de

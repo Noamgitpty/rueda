@@ -845,8 +845,69 @@ function checkJsonShape(c: Collector, path: string, def: ParamDefinition, value:
     return ok;
   }
   if (unit === 'protection_grid') return checkProtectionGrid(c, path, value);
+  if (unit === 'payout_rails') return checkPayoutRails(c, path, value);
   c.add(`${path}`, `unité JSON inconnue « ${unit} » : forme non vérifiable (fail-closed)`);
   return false;
+}
+
+/**
+ * Rails du compte de versement d'un pays (US-707, ADR-180 ; 08 BR-PAYOUT-01 ; 16 PYO-001) :
+ * `{ BANK_ACCOUNT?: rail, WALLET?: rail }`, au moins un ; rail = `{ accountPattern, institutions }`
+ * ou `{ accountPattern, institutionPattern }`. Motifs ancrés, alphabet restreint (lisibles à
+ * l'identique par la base et par l'API, sans retour arrière coûteux) ; établissements : codes
+ * distincts. Aucune constante de pays dans le code : formats et établissements sont des données.
+ */
+const PAYOUT_RAIL_KINDS = ['BANK_ACCOUNT', 'WALLET'] as const;
+const RAIL_PATTERN = /^\^[[\]0-9A-Za-z{},|-]{1,96}\$$/;
+const INSTITUTION_CODE = /^[A-Z0-9][A-Z0-9_]{1,31}$/;
+
+function isRailPattern(v: unknown): boolean {
+  if (typeof v !== 'string' || !RAIL_PATTERN.test(v)) return false;
+  try {
+    new RegExp(v);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function checkPayoutRails(c: Collector, path: string, value: unknown): boolean {
+  const kinds = isObject(value) ? Object.keys(value) : [];
+  let ok =
+    isObject(value) &&
+    kinds.length > 0 &&
+    kinds.every((k) => (PAYOUT_RAIL_KINDS as readonly string[]).includes(k));
+  for (const kind of kinds) {
+    const rail = isObject(value) ? value[kind] : undefined;
+    if (!isObject(rail)) {
+      ok = false;
+      continue;
+    }
+    const keys = Object.keys(rail).sort().join();
+    const list = rail['institutions'];
+    if (keys === 'accountPattern,institutions') {
+      if (
+        !Array.isArray(list) ||
+        list.length === 0 ||
+        !list.every((x) => typeof x === 'string' && INSTITUTION_CODE.test(x)) ||
+        new Set(list).size !== list.length
+      ) {
+        ok = false;
+      }
+    } else if (keys === 'accountPattern,institutionPattern') {
+      if (!isRailPattern(rail['institutionPattern'])) ok = false;
+    } else {
+      ok = false;
+    }
+    if (!isRailPattern(rail['accountPattern'])) ok = false;
+  }
+  if (!ok) {
+    c.add(
+      path,
+      'rails : { BANK_ACCOUNT | WALLET : { accountPattern, institutions [codes] | institutionPattern } }, motifs ^…$',
+    );
+  }
+  return ok;
 }
 
 const PROTECTION_TERMS_KEYS = 'dailyCeilingMinor,dailyFloorMinor,minDriverAge,price,rank';

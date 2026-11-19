@@ -13190,6 +13190,279 @@
         }
       }
     },
+    "/host/accounts/{orgId}/payout-account": {
+      "get": {
+        "operationId": "getPayoutAccount",
+        "tags": ["pyo"],
+        "summary": "Compte de versement de l'hôte (PYO-001), pour son seul titulaire : rails du pays, type du numéro fiscal enregistré, compte courant masqué (4 derniers caractères), statut, retenue après un changement (US-707)",
+        "parameters": [
+          {
+            "name": "orgId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "État du compte de versement",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PayoutAccountState"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthRequired"
+          },
+          "403": {
+            "description": "Titulaire sans la permission payout.manage_account (17 §2.3)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "PAYOUT_MANAGE_FORBIDDEN"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Compte d'hôte inconnu, d'un autre hôte ou dont la personne n'est pas titulaire (co-hôte) : rien n'est révélé",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "HOST_ACCOUNT_NOT_FOUND"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Base indisponible (fail-closed)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "PAYOUT_ACCOUNT_UNAVAILABLE"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "savePayoutAccount",
+        "tags": ["pyo"],
+        "summary": "Enregistrement ou changement du compte de versement par le titulaire : compte au nom de l'hôte vérifié (nom légal, cédula ou RUC), numéro chiffré par la clé du compte d'hôte avant l'écriture, vérification par le PSP (FAKE), retenue de 48 h après un changement (US-707)",
+        "parameters": [
+          {
+            "name": "orgId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PayoutAccountRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Compte enregistré : vérifié par le PSP, ou en vérification",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PayoutAccountState"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Corps invalide (champ inconnu ou mal formé)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "REQUEST_INVALID"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthRequired"
+          },
+          "403": {
+            "description": "Titulaire sans la permission payout.manage_account, ou identité de l'hôte non vérifiée",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "enum": ["PAYOUT_MANAGE_FORBIDDEN", "HOST_KYC_REQUIRED"]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Compte d'hôte inconnu, d'un autre hôte ou dont la personne n'est pas titulaire (co-hôte) : rien n'est révélé",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "HOST_ACCOUNT_NOT_FOUND"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Aucun numéro fiscal enregistré (cédula ou RUC selon le pays) : aucun compte de versement",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "HOST_TAX_ID_REQUIRED"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "415": {
+            "$ref": "#/components/responses/NotJson"
+          },
+          "422": {
+            "description": "Numéro de compte ou établissement refusés, rail non ouvert dans le pays, titulaire ou pièce qui ne concordent pas avec l'hôte (rien n'est écrit, ou compte refusé par le PSP)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "enum": [
+                        "PAYOUT_ACCOUNT_INVALID",
+                        "PAYOUT_RAIL_UNSUPPORTED",
+                        "PAYOUT_HOLDER_MISMATCH"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Coffre de clés, base ou rails du pays indisponibles (fail-closed)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "enum": [
+                        "PAYOUT_VAULT_UNAVAILABLE",
+                        "PAYOUT_ACCOUNT_UNAVAILABLE",
+                        "HOST_PAYOUT_RAIL_UNAVAILABLE"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/trips/{tripId}/handover/{direction}": {
       "get": {
         "operationId": "getTripHandover",
@@ -22923,6 +23196,128 @@
           "submittedAt": {
             "type": "string",
             "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}[.][0-9]{3}Z$"
+          }
+        }
+      },
+      "PayoutAccountRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "kind",
+          "institution",
+          "accountNumber",
+          "holderGivenNames",
+          "holderSurnames",
+          "holderTaxId"
+        ],
+        "description": "Compte de versement (US-707) : type de rail et établissement de la configuration du pays, numéro (jamais renvoyé ni journalisé), titulaire = l'hôte (prénoms, noms, cédula ou RUC du type enregistré)",
+        "properties": {
+          "kind": {
+            "enum": ["BANK_ACCOUNT", "WALLET"]
+          },
+          "institution": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 32
+          },
+          "accountNumber": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "holderGivenNames": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "holderSurnames": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "holderTaxId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          }
+        }
+      },
+      "PayoutAccountState": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "Compte de versement de l'hôte (US-707, PYO-001) : aucun numéro (ni compte ni pièce), seulement les 4 derniers caractères du compte",
+        "required": ["code", "messageKey", "country", "currency", "rails", "taxKind", "account"],
+        "properties": {
+          "code": {
+            "enum": ["PAYOUT_ACCOUNT_STATE", "PAYOUT_ACCOUNT_SAVED"]
+          },
+          "messageKey": {
+            "$ref": "#/components/schemas/MessageKey"
+          },
+          "country": {
+            "$ref": "#/components/schemas/CountryCode"
+          },
+          "currency": {
+            "type": "string",
+            "pattern": "^[A-Z]{3}$"
+          },
+          "rails": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["kind", "institutions"],
+              "properties": {
+                "kind": {
+                  "enum": ["BANK_ACCOUNT", "WALLET"]
+                },
+                "institutions": {
+                  "type": ["array", "null"],
+                  "items": {
+                    "type": "string",
+                    "pattern": "^[A-Z0-9][A-Z0-9_]{1,31}$"
+                  }
+                }
+              }
+            }
+          },
+          "taxKind": {
+            "type": ["string", "null"],
+            "pattern": "^[A-Z][A-Z0-9_]{1,31}$"
+          },
+          "account": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["status", "kind", "institution", "last4", "holdUntil", "rejectReason"],
+                "properties": {
+                  "status": {
+                    "enum": ["PENDING", "VERIFIED", "REJECTED"]
+                  },
+                  "kind": {
+                    "enum": ["BANK_ACCOUNT", "WALLET"]
+                  },
+                  "institution": {
+                    "type": "string",
+                    "pattern": "^[A-Z0-9][A-Z0-9_]{1,31}$"
+                  },
+                  "last4": {
+                    "type": "string",
+                    "pattern": "^[0-9A-Z]{4}$"
+                  },
+                  "holdUntil": {
+                    "type": ["string", "null"]
+                  },
+                  "rejectReason": {
+                    "enum": ["HOLDER_MISMATCH", "TAX_ID_MISMATCH", "ACCOUNT_INVALID", null]
+                  }
+                }
+              }
+            ]
           }
         }
       },

@@ -92,6 +92,10 @@
     {
       "path": "packages/db/migrations/0142_config_deposit_rail_params.sql",
       "justification": "Graine complémentaire des paramètres des déclencheurs et des rails de la caution (08 BR-PAY-06 « Caution conditionnelle », « Mécanisme » ; 17 §7.2 ; ADR-108 : aucune caution par défaut, deposit_trigger_classes {LUXE}, deposit_young_driver_classes vide par DEC-FONDATEUR-21, risk_control_deployed faux), valeurs PROPOSÉES PA / PY, générée par apps/api/src/modules/cfg/internal/seed-sql.ts (renderParamSeedSql) depuis les données CFG ; le test seed-sql.test.ts échoue si le fichier diffère du rendu. 0009 est immuable (ADR-044, ADR-075). US-225, ADR-164."
+    },
+    {
+      "path": "packages/db/migrations/0160_config_payout_account_params.sql",
+      "justification": "Graine complémentaire du paramètre payout_account_rails (08 BR-PAYOUT-01 : virement ACH au PA, SIPAP et portefeuilles au PY ; 16 PYO-001 : compte de versement de l'hôte ; formats de numéro et établissements par pays, jamais en constante), valeurs PROPOSÉES PA / PY à confirmer avec le PSP au lot C, générée par apps/api/src/modules/cfg/internal/seed-sql.ts (renderParamSeedSql) depuis les données CFG ; le test seed-sql.test.ts échoue si le fichier diffère du rendu. 0009 est immuable (ADR-044, ADR-075). US-707, ADR-180."
     }
   ]
 }
