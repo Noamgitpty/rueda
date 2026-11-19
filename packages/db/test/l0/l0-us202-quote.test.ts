@@ -18,7 +18,13 @@
  * - totaux = Σ lignes + Σ taxes (08 BR-PRICE-13), PLATFORM = complément (08 E7) ;
  * - jours facturables TA07 (16 A.8.1, `grace_minutes` = 29) : 3 j 29 min ⇒ 3, 3 j 30 min ⇒ 4 ;
  * - critère 5 (19 US-202) : groupe third_party ⇒ jambe TAX_THIRD_PARTY = taxe du groupe ;
- * - L2-PM-03 : un montant, une taxe, un prix ou des jours modifiés ⇒ QUOTE_MISMATCH, rien d'écrit.
+ * - L2-PM-03 : un montant, une taxe, un prix ou des jours modifiés ⇒ QUOTE_MISMATCH, rien d'écrit ;
+ * - US-222d (F-L2-ARG-01, migration 0155) : les lignes non taxées de T01 / T40 (Extras, conducteur
+ *   additionnel, livraison) n'ont aucune source en base en bêta : portées par la demande, elles sont
+ *   refusées au gel (QUOTE_MISMATCH, rien de figé), même cohérentes avec la jambe HOST de TJ01 /
+ *   TJ09a ; le devis figé ne porte donc que le prix du trip et le trip fee : jambe HOST = part du
+ *   loyer seule (PA : 9 000 = 3/4 × 12 000, TJ01 sans livraison ni Extras ; PY : 750 001 =
+ *   allocHost(1 000 002 ; 3/4), TJ09a sans la part de livraison 37 500).
  */
 import { createHash, randomBytes } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
@@ -42,7 +48,10 @@ interface Vector {
   /** Lignes autres que le prix du trip et le trip fee (unités mineures). */
   readonly lines: Readonly<Record<string, number>>;
   readonly taxes: Readonly<Record<string, number>>;
+  /** Jambe HOST avec les lignes de T01 / T40 (TJ01 / TJ09a) : devis refusé depuis US-222d. */
   readonly host: number;
+  /** Jambe HOST du devis sans ces lignes (part du loyer seule : TJ01, TJ09a). */
+  readonly hostRent: number;
 }
 
 // Vecteurs (voir l'en-tête) : prix journalier, lignes et taxes de T01 / T40, jambe HOST de TJ01 / TJ09a.
@@ -53,6 +62,7 @@ const VECTORS: Readonly<Record<string, Vector>> = {
     lines: { EXTRAS: 1_500, ADDITIONAL_DRIVER_FEE: 1_500, DELIVERY_FEE: 4_000 },
     taxes: { TRIP_PRICE: 840, TRIP_FEE: 126 },
     host: 13_125,
+    hostRent: 9_000,
   },
   PY: {
     daily: 333_334,
@@ -60,6 +70,7 @@ const VECTORS: Readonly<Record<string, Vector>> = {
     lines: { DELIVERY_FEE: 50_000 },
     taxes: { TRIP_PRICE: 100_000, TRIP_FEE: 15_000 },
     host: 787_501,
+    hostRent: 750_001,
   },
 };
 const ORDER = [
@@ -102,7 +113,9 @@ function docs(c: CountryCase, groups: ReadonlyMap<string, string>, b: Build = {}
   const v = VECTORS[c.country]!;
   const days = b.days ?? 3;
   const daily = b.daily ?? v.daily;
-  const extra = b.lines ?? v.lines;
+  // US-222d : par défaut, aucune ligne de la demande (la route HTTP n'en envoie aucune)
+  const extra = b.lines ?? {};
+  const host = Object.keys(extra).length === 0 ? v.hostRent : v.host;
   const amounts: Record<string, number> = { ...extra, TRIP_PRICE: v.daily * days, TRIP_FEE: v.fee };
   const lines = ORDER.filter((t) => (amounts[t] ?? 0) !== 0).map((t) => ({
     type: t,
@@ -125,10 +138,10 @@ function docs(c: CountryCase, groups: ReadonlyMap<string, string>, b: Build = {}
     taxThirdParty: String(third),
     total: String(total),
     legs: {
-      HOST: String(v.host),
+      HOST: String(host),
       INSURER: '0',
       TAX_THIRD_PARTY: String(third),
-      PLATFORM: String(total - v.host - third),
+      PLATFORM: String(total - host - third),
     },
     hostSharePct: '3/4',
   };
@@ -243,7 +256,7 @@ describe.each(COUNTRIES.map((c) => [c.country, c] as const))(
         expect(r.outcome).toBe('DONE');
         const v = VECTORS[c.country]!;
         const tax = Object.values(v.taxes).reduce((a, x) => a + x, 0);
-        const subtotal = v.daily * 3 + v.fee + Object.values(v.lines).reduce((a, x) => a + x, 0);
+        const subtotal = v.daily * 3 + v.fee;
         const q = (await tx.query('SELECT * FROM test_fixture.us202_quote_row($1)', [r.quote_id]))
           .rows[0] as Record<string, unknown>;
         expect(q['status']).toBe('FROZEN');
@@ -252,19 +265,39 @@ describe.each(COUNTRIES.map((c) => [c.country, c] as const))(
         expect(q['billable_days']).toBe(3);
         expect(String(q['tax_total_minor'])).toBe(String(tax));
         expect(String(q['total_minor'])).toBe(String(subtotal + tax));
-        expect(String(q['leg_host_minor'])).toBe(String(v.host));
+        expect(String(q['leg_host_minor'])).toBe(String(v.hostRent));
         expect(String(q['leg_insurer_minor'])).toBe('0');
         expect(String(q['leg_tax_third_party_minor'])).toBe('0');
-        expect(String(q['leg_platform_minor'])).toBe(String(subtotal + tax - v.host));
+        expect(String(q['leg_platform_minor'])).toBe(String(subtotal + tax - v.hostRent));
         const lines = (
           await tx.query('SELECT * FROM test_fixture.us202_quote_lines($1)', [r.quote_id])
         ).rows as Record<string, unknown>[];
         expect(lines.map((x) => [x['line_type'], String(x['tax_minor'])])).toEqual(
-          ORDER.filter(
-            (t) => t === 'TRIP_PRICE' || t === 'TRIP_FEE' || (v.lines[t] ?? 0) !== 0,
-          ).map((t) => [t, String(v.taxes[t] ?? 0)]),
+          ORDER.filter((t) => t === 'TRIP_PRICE' || t === 'TRIP_FEE').map((t) => [
+            t,
+            String(v.taxes[t] ?? 0),
+          ]),
         );
         expect(lines.every((x) => x['third_party'] === false)).toBe(true);
+      });
+    });
+
+    it('US-222d (F-L2-ARG-01) : lignes sans source en base portées par la demande (Extras, conducteur additionnel, livraison de T01 / T40) ⇒ QUOTE_MISMATCH, rien de figé ; sans elles ⇒ figé', async () => {
+      await run(async (tx, { guest, l, groups }) => {
+        const v = VECTORS[c.country]!;
+        // documents cohérents (sorties de TJ01 / TJ09a avec ces lignes, figés avant US-222d) :
+        // seule la source en base manque
+        const all = await freeze(tx, guest.hash, l.listing_id, docs(c, groups, { lines: v.lines }));
+        expect(all).toEqual({ outcome: 'QUOTE_MISMATCH', quote_id: null });
+        for (const line of Object.keys(v.lines)) {
+          const one = docs(c, groups, { lines: { [line]: v.lines[line]! } });
+          expect(await freeze(tx, guest.hash, l.listing_id, one), line).toEqual({
+            outcome: 'QUOTE_MISMATCH',
+            quote_id: null,
+          });
+        }
+        // le devis sans ces lignes est figé (chemin de la route HTTP)
+        expect((await freeze(tx, guest.hash, l.listing_id, docs(c, groups))).outcome).toBe('DONE');
       });
     });
 
@@ -359,7 +392,7 @@ describe.each(COUNTRIES.map((c) => [c.country, c] as const))(
         const q = (await tx.query('SELECT * FROM test_fixture.us202_quote_row($1)', [r.quote_id]))
           .rows[0] as Record<string, unknown>;
         expect(String(q['leg_tax_third_party_minor'])).toBe(String(tax));
-        expect(String(q['leg_host_minor'])).toBe(String(VECTORS[c.country]!.host));
+        expect(String(q['leg_host_minor'])).toBe(String(VECTORS[c.country]!.hostRent));
       });
     });
 

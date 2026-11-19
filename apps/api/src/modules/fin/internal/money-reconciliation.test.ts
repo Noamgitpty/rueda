@@ -13,6 +13,7 @@ import type { AlertChannel, OpsAlert, SqlClient, SqlResult } from '../../bus/ind
 import { assertSafeAlert } from '../../bus/index.js';
 import {
   alertOnViolations,
+  CHARGEBACK_FACTS_SQL,
   evaluateMoneyReconciliation,
   INSURER_LEDGER_FACTS_SQL,
   insurerLedgerViolations,
@@ -22,6 +23,7 @@ import {
   MONEY_RECONCILIATION_PERIOD_SECONDS,
   MONEY_RECONCILIATION_WORKER,
   MoneyReconciliationContractError,
+  parseChargebackFactRow,
   parseInsurerLedgerFactRow,
   parseLegBalanceRow,
   parseSettlementRow,
@@ -117,11 +119,12 @@ describe('US-047 — rapprochement de l’argent : agrégats cohérents', () => 
     expect(legBalanceOverdrawn(balanceOf(c))).toBe(false);
   });
 
-  it('rapport vide : quatorze contrôles à 0, rien examiné', () => {
+  it('rapport vide : quinze contrôles à 0, rien examiné', () => {
     const r = evaluateMoneyReconciliation([], []);
     expect(Object.keys(r.checks)).toEqual([...MONEY_RECONCILIATION_CHECKS]);
-    // US-227 : trois contrôles de la jambe assureur s'ajoutent aux onze d'US-047 et d'US-217a
-    expect(MONEY_RECONCILIATION_CHECKS).toHaveLength(14);
+    // US-227 : trois contrôles de la jambe assureur s'ajoutent aux onze d'US-047 et d'US-217a ;
+    // US-222d : un contrôle des chargebacks (F-L2-ARG-04)
+    expect(MONEY_RECONCILIATION_CHECKS).toHaveLength(15);
     expect(r.violations).toBe(0n);
     // US-217a : les faits par trip sont un troisième ensemble examiné ; US-227 : la jambe
     // assureur un quatrième, et les écritures sans contrat sont comptées à part (vides ici)
@@ -131,7 +134,54 @@ describe('US-047 — rapprochement de l’argent : agrégats cohérents', () => 
       trips: {},
       insurerTrips: {},
       insurerUnattributed: {},
+      // US-222d : chargebacks examinés et chargebacks dont la jambe HOST n'est pas gelée
+      chargebacks: {},
+      chargebackHostUnfrozen: {},
     });
+  });
+});
+
+describe('US-222d — contrôle des chargebacks (F-L2-ARG-04)', () => {
+  it.each(CASES)(
+    '$country : chargeback SUCCEEDED sans imputation ⇒ un écart CHARGEBACK_UNIMPUTED ; imputé ⇒ aucun ; jambe HOST non gelée comptée',
+    (c) => {
+      const r = evaluateMoneyReconciliation(
+        [],
+        [],
+        [],
+        [],
+        [
+          { country: c.country, imputed: false, hostFrozen: true },
+          { country: c.country, imputed: true, hostFrozen: true },
+          { country: c.country, imputed: false, hostFrozen: false },
+        ],
+      );
+      expect(r.checks.CHARGEBACK_UNIMPUTED).toEqual({ total: 2n, byCountry: { [c.country]: 2n } });
+      expect(r.violations).toBe(2n);
+      expect(r.examined.chargebacks).toEqual({ [c.country]: 3 });
+      expect(r.examined.chargebackHostUnfrozen).toEqual({ [c.country]: 1 });
+      const ok = evaluateMoneyReconciliation(
+        [],
+        [],
+        [],
+        [],
+        [{ country: c.country, imputed: true, hostFrozen: false }],
+      );
+      expect(ok.violations).toBe(0n);
+    },
+  );
+
+  it('ligne illisible ⇒ erreur de contrat (fail-closed)', () => {
+    const cc = FIRST.country;
+    const row = { country: cc, imputed: false, host_frozen: true };
+    expect(parseChargebackFactRow(row)).toEqual({ country: cc, imputed: false, hostFrozen: true });
+    for (const bad of [
+      { ...row, country: cc.toLowerCase() },
+      { ...row, imputed: 'false' },
+      { ...row, host_frozen: null },
+    ]) {
+      expect(() => parseChargebackFactRow(bad)).toThrow(MoneyReconciliationContractError);
+    }
   });
 });
 
@@ -686,6 +736,7 @@ describe('US-047 — tâche du travailleur reconciliation', () => {
       LEG_BALANCE_AGGREGATES_SQL,
       TRIP_LEG_FACTS_SQL,
       INSURER_LEDGER_FACTS_SQL,
+      CHARGEBACK_FACTS_SQL,
     ]);
     expect(lines).toHaveLength(1);
     expect(JSON.parse(lines[0] ?? '{}')).toMatchObject({ level: 'error', violations: '1' });
@@ -705,6 +756,7 @@ describe('US-047 — tâche du travailleur reconciliation', () => {
       LEG_BALANCE_AGGREGATES_SQL,
       TRIP_LEG_FACTS_SQL,
       INSURER_LEDGER_FACTS_SQL,
+      CHARGEBACK_FACTS_SQL,
     ]) {
       expect(q).not.toMatch(/\b(now|current_timestamp|clock_timestamp)\b/i);
       expect(q).not.toMatch(/\b(INSERT|UPDATE|DELETE|TRUNCATE)\b/);

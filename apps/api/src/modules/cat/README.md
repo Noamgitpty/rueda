@@ -151,6 +151,12 @@ Depuis US-115, `core.booking_vehicle_party` lit `catalog_vehicle` et son annonce
 - **Réponse** : `requestMode` (`RequestModeTerms` : `enabled`, `expiryHours`) dans `GET /listings/{id}`, lu en fail-closed par `requestModeOf` (`internal/host-listings/store.ts`) : ouvert seulement avec un délai entier ≥ 1.
 - **Tests** : `internal/host-listings/request-mode.test.ts`, contrat `testing/listing-page.contract.test.ts` ; L0 `packages/db/test/l0/l0-us201-public-search.test.ts` (bloc US-223).
 
+### Paiement hors plateforme dans les textes de l'hôte (US-222d, ADR-176 ; comme Turo)
+
+- **Base** (0155) : catalogue de motifs `core.catalog_offplatform_pattern` (es / en / fr / pt-BR, migration seulement, aucun pays), aide `core.catalog_text_offers_offplatform_payment` ; `core.catalog_cmd_create_location` refuse une zone ou une ville qui proposent un paiement hors plateforme (`LOCATION_AREA_OFF_PLATFORM` / `LOCATION_CITY_OFF_PLATFORM`) et signale le compte dans la file GRAY_MARKET ; un libellé ou une adresse qui le proposent ne sont jamais refusés : le lieu est créé et signalé (GRAY_MARKET).
+- **HTTP** : 422 `LOCATION_OFF_PLATFORM_PAYMENT` (`common.listing.offPlatformPayment`, catalogue v93), champ `areaLabel` ou `city`.
+- **Tests** : contrat `testing/host-listings.contract.test.ts` ; intégration `apps/api/test/int/redteam-l2-argent-hors-plateforme.int.test.ts` (F-L2-ARG-02, 03 et chemin légitime).
+
 ## Événements
 
 Émis : `catalog.addition_request.resolved` (US-114, outbox, par `core.catalog_resolve_addition` : `request_id`, `status`, `resolved_variant_id`, extensions `vehicle_id`, `org_id`, `host_user_id`, `reject_reason` ; consommé par NTF). Cible 17 §4.5, pas encore émis : `catalog.listing.status_changed`, `catalog.vehicle.restricted`, `catalog.deposit_policy.changed` (17 §2.2), `catalog.vehicle_document.expiring`.

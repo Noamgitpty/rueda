@@ -1164,6 +1164,8 @@ export const EN_MESSAGES = {
   'common.listing.areaLooksLikeAddress':
     'Enter only the neighborhood or area, with no street or number: travelers see it before booking.',
   'common.listing.cityInvalid': 'Enter only the city, with no address, phone number or link.',
+  'common.listing.offPlatformPayment':
+    'Don’t offer payment outside the platform (cash, transfers or wallets): all payments go through the app.',
   'common.listing.vehicleDescriptionInvalid':
     'Enter only the car’s make and model, with no phone number, link or address.',
   'common.listing.photoAdded': 'Photo added.',

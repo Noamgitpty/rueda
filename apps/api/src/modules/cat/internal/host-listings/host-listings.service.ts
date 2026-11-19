@@ -125,6 +125,16 @@ export class HostListingsService {
         { field: 'city', reason: 'INVALID' },
       ]);
     }
+    // US-222d (F-L2-ARG-02, comme Turo) : zone ou ville qui proposent un paiement hors plateforme
+    // (motifs de la base) : refus rattaché au champ ; la base a signalé le compte (GRAY_MARKET)
+    if (r.outcome === 'LOCATION_AREA_OFF_PLATFORM' || r.outcome === 'LOCATION_CITY_OFF_PLATFORM') {
+      throw new HostListingHttpError('LOCATION_OFF_PLATFORM_PAYMENT', [
+        {
+          field: r.outcome === 'LOCATION_AREA_OFF_PLATFORM' ? 'areaLabel' : 'city',
+          reason: 'INVALID',
+        },
+      ]);
+    }
     return { ...this.#done(r.outcome, 'LOCATION_CREATED'), locationId: r.id as string };
   }
 
