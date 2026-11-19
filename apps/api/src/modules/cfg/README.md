@@ -13,6 +13,7 @@ CFG ne contient aucune règle métier : il valide, charge et résout des valeurs
 - US-013 (ADR-024, ADR-033, ADR-049) : données `data/*.json`, validation, résolution des paramètres, interrupteurs, contrôles de démarrage et de tzdata. Détail : [`internal/README.md`](internal/README.md).
 - US-034 (ADR-036, ADR-067) : socle de marque. Détail : [`internal/brand/README.md`](internal/brand/README.md).
 - US-125 (ADR-103, PROPOSÉ) : interrupteurs de mise en service changés **seulement** par deux personnes distinctes (commandes en base `core.config_cmd_request_go_live_switch` / `core.config_cmd_approve_go_live_switch`, migration 0073, RLS-27 ; US-222d2, ADR-177, migration 0156 : l'approbateur n'est ni un compte lié LINKED au demandeur, ni une personne de ses comptes d'hôte, sinon `SELF_FORBIDDEN` journalisé) ; avertissements réglementaires versionnés par pays (`regulatoryNotices` de `data/countries.json`, textes `common.regulatory.*` du catalogue en es, en, fr et pt), servis par `GET /regulatory-notices?country=XX&audience=HOST|GUEST` (`internal/notices/`).
+- US-535a (ADR-178, PROPOSÉ ; tranche serveur d'US-535) : une valeur datée d'un paramètre pays change **seulement** par deux personnes réellement distinctes (commandes en base `core.config_cmd_request_param_change` / `core.config_cmd_approve_param_change` / `core.config_cmd_cancel_param_change`, migration 0157, permission `config.param_write` d'ADMIN et SUPERADMIN, garde de conflit d'acteurs) ; valeur validée (type, devise du pays, bornes `core.config_param_bound`, absentes = refus d'une clé numérique ; clé JSON refusée), décision écrite du fondateur exigée (`PARAM_UNDECIDED`), jamais rétroactive (`PARAM_RETROACTIVE`) ; les interrupteurs restent hors de cette commande. Limite connue : l'API résout encore les paramètres depuis `data/*.json` (US-013) ; une valeur changée en base vaut pour les commandes SQL qui la lisent, et la lecture par l'API de la base est une suite (passation US-535). L'écran de la console et ses textes restent dans US-535.
 
 ## Entités
 
@@ -27,12 +28,14 @@ CFG ne contient aucune règle métier : il valide, charge et résout des valeurs
 | `brand_asset`             | table `core.config_brand_asset` (migration 0042)      |
 | `content_block`           | table `core.config_content_block` (migration 0042)    |
 | `go_live_switch_request`  | table `core.config_go_live_switch_request` (0073)     |
+| `param_change_request`    | table `core.config_param_change_request` (0157)       |
+| `param_bound`             | table `core.config_param_bound` (0157)                |
 
 La migration 0008 crée aussi `core.pricing_tax_line_config` (taxe par ligne, entité PRC en 17 §3.2.5) et `core.finance_legal_entity` (entité FIN en 17 §3.2.13), chargées depuis `data/countries.json`. Graines : `0009_config_seed.sql`, **générée** depuis `data/*.json` (ne pas l'éditer).
 
 ## Événements
 
-Émis (cible 17 §4.5) : `config.param.changed`, consommé par tous les modules (invalidation de cache) et par AUD. Émis depuis US-125 par la seule approbation d'un interrupteur de mise en service (`core.config_cmd_approve_go_live_switch`, charge `key`, `scope`, `country`, `valid_from`), dans la transaction du changement ; les autres paramètres restent chargés par migration. Le socle de marque n'émet aucun événement en Bêta (`config.brand.published` est une piste, voir `internal/brand/README.md`).
+Émis (cible 17 §4.5) : `config.param.changed`, consommé par tous les modules (invalidation de cache) et par AUD. Émis depuis US-535a aussi par l'approbation d'un changement de paramètre (`core.config_cmd_approve_param_change`, même charge, acteur ADMIN ou SUPERADMIN). Émis depuis US-125 par la seule approbation d'un interrupteur de mise en service (`core.config_cmd_approve_go_live_switch`, charge `key`, `scope`, `country`, `valid_from`), dans la transaction du changement ; les autres paramètres restent chargés par migration. Le socle de marque n'émet aucun événement en Bêta (`config.brand.published` est une piste, voir `internal/brand/README.md`).
 
 Consommés : aucun.
 

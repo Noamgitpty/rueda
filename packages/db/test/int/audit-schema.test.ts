@@ -199,6 +199,15 @@ describe('schéma d’audit (US-009)', () => {
           expect(['a', 'r'], where).toContain(r.cmd);
           continue;
         }
+        if (r.roles === 'cmd_param_owner') {
+          // US-535a (0157) : changement de paramètre à deux personnes, journal en ajout seul
+          expect(
+            ['audit_audit_log.cmd_param_ins', 'audit_audit_log.cmd_param_sel'],
+            where,
+          ).toContain(where);
+          expect(['a', 'r'], where).toContain(r.cmd);
+          continue;
+        }
         if (r.roles === 'audit_chain_owner') {
           // US-011 (0026) : lecture et verrou des clés, avance de la tête ; aucun INSERT / DELETE
           expect(['r', 'w'], where).toContain(r.cmd);

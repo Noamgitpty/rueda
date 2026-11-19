@@ -230,6 +230,11 @@ describe('schéma outbox (US-008)', () => {
           expect(r).toMatchObject({ roles: 'cmd_golive_owner', cmd: 'a' });
           continue;
         }
+        // changement de paramètre à deux personnes (0157, US-535a) : config.param.changed seulement
+        if (r.pol === 'outbox_outbox_event.cmd_param_event_ins') {
+          expect(r).toMatchObject({ roles: 'cmd_param_owner', cmd: 'a' });
+          continue;
+        }
         expect(['app_api', 'app_worker'], r.pol).toContain(r.roles);
         expect(['r', 'a', 'w'], r.pol).toContain(r.cmd);
       }

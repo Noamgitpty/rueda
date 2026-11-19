@@ -59,6 +59,10 @@ const CONFIG_TABLES = [
   'finance_legal_entity',
   // US-125 (0073) : demandes à deux personnes des interrupteurs ; droits par l0-us125
   'config_go_live_switch_request',
+  // US-535a (0157) : bornes des clés numériques et demandes à deux personnes d'un changement de
+  // paramètre ; droits par l0-us535
+  'config_param_bound',
+  'config_param_change_request',
 ] as const;
 
 // Devis figés (US-202, 0100) : socle RLS commun ; aucun droit applicatif, commandes de

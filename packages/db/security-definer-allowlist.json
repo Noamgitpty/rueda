@@ -1191,6 +1191,27 @@
       "story": "US-125"
     },
     {
+      "signature": "core.config_cmd_request_param_change(bytea,uuid,text,text,jsonb,text,timestamp with time zone,text,text)",
+      "family": "cmd_param",
+      "owner": "cmd_param_owner",
+      "execute": ["app_api"],
+      "story": "US-535"
+    },
+    {
+      "signature": "core.config_cmd_approve_param_change(bytea,uuid)",
+      "family": "cmd_param",
+      "owner": "cmd_param_owner",
+      "execute": ["app_api"],
+      "story": "US-535"
+    },
+    {
+      "signature": "core.config_cmd_cancel_param_change(bytea,uuid)",
+      "family": "cmd_param",
+      "owner": "cmd_param_owner",
+      "execute": ["app_api"],
+      "story": "US-535"
+    },
+    {
       "signature": "core.iam_host_public_first_name(uuid)",
       "family": "iam_auth",
       "owner": "iam_auth_owner",
@@ -1572,7 +1593,7 @@
       "signature": "core.support_staff_conflict(uuid,text,uuid)",
       "family": "iam_staff",
       "owner": "iam_staff_owner",
-      "execute": ["cmd_golive_owner", "cmd_money_owner"],
+      "execute": ["cmd_golive_owner", "cmd_money_owner", "cmd_param_owner"],
       "story": "US-122"
     },
     {

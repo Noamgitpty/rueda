@@ -160,7 +160,7 @@ describe('configuration pays : structure et droits', () => {
     );
   });
 
-  it('base de production : seules les politiques migrator_all et app_read (SELECT) existent, plus la lecture du tampon par cmd_hold_owner, celle des codes pays par iam_staff_owner (US-012) et celle des fuseaux par risk_limit_owner (US-052) et celle des interrupteurs par cmd_money_owner (US-049), et celle des codes pays par iam_auth_owner (US-102), et celle de l’âge minimal de l’hôte par iam_auth_owner (US-107), et celle des délais des files par iam_staff_owner (US-109), et celle des paramètres de l’OTP par iam_auth_owner (US-104), et celle du pas de prix, du minimum de photos et de l’ouverture aux hôtes par catalog_cmd_owner (US-115), et celle des pays et de la rétention biométrique par kyc_cmd_owner (US-105), et la lecture et l’écriture des interrupteurs par cmd_golive_owner (US-125), et celle de l’âge minimal, du numéro fiscal et des interrupteurs de l’hôte par kyc_cmd_owner (US-123), et celles de la revue par exception par kyc_cmd_owner et du contrat d’assureur par catalog_cmd_owner (US-108), et celle du registre et des durées de la vie privée par privacy_cmd_owner (US-111), et celle des délais de notification d’une violation par iam_staff_owner (US-112), et celle du plafond des contestations par catalog_cmd_owner (US-122), et celle des plafonds de téléversement par catalog_cmd_owner (US-122, passe n° 2), et celles des paramètres et des taxes du rejeu du devis par cmd_money_owner (US-202), et celle de la durée maximale et du tampon par catalog_cmd_owner (US-201), et celle de la fenêtre de notation par review_cmd_owner (US-218), et celle des interrupteurs de l’hôte activable par cmd_hold_owner (US-208), et celle de l’annulation et du minimum de RC par catalog_cmd_owner (US-205), et celle des paramètres d’annulation réglée par cmd_hold_owner (US-215), et celle de la fenêtre de la vue de l’adresse par catalog_cmd_owner et cmd_hold_owner (US-514), et celle des paramètres de la caution par cmd_hold_owner (US-701)', async () => {
+  it('base de production : seules les politiques migrator_all et app_read (SELECT) existent, plus la lecture du tampon par cmd_hold_owner, celle des codes pays par iam_staff_owner (US-012) et celle des fuseaux par risk_limit_owner (US-052) et celle des interrupteurs par cmd_money_owner (US-049), et celle des codes pays par iam_auth_owner (US-102), et celle de l’âge minimal de l’hôte par iam_auth_owner (US-107), et celle des délais des files par iam_staff_owner (US-109), et celle des paramètres de l’OTP par iam_auth_owner (US-104), et celle du pas de prix, du minimum de photos et de l’ouverture aux hôtes par catalog_cmd_owner (US-115), et celle des pays et de la rétention biométrique par kyc_cmd_owner (US-105), et la lecture et l’écriture des interrupteurs par cmd_golive_owner (US-125), et celle de l’âge minimal, du numéro fiscal et des interrupteurs de l’hôte par kyc_cmd_owner (US-123), et celles de la revue par exception par kyc_cmd_owner et du contrat d’assureur par catalog_cmd_owner (US-108), et celle du registre et des durées de la vie privée par privacy_cmd_owner (US-111), et celle des délais de notification d’une violation par iam_staff_owner (US-112), et celle du plafond des contestations par catalog_cmd_owner (US-122), et celle des plafonds de téléversement par catalog_cmd_owner (US-122, passe n° 2), et celles des paramètres et des taxes du rejeu du devis par cmd_money_owner (US-202), et celle de la durée maximale et du tampon par catalog_cmd_owner (US-201), et celle de la fenêtre de notation par review_cmd_owner (US-218), et celle des interrupteurs de l’hôte activable par cmd_hold_owner (US-208), et celle de l’annulation et du minimum de RC par catalog_cmd_owner (US-205), et celle des paramètres d’annulation réglée par cmd_hold_owner (US-215), et celle de la fenêtre de la vue de l’adresse par catalog_cmd_owner et cmd_hold_owner (US-514), et celle des paramètres de la caution par cmd_hold_owner (US-701), et la lecture, la fermeture et l’insertion des versions non gardées par cmd_param_owner (US-535a)', async () => {
     await withRole(
       'app_api',
       async (client) => {
@@ -236,6 +236,20 @@ describe('configuration pays : structure et droits', () => {
             t === 'config_param_definition' ||
             t === 'config_param_value'
               ? [{ t, pol: 'cmd_golive_sel', cmd: 'r', roles: 'cmd_golive_owner' }]
+              : []),
+            // changement de paramètre à deux personnes (US-535a, 0157) : lecture des pays et des
+            // définitions ; versions COUNTRY des clés non gardées : lecture, fermeture et insertion
+            // de la seule version recopiant une demande approuvée
+            ...(t === 'config_param_value'
+              ? [{ t, pol: 'cmd_param_ins', cmd: 'a', roles: 'cmd_param_owner' }]
+              : []),
+            ...(t === 'config_country' ||
+            t === 'config_param_definition' ||
+            t === 'config_param_value'
+              ? [{ t, pol: 'cmd_param_sel', cmd: 'r', roles: 'cmd_param_owner' }]
+              : []),
+            ...(t === 'config_param_value'
+              ? [{ t, pol: 'cmd_param_upd', cmd: 'w', roles: 'cmd_param_owner' }]
               : []),
             // paiement du checkout (US-223, 0116) : fuseau du pays, à défaut de celui du véhicule
             ...(t === 'config_country'
@@ -361,10 +375,14 @@ describe('configuration pays : structure et droits', () => {
       );
       // US-125 : les deux commandes à deux personnes sont SECURITY DEFINER (liste blanche RLS-15) ;
       // toutes les autres fonctions config_* restent des gardes ou des lectures SECURITY INVOKER
+      // US-535a : les trois commandes du changement de paramètre aussi (0157)
       const COMMANDS = [
         'core.config_cmd_approve_go_live_switch(bytea,uuid)',
+        'core.config_cmd_approve_param_change(bytea,uuid)',
         'core.config_cmd_cancel_go_live_switch(bytea,uuid)',
+        'core.config_cmd_cancel_param_change(bytea,uuid)',
         'core.config_cmd_request_go_live_switch(bytea,uuid,text,text,boolean,text)',
+        'core.config_cmd_request_param_change(bytea,uuid,text,text,jsonb,text,timestamp with time zone,text,text)',
       ];
       expect(rows.map((r) => r.fn).sort()).toEqual(
         [
@@ -373,6 +391,9 @@ describe('configuration pays : structure et droits', () => {
           'core.config_go_live_request_guard()',
           'core.config_go_live_write_refusal(text,text,text,jsonb,uuid,uuid,text)',
           'core.config_no_truncate()',
+          'core.config_param_bound_guard()',
+          'core.config_param_change_check(text,text,jsonb,text)',
+          'core.config_param_change_request_guard()',
           'core.config_param_value_go_live_guard()',
           'core.config_param_value_guard()',
           'core.config_tax_line_guard()',

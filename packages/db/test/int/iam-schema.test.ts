@@ -59,16 +59,17 @@ const IAM_POLICIES: Record<(typeof IAM_TABLES)[number], string> = {
   iam_restriction:
     'catalog_cmd_search_read:catalog_cmd_owner;cmd_hold_read:cmd_hold_owner;iam_auth_insert:iam_auth_owner;iam_auth_select:iam_auth_owner;iam_auth_update:iam_auth_owner;iam_staff_select:iam_staff_owner;kyc_cmd_host_signal_read:kyc_cmd_owner;migrator_all:migrator',
   // US-125 (0073) : session, rôles et matrice lus par les commandes des interrupteurs
+  // US-535a (0157) : mêmes lectures par les commandes de changement de paramètre (cmd_param_owner)
   iam_role_permission:
-    'cmd_golive_sel:cmd_golive_owner;cmd_money_sel:cmd_money_owner;iam_staff_select:iam_staff_owner;migrator_all:migrator;policy_fn_read:policy_fn_owner',
+    'cmd_golive_sel:cmd_golive_owner;cmd_money_sel:cmd_money_owner;cmd_param_sel:cmd_param_owner;iam_staff_select:iam_staff_owner;migrator_all:migrator;policy_fn_read:policy_fn_owner',
   iam_session:
-    'cmd_golive_sel:cmd_golive_owner;cmd_money_sel:cmd_money_owner;iam_auth_insert:iam_auth_owner;iam_auth_select:iam_auth_owner;iam_auth_update:iam_auth_owner;iam_staff_select:iam_staff_owner;iam_staff_update:iam_staff_owner;migrator_all:migrator;policy_fn_read:policy_fn_owner',
+    'cmd_golive_sel:cmd_golive_owner;cmd_money_sel:cmd_money_owner;cmd_param_sel:cmd_param_owner;iam_auth_insert:iam_auth_owner;iam_auth_select:iam_auth_owner;iam_auth_update:iam_auth_owner;iam_staff_select:iam_staff_owner;iam_staff_update:iam_staff_owner;migrator_all:migrator;policy_fn_read:policy_fn_owner',
   iam_staff_role_assignment:
-    'cmd_golive_sel:cmd_golive_owner;cmd_money_sel:cmd_money_owner;iam_auth_select:iam_auth_owner;iam_staff_select:iam_staff_owner;iam_staff_update:iam_staff_owner;migrator_all:migrator;policy_fn_read:policy_fn_owner',
+    'cmd_golive_sel:cmd_golive_owner;cmd_money_sel:cmd_money_owner;cmd_param_sel:cmd_param_owner;iam_auth_select:iam_auth_owner;iam_staff_select:iam_staff_owner;iam_staff_update:iam_staff_owner;migrator_all:migrator;policy_fn_read:policy_fn_owner',
   // US-103 (0088) : changement du nom légal par la seule commande KYC (kyc_cmd_owner)
   // US-211 (0122) : noms légaux et langue des parties lus par le contrat de location (cmd_hold_owner)
   iam_user_account:
-    'cmd_golive_sel:cmd_golive_owner;cmd_hold_contract_read:cmd_hold_owner;cmd_money_sel:cmd_money_owner;host_view_read:host_view_owner;iam_auth_insert:iam_auth_owner;iam_auth_select:iam_auth_owner;iam_auth_update:iam_auth_owner;iam_staff_select:iam_staff_owner;kyc_cmd_name_update:kyc_cmd_owner;kyc_cmd_read:kyc_cmd_owner;migrator_all:migrator;policy_fn_read:policy_fn_owner;risk_link_read:risk_limit_owner;user_account_self_read:app_api',
+    'cmd_golive_sel:cmd_golive_owner;cmd_hold_contract_read:cmd_hold_owner;cmd_money_sel:cmd_money_owner;cmd_param_sel:cmd_param_owner;host_view_read:host_view_owner;iam_auth_insert:iam_auth_owner;iam_auth_select:iam_auth_owner;iam_auth_update:iam_auth_owner;iam_staff_select:iam_staff_owner;kyc_cmd_name_update:kyc_cmd_owner;kyc_cmd_read:kyc_cmd_owner;migrator_all:migrator;policy_fn_read:policy_fn_owner;risk_link_read:risk_limit_owner;user_account_self_read:app_api',
 };
 
 // Commandes SECURITY DEFINER core.iam_* et leur propriétaire (US-010 : iam_auth ; US-012 : iam_staff).
