@@ -2450,7 +2450,12 @@
         "created_by": "C1",
         "updated_at": "C1",
         "updated_by": "C1",
-        "row_version": "C1"
+        "row_version": "C1",
+        "help_topic": "C1",
+        "requester_role": "C1",
+        "off_hours": "C1",
+        "first_response_at": "C1",
+        "resolved_at": "C1"
       }
     },
     "core.support_review_queue": {

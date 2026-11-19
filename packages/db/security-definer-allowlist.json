@@ -354,10 +354,11 @@
         "catalog_cmd_owner",
         "cmd_hold_owner",
         "cmd_money_owner",
+        "iam_staff_owner",
         "kyc_cmd_owner",
         "messaging_cmd_owner"
       ],
-      "story": "US-010, US-115, US-105, US-202, US-208, US-525"
+      "story": "US-010, US-115, US-105, US-202, US-208, US-525, US-310"
     },
     {
       "signature": "core.iam_staff_audit_read(bytea,bigint,integer)",
