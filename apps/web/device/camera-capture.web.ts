@@ -58,18 +58,26 @@ export function createWebCameraCapture(
       return {
         trackSettings,
         async capture() {
-          const size = fitWithin(preview.videoWidth, preview.videoHeight, policy.maxLongSidePx);
-          const canvas = document.createElement('canvas');
-          canvas.width = size.width;
-          canvas.height = size.height;
-          const context = canvas.getContext('2d');
-          if (context === null) throw new Error('canevas 2D indisponible');
-          context.drawImage(preview, 0, 0, size.width, size.height);
           const capturedAt = now();
-          const encoded = await encodeUnderBudget(
-            (quality) => canvasToBlob(canvas, policy.mimeType, quality),
-            policy,
-          );
+          // une seule image du flux, réduite au besoin (grands côtés de la politique, US-303)
+          const sides = [policy.maxLongSidePx, ...(policy.longSideSteps ?? [])];
+          let size = fitWithin(preview.videoWidth, preview.videoHeight, policy.maxLongSidePx);
+          let encoded: Awaited<ReturnType<typeof encodeUnderBudget>> | undefined;
+          for (const side of sides) {
+            size = fitWithin(preview.videoWidth, preview.videoHeight, side);
+            const canvas = document.createElement('canvas');
+            canvas.width = size.width;
+            canvas.height = size.height;
+            const context = canvas.getContext('2d');
+            if (context === null) throw new Error('canevas 2D indisponible');
+            context.drawImage(preview, 0, 0, size.width, size.height);
+            encoded = await encodeUnderBudget(
+              (quality) => canvasToBlob(canvas, policy.mimeType, quality),
+              policy,
+            );
+            if (!encoded.overBudget) break;
+          }
+          if (encoded === undefined) throw new Error('aucune taille essayée');
           const bytes = new Uint8Array(await encoded.blob.arrayBuffer());
           return {
             source: 'live-camera',

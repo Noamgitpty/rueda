@@ -166,6 +166,13 @@ describe('schéma d’audit (US-009)', () => {
           expect(r.cmd, where).toBe('a');
           continue;
         }
+        if (r.roles === 'cmd_hold_owner') {
+          // US-303 (0158, ADR-179) : fichier d'une photo d'état du véhicule (PRIVATE_EVIDENCE, C2,
+          // capture dans l'application, clé USER de l'envoyeur) ; INSERT seulement
+          expect(where).toBe('audit_file_asset.cmd_hold_inspection_file_ins');
+          expect(r.cmd, where).toBe('a');
+          continue;
+        }
         if (r.roles === 'catalog_cmd_owner') {
           // US-115 (0067) : soumission et suppression d'annonce journalisées ; fichier d'une photo
           // d'annonce (bucket public, C0) ; US-124 (0077) : actions de l'hôte sur ses véhicules

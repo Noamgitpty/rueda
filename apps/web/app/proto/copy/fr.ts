@@ -114,7 +114,6 @@ export const FR_PROTO = {
   'web.s09.hostNoShow.cancel': 'Annuler sans frais',
   'web.s09.hostNoShow.wait': 'Attendre encore un peu',
   'web.s09.deposit.title': 'Ton dépôt',
-  'web.s09c.done': 'Tes photos sont enregistrées',
   'web.checkin.queue.savedOnDevice': 'Enregistré sur ce téléphone',
   'web.error.datesUnavailable':
     'Cette voiture n’est pas disponible le {date_unavailable}. Nous te proposons de la rendre le {date_suggested}. Utiliser cette date ?',

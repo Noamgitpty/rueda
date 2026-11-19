@@ -41,6 +41,7 @@ import {
 } from '../modules/ctr/index.js';
 import { postgresIamAdapters, postgresStaffAdapters } from '../modules/iam/index.js';
 import { postgresKycAdapters } from '../modules/kyc/index.js';
+import { PgInspectionStore } from '../modules/trp/index.js';
 import { postgresPyoAdapters } from '../modules/pyo/index.js';
 import type { StaffOptions } from '../modules/iam/index.js';
 import { postgresPayAdapters } from '../modules/pay/index.js';
@@ -817,6 +818,33 @@ async function requestOf(
         path: `/trips/${randomUUID()}/contract/sign`,
         body: { accepted: true, documentId: randomUUID(), sha256: 'a'.repeat(64) },
       };
+    // photos d'état du véhicule (US-303) : trip inconnu de l'acteur ⇒ 404 (rien n'est écrit)
+    case 'GET /trips/{tripId}/inspections/{kind}':
+      return { method: 'GET', path: `/trips/${randomUUID()}/inspections/checkin` };
+    case 'POST /trips/{tripId}/inspections/{kind}/captures':
+      return {
+        method: 'POST',
+        path: `/trips/${randomUUID()}/inspections/checkin/captures`,
+        body: { slot: 'EXT_01' },
+      };
+    case 'POST /trips/{tripId}/inspections/{kind}/photos':
+      return {
+        method: 'POST',
+        path: `/trips/${randomUUID()}/inspections/checkin/photos`,
+        body: {
+          captureId: randomUUID(),
+          slot: 'EXT_01',
+          source: 'CAMERA',
+          sha256: 'a'.repeat(64),
+          dataBase64: 'AAAA',
+        },
+      };
+    case 'POST /trips/{tripId}/inspections/{kind}/submit':
+      return {
+        method: 'POST',
+        path: `/trips/${randomUUID()}/inspections/checkin/submit`,
+        body: {},
+      };
     // constancia d'arrendamiento (US-212) : trip inconnu de l'acteur ⇒ 404 ; recherche de l'hôte :
     // plaque dans le corps, aucun trip d'un autre compte
     case 'GET /trips/{tripId}/constancia':
@@ -1170,6 +1198,8 @@ beforeAll(async () => {
       postgresCheckoutAdapters(client, (ctx) =>
         new QuoteService(new CountryConfigService()).params(ctx),
       ),
+      // photos d'état du véhicule (US-303) : commandes réelles de 0158 sous app_api
+      { store: new PgInspectionStore(client) },
       // compte de versement (US-707) : commandes réelles de 0159 sous app_api ; aucun coffre (503)
       postgresPyoAdapters(client),
     ),

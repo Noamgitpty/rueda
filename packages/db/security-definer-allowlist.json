@@ -2151,6 +2151,41 @@
       "story": "US-702"
     },
     {
+      "signature": "core.trip_inspection_view(bytea,uuid,text)",
+      "family": "cmd_hold",
+      "owner": "cmd_hold_owner",
+      "execute": ["app_api"],
+      "story": "US-303"
+    },
+    {
+      "signature": "core.trip_cmd_open_photo_capture(bytea,uuid,text,text)",
+      "family": "cmd_hold",
+      "owner": "cmd_hold_owner",
+      "execute": ["app_api"],
+      "story": "US-303"
+    },
+    {
+      "signature": "core.trip_photo_capture_check(bytea,uuid,text,uuid,text)",
+      "family": "cmd_hold",
+      "owner": "cmd_hold_owner",
+      "execute": ["app_api"],
+      "story": "US-303"
+    },
+    {
+      "signature": "core.trip_cmd_add_inspection_photo(bytea,uuid,text,uuid,text,uuid,text,bigint,bytea,timestamp with time zone)",
+      "family": "cmd_hold",
+      "owner": "cmd_hold_owner",
+      "execute": ["app_api"],
+      "story": "US-303"
+    },
+    {
+      "signature": "core.trip_cmd_submit_inspection(bytea,uuid,text)",
+      "family": "cmd_hold",
+      "owner": "cmd_hold_owner",
+      "execute": ["app_api"],
+      "story": "US-303"
+    },
+    {
       "signature": "core.kyc_host_payout_identity(uuid,text,text)",
       "family": "kyc_cmd",
       "owner": "kyc_cmd_owner",

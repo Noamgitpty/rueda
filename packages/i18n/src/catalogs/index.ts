@@ -305,7 +305,11 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  Version 93 (la 92 est celle d’US-223e) : signal « paiement hors plateforme » des textes publics
  de l’hôte (US-222d, ADR-176, comme Turo) : `common.listing.offPlatformPayment` (zone ou ville
  qui proposent un paiement hors de la plateforme : refus rattaché au champ).
- Version 95 (la 94 est réservée à US-303) : compte de versement de l’hôte (US-707) : réponses de
+ Version 94 (la 93 est celle d’US-222d) : photos guidées de l’état du véhicule (US-303, ADR-179) :
+ `common.inspection.*` (refus des routes `/trips/{id}/inspections/…`), `web.inspection.*` (écran
+ des photos de départ et de retour de l’hôte et du voyageur, angles du gabarit) et `web.s09c.done`
+ de 10b §4.3 (texte portugais ajouté).
+ Version 95 (la 94 est celle d’US-303) : compte de versement de l’hôte (US-707) : réponses de
  l’API `common.payoutAccount.*` (état, enregistrement, co-hôte refusé, numéro fiscal exigé,
  numéro de compte ou rail refusés, titulaire discordant, coffre, base ou rail du pays
  indisponibles) et écran `web.a07.payout.*` (compte masqué aux 4 derniers chiffres, statut, retenue de 48 h après un
