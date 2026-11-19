@@ -3111,6 +3111,74 @@
         "declared_at": "C1"
       }
     },
+    "core.trip_ops_photo_slot": {
+      "lifecycle": "C",
+      "export": "none",
+      "columns": {
+        "template_version": "C0",
+        "slot_code": "C0",
+        "slot_group": "C0",
+        "required": "C0",
+        "position": "C0"
+      }
+    },
+    "core.trip_ops_inspection": {
+      "lifecycle": "B",
+      "subjects": [
+        {
+          "column": "performed_by",
+          "type": "USER"
+        }
+      ],
+      "export": "controller",
+      "columns": {
+        "id": "C1",
+        "trip_id": "C1",
+        "country_code": "C1",
+        "kind": "C1",
+        "performer_role": "C1",
+        "performed_by": "C1",
+        "template_version": "C1",
+        "status": "C1",
+        "created_at": "C1",
+        "submitted_at": "C1"
+      }
+    },
+    "core.trip_ops_photo_capture": {
+      "lifecycle": "B",
+      "subjects": [
+        {
+          "column": "issued_to",
+          "type": "USER"
+        }
+      ],
+      "export": "controller",
+      "columns": {
+        "id": "C1",
+        "inspection_id": "C1",
+        "slot_code": "C1",
+        "issued_to": "C1",
+        "issued_at": "C1",
+        "expires_at": "C1",
+        "used_at": "C1"
+      }
+    },
+    "core.trip_ops_inspection_photo": {
+      "lifecycle": "B",
+      "export": "none",
+      "columns": {
+        "inspection_id": "C1",
+        "slot_code": "C1",
+        "file_id": "C1",
+        "taken_by_role": "C1",
+        "capture_id": "C1",
+        "sha256": "C1",
+        "bytes": "C1",
+        "received_at": "C1",
+        "device_captured_at": "C1",
+        "clock_skew_flag": "C1"
+      }
+    },
     "core.messaging_message_thread": {
       "lifecycle": "B",
       "subjects": [],

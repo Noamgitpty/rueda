@@ -54,6 +54,7 @@ import {
   PgOpsConsoleStore,
   unavailableEvidence,
 } from './modules/sup/index.js';
+import { postgresTrpAdapters } from './modules/trp/index.js';
 import { parseTrustProxy } from './trust-proxy.js';
 
 const DEFAULT_PORT = 3000;
@@ -179,6 +180,10 @@ async function bootstrap(): Promise<void> {
       kyc,
       search,
       checkout,
+      // Photos d'état du véhicule (US-303) : commandes core.trip_* sous app_api ; antivirus ClamAV
+      // (DEC-FONDATEUR-20), coffre KMS et stockage à verrou objet (US-003, Q-007) indisponibles :
+      // envoi des photos 503 (fail-closed, aucun FAKE en production).
+      postgresTrpAdapters(pool),
       // US-525 : messagerie par trip (fonctions de 0160 sous app_api)
       postgresMsgAdapters(pool),
     ),

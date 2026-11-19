@@ -618,6 +618,22 @@
     "POST /trips/constancias/search": {
       "acces": "session",
       "idor": "trips du seul compte d'hôte dont la session est le titulaire (core.booking_host_constancia_search, 0138) : un voyageur ou un tiers n'obtient aucune ligne ; plaque figée au dernier contrat, dans le corps (jamais dans l'URL) ; référence, statut et période locale seulement ; preuves base : l0-us212"
+    },
+    "GET /trips/{tripId}/inspections/{kind}": {
+      "acces": "session",
+      "idor": "trip d'une autre personne (ni son voyageur ni le titulaire de son compte d'hôte), inconnu, type de série ou identifiant mal formé : 404 INSPECTION_NOT_FOUND, même réponse (17 §2.3 point 5) ; la partie est celle de la session, jugée en base (core.trip_inspection_view, core.trip_cmd_open_photo_capture, core.trip_photo_capture_check, core.trip_cmd_add_inspection_photo, core.trip_cmd_submit_inspection, 0158) ; chaque partie écrit SA série seulement (jeton de capture de la personne, de la série et de l'angle) et lit les deux séries de SON trip : métadonnées seulement (angle, empreinte, heure), jamais le contenu ; preuves base : l0-us303"
+    },
+    "POST /trips/{tripId}/inspections/{kind}/captures": {
+      "acces": "session",
+      "idor": "trip d'une autre personne (ni son voyageur ni le titulaire de son compte d'hôte), inconnu, type de série ou identifiant mal formé : 404 INSPECTION_NOT_FOUND, même réponse (17 §2.3 point 5) ; la partie est celle de la session, jugée en base (core.trip_inspection_view, core.trip_cmd_open_photo_capture, core.trip_photo_capture_check, core.trip_cmd_add_inspection_photo, core.trip_cmd_submit_inspection, 0158) ; chaque partie écrit SA série seulement (jeton de capture de la personne, de la série et de l'angle) et lit les deux séries de SON trip : métadonnées seulement (angle, empreinte, heure), jamais le contenu ; preuves base : l0-us303"
+    },
+    "POST /trips/{tripId}/inspections/{kind}/photos": {
+      "acces": "session",
+      "idor": "trip d'une autre personne (ni son voyageur ni le titulaire de son compte d'hôte), inconnu, type de série ou identifiant mal formé : 404 INSPECTION_NOT_FOUND, même réponse (17 §2.3 point 5) ; la partie est celle de la session, jugée en base (core.trip_inspection_view, core.trip_cmd_open_photo_capture, core.trip_photo_capture_check, core.trip_cmd_add_inspection_photo, core.trip_cmd_submit_inspection, 0158) ; chaque partie écrit SA série seulement (jeton de capture de la personne, de la série et de l'angle) et lit les deux séries de SON trip : métadonnées seulement (angle, empreinte, heure), jamais le contenu ; preuves base : l0-us303"
+    },
+    "POST /trips/{tripId}/inspections/{kind}/submit": {
+      "acces": "session",
+      "idor": "trip d'une autre personne (ni son voyageur ni le titulaire de son compte d'hôte), inconnu, type de série ou identifiant mal formé : 404 INSPECTION_NOT_FOUND, même réponse (17 §2.3 point 5) ; la partie est celle de la session, jugée en base (core.trip_inspection_view, core.trip_cmd_open_photo_capture, core.trip_photo_capture_check, core.trip_cmd_add_inspection_photo, core.trip_cmd_submit_inspection, 0158) ; chaque partie écrit SA série seulement (jeton de capture de la personne, de la série et de l'angle) et lit les deux séries de SON trip : métadonnées seulement (angle, empreinte, heure), jamais le contenu ; preuves base : l0-us303"
     }
   }
 }

@@ -305,8 +305,11 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  Version 93 (la 92 est celle d’US-223e) : signal « paiement hors plateforme » des textes publics
  de l’hôte (US-222d, ADR-176, comme Turo) : `common.listing.offPlatformPayment` (zone ou ville
  qui proposent un paiement hors de la plateforme : refus rattaché au champ).
- Version 96 (94 et 95 réservées à US-303 et US-707 par le pré-mortem du lot 3 ; la 93 est celle
- d’US-222d) : messagerie par trip et signal du marché gris (US-525, ADR-181) : `common.messages.*`
+ Version 94 (la 93 est celle d’US-222d) : photos guidées de l’état du véhicule (US-303, ADR-179) :
+ `common.inspection.*` (refus des routes `/trips/{id}/inspections/…`), `web.inspection.*` (écran
+ des photos de départ et de retour de l’hôte et du voyageur, angles du gabarit) et `web.s09c.done`
+ de 10b §4.3 (texte portugais ajouté).
+ Version 96 (la 94 est celle d’US-303 ; la 95 est réservée à US-707 par le pré-mortem du lot 3) : messagerie par trip et signal du marché gris (US-525, ADR-181) : `common.messages.*`
  (réponses des routes `/trips/{id}/messages` : fil, message envoyé, fil fermé, texte invalide,
  indisponible), `web.s16.*` (S16 : bandeau `web.s16.payOnPlatform` et vide `web.s16.empty` de 10b
  §4.3, prénom de l’autre partie, coordonnées masquées, rappels à l’expéditeur après un signal,

@@ -13,6 +13,11 @@ export interface PhotoPolicy {
   readonly mimeType: string;
   /** Qualités essayées dans l'ordre jusqu'à passer sous `maxBytes`. */
   readonly qualitySteps: readonly number[];
+  /**
+   * Grands côtés plus petits essayés ensuite, dans l'ordre, si aucune qualité ne passe sous
+   * `maxBytes` au grand côté `maxLongSidePx` (US-303 : budget de l'API annoncé par l'écran).
+   */
+  readonly longSideSteps?: readonly number[];
 }
 
 export const DEFAULT_PHOTO_POLICY: PhotoPolicy = {

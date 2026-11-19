@@ -107,7 +107,6 @@ export const EN_PROTO = {
   'web.s09.hostNoShow.cancel': 'Cancel at no cost',
   'web.s09.hostNoShow.wait': 'Wait a little longer',
   'web.s09.deposit.title': 'Your deposit',
-  'web.s09c.done': 'Your photos are saved',
   'web.checkin.queue.savedOnDevice': 'Saved on this phone',
   'web.error.datesUnavailable':
     "This car isn't available on {date_unavailable}. We suggest returning it on {date_suggested}. Use this date?",
