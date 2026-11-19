@@ -42,16 +42,31 @@ AS $fn$
   UPDATE core.booking_trip SET status = p_status WHERE id = p_trip_id
 $fn$;
 
--- Férié du pays (version 1 du calendrier ; transaction ANNULÉE)
+-- Férié du pays dans une version du calendrier propre à ces fixtures, la plus récente du pays
+-- (la base lit la dernière version ; d'autres fixtures, 9900, en posent une) ; transaction
+-- ANNULÉE, sauf la course à deux connexions (fériés de 2035 validés, fichier isolé)
 CREATE FUNCTION test_fixture.us708_holiday(p_country text, p_date date)
   RETURNS void
-  LANGUAGE sql
+  LANGUAGE plpgsql
   SECURITY DEFINER
   SET search_path = pg_catalog, pg_temp
 AS $fn$
+DECLARE
+  v_top  integer;
+  v_mine integer;
+BEGIN
+  SELECT pg_catalog.max(h.version) INTO v_top
+    FROM core.config_holiday_calendar AS h WHERE h.country_code::text = p_country;
+  SELECT pg_catalog.max(h.version) INTO v_mine
+    FROM core.config_holiday_calendar AS h
+   WHERE h.country_code::text = p_country AND h.name = 'Fixture US-708';
+  IF v_mine IS NULL OR v_mine < v_top THEN
+    v_mine := COALESCE(v_top, 0) + 1;
+  END IF;
   INSERT INTO core.config_holiday_calendar (country_code, date, name, version)
-  VALUES (p_country, p_date, 'Fixture US-708', 1)
-  ON CONFLICT DO NOTHING
+  VALUES (p_country, p_date, 'Fixture US-708', v_mine)
+  ON CONFLICT DO NOTHING;
+END
 $fn$;
 
 -- Compte de versement VÉRIFIÉ de l'hôte du trip (enveloppe factice : aucun numéro réel), retenue

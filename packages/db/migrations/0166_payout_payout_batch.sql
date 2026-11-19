@@ -38,8 +38,9 @@
 --     (un gel de jambe ne se lève que par la décision FIN, garde de 0155) ;
 --   - variante A : un ordre `LEG_RELEASE` par item, clé `release:{trip}:{segment}:HOST:i{n}`,
 --     `n` + 1 seulement après un refus REÇU (`FAILED`) ; le déclencheur
---     `payment_operation_leg_payout_item_guard` (avant les gardes de 0054) exige un lot READY,
---     la clé, le rang et le montant de l'item, et refuse un second ordre HOST vivant du trip ;
+--     `payment_operation_leg_payout_item_guard` (avant les gardes de 0054), pour un trip mis en
+--     lot, exige un lot READY, la clé, le rang et le montant de l'item, et refuse un second ordre
+--     HOST vivant (hors lot : gardes de 0054 / 0123 seules, preuves S-04) ;
 --     puis `payout` du lot, clé `payout:{lot}:r{n}` ; aucune transition vers INITIATED si
 --     `payouts_enabled[pays]` = false ou, en variante B, si `funds_holding_enabled[pays]` = false
 --     (déclencheur, tout rôle) ;
@@ -419,8 +420,8 @@ CREATE TRIGGER trip_leg_balance_release_at_guard
   BEFORE UPDATE OF release_at ON core.settlement_trip_leg_balance
   FOR EACH ROW EXECUTE FUNCTION core.settlement_release_at_guard();
 
--- 5.2 Ordre LEG_RELEASE de la jambe HOST (variante A, critère 3) : un seul ordre vivant par
--- (trip, segment, HOST) ; s'il existe un item de lot pour le trip, l'ordre est celui de l'item
+-- 5.2 Ordre LEG_RELEASE de la jambe HOST (variante A, critère 3) : pour un trip mis en lot, un
+-- seul ordre vivant par (trip, segment, HOST), et l'ordre est celui de l'item
 -- (lot READY, clé `release:{trip}:1:HOST:i{n}`, rang n = rang de l'item + 1, montant de l'item) et
 -- y est rattaché. Trigger d'instruction AFTER INSERT des jambes, nommé pour passer AVANT la garde
 -- `payment_operation_leg_release_guard` de 0054 (ordre alphabétique) : un ordre hors lot (preuves
@@ -450,7 +451,13 @@ BEGIN
        AND o.kind = 'LEG_RELEASE' AND o.trip_id IS NOT NULL
      ORDER BY o.id
   LOOP
-    -- un seul versement vivant de la jambe HOST du trip (L3-PM-33)
+    SELECT i.batch_id INTO v_batch
+      FROM core.payout_payout_item AS i
+     WHERE i.trip_id = r.trip_id AND i.segment_no = 1 AND i.leg = 'HOST';
+    IF v_batch IS NULL THEN
+      CONTINUE;
+    END IF;
+    -- un seul versement vivant de la jambe HOST d'un trip mis en lot (L3-PM-33)
     IF EXISTS (SELECT 1
                  FROM core.payment_payment_operation AS o2
                  JOIN core.payment_payment_operation_leg AS l2 ON l2.operation_id = o2.id
@@ -459,12 +466,6 @@ BEGIN
       RAISE EXCEPTION 'payout: a live HOST release already exists for trip %', r.trip_id
         USING ERRCODE = 'object_not_in_prerequisite_state',
               CONSTRAINT = 'payout_release_duplicate';
-    END IF;
-    SELECT i.batch_id INTO v_batch
-      FROM core.payout_payout_item AS i
-     WHERE i.trip_id = r.trip_id AND i.segment_no = 1 AND i.leg = 'HOST';
-    IF v_batch IS NULL THEN
-      CONTINUE;
     END IF;
     -- ordre des verrous : trip (tenu par la commande), lot, item
     SELECT b.status, b.variant, b.country_code INTO v_status, v_variant, v_country
@@ -1163,7 +1164,7 @@ COMMENT ON FUNCTION core.settlement_release_at_guard() IS
   'Garde de trip_leg_balance.release_at : écrit une fois, jambe HOST, trip COMPLETED, ≥ fin '
   'effective + 24 h ; écrivain unique payout_cmd_prepare_trip (S-06). US-708 (ADR-185).';
 COMMENT ON FUNCTION core.payout_release_item_guard() IS
-  'Garde des ordres LEG_RELEASE de la jambe HOST : un seul ordre vivant par trip ; l''ordre d''un '
+  'Garde des ordres LEG_RELEASE de la jambe HOST d''un trip mis en lot : un seul ordre vivant ; l''ordre d''un '
   'item de lot porte sa clé, son rang et son montant, lot READY. US-708 (ADR-185).';
 COMMENT ON FUNCTION core.payout_business_day(text, date, integer) IS
   'N-ième jour ouvré du pays (fériés de la dernière version du calendrier, samedi et dimanche '
