@@ -22,11 +22,12 @@
  *    capture de l'oracle (TJ01 / TJ08a) → T1 / T2 par le vrai service → FAKE hostile : SUCCEEDED
  *    de réponse d'API (non signé) ⇒ NOT_PROVEN ; webhook signé ⇒ preuve ; conversion ⇒ trip BOOKED,
  *    version de prix n° 1, `booking.trip.booked` une fois ; rejeux ⇒ DUPLICATE / REPLAY →
- *    notifications (parties) → « Mis viajes » → interrupteurs toujours fermés. Défauts trouvés :
- *    D1 et D2 (`it.fails`, voir la passation).
+ *    notifications (parties) → « Mis viajes » → interrupteurs toujours fermés → soldes par jambe
+ *    portés dès la conversion (D1) et trip tenu par le rapprochement (D2) : défauts trouvés ici,
+ *    corrigés par US-221b (#246, ADR-170 ; voir la passation).
  * C. « Annulation, remboursement, registres, reçus, rapprochement » (données VALIDÉES, 2052) : trip
- *    capturé aux jambes de l'oracle sur le trip (seule entrée qui alimente les soldes par jambe, à
- *    cause de D1) → demande de la console (OPS) → VRAI `TripCancellationProcessor` (trip du moteur
+ *    capturé aux jambes de l'oracle sur le trip (le devis figé de la fixture 9969 n'est pas rejouable
+ *    par le processeur d'annulation) → demande de la console (OPS) → VRAI `TripCancellationProcessor` (trip du moteur
  *    = trip du vecteur : la fixture du trip ne porte aucun devis) → règlement v1 (TJ02b / TJ08b) →
  *    remboursement par jambe : PSP en panne ⇒ WAITING, puis VRAI `RefundScheduler` ⇒ SENT, preuve
  *    signée ⇒ CONFIRMED, REPORTED → soldes par jambe (TJ01 + TJ02b = TJ02a) → S10 du voyageur et de
@@ -1007,60 +1008,49 @@ describe.each(CASES)('US-221 — parcours dorés « réservation » ($country, $
       });
     });
 
-    // Défaut D1 (passation US-221) : la capture prouvée d'un hold de checkout garde trip_id NULL
-    // après la conversion (0116 / 0126 : `booking_convert_payment` ne rattache pas l'opération au
-    // trip né) et `core.settlement_cmd_apply_leg_movement` (0123) la refuse
-    // (`leg_movement_unsupported`) : les soldes par jambe du trip réservé ne sont jamais alimentés
-    // (08 E7 règle 2, 17 §2.9). Attendu : APPLIED et soldes = jambes de la capture. Transaction
-    // ANNULÉE : rien n'est écrit, quel que soit le résultat.
-    it.fails(
-      'D1 (défaut) : la capture prouvée du checkout est portée sur les soldes par jambe du trip réservé (attendu : APPLIED, soldes = capture de l’oracle)',
-      async () => {
-        const b = booked();
-        const worker = await open('app_worker');
-        await inTx(worker, { worker: 'payment_command', at: t(6) }, async (tx) => {
-          let outcome: string;
-          try {
-            const moved = await tx.query<{ r: string }>(
-              'SELECT core.settlement_cmd_apply_leg_movement($1) AS r',
-              [b.operation],
-            );
-            outcome = String(moved.rows[0]?.r);
-          } catch (error) {
-            const e = error as { code?: string; constraint?: string };
-            outcome = `${e.code ?? '?'}:${e.constraint ?? '?'}`;
-          }
-          // preuve au journal du job (aucun identifiant ni montant) : SQLSTATE et contrainte
-          process.stdout.write(`US-221 D1 (${c.currency}) : report de la capture = ${outcome}\n`);
-          expect(outcome).toBe('APPLIED');
-          const bal = await tx.query<{ leg: LegName; v: string }>(
-            `SELECT leg, captured_minor::text AS v FROM core.settlement_trip_leg_balance
-            WHERE trip_id = $1 AND segment_no = 1`,
-            [b.trip],
+    // D1 (passation US-221), corrigé par US-221b (#246, migration 0149, ADR-170) : la conversion
+    // porte la capture prouvée du hold sur les soldes par jambe du trip né, dans sa transaction
+    // (08 E7 règle 2, 17 §2.9). Attendu : juste après la conversion, soldes = jambes de la capture
+    // de l'oracle ; le report rejoué par la commande du travailleur `payment_command` rend
+    // DUPLICATE et ne change rien. Transaction ANNULÉE : rien n'est écrit.
+    it('D1 : la capture prouvée du checkout est portée sur les soldes par jambe du trip réservé dès la conversion (soldes = capture de l’oracle) ; report rejoué ⇒ DUPLICATE, soldes inchangés', async () => {
+      const b = booked();
+      const worker = await open('app_worker');
+      await inTx(worker, { worker: 'payment_command', at: t(6) }, async (tx) => {
+        const captured = async () =>
+          Object.fromEntries(
+            (
+              await tx.query<{ leg: LegName; v: string }>(
+                `SELECT leg, captured_minor::text AS v FROM core.settlement_trip_leg_balance
+                  WHERE trip_id = $1 AND segment_no = 1`,
+                [b.trip],
+              )
+            ).rows.map((r) => [r.leg, BigInt(r.v)]),
           );
-          expect(Object.fromEntries(bal.rows.map((r) => [r.leg, BigInt(r.v)]))).toEqual(capture);
-        });
-      },
-    );
+        expect(await captured()).toEqual(capture);
+        const moved = await tx.query<{ r: string }>(
+          'SELECT core.settlement_cmd_apply_leg_movement($1) AS r',
+          [b.operation],
+        );
+        expect(moved.rows[0]?.r).toBe('DUPLICATE');
+        expect(await captured()).toEqual(capture);
+      });
+    });
 
-    // Défaut D2 (conséquence de D1) : le trip payé n'a ni solde par jambe ni règlement, il est donc
-    // absent des faits de l'invariant par jambe (`core.finance_trip_leg_facts`, 0137) : le
-    // rapprochement nocturne reste vert sans voir un encaissement prouvé jamais porté.
-    it.fails(
-      'D2 (défaut) : le trip payé et prouvé est examiné par l’invariant par jambe du rapprochement (Σ capturé = Σ encaissé = total)',
-      async () => {
-        const b = booked();
-        const worker = await open('app_worker');
-        await inTx(worker, { worker: 'reconciliation' }, async (tx) => {
-          const { rows } = await tx.query<Json>(
-            `SELECT captured_minor::text AS captured, collected_minor::text AS collected
+    // D2 (passation US-221), corrigé par US-221b (#246) : le trip né d'une conversion qui porte
+    // une capture prouvée est tenu par les faits de l'invariant par jambe du rapprochement.
+    it('D2 : le trip payé et prouvé est examiné par l’invariant par jambe du rapprochement (Σ capturé = Σ encaissé = total)', async () => {
+      const b = booked();
+      const worker = await open('app_worker');
+      await inTx(worker, { worker: 'reconciliation' }, async (tx) => {
+        const { rows } = await tx.query<Json>(
+          `SELECT captured_minor::text AS captured, collected_minor::text AS collected
              FROM core.finance_trip_leg_facts() WHERE trip_id = $1::uuid`,
-            [b.trip],
-          );
-          expect(rows).toEqual([{ captured: total.toString(), collected: total.toString() }]);
-        });
-      },
-    );
+          [b.trip],
+        );
+        expect(rows).toEqual([{ captured: total.toString(), collected: total.toString() }]);
+      });
+    });
   });
 
   // ---------------------------------------------------------------------------------------------
