@@ -289,8 +289,6 @@ Déclencheurs :
 ### `core.audit_chain_head`
 
 - RLS : ENABLE + FORCE ; propriétaire `migrator`
-@rueda/db#test:int:  ERROR  command (/home/runner/work/rueda/rueda/packages/db) /home/runner/setup-pnpm/node_modules/.bin/bin/pnpm run test:int exited (1)
- ERROR  run failed: command  exited (1)
 - Droits : app_worker: SELECT ; migrator: DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE
 
 | Colonne | Type | NOT NULL | Défaut |
@@ -3995,7 +3993,6 @@ Contraintes :
 - `kyc_liveness_check_liveness_range` : `CHECK (liveness_score IS NULL OR liveness_score >= 0::numeric AND liveness_score <= 1::numeric)`
 - `kyc_liveness_check_pkey` : `PRIMARY KEY (id)`
 - `kyc_liveness_check_result_valid` : `CHECK (result = ANY (ARRAY['APPROVED'::text, 'DECLINED'::text, 'REVIEW'::text]))`
- 'DECLINED'::text, 'REVIEW'::text]))`
 - `kyc_liveness_check_session_ref_length` : `CHECK (provider_session_ref IS NULL OR length(provider_session_ref) >= 1 AND length(provider_session_ref) <= 200)`
 - `kyc_liveness_check_user_id_fkey` : `FOREIGN KEY (user_id) REFERENCES core.iam_user_account(id)`
 - `kyc_liveness_check_verification_id_fkey` : `FOREIGN KEY (verification_id) REFERENCES core.kyc_identity_verification(id)`
