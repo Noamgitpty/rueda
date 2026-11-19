@@ -1,0 +1,14 @@
+# Revue architecture — US-213b « numéros du support et de l'assistance de l'assureur » (PR n° 253, suite N-298) — 2026-11-19
+
+Relecteur : revue-architecture / claude-sonnet-5-5 (famille A, modèle autre que l'auteur claude-opus-5-5)
+Entrées : cbc5f20b..e32e77e3c385237aac4aa72825c035c4273936d0, story US-213 de 19 (critère 2), 16 NTF-007, 08 BR-PROT-05, ADR-174, 10b §4.3
+
+| #   | Gravité | Constat                                                                                                                                                                                                                                                                                 | Preuve                                               |
+| --- | ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------- |
+| 1   | INFO    | Aucune constante pays : l'indicatif vient de `phone.callingCode` de la config pays, les numéros sont une donnée de `countries.json` (PA et PY à `null`), comme `legalEntity`.                                                                                                           | parse.ts `parseAssistanceContacts`, `countries.json` |
+| 2   | INFO    | Frontières de module respectées : NTF reçoit les numéros par `notificationCountryData` (index public de CFG), sans importer l'intérieur de CFG ; l'interface `AssistanceContacts` de NTF double structurellement `AssistanceContactsConfig` de CFG, acceptable pour éviter le couplage. | registration.ts, render.ts, cfg/index.ts             |
+| 3   | INFO    | Garde de démarrage : `ASSISTANCE_CONTACTS_MISSING` est dans `MISSING_KINDS` ; la production (défaut si `RUEDA_ENV` absent ou inconnu) refuse, la préproduction démarre. Aucune migration ni écriture en base.                                                                           | readiness.ts, startup.ts:40, startup.test.ts         |
+| 4   | INFO    | ADR-174 PROPOSÉ cohérent avec le code (options écartées, conséquences) ; COMME_TURO, POUR_LE_FONDATEUR §2.13 et GL-36 à jour ; catalogue v90 (88 de #251 conservé, 89 réservée à US-702b).                                                                                              | docs/adr/ADR-174, index.ts:287-295                   |
+| 5   | INFO    | Variable de gabarit `assistance` ajoutée au modèle de sources, relue à l'envoi : conception extensible et lisible.                                                                                                                                                                      | catalog.ts, render.ts, sender.ts:182                 |
+
+Verdict : APPROUVÉ

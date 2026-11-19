@@ -14,6 +14,7 @@ import { createDispatch, dispatchEvent } from './dispatcher.js';
 import type { MemoryDb as MemoryDbType } from './ntf.test-support.js';
 import {
   COUNTRY_CASES,
+  COUNTRY_CONFIG,
   COUNTRY_DATA,
   event,
   LOCALE_CONFIG,
@@ -97,6 +98,51 @@ describe.each(COUNTRY_CASES)('NotificationSender — $country ($currency)', (c) 
     expect(row?.rendered_hash).toHaveLength(32);
     expect(h.sms.sent()).toEqual([]);
     expect(db.events).toEqual([]);
+  });
+
+  it('numéros du support et de l’assistance de l’assureur du pays, relus à l’envoi (US-213 critère 2)', async () => {
+    const { h, db, dispatchBooked, guest, host } = setup({ locale: 'es' });
+    // numéros de test : indicatif du pays (CFG) suivi de zéros ; jamais le téléphone de l'hôte
+    const callingCode = COUNTRY_CONFIG.countries.get(c.country)?.phone.callingCode ?? '';
+    const numbers = {
+      supportPhone: `+${callingCode}0000001`,
+      insurerAssistancePhone: `+${callingCode}0000002`,
+    };
+    const hostPhone = `+${callingCode}0000009`;
+    h.directory.set(host, {
+      email: 'host@example.test',
+      phoneE164: hostPhone,
+      preferredLocale: 'es',
+      firstName: 'Ramón Báez',
+    });
+    const withNumbers = new NotificationSender({
+      ...h.deps,
+      countryOf: (code) => {
+        const profile = COUNTRY_DATA.countryOf(code);
+        return profile === undefined ? undefined : { ...profile, assistanceContacts: numbers };
+      },
+    });
+    await dispatchBooked();
+    expect(await drain(db, withNumbers)).toBe(2);
+    const sent = h.email.sent();
+    const toGuest = sent.find((m) => m.to === 'guest@example.test');
+    const toHost = sent.find((m) => m.to === 'host@example.test');
+    expect(toGuest?.body).toContain(numbers.supportPhone);
+    expect(toGuest?.body).toContain(numbers.insurerAssistancePhone);
+    expect(toGuest?.body).not.toContain(hostPhone);
+    expect(toHost?.body).toContain(numbers.supportPhone);
+    expect(toHost?.body).not.toContain(numbers.insurerAssistancePhone);
+    expect(db.dispatches.find((d) => d.recipient_user_id === guest)?.status).toBe('SENT');
+    // journaux : aucun numéro (17 §6.3, C2)
+    expect(JSON.stringify(h.logs)).not.toContain(numbers.supportPhone);
+  });
+
+  it('configuration du dépôt (numéros non fournis) : renvoi à l’appli, aucun numéro dans le message', async () => {
+    const { h, db, dispatchBooked, sender } = setup({ locale: 'es' });
+    expect(country.assistanceContacts).toBeNull();
+    await dispatchBooked();
+    await drain(db, sender);
+    for (const m of h.email.sent()) expect(m.body).not.toMatch(/\+[0-9]/);
   });
 
   it('portugais du Brésil (DEC-FONDATEUR-18) : texte pt, date au format pt-BR', async () => {

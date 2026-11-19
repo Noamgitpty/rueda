@@ -35,7 +35,7 @@ import { chooseLocale } from './locale.js';
 import type { MessageChannelKind, MessagingChannel } from './messaging-channel.port.js';
 import type { RecipientDirectory } from './recipient-directory.port.js';
 import type { SmsBudget } from './sms-budget.port.js';
-import type { StoredVariable } from './render.js';
+import type { AssistanceContacts, StoredVariable } from './render.js';
 import { renderedHash, renderTemplate, TemplateRenderError } from './render.js';
 
 /**
@@ -49,6 +49,8 @@ export const RETRY_BASE_SECONDS = 60;
 
 export interface CountryNotificationProfile extends CountryLocales {
   readonly timeZone: string;
+  /** Numéros du support et de l'assistance de l'assureur (CFG, US-213) ; `null` : non fournis. */
+  readonly assistanceContacts: AssistanceContacts | null;
 }
 
 export interface NtfLogEntry {
@@ -177,6 +179,7 @@ export class NotificationSender {
         timeZone: country?.timeZone ?? null,
         exponentOf: this.#deps.exponentOf,
         brand: this.#deps.brand,
+        assistance: country?.assistanceContacts ?? null,
         firstName: contact.firstName,
         variables: row.variables,
       });

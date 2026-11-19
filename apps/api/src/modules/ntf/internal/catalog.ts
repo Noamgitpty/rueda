@@ -23,6 +23,14 @@ export type VariableSource =
   | { readonly from: 'recipient_first_name' }
   /** nom de marque (DEC-MARQUE, donnée de thème ; US-034) */
   | { readonly from: 'brand' }
+  /**
+   * phrase des numéros du support et de l'assistance de l'assureur du pays de l'événement
+   * (US-213 critère 2, ADR-174), relue à l'envoi dans la configuration pays (CFG) : avec les
+   * numéros s'ils sont fournis, sinon un renvoi à la réservation dans l'appli (hors production
+   * seulement : la production refuse de démarrer sans eux, `ASSISTANCE_CONTACTS_MISSING`).
+   * Jamais le téléphone de l'hôte.
+   */
+  | { readonly from: 'assistance'; readonly audience: AssistanceAudience }
   /** référence courte lisible, tirée d'un identifiant UUID de la charge utile */
   | { readonly from: 'payload'; readonly type: 'ref'; readonly field: string }
   /** instant ISO 8601, affiché au fuseau du pays de l'événement (10b UX-53) */
@@ -34,6 +42,24 @@ export type VariableSource =
       readonly field: string;
       readonly currencyField: string;
     };
+
+/** Destinataire de la phrase d'assistance : le voyageur (deux numéros) ou l'hôte (le support). */
+export type AssistanceAudience = 'GUEST' | 'HOST';
+
+/** Forme de la phrase d'assistance : avec les numéros, ou renvoi à l'appli s'ils manquent. */
+export type AssistanceForm = 'numbers' | 'inApp';
+
+/**
+ * Clé `@rueda/i18n` de la phrase d'assistance : `ntf.assistance.<guest|host>.<email|sms>.<forme>`
+ * (es, en, fr, pt) ; ses emplacements : `{support_phone}`, `{insurer_phone}` et `{brand}`.
+ */
+export function assistanceKeyOf(
+  audience: AssistanceAudience,
+  channel: MessageChannelKind,
+  form: AssistanceForm,
+): string {
+  return `ntf.assistance.${audience.toLowerCase()}.${channel === 'EMAIL' ? 'email' : 'sms'}.${form}`;
+}
 
 export interface ChannelSpec {
   readonly channel: MessageChannelKind;
@@ -153,6 +179,9 @@ const BOOKING_REF: VariableSource = { from: 'payload', type: 'ref', field: 'trip
 const REQUEST_REF: VariableSource = { from: 'payload', type: 'ref', field: 'hold_id' };
 const START_AT: VariableSource = { from: 'payload', type: 'instant', field: 'scheduled_start' };
 const END_AT: VariableSource = { from: 'payload', type: 'instant', field: 'scheduled_end' };
+/** Support et assistance de l'assureur au voyageur ; support seul à l'hôte (US-213, ADR-174). */
+const GUEST_ASSISTANCE: VariableSource = { from: 'assistance', audience: 'GUEST' };
+const HOST_ASSISTANCE: VariableSource = { from: 'assistance', audience: 'HOST' };
 /** Part de la caution libérée (VOID, expiration ou remboursement), US-702. */
 const RELEASED: VariableSource = {
   from: 'payload',
@@ -183,6 +212,7 @@ export const TEMPLATES: Readonly<Record<TemplateKey, TemplateSpec>> = {
       booking_ref: BOOKING_REF,
       start_at: START_AT,
       end_at: END_AT,
+      assistance: GUEST_ASSISTANCE,
     },
     channels: EMAIL_THEN_SMS,
     critical: true,
@@ -272,6 +302,7 @@ export const TEMPLATES: Readonly<Record<TemplateKey, TemplateSpec>> = {
       booking_ref: BOOKING_REF,
       start_at: START_AT,
       end_at: END_AT,
+      assistance: HOST_ASSISTANCE,
     },
     channels: EMAIL_THEN_SMS,
     critical: true,

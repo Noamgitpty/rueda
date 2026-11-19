@@ -186,6 +186,40 @@ describe('validation fail-closed (CONFIG_INVALID)', () => {
     ],
     ['contrôle tzdata manquant', (s) => (country(s, 'PY')['timeZoneChecks'] = []), /tzdata/],
     ['entité juridique non déclarée', (s) => delete country(s, 'PA')['legalEntity'], /legalEntity/],
+    // US-213 (ADR-174) : numéros du support et de l'assistance de l'assureur
+    [
+      'numéros d’assistance non déclarés',
+      (s) => delete country(s, 'PA')['assistanceContacts'],
+      /assistanceContacts : champ obligatoire/,
+    ],
+    [
+      'numéro d’assistance hors E.164',
+      (s) =>
+        (country(s, 'PA')['assistanceContacts'] = {
+          supportPhone: '800-0000',
+          insurerAssistancePhone: '+5070000002',
+        }),
+      /assistanceContacts\.supportPhone : numéro E\.164 attendu/,
+    ],
+    [
+      'numéro d’assistance d’un autre pays',
+      (s) =>
+        (country(s, 'PY')['assistanceContacts'] = {
+          supportPhone: '+5950000001',
+          insurerAssistancePhone: '+5070000002',
+        }),
+      /assistanceContacts\.insurerAssistancePhone : numéro hors de l'indicatif du pays/,
+    ],
+    [
+      'numéros d’assistance : champ inconnu',
+      (s) =>
+        (country(s, 'PA')['assistanceContacts'] = {
+          supportPhone: '+5070000001',
+          insurerAssistancePhone: '+5070000002',
+          hostPhone: '+5070000003',
+        }),
+      /champ inconnu « hostPhone »/,
+    ],
     ['champ inconnu', (s) => (country(s, 'PA')['vatRate'] = 7), /champ inconnu « vatRate »/],
     // US-104 : plan de numérotation des mobiles (OTP du téléphone)
     [

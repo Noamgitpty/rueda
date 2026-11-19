@@ -818,9 +818,9 @@ export const EN_MESSAGES = {
   'ntf.kycApproved.sms.body': '{brand}: {first_name}, your identity is verified. You can now book.',
   'ntf.bookingConfirmed.email.subject': 'Booking {booking_ref} confirmed',
   'ntf.bookingConfirmed.email.body':
-    "Hi {first_name}. Your booking {booking_ref} is confirmed: from {start_at} to {end_at}. In your booking on {brand} you will find the exact handover address, the contract to read and sign before handover and the messages with your host. Bring your physical driver's license and your ID: the host will check them at handover. For your safety: meet in a public, well-lit place, tell someone you trust where you'll be, and keep all messages on {brand}.",
+    "Hi {first_name}. Your booking {booking_ref} is confirmed: from {start_at} to {end_at}. In your booking on {brand} you will find the exact handover address, the contract to read and sign before handover and the messages with your host. Bring your physical driver's license and your ID: the host will check them at handover. For your safety: meet in a public, well-lit place, tell someone you trust where you'll be, and keep all messages on {brand}. {assistance}",
   'ntf.bookingConfirmed.sms.body':
-    '{brand}: booking {booking_ref} confirmed, from {start_at} to {end_at}. Bring your physical license. Address and contract in the app.',
+    '{brand}: booking {booking_ref} confirmed, from {start_at} to {end_at}. Bring your physical license. Address and contract in the app. {assistance}',
   'ntf.bookingCancelled.email.subject': 'Booking {booking_ref} cancelled',
   'ntf.bookingCancelled.email.body':
     'Hi {first_name}. Booking {booking_ref} was cancelled. In the app you can see the details and, if it applies, your refund.',
@@ -1293,9 +1293,20 @@ export const EN_MESSAGES = {
   // confirmation et demandes de réservation (US-213, ADR-157)
   'ntf.bookingConfirmedHost.email.subject': 'Booking {booking_ref} confirmed',
   'ntf.bookingConfirmedHost.email.body':
-    "Hi {first_name}. The booking {booking_ref} for your car is confirmed: from {start_at} to {end_at}. {brand} has received the guest's payment. In your host space you can see the trip and the messages with the guest. At handover, check their physical driver's license and that their name matches the booking.",
+    "Hi {first_name}. The booking {booking_ref} for your car is confirmed: from {start_at} to {end_at}. {brand} has received the guest's payment. In your host space you can see the trip and the messages with the guest. At handover, check their physical driver's license and that their name matches the booking. {assistance}",
   'ntf.bookingConfirmedHost.sms.body':
-    '{brand}: booking {booking_ref} confirmed, from {start_at} to {end_at}. Details in your host space.',
+    '{brand}: booking {booking_ref} confirmed, from {start_at} to {end_at}. Details in your host space. {assistance}',
+  // numéros du support et de l’assistance de l’assureur (US-213, ADR-174)
+  'ntf.assistance.guest.email.numbers':
+    "{brand} support: {support_phone}. Insurer's roadside and accident line: {insurer_phone}.",
+  'ntf.assistance.guest.email.inApp':
+    'To contact {brand} support or get help after a breakdown or an accident, open your booking in the app.',
+  'ntf.assistance.guest.sms.numbers': 'Support: {support_phone}. Roadside line: {insurer_phone}.',
+  'ntf.assistance.guest.sms.inApp': 'Support and roadside line in the app.',
+  'ntf.assistance.host.email.numbers': '{brand} support: {support_phone}.',
+  'ntf.assistance.host.email.inApp': 'To contact {brand} support, open your host space.',
+  'ntf.assistance.host.sms.numbers': 'Support: {support_phone}.',
+  'ntf.assistance.host.sms.inApp': 'Support in your host space.',
   'ntf.bookingRequestReceived.email.subject': 'New booking request {booking_ref}',
   'ntf.bookingRequestReceived.email.body':
     "Hi {first_name}. A guest sent you the booking request {booking_ref}. You have until {respond_by} to accept or decline it in your {brand} host space. If you don't reply in time, the request expires and the guest is not charged.",

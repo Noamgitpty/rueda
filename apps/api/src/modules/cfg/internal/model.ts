@@ -93,6 +93,21 @@ export interface LegalEntityConfig {
   readonly invoicingRegime: string;
 }
 
+/**
+ * Numéros que la confirmation de réservation donne au voyageur (US-213 critère 2 ; 16 NTF-007 ;
+ * 08 BR-PROT-05 « contact WhatsApp + téléphone » ; ADR-174, PROPOSÉ) : le support de la plateforme
+ * et l'assistance de l'assureur partenaire du pays (dépannage, accident), jamais le téléphone de
+ * l'hôte. Donnée du fondateur (contrat de l'assureur, `POUR_LE_FONDATEUR.md` §2.13) : `null` tant
+ * qu'elle n'est pas fournie, et la production refuse alors de démarrer
+ * (`ASSISTANCE_CONTACTS_MISSING`, comme l'entité juridique).
+ */
+export interface AssistanceContactsConfig {
+  /** Support de la plateforme, au format E.164 (`+` puis l'indicatif du pays). */
+  readonly supportPhone: string;
+  /** Assistance de l'assureur partenaire (dépannage, accident), au format E.164. */
+  readonly insurerAssistancePhone: string;
+}
+
 export interface HolidayConfig {
   /** Date civile locale `AAAA-MM-JJ`. */
   readonly date: string;
@@ -162,6 +177,8 @@ export interface CountryConfigEntry {
   /** Statut des taux de taxe du pays (17 §7.2 `tax_rate` ; OQ-BR-14, OQ-MK-06 ; US-110). */
   readonly taxDecision: DecisionInfo;
   readonly legalEntity: LegalEntityConfig | null;
+  /** Numéros du support et de l'assistance de l'assureur (US-213) ; `null` : non fournis. */
+  readonly assistanceContacts: AssistanceContactsConfig | null;
   readonly holidayCalendar: {
     readonly version: number;
     readonly holidays: readonly HolidayConfig[];
