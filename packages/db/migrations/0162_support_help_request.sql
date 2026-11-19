@@ -460,9 +460,6 @@ BEGIN
                                                                       'status', p_status);
 END
 $fn$;
-RESET ROLE;
-REVOKE CREATE ON SCHEMA core FROM iam_staff_owner;
-
 COMMENT ON FUNCTION core.support_trip_help_context(bytea, uuid) IS
   'Rôle (GUEST, HOST) et pays d''un trip pour la personne de la session (aide S17) ; trip d''autrui ou '
   'inconnu : NOT_FOUND. SECURITY DEFINER, EXECUTE app_api. US-310 (ADR-182).';
@@ -482,3 +479,5 @@ REVOKE ALL ON FUNCTION core.support_trip_help_context(bytea, uuid),
 GRANT EXECUTE ON FUNCTION core.support_trip_help_context(bytea, uuid),
   core.support_cmd_open_help_request(bytea, uuid, uuid, text, jsonb),
   core.support_staff_help_requests(bytea, text, integer) TO app_api;
+RESET ROLE;
+REVOKE CREATE ON SCHEMA core FROM iam_staff_owner;
