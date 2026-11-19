@@ -72,17 +72,15 @@ const CONSTANCIA = /trip-constancia\.spec\.ts$/;
  */
 const RECEIPT = /trip-receipt\.spec\.ts$/;
 /**
-<<<<<<< HEAD
  * Caution annoncée sur la fiche S03 (US-701 partie 701c, T70 c) : 360 px seulement (durée du job
  * e2e ; la fiche passe à 390 px par LISTING et SCREENS).
  */
 const DEPOSIT_NOTICE = /deposit-notice\.spec\.ts$/;
-=======
+/**
  * Parcours doré « réservation » S01 → S06 (US-221) : 360 px et espagnol seulement, un test (durée
  * du job e2e ; chaque écran est éprouvé en quatre langues par sa spec propre).
  */
 const GOLDEN = /parcours-dore\.spec\.ts$/;
->>>>>>> origin/main
 /** Balayage axe + captures de chaque écran du site (US-044). */
 const SCREENS = /screens\.spec\.ts$/;
 /** Balayage des écrans de la console interne (US-044). */
@@ -173,11 +171,8 @@ export default defineConfig({
         GUEST_TRIPS,
         CONSTANCIA,
         RECEIPT,
-<<<<<<< HEAD
         DEPOSIT_NOTICE,
-=======
         GOLDEN,
->>>>>>> origin/main
         SCREENS,
       ],
       use: { ...phone, viewport: { width: 360, height: 780 } },
