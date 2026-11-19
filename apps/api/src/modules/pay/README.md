@@ -19,27 +19,27 @@ Détail fichier par fichier, FAKE et mode hostile : [`internal/README.md`](inter
 
 Entités de 17 §3.2.7 :
 
-| Entité                     | État en base                                                                                                                                     |
-| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `payment_operation`        | table `core.payment_payment_operation` (migration 0005 ; `psp_account_id` 0028, `NOT NULL` 0038)                                                 |
-| `webhook_inbox`            | table `core.payment_webhook_inbox` (migration 0005 ; clé étrangère du compte 0038)                                                               |
-| `psp_account`              | table `core.payment_psp_account` (migration 0028)                                                                                                |
-| `psp_capability`           | table `core.payment_psp_capability` (migration 0028)                                                                                             |
-| `payment_operation_leg`    | table `core.payment_payment_operation_leg` (migration 0028)                                                                                      |
-| `payment_operation_event`  | table `core.payment_payment_operation_event` (migration 0028)                                                                                    |
-| `psp_submerchant`          | table `core.payment_psp_submerchant` (migration 0039)                                                                                            |
-| `payment_command`          | table `core.payment_payment_command` (migration 0040, réduite à `CANCEL_ORDER`)                                                                  |
-| `payment_operation_link`   | cible 17, pas encore créée                                                                                                                       |
-| `payment_instrument`       | cible 17, pas encore créée                                                                                                                       |
-| `mit_consent`              | cible 17, pas encore créée                                                                                                                       |
-| `tender`                   | cible 17, pas encore créée                                                                                                                       |
-| `refund_instance`          | cible 17, pas encore créée                                                                                                                       |
-| `deposit_hold`             | `core.payment_deposit_hold` (0146, US-701) : décision figée par hold avant le paiement, lue et écrite par les seules fonctions de cmd_hold_owner |
-| `chargeback`               | cible 17, pas encore créée                                                                                                                       |
-| `debt_balance`             | cible 17, pas encore créée                                                                                                                       |
-| `payment_plan`             | cible 17, pas encore créée                                                                                                                       |
-| `payment_plan_installment` | cible 17, pas encore créée                                                                                                                       |
-| `credit_lot`               | cible 17, pas encore créée                                                                                                                       |
+| Entité                     | État en base                                                                                                                                                                                         |
+| -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `payment_operation`        | table `core.payment_payment_operation` (migration 0005 ; `psp_account_id` 0028, `NOT NULL` 0038)                                                                                                     |
+| `webhook_inbox`            | table `core.payment_webhook_inbox` (migration 0005 ; clé étrangère du compte 0038)                                                                                                                   |
+| `psp_account`              | table `core.payment_psp_account` (migration 0028)                                                                                                                                                    |
+| `psp_capability`           | table `core.payment_psp_capability` (migration 0028)                                                                                                                                                 |
+| `payment_operation_leg`    | table `core.payment_payment_operation_leg` (migration 0028)                                                                                                                                          |
+| `payment_operation_event`  | table `core.payment_payment_operation_event` (migration 0028)                                                                                                                                        |
+| `psp_submerchant`          | table `core.payment_psp_submerchant` (migration 0039)                                                                                                                                                |
+| `payment_command`          | table `core.payment_payment_command` (migration 0040, réduite à `CANCEL_ORDER`)                                                                                                                      |
+| `payment_operation_link`   | cible 17, pas encore créée                                                                                                                                                                           |
+| `payment_instrument`       | cible 17, pas encore créée                                                                                                                                                                           |
+| `mit_consent`              | cible 17, pas encore créée                                                                                                                                                                           |
+| `tender`                   | cible 17, pas encore créée                                                                                                                                                                           |
+| `refund_instance`          | cible 17, pas encore créée                                                                                                                                                                           |
+| `deposit_hold`             | `core.payment_deposit_hold` (0146, US-701 ; 0150, US-702) : décision figée par hold avant le paiement, décision exécutée (capturé, libéré), lue et écrite par les seules fonctions de cmd_hold_owner |
+| `chargeback`               | cible 17, pas encore créée                                                                                                                                                                           |
+| `debt_balance`             | cible 17, pas encore créée                                                                                                                                                                           |
+| `payment_plan`             | cible 17, pas encore créée                                                                                                                                                                           |
+| `payment_plan_installment` | cible 17, pas encore créée                                                                                                                                                                           |
+| `credit_lot`               | cible 17, pas encore créée                                                                                                                                                                           |
 
 Hors entités de 17 : `core.payment_psp_capability_catalog` (catalogue des capacités, migration 0039 ; `SUPPORTS_PAYOUT_WITHOUT_HOST_TAX_ID` ajoutée par 0087, non bloquante, lue par le KYC de l'hôte : inconnue ⇒ numéro fiscal exigé avant l'activation, ADR-115). Commandes `SECURITY DEFINER` (famille `cmd_money`) : `core.payment_cmd_record_operation`, `payment_cmd_apply_operation_status`, `payment_cmd_receive_webhook` (0028), `payment_cmd_register_submerchant`, `payment_cmd_record_submerchant_status` (0039). Détail : `packages/db/README.md`, sections « Port PaymentProvider » et « Port de place de marché ».
 
@@ -57,9 +57,15 @@ Hors entités de 17 : `core.payment_psp_capability_catalog` (catalogue des capac
 - `DepositRailExecutor.reauthorize` : `SUCCEEDED` seul ⇒ `REAUTHORIZED` ; `PENDING` / `SUBMITTED` / `UNKNOWN` / `UNKNOWN_OUTCOME` ⇒ `REAUTH_PENDING` (`needsLookup`).
 - Clés d'idempotence (S-6, 08 E4) : `{trip}:{segment}:v0-DEPOSIT-{caution}:{opération}:{moyen}:i{n}:a{m}` (`depositOperationKey`) ; remboursement du rail (b) = `offSettlementRefundKey` d'origine `DEPOSIT`.
 
+### Décision de la caution à l'heure de décision (US-702 ; ADR-172)
+
+- **Échéancier recalculé par la base** : `core.payment_cmd_record_deposit_decision` (0150) ignore `provider`, `authAt`, `releaseAt`, `decisionAt`, `reauthDueAt` de la décision envoyée et les recalcule (compte marchand du pays, durées `auth_lead_h`, `release_delay_h`, `deposit_safety_h`, `deposit_reauth_lead_h` lues en base) ; `V` reste l'instantané, borné. Le site lit toujours la libération figée en base.
+- `DepositDecisionTimer` / `PgDepositDecisionStore` (`internal/deposit-decision.ts`), dans la tâche `deposit_timer` après les ré-autorisations : file `core.payment_deposit_decision_due` (décision échue ou autorisation expirée ; rien ne la suspend), plan `planDepositDecision`, exécution `DepositRailExecutor.execute` hors transaction, transition finale `core.payment_cmd_deposit_decide` (rang attendu, Σ capturé + libéré = montant) qui écrit `deposit.decision.executed`. Autorisation expirée ⇒ `EXPIRED` sans appel ; issue inconnue ⇒ même clé au passage suivant ; VOID refusé ⇒ laissée expirer, `DEPOSIT_DECISION_FAILED` ; MIT impossible ⇒ libérée quand même, `DEPOSIT_FEES_UNCOLLECTED`.
+- `DepositFeeSource` : frais annexes et carte du consentement MIT ; en production `NO_DEPOSIT_FEES` (aucun registre des frais annexes encore : caution libérée en entier, frais ensuite par MIT, PROPOSÉ).
+
 ## Événements
 
-Aucun événement de domaine n'est émis ni consommé par le code de PAY aujourd'hui. Chaque statut reçu est écrit dans `core.payment_payment_operation_event` (pas un événement d'outbox). La commande `CANCEL_ORDER` est écrite dans `core.payment_payment_command` par les commandes du hold (AVL, migration 0040), pas par un événement.
+Émis par une fonction de la base appelée par PAY : `deposit.decision.executed` (0150, US-702 ; `deposit_id`, `trip_id`, `status`, `captured_minor`, `released_minor`, `currency`, `decided_at`), consommé par NTF (avis au voyageur). Aucun autre événement de domaine n'est émis ni consommé par le code de PAY aujourd'hui. Chaque statut reçu est écrit dans `core.payment_payment_operation_event` (pas un événement d'outbox). La commande `CANCEL_ORDER` est écrite dans `core.payment_payment_command` par les commandes du hold (AVL, migration 0040), pas par un événement.
 
 Cible (17 §2.2, §4.5) :
 

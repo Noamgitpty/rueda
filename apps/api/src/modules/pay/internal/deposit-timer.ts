@@ -17,6 +17,7 @@
  *    aucun changement, la MÊME clé est rejouée au passage suivant (lecture de l'état d'abord, 17
  *    §4.3).
  * Aucun connecteur pour le fournisseur (production jusqu'au lot C) ⇒ rien n'est envoyé.
+ * La même tâche exécute ensuite les décisions échues (`DepositDecisionTimer`, US-702, ADR-172).
  * Journal : comptes et codes seulement, jamais un identifiant (17 §6.3).
  */
 import type { AlertChannel, BusRegistry, SqlClient, WorkerTransactions } from '../../bus/index.js';
@@ -27,6 +28,13 @@ import {
   depositScheduleAfterReauth,
 } from './deposit-rails.js';
 import { DepositRailExecutor } from './deposit-executor.js';
+import {
+  DEPOSIT_DECISION_BATCH,
+  DepositDecisionTimer,
+  PgDepositDecisionStore,
+  postgresDepositDecisionDeps,
+} from './deposit-decision.js';
+import type { DepositFeeSource } from './deposit-decision.js';
 import { PgDepositRailConfigReader } from './pg-deposit-config.js';
 import type { DepositRailConfig } from './pg-deposit-config.js';
 import type { PaymentConnectorRegistry } from './production.js';
@@ -35,7 +43,11 @@ import type { SqlExecutor } from './pg-stores.js';
 export const DEPOSIT_TIMER_WORKER = 'deposit_timer';
 /** Nom de travailleur exigé par la base pour la file et la transition. */
 const PAYMENT_COMMAND_WORKER = 'payment_command';
-/** Période (PROPOSÉ) : la ré-autorisation est planifiée 24 h avant l'expiration. */
+/**
+ * Période de la tâche (PROPOSÉ, 60 s) : l'échéance la plus serrée est la marge `deposit_safety_h`
+ * (2 h) entre la décision et l'expiration ; l'avance de la ré-autorisation est un paramètre à part
+ * (`deposit_reauth_lead_h`, 24 h), lu en base.
+ */
 export const DEPOSIT_TIMER_PERIOD_SECONDS = 60;
 export const DEPOSIT_TIMER_BATCH = 50;
 
@@ -209,15 +221,23 @@ export class DepositReauthTimer {
   }
 }
 
-/** Tâche périodique `deposit_timer` (comptes seulement dans le journal). */
+/**
+ * Tâche périodique `deposit_timer` (comptes seulement dans le journal) : ré-autorisations échues,
+ * puis décisions échues (US-702). `fees` : source des frais annexes ; en production aucune n'existe
+ * encore (`NO_DEPOSIT_FEES` : la caution est libérée en entier, PROPOSÉ, ADR-172).
+ */
 export function registerDepositTimers(
   registry: BusRegistry,
   transactions: WorkerTransactions,
   alerts: AlertChannel,
   log: (line: string) => void,
   connectors: PaymentConnectorRegistry,
+  fees?: DepositFeeSource,
 ): void {
   const timer = new DepositReauthTimer(postgresDepositTimerDeps(transactions, alerts, connectors));
+  const decisions = new DepositDecisionTimer(
+    postgresDepositDecisionDeps(transactions, alerts, connectors, fees),
+  );
   registry.registerPeriodic(
     DEPOSIT_TIMER_WORKER,
     DEPOSIT_TIMER_PERIOD_SECONDS,
@@ -231,8 +251,21 @@ export function registerDepositTimers(
         const step = (await timer.process(d)).toLowerCase();
         counts[step] = (counts[step] ?? 0) + 1;
       }
+      const decide = await new PgDepositDecisionStore(tx).due(DEPOSIT_DECISION_BATCH);
+      const decided: Record<string, number> = {};
+      for (const d of decide) {
+        const step = (await decisions.process(d)).toLowerCase();
+        decided[`decision_${step}`] = (decided[`decision_${step}`] ?? 0) + 1;
+      }
       log(
-        JSON.stringify({ level: 'info', worker: DEPOSIT_TIMER_WORKER, due: due.length, ...counts }),
+        JSON.stringify({
+          level: 'info',
+          worker: DEPOSIT_TIMER_WORKER,
+          due: due.length,
+          ...counts,
+          decisions_due: decide.length,
+          ...decided,
+        }),
       );
     },
   );

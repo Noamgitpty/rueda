@@ -948,6 +948,8 @@ Migration `0136_booking_guest_trips_read` : une fonction de lecture AJOUTÉE, au
 - `core.booking_guest_trips(bytea, text, uuid, integer)` (cmd_hold_owner, EXECUTE app_api) : trips du voyageur de la SESSION (onglets UPCOMING, IN_PROGRESS, DONE, CANCELLED, partition de 0101) et ses demandes en attente (REQUESTED : hold REQUEST en `AWAITING_HOST` ou `PAYMENT_IN_FLIGHT`, heure limite de la base) ; auto sans plaque ; hôte en prénom et initiale ; nom du lieu, adresse et ville d'un trip à venir ou en cours seulement, ville seule d'une demande ; total du devis figé (jamais recalculé) ; état du contrat (`NONE`, `TO_SIGN`, `SIGNED`). Trip d'une autre personne (y compris celui que la session héberge) ou inconnu : aucune ligne. Issues : `DONE`, `AUTH_REQUIRED`, `REQUEST_INVALID`.
 - **Preuves** : `test/l0/l0-us214-guest-trips.test.ts` (PA USD, PY PYG ; transaction annulée sous app_api ; trips et demande de la fixture 9948, contrat signé par 9963 ; IDOR, onglets, minimisation, refus d'app_worker et d'app_anon).
 
+**Parcours dorés « réservation » (US-221)** : aucune migration. Fixture `9937_test_us221_golden_fixtures` : `test_fixture.us221_listing_city` pose une ville propre au test sur le lieu de remise du véhicule d'une annonce de la fixture 9998 (recherche publique au plus 50 résultats sur une base partagée ; transaction annulée seulement, aucun interrupteur, aucun montant). Preuve : `apps/api/test/int/parcours-dores-reservation.int.test.ts` (`docs/qa/STRATEGIE_TESTS.md` §3.6).
+
 ## Constancia d'arrendamiento et recherche de l'hôte (US-212 ; 16 LEG-026 ; ADR-162)
 
 Migration `0138_booking_trip_constancia_read` : deux fonctions de lecture AJOUTÉES, aucune table, aucun droit nouveau. Fixture `9946_test_us212_constancia_fixtures` (version de contrat aux faits écrits par le test ; partie nominative pseudonymisée).
@@ -1074,7 +1076,7 @@ Migration `0146_payment_deposit_hold`, fixture `9945_test_us701_deposit_hold_fix
 
 ## Base de la caution annoncée avant le checkout (US-701 partie 701c, T70 c ; 08 BR-PAY-06 ; ADR-173)
 
-Migration `0150_catalog_public_deposit_basis`. Aucune fixture nouvelle (annonces de 9998, classe de 9976, statut de 9985).
+Migration `0151_catalog_public_deposit_basis`. Aucune fixture nouvelle (annonces de 9998, classe de 9976, statut de 9985).
 
 - **Fonction** `core.catalog_public_deposit_basis(uuid[])` (catalog_cmd_owner, RLS-15, EXECUTE `app_api` seul, lecture seule) : pays, devise et classe de valeur du catalogue des annonces `LISTED` demandées, 50 au plus ; classe inconnue ⇒ `NULL`. La décision (montant `deposit_amount[pays][classe]`, mention générique, caution non disponible) reste celle de PAY, comme au checkout ; la classe n'est jamais rendue au visiteur.
 - **Droits** : aucun nouveau (colonnes déjà accordées à catalog_cmd_owner par 0103 et 0105). `deposit_amount_minor` de `catalog_public_cards` (0105) et `catalog_public_terms` (0118) gardé pour l'API N-1, plus lu ; contraction en suite (S-13).
@@ -1107,3 +1109,12 @@ Migration `0149_settlement_conversion_capture_legs`. Fixture `9936_test_us221b_c
 - **Rapprochement** : `core.finance_trip_leg_facts()` (0137) remplacé : tout trip dont la disposition `CONVERSION` porte une capture prouvée est tenu ; « encaissé » = encaissements portés et cette capture.
 - **Codes** : `operation_trip_attach_invalid` ⇒ `INVARIANT_VIOLATION` ; refus du report sous les noms de 0123 (`leg_movement_unsupported`, `leg_movement_unproven`, `leg_movement_not_succeeded`, `leg_funds_holding_disabled`).
 - **Preuves** : `test/l0/l0-us221b-conversion-capture.test.ts` (TJ01 PA USD, TJ08a PY PYG ; groupe isolé) ; inventaire des écrivains de `trip_leg_balance` mis à jour (`test/int/stl-schema.test.ts`).
+
+## Décision de la caution (US-702 ; 08 BR-PAY-06 ; ADR-172)
+
+Migration `0150_payment_deposit_decision`, fixture `9934_test_us702_deposit_decision_fixtures.sql` (`test_fixture.us702_converted_deposit` : caution autorisée d'un hold converti, rail au choix, EXECUTE `app_worker` ; `test_fixture.us702_deposit_schedule` : lecture de l'échéancier écrit, EXECUTE `app_api`).
+
+- **Table** `core.payment_deposit_hold` : colonnes ajoutées `captured_minor`, `released_minor`, `decision_executed_at`, posées une fois par la transition finale (`deposit_hold_final_shape` : état final ⇔ décision exécutée, Σ = montant, capture > 0 ⇔ `PARTIALLY_CAPTURED`) ; index `deposit_hold_decision_due_idx`.
+- **Fonctions** (cmd_hold_owner, RLS-15) : `payment_cmd_record_deposit_decision` remplacée (fournisseur et échéancier recalculés par la base) ; `payment_deposit_decision_due(lot)` et `payment_cmd_deposit_decide(…)` (EXECUTE `app_worker`, nom `payment_command`) : jamais avant l'heure de décision sauf expiration, aucune capture après l'expiration, `REFUNDED` ⇔ rail b, rang attendu (`STALE`), événement `deposit.decision.executed`.
+- **Droits** : politique `cmd_hold_deposit_read` de `config_param_value` élargie (`auth_lead_h`, `release_delay_h`, `deposit_safety_h`, `deposit_reauth_lead_h`) ; politique ajoutée `cmd_hold_deposit_event_ins` sur `outbox_outbox_event` ; `UPDATE` des trois colonnes à cmd_hold_owner.
+- **Preuves** : `test/l0/l0-us702-deposit-decision.test.ts` (PA USD, PY PYG ; `app_api`, `app_worker`, `app_anon` par `has_function_privilege`).

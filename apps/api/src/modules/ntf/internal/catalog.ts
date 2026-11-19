@@ -138,6 +138,9 @@ export const TEMPLATE_KEYS = [
   'EVT_BOOKING_REQUEST_EXPIRED',
   'EVT_BOOKING_REQUEST_FAILED',
   'EVT_BOOKING_REQUEST_FAILED_HOST',
+  // décision de la caution (US-702, ADR-172) : libération entière, ou frais annoncés capturés
+  'EVT_DEPOSIT_RELEASED',
+  'EVT_DEPOSIT_PARTIALLY_CAPTURED',
 ] as const;
 export type TemplateKey = (typeof TEMPLATE_KEYS)[number];
 
@@ -148,6 +151,13 @@ const BOOKING_REF: VariableSource = { from: 'payload', type: 'ref', field: 'trip
 const REQUEST_REF: VariableSource = { from: 'payload', type: 'ref', field: 'hold_id' };
 const START_AT: VariableSource = { from: 'payload', type: 'instant', field: 'scheduled_start' };
 const END_AT: VariableSource = { from: 'payload', type: 'instant', field: 'scheduled_end' };
+/** Part de la caution libérée (VOID, expiration ou remboursement), US-702. */
+const RELEASED: VariableSource = {
+  from: 'payload',
+  type: 'money',
+  field: 'released_minor',
+  currencyField: 'currency',
+};
 
 /** Documents et confirmations : e-mail d'abord (preuve écrite), SMS en repli (16 A.8 « Notifications »). */
 const EMAIL_THEN_SMS: readonly ChannelSpec[] = [{ channel: 'EMAIL', fallback: 'SMS' }];
@@ -308,6 +318,33 @@ export const TEMPLATES: Readonly<Record<TemplateKey, TemplateSpec>> = {
     channels: EMAIL_THEN_SMS,
     critical: true,
   },
+  // `deposit.decision.executed` (0150 : deposit_id, trip_id, status, captured_minor,
+  // released_minor, currency) ; 16 PAY-011 `EVT_DEPOSIT_RELEASED` (PROPOSÉ, ADR-172)
+  EVT_DEPOSIT_RELEASED: {
+    key: 'EVT_DEPOSIT_RELEASED',
+    slug: 'depositReleased',
+    variables: { first_name: FIRST_NAME, brand: BRAND, booking_ref: BOOKING_REF, amount: RELEASED },
+    channels: EMAIL_THEN_SMS,
+    critical: false,
+  },
+  EVT_DEPOSIT_PARTIALLY_CAPTURED: {
+    key: 'EVT_DEPOSIT_PARTIALLY_CAPTURED',
+    slug: 'depositPartiallyCaptured',
+    variables: {
+      first_name: FIRST_NAME,
+      brand: BRAND,
+      booking_ref: BOOKING_REF,
+      amount: RELEASED,
+      captured: {
+        from: 'payload',
+        type: 'money',
+        field: 'captured_minor',
+        currencyField: 'currency',
+      },
+    },
+    channels: EMAIL_THEN_SMS,
+    critical: false,
+  },
 };
 
 const GUEST: RecipientSpec = { role: 'GUEST', field: 'guest_user_id' };
@@ -456,6 +493,25 @@ export const RULES: readonly RuleSpec[] = [
     template: 'EVT_BOOKING_REQUEST_FAILED_HOST',
     recipients: [HOST],
     parties: CAPTURE_DECLINED_PARTIES,
+  },
+  // décision de la caution exécutée (0150, US-702, ADR-172 ; 16 PAY-011 « Notifications ») :
+  // voyageur du trip (parties lues en base) ; libération entière ou frais annoncés capturés
+  {
+    eventType: 'deposit.decision.executed',
+    template: 'EVT_DEPOSIT_RELEASED',
+    condition: {
+      field: 'status',
+      matches: (v) => v === 'VOIDED' || v === 'EXPIRED' || v === 'REFUNDED',
+    },
+    recipients: [GUEST],
+    parties: TRIP_PARTIES,
+  },
+  {
+    eventType: 'deposit.decision.executed',
+    template: 'EVT_DEPOSIT_PARTIALLY_CAPTURED',
+    condition: fieldIs('status', 'PARTIALLY_CAPTURED'),
+    recipients: [GUEST],
+    parties: TRIP_PARTIES,
   },
 ];
 

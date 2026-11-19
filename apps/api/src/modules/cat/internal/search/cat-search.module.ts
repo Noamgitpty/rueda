@@ -53,7 +53,7 @@ export const UNAVAILABLE_CAT_SEARCH: CatSearchOptions = {
 };
 
 /**
- * Production : fonctions de 0105 / 0103 / 0150 sous app_api ; limiteur (RISK), prix (PRC), notes
+ * Production : fonctions de 0105 / 0103 / 0151 sous app_api ; limiteur (RISK), prix (PRC), notes
  * (REV) et caution annoncée (PAY) fournis par l'appelant.
  */
 export function postgresSearchAdapters(

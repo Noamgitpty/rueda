@@ -133,7 +133,7 @@ export interface SearchStore {
   protectionOffered(listingIds: readonly string[]): Promise<ReadonlySet<string>>;
   /**
    * Base de la caution annoncée avant le checkout (US-701c, `core.catalog_public_deposit_basis` de
-   * 0150) : pays et classe de valeur du catalogue des annonces LISTED demandées (50 au plus) ; une
+   * 0151) : pays et classe de valeur du catalogue des annonces LISTED demandées (50 au plus) ; une
    * annonce absente de la réponse est inconnue ou retirée. Jamais rendue au visiteur.
    */
   depositBasis(listingIds: readonly string[]): Promise<ReadonlyMap<string, DepositBasis>>;

@@ -50,6 +50,7 @@ describe('abonnement', () => {
       'booking.trip.host_restricted',
       'booking.trip.host_restriction_lifted',
       'catalog.addition_request.resolved',
+      'deposit.decision.executed',
       'kyc.verification.status_changed',
       'payout.batch.status_changed',
       'trip.overdue.detected',
@@ -110,6 +111,46 @@ describe.each(COUNTRY_CASES)('planDispatches — $country ($currency)', (c) => {
     // trip inconnu de la base, ou faits non lus (port absent) : erreur de contrat, aucun envoi
     expect(() => planDispatches(real, RULES, tripMap(null))).toThrow(NotificationContractError);
     expect(() => planDispatches(real)).toThrow(NotificationContractError);
+  });
+
+  it('US-702 : décision de la caution exécutée ⇒ le voyageur du trip (base) ; libérée en entier ou frais annoncés capturés ; montants dans la devise du pays', () => {
+    // 0150 : deposit_id, trip_id, status, captured_minor, released_minor, currency, decided_at
+    const decided = (status: string, captured: string, released: string) =>
+      event(
+        'deposit.decision.executed',
+        {
+          deposit_id: randomUUID(),
+          trip_id: tripId,
+          status,
+          captured_minor: captured,
+          released_minor: released,
+          currency: c.currency,
+          decided_at: '2031-07-16T08:00:00+00:00',
+        },
+        c.country,
+      );
+    for (const status of ['VOIDED', 'EXPIRED', 'REFUNDED']) {
+      const plan = planDispatches(decided(status, '0', '1500000'), RULES, tripMap());
+      expect(who(plan)).toEqual([['GUEST', guest, 'EMAIL', 'EVT_DEPOSIT_RELEASED']]);
+      expect(plan[0]?.variables).toEqual({
+        booking_ref: '0190F5A2',
+        amount: { amount_minor: '1500000', currency: c.currency },
+      });
+    }
+    const partial = planDispatches(
+      decided('PARTIALLY_CAPTURED', '1200', '28800'),
+      RULES,
+      tripMap(),
+    );
+    expect(who(partial)).toEqual([['GUEST', guest, 'EMAIL', 'EVT_DEPOSIT_PARTIALLY_CAPTURED']]);
+    expect(partial[0]?.variables).toEqual({
+      booking_ref: '0190F5A2',
+      amount: { amount_minor: '28800', currency: c.currency },
+      captured: { amount_minor: '1200', currency: c.currency },
+    });
+    // statut absent : erreur de contrat (jamais un avis deviné)
+    const bad = event('deposit.decision.executed', { trip_id: tripId }, c.country);
+    expect(() => planDispatches(bad, RULES, tripMap())).toThrow(NotificationContractError);
   });
 
   it('US-213 : charge utile et base en désaccord sur une personne ⇒ erreur de contrat (jamais un mélange)', () => {
