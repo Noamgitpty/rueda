@@ -38,6 +38,10 @@ import type { CtrLegalOptions } from '../modules/ctr/index.js';
 import type { IamAuthOptions, StaffOptions } from '../modules/iam/index.js';
 import { kycCountries } from '../modules/kyc/index.js';
 import type { IdentityStore, KycIdentityOptions } from '../modules/kyc/index.js';
+import { unavailablePyoOptions } from '../modules/pyo/index.js';
+import type { PyoPayoutOptions } from '../modules/pyo/index.js';
+import { unavailableMsgOptions } from '../modules/msg/index.js';
+import type { MsgTripMessagesOptions } from '../modules/msg/index.js';
 import type { PayWebhookOptions } from '../modules/pay/index.js';
 import {
   AbuseGuard,
@@ -48,6 +52,7 @@ import {
 } from '../modules/risk/index.js';
 import type { RateLimitPolicy, RiskHttpOptions } from '../modules/risk/index.js';
 import type { SupConsoleOptions } from '../modules/sup/index.js';
+import type { TrpInspectionOptions } from '../modules/trp/index.js';
 import { CountryConfigService } from '../modules/cfg/index.js';
 
 export type HarnessActor = 'voyageur' | 'staff_sans_mfa' | 'staff';
@@ -130,6 +135,12 @@ export interface ApiHarnessOverrides {
   readonly search?: Partial<CatSearchOptions>;
   /** Checkout (US-208) ; absent : 503 après les gardes (aucun adaptateur). */
   readonly checkout?: Partial<AvlCheckoutOptions>;
+  /** Photos d'état du véhicule (US-303) ; absent : 503 après les gardes (aucun adaptateur). */
+  readonly trp?: Partial<TrpInspectionOptions>;
+  /** Compte de versement (US-707) ; absent : magasin indisponible, ni coffre ni PSP (503). */
+  readonly pyo?: Partial<PyoPayoutOptions>;
+  /** Messagerie par trip (US-525) ; absent : magasin indisponible (503). */
+  readonly msg?: Partial<MsgTripMessagesOptions>;
 }
 
 export async function startApiHarness(overrides: ApiHarnessOverrides = {}): Promise<ApiHarness> {
@@ -379,6 +390,9 @@ export async function startApiHarness(overrides: ApiHarnessOverrides = {}): Prom
       { ...kyc, ...overrides.kyc },
       { ...search, ...overrides.search },
       { ...UNAVAILABLE_AVL_CHECKOUT, ...overrides.checkout },
+      { ...overrides.trp },
+      { ...unavailablePyoOptions(), ...overrides.pyo },
+      { ...unavailableMsgOptions(), ...overrides.msg },
     ),
     {
       rawBody: true,

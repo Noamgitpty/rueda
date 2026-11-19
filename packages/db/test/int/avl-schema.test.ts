@@ -44,6 +44,12 @@ const TRIP_SM_TABLES = [
   // US-215 (0124) : demandes d'annulation de la console, réglées par le travailleur trip_lifecycle ;
   // preuves : test/l0/l0-us215-trip-cancellation
   'booking_trip_cancellation',
+  // US-303 (0158) : photos d'état du véhicule (gabarit, séries, jetons de capture, photos), écrites
+  // et lues par les commandes de cmd_hold_owner seulement ; preuves : test/l0/l0-us303-inspection-photos
+  'trip_ops_inspection',
+  'trip_ops_inspection_photo',
+  'trip_ops_photo_capture',
+  'trip_ops_photo_slot',
 ] as const;
 
 // Tables de configuration pays (US-013, 0008) : même socle RLS (ENABLE + FORCE, migrator_all),
@@ -110,6 +116,10 @@ const PAY_PORT_TABLES = [
   'payment_deposit_hold',
 ] as const;
 
+// Compte de versement de l'hôte (US-707, 0159) : même socle RLS ; aucun droit applicatif,
+// commandes de cmd_money_owner, preuves par test/l0/l0-us707-payout-account.test.ts.
+const PYO_TABLES = ['payout_payout_account'] as const;
+
 // Socle de marque (US-034, 0042) : même socle RLS ; lecture publique d'app_api et commandes sous
 // iam_staff_owner vérifiées par test/l0/l0-brand.test.ts.
 const BRAND_TABLES = [
@@ -152,6 +162,7 @@ describe('schéma core (US-006)', () => {
             AND c.relname !~ '^contract_'     -- tables CTR : test/l0/l0-ctr-consents.test.ts (US-102)
             AND c.relname !~ '^catalog_'      -- tables CAT : test/l0/l0-us113-vehicle-catalog.test.ts (US-113)
             AND c.relname !~ '^kyc_'          -- tables KYC : test/l0/l0-us105-identity-verification.test.ts (US-105)
+            AND c.relname !~ '^messaging_'    -- tables MSG : test/l0/l0-us525-messaging.test.ts (US-525)
           ORDER BY c.relname`,
       );
       expect(rows.map((r) => r.relname)).toEqual(
@@ -164,6 +175,7 @@ describe('schéma core (US-006)', () => {
           ...SUPPORT_TABLES,
           ...PAY_PORT_TABLES,
           ...BRAND_TABLES,
+          ...PYO_TABLES,
         ].sort(),
       );
       for (const r of rows) {
@@ -214,11 +226,13 @@ describe('schéma core (US-006)', () => {
                               ? 'privacy_cmd_owner'
                               : r.polname.startsWith('review_cmd_') // avis sur un trip (0104, US-218)
                                 ? 'review_cmd_owner'
-                                : r.polname.startsWith('worker_')
-                                  ? 'app_worker'
-                                  : r.polname.startsWith('host_view_') // host_guest_v (0035, US-062)
-                                    ? 'host_view_owner'
-                                    : 'app_api';
+                                : r.polname.startsWith('messaging_cmd_') // parties du trip (0161, US-525)
+                                  ? 'messaging_cmd_owner'
+                                  : r.polname.startsWith('worker_')
+                                    ? 'app_worker'
+                                    : r.polname.startsWith('host_view_') // host_guest_v (0035, US-062)
+                                      ? 'host_view_owner'
+                                      : 'app_api';
         expect(r.roles, `${r.relname}.${r.polname}`).toBe(expected);
       }
       // les politiques d'app_api sont toutes des lectures (US-011, ADR-035)

@@ -23,7 +23,8 @@ DECLARE
                            'iam_auth_owner', 'integrity_owner', 'audit_chain_owner', 'cmd_money_owner',
                            'cmd_golive_owner', 'iam_staff_owner', 'host_view_owner',
                            'risk_limit_owner', 'catalog_cmd_owner', 'kyc_cmd_owner',
-                           'privacy_cmd_owner', 'review_cmd_owner', 'cmd_param_owner'];
+                           'privacy_cmd_owner', 'review_cmd_owner', 'cmd_param_owner',
+                           'messaging_cmd_owner'];
   v_managed text[] := ARRAY['migrator', 'app_api', 'app_worker', 'app_anon'] || v_owners;
 BEGIN
   FOR r IN
@@ -62,7 +63,9 @@ BEGIN
       ('review_cmd_owner',    false),
       -- US-535a (ADR-178) : changement revu à deux personnes d'une valeur de paramètre pays
       -- (core.config_cmd_*_param_change)
-      ('cmd_param_owner',     false)
+      ('cmd_param_owner',     false),
+      -- US-525 (ADR-181) : messagerie par trip et signal du marché gris (core.messaging_*)
+      ('messaging_cmd_owner', false)
     ) AS t(role_name, can_login)
   LOOP
     BEGIN

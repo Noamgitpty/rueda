@@ -1124,9 +1124,89 @@ async function verificationRoute(req, res, path) {
   );
 }
 
+// ---- Compte de versement de l'hôte (US-707) ---------------------------------------------------
+// Double : deux rails NEUTRES (aucun format ni établissement propre à un pays) : compte bancaire
+// à code d'établissement saisi (`[0-9A-Z]{2,12}`), portefeuille parmi deux codes fictifs ; numéro
+// de compte : 6 à 20 chiffres (espaces et tirets retirés), sinon 422 PAYOUT_ACCOUNT_INVALID.
+// Numéro fiscal exigé : type enregistré par le profil fiscal A07 (sinon `taxKind` null et 409
+// HOST_TAX_ID_REQUIRED). Règle déterministe du titulaire discordant : noms du titulaire contenant
+// « OTRO » (casse ignorée) ⇒ 422 PAYOUT_HOLDER_MISMATCH, rien n'est enregistré. Le prestataire du
+// double vérifie tout autre compte (VERIFIED) ; un CHANGEMENT de compte retient les versements
+// 48 h (`holdUntil`). Le double ne garde que les 4 derniers chiffres, jamais le numéro.
+const PAYOUT_RAILS = [
+  { kind: 'BANK_ACCOUNT', institutions: null },
+  { kind: 'WALLET', institutions: ['WALLET_A', 'WALLET_B'] },
+];
+const PAYOUT_HOLD_MS = 48 * 3_600_000;
+const payoutView = (h, code, messageKey) => ({
+  code,
+  messageKey,
+  country: h.market.country,
+  currency: h.market.currency,
+  rails: PAYOUT_RAILS,
+  taxKind: verificationOf(h).taxKind,
+  account: h.payoutAccount ?? null,
+});
+
+async function payoutRoute(req, res, path) {
+  const m = /^\/host\/accounts\/([0-9a-f-]{36})\/payout-account$/.exec(path);
+  if (m === null) return false;
+  const owner = hostOf(req);
+  if (owner === undefined) return err(res, 401, 'AUTH_REQUIRED', 'common.auth.sessionRequired');
+  const h = owner === null ? undefined : owner.accounts.find((a) => a.orgId === m[1]);
+  if (h === undefined)
+    return err(res, 404, 'HOST_ACCOUNT_NOT_FOUND', 'common.listing.hostNotFound');
+  if (req.method === 'GET') {
+    return json(res, 200, payoutView(h, 'PAYOUT_ACCOUNT_STATE', 'common.payoutAccount.state'));
+  }
+  if (req.method !== 'POST') return err(res, 404, 'NOT_FOUND', 'common.error.notFound');
+  if (!/^application\/json/.test(req.headers['content-type'] ?? '')) {
+    return err(res, 415, 'REQUEST_INVALID', 'common.auth.requestInvalid');
+  }
+  const body = (await readBody(req)) ?? {};
+  const str = (v) => (typeof v === 'string' ? v.trim() : '');
+  const rail = PAYOUT_RAILS.find((r) => r.kind === body.kind);
+  const institution = str(body.institution).toUpperCase();
+  const given = str(body.holderGivenNames);
+  const surnames = str(body.holderSurnames);
+  const taxId = str(body.holderTaxId);
+  if (given === '' || surnames === '' || taxId === '') {
+    return err(res, 400, 'REQUEST_INVALID', 'common.auth.requestInvalid');
+  }
+  if (
+    rail === undefined ||
+    (rail.institutions === null
+      ? !/^[0-9A-Z]{2,12}$/.test(institution)
+      : !rail.institutions.includes(institution))
+  ) {
+    return err(res, 422, 'PAYOUT_RAIL_UNSUPPORTED', 'common.payoutAccount.railUnsupported');
+  }
+  const number = str(body.accountNumber).replace(/[\s-]/g, '');
+  if (!/^[0-9]{6,20}$/.test(number)) {
+    return err(res, 422, 'PAYOUT_ACCOUNT_INVALID', 'common.payoutAccount.invalid');
+  }
+  if (verificationOf(h).taxKind === null) {
+    return err(res, 409, 'HOST_TAX_ID_REQUIRED', 'common.payoutAccount.taxRequired');
+  }
+  if (/otro/i.test(`${given} ${surnames}`)) {
+    return err(res, 422, 'PAYOUT_HOLDER_MISMATCH', 'common.payoutAccount.holderMismatch');
+  }
+  const change = h.payoutAccount !== undefined && h.payoutAccount !== null;
+  h.payoutAccount = {
+    status: 'VERIFIED',
+    kind: rail.kind,
+    institution,
+    last4: number.slice(-4),
+    holdUntil: change ? new Date(Date.now() + PAYOUT_HOLD_MS).toISOString() : null,
+    rejectReason: null,
+  };
+  return json(res, 200, payoutView(h, 'PAYOUT_ACCOUNT_SAVED', 'common.payoutAccount.saved'));
+}
+
 async function hostRoute(req, res, url) {
   const path = url.pathname;
   if ((await verificationRoute(req, res, path)) !== false) return true;
+  if ((await payoutRoute(req, res, path)) !== false) return true;
   if (req.method === 'GET' && path === '/__e2e/host-verification/approve') {
     const h = hosts.get(url.searchParams.get('token') ?? '');
     if (h === undefined) return err(res, 404, 'NOT_FOUND', 'common.error.notFound');
@@ -2348,6 +2428,87 @@ function guestTripsRoute(req, res, url) {
   return json(res, 200, { trip: guestTripView(found[0], found[1]) });
 }
 
+// ---- Messagerie par trip (US-525) : fil S16 du voyageur ------------------------------------------
+// Deux trips FIXES (captures stables) : MESSAGES_TRIP (fil ouvert, un message de l'hôte au départ) et
+// MESSAGES_CLOSED_TRIP (fil en lecture seule). Partie : toute session « G0st… » (voyageur), un fil par
+// session ; toute autre session ⇒ 404 TRIP_NOT_FOUND (comme l'API). Masquage IMITÉ (7 chiffres ou
+// plus ⇒ « ••• ») et signal imité (« efectivo ») : les vraies règles sont prouvées sur PostgreSQL
+// (l0-us525-messaging). Jamais le texte d'un message dans un journal.
+const MESSAGES_TRIP = '00000000-0000-4000-8000-000000525e2e';
+const MESSAGES_CLOSED_TRIP = '00000000-0000-4000-8000-000000525c10';
+const threadsByToken = new Map();
+
+function seedThread() {
+  return [
+    {
+      id: '00000000-0000-4000-8000-000000525001',
+      mine: false,
+      authorRole: 'HOST',
+      authorName: 'María',
+      body: 'Hola, te espero en el lugar de entrega. Avísame si llegas tarde.',
+      masked: false,
+      offPlatform: false,
+      sentAt: '2036-12-09T15:00:00.000Z',
+    },
+  ];
+}
+
+async function messagesRoute(req, res, url) {
+  const m = /^\/trips\/([^/]+)\/messages$/.exec(url.pathname);
+  if (m === null) return false;
+  const token = tokenOf(req);
+  if (token === undefined) return err(res, 401, 'AUTH_REQUIRED', 'common.auth.sessionRequired');
+  const tripId = m[1].toLowerCase();
+  if (!GUEST_TOKEN.test(token) || (tripId !== MESSAGES_TRIP && tripId !== MESSAGES_CLOSED_TRIP)) {
+    return err(res, 404, 'TRIP_NOT_FOUND', 'common.trips.notFound');
+  }
+  const key = `${token}:${tripId}`;
+  if (!threadsByToken.has(key)) threadsByToken.set(key, seedThread());
+  const messages = threadsByToken.get(key);
+  const writable = tripId === MESSAGES_TRIP;
+  if (req.method === 'GET') {
+    return json(res, 200, {
+      code: 'TRIP_MESSAGES',
+      messageKey: 'common.messages.thread',
+      tripId,
+      viewerRole: 'GUEST',
+      counterpartName: 'María',
+      writable,
+      closesAt: '2036-12-23T15:00:00.000Z',
+      timezone: 'UTC',
+      messages,
+    });
+  }
+  if (req.method !== 'POST') return err(res, 404, 'TRIP_NOT_FOUND', 'common.trips.notFound');
+  const b = await readBody(req);
+  if (b === null || typeof b.id !== 'string' || typeof b.body !== 'string') {
+    return err(res, 400, 'REQUEST_INVALID', 'common.auth.requestInvalid');
+  }
+  if (!writable) return err(res, 409, 'MESSAGE_THREAD_CLOSED', 'common.messages.threadClosed');
+  const text = b.body.trim();
+  if (text.length < 1 || [...text].length > 2000) {
+    return err(res, 422, 'MESSAGE_INVALID', 'common.messages.invalid');
+  }
+  const body = text.replace(/\+?\d[\d\s().-]{5,}\d/g, '•••');
+  const masked = body !== text;
+  const offPlatform = /\befectivo\b/i.test(text);
+  const sentAt = new Date(Date.parse('2036-12-09T16:00:00.000Z') + messages.length * 60_000);
+  const message = { id: b.id, body, masked, offPlatform, sentAt: sentAt.toISOString() };
+  if (!messages.some((x) => x.id === b.id)) {
+    messages.push({ ...message, mine: true, authorRole: 'GUEST', authorName: 'Lucía' });
+  }
+  const notices = [
+    ...(masked ? ['CONTACT_MASKED'] : []),
+    ...(offPlatform ? ['OFF_PLATFORM_PAYMENT'] : []),
+  ];
+  return json(res, 201, {
+    code: 'MESSAGE_SENT',
+    messageKey: 'common.messages.sent',
+    message,
+    notices,
+  });
+}
+
 // ---- Aide et urgence (US-310) -------------------------------------------------------------------
 // `GET /help` : aide du marché fictif (pays réservé ZZ, ADR-024 : aucun vrai pays) ; numéros
 // d'assistance ABSENTS (comme le dépôt tant que le fondateur ne les a pas fournis) et aucune plage
@@ -2575,16 +2736,154 @@ function earningsRoute(req, res, url) {
   });
 }
 
+// Photos d'état du véhicule (US-303) : `GET /__e2e/inspection/new?guest=&host=` crée un trip dont
+// les séries sont ouvertes (départ) pour ces deux jetons ; toute autre session ⇒ 404
+// INSPECTION_NOT_FOUND (comme l'API). Gabarit de la version 1 (migration 0158) ; jeton de capture
+// à usage unique ; source autre que CAMERA ⇒ 422 PHOTO_GALLERY_FORBIDDEN ; gabarit incomplet ⇒ 422.
+const INSPECTION_TZ = JSON.parse(
+  readFileSync(new URL('../../api/src/modules/cfg/data/countries.json', import.meta.url), 'utf8'),
+).countries[0].timeZone;
+const INSPECTION_SLOTS = [
+  ...Array.from({ length: 15 }, (_, i) => ({
+    code: `EXT_${String(i + 1).padStart(2, '0')}`,
+    group: 'EXTERIOR',
+    required: true,
+  })),
+  ...Array.from({ length: 8 }, (_, i) => ({
+    code: `INT_${String(i + 1).padStart(2, '0')}`,
+    group: 'INTERIOR',
+    required: true,
+  })),
+  { code: 'FUEL', group: 'FUEL', required: true },
+  { code: 'ODOMETER', group: 'ODOMETER', required: true },
+  { code: 'KEY', group: 'KEY', required: false },
+  ...Array.from({ length: 10 }, (_, i) => ({
+    code: `DAMAGE_${String(i + 1).padStart(2, '0')}`,
+    group: 'DAMAGE',
+    required: false,
+  })),
+];
+const inspections = new Map();
+const INSPECTION_RECEIVED_AT = '2036-12-10T14:05:00.000Z';
+
+async function inspectionRoute(req, res, url) {
+  const path = url.pathname;
+  if (req.method === 'GET' && path === '/__e2e/inspection/new') {
+    const tripId = uuid();
+    inspections.set(tripId, {
+      guest: url.searchParams.get('guest') ?? '',
+      host: url.searchParams.get('host') ?? '',
+      sides: {
+        HOST: { status: 'DRAFT', photos: new Map() },
+        GUEST: { status: 'DRAFT', photos: new Map() },
+      },
+      captures: new Map(),
+    });
+    return json(res, 200, { tripId });
+  }
+  const m = /^\/trips\/([^/]+)\/inspections\/([^/]+)(\/captures|\/photos|\/submit)?$/.exec(path);
+  if (m === null) return false;
+  const token = tokenOf(req);
+  if (token === undefined) return err(res, 401, 'AUTH_REQUIRED', 'common.auth.sessionRequired');
+  const t = inspections.get(m[1]);
+  const role =
+    t === undefined ? null : token === t.guest ? 'GUEST' : token === t.host ? 'HOST' : null;
+  if (t === undefined || role === null || m[2] !== 'checkin') {
+    return err(res, 404, 'INSPECTION_NOT_FOUND', 'common.inspection.notFound');
+  }
+  const mine = t.sides[role];
+  if (m[3] === undefined && req.method === 'GET') {
+    const side = (r) => ({
+      role: r,
+      status:
+        t.sides[r].status === 'SUBMITTED'
+          ? 'SUBMITTED'
+          : t.sides[r].photos.size > 0
+            ? 'DRAFT'
+            : 'NONE',
+      submittedAt: t.sides[r].status === 'SUBMITTED' ? INSPECTION_RECEIVED_AT : null,
+      photos: [...t.sides[r].photos.values()],
+    });
+    return json(res, 200, {
+      tripId: m[1],
+      kind: 'checkin',
+      viewerRole: role,
+      timezone: INSPECTION_TZ,
+      open: true,
+      uploads: {
+        open: true,
+        maxBytes: 76032,
+        maxLongSidePx: 1600,
+        mimeTypes: ['image/jpeg', 'image/webp'],
+      },
+      slots: INSPECTION_SLOTS,
+      sides: [side('HOST'), side('GUEST')],
+    });
+  }
+  if (req.method !== 'POST' || m[3] === undefined) return false;
+  const b = (await readBody(req)) ?? {};
+  if (mine.status === 'SUBMITTED' && m[3] !== '/submit') {
+    return err(res, 409, 'INSPECTION_SUBMITTED', 'common.inspection.submitted');
+  }
+  if (m[3] === '/captures') {
+    if (!INSPECTION_SLOTS.some((x) => x.code === b.slot)) {
+      return err(res, 400, 'REQUEST_INVALID', 'common.auth.requestInvalid');
+    }
+    const captureId = uuid();
+    t.captures.set(captureId, { role, slot: b.slot });
+    return json(res, 201, { captureId, slot: b.slot, expiresAt: '2036-12-10T14:07:00.000Z' });
+  }
+  if (m[3] === '/photos') {
+    const c = t.captures.get(b.captureId);
+    if (b.source !== 'CAMERA' || c === undefined || c.role !== role || c.slot !== b.slot) {
+      return err(res, 422, 'PHOTO_GALLERY_FORBIDDEN', 'common.inspection.galleryForbidden');
+    }
+    t.captures.delete(b.captureId);
+    const fileId = uuid();
+    const bytes = Buffer.from(String(b.dataBase64 ?? ''), 'base64');
+    const photo = {
+      slot: b.slot,
+      fileId,
+      sha256: sha256hex(bytes),
+      bytes: bytes.length,
+      receivedAt: INSPECTION_RECEIVED_AT,
+      clockSkew: false,
+    };
+    mine.photos.set(b.slot, photo);
+    return json(res, 201, {
+      fileId,
+      slot: b.slot,
+      sha256: photo.sha256,
+      bytes: photo.bytes,
+      receivedAt: photo.receivedAt,
+    });
+  }
+  const missing = INSPECTION_SLOTS.filter((x) => x.required && !mine.photos.has(x.code)).map(
+    (x) => x.code,
+  );
+  if (mine.status !== 'SUBMITTED' && missing.length > 0) {
+    return json(res, 422, {
+      code: 'PHOTO_TEMPLATE_INCOMPLETE',
+      messageKey: 'common.inspection.templateIncomplete',
+      missing,
+    });
+  }
+  mine.status = 'SUBMITTED';
+  return json(res, 200, { status: 'SUBMITTED', submittedAt: INSPECTION_RECEIVED_AT });
+}
+
 createServer(async (req, res) => {
   const url = new URL(req.url ?? '/', 'http://127.0.0.1');
   const path = url.pathname;
   if ((await paymentRoute(req, res, url)) !== false) return;
   if ((await hostRequestRoute(req, res, url)) !== false) return;
   if ((await contractRoute(req, res, url)) !== false) return;
+  if ((await inspectionRoute(req, res, url)) !== false) return;
   if ((await constanciaRoute(req, res, url)) !== false) return;
   if (refundRoute(req, res, url) !== false) return;
   if (receiptRoute(req, res, url) !== false) return;
   if (earningsRoute(req, res, url) !== false) return;
+  if ((await messagesRoute(req, res, url)) !== false) return;
   if ((await helpRoute(req, res, url)) !== false) return;
   if (guestTripsRoute(req, res, url) !== false) return;
   if ((await checkoutRoute(req, res, path)) !== false) return;

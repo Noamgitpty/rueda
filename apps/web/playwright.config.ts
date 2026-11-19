@@ -34,6 +34,8 @@ const PHONE = /phone\.spec\.ts$/;
 const IDENTITY = /identity\.spec\.ts$/;
 /** Liste de tâches de l'hôte A07 (US-123) : mêmes largeurs que l'inscription. */
 const HOST_VERIFICATION = /host-verification\.spec\.ts$/;
+/** Compte de versement de l'hôte (US-707) : e2e minimal, 360 px seulement. */
+const HOST_PAYOUT = /host-payout-account\.spec\.ts$/;
 /** Calendrier d'un véhicule de l'hôte A06 (US-119) : mêmes largeurs que l'inscription. */
 const HOST_CALENDAR = /host-calendar\.spec\.ts$/;
 /** Accueil A02 et réservations A05 de l'hôte (US-219) : mêmes largeurs que l'inscription. */
@@ -57,10 +59,14 @@ const HOST_EARNINGS = /host-earnings-plan\.spec\.ts$/;
 const REQUEST_MODE = /request-mode\.spec\.ts$/;
 /** Contrat de location : S09 · contrat du voyageur, A03 · contrat de l'hôte (US-211 partie 211b) : 360 px. */
 const CONTRACT = /trip-contract\.spec\.ts$/;
+/** Photos d'état du véhicule : S09 · check-in du voyageur (US-303) : 360 px. */
+const INSPECTION = /trip-inspection\.spec\.ts$/;
 /** Remboursement d'un trip : S10 · remboursement du voyageur, A05 de l'hôte (US-224 partie 224d) : 360 px. */
 const REFUND = /trip-refund\.spec\.ts$/;
 /** « Mis viajes » (S08) et détail du trip (S09) du voyageur (US-214) : 360 px, une langue. */
 const GUEST_TRIPS = /guest-trips\.spec\.ts$/;
+/** Messages du trip S16 du voyageur (US-525) : 360 px, une langue. */
+const TRIP_MESSAGES = /trip-messages\.spec\.ts$/;
 /**
  * Constancia d'arrendamiento et centre juridique (US-212) : 360 px et espagnol seulement (durée
  * du job e2e, proche de sa limite ; les quatre langues sont prouvées par les catalogues et l'API).
@@ -163,6 +169,7 @@ export default defineConfig({
         HOST,
         IDENTITY,
         HOST_VERIFICATION,
+        HOST_PAYOUT,
         HOST_CALENDAR,
         HOST_TRIPS,
         SEARCH,
@@ -173,8 +180,10 @@ export default defineConfig({
         HOST_EARNINGS,
         REQUEST_MODE,
         CONTRACT,
+        INSPECTION,
         REFUND,
         GUEST_TRIPS,
+        TRIP_MESSAGES,
         CONSTANCIA,
         RECEIPT,
         DEPOSIT_NOTICE,
@@ -206,6 +215,8 @@ export default defineConfig({
         // (US-224d) : 360 px seulement, ses deux écrans passent à 390 px par SCREENS
         // GUEST_TRIPS (US-214) : 360 px seulement, ses deux écrans passent à 390 px par SCREENS
         // RECEIPT (US-217b) : 360 px seulement, ses deux écrans passent à 390 px par SCREENS
+        // INSPECTION (US-303) : 360 px seulement, son écran passe à 390 px par SCREENS
+        // TRIP_MESSAGES (US-525) : 360 px seulement, son écran passe à 390 px par SCREENS
         SCREENS,
       ],
       use: { ...phone, viewport: { width: 390, height: 844 } },

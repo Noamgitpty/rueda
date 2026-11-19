@@ -41,6 +41,9 @@ import {
 } from '../modules/ctr/index.js';
 import { postgresIamAdapters, postgresStaffAdapters } from '../modules/iam/index.js';
 import { postgresKycAdapters } from '../modules/kyc/index.js';
+import { PgInspectionStore } from '../modules/trp/index.js';
+import { postgresPyoAdapters } from '../modules/pyo/index.js';
+import { postgresMsgAdapters } from '../modules/msg/index.js';
 import type { StaffOptions } from '../modules/iam/index.js';
 import { postgresPayAdapters } from '../modules/pay/index.js';
 import {
@@ -825,11 +828,47 @@ async function requestOf(
       return { method: 'GET', path: `/host/accounts/${randomUUID()}/earnings/2034-05` };
     case 'GET /trips/{tripId}/contract/pdf':
       return { method: 'GET', path: `/trips/${randomUUID()}/contract/pdf` };
+    // messagerie par trip (US-525) : trip dont l'acteur n'est pas partie ⇒ 404, rien d'écrit
+    case 'GET /trips/{tripId}/messages':
+      return { method: 'GET', path: `/trips/${randomUUID()}/messages` };
+    case 'POST /trips/{tripId}/messages':
+      return {
+        method: 'POST',
+        path: `/trips/${randomUUID()}/messages`,
+        body: { id: randomUUID(), body: 'Hola, ¿dónde nos vemos?' },
+      };
     case 'POST /trips/{tripId}/contract/sign':
       return {
         method: 'POST',
         path: `/trips/${randomUUID()}/contract/sign`,
         body: { accepted: true, documentId: randomUUID(), sha256: 'a'.repeat(64) },
+      };
+    // photos d'état du véhicule (US-303) : trip inconnu de l'acteur ⇒ 404 (rien n'est écrit)
+    case 'GET /trips/{tripId}/inspections/{kind}':
+      return { method: 'GET', path: `/trips/${randomUUID()}/inspections/checkin` };
+    case 'POST /trips/{tripId}/inspections/{kind}/captures':
+      return {
+        method: 'POST',
+        path: `/trips/${randomUUID()}/inspections/checkin/captures`,
+        body: { slot: 'EXT_01' },
+      };
+    case 'POST /trips/{tripId}/inspections/{kind}/photos':
+      return {
+        method: 'POST',
+        path: `/trips/${randomUUID()}/inspections/checkin/photos`,
+        body: {
+          captureId: randomUUID(),
+          slot: 'EXT_01',
+          source: 'CAMERA',
+          sha256: 'a'.repeat(64),
+          dataBase64: 'AAAA',
+        },
+      };
+    case 'POST /trips/{tripId}/inspections/{kind}/submit':
+      return {
+        method: 'POST',
+        path: `/trips/${randomUUID()}/inspections/checkin/submit`,
+        body: {},
       };
     // constancia d'arrendamiento (US-212) : trip inconnu de l'acteur ⇒ 404 ; recherche de l'hôte :
     // plaque dans le corps, aucun trip d'un autre compte
@@ -902,6 +941,23 @@ async function requestOf(
         method: 'POST',
         path: `/host/accounts/${id}/verification/tax-profile`,
         body: { kind: 'TAXPAYER_ID', taxId: '1234567-8' },
+      };
+    // compte de versement (US-707) : compte d'hôte d'aucun acteur de la cellule ⇒ 404 (IDOR,
+    // co-hôte compris) ; aucun coffre en production (503) après le contrôle du compte
+    case 'GET /host/accounts/{orgId}/payout-account':
+      return { method: 'GET', path: `/host/accounts/${id}/payout-account` };
+    case 'POST /host/accounts/{orgId}/payout-account':
+      return {
+        method: 'POST',
+        path: `/host/accounts/${id}/payout-account`,
+        body: {
+          kind: 'BANK_ACCOUNT',
+          institution: '0123',
+          accountNumber: '000123456789',
+          holderGivenNames: 'Ana',
+          holderSurnames: 'Pérez',
+          holderTaxId: '1234567-8',
+        },
       };
     default:
       throw new Error(`route sans requête de test : ${route}`);
@@ -1169,6 +1225,12 @@ beforeAll(async () => {
       postgresCheckoutAdapters(client, (ctx) =>
         new QuoteService(new CountryConfigService()).params(ctx),
       ),
+      // photos d'état du véhicule (US-303) : commandes réelles de 0158 sous app_api
+      { store: new PgInspectionStore(client) },
+      // compte de versement (US-707) : commandes réelles de 0159 sous app_api ; aucun coffre (503)
+      postgresPyoAdapters(client),
+      // messagerie par trip (US-525) : fonctions réelles de 0161 sous app_api
+      postgresMsgAdapters(client),
     ),
     { rawBody: true, logger: false },
   );

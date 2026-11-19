@@ -39,6 +39,8 @@ import type {
 import { postgresCtrAdapters } from './modules/ctr/index.js';
 import { postgresIamAdapters, postgresStaffAdapters } from './modules/iam/index.js';
 import { postgresKycAdapters } from './modules/kyc/index.js';
+import { postgresPyoAdapters } from './modules/pyo/index.js';
+import { postgresMsgAdapters } from './modules/msg/index.js';
 import {
   PgDepositRailConfigReader,
   postgresPayAdapters,
@@ -54,6 +56,7 @@ import {
   PgOpsConsoleStore,
   unavailableEvidence,
 } from './modules/sup/index.js';
+import { postgresTrpAdapters } from './modules/trp/index.js';
 import { parseTrustProxy } from './trust-proxy.js';
 
 const DEFAULT_PORT = 3000;
@@ -181,6 +184,14 @@ async function bootstrap(): Promise<void> {
       kyc,
       search,
       checkout,
+      // Photos d'état du véhicule (US-303) : commandes core.trip_* sous app_api ; antivirus ClamAV
+      // (DEC-FONDATEUR-20), coffre KMS et stockage à verrou objet (US-003, Q-007) indisponibles :
+      // envoi des photos 503 (fail-closed, aucun FAKE en production).
+      postgresTrpAdapters(pool),
+      // US-707 : compte de versement (aucun coffre ni PSP avant le lot C : enregistrement 503)
+      postgresPyoAdapters(pool),
+      // US-525 : messagerie par trip (fonctions de 0161 sous app_api)
+      postgresMsgAdapters(pool),
     ),
     { rawBody: true },
   );

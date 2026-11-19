@@ -111,6 +111,22 @@ export default async function HostTripPage({
       >
         {t('web.a05.contract')}
       </a>
+      {/* photos de l'état du véhicule (US-303) : à la remise (check-in ouvert) et au retour */}
+      {(read.trip.status === 'CHECKIN_OPEN' ||
+        read.trip.status === 'IN_PROGRESS' ||
+        read.trip.status === 'OVERDUE') && (
+        <a
+          className={styles['link']}
+          href={`/host/trips/${tripId}/inspection/${read.trip.status === 'CHECKIN_OPEN' ? 'checkin' : 'checkout'}?org=${account.orgId}`}
+          data-testid="a05-inspection"
+        >
+          {t(
+            read.trip.status === 'CHECKIN_OPEN'
+              ? 'web.inspection.link.checkin'
+              : 'web.inspection.link.checkout',
+          )}
+        </a>
+      )}
       {(shownRefunds.length > 0 || refundsFailed) && (
         <section className={styles['section']} aria-labelledby="a05-refund-title">
           <h2 id="a05-refund-title" className={accountStyles['h2']}>

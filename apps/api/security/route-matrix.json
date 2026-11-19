@@ -574,6 +574,14 @@
       "acces": "session",
       "idor": "compte d'hôte {orgId} d'un autre hôte : 404 HOST_ACCOUNT_NOT_FOUND, aucun dossier écrit (17 §2.3 point 5, L1-PM-11 ; preuves base : l0-us123)"
     },
+    "GET /host/accounts/{orgId}/payout-account": {
+      "acces": "session",
+      "idor": "compte d'hôte {orgId} d'un autre hôte, ou dont la personne n'est que co-hôte : 404 HOST_ACCOUNT_NOT_FOUND comme un compte inconnu, rien n'est révélé (17 §2.3 point 5 ; payout.manage_account du seul titulaire ; preuves base : l0-us707)"
+    },
+    "POST /host/accounts/{orgId}/payout-account": {
+      "acces": "session",
+      "idor": "compte d'hôte {orgId} d'un autre hôte ou d'un co-hôte : 404 HOST_ACCOUNT_NOT_FOUND, aucun compte écrit (17 §2.3 point 5 ; preuves base : l0-us707)"
+    },
     "POST /host/accounts/{orgId}/verification/tax-profile": {
       "acces": "session",
       "idor": "compte d'hôte {orgId} d'un autre hôte : 404 HOST_ACCOUNT_NOT_FOUND avant tout chiffrement, aucun profil écrit (17 §2.3 point 5, L1-PM-11 ; preuves base : l0-us123)"
@@ -614,6 +622,14 @@
       "acces": "session",
       "idor": "trip d'une autre personne (ni son voyageur ni le titulaire de son compte d'hôte), inconnu ou identifiant mal formé : 404 CONTRACT_NOT_FOUND, même réponse (17 §2.3 point 5) ; la partie est celle de la session, jugée en base (core.booking_trip_contract, core.booking_cmd_sign_contract ; signature : voyageur seulement) ; du voyageur seulement prénom et initiale (L2-PM-35) ; preuves base : l0-us211"
     },
+    "GET /trips/{tripId}/messages": {
+      "acces": "session",
+      "idor": "trip dont la session n'est pas partie (autre voyageur, autre hôte, co-hôte hors de sa portée ou révoqué, visiteur sans trip), inconnu ou identifiant mal formé : 404 TRIP_NOT_FOUND, même réponse (17 §2.3 point 5, RLS-9) ; la partie est celle de la session, jugée en base (core.messaging_thread_read, 0161) ; texte masqué et prénoms seulement ; preuves base : l0-us525-messaging"
+    },
+    "POST /trips/{tripId}/messages": {
+      "acces": "session",
+      "idor": "trip dont la session n'est pas partie : 404 TRIP_NOT_FOUND, aucun message ni fil écrit (19 US-525 : un visiteur sans trip ne peut pas écrire ; core.messaging_cmd_post_message, 0161) ; preuves base : l0-us525-messaging"
+    },
     "POST /trips/{tripId}/contract/sign": {
       "acces": "session",
       "idor": "trip d'une autre personne (ni son voyageur ni le titulaire de son compte d'hôte), inconnu ou identifiant mal formé : 404 CONTRACT_NOT_FOUND, même réponse (17 §2.3 point 5) ; la partie est celle de la session, jugée en base (core.booking_trip_contract, core.booking_cmd_sign_contract ; signature : voyageur seulement) ; du voyageur seulement prénom et initiale (L2-PM-35) ; preuves base : l0-us211"
@@ -629,6 +645,22 @@
     "POST /trips/constancias/search": {
       "acces": "session",
       "idor": "trips du seul compte d'hôte dont la session est le titulaire (core.booking_host_constancia_search, 0138) : un voyageur ou un tiers n'obtient aucune ligne ; plaque figée au dernier contrat, dans le corps (jamais dans l'URL) ; référence, statut et période locale seulement ; preuves base : l0-us212"
+    },
+    "GET /trips/{tripId}/inspections/{kind}": {
+      "acces": "session",
+      "idor": "trip d'une autre personne (ni son voyageur ni le titulaire de son compte d'hôte), inconnu, type de série ou identifiant mal formé : 404 INSPECTION_NOT_FOUND, même réponse (17 §2.3 point 5) ; la partie est celle de la session, jugée en base (core.trip_inspection_view, core.trip_cmd_open_photo_capture, core.trip_photo_capture_check, core.trip_cmd_add_inspection_photo, core.trip_cmd_submit_inspection, 0158) ; chaque partie écrit SA série seulement (jeton de capture de la personne, de la série et de l'angle) et lit les deux séries de SON trip : métadonnées seulement (angle, empreinte, heure), jamais le contenu ; preuves base : l0-us303"
+    },
+    "POST /trips/{tripId}/inspections/{kind}/captures": {
+      "acces": "session",
+      "idor": "trip d'une autre personne (ni son voyageur ni le titulaire de son compte d'hôte), inconnu, type de série ou identifiant mal formé : 404 INSPECTION_NOT_FOUND, même réponse (17 §2.3 point 5) ; la partie est celle de la session, jugée en base (core.trip_inspection_view, core.trip_cmd_open_photo_capture, core.trip_photo_capture_check, core.trip_cmd_add_inspection_photo, core.trip_cmd_submit_inspection, 0158) ; chaque partie écrit SA série seulement (jeton de capture de la personne, de la série et de l'angle) et lit les deux séries de SON trip : métadonnées seulement (angle, empreinte, heure), jamais le contenu ; preuves base : l0-us303"
+    },
+    "POST /trips/{tripId}/inspections/{kind}/photos": {
+      "acces": "session",
+      "idor": "trip d'une autre personne (ni son voyageur ni le titulaire de son compte d'hôte), inconnu, type de série ou identifiant mal formé : 404 INSPECTION_NOT_FOUND, même réponse (17 §2.3 point 5) ; la partie est celle de la session, jugée en base (core.trip_inspection_view, core.trip_cmd_open_photo_capture, core.trip_photo_capture_check, core.trip_cmd_add_inspection_photo, core.trip_cmd_submit_inspection, 0158) ; chaque partie écrit SA série seulement (jeton de capture de la personne, de la série et de l'angle) et lit les deux séries de SON trip : métadonnées seulement (angle, empreinte, heure), jamais le contenu ; preuves base : l0-us303"
+    },
+    "POST /trips/{tripId}/inspections/{kind}/submit": {
+      "acces": "session",
+      "idor": "trip d'une autre personne (ni son voyageur ni le titulaire de son compte d'hôte), inconnu, type de série ou identifiant mal formé : 404 INSPECTION_NOT_FOUND, même réponse (17 §2.3 point 5) ; la partie est celle de la session, jugée en base (core.trip_inspection_view, core.trip_cmd_open_photo_capture, core.trip_photo_capture_check, core.trip_cmd_add_inspection_photo, core.trip_cmd_submit_inspection, 0158) ; chaque partie écrit SA série seulement (jeton de capture de la personne, de la série et de l'angle) et lit les deux séries de SON trip : métadonnées seulement (angle, empreinte, heure), jamais le contenu ; preuves base : l0-us303"
     }
   }
 }

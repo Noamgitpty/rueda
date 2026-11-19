@@ -61,6 +61,15 @@ const SPEC_GAPS: Readonly<Partial<Record<ModuleCode, readonly ModuleCode[]>>> = 
   // US-208 (ADR-133) : SessionGuard (IAM) sur les routes du checkout, servies par AVL ; à reporter
   // dans 17 §2.2 par une demande de fusion revue
   AVL: ['IAM'],
+  // US-303 (ADR-179) : SessionGuard (IAM) et TermsGuard (CTR) sur les routes des photos d'état du
+  // véhicule, servies par TRP ; à reporter dans 17 §2.2 par une demande de fusion revue
+  TRP: ['IAM', 'CTR'],
+  // US-707 (ADR-180) : SessionGuard (IAM) sur les routes du compte de versement, servies par PYO ;
+  // à reporter dans 17 §2.2 par une demande de fusion revue
+  PYO: ['IAM'],
+  // US-525 (ADR-181) : TermsGuard (CTR) sur les routes de la messagerie par trip, servies par MSG ;
+  // à reporter dans 17 §2.2 par une demande de fusion revue
+  MSG: ['CTR'],
 };
 
 /** Colonne « Dépend de » de 17 §2.2, par module ; `null` pour « tous ». */

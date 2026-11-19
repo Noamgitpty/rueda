@@ -441,6 +441,10 @@ describe('US-211 partie 211b — routes du contrat de location d’un trip', () 
           !/^GET \/trips(\/\{tripId\})? \d{3}$/.test(d) &&
           !d.includes(' /trips/{tripId}/constancia') &&
           !d.includes(' /trips/constancias/') &&
+          // photos d'état du véhicule (US-303) : leur propre suite (trp/testing/trip-inspection.contract)
+          !d.includes(' /trips/{tripId}/inspections/') &&
+          // messagerie par trip (US-525) : sa propre suite (msg/testing/trip-messages.contract)
+          !d.includes(' /trips/{tripId}/messages ') &&
           // aide d'un trip et demande d'aide (US-310) : leur suite (sup/testing/help.contract)
           !d.includes(' /trips/{tripId}/help'),
       ),

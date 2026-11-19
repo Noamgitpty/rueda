@@ -305,8 +305,22 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  Version 93 (la 92 est celle d’US-223e) : signal « paiement hors plateforme » des textes publics
  de l’hôte (US-222d, ADR-176, comme Turo) : `common.listing.offPlatformPayment` (zone ou ville
  qui proposent un paiement hors de la plateforme : refus rattaché au champ).
- Version 97 (réservée à US-310 par le pré-mortem du lot 3 ; les 94 à 96 sont celles d’US-303,
- US-707 et US-525) : aide et urgence pendant le trip (US-310, ADR-182) : `web.shell.help` (lien
+ Version 94 (la 93 est celle d’US-222d) : photos guidées de l’état du véhicule (US-303, ADR-179) :
+ `common.inspection.*` (refus des routes `/trips/{id}/inspections/…`), `web.inspection.*` (écran
+ des photos de départ et de retour de l’hôte et du voyageur, angles du gabarit) et `web.s09c.done`
+ de 10b §4.3 (texte portugais ajouté).
+ Version 95 (la 94 est celle d’US-303) : compte de versement de l’hôte (US-707) : réponses de
+ l’API `common.payoutAccount.*` (état, enregistrement, co-hôte refusé, numéro fiscal exigé,
+ numéro de compte ou rail refusés, titulaire discordant, coffre, base ou rail du pays
+ indisponibles) et écran `web.a07.payout.*` (compte masqué aux 4 derniers chiffres, statut, retenue de 48 h après un
+ changement, formulaire).
+ Version 96 (la 95 est celle d’US-707 ; la 94 celle d’US-303) : messagerie par trip et signal du marché gris (US-525, ADR-181) : `common.messages.*`
+ (réponses des routes `/trips/{id}/messages` : fil, message envoyé, fil fermé, texte invalide,
+ indisponible), `web.s16.*` (S16 : bandeau `web.s16.payOnPlatform` et vide `web.s16.empty` de 10b
+ §4.3, prénom de l’autre partie, coordonnées masquées, rappels à l’expéditeur après un signal,
+ fenêtre d’écriture, formulaire).
+ Version 97 (réservée à US-310 par le pré-mortem du lot 3 ; la 96 est celle d’US-525 ; les 94 et 95 celles d’US-303 et
+ US-707) : aide et urgence pendant le trip (US-310, ADR-182) : `web.shell.help` (lien
  d’aide de l’en-tête de chaque écran), `web.help.*` (S17 : urgences et autorité de circulation
  du pays, assistance de l’assureur partenaire, support et sa plage publiée, demande d’aide du trip
  à motif fermé et ses issues, FAQ courte), `common.help.unavailable`,

@@ -1,33 +1,41 @@
 # PYO — Payouts (`apps/api/src/modules/pyo`)
 
-**PYO — Payouts** : comptes de versement, lots de versement, compensation des débits (P0-B). Dépendances autorisées : STL, PAY, KYC (socle implicite : CFG, AUD, BUS ; source : 17 §2.2 ; §2.1 PYO --> STL).
+**PYO — Payouts** : comptes de versement, lots de versement, compensation des débits (P0-B). Dépendances autorisées : STL, PAY, KYC, IAM (IAM : `SessionGuard` des routes du compte de versement, ADR-180, écart assumé de 17 §2.2 à reporter ; socle implicite : CFG, AUD, BUS ; source : 17 §2.2 ; §2.1 PYO --> STL).
 
 ## Responsabilité
 
 PYO verse à l'hôte sa part (17 §2.2, §2.10) :
 
-- compte de versement vérifié, au nom de l'hôte ;
-- lots SM-6 par compte d'hôte, devise et type, à partir des jambes `HOST` libérées par STL ;
-- compensation des débits du `host_ledger` (`NETTING`, SM-6b) ;
-- gel (`ON_HOLD`) en cas de litige, de chargeback ou de réclamation, puis reprise.
+- compte de versement vérifié, au nom de l'hôte (**US-707**, livré : voir plus bas) ;
+- lots SM-6 par compte d'hôte, devise et type, à partir des jambes `HOST` libérées par STL (US-708) ;
+- compensation des débits du `host_ledger` (`NETTING`, SM-6b, US-709) ;
+- gel (`ON_HOLD`) en cas de litige, de chargeback ou de réclamation, puis reprise (US-314).
 
-PYO ne calcule pas la part de l'hôte (c'est STL) et n'appelle pas le PSP directement : il passe par le port `PaymentProvider` de PAY. Aucun versement si `payouts_enabled[pays]` vaut `false` : la garde est en base depuis US-049 (`core.settlement_release_blocker`, migration 0054, ADR-088), qui refuse tout `LEG_RELEASE` dès l'enregistrement de l'ordre (trip `COMPLETED`, `release_at` atteint, sous-marchand `ACTIVE`, interrupteurs du pays).
+PYO ne calcule pas la part de l'hôte (c'est STL) et ne déplace aucun fonds. Aucun versement si `payouts_enabled[pays]` vaut `false` : la garde est en base depuis US-049 (`core.settlement_release_blocker`, migration 0054, ADR-088). AUCUN interrupteur n'est lu ni écrit par PYO.
 
-État réel du code : **squelette**. `internal/` est vide et `index.ts` n'exporte que `PyoModule`. Le module arrive avec US-707 (compte de versement), US-708 (versements depuis la jambe `HOST`), US-709 (compensations et solde négatif) et US-314 (versements fermés par pays, gel).
+### Compte de versement de l'hôte (US-707, migrations 0159 et 0160, ADR-180)
+
+- **Au nom de l'hôte, personne physique** : le titulaire déclaré (prénoms, noms) est rapproché en base du nom légal vérifié par le KYC (règle tolérante d'ADR-117) ; la cédula / le RUC du titulaire est comparé par le coffre (port `PayoutAccountVault`) au numéro fiscal chiffré de l'hôte. Discordant ⇒ 422 `PAYOUT_HOLDER_MISMATCH`, rien n'est écrit. Sans numéro fiscal enregistré ⇒ 409 `HOST_TAX_ID_REQUIRED` : au Paraguay, seul le RUC est admis, un hôte sans RUC n'a pas de compte et reste non activable (OQ-P2P-07, OQ-PAY-09, fail-closed).
+- **Titulaire seulement** : `payout.manage_account` (matrice 17 §2.3, P2P_HOST seulement) ; un co-hôte ou un autre hôte reçoit 404 comme pour un compte inconnu.
+- **Rails du pays** : `payout_account_rails[pays]` (JSON, unité `payout_rails` validée par CFG ; graine 0160 : virement bancaire au PA, virement et portefeuilles au PY, PROPOSÉ) ; absent ⇒ 503 `HOST_PAYOUT_RAIL_UNAVAILABLE`.
+- **Données C2 / C3** : numéro de compte chiffré par la clé du compte d'hôte avant l'écriture (`account_number_enc`, crypto-shredding) ; seuls ses 4 derniers caractères sont en clair, pour l'affichage masqué ; la pièce du titulaire n'est pas recopiée (seul son type). Aucun numéro dans les réponses, l'audit, les événements ni les journaux.
+- **Vérification par le PSP** (port `PayoutAccountVerifier`, FAKE seulement avant le lot C) : `PENDING` → `VERIFIED` ou `REJECTED` (motif fermé). Sans prestataire, le compte reste `PENDING`.
+- **Changement de compte** d'un hôte qui a déjà eu un compte vérifié : l'ancien passe `REPLACED`, le nouveau porte `change_hold_until` = maintenant + `payout_account_change_hold_h[pays]` (48 h ; absente ⇒ sans fin). La garde `core.payout_payout_account_hold(org, devise, prévu le)` (EXECUTE `app_worker`) rend les motifs de retenue d'un versement : `PAYOUT_ACCOUNT_MISSING`, `PAYOUT_ACCOUNT_UNVERIFIED`, `PAYOUT_ACCOUNT_CHANGE_HOLD` ; les lots d'US-708 la liront pour passer `ON_HOLD`.
+- **Production** : `postgresPyoAdapters(pool)` ; aucun coffre (KMS) ni prestataire avant le lot C : l'état reste lisible, l'enregistrement rend 503 `PAYOUT_VAULT_UNAVAILABLE`.
 
 ## Entités
 
-| Entité (17 §3.2.9) | État                       |
-| ------------------ | -------------------------- |
-| `payout_account`   | cible 17, pas encore créée |
-| `payout_batch`     | cible 17, pas encore créée |
-| `payout_item`      | cible 17, pas encore créée |
+| Entité (17 §3.2.9) | État                                                                                                |
+| ------------------ | --------------------------------------------------------------------------------------------------- |
+| `payout_account`   | `core.payout_payout_account` (US-707, 0159 ; écarts PROPOSÉS : pas d'`account_bidx`, type de pièce) |
+| `payout_batch`     | cible 17, pas encore créée (US-708)                                                                 |
+| `payout_item`      | cible 17, pas encore créée (US-708)                                                                 |
 
 17 §3.2.9 liste aussi `finance_approval` (table `core.settlement_finance_approval`, migration 0036, possédée par STL) et `tax_remittance` (module FIN).
 
 ## Événements
 
-Aucun événement n'est encore émis par le code.
+Aucun événement n'est encore émis : l'enregistrement et la vérification du compte sont consignés à l'audit (`PAYOUT_ACCOUNT_REGISTERED`, `PAYOUT_ACCOUNT_VERIFICATION_RECORDED`, sans aucun numéro). La notification du changement de compte à l'hôte (10b UX-43) reste à faire (suite d'US-707).
 
 Cible (17 §4.5) :
 
@@ -36,22 +44,24 @@ Cible (17 §4.5) :
 
 ## Ports
 
-Aucun port propre à PYO. L'API publique de `index.ts` se limite à `PyoModule`.
+- `PayoutAccountVault` (`internal/payout-account-vault.port.ts`, US-707) : `sealAccountNumber` (enveloppe v1 de `@rueda/db/audit`, clé du sujet `ORG:<compte d'hôte>`), `matchesTaxId` (comparaison à temps constant de la pièce déclarée au numéro fiscal chiffré de l'hôte). FAKE : `testing/fake-payout-account-vault.ts`. Aucun coffre en production avant l'adaptateur KMS : 503.
+- `PayoutAccountVerifier` (`internal/payout-account-verifier.port.ts`, US-707) : vérification du compte par le PSP (clé `payout-account:{accountId}`) ; issues `VERIFIED`, `REJECTED` (`HOLDER_MISMATCH`, `TAX_ID_MISMATCH`, `ACCOUNT_INVALID`), `UNAVAILABLE`. FAKE : `testing/fake-payout-account-verifier.ts`. Au lot C, l'adaptateur du PSP réel l'implémente avec le port `PaymentProvider` de PAY.
 
-Le versement passera par le port `PaymentProvider` de PAY (`apps/api/src/modules/pay/internal/port.ts` : `payout`, `adjustPayout`). Son adaptateur FAKE est le PSP simulé de `packages/fake-adapters` (sous-chemin `psp`, US-061), qui émet `payout.paid` et `payout.adjusted`. Voir [`packages/fake-adapters/README.md`](../../../../../packages/fake-adapters/README.md).
+Le versement passera par le port `PaymentProvider` de PAY (`apps/api/src/modules/pay/internal/port.ts` : `payout`, `adjustPayout`). Son adaptateur FAKE est le PSP simulé de `packages/fake-adapters` (sous-chemin `psp`, US-061). Voir [`packages/fake-adapters/README.md`](../../../../../packages/fake-adapters/README.md).
+
+### Routes (US-707)
+
+| Route                                        | Accès   | Réponse                                                                                                                                                                                                                                              |
+| -------------------------------------------- | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /host/accounts/{orgId}/payout-account`  | session | 200 `PAYOUT_ACCOUNT_STATE` (rails du pays, type du numéro fiscal, compte masqué) ; 401 ; 403 `PAYOUT_MANAGE_FORBIDDEN` ; 404 ; 503                                                                                                                   |
+| `POST /host/accounts/{orgId}/payout-account` | session | 200 `PAYOUT_ACCOUNT_SAVED` ; 400 ; 401 ; 403 `PAYOUT_MANAGE_FORBIDDEN`, `HOST_KYC_REQUIRED` ; 404 ; 409 `HOST_TAX_ID_REQUIRED` ; 415 ; 422 `PAYOUT_ACCOUNT_INVALID`, `PAYOUT_RAIL_UNSUPPORTED`, `PAYOUT_HOLDER_MISMATCH` ; 503 (coffre, base, rails) |
+
+API publique (`index.ts`) : `PyoModule`, `PyoPayoutModule`, `unavailablePyoOptions`, `postgresPyoAdapters`, `PgPayoutAccountStore`, `UnavailablePayoutAccountStore`, `PayoutAccountService`, `PYO_MESSAGES`, `PyoHttpError` et les types des ports et du magasin.
 
 ## Commandes de test
 
-Le module n'a encore aucun test. Commande unitaire (sans base) :
+- Unitaires et contrat HTTP (sans base) : `pnpm --filter @rueda/api exec vitest run src/modules/pyo` (application réelle, FAKE du magasin, du coffre et du PSP, réponses confrontées à `apps/api/openapi/openapi.json`, PA et PY).
+- L0 (PostgreSQL, rôles de production `app_api` et `app_worker`, PA / USD et PY / PYG) : `packages/db/test/l0/l0-us707-payout-account.test.ts` (fixtures 9927).
+- e2e (écran du compte de versement, 360 px, 4 langues) : `apps/web/e2e/host-payout-account.spec.ts`.
 
-```bash
-pnpm --filter @rueda/api exec vitest run src/modules/pyo --passWithNoTests
-```
-
-Le contrat du port de versement est déjà testé côté PAY (sans base) :
-
-```bash
-pnpm --filter @rueda/api exec vitest run src/modules/pay/testing/marketplace.test.ts
-```
-
-Aucun test d'intégration ni preuve L0 ne concerne encore PYO. Quand il y en aura, `pnpm --filter @rueda/api test:int` et `pnpm --filter @rueda/db test:l0` demanderont PostgreSQL : guide `docs/ops/INSTALL.md` (compose de dev) ou `RUEDA_PG_TESTCONTAINERS=1`.
+Les tests d'intégration et L0 demandent PostgreSQL : guide `docs/ops/INSTALL.md` (compose de dev) ou `RUEDA_PG_TESTCONTAINERS=1`.

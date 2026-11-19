@@ -1,0 +1,99 @@
+/*
+ * S16 — messages du trip (US-525, 10b S16) : jetons seulement (US-030), conçu à 360 px (10b UX-01).
+ * Bulles : les siennes à droite (teinte primaire douce), celles de l'autre partie à gauche ;
+ * contraste du texte sur la surface (UX-49) ; cible tactile ≥ 48 px pour le champ et le bouton.
+ */
+.thread {
+  display: grid;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.bubble {
+  display: grid;
+  gap: var(--space-1);
+  max-inline-size: 85%;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-raised);
+  color: var(--color-text);
+  overflow-wrap: anywhere;
+}
+
+.mine {
+  justify-self: end;
+  border-color: var(--color-border-strong);
+  background: var(--color-surface-sunken);
+}
+
+.author {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-strong);
+  color: var(--color-text-muted);
+}
+
+.body {
+  margin: 0;
+  white-space: pre-wrap;
+}
+
+.meta {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
+.form {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.field {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.label {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-strong);
+  color: var(--color-text);
+}
+
+.textarea {
+  inline-size: 100%;
+  min-block-size: calc(var(--size-touch-target) * 2);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-raised);
+  color: var(--color-text);
+  font-family: inherit;
+  font-size: var(--font-size-md);
+  line-height: var(--font-line-height-body);
+  resize: vertical;
+}
+
+.textarea:focus-visible {
+  border-color: var(--color-focus);
+}
+
+.textarea[aria-invalid='true'] {
+  border-color: var(--color-danger);
+  border-width: var(--size-focus-ring);
+}
+
+.hint {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+.error {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-danger);
+}

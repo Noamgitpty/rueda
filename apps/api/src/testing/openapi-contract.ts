@@ -404,6 +404,7 @@ export const CONTRACT_SUITES: Readonly<Record<string, string>> = {
   '/host/accounts/{orgId}/terms': 'modules/ctr/testing/host-terms.contract.test.ts',
   // inscription et vérification de l'hôte, profil fiscal (US-123, module KYC)
   '/host/accounts/{orgId}/verification': 'modules/kyc/testing/host-verification.contract.test.ts',
+  '/host/accounts/{orgId}/payout-account': 'modules/pyo/testing/payout-account.contract.test.ts',
   '/listings': 'modules/cat/testing/host-listings.contract.test.ts',
   // recherche publique (US-201)
   '/search': 'modules/cat/testing/search.contract.test.ts',
@@ -431,7 +432,11 @@ export const CONTRACT_SUITES: Readonly<Record<string, string>> = {
   '/trips/{tripId}': 'modules/avl/testing/guest-trips.contract.test.ts',
   // constancia d'arrendamiento d'un trip et recherche de l'hôte par plaque et date (US-212, CTR)
   '/trips/{tripId}/constancia': 'modules/ctr/testing/trip-constancia.contract.test.ts',
+  // messagerie par trip et signal du marché gris (US-525, module MSG)
+  '/trips/{tripId}/messages': 'modules/msg/testing/trip-messages.contract.test.ts',
   '/trips/constancias': 'modules/ctr/testing/trip-constancia.contract.test.ts',
+  // photos d'état du véhicule d'un trip (US-303, module TRP)
+  '/trips/{tripId}/inspections': 'modules/trp/testing/trip-inspection.contract.test.ts',
   // aide et urgence (US-310, module SUP) : S17 public, aide d'un trip, demande d'aide, console
   '/help': 'modules/sup/testing/help.contract.test.ts',
   '/trips/{tripId}/help': 'modules/sup/testing/help.contract.test.ts',

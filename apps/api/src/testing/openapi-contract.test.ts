@@ -21,9 +21,12 @@ import { BRAND_MESSAGES } from '../modules/cfg/index.js';
 import { CONSTANCIA_MESSAGES, CONTRACT_MESSAGES, LEGAL_MESSAGES } from '../modules/ctr/index.js';
 import { AUTH_MESSAGES } from '../modules/iam/index.js';
 import { KYC_MESSAGES } from '../modules/kyc/index.js';
+import { PYO_MESSAGES } from '../modules/pyo/index.js';
+import { MSG_MESSAGES } from '../modules/msg/index.js';
 import { HELP_MESSAGES, OPS_MESSAGES } from '../modules/sup/index.js';
 import { QUOTE_MESSAGES } from '../modules/prc/index.js';
 import { RISK_MESSAGES } from '../modules/risk/index.js';
+import { INSPECTION_MESSAGES } from '../modules/trp/index.js';
 import { startApiHarness } from './api-harness.js';
 import type { ApiHarness } from './api-harness.js';
 import { controllerRoutes } from './controller-routes.js';
@@ -239,6 +242,8 @@ const CATALOG: ReadonlyMap<string, ReadonlySet<number>> = (() => {
     SEARCH_MESSAGES,
     OPS_MESSAGES,
     KYC_MESSAGES,
+    PYO_MESSAGES,
+    MSG_MESSAGES,
     CHECKOUT_MESSAGES,
     PAYMENT_MESSAGES,
     HOST_REQUEST_MESSAGES,
@@ -249,6 +254,7 @@ const CATALOG: ReadonlyMap<string, ReadonlySet<number>> = (() => {
     HOST_EARNINGS_MESSAGES,
     GUEST_TRIP_MESSAGES,
     CONSTANCIA_MESSAGES,
+    INSPECTION_MESSAGES,
     HELP_MESSAGES,
   ] as const) {
     for (const [code, { status }] of Object.entries(catalog)) add(code, status);

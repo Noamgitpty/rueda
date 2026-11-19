@@ -143,16 +143,19 @@ export const MODULES: Readonly<Record<ModuleCode, ModuleSpec>> = {
     name: 'Payouts',
     responsibility:
       "compte de versement vérifié de l'hôte, lots depuis la jambe HOST, compensation des débits (NETTING), gel et reprise",
-    dependsOn: ['STL', 'PAY', 'KYC'],
-    source: '17 §2.2 ; §2.1 PYO --> STL',
+    // IAM : SessionGuard des routes du compte de versement (US-707, ADR-180 ; écart assumé de
+    // 17 §2.2, à reporter, comme AVL --> IAM d'ADR-133)
+    dependsOn: ['STL', 'PAY', 'KYC', 'IAM'],
+    source: '17 §2.2 ; §2.1 PYO --> STL ; ADR-180 (PYO --> IAM)',
   },
   TRP: {
     code: 'TRP',
     name: 'Trip operations',
     responsibility:
       "check-in et check-out par l'hôte et le voyageur, hors ligne, retards et non-restitution, refus du véhicule, remises du jour",
-    dependsOn: ['AVL', 'KYC', 'PAY', 'AUD'],
-    source: '17 §2.2 ; §2.1 TRP --> AVL, AUD',
+    // US-303 (ADR-179) : SessionGuard (IAM) et TermsGuard (CTR) sur les routes des photos du trip
+    dependsOn: ['AVL', 'KYC', 'PAY', 'AUD', 'IAM', 'CTR'],
+    source: '17 §2.2 ; §2.1 TRP --> AVL, AUD ; US-303 : IAM, CTR (gardes des routes)',
   },
   CLM: {
     code: 'CLM',
@@ -166,8 +169,10 @@ export const MODULES: Readonly<Record<ModuleCode, ModuleSpec>> = {
     code: 'MSG',
     name: 'Messaging',
     responsibility: 'fil par trip, masquage des coordonnées, détection du marché gris',
-    dependsOn: ['IAM', 'AVL'],
-    source: '17 §2.2 ; §2.1 MSG --> IAM',
+    // CTR : garde TermsGuard des routes /trips/{tripId}/messages (US-525, ADR-181 ; règle
+    // « toute route de réservation porte TermsGuard » d'US-102 ; écart assumé de 17 §2.2, à reporter)
+    dependsOn: ['IAM', 'AVL', 'CTR'],
+    source: '17 §2.2 ; §2.1 MSG --> IAM ; ADR-181 (MSG --> CTR)',
   },
   NTF: {
     code: 'NTF',

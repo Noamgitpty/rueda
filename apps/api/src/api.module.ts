@@ -13,7 +13,11 @@ import { IamAuthModule, StaffConsoleModule } from './modules/iam/index.js';
 import { KycIdentityModule } from './modules/kyc/index.js';
 import type { KycIdentityOptions } from './modules/kyc/index.js';
 import type { IamAuthOptions, StaffOptions } from './modules/iam/index.js';
+import { MsgTripMessagesModule } from './modules/msg/index.js';
+import type { MsgTripMessagesOptions } from './modules/msg/index.js';
 import { PayWebhookModule } from './modules/pay/index.js';
+import { PyoPayoutModule } from './modules/pyo/index.js';
+import type { PyoPayoutOptions } from './modules/pyo/index.js';
 import type { PayWebhookOptions } from './modules/pay/index.js';
 import { RiskHttpModule } from './modules/risk/index.js';
 import type { RiskHttpOptions } from './modules/risk/index.js';
@@ -24,6 +28,8 @@ import {
   SupSecurityConsoleModule,
 } from './modules/sup/index.js';
 import type { SupConsoleOptions } from './modules/sup/index.js';
+import { TrpInspectionModule } from './modules/trp/index.js';
+import type { TrpInspectionOptions } from './modules/trp/index.js';
 
 /**
  * Module racine du processus API (main.ts) : AppModule (partagé avec le travailleur) plus ce
@@ -34,7 +40,8 @@ import type { SupConsoleOptions } from './modules/sup/index.js';
  * sans adaptateurs CAT, ses routes répondent 503, fail-closed ; vérification d'identité et
  * consentement biométrique, US-105 : sans adaptateurs KYC, magasin indisponible et aucun
  * fournisseur, fail-closed ; recherche publique, US-201 : sans adaptateurs, 503 ; checkout, devis
- * figé et pose du hold, US-208 : sans adaptateurs, 503).
+ * figé et pose du hold, US-208 : sans adaptateurs, 503 ; photos d'état du véhicule, US-303 : sans
+ * adaptateurs, 503).
  */
 @Module({})
 export class ApiModule {
@@ -50,6 +57,9 @@ export class ApiModule {
     kyc?: KycIdentityOptions,
     search?: CatSearchOptions,
     checkout?: AvlCheckoutOptions,
+    trp?: TrpInspectionOptions,
+    pyo?: PyoPayoutOptions,
+    msg?: MsgTripMessagesOptions,
   ): DynamicModule {
     return {
       module: ApiModule,
@@ -66,8 +76,17 @@ export class ApiModule {
         CatSearchModule.register(search),
         // US-208 : routes /checkout/… gardées par SessionGuard + TermsGuard (après IAM et CTR)
         AvlCheckoutModule.register(checkout),
+        // US-303 : photos d'état du véhicule /trips/{tripId}/inspections/… gardées par SessionGuard +
+        // TermsGuard (après IAM et CTR) ; sans adaptateurs, 503
+        TrpInspectionModule.register(trp),
         // après IAM : routes /identity gardées par SessionGuard ; rappels /kyc/webhooks (US-105)
         KycIdentityModule.register(kyc),
+        // US-707 : compte de versement de l'hôte /host/accounts/{orgId}/payout-account (après IAM) ;
+        // sans adaptateurs, 503
+        PyoPayoutModule.register(pyo),
+        // US-525 : messagerie par trip /trips/{tripId}/messages (après IAM : SessionGuard) ; sans
+        // adaptateurs, 503
+        MsgTripMessagesModule.register(msg),
         PayWebhookModule.register(pay),
         StaffConsoleModule.register(staff),
         SupConsoleModule.register(sup),
