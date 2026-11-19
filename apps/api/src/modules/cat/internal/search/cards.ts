@@ -1,13 +1,15 @@
 /**
  * Cartes des résultats de la recherche (US-203 ; 16 SRC-008, SRC-011, SRC-042 ; 19 US-203) :
  * chaque annonce disponible reçoit son total TTC du devis provisoire (PRC-025, même moteur que la
- * fiche et le checkout), ses jours facturés, la caution de la plateforme rendue par la base
- * (`deposit_policy` du pays et de la classe, ou rien : mention générique) et sa note publique.
+ * fiche et le checkout), ses jours facturés, la caution annoncée avant le checkout (US-701c,
+ * T70 c : montant, mention générique ou caution non disponible) et sa note publique.
  *
- * CAT ne dépend ni de PRC (PRC dépend de CAT, 17 §2.2) ni de REV : le prix et les notes passent par
- * deux ports satisfaits par l'appelant (`main.ts`) : `SearchPricer` (adaptateur de PRC,
- * `searchQuotePricer`) et `SearchRatings` (notes de REV, US-218 ; aucune note tant que REV ne les
- * fournit pas : badge « Nuevo »). Sans pricer : 503 (fail-closed).
+ * CAT ne dépend ni de PRC (PRC dépend de CAT, 17 §2.2), ni de REV, ni de PAY : le prix, les notes et
+ * la caution passent par des ports satisfaits par l'appelant (`main.ts`) : `SearchPricer`
+ * (adaptateur de PRC, `searchQuotePricer`), `SearchRatings` (notes de REV, US-218 ; aucune note
+ * tant que REV ne les fournit pas : badge « Nuevo ») et `ListingDepositPolicy` (décision de PAY,
+ * `PreCheckoutDepositReader`, ADR-173). Sans pricer ou sans politique de caution : 503
+ * (fail-closed).
  */
 import type { SearchResult } from './store.js';
 
@@ -68,8 +70,38 @@ export const NO_SEARCH_RATINGS: SearchRatings = {
   ratings: () => Promise.resolve(new Map()),
 };
 
+/**
+ * Caution annoncée avant le checkout (08 BR-PAY-06 « Moment de l'évaluation », T70 c ; 10b UX-21) :
+ * `GENERIC` (mention générique), `REQUIRED` (montant `deposit_amount[pays][classe]`, unités
+ * mineures) ou `UNAVAILABLE` (déclencheur vrai, montant À DÉCIDER : le checkout refusera ce trip,
+ * `PARAM_MISSING`). Jamais les déclencheurs ni la classe.
+ */
+export type DepositNotice =
+  | { readonly status: 'GENERIC' }
+  | { readonly status: 'REQUIRED'; readonly amountMinor: string }
+  | { readonly status: 'UNAVAILABLE' };
+
+/** Décision de la caution avant le checkout (PAY) pour un pays et une classe lue en base. */
+export interface ListingDepositPolicy {
+  notice(country: string, valueClass: string | null): Promise<DepositNotice>;
+}
+
+/** Aucune politique fournie : toute carte ou fiche répond 503 (fail-closed). */
+export const UNAVAILABLE_DEPOSIT_POLICY: ListingDepositPolicy = {
+  notice: () => Promise.reject(new Error('caution avant le checkout indisponible')),
+};
+
+/** Statut de la caution rendu à l'API (le montant est rendu à part, `null` hors `REQUIRED`). */
+export type DepositStatus = DepositNotice['status'];
+
 /** Carte d'un résultat (colonnes C0 d'US-201, plus le prix, la caution et la note). */
 export interface SearchCard extends Omit<SearchResult, 'quotedAt'> {
+  /**
+   * Caution annoncée (US-701c) : montant si `depositStatus` = `REQUIRED`, sinon `null` ; mention
+   * générique (`GENERIC`) ou caution non disponible (`UNAVAILABLE`).
+   */
+  readonly depositAmountMinor: string | null;
+  readonly depositStatus: DepositStatus;
   readonly totalMinor: string;
   readonly billableDays: number;
   /** Note publique, ou `null` sans avis (badge « Nuevo »). */

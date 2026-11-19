@@ -1,14 +1,24 @@
 /**
  * Service de la recherche publique (US-201, US-203) : forme de la requête (`model.ts`), sonde de
  * disponibilité limitée par IP (`availability_probe_per_minute`, 17 §2.3, BOARD N-78), puis la
- * base, qui juge le pays, l'instant présent, la durée, le préavis et la disponibilité, et rend la
- * caution de chaque annonce. Chaque résultat reçoit ensuite son total TTC du devis provisoire
- * (port `SearchPricer`, moteur de PRC : le même chiffre en liste, sur la carte, sur la fiche et au
- * checkout) et sa note (port `SearchRatings`). Issues de la base vers codes stables
- * (`errors.ts`) ; base, limiteur, prix ou notes indisponibles : 503 (fail-closed).
+ * base, qui juge le pays, l'instant présent, la durée, le préavis et la disponibilité. Chaque
+ * résultat reçoit ensuite son total TTC du devis provisoire (port `SearchPricer`, moteur de PRC :
+ * le même chiffre en liste, sur la carte, sur la fiche et au checkout), sa note (port
+ * `SearchRatings`) et sa caution annoncée (port `ListingDepositPolicy`, décision de PAY au stade
+ * PRE_CHECKOUT sur la base rendue par la base : pays et classe ; US-701c, T70 c). Issues de la base
+ * vers codes stables (`errors.ts`) ; base, limiteur, prix, notes ou caution indisponibles : 503
+ * (fail-closed).
  */
-import { LOG_QUOTE_UNAVAILABLE, NO_SEARCH_RATINGS, UNAVAILABLE_SEARCH_PRICER } from './cards.js';
+import {
+  LOG_QUOTE_UNAVAILABLE,
+  NO_SEARCH_RATINGS,
+  UNAVAILABLE_DEPOSIT_POLICY,
+  UNAVAILABLE_SEARCH_PRICER,
+} from './cards.js';
 import type {
+  DepositNotice,
+  DepositStatus,
+  ListingDepositPolicy,
   QuoteUnavailableAlert,
   SearchCard,
   SearchPrice,
@@ -90,7 +100,10 @@ export interface ListingConditions {
     readonly lastMinuteThresholdHours: number;
     readonly lastMinuteWindowMinutes: number;
   } | null;
+  /** Montant de la caution annoncée si `depositStatus` = `REQUIRED`, sinon `null`. */
   readonly deposit: { readonly amountMinor: string } | null;
+  /** Caution avant le checkout (US-701c, T70 c) : générique, montant ou non disponible. */
+  readonly depositStatus: DepositStatus;
   readonly protection: ListingProtection | null;
 }
 
@@ -122,6 +135,7 @@ export class SearchService {
     private readonly pricer: SearchPricer = UNAVAILABLE_SEARCH_PRICER,
     private readonly reviews: SearchRatings = NO_SEARCH_RATINGS,
     private readonly alertQuoteUnavailable: QuoteUnavailableAlert = LOG_QUOTE_UNAVAILABLE,
+    private readonly deposits: ListingDepositPolicy = UNAVAILABLE_DEPOSIT_POLICY,
   ) {}
 
   async areas(rawCountry: unknown): Promise<SearchArea[]> {
@@ -242,6 +256,13 @@ export class SearchService {
     if (retryAfterS !== null) throw new SearchHttpError('RATE_LIMITED', Math.max(1, retryAfterS));
     const t = await this.#terms(id, null);
     if (t === null) throw new SearchHttpError('LISTING_NOT_FOUND');
+    let deposit: DepositNotice | undefined;
+    try {
+      deposit = (await this.#deposits([id], country)).get(id);
+    } catch {
+      throw new SearchHttpError('SEARCH_UNAVAILABLE');
+    }
+    if (deposit === undefined) throw new SearchHttpError('SEARCH_UNAVAILABLE');
     return {
       currency: t.currency,
       timezone: t.timezone,
@@ -253,9 +274,38 @@ export class SearchService {
               lastMinuteThresholdHours: t.cancellation.lastMinuteThresholdHours,
               lastMinuteWindowMinutes: t.cancellation.lastMinuteWindowMinutes,
             },
-      deposit: t.depositAmountMinor === null ? null : { amountMinor: t.depositAmountMinor },
+      deposit: deposit.status === 'REQUIRED' ? { amountMinor: deposit.amountMinor } : null,
+      depositStatus: deposit.status,
       protection: t.protection,
     };
+  }
+
+  /**
+   * Caution annoncée avant le checkout de chaque annonce (US-701c ; 08 BR-PAY-06, T70 c) : base
+   * lue en base (pays, classe du catalogue), décision de PAY une fois par pays et classe. Annonce
+   * absente de la base (retirée entre-temps) : pays demandé et classe inconnue, donc caution non
+   * disponible (fail-closed), jamais la mention générique. Une erreur remonte (503).
+   */
+  async #deposits(
+    listingIds: readonly string[],
+    country: string,
+  ): Promise<ReadonlyMap<string, DepositNotice>> {
+    const basis = await this.store.depositBasis(listingIds);
+    const decided = new Map<string, DepositNotice>();
+    const out = new Map<string, DepositNotice>();
+    for (const id of listingIds) {
+      const b = basis.get(id);
+      const c = b?.country ?? country;
+      const valueClass = b?.valueClass ?? null;
+      const key = `${c}|${valueClass ?? ''}`;
+      let notice = decided.get(key);
+      if (notice === undefined) {
+        notice = await this.deposits.notice(c, valueClass);
+        decided.set(key, notice);
+      }
+      out.set(id, notice);
+    }
+    return out;
   }
 
   async #terms(listingId: string, startAt: string | null): Promise<ListingTerms | null> {
@@ -310,11 +360,17 @@ export class SearchService {
     if (results.length === 0) return [];
     let ratings: ReadonlyMap<string, SearchRating>;
     let covered: ReadonlySet<string>;
+    let deposits: ReadonlyMap<string, DepositNotice>;
     try {
       ratings = await this.reviews.ratings(results.map((x) => x.id));
       // US-205b : « protection incluse » seulement si la base promet la couverture (même règle
       // que la fiche, 19 US-205 critère 4) ; panne ⇒ 503, jamais une promesse devinée
       covered = await this.store.protectionOffered(results.map((x) => x.id));
+      // US-701c : caution annoncée, même décision que la fiche ; panne ⇒ 503
+      deposits = await this.#deposits(
+        results.map((x) => x.id),
+        country,
+      );
     } catch {
       throw new SearchHttpError('SEARCH_UNAVAILABLE');
     }
@@ -338,8 +394,12 @@ export class SearchService {
         this.alertQuoteUnavailable(res.id, country);
         continue;
       }
+      const deposit = deposits.get(res.id);
+      if (deposit === undefined) throw new SearchHttpError('SEARCH_UNAVAILABLE');
       cards.push({
         ...withoutQuotedAt(res),
+        depositAmountMinor: deposit.status === 'REQUIRED' ? deposit.amountMinor : null,
+        depositStatus: deposit.status,
         totalMinor: price.totalMinor,
         billableDays: price.billableDays,
         rating: ratings.get(res.id) ?? null,

@@ -114,13 +114,18 @@ export type { AvailabilityProbeLimiter } from './internal/search/search.service.
 export { PgSearchStore, UnavailableSearchStore } from './internal/search/store.js';
 export type { SearchArea, SearchResult, SearchStore } from './internal/search/store.js';
 // Cartes des résultats (US-203, ADR-131) : total TTC par le port SearchPricer (adaptateur de PRC,
-// `searchQuotePricer`), notes par le port SearchRatings (REV, US-218), caution rendue par la base.
+// `searchQuotePricer`), notes par le port SearchRatings (REV, US-218), caution annoncée par le port
+// ListingDepositPolicy (décision de PAY, US-701c, ADR-173).
 export {
   LOG_QUOTE_UNAVAILABLE,
   NO_SEARCH_RATINGS,
+  UNAVAILABLE_DEPOSIT_POLICY,
   UNAVAILABLE_SEARCH_PRICER,
 } from './internal/search/cards.js';
 export type {
+  DepositNotice,
+  DepositStatus,
+  ListingDepositPolicy,
   QuoteUnavailableAlert,
   SearchCard,
   SearchPrice,
