@@ -618,19 +618,7 @@ BEGIN
 END
 $fn$;
 
--- 7. Propriétaire, commentaires et droits --------------------------------------------------------
-GRANT CREATE ON SCHEMA core TO cmd_money_owner;
-ALTER FUNCTION core.payout_param(text, text) OWNER TO cmd_money_owner;
-ALTER FUNCTION core.payout_titular(bytea, uuid) OWNER TO cmd_money_owner;
-ALTER FUNCTION core.payout_payout_account_state(bytea, uuid) OWNER TO cmd_money_owner;
-ALTER FUNCTION core.payout_payout_account_context(bytea, uuid, text, text) OWNER TO cmd_money_owner;
-ALTER FUNCTION core.payout_cmd_register_payout_account(bytea, uuid, text, text, bytea, text, text, text)
-  OWNER TO cmd_money_owner;
-ALTER FUNCTION core.payout_cmd_record_payout_account_verification(bytea, uuid, uuid, text, text, text)
-  OWNER TO cmd_money_owner;
-ALTER FUNCTION core.payout_payout_account_hold(uuid, text, timestamptz) OWNER TO cmd_money_owner;
-REVOKE CREATE ON SCHEMA core FROM cmd_money_owner;
-
+-- 7. Commentaires et droits (posés par migrator, encore propriétaire), puis propriétaire --------------------------------------------------------
 COMMENT ON FUNCTION core.payout_param(text, text) IS
   'Valeur en vigueur d''un paramètre de pays (portée COUNTRY). US-707.';
 COMMENT ON FUNCTION core.payout_titular(bytea, uuid) IS
@@ -663,3 +651,15 @@ GRANT EXECUTE ON FUNCTION core.payout_payout_account_state(bytea, uuid),
   core.payout_cmd_record_payout_account_verification(bytea, uuid, uuid, text, text, text)
   TO app_api;
 GRANT EXECUTE ON FUNCTION core.payout_payout_account_hold(uuid, text, timestamptz) TO app_worker;
+
+GRANT CREATE ON SCHEMA core TO cmd_money_owner;
+ALTER FUNCTION core.payout_param(text, text) OWNER TO cmd_money_owner;
+ALTER FUNCTION core.payout_titular(bytea, uuid) OWNER TO cmd_money_owner;
+ALTER FUNCTION core.payout_payout_account_state(bytea, uuid) OWNER TO cmd_money_owner;
+ALTER FUNCTION core.payout_payout_account_context(bytea, uuid, text, text) OWNER TO cmd_money_owner;
+ALTER FUNCTION core.payout_cmd_register_payout_account(bytea, uuid, text, text, bytea, text, text, text)
+  OWNER TO cmd_money_owner;
+ALTER FUNCTION core.payout_cmd_record_payout_account_verification(bytea, uuid, uuid, text, text, text)
+  OWNER TO cmd_money_owner;
+ALTER FUNCTION core.payout_payout_account_hold(uuid, text, timestamptz) OWNER TO cmd_money_owner;
+REVOKE CREATE ON SCHEMA core FROM cmd_money_owner;
