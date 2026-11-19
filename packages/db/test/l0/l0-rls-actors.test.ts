@@ -728,6 +728,8 @@ describe('RLS-5, RLS-12, RLS-18', () => {
           r.t.startsWith('kyc_') ||
           r.t.startsWith('risk_') ||
           r.t.startsWith('pricing_') ||
+          // US-707 (0159) : compte de versement, fonctions SECURITY DEFINER seulement
+          r.t.startsWith('payout_') ||
           r.t === 'booking_checkout_acceptance'
         ) {
           expect(r.api_policies, r.t).toBe(0);
