@@ -320,9 +320,17 @@ async function generate(
       await tx.query<{ r: string }>(COMPLETE, [bundleId, fileId, storageKey, sha(zip), zip.length])
     ).rows[0]!.r;
     // rejeu : le dossier n'est plus dû
+    const replayId = uuid();
     expect(
-      (await tx.query<{ r: string }>(COMPLETE, [bundleId, uuid(), storageKey, sha(zip), 1]))
-        .rows[0]!.r,
+      (
+        await tx.query<{ r: string }>(COMPLETE, [
+          bundleId,
+          replayId,
+          `evidence-bundles/${bundleId}/${replayId}.zip`,
+          sha(zip),
+          1,
+        ])
+      ).rows[0]!.r,
     ).toBe('NOT_DUE');
     return { outcome: r, zip, verdicts, messages: String(src['messages']) };
   });
@@ -342,7 +350,8 @@ describe.each(COUNTRIES)('US-308 — dossier de preuve ($country, $currency)', (
       const colleague = await staff(api, 'OPS_AGENT', [c.country]);
       const away = await staff(api, 'OPS_AGENT', [other.country]);
       const support = await staff(api, 'SUPPORT_AGENT', [c.country]);
-      // l'hôte du trip est aussi agent OPS (séparation des tâches, ADR-122)
+      // l'hôte du trip est aussi agent OPS (séparation des tâches, ADR-122), compte ACTIVE
+      await api.query(`SELECT test_fixture.iam_set_account_status($1, 'ACTIVE')`, [w.holder]);
       await api.query(
         `SELECT test_fixture.iam_grant_staff_role($1, $2, 'OPS_AGENT', $3::text[], NULL, NULL)`,
         [uuid(), w.holder, [c.country]],
