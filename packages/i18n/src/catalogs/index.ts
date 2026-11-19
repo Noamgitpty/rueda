@@ -305,8 +305,13 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  Version 93 (la 92 est celle d’US-223e) : signal « paiement hors plateforme » des textes publics
  de l’hôte (US-222d, ADR-176, comme Turo) : `common.listing.offPlatformPayment` (zone ou ville
  qui proposent un paiement hors de la plateforme : refus rattaché au champ).
+ Version 95 (la 94 est réservée à US-303) : compte de versement de l’hôte (US-707) : réponses de
+ l’API `common.payoutAccount.*` (état, enregistrement, co-hôte refusé, numéro fiscal exigé,
+ numéro de compte ou rail refusés, titulaire discordant, coffre, base ou rail du pays
+ indisponibles) et écran `web.a07.payout.*` (compte masqué aux 4 derniers chiffres, statut, retenue de 48 h après un
+ changement, formulaire).
  */
-export const CATALOG_VERSION = 93;
+export const CATALOG_VERSION = 95;
 
 /** Catalogues de base par langue ; la langue d'un profil de locale choisit le sien. */
 export const CATALOGS: Readonly<Record<CatalogLanguage, VersionedCatalog<MessageKey>>> = {

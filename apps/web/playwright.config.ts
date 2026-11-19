@@ -34,6 +34,8 @@ const PHONE = /phone\.spec\.ts$/;
 const IDENTITY = /identity\.spec\.ts$/;
 /** Liste de tâches de l'hôte A07 (US-123) : mêmes largeurs que l'inscription. */
 const HOST_VERIFICATION = /host-verification\.spec\.ts$/;
+/** Compte de versement de l'hôte (US-707) : e2e minimal, 360 px seulement. */
+const HOST_PAYOUT = /host-payout-account\.spec\.ts$/;
 /** Calendrier d'un véhicule de l'hôte A06 (US-119) : mêmes largeurs que l'inscription. */
 const HOST_CALENDAR = /host-calendar\.spec\.ts$/;
 /** Accueil A02 et réservations A05 de l'hôte (US-219) : mêmes largeurs que l'inscription. */
@@ -157,6 +159,7 @@ export default defineConfig({
         HOST,
         IDENTITY,
         HOST_VERIFICATION,
+        HOST_PAYOUT,
         HOST_CALENDAR,
         HOST_TRIPS,
         SEARCH,
