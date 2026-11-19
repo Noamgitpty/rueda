@@ -309,7 +309,12 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  `common.inspection.*` (refus des routes `/trips/{id}/inspections/…`), `web.inspection.*` (écran
  des photos de départ et de retour de l’hôte et du voyageur, angles du gabarit) et `web.s09c.done`
  de 10b §4.3 (texte portugais ajouté).
- Version 96 (la 94 est celle d’US-303 ; la 95 est réservée à US-707 par le pré-mortem du lot 3) : messagerie par trip et signal du marché gris (US-525, ADR-181) : `common.messages.*`
+ Version 95 (la 94 est celle d’US-303) : compte de versement de l’hôte (US-707) : réponses de
+ l’API `common.payoutAccount.*` (état, enregistrement, co-hôte refusé, numéro fiscal exigé,
+ numéro de compte ou rail refusés, titulaire discordant, coffre, base ou rail du pays
+ indisponibles) et écran `web.a07.payout.*` (compte masqué aux 4 derniers chiffres, statut, retenue de 48 h après un
+ changement, formulaire).
+ Version 96 (la 95 est celle d’US-707 ; la 94 celle d’US-303) : messagerie par trip et signal du marché gris (US-525, ADR-181) : `common.messages.*`
  (réponses des routes `/trips/{id}/messages` : fil, message envoyé, fil fermé, texte invalide,
  indisponible), `web.s16.*` (S16 : bandeau `web.s16.payOnPlatform` et vide `web.s16.empty` de 10b
  §4.3, prénom de l’autre partie, coordonnées masquées, rappels à l’expéditeur après un signal,

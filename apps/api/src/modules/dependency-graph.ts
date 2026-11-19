@@ -143,8 +143,10 @@ export const MODULES: Readonly<Record<ModuleCode, ModuleSpec>> = {
     name: 'Payouts',
     responsibility:
       "compte de versement vérifié de l'hôte, lots depuis la jambe HOST, compensation des débits (NETTING), gel et reprise",
-    dependsOn: ['STL', 'PAY', 'KYC'],
-    source: '17 §2.2 ; §2.1 PYO --> STL',
+    // IAM : SessionGuard des routes du compte de versement (US-707, ADR-180 ; écart assumé de
+    // 17 §2.2, à reporter, comme AVL --> IAM d'ADR-133)
+    dependsOn: ['STL', 'PAY', 'KYC', 'IAM'],
+    source: '17 §2.2 ; §2.1 PYO --> STL ; ADR-180 (PYO --> IAM)',
   },
   TRP: {
     code: 'TRP',

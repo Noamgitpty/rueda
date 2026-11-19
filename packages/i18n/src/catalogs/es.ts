@@ -1564,6 +1564,67 @@ export const ES_MESSAGES = {
     'No podemos guardar tu número fiscal de forma segura en este momento. Inténtalo más tarde.',
   'common.hostVerification.unavailable':
     'No podemos revisar tu solicitud de anfitrión en este momento. Inténtalo más tarde.',
+  // compte de versement de l’hôte (US-707)
+  'common.payoutAccount.state': 'Estado de tu cuenta de cobro.',
+  'common.payoutAccount.saved': 'Guardamos tu cuenta de cobro.',
+  'common.payoutAccount.manageForbidden':
+    'Solo el titular de la cuenta de anfitrión puede ver o cambiar la cuenta de cobro.',
+  'common.payoutAccount.taxRequired':
+    'Primero guarda tu número fiscal: lo comparamos con el titular de la cuenta.',
+  'common.payoutAccount.invalid': 'Revisa el número de cuenta: no tiene el formato esperado.',
+  'common.payoutAccount.railUnsupported':
+    'Elige un tipo de cuenta y un banco o billetera de la lista.',
+  'common.payoutAccount.holderMismatch':
+    'La cuenta debe estar a tu nombre: el titular o su número de documento no coinciden con tu identidad verificada.',
+  'common.payoutAccount.vaultUnavailable':
+    'No podemos guardar tu cuenta de forma segura en este momento. Inténtalo más tarde.',
+  'common.payoutAccount.unavailable': 'No pudimos cargar tu cuenta de cobro. Inténtalo más tarde.',
+  'common.payoutAccount.railUnavailable': 'Los pagos a anfitriones aún no están disponibles.',
+  'web.a07.payout.title': 'Tu cuenta de cobro',
+  'web.a07.payout.intro': 'Aquí te pagamos tus ganancias. La cuenta debe estar a tu nombre.',
+  'web.a07.payout.loginRequired': 'Inicia sesión para ver tu cuenta de cobro.',
+  'web.a07.payout.error': 'No pudimos cargar tu cuenta de cobro.',
+  'web.a07.payout.currentHeading': 'Cuenta registrada',
+  'web.a07.payout.masked': '•••• {last4}',
+  'web.a07.payout.kind.BANK_ACCOUNT': 'Cuenta bancaria',
+  'web.a07.payout.kind.WALLET': 'Billetera móvil',
+  'web.a07.payout.institutionOf': 'Banco o billetera: {institution}',
+  'web.a07.payout.status.VERIFIED': 'Verificada',
+  'web.a07.payout.status.PENDING': 'En verificación',
+  'web.a07.payout.status.REJECTED': 'Rechazada',
+  'web.a07.payout.pendingHint': 'El proveedor de pagos aún está revisando esta cuenta.',
+  'web.a07.payout.reject.HOLDER_MISMATCH':
+    'El titular de la cuenta no coincide con tu identidad verificada.',
+  'web.a07.payout.reject.TAX_ID_MISMATCH':
+    'El número de documento del titular no coincide con el tuyo.',
+  'web.a07.payout.reject.ACCOUNT_INVALID': 'El proveedor de pagos no reconoció esta cuenta.',
+  'web.a07.payout.hold': 'Cambiaste de cuenta: por seguridad, retenemos tus pagos hasta el {date}.',
+  'web.a07.payout.railsClosed':
+    'Los pagos a anfitriones en {country} aún no están abiertos. Te avisaremos.',
+  'web.a07.payout.taxFirst':
+    'Antes de registrar tu cuenta, guarda tu número fiscal: lo comparamos con el titular.',
+  'web.a07.payout.taxAction': 'Guardar mi número fiscal',
+  'web.a07.payout.formHeading': 'Registrar mi cuenta',
+  'web.a07.payout.changeHeading': 'Cambiar de cuenta',
+  'web.a07.payout.kindLabel': 'Tipo de cuenta',
+  'web.a07.payout.institution': 'Banco o billetera',
+  'web.a07.payout.institutionCode': 'Código del banco',
+  'web.a07.payout.institutionHint': 'Tal como te lo indica tu banco.',
+  'web.a07.payout.accountNumber': 'Número de cuenta',
+  'web.a07.payout.accountNumberHint':
+    'Solo cifras. Para una billetera móvil, tu número de teléfono.',
+  'web.a07.payout.holderGiven': 'Nombres del titular',
+  'web.a07.payout.holderSurnames': 'Apellidos del titular',
+  'web.a07.payout.holderHint': 'Tal como aparecen en tu documento.',
+  'web.a07.payout.holderTaxId': 'Número {kind} del titular',
+  'web.a07.payout.required': 'Completa este campo.',
+  'web.a07.payout.ownNameOnly':
+    'Solo cuentas a tu nombre: no aceptamos cuentas de otra persona ni de una empresa.',
+  'web.a07.payout.private': 'Guardamos el número cifrado y solo mostramos sus últimas 4 cifras.',
+  'web.a07.payout.changeHint':
+    'Si cambias de cuenta, retenemos tus pagos durante 48 horas por seguridad.',
+  'web.a07.payout.save': 'Guardar mi cuenta',
+  'web.a07.payout.back': 'Volver a mis tareas de anfitrión',
   'web.a07.loginRequired': 'Inicia sesión para ver tus tareas de anfitrión.',
   'web.a07.login': 'Iniciar sesión',
   'web.a07.noHostAccount': 'Aún no tienes una cuenta de anfitrión.',

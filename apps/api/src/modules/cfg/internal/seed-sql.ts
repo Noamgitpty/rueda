@@ -164,6 +164,12 @@ export const POST_SEED_PARAMS: readonly {
       'risk_control_deployed',
     ],
   },
+  {
+    prefix: 'payout_account_rails',
+    file: '0160_config_payout_account_params.sql',
+    story: 'US-707',
+    refs: '08 BR-PAYOUT-01 ; 16 PYO-001 ; ADR-180',
+  },
 ];
 
 /** La clé appartient au groupe : préfixe ou clé nouvelle nommée (`extraKeys`). */

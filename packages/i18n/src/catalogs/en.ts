@@ -1519,6 +1519,65 @@ export const EN_MESSAGES = {
     'We cannot store your tax number securely right now. Try again later.',
   'common.hostVerification.unavailable':
     'We cannot process your host request right now. Try again later.',
+  // compte de versement de l’hôte (US-707)
+  'common.payoutAccount.state': 'Status of your payout account.',
+  'common.payoutAccount.saved': 'We saved your payout account.',
+  'common.payoutAccount.manageForbidden':
+    'Only the holder of the host account can see or change the payout account.',
+  'common.payoutAccount.taxRequired':
+    'First save your tax number: we compare it with the account holder.',
+  'common.payoutAccount.invalid': 'Check the account number: it isn’t in the expected format.',
+  'common.payoutAccount.railUnsupported':
+    'Choose an account type and a bank or wallet from the list.',
+  'common.payoutAccount.holderMismatch':
+    'The account must be in your name: the holder or their ID number doesn’t match your verified identity.',
+  'common.payoutAccount.vaultUnavailable':
+    'We can’t store your account securely right now. Try again later.',
+  'common.payoutAccount.unavailable': 'We couldn’t load your payout account. Try again later.',
+  'common.payoutAccount.railUnavailable': 'Host payouts aren’t available yet.',
+  'web.a07.payout.title': 'Your payout account',
+  'web.a07.payout.intro': 'This is where we pay your earnings. The account must be in your name.',
+  'web.a07.payout.loginRequired': 'Log in to see your payout account.',
+  'web.a07.payout.error': 'We couldn’t load your payout account.',
+  'web.a07.payout.currentHeading': 'Registered account',
+  'web.a07.payout.masked': '•••• {last4}',
+  'web.a07.payout.kind.BANK_ACCOUNT': 'Bank account',
+  'web.a07.payout.kind.WALLET': 'Mobile wallet',
+  'web.a07.payout.institutionOf': 'Bank or wallet: {institution}',
+  'web.a07.payout.status.VERIFIED': 'Verified',
+  'web.a07.payout.status.PENDING': 'Being verified',
+  'web.a07.payout.status.REJECTED': 'Rejected',
+  'web.a07.payout.pendingHint': 'The payment provider is still checking this account.',
+  'web.a07.payout.reject.HOLDER_MISMATCH':
+    'The account holder doesn’t match your verified identity.',
+  'web.a07.payout.reject.TAX_ID_MISMATCH': 'The holder’s ID number doesn’t match yours.',
+  'web.a07.payout.reject.ACCOUNT_INVALID': 'The payment provider didn’t recognize this account.',
+  'web.a07.payout.hold':
+    'You changed your account: for your security, we’re holding your payouts until {date}.',
+  'web.a07.payout.railsClosed': 'Host payouts in {country} aren’t open yet. We’ll let you know.',
+  'web.a07.payout.taxFirst':
+    'Before you add your account, save your tax number: we compare it with the holder.',
+  'web.a07.payout.taxAction': 'Save my tax number',
+  'web.a07.payout.formHeading': 'Add my account',
+  'web.a07.payout.changeHeading': 'Change account',
+  'web.a07.payout.kindLabel': 'Account type',
+  'web.a07.payout.institution': 'Bank or wallet',
+  'web.a07.payout.institutionCode': 'Bank code',
+  'web.a07.payout.institutionHint': 'As given by your bank.',
+  'web.a07.payout.accountNumber': 'Account number',
+  'web.a07.payout.accountNumberHint': 'Digits only. For a mobile wallet, your phone number.',
+  'web.a07.payout.holderGiven': 'Holder’s first names',
+  'web.a07.payout.holderSurnames': 'Holder’s last names',
+  'web.a07.payout.holderHint': 'As shown on your ID.',
+  'web.a07.payout.holderTaxId': 'Holder’s ID number ({kind})',
+  'web.a07.payout.required': 'Fill in this field.',
+  'web.a07.payout.ownNameOnly':
+    'Accounts in your name only: we don’t accept accounts belonging to someone else or to a company.',
+  'web.a07.payout.private': 'We store the number encrypted and only show its last 4 digits.',
+  'web.a07.payout.changeHint':
+    'If you change accounts, we hold your payouts for 48 hours for your security.',
+  'web.a07.payout.save': 'Save my account',
+  'web.a07.payout.back': 'Back to my host tasks',
   'web.a07.loginRequired': 'Log in to see your host tasks.',
   'web.a07.login': 'Log in',
   'web.a07.noHostAccount': 'You do not have a host account yet.',

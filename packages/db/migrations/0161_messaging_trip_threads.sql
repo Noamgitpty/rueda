@@ -1,4 +1,4 @@
--- 0160 — MSG : messagerie par trip entre le voyageur et l'hôte, masquage des coordonnées et
+-- 0161 — MSG : messagerie par trip entre le voyageur et l'hôte, masquage des coordonnées et
 -- signal « paiement hors plateforme » (marché gris).
 -- US-525 ; 19 US-525 (« Given "escríbeme al +507 6xxx-xxxx", When le message est envoyé, Then le
 -- numéro est masqué et le message signalé ; un visiteur sans trip ne peut pas écrire » ; « Given un

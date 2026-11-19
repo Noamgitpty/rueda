@@ -1,5 +1,5 @@
 /**
- * US-525 (migration 0160, ADR-181) — messagerie par trip et signal du marché gris :
+ * US-525 (migration 0161, ADR-181) — messagerie par trip et signal du marché gris :
  * `core.messaging_thread_read` et `core.messaging_cmd_post_message` (SECURITY DEFINER, EXECUTE
  * app_api). Rôles de PRODUCTION seulement (assertion L0-05 par `connectAs`), au Panama (USD) et au
  * Paraguay (PYG sans décimale).

@@ -1220,6 +1220,8 @@ describe('contrat HTTP — /host/accounts/{orgId} et /listings (US-115)', () => 
           // relevé des gains de l'hôte (US-217a) : avl/testing/trip-receipt.contract
           !d.includes(' /host/accounts/{orgId}/earnings') &&
           !d.includes(' /host/accounts/{orgId}/verification') &&
+          // compte de versement (US-707) : pyo/testing/payout-account.contract
+          !d.includes(' /host/accounts/{orgId}/payout-account') &&
           !d.includes(' /host/accounts/{orgId}/vehicle-') &&
           !/ \/host\/accounts\/\{orgId\}\/vehicles\/\{vehicleId\}\/(declaration|documents|eligibility) /.test(
             d,

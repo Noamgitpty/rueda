@@ -16,6 +16,8 @@ import type { IamAuthOptions, StaffOptions } from './modules/iam/index.js';
 import { MsgTripMessagesModule } from './modules/msg/index.js';
 import type { MsgTripMessagesOptions } from './modules/msg/index.js';
 import { PayWebhookModule } from './modules/pay/index.js';
+import { PyoPayoutModule } from './modules/pyo/index.js';
+import type { PyoPayoutOptions } from './modules/pyo/index.js';
 import type { PayWebhookOptions } from './modules/pay/index.js';
 import { RiskHttpModule } from './modules/risk/index.js';
 import type { RiskHttpOptions } from './modules/risk/index.js';
@@ -55,6 +57,7 @@ export class ApiModule {
     search?: CatSearchOptions,
     checkout?: AvlCheckoutOptions,
     trp?: TrpInspectionOptions,
+    pyo?: PyoPayoutOptions,
     msg?: MsgTripMessagesOptions,
   ): DynamicModule {
     return {
@@ -77,6 +80,9 @@ export class ApiModule {
         TrpInspectionModule.register(trp),
         // après IAM : routes /identity gardées par SessionGuard ; rappels /kyc/webhooks (US-105)
         KycIdentityModule.register(kyc),
+        // US-707 : compte de versement de l'hôte /host/accounts/{orgId}/payout-account (après IAM) ;
+        // sans adaptateurs, 503
+        PyoPayoutModule.register(pyo),
         // US-525 : messagerie par trip /trips/{tripId}/messages (après IAM : SessionGuard) ; sans
         // adaptateurs, 503
         MsgTripMessagesModule.register(msg),

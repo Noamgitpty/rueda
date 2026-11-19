@@ -1,6 +1,6 @@
 /**
  * Magasin de la messagerie par trip (US-525, ADR-181) : port et lecture STRICTE des lignes de la
- * base (fonctions `core.messaging_thread_read` et `core.messaging_cmd_post_message` de 0160,
+ * base (fonctions `core.messaging_thread_read` et `core.messaging_cmd_post_message` de 0161,
  * SECURITY DEFINER, EXECUTE au seul `app_api`). La base juge la partie du trip de la SESSION,
  * masque les coordonnées et signale le marché gris ; l'API ne fait que traduire. Toute forme
  * inattendue ⇒ erreur (fail-closed : jamais un fil deviné, jamais un succès supposé). Aucune erreur

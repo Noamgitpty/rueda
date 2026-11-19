@@ -4,7 +4,7 @@
  * utilise `SessionGuard`).
  *
  * Adaptateurs choisis par l'appelant :
- * - production : `postgresMsgAdapters(pool)` (fonctions de 0160 sous `app_api`) ;
+ * - production : `postgresMsgAdapters(pool)` (fonctions de 0161 sous `app_api`) ;
  * - tests : FAKE du magasin (`../testing/`, absent de la compilation de production).
  * Sans options : magasin indisponible, 503 (fail-closed).
  */

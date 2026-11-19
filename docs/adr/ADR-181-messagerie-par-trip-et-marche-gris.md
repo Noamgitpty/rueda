@@ -2,7 +2,7 @@
 
 - **Statut** : PROPOSÉ (US-525, agent de story, rôle back-end / front-end, claude-opus-5-5, 2026-11-19). Revues exigées : celles de `node scripts/ci/check-story-reviews.mjs` (code, architecture, sécurité, ux, qa) ; RLS / rôles et `SECURITY DEFINER` sur un autre modèle que l'auteur.
 - **Complète** : ADR-176 (catalogue de motifs `core.catalog_offplatform_pattern` et file `GRAY_MARKET`, US-222d : **réutilisé**), ADR-114 et ADR-122 (filtre des contacts des textes publics de l'hôte, normalisation `core.catalog_public_text_norm` réutilisée), ADR-097 (files de revue, `core.support_enqueue_review`), ADR-064 (minimisation de ce que l'hôte voit du voyageur), ADR-118 (rétention, US-111), ADR-160 (trip du voyageur, US-214).
-- **Sources** : 19 US-525 (critères 1 et 2) ; 16 MSG-001 / MSG-007, A.8 (`MESSAGE_THREAD_CLOSED`) ; 08 BR-BOOK-02, BR-TRUST-02, BR-TRUST-06, `hostMessageTraced` ; 17 §2.2 (MSG), §2.3 (`message.trip_thread`, RLS-9, point 5), §3.1.3 (classe D), §3.2.12, §3.2.13 ; 10b S16 ; 22 OQ-BR-25 ; pré-mortem du lot 3 (L3-PM-45, L3-PM-46, L3-PM-49 ; réservation 0160, ADR-181, v96, 9926) ; BOARD N-400, N-401, N-416, N-418 ; DEC-FONDATEUR-22 (jamais plus lourd que Turo) ; `docs/team/COMME_TURO.md`.
+- **Sources** : 19 US-525 (critères 1 et 2) ; 16 MSG-001 / MSG-007, A.8 (`MESSAGE_THREAD_CLOSED`) ; 08 BR-BOOK-02, BR-TRUST-02, BR-TRUST-06, `hostMessageTraced` ; 17 §2.2 (MSG), §2.3 (`message.trip_thread`, RLS-9, point 5), §3.1.3 (classe D), §3.2.12, §3.2.13 ; 10b S16 ; 22 OQ-BR-25 ; pré-mortem du lot 3 (L3-PM-45, L3-PM-46, L3-PM-49 ; réservation 0160 renumérotée 0161 après la fusion d'US-707, ADR-181, v96, 9926) ; BOARD N-400, N-401, N-416, N-418 ; DEC-FONDATEUR-22 (jamais plus lourd que Turo) ; `docs/team/COMME_TURO.md`.
 
 ## Contexte
 

@@ -116,6 +116,10 @@ const PAY_PORT_TABLES = [
   'payment_deposit_hold',
 ] as const;
 
+// Compte de versement de l'hôte (US-707, 0159) : même socle RLS ; aucun droit applicatif,
+// commandes de cmd_money_owner, preuves par test/l0/l0-us707-payout-account.test.ts.
+const PYO_TABLES = ['payout_payout_account'] as const;
+
 // Socle de marque (US-034, 0042) : même socle RLS ; lecture publique d'app_api et commandes sous
 // iam_staff_owner vérifiées par test/l0/l0-brand.test.ts.
 const BRAND_TABLES = [
@@ -171,6 +175,7 @@ describe('schéma core (US-006)', () => {
           ...SUPPORT_TABLES,
           ...PAY_PORT_TABLES,
           ...BRAND_TABLES,
+          ...PYO_TABLES,
         ].sort(),
       );
       for (const r of rows) {
@@ -221,7 +226,7 @@ describe('schéma core (US-006)', () => {
                               ? 'privacy_cmd_owner'
                               : r.polname.startsWith('review_cmd_') // avis sur un trip (0104, US-218)
                                 ? 'review_cmd_owner'
-                                : r.polname.startsWith('messaging_cmd_') // parties du trip (0160, US-525)
+                                : r.polname.startsWith('messaging_cmd_') // parties du trip (0161, US-525)
                                   ? 'messaging_cmd_owner'
                                   : r.polname.startsWith('worker_')
                                     ? 'app_worker'

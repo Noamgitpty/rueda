@@ -1,6 +1,6 @@
 /**
  * FAKE du magasin de la messagerie par trip (US-525) — TESTS SEULEMENT (contrat HTTP sans base).
- * Reprend, en mémoire et en TRÈS simplifié, les issues de la migration 0160 : partie du trip de la
+ * Reprend, en mémoire et en TRÈS simplifié, les issues de la migration 0161 : partie du trip de la
  * session (sinon NOT_FOUND), fil fermé, texte vide ou trop long, réessai par identifiant. Le
  * masquage n'est qu'une imitation (suite de 7 chiffres ou plus) et le marché gris un seul mot
  * (« efectivo ») : les vraies règles, leur corpus et leurs faux positifs sont prouvés sur

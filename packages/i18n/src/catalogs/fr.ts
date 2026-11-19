@@ -1601,6 +1601,71 @@ export const FR_MESSAGES = {
     'Nous ne pouvons pas enregistrer ton numéro fiscal en sécurité pour le moment. Réessaie plus tard.',
   'common.hostVerification.unavailable':
     'Nous ne pouvons pas traiter ta demande d’hôte pour le moment. Réessaie plus tard.',
+  // compte de versement de l’hôte (US-707)
+  'common.payoutAccount.state': 'État de ton compte de versement.',
+  'common.payoutAccount.saved': 'Nous avons enregistré ton compte de versement.',
+  'common.payoutAccount.manageForbidden':
+    'Seul le titulaire du compte d’hôte peut voir ou changer le compte de versement.',
+  'common.payoutAccount.taxRequired':
+    'Enregistre d’abord ton numéro fiscal : nous le comparons au titulaire du compte.',
+  'common.payoutAccount.invalid': 'Vérifie le numéro de compte : il n’a pas le format attendu.',
+  'common.payoutAccount.railUnsupported':
+    'Choisis un type de compte et une banque ou un portefeuille dans la liste.',
+  'common.payoutAccount.holderMismatch':
+    'Le compte doit être à ton nom : le titulaire ou son numéro de pièce ne concorde pas avec ton identité vérifiée.',
+  'common.payoutAccount.vaultUnavailable':
+    'Nous ne pouvons pas enregistrer ton compte en sécurité pour le moment. Réessaie plus tard.',
+  'common.payoutAccount.unavailable':
+    'Nous n’avons pas pu charger ton compte de versement. Réessaie plus tard.',
+  'common.payoutAccount.railUnavailable':
+    'Les versements aux hôtes ne sont pas encore disponibles.',
+  'web.a07.payout.title': 'Ton compte de versement',
+  'web.a07.payout.intro': 'C’est là que nous te versons tes gains. Le compte doit être à ton nom.',
+  'web.a07.payout.loginRequired': 'Connecte-toi pour voir ton compte de versement.',
+  'web.a07.payout.error': 'Nous n’avons pas pu charger ton compte de versement.',
+  'web.a07.payout.currentHeading': 'Compte enregistré',
+  'web.a07.payout.masked': '•••• {last4}',
+  'web.a07.payout.kind.BANK_ACCOUNT': 'Compte bancaire',
+  'web.a07.payout.kind.WALLET': 'Portefeuille mobile',
+  'web.a07.payout.institutionOf': 'Banque ou portefeuille : {institution}',
+  'web.a07.payout.status.VERIFIED': 'Vérifié',
+  'web.a07.payout.status.PENDING': 'En cours de vérification',
+  'web.a07.payout.status.REJECTED': 'Refusé',
+  'web.a07.payout.pendingHint': 'Le prestataire de paiement vérifie encore ce compte.',
+  'web.a07.payout.reject.HOLDER_MISMATCH':
+    'Le titulaire du compte ne concorde pas avec ton identité vérifiée.',
+  'web.a07.payout.reject.TAX_ID_MISMATCH':
+    'Le numéro de pièce du titulaire ne concorde pas avec le tien.',
+  'web.a07.payout.reject.ACCOUNT_INVALID': 'Le prestataire de paiement n’a pas reconnu ce compte.',
+  'web.a07.payout.hold':
+    'Tu as changé de compte : par sécurité, nous retenons tes versements jusqu’au {date}.',
+  'web.a07.payout.railsClosed':
+    'Les versements aux hôtes ne sont pas encore ouverts au {country} ; nous te préviendrons.',
+  'web.a07.payout.taxFirst':
+    'Avant d’ajouter ton compte, enregistre ton numéro fiscal : nous le comparons au titulaire.',
+  'web.a07.payout.taxAction': 'Enregistrer mon numéro fiscal',
+  'web.a07.payout.formHeading': 'Ajouter mon compte',
+  'web.a07.payout.changeHeading': 'Changer de compte',
+  'web.a07.payout.kindLabel': 'Type de compte',
+  'web.a07.payout.institution': 'Banque ou portefeuille',
+  'web.a07.payout.institutionCode': 'Code de la banque',
+  'web.a07.payout.institutionHint': 'Tel que ta banque te l’indique.',
+  'web.a07.payout.accountNumber': 'Numéro de compte',
+  'web.a07.payout.accountNumberHint':
+    'Chiffres seulement. Pour un portefeuille mobile, ton numéro de téléphone.',
+  'web.a07.payout.holderGiven': 'Prénoms du titulaire',
+  'web.a07.payout.holderSurnames': 'Noms du titulaire',
+  'web.a07.payout.holderHint': 'Tels qu’ils figurent sur ta pièce d’identité.',
+  'web.a07.payout.holderTaxId': 'Numéro {kind} du titulaire',
+  'web.a07.payout.required': 'Remplis ce champ.',
+  'web.a07.payout.ownNameOnly':
+    'Comptes à ton nom seulement : nous n’acceptons ni le compte d’une autre personne ni celui d’une entreprise.',
+  'web.a07.payout.private':
+    'Nous gardons le numéro chiffré et n’en montrons que les 4 derniers chiffres.',
+  'web.a07.payout.changeHint':
+    'Si tu changes de compte, nous retenons tes versements pendant 48 heures, par sécurité.',
+  'web.a07.payout.save': 'Enregistrer mon compte',
+  'web.a07.payout.back': 'Revenir à mes tâches d’hôte',
   'web.a07.loginRequired': 'Connecte-toi pour voir tes tâches d’hôte.',
   'web.a07.login': 'Se connecter',
   'web.a07.noHostAccount': 'Tu n’as pas encore de compte d’hôte.',

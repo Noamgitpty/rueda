@@ -745,10 +745,11 @@
         "app_api",
         "catalog_cmd_owner",
         "cmd_hold_owner",
+        "cmd_money_owner",
         "host_view_owner",
         "kyc_cmd_owner"
       ],
-      "story": "US-107, US-115, US-123, US-219, US-223"
+      "story": "US-107, US-115, US-123, US-219, US-223, US-707"
     },
     {
       "signature": "core.iam_phone_otp_state(bytea)",
@@ -2184,6 +2185,48 @@
       "owner": "cmd_hold_owner",
       "execute": ["app_api"],
       "story": "US-303"
+    },
+    {
+      "signature": "core.kyc_host_payout_identity(uuid,text,text)",
+      "family": "kyc_cmd",
+      "owner": "kyc_cmd_owner",
+      "execute": ["cmd_money_owner"],
+      "story": "US-707"
+    },
+    {
+      "signature": "core.payout_payout_account_state(bytea,uuid)",
+      "family": "cmd_money",
+      "owner": "cmd_money_owner",
+      "execute": ["app_api"],
+      "story": "US-707"
+    },
+    {
+      "signature": "core.payout_payout_account_context(bytea,uuid,text,text)",
+      "family": "cmd_money",
+      "owner": "cmd_money_owner",
+      "execute": ["app_api"],
+      "story": "US-707"
+    },
+    {
+      "signature": "core.payout_cmd_register_payout_account(bytea,uuid,text,text,bytea,text,text,text)",
+      "family": "cmd_money",
+      "owner": "cmd_money_owner",
+      "execute": ["app_api"],
+      "story": "US-707"
+    },
+    {
+      "signature": "core.payout_cmd_record_payout_account_verification(bytea,uuid,uuid,text,text,text)",
+      "family": "cmd_money",
+      "owner": "cmd_money_owner",
+      "execute": ["app_api"],
+      "story": "US-707"
+    },
+    {
+      "signature": "core.payout_payout_account_hold(uuid,text,timestamp with time zone)",
+      "family": "cmd_money",
+      "owner": "cmd_money_owner",
+      "execute": ["app_worker"],
+      "story": "US-707"
     },
     {
       "signature": "core.messaging_thread_read(bytea,uuid,integer)",

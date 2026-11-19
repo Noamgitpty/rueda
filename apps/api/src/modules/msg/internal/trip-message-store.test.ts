@@ -1,7 +1,7 @@
 /**
- * US-525 — lecture STRICTE des lignes de la base (0160) : toute forme inattendue est une erreur
+ * US-525 — lecture STRICTE des lignes de la base (0161) : toute forme inattendue est une erreur
  * (fail-closed, 503), jamais un fil deviné ni un succès supposé. Formes tirées des signatures de
- * `core.messaging_thread_read` et `core.messaging_cmd_post_message` (migration 0160).
+ * `core.messaging_thread_read` et `core.messaging_cmd_post_message` (migration 0161).
  */
 import { describe, expect, it } from 'vitest';
 import { postOf, threadOf, TripMessageStoreError } from './trip-message-store.js';

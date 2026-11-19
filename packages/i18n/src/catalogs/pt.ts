@@ -1565,6 +1565,69 @@ export const PT_MESSAGES = {
     'Não conseguimos guardar seu número de identificação fiscal com segurança agora. Tente mais tarde.',
   'common.hostVerification.unavailable':
     'Não conseguimos processar seu pedido de anfitrião agora. Tente mais tarde.',
+  // compte de versement de l’hôte (US-707)
+  'common.payoutAccount.state': 'Situação da sua conta de recebimento.',
+  'common.payoutAccount.saved': 'Salvamos sua conta de recebimento.',
+  'common.payoutAccount.manageForbidden':
+    'Só o titular da conta de anfitrião pode ver ou alterar a conta de recebimento.',
+  'common.payoutAccount.taxRequired':
+    'Primeiro salve seu número fiscal: nós o comparamos com o titular da conta.',
+  'common.payoutAccount.invalid': 'Confira o número da conta: ele não está no formato esperado.',
+  'common.payoutAccount.railUnsupported':
+    'Escolha um tipo de conta e um banco ou carteira da lista.',
+  'common.payoutAccount.holderMismatch':
+    'A conta precisa estar no seu nome: o titular ou o número do documento dele não confere com a sua identidade verificada.',
+  'common.payoutAccount.vaultUnavailable':
+    'Não conseguimos guardar sua conta com segurança agora. Tente mais tarde.',
+  'common.payoutAccount.unavailable':
+    'Não conseguimos carregar sua conta de recebimento. Tente mais tarde.',
+  'common.payoutAccount.railUnavailable': 'Os pagamentos a anfitriões ainda não estão disponíveis.',
+  'web.a07.payout.title': 'Sua conta de recebimento',
+  'web.a07.payout.intro': 'É aqui que pagamos seus ganhos. A conta precisa estar no seu nome.',
+  'web.a07.payout.loginRequired': 'Entre na sua conta para ver sua conta de recebimento.',
+  'web.a07.payout.error': 'Não conseguimos carregar sua conta de recebimento.',
+  'web.a07.payout.currentHeading': 'Conta cadastrada',
+  'web.a07.payout.masked': '•••• {last4}',
+  'web.a07.payout.kind.BANK_ACCOUNT': 'Conta bancária',
+  'web.a07.payout.kind.WALLET': 'Carteira digital',
+  'web.a07.payout.institutionOf': 'Banco ou carteira: {institution}',
+  'web.a07.payout.status.VERIFIED': 'Verificada',
+  'web.a07.payout.status.PENDING': 'Em verificação',
+  'web.a07.payout.status.REJECTED': 'Recusada',
+  'web.a07.payout.pendingHint': 'O provedor de pagamentos ainda está analisando esta conta.',
+  'web.a07.payout.reject.HOLDER_MISMATCH':
+    'O titular da conta não confere com a sua identidade verificada.',
+  'web.a07.payout.reject.TAX_ID_MISMATCH':
+    'O número do documento do titular não confere com o seu.',
+  'web.a07.payout.reject.ACCOUNT_INVALID': 'O provedor de pagamentos não reconheceu esta conta.',
+  'web.a07.payout.hold':
+    'Você trocou de conta: por segurança, seguramos seus pagamentos até {date}.',
+  'web.a07.payout.railsClosed':
+    'Os pagamentos a anfitriões em {country} ainda não foram abertos. Vamos avisar você.',
+  'web.a07.payout.taxFirst':
+    'Antes de cadastrar sua conta, salve seu número fiscal: nós o comparamos com o titular.',
+  'web.a07.payout.taxAction': 'Salvar meu número fiscal',
+  'web.a07.payout.formHeading': 'Cadastrar minha conta',
+  'web.a07.payout.changeHeading': 'Trocar de conta',
+  'web.a07.payout.kindLabel': 'Tipo de conta',
+  'web.a07.payout.institution': 'Banco ou carteira',
+  'web.a07.payout.institutionCode': 'Código do banco',
+  'web.a07.payout.institutionHint': 'Como o seu banco informa.',
+  'web.a07.payout.accountNumber': 'Número da conta',
+  'web.a07.payout.accountNumberHint':
+    'Só números. Para uma carteira digital, o seu número de celular.',
+  'web.a07.payout.holderGiven': 'Nomes do titular',
+  'web.a07.payout.holderSurnames': 'Sobrenomes do titular',
+  'web.a07.payout.holderHint': 'Como aparecem no seu documento.',
+  'web.a07.payout.holderTaxId': 'Número {kind} do titular',
+  'web.a07.payout.required': 'Preencha este campo.',
+  'web.a07.payout.ownNameOnly':
+    'Só contas no seu nome: não aceitamos contas de outra pessoa nem de uma empresa.',
+  'web.a07.payout.private': 'Guardamos o número criptografado e só mostramos os 4 últimos dígitos.',
+  'web.a07.payout.changeHint':
+    'Se você trocar de conta, seguramos seus pagamentos por 48 horas, por segurança.',
+  'web.a07.payout.save': 'Salvar minha conta',
+  'web.a07.payout.back': 'Voltar para minhas tarefas de anfitrião',
   'web.a07.loginRequired': 'Entre na sua conta para ver suas tarefas de anfitrião.',
   'web.a07.login': 'Entrar',
   'web.a07.noHostAccount': 'Você ainda não tem uma conta de anfitrião.',

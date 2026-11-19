@@ -39,6 +39,7 @@ import type {
 import { postgresCtrAdapters } from './modules/ctr/index.js';
 import { postgresIamAdapters, postgresStaffAdapters } from './modules/iam/index.js';
 import { postgresKycAdapters } from './modules/kyc/index.js';
+import { postgresPyoAdapters } from './modules/pyo/index.js';
 import { postgresMsgAdapters } from './modules/msg/index.js';
 import {
   PgDepositRailConfigReader,
@@ -184,7 +185,9 @@ async function bootstrap(): Promise<void> {
       // (DEC-FONDATEUR-20), coffre KMS et stockage à verrou objet (US-003, Q-007) indisponibles :
       // envoi des photos 503 (fail-closed, aucun FAKE en production).
       postgresTrpAdapters(pool),
-      // US-525 : messagerie par trip (fonctions de 0160 sous app_api)
+      // US-707 : compte de versement (aucun coffre ni PSP avant le lot C : enregistrement 503)
+      postgresPyoAdapters(pool),
+      // US-525 : messagerie par trip (fonctions de 0161 sous app_api)
       postgresMsgAdapters(pool),
     ),
     { rawBody: true },

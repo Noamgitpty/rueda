@@ -349,7 +349,7 @@ describe('configuration pays : structure et droits', () => {
             ...(t === 'config_country' || t === 'config_param_value'
               ? [{ t, pol: 'kyc_cmd_read', cmd: 'r', roles: 'kyc_cmd_owner' }]
               : []),
-            // messagerie par trip (US-525, 0160) : fenêtre d'écriture review_window_days seulement ;
+            // messagerie par trip (US-525, 0161) : fenêtre d'écriture review_window_days seulement ;
             // codes des devises (un montant n'est pas un téléphone masqué)
             ...(t === 'config_currency' || t === 'config_param_value'
               ? [{ t, pol: 'messaging_cmd_read', cmd: 'r', roles: 'messaging_cmd_owner' }]
