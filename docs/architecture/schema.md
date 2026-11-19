@@ -7,7 +7,7 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 
 ## Synthèse
 
-- 155 migrations ; 129 tables ; 3 vues ; 736 politiques RLS ; 300 fonctions `SECURITY DEFINER` ; 257 autres fonctions.
+- 156 migrations ; 130 tables ; 3 vues ; 739 politiques RLS ; 302 fonctions `SECURITY DEFINER` ; 258 autres fonctions.
 - Tables sans RLS `ENABLE` + `FORCE` : aucune.
 - Rôles applicatifs avec `SUPERUSER` ou `BYPASSRLS` : aucun.
 
@@ -170,6 +170,7 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 | `0152_payment_refund_lock_order_credit_collection` | PAY : durcissement argent n° 2 d'US-224 (suites des revues de #239, partie 224f : BOARD |
 | `0153_payment_deposit_decision_before_opening` | PAY : décision de la caution, corrections « avant ouverture d'un pays » (US-702b). |
 | `0154_catalog_request_mode_entry` | CAT : points d'entrée du mode sur demande (recherche, zones, fiche S03, devis S05). |
+| `0155_redteam_l2_money_fixes` | Correctifs des constats de la red team argent du lot 2 (US-222d ; rapport |
 
 ## Rôles
 
@@ -1656,6 +1657,31 @@ Politiques RLS :
 
 - `catalog_cmd_all` (ALL, PERMISSIVE, catalog_cmd_owner) USING `true` WITH CHECK `true`
 - `cmd_hold_read` (SELECT, PERMISSIVE, cmd_hold_owner) USING `true`
+- `migrator_all` (ALL, PERMISSIVE, migrator) USING `true` WITH CHECK `true`
+
+### `core.catalog_offplatform_pattern`
+
+- RLS : ENABLE + FORCE ; propriétaire `migrator`
+- Droits : migrator: DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE
+
+| Colonne | Type | NOT NULL | Défaut |
+| ------- | ---- | -------- | ------ |
+| `code` | `text` | oui | — |
+| `lang` | `text` | oui | — |
+| `pattern` | `text` | oui | — |
+| `story` | `text` | oui | — |
+
+Contraintes :
+
+- `catalog_offplatform_pattern_code_format` : `CHECK (code ~ '^[A-Z][A-Z0-9_]{1,63}$'::text)`
+- `catalog_offplatform_pattern_lang_valid` : `CHECK (lang = ANY (ARRAY['*'::text, 'es'::text, 'en'::text, 'fr'::text, 'pt'::text]))`
+- `catalog_offplatform_pattern_pattern_size` : `CHECK (char_length(pattern) >= 3 AND char_length(pattern) <= 300)`
+- `catalog_offplatform_pattern_pkey` : `PRIMARY KEY (code)`
+- `catalog_offplatform_pattern_story_format` : `CHECK (story ~ '^US-[0-9]{3}$'::text)`
+
+Politiques RLS :
+
+- `catalog_cmd_read` (SELECT, PERMISSIVE, catalog_cmd_owner) USING `true`
 - `migrator_all` (ALL, PERMISSIVE, migrator) USING `true` WITH CHECK `true`
 
 ### `core.catalog_value_class_rule`
@@ -4447,6 +4473,7 @@ Politiques RLS :
 Déclencheurs :
 
 - `operation_trip_attach_guard` : `CREATE TRIGGER operation_trip_attach_guard BEFORE UPDATE OF trip_id ON core.payment_payment_operation FOR EACH ROW WHEN (old.trip_id IS DISTINCT FROM new.trip_id) EXECUTE FUNCTION core.payment_guard_operation_trip_attach()`
+- `payment_operation_chargeback_freeze` : `CREATE TRIGGER payment_operation_chargeback_freeze AFTER INSERT OR UPDATE OF status, trip_id ON core.payment_payment_operation FOR EACH ROW WHEN (new.kind = 'CHARGEBACK'::text) EXECUTE FUNCTION core.settlement_freeze_host_on_chargeback()`
 - `payment_operation_legs_check` : `CREATE CONSTRAINT TRIGGER payment_operation_legs_check AFTER INSERT ON core.payment_payment_operation DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION core.payment_assert_operation_legs()`
 - `refund_instance_gate` : `CREATE TRIGGER refund_instance_gate BEFORE UPDATE OF status ON core.payment_payment_operation FOR EACH ROW EXECUTE FUNCTION core.payment_refund_instance_gate()`
 - `refund_instance_sync` : `CREATE TRIGGER refund_instance_sync AFTER UPDATE OF status ON core.payment_payment_operation FOR EACH ROW WHEN (new.kind = 'REFUND'::text) EXECUTE FUNCTION core.payment_refund_instance_sync()`
@@ -6103,6 +6130,7 @@ Index :
 
 Politiques RLS :
 
+- `cmd_money_chargeback_freeze` (UPDATE, PERMISSIVE, cmd_money_owner) USING `((leg = 'HOST'::text) AND (NOT frozen))` WITH CHECK `((leg = 'HOST'::text) AND frozen AND (frozen_reason = 'CHARGEBACK'::text) AND (EXISTS ( SELECT 1 FROM core.payment_payment_operation o WHERE ((o.trip_id = settlement_trip_leg_balance.trip_id) AND (o.kind = 'CHARGEBACK'::text) AND (o.status <> 'FAILED'::text)))))`
 - `cmd_money_conversion_ins` (INSERT, PERMISSIVE, cmd_money_owner) WITH CHECK `((app.actor_kind() = 'WORKER'::text) AND (app.worker_name() = ANY (ARRAY['booking_conversion'::text, 'disposition_sweeper'::text, 'payment_intent_sweeper'::text])) AND (captured_minor = 0) AND (refunded_minor = 0) AND (reallocated_in_minor = 0) AND (reallocated_out_minor = 0) AND (released_minor = 0) AND (NOT frozen) AND (EXISTS ( SELECT 1 FROM core.booking_payment_disposition d WHERE ((d.trip_id = settlement_trip_leg_balance.trip_id) AND (d.disposition = 'CONVERSION'::text)))))`
 - `cmd_money_conversion_upd` (UPDATE, PERMISSIVE, cmd_money_owner) USING `((app.actor_kind() = 'WORKER'::text) AND (app.worker_name() = ANY (ARRAY['booking_conversion'::text, 'disposition_sweeper'::text, 'payment_intent_sweeper'::text])) AND (captured_minor = 0) AND (refunded_minor = 0) AND (reallocated_in_minor = 0) AND (reallocated_out_minor = 0) AND (released_minor = 0) AND (NOT frozen) AND (EXISTS ( SELECT 1 FROM core.booking_payment_disposition d WHERE ((d.trip_id = settlement_trip_leg_balance.trip_id) AND (d.disposition = 'CONVERSION'::text)))))` WITH CHECK `((app.actor_kind() = 'WORKER'::text) AND (app.worker_name() = ANY (ARRAY['booking_conversion'::text, 'disposition_sweeper'::text, 'payment_intent_sweeper'::text])) AND (refunded_minor = 0) AND (reallocated_in_minor = 0) AND (reallocated_out_minor = 0) AND (released_minor = 0) AND (NOT frozen) AND (captured_minor = ( SELECT g.amount_minor FROM (core.booking_payment_disposition d JOIN core.payment_payment_operation_leg g ON ((g.operation_id = d.operation_id))) WHERE ((d.trip_id = settlement_trip_leg_balance.trip_id) AND (d.disposition = 'CONVERSION'::text) AND (g.leg = settlement_trip_leg_balance.leg)))))`
 - `cmd_money_ins` (INSERT, PERMISSIVE, cmd_money_owner) WITH CHECK `((app.actor_kind() = 'WORKER'::text) AND (app.worker_name() = 'payment_command'::text) AND (captured_minor = 0) AND (refunded_minor = 0) AND (reallocated_in_minor = 0) AND (reallocated_out_minor = 0) AND (released_minor = 0) AND (NOT frozen))`
@@ -6655,6 +6683,7 @@ Chacune a un propriétaire `NOLOGIN` dédié (ADR-053) et un `search_path` figé
 | `core.ctr_published_documents(p_country text, p_language text)` | `TABLE(doc_kind text, version integer, is_major boolean, locale text, title text, content_hash bytea, is_draft boolean, valid_from timestamp with time zone)` | `iam_auth_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; iam_auth_owner: EXECUTE |
 | `core.ctr_signup_consents_guard()` | `trigger` | `iam_auth_owner` | search_path=pg_catalog, pg_temp | iam_auth_owner: EXECUTE |
 | `core.ctr_staff_cmd_publish_document(p_token_hash bytea, p_request_id uuid, p_kind text, p_country text, p_is_major boolean, p_valid_from timestamp with time zone, p_legal_review_ref text, p_bodies jsonb)` | `TABLE(outcome text, version integer)` | `iam_staff_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; iam_staff_owner: EXECUTE |
+| `core.finance_chargeback_facts()` | `TABLE(country_code text, imputed boolean, host_frozen boolean)` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; cmd_money_owner: EXECUTE |
 | `core.finance_earning_lines(p_org uuid)` | `TABLE(line_kind text, trip_id uuid, country_code text, currency text, period_month text, event_at timestamp with time zone, trip_status text, source text, settlement_version integer, reason text, amount_minor bigint, share_base_minor bigint, host_plan_code text, host_share_pct text)` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | cmd_money_owner: EXECUTE |
 | `core.finance_host_statement(p_org uuid, p_month text)` | `jsonb` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | cmd_hold_owner: EXECUTE ; cmd_money_owner: EXECUTE |
 | `core.finance_insurer_ledger_facts()` | `TABLE(country_code text, currency text, collected_entries_minor bigint, collected_legs_minor bigint, settled_entries_minor bigint, settled_variations_minor bigint, billed_minor bigint, due_minor bigint, unattributed boolean)` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; cmd_money_owner: EXECUTE |
@@ -6780,6 +6809,7 @@ Chacune a un propriétaire `NOLOGIN` dédié (ADR-053) et un `search_path` figé
 | `core.settlement_cmd_post_host_penalty(p_settlement_id uuid)` | `uuid` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | cmd_money_owner: EXECUTE |
 | `core.settlement_cmd_record(p_settlement_id uuid, p_trip_id uuid, p_segment_no integer, p_version integer, p_supersedes_id uuid, p_trip_row_version integer, p_record jsonb)` | `uuid` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; cmd_money_owner: EXECUTE |
 | `core.settlement_cmd_request_finance_action(p_token_hash bytea, p_request_id uuid, p_action text, p_subject_id uuid, p_reason text)` | `TABLE(outcome text, approval_id uuid)` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; cmd_money_owner: EXECUTE |
+| `core.settlement_freeze_host_on_chargeback()` | `trigger` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | cmd_money_owner: EXECUTE |
 | `core.settlement_post_advance_receivable()` | `trigger` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | cmd_money_owner: EXECUTE |
 | `core.settlement_post_cancellation_penalty()` | `trigger` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | cmd_money_owner: EXECUTE |
 | `core.settlement_post_insurer_collection()` | `trigger` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | cmd_money_owner: EXECUTE |
@@ -6905,6 +6935,7 @@ Chacune a un propriétaire `NOLOGIN` dédié (ADR-053) et un `search_path` figé
 | `core.catalog_slug(p_name text)` | `text` | `migrator` | catalog_cmd_owner: EXECUTE ; migrator: EXECUTE |
 | `core.catalog_text_has_address_marker(p_text text)` | `boolean` | `catalog_cmd_owner` | catalog_cmd_owner: EXECUTE |
 | `core.catalog_text_has_contact(p_text text)` | `boolean` | `catalog_cmd_owner` | catalog_cmd_owner: EXECUTE |
+| `core.catalog_text_offers_offplatform_payment(p_text text)` | `boolean` | `catalog_cmd_owner` | catalog_cmd_owner: EXECUTE |
 | `core.catalog_value_class_resolve(p_country text, p_variant uuid, p_make_text text, p_model_text text)` | `TABLE(value_class text, source text, rule_id uuid)` | `migrator` | catalog_cmd_owner: EXECUTE ; migrator: EXECUTE |
 | `core.catalog_vehicle_assign_value_class(p_vehicle uuid)` | `text` | `migrator` | catalog_cmd_owner: EXECUTE ; migrator: EXECUTE |
 | `core.catalog_vehicle_blockers(p_vehicle uuid, p_strict boolean)` | `text[]` | `migrator` | catalog_cmd_owner: EXECUTE ; migrator: EXECUTE |
