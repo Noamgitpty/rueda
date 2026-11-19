@@ -2,7 +2,7 @@
  * Lots de versement à l'hôte (US-708, ADR-185 ; 08 SM-6, BR-PAYOUT-02 ; 17 §3.2.9) : port de
  * stockage du travailleur `payout_scheduler`. Une instance par transaction du travailleur
  * `payment_command` (la base l'exige pour chaque commande). Aucun montant n'est calculé ici :
- * montants, clés, rangs et motifs de retenue viennent des commandes de la migration 0166.
+ * montants, clés, rangs et motifs de retenue viennent des commandes de la migration 0165.
  */
 import type { OperationStatus, OperationStatusStore } from '../../pay/index.js';
 

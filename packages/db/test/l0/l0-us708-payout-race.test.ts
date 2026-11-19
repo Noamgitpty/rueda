@@ -1,5 +1,5 @@
 /**
- * US-708 (migration 0166, ADR-185) — RT-L3-V03, préparation doublée : deux travailleurs
+ * US-708 (migration 0165, ADR-185) — RT-L3-V03, préparation doublée : deux travailleurs
  * `payment_command` préparent le versement du MÊME trip, chacun sur sa connexion (une connexion
  * par client, libérée). Le premier tient le verrou du trip ; le second attend (observé dans
  * `pg_locks`) puis lit le trip déjà mis dans un lot : un seul item, un seul lot, `release_at`

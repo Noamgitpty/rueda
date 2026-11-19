@@ -285,7 +285,7 @@ describe('configuration pays : structure et droits', () => {
             ...(t === 'config_param_value'
               ? [{ t, pol: 'cmd_money_advance_cap_read', cmd: 'r', roles: 'cmd_money_owner' }]
               : []),
-            // lots de versement (US-708, 0166) : fériés du pays pour payout_at (J+2 / J+5 ouvrés)
+            // lots de versement (US-708, 0165) : fériés du pays pour payout_at (J+2 / J+5 ouvrés)
             ...(t === 'config_holiday_calendar'
               ? [{ t, pol: 'cmd_money_payout_sel', cmd: 'r', roles: 'cmd_money_owner' }]
               : []),

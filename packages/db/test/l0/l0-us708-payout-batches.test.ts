@@ -1,5 +1,5 @@
 /**
- * US-708 (migration 0166, ADR-185) — lots de versement à l'hôte depuis la jambe HOST (19 US-708
+ * US-708 (migration 0165, ADR-185) — lots de versement à l'hôte depuis la jambe HOST (19 US-708
  * critères 1 à 3 ; 16 PYO-002 ; 08 BR-PAYOUT-02, SM-6 ; 22 OQ-P2P-08), en USD (PA) et en PYG sans
  * décimale (PY). Sous les rôles de PRODUCTION (`withRole` : assertion L0-05 en tête), travailleur
  * `payment_command` ; chaque transaction est ANNULÉE.

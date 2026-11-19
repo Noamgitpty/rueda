@@ -1,6 +1,6 @@
 /**
  * Adaptateur PostgreSQL du stockage des lots de versement (US-708, ADR-185) : appels des
- * commandes de 0166 (`core.payout_*`), de l'enregistrement d'ordre et du report sur les soldes de
+ * commandes de 0165 (`core.payout_*`), de l'enregistrement d'ordre et du report sur les soldes de
  * PAY/STL (`core.payment_cmd_record_operation`, `core.settlement_cmd_apply_leg_movement`), sous la
  * transaction du travailleur `payment_command` reçue. Montants en texte (bigint exact).
  */

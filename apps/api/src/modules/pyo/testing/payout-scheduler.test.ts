@@ -2,7 +2,7 @@
  * Ordonnanceur des versements à l'hôte (US-708, ADR-185 ; 19 US-708 critère 3 ; 08 SM-6,
  * BR-PAYOUT-02 ; 17 §2.8 `releaseLeg`, `payout`) : le PSP est le FAKE de `@rueda/fake-adapters`
  * (compteurs d'appels réels), derrière un connecteur de test minimal ; le stockage est une mémoire
- * qui suit les règles de la migration 0166 (clé `release:{trip}:1:HOST:i{n}`, rang suivant après un
+ * qui suit les règles de la migration 0165 (clé `release:{trip}:1:HOST:i{n}`, rang suivant après un
  * refus reçu seulement, versement après les libérations, motifs relus à chaque étape).
  *
  * - variante A, interrupteur ouvert (mémoire seulement) : `releaseLeg` émis UNE fois par item, même
@@ -144,7 +144,7 @@ interface Trip {
   readonly host: bigint;
 }
 
-/** Mémoire des lots : règles de 0166 (motifs, clé et rang de l'item, versement après libération). */
+/** Mémoire des lots : règles de 0165 (motifs, clé et rang de l'item, versement après libération). */
 class MemoryStore implements PayoutBatchStore {
   status = 'SCHEDULED';
   holds: string[] = [];
@@ -236,7 +236,7 @@ class MemoryStore implements PayoutBatchStore {
   recordRelease(input: RecordReleaseInput): Promise<string> {
     const item = this.items.find((i) => i.trip === input.tripId);
     const live = item?.op === null || item?.op === undefined ? undefined : this.ops.get(item.op);
-    // garde de 0166 : lot READY, clé, rang et montant de l'item, aucun ordre vivant
+    // garde de 0165 : lot READY, clé, rang et montant de l'item, aucun ordre vivant
     if (
       item === undefined ||
       this.status !== 'READY' ||

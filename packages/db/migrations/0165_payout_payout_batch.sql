@@ -1,4 +1,4 @@
--- 0166 — PYO : lots de versement à l'hôte (SM-6) depuis la jambe HOST ; écrivain unique de
+-- 0165 — PYO : lots de versement à l'hôte (SM-6) depuis la jambe HOST ; écrivain unique de
 -- `trip_leg_balance.release_at` (S-06).
 -- US-708 ; ADR-185 ; 19 US-708 (critères 1 à 3) ; 16 PYO-002 ; 08 BR-PAYOUT-02 (R08), E7 règle 6,
 -- SM-6 ; 17 v6 §0.1 (interrupteurs), §2.8 (`releaseLeg`, `payout`, clés), §2.9, §3.2.9

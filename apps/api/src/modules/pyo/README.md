@@ -11,9 +11,9 @@ PYO verse à l'hôte sa part (17 §2.2, §2.10) :
 - compensation des débits du `host_ledger` (`NETTING`, SM-6b, US-709) ;
 - gel (`ON_HOLD`) en cas de litige, de chargeback ou de réclamation, puis reprise (US-314).
 
-PYO ne calcule pas la part de l'hôte (c'est STL) et ne déplace aucun fonds lui-même : il ordonne au PSP (port `PaymentProvider` de PAY). Aucun versement si `payouts_enabled[pays]` vaut `false` : la garde est en base depuis US-049 (`core.settlement_release_blocker`, migration 0054, ADR-088) et, depuis US-708, sur les lots (motif `PAYOUTS_DISABLED`, aucune émission `INITIATED`, migration 0166). Les interrupteurs sont LUS en base (`core.config_go_live`, absent ⇒ false) ; aucun n'est jamais écrit par PYO.
+PYO ne calcule pas la part de l'hôte (c'est STL) et ne déplace aucun fonds lui-même : il ordonne au PSP (port `PaymentProvider` de PAY). Aucun versement si `payouts_enabled[pays]` vaut `false` : la garde est en base depuis US-049 (`core.settlement_release_blocker`, migration 0054, ADR-088) et, depuis US-708, sur les lots (motif `PAYOUTS_DISABLED`, aucune émission `INITIATED`, migration 0165). Les interrupteurs sont LUS en base (`core.config_go_live`, absent ⇒ false) ; aucun n'est jamais écrit par PYO.
 
-### Lots de versement depuis la jambe HOST (US-708, migration 0166, ADR-185)
+### Lots de versement depuis la jambe HOST (US-708, migration 0165, ADR-185)
 
 - **Préparation** (tâche `payout_scheduler`, 60 s, travailleur `payment_command`) : chaque trip `COMPLETED` dont la fin effective est connue (première transition `RETURNED`) entre dans UN lot (unique trip, segment, jambe) par compte d'hôte, devise, type, `payout_at` et compte PSP (`core.payout_cmd_prepare_trip`).
 - **Calendrier** (08 BR-PAYOUT-02, OQ-P2P-08, PROPOSÉ) : `payout_at` = 2ᵉ jour ouvré du pays après la date locale de la fin (`payout_business_day_offset`), 5ᵉ au premier versement vers le compte de versement courant (`first_payout_business_day`), à `payout_batch_local_time` (10:00) ; samedi, dimanche et fériés du pays (`config_holiday_calendar`) exclus ; calendrier absent ⇒ aucun lot (`CALENDAR_MISSING`).
@@ -38,8 +38,8 @@ PYO ne calcule pas la part de l'hôte (c'est STL) et ne déplace aucun fonds lui
 | Entité (17 §3.2.9) | État                                                                                                  |
 | ------------------ | ----------------------------------------------------------------------------------------------------- |
 | `payout_account`   | `core.payout_payout_account` (US-707, 0159 ; écarts PROPOSÉS : pas d'`account_bidx`, type de pièce)   |
-| `payout_batch`     | `core.payout_payout_batch` (US-708, 0166 ; écarts PROPOSÉS : variante, compte PSP, premier versement) |
-| `payout_item`      | `core.payout_payout_item` (US-708, 0166 ; un trip, un lot ; ordre `LEG_RELEASE` de rang n)            |
+| `payout_batch`     | `core.payout_payout_batch` (US-708, 0165 ; écarts PROPOSÉS : variante, compte PSP, premier versement) |
+| `payout_item`      | `core.payout_payout_item` (US-708, 0165 ; un trip, un lot ; ordre `LEG_RELEASE` de rang n)            |
 
 17 §3.2.9 liste aussi `finance_approval` (table `core.settlement_finance_approval`, migration 0036, possédée par STL) et `tax_remittance` (module FIN).
 

@@ -1,4 +1,4 @@
--- 9921 — fixtures des preuves des lots de versement à l'hôte (US-708, migration 0166). TESTS
+-- 9921 — fixtures des preuves des lots de versement à l'hôte (US-708, migration 0165). TESTS
 -- SEULEMENT.
 --
 -- JAMAIS appliquée hors tests : seul le harnais ajoute test-migrations/, et seulement à la base
@@ -12,7 +12,7 @@
 -- applicatif ne les lit), et forcer l'état d'un lot pour prouver les gardes de l'envoi. Les
 -- attendus des tests viennent de 19 US-708, 08 BR-PAYOUT-02, SM-6 et des vecteurs de l'export des
 -- oracles, jamais de ces fixtures. AUCUNE fixture n'écrit un interrupteur de mise en service
--- (17 §0.1) : la garde de 0166 refuse INITIATED tant que payouts_enabled vaut false, même ici.
+-- (17 §0.1) : la garde de 0165 refuse INITIATED tant que payouts_enabled vaut false, même ici.
 --
 -- Retour arrière : DROP FUNCTION test_fixture.us708_* (voir la liste des droits en fin de fichier).
 
@@ -201,7 +201,7 @@ AS $fn$
 $fn$;
 
 -- État forcé d'un lot (preuve des gardes de l'envoi) : READY (compensé, net = brut, aucun motif)
--- ou INITIATED (refusé par la garde de 0166 tant que payouts_enabled vaut false)
+-- ou INITIATED (refusé par la garde de 0165 tant que payouts_enabled vaut false)
 CREATE FUNCTION test_fixture.us708_force_batch(p_batch_id uuid, p_status text)
   RETURNS void
   LANGUAGE plpgsql
