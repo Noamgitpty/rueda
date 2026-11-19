@@ -24,8 +24,11 @@
 --      a. gel de la jambe HOST du trip dès qu'un CHARGEBACK non échoué y est enregistré (et à
 --         chaque changement de statut ou de trip) par un déclencheur SECURITY DEFINER
 --         (`core.settlement_freeze_host_on_chargeback`, cmd_money_owner) ; `frozen_reason`
---         CHARGEBACK ; droit de colonne `frozen, frozen_reason` accordé à cmd_money_owner avec une
---         politique qui n'admet QUE le gel de la jambe HOST d'un trip qui porte un chargeback ;
+--         CHARGEBACK ; droit de colonne `frozen, frozen_reason` accordé à cmd_money_owner et
+--         politique `cmd_money_chargeback_freeze` (gel de la jambe HOST d'un trip à chargeback). La
+--         borne « jambe HOST seulement » tient au CODE (seul ce déclencheur écrit `frozen`, sur
+--         HOST) : sous `payment_command`, la politique permissive `cmd_money_upd` (0039) admet aussi,
+--         au niveau des droits, le gel d'une autre jambe par une fonction de cmd_money_owner ;
 --         garde `core.settlement_trip_leg_balance_guard` (CREATE OR REPLACE depuis 0027) : un gel
 --         ne se lève ni ne se requalifie jamais (le dégel est la décision FIN d'US-709) ; une
 --         jambe gelée refuse déjà tout mouvement (`leg_frozen`) ;
@@ -747,9 +750,10 @@ BEGIN
     RAISE EXCEPTION 'trip_leg_balance: cumuls monotones, identité figée'
       USING ERRCODE = 'integrity_constraint_violation', CONSTRAINT = 'trip_leg_balance_monotonic';
   END IF;
-  -- US-222d (F-L2-ARG-04) : un gel n'est jamais levé ni requalifié ici (le dégel est la décision
-  -- FIN d'US-709) ; QUI peut geler quoi relève des politiques (cmd_money_chargeback_freeze : la
-  -- jambe HOST d'un trip à chargeback ; 08 E7 règle 7 gèle aussi la part INSURER à l'ouverture)
+  -- US-222d (F-L2-ARG-04) : un gel n'est jamais levé ni requalifié, par aucun rôle (le dégel est
+  -- la décision FIN d'US-709). La garde ne borne pas QUELLE jambe se gèle (08 E7 règle 7 gèle aussi
+  -- la part INSURER à l'ouverture) : la jambe HOST seule tient au code du déclencheur de 0155 et,
+  -- hors payment_command, à la politique cmd_money_chargeback_freeze
   IF OLD.frozen AND (NOT NEW.frozen OR NEW.frozen_reason IS DISTINCT FROM OLD.frozen_reason) THEN
     RAISE EXCEPTION 'trip_leg_balance: un gel n''est jamais levé ni requalifié'
       USING ERRCODE = 'integrity_constraint_violation',
@@ -760,8 +764,10 @@ END
 $fn$;
 
 -- 3.2 Droit de colonne et politique du gel (cmd_money_owner ; s'ajoute aux politiques de 0039 et
--- 0149 : seul le gel de la jambe HOST d'un trip à chargeback, dans tout contexte de paiement —
--- payment_command, webhook_ingest)
+-- 0149 : le gel de la jambe HOST d'un trip à chargeback, dans tout contexte de paiement —
+-- payment_command, webhook_ingest). Sous payment_command, `cmd_money_upd` (0039, sans condition
+-- sur `frozen`) admet déjà toute écriture des colonnes accordées : la borne HOST y tient au code
+-- (seul le déclencheur ci-dessous écrit `frozen`) ; la garde 3.1 interdit tout dégel partout.
 GRANT UPDATE (frozen, frozen_reason) ON core.settlement_trip_leg_balance TO cmd_money_owner;
 CREATE POLICY cmd_money_chargeback_freeze ON core.settlement_trip_leg_balance FOR UPDATE
   TO cmd_money_owner

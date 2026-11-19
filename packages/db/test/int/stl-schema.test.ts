@@ -99,7 +99,8 @@ describe('schéma STL (US-018, 0027)', () => {
       // (0149, ADR-170), le report de la capture convertie (cmd_apply_conversion_capture) : ses
       // politiques sont réservées aux travailleurs de conversion et miroir exact de la capture ;
       // depuis US-222d (0155, ADR-176, F-L2-ARG-04), le gel de la jambe HOST au chargeback
-      // (déclencheur de cmd_money_owner) : politique qui n'admet que ce gel, jamais un dégel
+      // (déclencheur de cmd_money_owner) : politique de ce gel hors payment_command ; la garde
+      // interdit tout dégel (l0-us222d-chargeback-freeze)
       expect(
         rows
           .filter(

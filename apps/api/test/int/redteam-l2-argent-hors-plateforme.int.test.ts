@@ -315,6 +315,15 @@ describe.each(CASES)(
         });
         expect(flagged.outcome).toBe('DONE');
         expect(await queue()).toContain(flagged.id!);
+        // faux positif connu et documenté (revue qa n° 5, revue argent n° 7 ; ADR-176) : un mot du
+        // catalogue employé honnêtement dans le libellé (« cajero de pago en efectivo ») signale le
+        // lieu à l'ops, sans jamais le bloquer : le lieu est créé, l'ops tranche (jamais plus lourd
+        // que Turo) ; le même mot dans la zone publique serait refusé
+        const honest = await createLocationRow(tx, h.hash, h.org, {
+          label: 'Junto al cajero de pago en efectivo del centro comercial',
+        });
+        expect(honest.outcome).toBe('DONE');
+        expect(await queue()).toContain(honest.id!);
       });
       await invariant(c.country);
     });
