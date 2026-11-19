@@ -566,18 +566,25 @@ describe.each(COUNTRIES)(
           await a.query('BEGIN');
           await b.query('BEGIN');
           try {
-            for (const cl of [a, b]) {
-              await cl.query(`SELECT pg_catalog.set_config('app.virtual_now', $1, true)`, [AT]);
-            }
+            // A à l'heure virtuelle ; B à l'horloge réelle (platform.now() = clock_timestamp()) : son heure
+            // doit être lue APRÈS l'attente du verrou (17 §1.3 point 1)
+            await a.query(`SELECT pg_catalog.set_config('app.virtual_now', $1, true)`, [AT]);
             const firstA = await validate(a, x.h, x.trip, 'CHECKOUT', 42500, 6);
             expect(firstA).toMatchObject({ outcome: 'DONE', completed_at: null });
             const pidB = await backendPid(b);
             const pending = validate(b, x.g, x.trip, 'CHECKOUT', 42500, 6);
             await waitUntilBlocked(a, pidB, 'advisory');
+            // instant de la base pendant que B attend : l'heure de B doit être postérieure
+            const waited = (await a.query<{ t: Date }>('SELECT pg_catalog.clock_timestamp() AS t'))
+              .rows[0]!.t;
             await a.query('COMMIT');
             const second = await pending;
             expect(second).toMatchObject({ outcome: 'DONE', trip_status: 'RETURNED' });
-            expect(iso(second['completed_at'])).toBe(AT);
+            const at2 = second['validated_at'] as Date;
+            expect(at2.getTime()).toBeGreaterThan(waited.getTime());
+            expect((second['completed_at'] as Date).getTime()).toBeGreaterThanOrEqual(
+              at2.getTime(),
+            );
             await b.query('COMMIT');
           } catch (error) {
             await a.query('ROLLBACK').catch(() => undefined);

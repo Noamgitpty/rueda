@@ -609,7 +609,7 @@ DECLARE
   v_reason text;
   v_kind   text := pg_catalog.current_setting('app.actor_kind', true);
   v_actor  text := pg_catalog.current_setting('app.actor_id', true);
-  v_at     timestamptz := platform.now();
+  v_at     timestamptz;
 BEGIN
   SELECT * INTO p FROM core.trip_handover_party(p_token_hash, p_trip_id);
   IF p.user_id IS NULL THEN
@@ -621,6 +621,8 @@ BEGIN
     RETURN;
   END IF;
   PERFORM core.trip_handover_lock(p.trip_id);
+  -- heure lue APRÈS l'attente des verrous (17 §1.3 point 1)
+  v_at := platform.now();
   SELECT x.status, x.checked_at INTO c
     FROM core.trip_ops_identity_check AS x WHERE x.trip_id = p.trip_id;
   IF c.status IS NOT NULL THEN
@@ -704,7 +706,7 @@ DECLARE
   v_done     timestamptz;
   v_kind     text := pg_catalog.current_setting('app.actor_kind', true);
   v_actor    text := pg_catalog.current_setting('app.actor_id', true);
-  v_now      timestamptz := platform.now();
+  v_now      timestamptz;
 BEGIN
   IF p_kind IS NULL OR p_kind NOT IN ('CHECKIN', 'CHECKOUT') THEN
     RETURN QUERY SELECT 'NOT_FOUND'::text, NULL::timestamptz, NULL::timestamptz, NULL::text;
@@ -717,6 +719,9 @@ BEGIN
   END IF;
   v_other := CASE p.role WHEN 'HOST' THEN 'GUEST' ELSE 'HOST' END;
   PERFORM core.trip_handover_lock(p.trip_id);
+  -- heure lue APRÈS l'attente des verrous (17 §1.3 point 1) : la seconde validation porte l'heure
+  -- à laquelle elle s'applique, jamais celle de son arrivée derrière la première
+  v_now := platform.now();
   SELECT tr.status, tr.checkin_validated_at INTO t
     FROM core.booking_trip AS tr WHERE tr.id = p.trip_id;
   -- idempotence : la validation d'origine, et l'heure de fin si la transition a eu lieu
