@@ -744,8 +744,8 @@ BEGIN
                     OR (SELECT pg_catalog.array_agg(k ORDER BY k)
                           FROM pg_catalog.jsonb_object_keys(f) AS k)
                        IS DISTINCT FROM ARRAY['piece', 'reason', 'ref']
-                    OR COALESCE(f ->> 'piece', '') !~ '^[A-Z][A-Z_]{1,31}$'
-                    OR COALESCE(f ->> 'reason', '') !~ '^[A-Z][A-Z_]{1,31}$'
+                    OR COALESCE(f ->> 'piece', '') !~ '^[A-Z][A-Z0-9_]{1,63}$'
+                    OR COALESCE(f ->> 'reason', '') !~ '^[A-Z][A-Z0-9_]{1,63}$'
                     OR COALESCE(f ->> 'ref', '') !~ '^[A-Za-z0-9/_.:-]{1,160}$') THEN
     RAISE EXCEPTION 'evidence bundle: input invalid' USING ERRCODE = 'invalid_parameter_value';
   END IF;
