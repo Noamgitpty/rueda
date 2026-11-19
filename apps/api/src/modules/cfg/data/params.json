@@ -1269,6 +1269,35 @@
       "values": { "PA": 48, "PY": 48 }
     },
     {
+      "key": "payout_account_rails",
+      "type": "JSON",
+      "unit": "payout_rails",
+      "scopes": ["COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "08 BR-PAYOUT-01 (ACH au PA ; SIPAP et portefeuilles au PY) ; 16 PYO-001 ; ADR-180",
+      "status": "PROPOSÉ ; formats et établissements à confirmer avec le PSP (lot C) ; absent ⇒ aucun compte enregistrable",
+      "decision": "PROPOSED",
+      "decisionRef": "US-707 (ADR-180) : rails du compte de versement de l’hôte, par pays",
+      "values": {
+        "PA": {
+          "BANK_ACCOUNT": {
+            "institutionPattern": "^[0-9]{3,9}$",
+            "accountPattern": "^[0-9]{6,20}$"
+          }
+        },
+        "PY": {
+          "BANK_ACCOUNT": {
+            "institutionPattern": "^[0-9]{3,9}$",
+            "accountPattern": "^[0-9]{6,20}$"
+          },
+          "WALLET": {
+            "institutions": ["TIGO_MONEY", "BILLETERA_PERSONAL"],
+            "accountPattern": "^09[0-9]{8}$"
+          }
+        }
+      }
+    },
+    {
       "key": "reconciliation_delta_threshold_bps",
       "type": "BPS",
       "scopes": ["COUNTRY"],

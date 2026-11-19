@@ -61,6 +61,9 @@ const SPEC_GAPS: Readonly<Partial<Record<ModuleCode, readonly ModuleCode[]>>> = 
   // US-208 (ADR-133) : SessionGuard (IAM) sur les routes du checkout, servies par AVL ; à reporter
   // dans 17 §2.2 par une demande de fusion revue
   AVL: ['IAM'],
+  // US-707 (ADR-180) : SessionGuard (IAM) sur les routes du compte de versement, servies par PYO ;
+  // à reporter dans 17 §2.2 par une demande de fusion revue
+  PYO: ['IAM'],
 };
 
 /** Colonne « Dépend de » de 17 §2.2, par module ; `null` pour « tous ». */

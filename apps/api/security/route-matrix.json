@@ -563,6 +563,14 @@
       "acces": "session",
       "idor": "compte d'hôte {orgId} d'un autre hôte : 404 HOST_ACCOUNT_NOT_FOUND, aucun dossier écrit (17 §2.3 point 5, L1-PM-11 ; preuves base : l0-us123)"
     },
+    "GET /host/accounts/{orgId}/payout-account": {
+      "acces": "session",
+      "idor": "compte d'hôte {orgId} d'un autre hôte, ou dont la personne n'est que co-hôte : 404 HOST_ACCOUNT_NOT_FOUND comme un compte inconnu, rien n'est révélé (17 §2.3 point 5 ; payout.manage_account du seul titulaire ; preuves base : l0-us707)"
+    },
+    "POST /host/accounts/{orgId}/payout-account": {
+      "acces": "session",
+      "idor": "compte d'hôte {orgId} d'un autre hôte ou d'un co-hôte : 404 HOST_ACCOUNT_NOT_FOUND, aucun compte écrit (17 §2.3 point 5 ; preuves base : l0-us707)"
+    },
     "POST /host/accounts/{orgId}/verification/tax-profile": {
       "acces": "session",
       "idor": "compte d'hôte {orgId} d'un autre hôte : 404 HOST_ACCOUNT_NOT_FOUND avant tout chiffrement, aucun profil écrit (17 §2.3 point 5, L1-PM-11 ; preuves base : l0-us123)"

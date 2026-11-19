@@ -2791,6 +2791,54 @@
         "manual_action_id": "C1"
       }
     },
+    "core.payout_payout_account": {
+      "lifecycle": "B",
+      "subjects": [
+        {
+          "column": "user_id",
+          "type": "USER"
+        },
+        {
+          "column": "org_id",
+          "type": "ORG"
+        }
+      ],
+      "export": "controller",
+      "columns": {
+        "id": "C1",
+        "org_id": "C1",
+        "user_id": "C1",
+        "country_code": "C1",
+        "currency": "C1",
+        "rail_kind": "C1",
+        "institution_code": "C1",
+        "account_number_enc": {
+          "class": "C3",
+          "erasure": "crypto-shredding",
+          "key": ["account_key_subject_type", "account_key_subject_id"]
+        },
+        "account_key_subject_type": "C1",
+        "account_key_subject_id": "C1",
+        "account_last4": {
+          "class": "C2",
+          "erasure": "pseudonymisation"
+        },
+        "holder_name": {
+          "class": "C2",
+          "erasure": "pseudonymisation"
+        },
+        "holder_tax_id_kind": "C1",
+        "status": "C1",
+        "reject_reason": "C1",
+        "provider_ref": "C1",
+        "verified_at": "C1",
+        "change_hold_until": "C1",
+        "replaced_at": "C1",
+        "row_version": "C1",
+        "created_at": "C1",
+        "updated_at": "C1"
+      }
+    },
     "core.kyc_host_tax_profile": {
       "lifecycle": "B",
       "subjects": [

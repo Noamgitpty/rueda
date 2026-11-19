@@ -41,6 +41,7 @@ import {
 } from '../modules/ctr/index.js';
 import { postgresIamAdapters, postgresStaffAdapters } from '../modules/iam/index.js';
 import { postgresKycAdapters } from '../modules/kyc/index.js';
+import { postgresPyoAdapters } from '../modules/pyo/index.js';
 import type { StaffOptions } from '../modules/iam/index.js';
 import { postgresPayAdapters } from '../modules/pay/index.js';
 import {
@@ -888,6 +889,23 @@ async function requestOf(
         path: `/host/accounts/${id}/verification/tax-profile`,
         body: { kind: 'TAXPAYER_ID', taxId: '1234567-8' },
       };
+    // compte de versement (US-707) : compte d'hôte d'aucun acteur de la cellule ⇒ 404 (IDOR,
+    // co-hôte compris) ; aucun coffre en production (503) après le contrôle du compte
+    case 'GET /host/accounts/{orgId}/payout-account':
+      return { method: 'GET', path: `/host/accounts/${id}/payout-account` };
+    case 'POST /host/accounts/{orgId}/payout-account':
+      return {
+        method: 'POST',
+        path: `/host/accounts/${id}/payout-account`,
+        body: {
+          kind: 'BANK_ACCOUNT',
+          institution: '0123',
+          accountNumber: '000123456789',
+          holderGivenNames: 'Ana',
+          holderSurnames: 'Pérez',
+          holderTaxId: '1234567-8',
+        },
+      };
     default:
       throw new Error(`route sans requête de test : ${route}`);
   }
@@ -1152,6 +1170,8 @@ beforeAll(async () => {
       postgresCheckoutAdapters(client, (ctx) =>
         new QuoteService(new CountryConfigService()).params(ctx),
       ),
+      // compte de versement (US-707) : commandes réelles de 0159 sous app_api ; aucun coffre (503)
+      postgresPyoAdapters(client),
     ),
     { rawBody: true, logger: false },
   );

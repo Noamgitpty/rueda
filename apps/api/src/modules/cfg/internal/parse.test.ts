@@ -385,6 +385,35 @@ describe('validation fail-closed (CONFIG_INVALID)', () => {
         ((param(s, 'refund_reminders_days')['values'] as Record<string, unknown>)['PA'] = [3, 1]),
       /strictement croissants/,
     ],
+    // US-707 (ADR-180) : rails du compte de versement, forme fermée
+    [
+      'rails : type de rail inconnu',
+      (s) =>
+        ((param(s, 'payout_account_rails')['values'] as Record<string, unknown>)['PA'] = {
+          CASH: { accountPattern: '^[0-9]{6}$', institutionPattern: '^[0-9]{3}$' },
+        }),
+      /rails :/,
+    ],
+    [
+      'rails : motif non ancré',
+      (s) =>
+        ((param(s, 'payout_account_rails')['values'] as Record<string, unknown>)['PA'] = {
+          BANK_ACCOUNT: { accountPattern: '[0-9]+', institutionPattern: '^[0-9]{3}$' },
+        }),
+      /rails :/,
+    ],
+    [
+      'rails : établissements et motif à la fois',
+      (s) =>
+        ((param(s, 'payout_account_rails')['values'] as Record<string, unknown>)['PY'] = {
+          WALLET: {
+            accountPattern: '^09[0-9]{8}$',
+            institutions: ['A1'],
+            institutionPattern: '^[0-9]{3}$',
+          },
+        }),
+      /rails :/,
+    ],
     [
       'unité JSON inconnue',
       (s) => (param(s, 'refund_reminders_days')['unit'] = 'days'),

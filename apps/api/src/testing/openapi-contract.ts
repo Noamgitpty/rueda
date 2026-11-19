@@ -404,6 +404,7 @@ export const CONTRACT_SUITES: Readonly<Record<string, string>> = {
   '/host/accounts/{orgId}/terms': 'modules/ctr/testing/host-terms.contract.test.ts',
   // inscription et vérification de l'hôte, profil fiscal (US-123, module KYC)
   '/host/accounts/{orgId}/verification': 'modules/kyc/testing/host-verification.contract.test.ts',
+  '/host/accounts/{orgId}/payout-account': 'modules/pyo/testing/payout-account.contract.test.ts',
   '/listings': 'modules/cat/testing/host-listings.contract.test.ts',
   // recherche publique (US-201)
   '/search': 'modules/cat/testing/search.contract.test.ts',
