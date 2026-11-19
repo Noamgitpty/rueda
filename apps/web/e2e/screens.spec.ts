@@ -359,6 +359,20 @@ async function openGuestReceipt(
   await expect(page.locator('[data-testid="s09r-total"]')).toBeVisible();
 }
 
+/** Trip fixe du double dont le fil S16 est ouvert (US-525, e2e/stub-api.mjs). */
+const MESSAGES_TRIP = '00000000-0000-4000-8000-000000525e2e';
+
+/** S16 — messages du trip du voyageur (US-525) : fil du double, un message de l'hôte. */
+async function openTripMessages(
+  page: Page,
+  context: BrowserContext,
+  language: Language,
+): Promise<void> {
+  await signInGuest(context, language);
+  await page.goto(`/trips/${MESSAGES_TRIP}/messages`);
+  await expect(page.locator('[data-testid="s16-thread"]')).toBeVisible();
+}
+
 /**
  * A10 → A08 de l'hôte (US-217 partie 217b) : mois du double qui porte des gains (acquis, à
  * liquider, pénalité en ligne séparée), compte au marché à deux décimales.
@@ -806,6 +820,12 @@ export const SCREENS: readonly Screen[] = [
     name: 'photos-depart',
     source: 'S09 · check-in, US-303',
     open: (page, context, language) => openInspection(page, context, language),
+  },
+  // US-525 : messages du trip (S16), fil du voyageur
+  {
+    name: 'messages-voyage',
+    source: 'S16, US-525',
+    open: (page, context, language) => openTripMessages(page, context, language),
   },
   { name: 'vitrine-composants', source: 'US-032', open: at('/ui?width=mobile') },
 ];

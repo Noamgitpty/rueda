@@ -3010,4 +3010,44 @@ export const PT_MESSAGES = {
   'web.inspection.retry': 'Tentar de novo',
   'web.inspection.link.checkin': 'Fotos de retirada do carro',
   'web.inspection.link.checkout': 'Fotos de devolução do carro',
+  // US-525 (ADR-181) : messagerie par trip (S16) et rappels du signal hors plateforme
+  'common.messages.thread': 'Mensagens da viagem.',
+  'common.messages.sent': 'Mensagem enviada.',
+  'common.messages.threadClosed':
+    'Esta conversa foi encerrada: você pode lê-la, mas não pode mais enviar mensagens.',
+  'common.messages.invalid': 'Escreva uma mensagem de 1 a 2.000 caracteres.',
+  'common.messages.unavailable':
+    'Não conseguimos carregar nem enviar mensagens agora. Seu texto continua aqui: tente de novo em alguns minutos.',
+  'web.s16.heading': 'Mensagens',
+  'web.s16.back': 'Voltar para a viagem',
+  'web.s16.with': 'Conversa com {name}',
+  'web.s16.withUnknown': 'Conversa da viagem',
+  'web.s16.payOnPlatform': 'Pague só pelo {brand}: nunca por fora.',
+  'web.s16.privacy':
+    'Você só vê o primeiro nome. Ocultamos telefones, e-mails e links para proteger vocês dois.',
+  'web.s16.empty':
+    'Ainda não há mensagens. Escreva para {host_name} se tiver uma dúvida sobre a entrega.',
+  'web.s16.emptyHost': 'Ainda não há mensagens. Escreva para {name} para combinar a entrega.',
+  'web.s16.you': 'Você',
+  'web.s16.role.GUEST': 'Viajante',
+  'web.s16.role.HOST': 'Anfitrião',
+  'web.s16.role.CO_HOST': 'Coanfitrião',
+  'web.s16.sentAt': 'Enviada em {date}',
+  'web.s16.masked': 'Ocultamos dados de contato nesta mensagem.',
+  'web.s16.hidden': 'A equipe de suporte ocultou esta mensagem.',
+  'web.s16.closesAt': 'Você pode escrever até {date}.',
+  'web.s16.closed':
+    'Esta conversa foi encerrada: você pode lê-la, mas não pode mais enviar mensagens.',
+  'web.s16.loadError': 'Não conseguimos carregar as mensagens.',
+  'web.s16.retry': 'Tentar de novo',
+  'web.s16.form.label': 'Sua mensagem',
+  'web.s16.form.hint':
+    'Combinem aqui o horário e o local da entrega. Nunca compartilhe dados de pagamento.',
+  'web.s16.form.send': 'Enviar',
+  'web.s16.form.required': 'Escreva uma mensagem.',
+  'web.s16.notice.contactMasked':
+    'Ocultamos os dados de contato da sua mensagem: a conversa fica no {brand}, onde você está protegido.',
+  'web.s16.notice.offPlatform':
+    'Lembre-se: todo pagamento passa pelo {brand}. Um pagamento por fora não tem proteção nem reembolso, e nossa equipe revisa essas mensagens.',
+  'web.s16.sent': 'Mensagem enviada.',
 } as const satisfies Readonly<Record<MessageKey, Message>>;

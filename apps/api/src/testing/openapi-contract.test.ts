@@ -23,6 +23,7 @@ import { CONSTANCIA_MESSAGES, CONTRACT_MESSAGES, LEGAL_MESSAGES } from '../modul
 import { AUTH_MESSAGES } from '../modules/iam/index.js';
 import { KYC_MESSAGES } from '../modules/kyc/index.js';
 import { PYO_MESSAGES } from '../modules/pyo/index.js';
+import { MSG_MESSAGES } from '../modules/msg/index.js';
 import { OPS_MESSAGES } from '../modules/sup/index.js';
 import { QUOTE_MESSAGES } from '../modules/prc/index.js';
 import { RISK_MESSAGES } from '../modules/risk/index.js';
@@ -243,6 +244,7 @@ const CATALOG: ReadonlyMap<string, ReadonlySet<number>> = (() => {
     OPS_MESSAGES,
     KYC_MESSAGES,
     PYO_MESSAGES,
+    MSG_MESSAGES,
     CHECKOUT_MESSAGES,
     PAYMENT_MESSAGES,
     HOST_REQUEST_MESSAGES,

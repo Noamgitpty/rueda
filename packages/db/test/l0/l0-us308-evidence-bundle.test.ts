@@ -62,10 +62,15 @@ const STATUS =
 const OPEN = `SELECT outcome, file_id::text AS file_id, storage_key, sha256, bytes, manifest_sha256
   FROM core.support_staff_open_evidence_bundle($1, $2::uuid, $3::uuid, $4)`;
 const CAPTURE = 'SELECT * FROM core.trip_cmd_open_photo_capture($1, $2::uuid, $3, $4)';
+const POST = 'SELECT * FROM core.messaging_cmd_post_message($1, $2::uuid, $3::uuid, $4)';
+/** Numéros FICTIFS de test, au format de chaque pays (données de test, pas du code). */
+const PHONE: Readonly<Record<string, string>> = { PA: '+507 6123-4567', PY: '+595 981 123 456' };
+const HELLO = 'Hola, llego a las diez al punto de entrega';
 const ADD = `SELECT * FROM core.trip_cmd_add_inspection_photo($1, $2::uuid, $3, $4::uuid, $5, $6::uuid,
                                                               $7, $8::bigint, $9, $10::timestamptz)`;
 const DUE = 'SELECT bundle_id::text AS bundle_id FROM core.claim_worker_evidence_due($1)';
-const SOURCE = `SELECT outcome, manifest, manifest_sha256, requested_by::text AS requested_by, contracts
+const SOURCE = `SELECT outcome, manifest, manifest_sha256, requested_by::text AS requested_by, contracts,
+       messages
   FROM core.claim_worker_evidence_source($1::uuid)`;
 const COMPLETE =
   'SELECT core.claim_worker_complete_evidence_bundle($1::uuid, $2::uuid, $3, $4, $5::bigint) AS r';
@@ -84,6 +89,8 @@ interface World {
   readonly guest: string;
   readonly holder: string;
   readonly photos: readonly Photo[];
+  /** Texte reçu du message de l'hôte (numéro en clair : preuve, jamais dans le manifeste). */
+  readonly phoneMessage: string;
 }
 
 /** Clé USER d'une personne (coffre de l'application, sous app_api, contexte de la personne). */
@@ -175,7 +182,13 @@ async function world(
     await setVirtualNow(tx, plus(T0, 60));
     photos.push(await shoot(tx, keys, store, g, trip, 'EXT_01'));
     photos.push(await shoot(tx, keys, store, h, trip, 'ODOMETER'));
-    return { trip, guest, holder, photos };
+    // fil de messages (US-525) : un message ordinaire, un message dont le numéro est masqué (signalé)
+    const phoneMessage = `Mi número es ${PHONE[c.country]!}`;
+    for (const body of [HELLO, phoneMessage]) {
+      const r = (await tx.query<Row>(POST, [g.hash, trip, uuid(), body])).rows[0]!;
+      expect(r['outcome'], body).toBe('DONE');
+    }
+    return { trip, guest, holder, photos, phoneMessage };
   });
 }
 
@@ -248,7 +261,7 @@ async function generate(
   store: InMemoryFileStore,
   bundleId: string,
   at: string,
-): Promise<{ outcome: string; zip: Buffer | null; verdicts: string[] }> {
+): Promise<{ outcome: string; zip: Buffer | null; verdicts: string[]; messages: string }> {
   return withTestTransaction(worker, { virtualNow: at, commit: true }, async (tx) => {
     await setActor(tx, { kind: 'WORKER', worker: 'evidence_verifier' });
     const due = (await tx.query<{ bundle_id: string }>(DUE, [100])).rows.map((r) => r.bundle_id);
@@ -260,6 +273,11 @@ async function generate(
     const manifest = JSON.parse(String(src['manifest'])) as { files: Row[] };
     const verdicts: string[] = [];
     for (const f of manifest.files) {
+      if (f['kind'] === 'MESSAGES') {
+        // document du fil : relu par la base, empreinte recalculée ici
+        verdicts.push(sha(String(src['messages'])).toString('hex') === f['sha256'] ? 'MATCH' : 'X');
+        continue;
+      }
       const read = await readFileAsset(tx, store, keys, String(f['ref']));
       verdicts.push(
         read.status === 'MATCH' && read.sha256.toString('hex') === f['sha256']
@@ -282,7 +300,7 @@ async function generate(
           JSON.stringify(findings),
         ])
       ).rows[0]!.r;
-      return { outcome: r, zip: null, verdicts };
+      return { outcome: r, zip: null, verdicts, messages: String(src['messages']) };
     }
     const zip = Buffer.concat([Buffer.from(String(src['manifest']), 'utf8'), randomBytes(64)]);
     const requester = String(src['requested_by']);
@@ -306,7 +324,7 @@ async function generate(
       (await tx.query<{ r: string }>(COMPLETE, [bundleId, uuid(), storageKey, sha(zip), 1]))
         .rows[0]!.r,
     ).toBe('NOT_DUE');
-    return { outcome: r, zip, verdicts };
+    return { outcome: r, zip, verdicts, messages: String(src['messages']) };
   });
 }
 
@@ -409,7 +427,19 @@ describe.each(COUNTRIES)('US-308 — dossier de preuve ($country, $currency)', (
         });
         // critère 1 : chaque fichier et son SHA-256 (celui des octets reçus, recalculé ici)
         const files = m['files'] as Row[];
-        expect(files).toHaveLength(3);
+        expect(files).toHaveLength(4);
+        // fil de messages : un fichier de l'archive ; le manifeste n'en porte que l'empreinte et
+        // les comptes (2 messages, 1 signalé : numéro masqué)
+        expect(files).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({
+              kind: 'MESSAGES',
+              path: 'messages/messages.json',
+              sha256: expect.stringMatching(/^[0-9a-f]{64}$/),
+            }),
+          ]),
+        );
+        expect(m['messages']).toMatchObject({ count: 2, flagged: 1 });
         expect(files).toEqual(
           expect.arrayContaining(
             w.photos.map((p) =>
@@ -461,13 +491,14 @@ describe.each(COUNTRIES)('US-308 — dossier de preuve ($country, $currency)', (
           expect.arrayContaining([
             { piece: 'CONTRACT', reason: 'NOT_GENERATED' },
             { piece: 'CONSTANCIA', reason: 'RENDERED_ON_DEMAND' },
-            { piece: 'FLAGGED_MESSAGES', reason: 'NOT_AVAILABLE' },
             { piece: 'INSPECTION', kind: 'CHECKIN', side: 'GUEST', reason: 'NOT_SUBMITTED' },
             { piece: 'INSPECTION', kind: 'CHECKOUT', side: 'HOST', reason: 'NOT_SUBMITTED' },
           ]),
         );
-        // minimisation : ni nom, ni pièce, ni permis, ni position dans le manifeste
+        // minimisation : ni nom, ni pièce, ni permis, ni position, ni texte de message
         const text = String(b['manifest_text']);
+        expect(text.includes(HELLO)).toBe(false);
+        expect(text.includes(PHONE[c.country]!)).toBe(false);
         for (const forbidden of [
           'Ana',
           'Pérez',
@@ -506,7 +537,10 @@ describe.each(COUNTRIES)('US-308 — dossier de preuve ($country, $currency)', (
     // travailleur : chaque empreinte recalculée égale (critère 1), archive déposée, READY
     await withRole('app_worker', async (worker) => {
       const g = await generate(worker, keys, store, bundleId, T2);
-      expect(g.verdicts).toEqual(['MATCH', 'MATCH', 'MATCH']);
+      expect(g.verdicts).toEqual(['MATCH', 'MATCH', 'MATCH', 'MATCH']);
+      // le document du fil porte le texte reçu (preuve) et le texte masqué servi aux parties
+      expect(g.messages).toContain(HELLO);
+      expect(g.messages).toContain(PHONE[c.country]!);
       expect(g.outcome).toBe('READY');
       // création seule : l'archive déposée ne se remplace pas
       const b = await withTestTransaction(worker, {}, async (tx) => bundleOf(tx, bundleId));
@@ -556,7 +590,7 @@ describe.each(COUNTRIES)('US-308 — dossier de preuve ($country, $currency)', (
           status: 'READY',
           manifestSha256: manifestSha,
           expiresAt: plus(T2, TTL_S),
-          fileCount: 3,
+          fileCount: 4,
         });
         const requestId = uuid();
         const r = (await tx.query<Row>(OPEN, [hash, requestId, bundleId, REASON])).rows[0]!;

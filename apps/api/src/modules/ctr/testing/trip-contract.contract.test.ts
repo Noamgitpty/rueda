@@ -442,7 +442,9 @@ describe('US-211 partie 211b — routes du contrat de location d’un trip', () 
           !d.includes(' /trips/{tripId}/constancia') &&
           !d.includes(' /trips/constancias/') &&
           // photos d'état du véhicule (US-303) : leur propre suite (trp/testing/trip-inspection.contract)
-          !d.includes(' /trips/{tripId}/inspections/'),
+          !d.includes(' /trips/{tripId}/inspections/') &&
+          // messagerie par trip (US-525) : sa propre suite (msg/testing/trip-messages.contract)
+          !d.includes(' /trips/{tripId}/messages '),
       ),
       'statuts',
     ).toEqual([]);

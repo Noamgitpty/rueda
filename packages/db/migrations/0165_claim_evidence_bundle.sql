@@ -31,8 +31,12 @@
 --     heure de réception serveur, heure de l'appareil indicative, écart d'horloge, reprises
 --     comprises), journal d'état du trip (heure serveur, transitions, motif, rôle) ; chaque pièce
 --     manquante est listée dans `absent` (contrat non généré, texte pseudonymisé, série non prise,
---     messages signalés : module de messagerie absent à cette version, constancia : rendue à la
---     demande depuis les faits figés du contrat). Aucune donnée personnelle en clair : identifiants
+--     aucun fil de messages, constancia : rendue à la demande depuis les faits figés du contrat).
+--     MESSAGES (US-525, 0161) : le fil du trip est un FICHIER de l'archive (`messages/messages.json`,
+--     document construit par la messagerie : texte reçu, gardé comme preuve et jamais servi aux
+--     parties, texte masqué servi, rôle de l'auteur, heure serveur, signaux et leurs codes) ; le
+--     manifeste n'en porte que l'empreinte SHA-256 et les comptes (messages, signalés) ; le texte
+--     n'est jamais copié dans le registre du dossier. Aucune donnée personnelle en clair : identifiants
 --     techniques, codes, empreintes, heures (C1) ; jamais un nom, une plaque, un numéro de permis,
 --     une image de pièce, une position (le contenu C2 est dans les fichiers, chiffrés) ;
 --   - SCEAU : `manifest_sha256` = SHA-256 du texte UTF-8 du manifeste (`manifest::text`, forme
@@ -58,6 +62,7 @@
 --
 -- Retour arrière (base sans dossier) :
 --   DROP FUNCTION core.support_staff_open_evidence_bundle(bytea, uuid, uuid, text),
+--     core.messaging_evidence_messages(uuid),
 --     core.support_staff_evidence_bundle(bytea, uuid, uuid),
 --     core.support_staff_request_evidence_bundle(bytea, uuid, uuid, uuid, text, text),
 --     core.claim_worker_fail_evidence_bundle(uuid, text, jsonb),
@@ -214,6 +219,65 @@ CREATE POLICY cmd_hold_evidence_consent_sel ON core.contract_consent FOR SELECT
 -- journal d'état du trip : motif et rôle de chaque transition (jamais l'identifiant de la personne)
 GRANT SELECT (id, reason_code, actor_role) ON core.booking_trip_state_log TO cmd_hold_owner;
 
+-- 3.2 Fil de messages du trip (propriétaire messaging_cmd_owner, qui lit déjà ses tables, 0161) :
+-- document JSON canonique (texte de jsonb), mêmes données ⇒ même texte ⇒ même empreinte ; aucune
+-- ligne s'il n'y a pas de fil. EXECUTE cmd_hold_owner (manifeste et sources du travailleur) seulement.
+GRANT CREATE ON SCHEMA core TO messaging_cmd_owner;
+SET LOCAL ROLE messaging_cmd_owner;
+
+CREATE FUNCTION core.messaging_evidence_messages(p_trip_id uuid)
+  RETURNS TABLE (thread_id uuid, document text, message_count integer, flagged_count integer)
+  LANGUAGE sql
+  STABLE
+  SECURITY DEFINER
+  SET search_path = pg_catalog, pg_temp
+AS $fn$
+  SELECT t.id,
+         pg_catalog.jsonb_build_object(
+           'schema', 'clm.evidence.messages/1',
+           'threadId', t.id,
+           'tripId', t.trip_id,
+           'messages', COALESCE((
+             SELECT pg_catalog.jsonb_agg(pg_catalog.jsonb_build_object(
+                      'id', m.id,
+                      'sentAt', pg_catalog.to_char(m.sent_at AT TIME ZONE 'UTC',
+                                                   'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),
+                      'authorRole', m.author_role,
+                      'channel', m.channel_origin,
+                      'status', m.status,
+                      'hiddenAt', pg_catalog.to_char(m.hidden_at AT TIME ZONE 'UTC',
+                                                     'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),
+                      'body', m.body,
+                      'bodyMasked', m.body_masked,
+                      'flags', COALESCE((
+                        SELECT pg_catalog.jsonb_agg(pg_catalog.jsonb_build_object(
+                                 'kind', f.kind, 'matched', pg_catalog.to_jsonb(f.matched),
+                                 'outcome', f.outcome,
+                                 'createdAt', pg_catalog.to_char(f.created_at AT TIME ZONE 'UTC',
+                                                                 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'))
+                               ORDER BY f.kind)
+                          FROM core.messaging_message_flag AS f
+                         WHERE f.message_id = m.id), '[]'::jsonb))
+                    ORDER BY m.sent_at, m.id)
+               FROM core.messaging_message AS m
+              WHERE m.thread_id = t.id), '[]'::jsonb))::text,
+         (SELECT pg_catalog.count(*)::integer FROM core.messaging_message AS m
+           WHERE m.thread_id = t.id),
+         (SELECT pg_catalog.count(*)::integer FROM core.messaging_message AS m
+           WHERE m.thread_id = t.id AND m.status = 'FLAGGED')
+    FROM core.messaging_message_thread AS t
+   WHERE t.trip_id = p_trip_id
+$fn$;
+COMMENT ON FUNCTION core.messaging_evidence_messages(uuid) IS
+  'Fil de messages d''un trip pour le dossier de preuve (US-308) : texte reçu (preuve, jamais servi '
+  'aux parties) et texte masqué, rôle, heure serveur, signaux (codes) ; document JSON canonique et '
+  'comptes. EXECUTE cmd_hold_owner seulement. US-308 (ADR-184).';
+REVOKE ALL ON FUNCTION core.messaging_evidence_messages(uuid) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION core.messaging_evidence_messages(uuid) TO cmd_hold_owner;
+
+RESET ROLE;
+REVOKE CREATE ON SCHEMA core FROM messaging_cmd_owner;
+
 -- 4. Fonctions (cmd_hold_owner) -----------------------------------------------------------------
 GRANT CREATE ON SCHEMA core TO cmd_hold_owner;
 SET LOCAL ROLE cmd_hold_owner;
@@ -235,6 +299,7 @@ DECLARE
   v_files    jsonb;
   v_absent   jsonb := '[]'::jsonb;
   v_side     record;
+  v_msg      record;
 BEGIN
   SELECT tr.id, tr.public_ref, tr.country_code, tr.currency, tr.timezone, tr.status,
          tr.scheduled_start, tr.scheduled_end, tr.booked_at, tr.guest_user_id,
@@ -369,9 +434,13 @@ BEGIN
     v_absent := v_absent || pg_catalog.jsonb_build_array(pg_catalog.jsonb_build_object(
       'piece', 'INSPECTION', 'kind', v_side.kind, 'side', v_side.side, 'reason', 'NOT_SUBMITTED'));
   END LOOP;
-  -- messages signalés (US-525) : module de messagerie absent de cette version
-  v_absent := v_absent || pg_catalog.jsonb_build_array(
-    pg_catalog.jsonb_build_object('piece', 'FLAGGED_MESSAGES', 'reason', 'NOT_AVAILABLE'));
+  -- fil de messages (US-525) : un fichier de l'archive ; le manifeste n'en porte que l'empreinte
+  SELECT x.thread_id, x.document, x.message_count, x.flagged_count INTO v_msg
+    FROM core.messaging_evidence_messages(t.id) AS x;
+  IF v_msg.thread_id IS NULL THEN
+    v_absent := v_absent || pg_catalog.jsonb_build_array(
+      pg_catalog.jsonb_build_object('piece', 'MESSAGES', 'reason', 'NO_THREAD'));
+  END IF;
 
   -- journal d'état du trip (heure serveur ; rôle, jamais la personne)
   SELECT pg_catalog.jsonb_agg(pg_catalog.jsonb_build_object(
@@ -394,7 +463,14 @@ BEGIN
         FROM pg_catalog.jsonb_array_elements(COALESCE(v_contract, '[]'::jsonb)) AS c
        WHERE c ->> 'file' IS NOT NULL
       UNION ALL
-      SELECT 2, ph ->> 'path',
+      SELECT 2, 'messages/messages.json',
+             pg_catalog.jsonb_build_object(
+               'path', 'messages/messages.json', 'kind', 'MESSAGES', 'ref', v_msg.thread_id,
+               'sha256', pg_catalog.encode(pg_catalog.sha256(
+                           pg_catalog.convert_to(v_msg.document, 'UTF8')), 'hex'))
+       WHERE v_msg.thread_id IS NOT NULL
+      UNION ALL
+      SELECT 3, ph ->> 'path',
              pg_catalog.jsonb_build_object('path', ph ->> 'path', 'kind', 'PHOTO',
                                            'ref', ph -> 'fileId', 'sha256', ph -> 'sha256',
                                            'bytes', ph -> 'bytes')
@@ -420,14 +496,18 @@ BEGIN
     'terms', COALESCE(v_terms, '[]'::jsonb),
     'inspections', COALESCE(v_insp, '[]'::jsonb),
     'events', COALESCE(v_events, '[]'::jsonb),
+    'messages', CASE WHEN v_msg.thread_id IS NULL THEN NULL ELSE pg_catalog.jsonb_build_object(
+      'threadId', v_msg.thread_id, 'count', v_msg.message_count,
+      'flagged', v_msg.flagged_count) END,
     'files', COALESCE(v_files, '[]'::jsonb),
     'absent', v_absent);
 END
 $fn$;
 COMMENT ON FUNCTION core.claim_evidence_manifest(uuid, uuid, text, timestamptz) IS
   'Interne : manifeste du dossier de preuve d''un trip, lu dans les seuls registres (contrat et '
-  'signature, CGU acceptées, séries de photos et empreintes de file_asset, journal d''état), pièces '
-  'absentes listées ; aucune donnée nominative. US-308 (ADR-184).';
+  'signature, CGU acceptées, séries de photos et empreintes de file_asset, journal d''état, empreinte '
+  'et comptes du fil de messages), pièces absentes listées ; aucune donnée nominative. US-308 '
+  '(ADR-184).';
 
 -- 4.2 Enregistrement d'un dossier demandé (porte du staff seulement). Issues : RECORDED (dossier
 -- scellé), ALREADY_RECORDED (même requête du même agent sur le même trip : le dossier d'origine),
@@ -534,7 +614,7 @@ COMMENT ON FUNCTION core.claim_worker_evidence_due(integer) IS
 -- NOT_DUE (déjà READY / FAILED, inconnu).
 CREATE FUNCTION core.claim_worker_evidence_source(p_bundle_id uuid)
   RETURNS TABLE (outcome text, manifest text, manifest_sha256 text, requested_by uuid,
-                 contracts jsonb)
+                 contracts jsonb, messages text)
   LANGUAGE plpgsql
   VOLATILE
   SECURITY DEFINER
@@ -559,11 +639,12 @@ BEGIN
     RETURN QUERY SELECT CASE WHEN EXISTS (SELECT 1 FROM core.claim_evidence_bundle AS y
                                            WHERE y.id = p_bundle_id AND y.status = 'REQUESTED')
                              THEN 'LOCKED' ELSE 'NOT_DUE' END::text,
-                        NULL::text, NULL::text, NULL::uuid, NULL::jsonb;
+                        NULL::text, NULL::text, NULL::uuid, NULL::jsonb, NULL::text;
     RETURN;
   END IF;
   IF b.status <> 'REQUESTED' THEN
-    RETURN QUERY SELECT 'NOT_DUE'::text, NULL::text, NULL::text, NULL::uuid, NULL::jsonb;
+    RETURN QUERY SELECT 'NOT_DUE'::text, NULL::text, NULL::text, NULL::uuid, NULL::jsonb,
+                        NULL::text;
     RETURN;
   END IF;
   RETURN QUERY
@@ -576,12 +657,14 @@ BEGIN
                   ORDER BY d.version)
              FROM core.contract_generated_document AS d
              JOIN core.contract_document_party AS p ON p.document_id = d.id
-            WHERE d.trip_id = b.trip_id AND p.pseudonymized_at IS NULL), '[]'::jsonb);
+            WHERE d.trip_id = b.trip_id AND p.pseudonymized_at IS NULL), '[]'::jsonb),
+         (SELECT x.document FROM core.messaging_evidence_messages(b.trip_id) AS x);
 END
 $fn$;
 COMMENT ON FUNCTION core.claim_worker_evidence_source(uuid) IS
-  'Travailleur evidence_verifier : manifeste scellé (texte exact), demandeur et texte figé des '
-  'versions du contrat d''un dossier REQUESTED, verrouillé (SKIP LOCKED). EXECUTE app_worker. '
+  'Travailleur evidence_verifier : manifeste scellé (texte exact), demandeur, texte figé des '
+  'versions du contrat et document du fil de messages d''un dossier REQUESTED, verrouillé (SKIP '
+  'LOCKED). EXECUTE app_worker. '
   'US-308 (ADR-184).';
 
 -- 4.6 Travailleur : archive déposée ⇒ READY (fichier enregistré, lien de 168 h). Issues : READY,

@@ -354,9 +354,10 @@
         "catalog_cmd_owner",
         "cmd_hold_owner",
         "cmd_money_owner",
-        "kyc_cmd_owner"
+        "kyc_cmd_owner",
+        "messaging_cmd_owner"
       ],
-      "story": "US-010, US-115, US-105, US-202, US-208"
+      "story": "US-010, US-115, US-105, US-202, US-208, US-525"
     },
     {
       "signature": "core.iam_staff_audit_read(bytea,bigint,integer)",
@@ -873,8 +874,8 @@
       "signature": "core.support_enqueue_review(text,text,uuid,text,uuid)",
       "family": "iam_staff",
       "owner": "iam_staff_owner",
-      "execute": ["catalog_cmd_owner", "cmd_hold_owner", "kyc_cmd_owner"],
-      "story": "US-109, US-114, US-123, US-106, US-127"
+      "execute": ["catalog_cmd_owner", "cmd_hold_owner", "kyc_cmd_owner", "messaging_cmd_owner"],
+      "story": "US-109, US-114, US-123, US-106, US-127, US-525"
     },
     {
       "signature": "core.support_close_review_item(uuid,text,text,uuid)",
@@ -2228,6 +2229,20 @@
       "story": "US-707"
     },
     {
+      "signature": "core.messaging_thread_read(bytea,uuid,integer)",
+      "family": "messaging_cmd",
+      "owner": "messaging_cmd_owner",
+      "execute": ["app_api"],
+      "story": "US-525"
+    },
+    {
+      "signature": "core.messaging_cmd_post_message(bytea,uuid,uuid,text)",
+      "family": "messaging_cmd",
+      "owner": "messaging_cmd_owner",
+      "execute": ["app_api"],
+      "story": "US-525"
+    },
+    {
       "signature": "core.claim_evidence_record(uuid,text,uuid,text,uuid,text,uuid)",
       "family": "cmd_hold",
       "owner": "cmd_hold_owner",
@@ -2288,6 +2303,13 @@
       "family": "iam_staff",
       "owner": "iam_staff_owner",
       "execute": ["app_api"],
+      "story": "US-308"
+    },
+    {
+      "signature": "core.messaging_evidence_messages(uuid)",
+      "family": "messaging_cmd",
+      "owner": "messaging_cmd_owner",
+      "execute": ["cmd_hold_owner"],
       "story": "US-308"
     }
   ]

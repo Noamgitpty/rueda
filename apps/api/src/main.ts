@@ -40,6 +40,7 @@ import { postgresCtrAdapters } from './modules/ctr/index.js';
 import { postgresIamAdapters, postgresStaffAdapters } from './modules/iam/index.js';
 import { postgresKycAdapters } from './modules/kyc/index.js';
 import { postgresPyoAdapters } from './modules/pyo/index.js';
+import { postgresMsgAdapters } from './modules/msg/index.js';
 import {
   PgDepositRailConfigReader,
   postgresPayAdapters,
@@ -187,6 +188,8 @@ async function bootstrap(): Promise<void> {
       postgresTrpAdapters(pool),
       // US-707 : compte de versement (aucun coffre ni PSP avant le lot C : enregistrement 503)
       postgresPyoAdapters(pool),
+      // US-525 : messagerie par trip (fonctions de 0161 sous app_api)
+      postgresMsgAdapters(pool),
       // US-308 : dossier de preuve (portes core.support_staff_*_evidence_bundle sous app_api) ;
       // coffre KMS et stockage à verrou objet (US-003, Q-007) indisponibles : routes 503
       postgresEvidenceBundle(pool),

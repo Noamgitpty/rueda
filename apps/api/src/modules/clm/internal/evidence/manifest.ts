@@ -10,12 +10,12 @@ import { isSafeZipPath } from './zip.js';
 
 export const MANIFEST_SCHEMA = 'clm.evidence/1';
 
-export type ManifestFileKind = 'PHOTO' | 'CONTRACT';
+export type ManifestFileKind = 'PHOTO' | 'CONTRACT' | 'MESSAGES';
 
 export interface ManifestFile {
   readonly path: string;
   readonly kind: ManifestFileKind;
-  /** Identifiant du fichier (`file_asset.id`) ou du document de contrat. */
+  /** Identifiant du fichier (`file_asset.id`), du document de contrat ou du fil de messages. */
   readonly ref: string;
   /** SHA-256 attendu (hexadécimal) : celui du registre, jamais une valeur du client. */
   readonly sha256: string;
@@ -71,7 +71,9 @@ export function parseManifest(text: string, expectedSha256: string): EvidenceMan
       throw new ManifestError('chemin');
     }
     paths.add(path);
-    if (kind !== 'PHOTO' && kind !== 'CONTRACT') throw new ManifestError('type de pièce');
+    if (kind !== 'PHOTO' && kind !== 'CONTRACT' && kind !== 'MESSAGES') {
+      throw new ManifestError('type de pièce');
+    }
     if (typeof ref !== 'string' || !UUID.test(ref)) throw new ManifestError('référence');
     if (typeof sha256 !== 'string' || !HEX64.test(sha256)) throw new ManifestError('empreinte');
     return { path, kind, ref, sha256 };

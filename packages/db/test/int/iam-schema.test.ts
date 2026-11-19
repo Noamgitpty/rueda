@@ -42,12 +42,14 @@ const IAM_POLICIES: Record<(typeof IAM_TABLES)[number], string> = {
   // US-107 (0061) : ouverture du compte d'hôte par les commandes d'iam_auth_owner
   // US-127 (0080) : lecture par le jugement du lien hôte / voyageur (risk_limit_owner)
   // US-122 (0093) : membres lus par la garde de séparation des tâches (iam_staff_owner)
+  // US-525 (0161) : parties d'un trip (titulaire, co-hôte et sa portée) lues par la messagerie
   iam_membership:
-    'cmd_hold_read:cmd_hold_owner;iam_auth_insert:iam_auth_owner;iam_auth_select:iam_auth_owner;iam_staff_party_read:iam_staff_owner;membership_host_read:app_api;membership_staff_read:app_api;migrator_all:migrator;policy_fn_read:policy_fn_owner;risk_link_read:risk_limit_owner',
+    'cmd_hold_read:cmd_hold_owner;iam_auth_insert:iam_auth_owner;iam_auth_select:iam_auth_owner;iam_staff_party_read:iam_staff_owner;membership_host_read:app_api;membership_staff_read:app_api;messaging_cmd_read:messaging_cmd_owner;migrator_all:migrator;policy_fn_read:policy_fn_owner;risk_link_read:risk_limit_owner',
   // US-118 (0084) : statut et titulaire du compte d'hôte relus à l'approbation d'une annonce
   // US-218 (0104) : titulaire du compte d'hôte du trip relu par l'avis de l'hôte (review_cmd_owner)
+  // US-525 (0161) : titulaire du compte d'hôte du trip relu par la messagerie (messaging_cmd_owner)
   iam_organization:
-    'catalog_cmd_read:catalog_cmd_owner;cmd_hold_read:cmd_hold_owner;cmd_money_sel:cmd_money_owner;iam_auth_insert:iam_auth_owner;iam_auth_select:iam_auth_owner;iam_staff_select:iam_staff_owner;kyc_cmd_host_update:kyc_cmd_owner;kyc_cmd_read:kyc_cmd_owner;migrator_all:migrator;organization_holder_read:app_api;organization_staff_read:app_api;policy_fn_read:policy_fn_owner;review_cmd_read:review_cmd_owner;risk_link_read:risk_limit_owner',
+    'catalog_cmd_read:catalog_cmd_owner;cmd_hold_read:cmd_hold_owner;cmd_money_sel:cmd_money_owner;iam_auth_insert:iam_auth_owner;iam_auth_select:iam_auth_owner;iam_staff_select:iam_staff_owner;kyc_cmd_host_update:kyc_cmd_owner;kyc_cmd_read:kyc_cmd_owner;messaging_cmd_read:messaging_cmd_owner;migrator_all:migrator;organization_holder_read:app_api;organization_staff_read:app_api;policy_fn_read:policy_fn_owner;review_cmd_read:review_cmd_owner;risk_link_read:risk_limit_owner',
   iam_mfa_proof_key: 'iam_staff_select:iam_staff_owner;migrator_all:migrator',
   // US-104 (0066) : défis OTP écrits par les seules commandes d'iam_auth_owner
   iam_otp_challenge:
@@ -60,16 +62,18 @@ const IAM_POLICIES: Record<(typeof IAM_TABLES)[number], string> = {
     'catalog_cmd_search_read:catalog_cmd_owner;cmd_hold_read:cmd_hold_owner;iam_auth_insert:iam_auth_owner;iam_auth_select:iam_auth_owner;iam_auth_update:iam_auth_owner;iam_staff_select:iam_staff_owner;kyc_cmd_host_signal_read:kyc_cmd_owner;migrator_all:migrator',
   // US-125 (0073) : session, rôles et matrice lus par les commandes des interrupteurs
   // US-535a (0157) : mêmes lectures par les commandes de changement de paramètre (cmd_param_owner)
+  // US-525 (0161) : permission message.trip_thread seulement, lue par la messagerie
   iam_role_permission:
-    'cmd_golive_sel:cmd_golive_owner;cmd_money_sel:cmd_money_owner;cmd_param_sel:cmd_param_owner;iam_staff_select:iam_staff_owner;migrator_all:migrator;policy_fn_read:policy_fn_owner',
+    'cmd_golive_sel:cmd_golive_owner;cmd_money_sel:cmd_money_owner;cmd_param_sel:cmd_param_owner;iam_staff_select:iam_staff_owner;messaging_cmd_read:messaging_cmd_owner;migrator_all:migrator;policy_fn_read:policy_fn_owner',
   iam_session:
     'cmd_golive_sel:cmd_golive_owner;cmd_money_sel:cmd_money_owner;cmd_param_sel:cmd_param_owner;iam_auth_insert:iam_auth_owner;iam_auth_select:iam_auth_owner;iam_auth_update:iam_auth_owner;iam_staff_select:iam_staff_owner;iam_staff_update:iam_staff_owner;migrator_all:migrator;policy_fn_read:policy_fn_owner',
   iam_staff_role_assignment:
     'cmd_golive_sel:cmd_golive_owner;cmd_money_sel:cmd_money_owner;cmd_param_sel:cmd_param_owner;iam_auth_select:iam_auth_owner;iam_staff_select:iam_staff_owner;iam_staff_update:iam_staff_owner;migrator_all:migrator;policy_fn_read:policy_fn_owner',
   // US-103 (0088) : changement du nom légal par la seule commande KYC (kyc_cmd_owner)
   // US-211 (0122) : noms légaux et langue des parties lus par le contrat de location (cmd_hold_owner)
+  // US-525 (0161) : prénom affiché des parties lu par la messagerie (messaging_cmd_owner)
   iam_user_account:
-    'cmd_golive_sel:cmd_golive_owner;cmd_hold_contract_read:cmd_hold_owner;cmd_money_sel:cmd_money_owner;cmd_param_sel:cmd_param_owner;host_view_read:host_view_owner;iam_auth_insert:iam_auth_owner;iam_auth_select:iam_auth_owner;iam_auth_update:iam_auth_owner;iam_staff_select:iam_staff_owner;kyc_cmd_name_update:kyc_cmd_owner;kyc_cmd_read:kyc_cmd_owner;migrator_all:migrator;policy_fn_read:policy_fn_owner;risk_link_read:risk_limit_owner;user_account_self_read:app_api',
+    'cmd_golive_sel:cmd_golive_owner;cmd_hold_contract_read:cmd_hold_owner;cmd_money_sel:cmd_money_owner;cmd_param_sel:cmd_param_owner;host_view_read:host_view_owner;iam_auth_insert:iam_auth_owner;iam_auth_select:iam_auth_owner;iam_auth_update:iam_auth_owner;iam_staff_select:iam_staff_owner;kyc_cmd_name_update:kyc_cmd_owner;kyc_cmd_read:kyc_cmd_owner;messaging_cmd_read:messaging_cmd_owner;migrator_all:migrator;policy_fn_read:policy_fn_owner;risk_link_read:risk_limit_owner;user_account_self_read:app_api',
 };
 
 // Commandes SECURITY DEFINER core.iam_* et leur propriétaire (US-010 : iam_auth ; US-012 : iam_staff).

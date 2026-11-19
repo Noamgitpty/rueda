@@ -36,6 +36,7 @@ interface World {
   readonly photos: Photo[];
   readonly store: InMemoryFileStore;
   readonly pdf: Buffer;
+  messages: string | null;
   manifest: string;
   manifestSha: string;
   readonly completed: unknown[][];
@@ -59,6 +60,8 @@ async function world(): Promise<World> {
   const bundleId = randomUUID();
   const contractId = randomUUID();
   const pdf = Buffer.from('%PDF-1.7\ncontrat\n', 'latin1');
+  const threadId = randomUUID();
+  const messages = JSON.stringify({ schema: 'clm.evidence.messages/1', threadId, messages: [] });
   const manifest = JSON.stringify({
     schema: 'clm.evidence/1',
     bundleId,
@@ -72,6 +75,7 @@ async function world(): Promise<World> {
     ],
     files: [
       { path: 'contract/contract-v1.pdf', kind: 'CONTRACT', ref: contractId, sha256: sha(pdf) },
+      { path: 'messages/messages.json', kind: 'MESSAGES', ref: threadId, sha256: sha(messages) },
       ...photos.map((p, i) => ({
         path: `photos/CHECKIN/GUEST/0${i + 1}-EXT_0${i + 1}-${p.id}.jpg`,
         kind: 'PHOTO',
@@ -86,6 +90,7 @@ async function world(): Promise<World> {
     photos,
     store,
     pdf,
+    messages,
     manifest,
     manifestSha: sha(manifest),
     completed: [],
@@ -107,6 +112,7 @@ function transactions(w: World, contracts: unknown[]): WorkerTransactions {
             manifest_sha256: w.manifestSha,
             requested_by: w.requester,
             contracts,
+            messages: w.messages,
           },
         ];
       } else if (text.includes('FROM core.audit_file_asset')) {
@@ -180,6 +186,7 @@ describe('EvidenceBundler', () => {
     expect(stored.includes(Buffer.from(w.manifest))).toBe(false);
     expect(zip.includes(Buffer.from(w.manifest, 'utf8'))).toBe(true);
     expect(zip.includes(w.pdf)).toBe(true);
+    expect(zip.includes(Buffer.from(w.messages!, 'utf8'))).toBe(true);
     for (const p of w.photos) expect(zip.includes(p.body)).toBe(true);
     // journaux : comptes et codes, jamais un identifiant
     for (const l of lines) {
@@ -229,6 +236,19 @@ describe('EvidenceBundler', () => {
     expect(v.failed[0]![1]).toBe('INTEGRITY_MISMATCH');
     expect(JSON.parse(v.failed[0]![2] as string)).toEqual([
       expect.objectContaining({ piece: 'CONTRACT', reason: 'SHA256_MISMATCH' }),
+    ]);
+
+    const t = await world();
+    t.messages = null;
+    const purged = new EvidenceBundler({
+      transactions: transactions(t, contractsOf(t)),
+      files: t.store,
+      keys,
+      renderer: renderer(t.pdf),
+    });
+    expect(await purged.generate(t.bundleId)).toBe('FAILED');
+    expect(JSON.parse(t.failed[0]![2] as string)).toEqual([
+      expect.objectContaining({ piece: 'MESSAGES', reason: 'THREAD_UNAVAILABLE' }),
     ]);
 
     const u = await world();

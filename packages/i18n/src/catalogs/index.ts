@@ -314,8 +314,13 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  numéro de compte ou rail refusés, titulaire discordant, coffre, base ou rail du pays
  indisponibles) et écran `web.a07.payout.*` (compte masqué aux 4 derniers chiffres, statut, retenue de 48 h après un
  changement, formulaire).
- Version 100 (les versions 96 à 99 sont réservées à US-525, US-310 et US-315 ; la 95 est celle
- d’US-707) : dossier de preuve d’un trip (US-308, ADR-184) : réponses de la console
+ Version 96 (la 95 est celle d’US-707 ; la 94 celle d’US-303) : messagerie par trip et signal du marché gris (US-525, ADR-181) : `common.messages.*`
+ (réponses des routes `/trips/{id}/messages` : fil, message envoyé, fil fermé, texte invalide,
+ indisponible), `web.s16.*` (S16 : bandeau `web.s16.payOnPlatform` et vide `web.s16.empty` de 10b
+ §4.3, prénom de l’autre partie, coordonnées masquées, rappels à l’expéditeur après un signal,
+ fenêtre d’écriture, formulaire).
+ Version 100 (les versions 97 à 99 sont réservées à US-310 et US-315 ; la 96 est celle
+ d’US-525) : dossier de preuve d’un trip (US-308, ADR-184) : réponses de la console
  `common.evidenceBundle.*` (archive en préparation, lien échu après 7 j, constat d’empreinte ou
  pièce absente : rien n’est remis, coffre ou stockage indisponibles).
  */

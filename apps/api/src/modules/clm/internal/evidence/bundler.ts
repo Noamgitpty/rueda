@@ -81,7 +81,8 @@ const ORDER: readonly FailureCode[] = [
   'TOO_LARGE',
 ];
 
-const SOURCE_SQL = `SELECT outcome, manifest, manifest_sha256, requested_by::text AS requested_by, contracts
+const SOURCE_SQL = `SELECT outcome, manifest, manifest_sha256, requested_by::text AS requested_by, contracts,
+       messages
   FROM core.claim_worker_evidence_source($1::uuid)`;
 const DUE_SQL = 'SELECT bundle_id::text AS bundle_id FROM core.claim_worker_evidence_due($1)';
 const COMPLETE_SQL =
@@ -158,6 +159,7 @@ export class EvidenceBundler {
       manifest_sha256: string | null;
       requested_by: string | null;
       contracts: unknown;
+      messages: string | null;
     }>(SOURCE_SQL, [bundleId]);
     const src = rows[0];
     if (src?.outcome === 'LOCKED') return 'LOCKED';
@@ -193,7 +195,7 @@ export class EvidenceBundler {
     let total = entries[0]!.data.length;
     const max = this.#o.maxBytes ?? EVIDENCE_ZIP_MAX_BYTES;
     for (const file of manifest.files) {
-      const got = await this.#read(tx, file.kind, file.ref, contracts);
+      const got = await this.#read(tx, file.kind, file.ref, contracts, src.messages);
       if ('code' in got) {
         findings.push({
           code: got.code,
@@ -260,10 +262,17 @@ export class EvidenceBundler {
 
   async #read(
     tx: SqlClient,
-    kind: 'PHOTO' | 'CONTRACT',
+    kind: 'PHOTO' | 'CONTRACT' | 'MESSAGES',
     ref: string,
     contracts: ReadonlyMap<string, EvidenceContractSource>,
+    messages: string | null,
   ): Promise<{ readonly data: Buffer } | { readonly code: FailureCode; readonly reason: string }> {
+    if (kind === 'MESSAGES') {
+      // document du fil relu par la base (texte reçu et texte masqué) ; disparu (purge) : constat
+      return messages === null
+        ? { code: 'OBJECT_MISSING', reason: 'THREAD_UNAVAILABLE' }
+        : { data: Buffer.from(messages, 'utf8') };
+    }
     if (kind === 'CONTRACT') {
       const c = contracts.get(ref);
       if (c === undefined) return { code: 'RENDER_FAILED', reason: 'TEXT_UNAVAILABLE' };
