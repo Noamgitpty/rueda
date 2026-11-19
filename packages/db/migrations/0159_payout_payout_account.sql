@@ -191,6 +191,8 @@ CREATE POLICY cmd_money_upd ON core.payout_payout_account FOR UPDATE TO cmd_mone
   WITH CHECK (status IN ('VERIFIED', 'REJECTED', 'REPLACED'));
 
 -- 4. Droits de lecture de cmd_money_owner --------------------------------------------------------
+-- identifiant v7 des comptes (défaut de la table, insertion par la commande)
+GRANT EXECUTE ON FUNCTION platform.uuid_v7() TO cmd_money_owner;
 -- paramètres du compte de versement (en plus des trois interrupteurs de 0054 ; même nom de
 -- politique : remplacement admis, ADR-081)
 ALTER POLICY cmd_money_sel ON core.config_param_value
