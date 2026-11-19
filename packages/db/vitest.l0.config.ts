@@ -59,6 +59,9 @@ const ISOLATED = [
   // US-221b : paiement prouvé puis conversion (report de la capture sur les soldes par jambe), à
   // deux sessions, données commitées, compte PSP ACTIVE du pays partagé (comme US-223a)
   'test/l0/l0-us221b-conversion-capture.test.ts',
+  // US-224 (N-364) : marque de l'alerte et attente du choix contre la supersession, à deux sessions,
+  // remboursement en échec préparé et VALIDÉ sur le compte PSP ACTIVE partagé du pays (fixture 9800)
+  'test/l0/l0-us224-await-choice-race.test.ts',
   // US-702b : ré-autorisation contre décision de la même caution à deux sessions, caution commitée
   // puis toujours menée à un état final (aucune caution laissée dans une file)
   'test/l0/l0-us702b-deposit-race.test.ts',

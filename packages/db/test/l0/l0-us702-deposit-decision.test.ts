@@ -11,7 +11,7 @@
  *   l'expiration, Σ capturé + libéré = montant, `REFUNDED` ⇔ rail b, rang attendu) et événement
  *   `deposit.decision.executed` dans la même transaction ; autre travailleur ⇒ rien lu, refus ;
  * - `app_anon` : aucune des fonctions de la caution (0146, 0150) n'est exécutable ;
- * - US-702b (0152) : V ne peut plus avancer la décision au-delà de la règle (rail revérifié en base) ;
+ * - US-702b (0153) : V ne peut plus avancer la décision au-delà de la règle (rail revérifié en base) ;
  *   libération et décision EFFECTIVES sur le retour réel (`(checkout_at ?? scheduled_end) + 72 h`,
  *   un retour tardif ne prolonge jamais l'autorisation), dans la file des décisions et celle des
  *   ré-autorisations ; avis `notice` : VOID refusé ⇒ `BLOCKED_UNTIL_EXPIRY` et date d'expiration.

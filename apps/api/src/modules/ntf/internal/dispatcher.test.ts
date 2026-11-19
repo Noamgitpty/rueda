@@ -115,7 +115,7 @@ describe.each(COUNTRY_CASES)('planDispatches — $country ($currency)', (c) => {
 
   it('US-702 / US-702b : décision de la caution exécutée ⇒ le voyageur du trip (base) ; avis choisi par `notice` de la base : libérée en entier, frais annoncés capturés, ou bloquée jusqu’à l’expiration (VOID refusé, 08 E3 repli 4) ; montants dans la devise du pays', () => {
     // 0150 : deposit_id, trip_id, status, captured_minor, released_minor, currency, decided_at ;
-    // 0152 : notice, auth_expiry_at
+    // 0153 : notice, auth_expiry_at
     const decided = (
       status: string,
       notice: string,

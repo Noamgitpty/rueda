@@ -35,6 +35,8 @@ Depuis 224b, un remboursement est une instance `PLANNED` avec son ordre `REFUND`
 
 ## Limites et conséquences
 
+- **Ordre des verrous de la marque de l'alerte** (US-224, durcissement argent n° 2, migration 0152, BOARD N-364) : `core.payment_cmd_refund_mark_alerted` prend le verrou du trip puis la ligne de l'instance, comme l'envoi et le report ; l'ordonnanceur attend le choix du rail avant de marquer (ADR-166 décision 7). Aucun interblocage avec la supersession, prouvé à deux connexions (`l0-us224-await-choice-race`).
+
 - **Nouvelle tentative après `FAILED`** et choix du rail (`PENDING_CUSTOMER_CHOICE`, `attempt_no` + 1) : non construits ; un échec est signalé à FIN, l'avance attendue reste `PLANNED` (aucune créance) jusqu'à la version suivante. Suite.
 - **Instance exigée pour tout `REFUND` de règlement** (revues de #202) : non rendue obligatoire en base ici ; le seul chemin de production (annulations de 215a, ordonnanceur) passe par l'instance. La garde exigerait de réécrire une soixantaine d'appels des preuves de sécurité de 224a (`l0-us224-*`, `l0-us049`, `l0-pay-marketplace`, `redteam-argent-psp-legs`) : suite à part, revue sécurité.
 - **File ops `MISMATCH`** (N-196) : un `MISMATCH` rendu au webhook (`webhook_ingest`) n'est pas encore mis en file ; l'ordonnanceur ne le voit qu'à la lecture (alerte). File FIN persistante de `REFUND_OUT_OF_RANGE` (N-13 a) : inchangée (alerte de 224a).
