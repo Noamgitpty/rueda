@@ -38,7 +38,7 @@ import {
   test,
 } from './fixtures.ts';
 import type { Language } from './fixtures.ts';
-import { PUBLIC_ID } from './search-data.ts';
+import { REQUEST_ID } from './search-data.ts';
 
 const API = `http://127.0.0.1:${process.env['RUEDA_E2E_API_PORT'] ?? '3199'}`;
 const HOLD_URL = /\/checkout\/hold\/([0-9a-f-]{36})$/;
@@ -47,6 +47,8 @@ const TA01_TOTAL = /128[.,]40/;
 /** Heure limite rendue par le double (base), fuseau du véhicule du double : UTC. */
 const RESPOND_BY = '2036-11-30T19:10:00.000Z';
 const HOST_NAME = 'Ana';
+/** Hôte du devis du double (`hostName`, prénom et initiale). */
+const QUOTE_HOST_NAME = 'Ana P.';
 const MAIN = 'main:not([aria-busy])';
 
 const translator = (language: Language): Translator =>
@@ -76,12 +78,38 @@ async function call(path: string): Promise<void> {
   expect(r.status, path).toBe(200);
 }
 
-/** S03 → S05 → hold de demande posé (le 23 dans le double) ; rend son identifiant. */
-async function placeRequest(page: Page): Promise<string> {
+/** Délai de réponse de l'hôte du double (`requestMode`, comme la graine 0125 : 4 h). */
+const EXPIRY_HOURS = 4;
+
+/**
+ * S03 → S05 de la fiche SUR DEMANDE (mode ouvert dans son pays, US-223 ADR-175) → hold de demande
+ * posé (le 23 dans le double) ; rend son identifiant. Avec `t` : textes des points d'entrée vérifiés
+ * (10b S03 `web.s03.request`, délai lu dans l'API ; bouton du devis `web.s05.request.continue`).
+ */
+async function placeRequest(page: Page, t?: Translator): Promise<string> {
   const slot = { start: '2036-12-23T10:00', end: '2036-12-26T10:00' };
-  await page.goto(`/listings/${PUBLIC_ID}?${new URLSearchParams(slot).toString()}`);
+  await page.goto(`/listings/${REQUEST_ID}?${new URLSearchParams(slot).toString()}`);
+  if (t !== undefined) {
+    await expect(page.locator('[data-testid="s03-request"]')).toHaveText(
+      t.t('web.s03.request', { host_name: HOST_NAME, count: EXPIRY_HOURS }),
+    );
+    await expect(page.locator(MAIN)).not.toContainText(
+      t.t('common.checkout.requestModeUnavailable'),
+    );
+    await expectAccessible(page);
+    await expectMobileFriendly(page);
+  }
   await page.locator('[data-testid="s03-book"] button[type="submit"]').click();
   await expect(page).toHaveURL(/\/checkout\/[0-9a-f-]{36}$/);
+  if (t !== undefined) {
+    // S05 nomme l'hôte en prénom et initiale (US-212 critère 3), comme le devis du double
+    await expect(page.locator('[data-testid="s05-quote-request"]')).toHaveText(
+      t.t('web.s03.request', { host_name: QUOTE_HOST_NAME, count: EXPIRY_HOURS }),
+    );
+    await expect(page.locator('[data-testid="s05-submit"]')).toHaveText(
+      t.t('web.s05.request.continue'),
+    );
+  }
   await page.locator('#s05-driver-first').fill('Lucía');
   await page.locator('#s05-driver-last').fill('Gómez');
   for (const kind of ['TOS_GUEST', 'CANCELLATION_POLICY', 'GEO_TERMS']) {
@@ -148,7 +176,7 @@ for (const language of LANGUAGES) {
       const t = translator(language);
       const guest = guestToken(language);
       await session(context, guest);
-      const holdId = await placeRequest(page);
+      const holdId = await placeRequest(page, t);
       // S05 d'une demande : « Enviar solicitud », le montant est autorisé (jamais « Pagar »)
       const cta = page.locator('[data-testid="s05-pay-submit"]');
       await expect(cta).toHaveText(t.t('web.s05.ctaRequest'));
@@ -195,7 +223,7 @@ for (const language of LANGUAGES) {
       await submitAndSettle(
         page,
         page.locator('[data-testid="a05-accept-submit"]'),
-        /\/host\/trips\?org=[0-9a-f-]{36}&request=CAPTURING$/,
+        /\/host\/trips\?org=[0-9a-f-]{36}$/,
       );
       await expect(page.locator('main [role="status"]').first()).toContainText(
         t.t('web.a05.request.done.CAPTURING'),
@@ -246,7 +274,7 @@ for (const language of LANGUAGES) {
       await submitAndSettle(
         page,
         page.locator('[data-testid="a05-decline-submit"]'),
-        /&request=DECLINED$/,
+        /\/host\/trips\?org=[0-9a-f-]{36}$/,
       );
       await expect(page.locator('main [role="status"]').first()).toContainText(
         t.t('web.a05.request.done.DECLINED'),
@@ -255,7 +283,7 @@ for (const language of LANGUAGES) {
       await submitAndSettle(
         page,
         page.locator('[data-testid="a05-accept-submit"]'),
-        /&request=CAPTURING$/,
+        /\/host\/trips\?org=[0-9a-f-]{36}$/,
       );
       await call(`/__e2e/payment/webhook?hold=${failed}&event=FAILED`);
 

@@ -2344,6 +2344,16 @@ export const PT_MESSAGES = {
   'web.s06.request.captureFailed.body':
     'A cobrança não foi concluída e a reserva não foi feita. Estamos cancelando a autorização no seu cartão; se você vir uma cobrança, devolvemos o valor integral.',
   'web.s06.request.searchCta': 'Ver carros disponíveis',
+  // US-223 (ouverture du mode sur demande, ADR-175) : S03 (délai de réponse de l’hôte, 10b), CTA
+  // du devis S05 d’une annonce sur demande, libération de l’autorisation après un refus ou une
+  // expiration (S06, BOARD N-288)
+  'web.s03.request': {
+    one: '{host_name} confirma em até {count} hora',
+    other: '{host_name} confirma em até {count} horas',
+  },
+  'web.s05.request.continue': 'Prosseguir com o pedido',
+  'web.s06.request.authorizationRelease':
+    'Estamos cancelando a autorização no seu cartão. Se o seu banco ainda a mostrar, ela vai sumir em alguns dias, sem nenhuma cobrança.',
   'web.error.requestDeclined':
     '{host_name} não pode receber você nessas datas. Você não pagou nada. Veja estes carros disponíveis nas suas datas.',
   'web.error.requestExpired':

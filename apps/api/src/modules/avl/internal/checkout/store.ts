@@ -87,6 +87,25 @@ export interface CheckoutDocument {
   readonly title: string;
 }
 
+/**
+ * Mode sur demande du pays (US-223, ADR-175), lu par `core.catalog_public_request_terms` (0153) ;
+ * même forme que la fiche S03 (`RequestModeTerms` de CAT, non importée : AVL ne dépend pas de CAT).
+ */
+export interface RequestModeTerms {
+  readonly enabled: boolean;
+  /** Délai de réponse de l'hôte en heures (`booking_request_expiry_hours`), `null` si fermé. */
+  readonly expiryHours: number | null;
+}
+
+/** Ligne de la base lue en fail-closed : ouvert seulement si `true` ET un délai entier ≥ 1. */
+export function requestModeOf(row: Record<string, unknown> | undefined): RequestModeTerms {
+  const hours = row?.['request_expiry_hours'];
+  const n = typeof hours === 'number' ? hours : typeof hours === 'string' ? Number(hours) : NaN;
+  return row?.['request_mode_enabled'] === true && Number.isInteger(n) && n >= 1
+    ? { enabled: true, expiryHours: n }
+    : { enabled: false, expiryHours: null };
+}
+
 /** Devis figé du voyageur, tel que la base l'a rejoué (16 BKG-006). */
 export interface CheckoutQuote {
   readonly quoteId: string;
@@ -102,6 +121,11 @@ export interface CheckoutQuote {
   readonly expired: boolean;
   readonly manualTransmission: boolean;
   readonly instantBook: boolean;
+  /**
+   * Mode sur demande du pays (US-223, ADR-175 ; `core.catalog_public_request_terms`, 0153) : une
+   * annonce `instantBook = false` n'est proposée au checkout que si la base le dit ouvert.
+   */
+  readonly requestMode: RequestModeTerms;
   /** Documents à accepter (CGU, politique d'annulation, texte géographique), versions en vigueur. */
   readonly documents: readonly CheckoutDocument[];
   /** Niveau de protection figé (US-226) ; `null` : devis sans protection, jamais réservable. */
@@ -367,12 +391,14 @@ export class PgCheckoutStore implements CheckoutStore {
               m.extra_km_price_minor::text AS quote_extra_km_price_minor,
               t.last_minute AS cancel_last_minute, t.free_until AS cancel_free_until,
               t.last_minute_window_minutes AS cancel_window_minutes,
-              hn.host_name AS checkout_host_name
+              hn.host_name AS checkout_host_name,
+              rq.request_mode_enabled, rq.request_expiry_hours
          FROM core.booking_checkout_quote($1, $2::uuid) AS q
          JOIN core.booking_checkout_protection($1, $2::uuid) AS p ON p.quote_id = q.quote_id
          LEFT JOIN core.pricing_checkout_terms($1, $2::uuid) AS m ON m.quote_id = q.quote_id
          LEFT JOIN LATERAL core.catalog_public_terms(q.listing_id, q.start_at) AS t ON true
-         LEFT JOIN core.booking_checkout_host_name($1, $2::uuid) AS hn ON hn.quote_id = q.quote_id`,
+         LEFT JOIN core.booking_checkout_host_name($1, $2::uuid) AS hn ON hn.quote_id = q.quote_id
+         LEFT JOIN LATERAL core.catalog_public_request_terms(q.country_code) AS rq ON true`,
       [proof, quoteId],
     );
     const r = rows[0];
@@ -395,6 +421,7 @@ export class PgCheckoutStore implements CheckoutStore {
       expired: bool(r['expired']),
       manualTransmission: bool(r['manual_transmission']),
       instantBook: bool(r['instant_book']),
+      requestMode: requestModeOf(r),
       documents: list(r['documents']).map((d) => ({
         kind: text(d['kind']),
         version: int(d['version']),

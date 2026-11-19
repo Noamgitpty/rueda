@@ -18580,6 +18580,21 @@
           }
         }
       },
+      "RequestModeTerms": {
+        "type": "object",
+        "description": "Mode sur demande du pays (US-223, ADR-175) : ouvert si booking_request_mode_enabled est vrai et le délai de réponse de l’hôte lisible ; fermé : enabled = false, expiryHours = null (fail-closed).",
+        "additionalProperties": false,
+        "required": ["enabled", "expiryHours"],
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "expiryHours": {
+            "type": ["integer", "null"],
+            "minimum": 1
+          }
+        }
+      },
       "PublicListing": {
         "type": "object",
         "additionalProperties": false,
@@ -18593,6 +18608,7 @@
           "includedKmPerDay",
           "extraKmPriceMinor",
           "instantBook",
+          "requestMode",
           "variantId",
           "makeName",
           "modelName",
@@ -18640,6 +18656,9 @@
           },
           "instantBook": {
             "type": "boolean"
+          },
+          "requestMode": {
+            "$ref": "#/components/schemas/RequestModeTerms"
           },
           "variantId": {
             "type": ["string", "null"]
@@ -18835,6 +18854,7 @@
           "expired",
           "manualTransmission",
           "instantBook",
+          "requestMode",
           "documents",
           "protectionLevel",
           "driverAge",
@@ -18995,6 +19015,9 @@
           },
           "instantBook": {
             "type": "boolean"
+          },
+          "requestMode": {
+            "$ref": "#/components/schemas/RequestModeTerms"
           },
           "documents": {
             "type": "array",

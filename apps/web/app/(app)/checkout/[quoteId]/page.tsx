@@ -420,7 +420,8 @@ export default async function CheckoutPage({
           </Banner>
           <ButtonLink href="/">{t('web.listing.search')}</ButtonLink>
         </section>
-      ) : !quote.instantBook ? (
+      ) : !quote.instantBook && quote.requestHours === null ? (
+        // US-223 (ADR-175) : annonce sur demande d'un pays où le mode est fermé (fail-closed)
         <Banner tone="info">{t('common.checkout.requestModeUnavailable')}</Banner>
       ) : !complete ? (
         // un document du checkout n'est pas publié : rien à accepter, aucune réservation
@@ -428,20 +429,32 @@ export default async function CheckoutPage({
           {t('common.legal.unavailable')}
         </Banner>
       ) : (
-        <CheckoutForm
-          // nouveau devis (prix redemandé) : formulaire neuf, cases à cocher de nouveau
-          key={quote.quoteId}
-          localeTag={localeTag}
-          quoteId={quote.quoteId}
-          manualRequired={quote.manualTransmission}
-          amount={i18n.money(total)}
-          documents={quote.documents.map((d) => ({
-            kind: d.kind,
-            version: d.version,
-            title: d.title,
-            href: checkoutDocumentHref(d, quote.country, quote.quoteId),
-          }))}
-        />
+        <>
+          {!quote.instantBook && quote.requestHours !== null && (
+            // US-223 (ADR-175) : demande à l'hôte, délai lu dans l'API (`requestMode`)
+            <p className={accountStyles['text']} data-testid="s05-quote-request">
+              {t('web.s03.request', {
+                host_name: quote.hostName ?? t('web.s07.request.hostFallback'),
+                count: quote.requestHours,
+              })}
+            </p>
+          )}
+          <CheckoutForm
+            // nouveau devis (prix redemandé) : formulaire neuf, cases à cocher de nouveau
+            key={quote.quoteId}
+            localeTag={localeTag}
+            quoteId={quote.quoteId}
+            manualRequired={quote.manualTransmission}
+            request={!quote.instantBook}
+            amount={i18n.money(total)}
+            documents={quote.documents.map((d) => ({
+              kind: d.kind,
+              version: d.version,
+              title: d.title,
+              href: checkoutDocumentHref(d, quote.country, quote.quoteId),
+            }))}
+          />
+        </>
       )}
       <ButtonLink variant="quiet" href={`/listings/${quote.listingId}`}>
         {t('web.s05.back')}

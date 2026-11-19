@@ -73,10 +73,6 @@ export const EN_PROTO = {
   'web.s03.rules.title': "{host_name}'s rules",
   'web.s03.meet.title': 'Where you pick up the car',
   'web.s03.instant': 'Instant confirmation',
-  'web.s03.request': {
-    one: '{host_name} confirms within {count} hour',
-    other: '{host_name} confirms within {count} hours',
-  },
   'web.s03.signal.bookedAfter':
     'This car is booked right after your dates: please return it on time.',
   'web.s03.kyc.notice':

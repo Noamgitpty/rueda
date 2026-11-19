@@ -7,18 +7,26 @@
  * `REQUEST_NOT_FOUND`, même réponse). Aucun montant ni aucune jambe n'est envoyé : la base capture
  * le montant du devis engagé.
  *
- * - succès ⇒ retour à A05 avec l'issue (`?request=CAPTURING|ACCEPTED|DECLINED`) ;
+ * - succès ⇒ retour à A05, l'issue (`CAPTURING|ACCEPTED|DECLINED`) dans un cookie httpOnly d'une
+ *   minute, jamais dans l'URL (BOARD N-286, US-223 ADR-175) ;
  * - refus ⇒ message du code sur l'écran de la demande (`common.request.*`), la demande n'est
  *   jamais dite traitée ; code inconnu ou API injoignable ⇒ message générique ;
  * - session absente ⇒ connexion ; CGU de la plateforme à réaccepter (garde de l'API) ⇒
  *   réacceptation ; CGU de l'HÔTE à réaccepter (refus de la base) ⇒ message dédié.
  * Formulaire sans JavaScript ; jamais de donnée personnelle dans une URL ni dans un journal.
  */
+import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import type { MessageKey } from '@rueda/i18n';
 import { callApi, codeOf } from '../../../../account/api-client.ts';
 import { messageKeyOf } from '../../../../account/host-listings.ts';
-import { decisionOf, requestErrorKey } from '../../../../account/host-requests.ts';
+import {
+  DECISION_COOKIE,
+  DECISION_COOKIE_MAX_AGE_S,
+  decisionCookieValue,
+  decisionOf,
+  requestErrorKey,
+} from '../../../../account/host-requests.ts';
 import { clientContext } from '../../../../account/request.ts';
 
 export interface RequestDecisionState {
@@ -41,7 +49,20 @@ async function decide(verb: 'accept' | 'decline', form: FormData): Promise<Reque
   const reply = await callApi('POST', `/host/accounts/${orgId}/requests/${holdId}/${verb}`, ctx);
   if (reply.status === 401) redirect('/login');
   const decision = decisionOf(reply, holdId);
-  if (decision !== null) redirect(`/host/trips?org=${orgId}&request=${decision}`);
+  if (decision !== null) {
+    // BOARD N-286 : l'issue de l'API voyage dans un cookie httpOnly, jamais dans l'URL
+    const value = decisionCookieValue(holdId, decision);
+    if (value !== null) {
+      (await cookies()).set(DECISION_COOKIE, value, {
+        httpOnly: true,
+        secure: true,
+        sameSite: 'strict',
+        path: '/host/trips',
+        maxAge: DECISION_COOKIE_MAX_AGE_S,
+      });
+    }
+    redirect(`/host/trips?org=${orgId}`);
+  }
   // CGU de la plateforme (garde de l'API) ≠ CGU de l'hôte (refus de la base, message dédié)
   if (
     codeOf(reply) === 'TERMS_REACCEPT_REQUIRED' &&

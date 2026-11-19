@@ -43,6 +43,11 @@ export interface CheckoutFormProps {
   readonly localeTag: string;
   readonly quoteId: string;
   readonly manualRequired: boolean;
+  /**
+   * Annonce sur demande (US-223, ADR-175) : le bouton mène à l'envoi de la demande (S05 du hold),
+   * sans montant ; la page ne le rend que si l'API dit le mode ouvert dans le pays.
+   */
+  readonly request?: boolean;
   /** Total du devis déjà formaté (libellé du bouton). */
   readonly amount: string;
   readonly documents: readonly CheckoutDocumentProp[];
@@ -52,6 +57,7 @@ export function CheckoutForm({
   localeTag,
   quoteId,
   manualRequired,
+  request = false,
   amount,
   documents,
 }: CheckoutFormProps) {
@@ -229,7 +235,7 @@ export function CheckoutForm({
         onClick={onClick}
         data-testid="s05-submit"
       >
-        {t('web.s05.hold.cta', { amount })}
+        {request ? t('web.s05.request.continue') : t('web.s05.hold.cta', { amount })}
       </Button>
       {!ready && (
         <p id={HINT_ID} className={accountStyles['muted']}>

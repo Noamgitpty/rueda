@@ -7,6 +7,8 @@
 
 /** Fiche publiée du double (e2e/stub-api.mjs). */
 export const PUBLIC_ID = '11500000-0000-4000-8000-00000000f001';
+/** Fiche SUR DEMANDE du double, mode ouvert dans son pays (US-223, ADR-175 ; délai de 4 h). */
+export const REQUEST_ID = '22300000-0000-4000-8000-00000000f007';
 export const COUNTRY = 'ZZ';
 export const CITY = 'Ciudad Ficticia';
 export const AREA = 'Barrio Norte';

@@ -1127,3 +1127,13 @@ Migration `0152_payment_refund_lock_order_credit_collection`. Fixture `9933_test
 - **N-367** : corps de `core.payment_cmd_record_operation` à 15 arguments (0121) remplacé : `CREDIT_REDEMPTION`, et `AUTH` / `CAPTURE` / `MIT_CHARGE` / `DEBT_COLLECTION` / `DEPOSIT_AUTH` / `DEPOSIT_CAPTURE` d'un moyen `CREDIT_CASH` / `CREDIT_PROMO` (casse ignorée) ⇒ `payment_operation_credit_unavailable` (55000, `PAYMENT_METHOD_UNAVAILABLE`), avant toute écriture et avant le rejeu.
 - **Droits** : aucun nouveau ; signatures, propriétaire (`cmd_money_owner`), `SECURITY DEFINER` et `EXECUTE` inchangés.
 - **Preuves** : `test/l0/l0-us224-await-choice-race.test.ts` (deux connexions réelles et une d'observation, les deux ordres d'arrivée, attente observée, aucun `40P01` ; groupe isolé), `test/l0/l0-us224-credit-collection.test.ts`, `test/l0/l0-us224f-multi-tender.test.ts` (unité de trop refusée sur chacun des deux moyens par `leg_refund_exceeds_settlement` ; crédits de T33 et TJ16d posés par la fixture 9933) — PA USD, PY PYG, rôles de production.
+
+## Points d'entrée du mode sur demande (US-223, ouverture du mode ; BOARD N-246 ; ADR-175)
+
+Migration `0153_catalog_request_mode_entry`. Aucune fixture nouvelle (réglage posé en transaction annulée par `test_fixture.us223c_set_request_mode` de 9959).
+
+- **Aide** `core.catalog_request_mode_hours(text)` (SECURITY INVOKER, EXECUTE catalog_cmd_owner seul) : délai de réponse de l'hôte si `booking_request_mode_enabled` est vrai et `booking_request_expiry_hours` un entier ≥ 1 dans le pays, sinon `NULL` (fail-closed).
+- **Fonction** `core.catalog_public_request_terms(text)` (catalog_cmd_owner, RLS-15, EXECUTE `app_api` seul, lecture seule) : `(request_mode_enabled, request_expiry_hours)` ; pays inconnu ou réglage absent : `(false, NULL)`.
+- **Recherche et zones** : corps de `core.catalog_public_search` et `core.catalog_public_areas` (0103) recopiés à signature, propriétaire et droits identiques ; seul le filtre change : `instant_book OR mode ouvert dans le pays`. Réglage faux (graine 0125, PA et PY) : résultat identique à 0103.
+- **Droits** : politique `catalog_cmd_request_mode_read` de `config_param_value` (les deux clés du mode, catalog_cmd_owner) ; EXECUTE de `core.booking_param_bool` (0126) à catalog_cmd_owner. Aucune valeur de paramètre changée : le passage du réglage à vrai est une ligne de GL-26.
+- **Preuves** : `test/l0/l0-us201-public-search.test.ts`, bloc US-223 (PA USD, PY PYG : fermé, ouvert, l'autre pays fermé, refermé ; `app_worker` et `app_anon` : 42501 ; aide interne refusée à `app_api`) ; inventaire des politiques `test/int/config-country.test.ts`.

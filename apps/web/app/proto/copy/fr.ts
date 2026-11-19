@@ -80,10 +80,6 @@ export const FR_PROTO = {
   'web.s03.rules.title': 'Règles fixées par {host_name}',
   'web.s03.meet.title': 'Où tu récupères la voiture',
   'web.s03.instant': 'Confirmation immédiate',
-  'web.s03.request': {
-    one: '{host_name} confirme sous {count} heure maximum',
-    other: '{host_name} confirme sous {count} heures maximum',
-  },
   'web.s03.signal.bookedAfter':
     'Cette voiture est déjà réservée juste après tes dates : rends-la à l’heure.',
   'web.s03.kyc.notice':

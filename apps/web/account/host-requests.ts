@@ -131,6 +131,35 @@ export function decisionOf(reply: ApiResult, holdId: string): DecisionStatus | n
 }
 
 /**
+ * Issue d'une décision annoncée au retour sur A05 (BOARD N-286, ADR-175) : jamais lue dans l'URL
+ * (un lien `?request=ACCEPTED` faisait croire à l'hôte qu'une demande était acceptée). L'action
+ * serveur dépose, après la réponse 200 de l'API, un cookie httpOnly, `SameSite=Strict`, limité à
+ * `/host/trips` et valable une minute, qui porte la demande et l'issue rendues par l'API ; un lien
+ * ou une autre origine ne peuvent pas le poser.
+ */
+export const DECISION_COOKIE = 'kmino_a05_decision';
+export const DECISION_COOKIE_MAX_AGE_S = 60;
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+
+/** Valeur du cookie : `<holdId>.<issue>` ; `null` si l'issue n'est pas une issue de l'API. */
+export function decisionCookieValue(holdId: string, status: DecisionStatus): string | null {
+  return UUID_RE.test(holdId) && (DECISION_STATUSES as readonly string[]).includes(status)
+    ? `${holdId}.${status}`
+    : null;
+}
+
+/** Issue lue dans le cookie ; toute autre forme (absent, modifié, ancien format) : `null`. */
+export function decisionFromCookie(value: string | undefined): DecisionStatus | null {
+  if (value === undefined) return null;
+  const [holdId, status, ...rest] = value.split('.');
+  if (rest.length > 0 || holdId === undefined || !UUID_RE.test(holdId)) return null;
+  return (DECISION_STATUSES as readonly unknown[]).includes(status)
+    ? (status as DecisionStatus)
+    : null;
+}
+
+/**
  * Codes stables des routes des demandes (ADR-146 §10, `HOST_REQUEST_MESSAGES` de l'API) → clé du
  * catalogue (es, en, fr, pt-BR). Un code inconnu ou une API injoignable donne un message générique
  * (fail-closed) : la demande n'est jamais dite traitée.

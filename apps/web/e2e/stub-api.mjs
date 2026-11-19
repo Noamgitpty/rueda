@@ -262,6 +262,16 @@ const NO_COVER_ID = '20500000-0000-4000-8000-00000000f005';
 // (LUXE, `deposit_amount` À DÉCIDER) ⇒ conditions « caution non disponible » (UNAVAILABLE) ; sans
 // photo, couverte comme `PUBLIC_ID`. Aucune capture de référence ne l'ouvre.
 const DEPOSIT_UNAVAILABLE_ID = '70100000-0000-4000-8000-00000000f006';
+// US-223 (ouverture du mode sur demande, ADR-175) : fiche SUR DEMANDE (`instantBook: false`) d'un
+// pays où le mode est ouvert (`requestMode`, délai de 4 h comme la graine 0125 / 22 OQ-P2P-10) ;
+// sans photo, couverte comme `PUBLIC_ID`. Toutes les autres fiches et tous les devis rendent le
+// mode FERMÉ, comme la base tant que `booking_request_mode_enabled` est faux.
+const REQUEST_ID = '22300000-0000-4000-8000-00000000f007';
+const REQUEST_EXPIRY_HOURS = 4;
+const requestModeOf = (listingId) =>
+  listingId === REQUEST_ID
+    ? { enabled: true, expiryHours: REQUEST_EXPIRY_HOURS }
+    : { enabled: false, expiryHours: null };
 const LAST_MINUTE_TIME = 'T09:30';
 const FREE_CANCEL_LEAD_H = 24;
 const LAST_MINUTE_THRESHOLD_H = 25;
@@ -474,7 +484,8 @@ const quoteJson = (q) => ({
   expiresAt: QUOTE_EXPIRES_AT,
   expired: q.expiredOnRead,
   manualTransmission: q.listingId === MANUAL_ID,
-  instantBook: true,
+  instantBook: q.listingId !== REQUEST_ID,
+  requestMode: requestModeOf(q.listingId),
   documents: Object.keys(CHECKOUT_DOCS).map((kind) => ({
     kind,
     version: CHECKOUT_DOCS[kind],
@@ -549,7 +560,7 @@ async function checkoutRoute(req, res, path) {
     if (b === null || typeof b !== 'object') {
       return err(res, 400, 'QUOTE_INPUT_INVALID', 'common.quote.datesInvalid');
     }
-    if (b.listingId !== PUBLIC_ID && b.listingId !== MANUAL_ID) {
+    if (![PUBLIC_ID, MANUAL_ID, REQUEST_ID].includes(b.listingId)) {
       return err(res, 404, 'LISTING_NOT_FOUND', 'common.listing.notFound');
     }
     if (!STEP.test(b.startAt ?? '') || !STEP.test(b.endAt ?? '') || b.endAt <= b.startAt) {
@@ -758,9 +769,9 @@ const REVIEW_EXPIRES_AT = '2036-11-30T17:00:00.000Z';
 const APPROVED_EXPIRES_AT = '2036-11-30T15:40:00.000Z';
 const PAYMENT_IN_FLIGHT_UNTIL = '2036-11-30T15:16:00.000Z';
 // ---- Demande à l'hôte (US-223 partie 223d ; mode REQUEST de 223c, ADR-146) -------------------
-// Le 23 décembre : hold de DEMANDE (`kind` REQUEST). Le parcours S03 / S05 d'une annonce sur
-// demande reste fermé tant que le mode n'est pas ouvert (suite de 223d) : le double pose donc la
-// demande depuis le checkout ordinaire, pour exercer les écrans qui suivent la pose. Événements de
+// Le 23 décembre : hold de DEMANDE (`kind` REQUEST). Depuis l'ouverture du mode (US-223,
+// ADR-175), `request-mode.spec.ts` pose la demande par la fiche sur demande `REQUEST_ID` (S03 →
+// S05) ; les captures de `screens.spec.ts` la posent encore depuis le checkout de `PUBLIC_ID`. Événements de
 // `GET /__e2e/payment/webhook` sur une demande : PAY (autorisation en vol), SUCCEEDED (autorisation
 // prouvée ⇒ AWAITING_HOST, heure limite REQUEST_RESPOND_BY ; après l'acceptation : capture prouvée
 // ⇒ trip né), FAILED (capture refusée ⇒ RELEASED / PAYMENT_DECLINED), EXPIRE (heure limite passée
@@ -1252,7 +1263,7 @@ async function hostRoute(req, res, url) {
   }
   const avail = /^\/listings\/([0-9a-f-]{36})\/availability$/.exec(path)?.[1];
   if (req.method === 'GET' && avail !== undefined) {
-    if (![PUBLIC_ID, MANUAL_ID, NO_COVER_ID, DEPOSIT_UNAVAILABLE_ID].includes(avail)) {
+    if (![PUBLIC_ID, MANUAL_ID, NO_COVER_ID, DEPOSIT_UNAVAILABLE_ID, REQUEST_ID].includes(avail)) {
       return err(res, 404, 'LISTING_NOT_FOUND', 'common.listing.notFound');
     }
     const start = url.searchParams.get('start') ?? '';
@@ -1313,7 +1324,7 @@ async function hostRoute(req, res, url) {
   }
   const cond = /^\/listings\/([0-9a-f-]{36})\/conditions$/.exec(path)?.[1];
   if (req.method === 'GET' && cond !== undefined) {
-    if (![PUBLIC_ID, MANUAL_ID, NO_COVER_ID, DEPOSIT_UNAVAILABLE_ID].includes(cond)) {
+    if (![PUBLIC_ID, MANUAL_ID, NO_COVER_ID, DEPOSIT_UNAVAILABLE_ID, REQUEST_ID].includes(cond)) {
       return err(res, 404, 'LISTING_NOT_FOUND', 'common.listing.notFound');
     }
     return json(res, 200, {
@@ -1352,11 +1363,12 @@ async function hostRoute(req, res, url) {
   const pub = /^\/listings\/([0-9a-f-]{36})$/.exec(path)?.[1];
   if (req.method === 'GET' && pub !== undefined) {
     if (pub === DOWN_ID) return err(res, 503, 'LISTING_UNAVAILABLE', 'common.listing.unavailable');
-    if (![PUBLIC_ID, MANUAL_ID, NO_COVER_ID, DEPOSIT_UNAVAILABLE_ID].includes(pub)) {
+    if (![PUBLIC_ID, MANUAL_ID, NO_COVER_ID, DEPOSIT_UNAVAILABLE_ID, REQUEST_ID].includes(pub)) {
       return err(res, 404, 'LISTING_NOT_FOUND', 'common.listing.notFound');
     }
     const manual = pub === MANUAL_ID;
-    const bare = manual || pub === NO_COVER_ID || pub === DEPOSIT_UNAVAILABLE_ID;
+    const bare =
+      manual || pub === NO_COVER_ID || pub === DEPOSIT_UNAVAILABLE_ID || pub === REQUEST_ID;
     return json(res, 200, {
       listing: {
         id: pub,
@@ -1367,7 +1379,7 @@ async function hostRoute(req, res, url) {
         mileageMode: 'INCLUDED',
         includedKmPerDay: KM_PER_DAY,
         extraKmPriceMinor: EXTRA_KM_MINOR,
-        instantBook: true,
+        instantBook: pub !== REQUEST_ID,
         variantId: null,
         makeName: 'Toyota',
         modelName: 'Yaris',
@@ -1389,6 +1401,7 @@ async function hostRoute(req, res, url) {
           vehicle: { averageX100: 480, reviewCount: 3, tripCount: 5 },
           host: { averageX100: 490, reviewCount: 10, tripCount: 12 },
         },
+        requestMode: requestModeOf(pub),
       },
     });
   }

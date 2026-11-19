@@ -13,6 +13,7 @@ import type { ApiResult } from './api-client.ts';
 import { codeOf } from './api-client.ts';
 import { cancellationViewOf } from './listing-terms.ts';
 import type { SlotCancellationView } from './listing-terms.ts';
+import { requestHoursOf } from './request-mode.ts';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 /** Instant UTC rendu par l'API (millisecondes facultatives). */
@@ -139,6 +140,11 @@ export interface CheckoutQuoteView {
   readonly expired: boolean;
   readonly manualTransmission: boolean;
   readonly instantBook: boolean;
+  /**
+   * Délai de réponse de l'hôte (heures) si le mode sur demande est ouvert dans le pays (US-223,
+   * ADR-175) ; `null` : fermé ou illisible (fail-closed, `request-mode.ts`).
+   */
+  readonly requestHours: number | null;
   /** Documents à accepter, dans l'ordre de l'écran ; un genre absent : aucun texte publié. */
   readonly documents: readonly CheckoutDocumentView[];
   /** Distance figée dans le devis (US-205b) ; `null` : aucune distance promise ou illisible. */
@@ -345,6 +351,7 @@ export function checkoutQuoteOf(reply: ApiResult): CheckoutQuoteView | null {
     expired: q['expired'] === true,
     manualTransmission: q['manualTransmission'] === true,
     instantBook: q['instantBook'] === true,
+    requestHours: requestHoursOf(q['requestMode']),
     documents,
     // US-205b : conditions affichées seulement si lisibles ; jamais une retenue au-delà du total
     mileage: quoteMileageOf(q['mileage']),

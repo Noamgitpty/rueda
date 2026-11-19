@@ -21,6 +21,7 @@ import type {
   Outcome,
   PhotoRecord,
   PublicListing,
+  RequestModeTerms,
 } from '../internal/host-listings/store.js';
 import type {
   CatalogRequestInput,
@@ -77,6 +78,8 @@ export class FakeHostListingStore implements HostListingStore {
   readonly futureTrips = new Set<string>();
   /** Nom affiché au voyageur par compte d'hôte (N-37, US-124 : premier mot du prénom légal). */
   readonly hostFirstNames = new Map<string, string>();
+  /** Mode sur demande par pays (US-223, 0153) ; absent : fermé, comme la graine 0125. */
+  readonly requestModes = new Map<string, RequestModeTerms>();
   /**
    * Plans de gains vendus par pays (`host_share_pct`, donnée de test ; US-226) et plan choisi par
    * véhicule. Les règles (version, PRO, devis déjà figé) sont prouvées en base
@@ -434,6 +437,7 @@ export class FakeHostListingStore implements HostListingStore {
       timezone: 'UTC',
       hostFirstName: this.hostFirstNames.get(l.orgId) ?? null,
       photos: (l.photoIds ?? []).map((id, order) => ({ id, order, key: `listing/${l.id}/${id}` })),
+      requestMode: this.requestModes.get(v.country) ?? { enabled: false, expiryHours: null },
     });
   }
 

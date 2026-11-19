@@ -491,8 +491,9 @@ describe('US-201 — recherche publique par zone, lieu, dates et heures (0103)',
           'POLICY_VIOLATION',
         ]);
         await car(tx, cc, { city, listed: false });
-        // réservation sur demande (REQUEST) : écartée tant qu'US-223 n'a pas livré son cycle
-        // (consigne de l'orchestrateur, revue d'US-219 ; fail-closed, PROPOSÉ)
+        // réservation sur demande (REQUEST) : écartée tant que le mode est fermé dans le pays
+        // (`booking_request_mode_enabled` faux, 0125 ; 19 US-223 DoR 2 ; ouvert : bloc US-223 en
+        // fin de fichier, 0153)
         const onRequest = await car(tx, cc, { city, instantBook: false });
         const listed = await tx.query<{ instant_book: boolean }>(
           'SELECT instant_book FROM core.catalog_public_listing($1)',
@@ -556,5 +557,113 @@ describe('US-201 — recherche publique par zone, lieu, dates et heures (0103)',
         }
       }
     });
+  });
+});
+
+/**
+ * US-223 (ouverture du mode sur demande, migration 0153, ADR-175 ; BOARD N-246) : le filtre
+ * « réservation immédiate seulement » de 0103 est levé PAR PAYS, seulement quand le checkout
+ * accepterait la demande. Attendus tirés de 19 US-223 DoR 2 (mode fermé : une annonce
+ * `instant_book = false` n'est ni proposée par la recherche ni réservable), de 22 OQ-P2P-10 (REQUEST
+ * au choix de l'hôte, expiration 4 h), de 17 §7.2 (`booking_request_expiry_hours` = 4, PROPOSÉ ;
+ * `booking_request_mode_enabled` absent = faux) et de 10b S03 `web.s03.request` (« confirma en hasta
+ * {count} horas »), jamais du code testé. Le paramètre n'est ouvert que dans la transaction ANNULÉE
+ * du test, par la fixture 9959 (`us223c_set_request_mode`, comme la console de configuration).
+ */
+describe('US-223 — points d’entrée du mode sur demande (0153)', () => {
+  /** 17 §7.2 `booking_request_expiry_hours` (graine 0125, PROPOSÉ ; 22 OQ-P2P-10 : 4 h). */
+  const EXPIRY_HOURS = 4;
+  const terms = async (c: Tx, country: string): Promise<Row[]> =>
+    (await c.query<Row>('SELECT * FROM core.catalog_public_request_terms($1)', [country])).rows;
+  const setMode = (c: Tx, country: string, on: boolean) =>
+    c.query('SELECT test_fixture.us223c_set_request_mode($1, $2)', [country, on]);
+
+  it.each(byCountry)(
+    '%s (%s) : mode fermé ⇒ annonce sur demande absente de la recherche et des zones ; ouvert dans le pays ⇒ présente, délai de 4 h lu ; l’autre pays reste fermé ; refermé ⇒ de nouveau absente',
+    async (country, _currency, cc) => {
+      await rolledBack(async (tx) => {
+        await openCountry(tx, country);
+        const city = placeName('Villa');
+        const instant = await car(tx, cc, { city });
+        const onRequest = await car(tx, cc, { city, instantBook: false });
+        const other = COUNTRIES.find((x) => x.country !== country)?.country;
+        if (other === undefined) throw new Error('second pays de test absent');
+        const at = () => search(tx, country, city, null, '2036-12-10T10:00', '2036-12-12T10:00');
+        const areasOf = async (): Promise<Row[]> =>
+          (await tx.query<Row>('SELECT * FROM core.catalog_public_areas($1)', [country])).rows
+            .filter((r) => r['city'] === city)
+            .sort((a, b) => String(a['area_label']).localeCompare(String(b['area_label'])));
+        const area = (x: Car): Row => ({
+          country_code: country,
+          city,
+          area_label: x.area,
+          timezone: cc.timezone,
+        });
+
+        // fermé (graine 0125 : faux dans chaque pays) : rien ne change par rapport à 0103
+        expect(await terms(tx, country)).toEqual([
+          { request_mode_enabled: false, request_expiry_hours: null },
+        ]);
+        expect(ids(await at())).toEqual([instant.listing]);
+        expect(await areasOf()).toEqual([area(instant)]);
+
+        // ouvert dans CE pays : l'annonce sur demande est proposée, avec son mode (instant_book)
+        await setMode(tx, country, true);
+        expect(await terms(tx, country)).toEqual([
+          { request_mode_enabled: true, request_expiry_hours: EXPIRY_HOURS },
+        ]);
+        const open = await at();
+        expect(ids(open).sort()).toEqual([instant.listing, onRequest.listing].sort());
+        expect(open.find((r) => r['listing_id'] === onRequest.listing)?.['instant_book']).toBe(
+          false,
+        );
+        expect(await areasOf()).toEqual(
+          [area(instant), area(onRequest)].sort((a, b) =>
+            String(a['area_label']).localeCompare(String(b['area_label'])),
+          ),
+        );
+        // le réglage est par pays : l'autre pays reste fermé
+        expect(await terms(tx, other)).toEqual([
+          { request_mode_enabled: false, request_expiry_hours: null },
+        ]);
+
+        // refermé (nouvelle version du réglage) : de nouveau écartée
+        await setMode(tx, country, false);
+        expect(ids(await at())).toEqual([instant.listing]);
+        expect(await terms(tx, country)).toEqual([
+          { request_mode_enabled: false, request_expiry_hours: null },
+        ]);
+      });
+    },
+  );
+
+  it('pays inconnu ou absent ⇒ mode fermé, sans erreur (fail-closed)', async () => {
+    await rolledBack(async (tx) => {
+      for (const country of ['ZZ', null]) {
+        expect(
+          (await tx.query<Row>('SELECT * FROM core.catalog_public_request_terms($1)', [country]))
+            .rows,
+        ).toEqual([{ request_mode_enabled: false, request_expiry_hours: null }]);
+      }
+    });
+  });
+
+  it('app_worker et app_anon n’exécutent pas la lecture du mode ; app_api n’exécute pas son aide interne (42501)', async () => {
+    for (const [role, sql] of [
+      ['app_worker', 'SELECT * FROM core.catalog_public_request_terms($1)'],
+      ['app_anon', 'SELECT * FROM core.catalog_public_request_terms($1)'],
+      ['app_api', 'SELECT core.catalog_request_mode_hours($1)'],
+    ] as const) {
+      await withRole(role, async (client) => {
+        await client.query('BEGIN');
+        try {
+          await expect(client.query(sql, ['PA']), `${role} ${sql}`).rejects.toMatchObject({
+            code: '42501',
+          });
+        } finally {
+          await client.query('ROLLBACK');
+        }
+      });
+    }
   });
 });
