@@ -19,6 +19,7 @@ import {
   VALUE_CLASSES,
 } from './model.js';
 import type {
+  AssistanceContactsConfig,
   CountryConfig,
   CountryConfigEntry,
   CurrencyConfig,
@@ -274,6 +275,46 @@ function parseTaxLines(c: Collector, path: string, value: unknown): TaxLineConfi
   return out;
 }
 
+/** Numéro E.164 : `+` puis 7 à 15 chiffres, le premier non nul (UIT-T E.164). */
+const E164 = /^\+[1-9][0-9]{6,14}$/;
+
+/**
+ * Numéros du support et de l'assistance de l'assureur (US-213, ADR-174) : `null` ou un objet de
+ * deux numéros E.164 qui commencent par l'indicatif du pays (un numéro d'un autre pays, ou deux
+ * pays inversés, est refusé au chargement : fail-closed).
+ */
+function parseAssistanceContacts(
+  c: Collector,
+  path: string,
+  value: unknown,
+  callingCode: string | undefined,
+): AssistanceContactsConfig | null {
+  if (value === null) return null;
+  if (!isObject(value)) {
+    c.add(path, 'objet ou null attendu');
+    return null;
+  }
+  checkKeys(c, path, value, ['supportPhone', 'insurerAssistancePhone']);
+  const phones: string[] = [];
+  for (const field of ['supportPhone', 'insurerAssistancePhone'] as const) {
+    const raw = value[field];
+    if (typeof raw !== 'string' || !E164.test(raw)) {
+      c.add(`${path}.${field}`, 'numéro E.164 attendu (« + » puis 7 à 15 chiffres)');
+      continue;
+    }
+    if (callingCode !== undefined && !raw.startsWith(`+${callingCode}`)) {
+      c.add(`${path}.${field}`, `numéro hors de l'indicatif du pays (+${callingCode})`);
+      continue;
+    }
+    phones.push(raw);
+  }
+  const [supportPhone, insurerAssistancePhone] = phones;
+  if (phones.length !== 2 || supportPhone === undefined || insurerAssistancePhone === undefined) {
+    return null;
+  }
+  return Object.freeze({ supportPhone, insurerAssistancePhone });
+}
+
 function parseLegalEntity(c: Collector, path: string, value: unknown): LegalEntityConfig | null {
   if (value === null) return null;
   if (!isObject(value)) {
@@ -519,6 +560,7 @@ function parseCountries(
       'taxLines',
       'taxDecision',
       'legalEntity',
+      'assistanceContacts',
       'holidayCalendar',
       'timeZoneChecks',
     ]);
@@ -593,6 +635,15 @@ function parseCountries(
     }
     if (!('legalEntity' in raw)) c.add(`${p}.legalEntity`, 'champ obligatoire (objet ou null)');
     const legalEntity = parseLegalEntity(c, `${p}.legalEntity`, raw['legalEntity']);
+    if (!('assistanceContacts' in raw)) {
+      c.add(`${p}.assistanceContacts`, 'champ obligatoire (objet ou null)');
+    }
+    const assistanceContacts = parseAssistanceContacts(
+      c,
+      `${p}.assistanceContacts`,
+      raw['assistanceContacts'],
+      phone?.callingCode,
+    );
     const holidayCalendar = parseHolidays(c, `${p}.holidayCalendar`, raw['holidayCalendar']);
     const timeZoneChecks = parseTimeZoneChecks(c, `${p}.timeZoneChecks`, raw['timeZoneChecks']);
 
@@ -625,6 +676,7 @@ function parseCountries(
         taxLines: Object.freeze(taxLines),
         taxDecision,
         legalEntity,
+        assistanceContacts,
         holidayCalendar,
         timeZoneChecks: Object.freeze(timeZoneChecks),
       }),

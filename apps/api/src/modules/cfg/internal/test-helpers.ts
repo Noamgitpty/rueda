@@ -83,7 +83,7 @@ export const READINESS_AT = new Date('2026-11-03T12:00:00Z');
 
 /**
  * Configuration du dépôt complétée par des valeurs de test (US-013), pour isoler un critère :
- * entité juridique, fériés 2026, valeurs « à fixer ». Avec `decided` (défaut), toutes les valeurs
+ * entité juridique, numéros d'assistance, fériés 2026, valeurs « à fixer ». Avec `decided` (défaut), toutes les valeurs
  * et les taxes sont marquées décidées (simule le jalon J-ADM-031) ; sinon elles gardent leur statut
  * du dépôt (US-110).
  */
@@ -100,6 +100,12 @@ export function completeConfig(options: { decided?: boolean } = {}): CountryConf
       countryOfIncorporation: code,
       taxId: 'TEST-0001',
       invoicingRegime: 'TEST_REGIME',
+    };
+    // numéros de test : l'indicatif du pays suivi de zéros (jamais un vrai numéro)
+    const callingCode = String((country(sources, code)['phone'] as Mutable)['callingCode']);
+    country(sources, code)['assistanceContacts'] = {
+      supportPhone: `+${callingCode}0000001`,
+      insurerAssistancePhone: `+${callingCode}0000002`,
     };
     country(sources, code)['holidayCalendar'] = {
       version: 1,

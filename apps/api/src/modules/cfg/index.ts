@@ -13,6 +13,7 @@ export {
   TAX_LINE_TYPES,
 } from './internal/model.js';
 export type {
+  AssistanceContactsConfig,
   CountryConfig,
   CountryConfigEntry,
   CurrencyConfig,

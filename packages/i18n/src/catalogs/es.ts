@@ -843,9 +843,9 @@ export const ES_MESSAGES = {
     '{brand}: {first_name}, tu identidad está verificada. Ya puedes reservar.',
   'ntf.bookingConfirmed.email.subject': 'Reserva {booking_ref} confirmada',
   'ntf.bookingConfirmed.email.body':
-    'Hola, {first_name}. Tu reserva {booking_ref} está confirmada: del {start_at} al {end_at}. En tu reserva en {brand} encuentras la dirección exacta del lugar de entrega, el contrato para leer y firmar antes de la entrega y los mensajes con tu anfitrión. Lleva tu licencia de conducir física y tu documento de identidad: el anfitrión los revisará en la entrega. Para tu seguridad: encuéntrense en un lugar público e iluminado, avisa a alguien de confianza dónde estarás y escribe solo por {brand}.',
+    'Hola, {first_name}. Tu reserva {booking_ref} está confirmada: del {start_at} al {end_at}. En tu reserva en {brand} encuentras la dirección exacta del lugar de entrega, el contrato para leer y firmar antes de la entrega y los mensajes con tu anfitrión. Lleva tu licencia de conducir física y tu documento de identidad: el anfitrión los revisará en la entrega. Para tu seguridad: encuéntrense en un lugar público e iluminado, avisa a alguien de confianza dónde estarás y escribe solo por {brand}. {assistance}',
   'ntf.bookingConfirmed.sms.body':
-    '{brand}: reserva {booking_ref} confirmada, del {start_at} al {end_at}. Lleva tu licencia física. Dirección y contrato en la app.',
+    '{brand}: reserva {booking_ref} confirmada, del {start_at} al {end_at}. Lleva tu licencia física. Dirección y contrato en la app. {assistance}',
   'ntf.bookingCancelled.email.subject': 'Reserva {booking_ref} cancelada',
   'ntf.bookingCancelled.email.body':
     'Hola, {first_name}. La reserva {booking_ref} fue cancelada. En la app ves el detalle y, si corresponde, tu reembolso.',
@@ -1331,9 +1331,21 @@ export const ES_MESSAGES = {
   // confirmation et demandes de réservation (US-213, ADR-157)
   'ntf.bookingConfirmedHost.email.subject': 'Reserva {booking_ref} confirmada',
   'ntf.bookingConfirmedHost.email.body':
-    'Hola, {first_name}. La reserva {booking_ref} de tu auto está confirmada: del {start_at} al {end_at}. {brand} ya recibió el pago del viajero. En tu espacio de anfitrión ves el viaje y los mensajes con el viajero. En la entrega, revisa su licencia de conducir física y que su nombre sea el de la reserva.',
+    'Hola, {first_name}. La reserva {booking_ref} de tu auto está confirmada: del {start_at} al {end_at}. {brand} ya recibió el pago del viajero. En tu espacio de anfitrión ves el viaje y los mensajes con el viajero. En la entrega, revisa su licencia de conducir física y que su nombre sea el de la reserva. {assistance}',
   'ntf.bookingConfirmedHost.sms.body':
-    '{brand}: reserva {booking_ref} confirmada, del {start_at} al {end_at}. Detalles en tu espacio de anfitrión.',
+    '{brand}: reserva {booking_ref} confirmada, del {start_at} al {end_at}. Detalles en tu espacio de anfitrión. {assistance}',
+  // numéros du support et de l’assistance de l’assureur (US-213, ADR-174)
+  'ntf.assistance.guest.email.numbers':
+    'Soporte de {brand}: {support_phone}. Asistencia de la aseguradora (avería o accidente): {insurer_phone}.',
+  'ntf.assistance.guest.email.inApp':
+    'Para hablar con el soporte de {brand} o pedir asistencia por una avería o un accidente, entra a tu reserva en la app.',
+  'ntf.assistance.guest.sms.numbers': 'Soporte: {support_phone}. Asistencia: {insurer_phone}.',
+  'ntf.assistance.guest.sms.inApp': 'Soporte y asistencia en la app.',
+  'ntf.assistance.host.email.numbers': 'Soporte de {brand}: {support_phone}.',
+  'ntf.assistance.host.email.inApp':
+    'Para hablar con el soporte de {brand}, entra a tu espacio de anfitrión.',
+  'ntf.assistance.host.sms.numbers': 'Soporte: {support_phone}.',
+  'ntf.assistance.host.sms.inApp': 'Soporte en tu espacio de anfitrión.',
   'ntf.bookingRequestReceived.email.subject': 'Nueva solicitud de reserva {booking_ref}',
   'ntf.bookingRequestReceived.email.body':
     'Hola, {first_name}. Un viajero te envió la solicitud de reserva {booking_ref}. Tienes hasta el {respond_by} para aceptarla o rechazarla en tu espacio de anfitrión de {brand}. Si no respondes a tiempo, la solicitud vence y no se le cobra nada al viajero.',

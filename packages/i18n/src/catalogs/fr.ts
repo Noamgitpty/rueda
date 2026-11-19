@@ -853,9 +853,9 @@ export const FR_MESSAGES = {
     '{brand} : {first_name}, ton identité est vérifiée. Tu peux maintenant réserver.',
   'ntf.bookingConfirmed.email.subject': 'Réservation {booking_ref} confirmée',
   'ntf.bookingConfirmed.email.body':
-    'Bonjour {first_name}. Ta réservation {booking_ref} est confirmée : du {start_at} au {end_at}. Dans ta réservation sur {brand}, tu trouves l’adresse exacte du lieu de remise, le contrat à lire et à signer avant la remise et les messages avec ton hôte. Apporte ton permis de conduire physique et ta pièce d’identité : l’hôte les vérifiera à la remise. Pour ta sécurité : retrouvez-vous dans un lieu public et éclairé, dis à une personne de confiance où tu seras et échange uniquement sur {brand}.',
+    'Bonjour {first_name}. Ta réservation {booking_ref} est confirmée : du {start_at} au {end_at}. Dans ta réservation sur {brand}, tu trouves l’adresse exacte du lieu de remise, le contrat à lire et à signer avant la remise et les messages avec ton hôte. Apporte ton permis de conduire physique et ta pièce d’identité : l’hôte les vérifiera à la remise. Pour ta sécurité : retrouvez-vous dans un lieu public et éclairé, dis à une personne de confiance où tu seras et échange uniquement sur {brand}. {assistance}',
   'ntf.bookingConfirmed.sms.body':
-    '{brand} : réservation {booking_ref} confirmée, du {start_at} au {end_at}. Apporte ton permis physique. Adresse et contrat dans l’appli.',
+    '{brand} : réservation {booking_ref} confirmée, du {start_at} au {end_at}. Apporte ton permis physique. Adresse et contrat dans ton appli. {assistance}',
   'ntf.bookingCancelled.email.subject': 'Réservation {booking_ref} annulée',
   'ntf.bookingCancelled.email.body':
     'Bonjour {first_name}. La réservation {booking_ref} a été annulée. Dans l’appli, tu vois le détail et, le cas échéant, ton remboursement.',
@@ -1363,9 +1363,22 @@ export const FR_MESSAGES = {
   // confirmation et demandes de réservation (US-213, ADR-157)
   'ntf.bookingConfirmedHost.email.subject': 'Réservation {booking_ref} confirmée',
   'ntf.bookingConfirmedHost.email.body':
-    'Bonjour {first_name}. La réservation {booking_ref} de ta voiture est confirmée : du {start_at} au {end_at}. {brand} a reçu le paiement du voyageur. Dans ton espace hôte, tu vois le trajet et les messages avec le voyageur. À la remise, vérifie son permis de conduire physique et que son nom est celui de la réservation.',
+    'Bonjour {first_name}. La réservation {booking_ref} de ta voiture est confirmée : du {start_at} au {end_at}. {brand} a reçu le paiement du voyageur. Dans ton espace hôte, tu vois le trajet et les messages avec le voyageur. À la remise, vérifie son permis de conduire physique et que son nom est celui de la réservation. {assistance}',
   'ntf.bookingConfirmedHost.sms.body':
-    '{brand} : réservation {booking_ref} confirmée, du {start_at} au {end_at}. Détails dans ton espace hôte.',
+    '{brand} : réservation {booking_ref} confirmée, du {start_at} au {end_at}. Détails dans ton espace hôte. {assistance}',
+  // numéros du support et de l’assistance de l’assureur (US-213, ADR-174)
+  'ntf.assistance.guest.email.numbers':
+    'Service client de {brand} : {support_phone}. Assistance de l’assureur (panne ou accident) : {insurer_phone}.',
+  'ntf.assistance.guest.email.inApp':
+    'Pour joindre le service client de {brand} ou demander de l’aide en cas de panne ou d’accident, ouvre ta réservation dans l’appli.',
+  'ntf.assistance.guest.sms.numbers':
+    'Service client : {support_phone}. Assistance : {insurer_phone}.',
+  'ntf.assistance.guest.sms.inApp': 'Service client et assistance dans ton appli.',
+  'ntf.assistance.host.email.numbers': 'Service client de {brand} : {support_phone}.',
+  'ntf.assistance.host.email.inApp':
+    'Pour joindre le service client de {brand}, ouvre ton espace hôte.',
+  'ntf.assistance.host.sms.numbers': 'Service client : {support_phone}.',
+  'ntf.assistance.host.sms.inApp': 'Service client dans ton espace hôte.',
   'ntf.bookingRequestReceived.email.subject': 'Nouvelle demande de réservation {booking_ref}',
   'ntf.bookingRequestReceived.email.body':
     'Bonjour {first_name}. Un voyageur t’a envoyé la demande de réservation {booking_ref}. Tu as jusqu’au {respond_by} pour l’accepter ou la refuser dans ton espace hôte {brand}. Sans réponse à temps, la demande expire et le voyageur ne paie rien.',

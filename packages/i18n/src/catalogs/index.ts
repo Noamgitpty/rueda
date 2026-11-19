@@ -284,8 +284,14 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  N-365) : texte pt-BR de `backoffice.cancel.outcome.REFUND_RAIL_NOT_NATIVE` corrigé (« sobre outro
  meio de pagamento », calque de l'espagnol, devient « para um pagamento feito com outro meio ») ;
  es, en, fr inchangés.
+ Version 90 (la 88 est celle du durcissement d’US-224 ; la 89 est réservée à US-702b) :
+ numéros du support et de l’assistance de l’assureur dans la confirmation de réservation (US-213,
+ ADR-174) : `ntf.assistance.<guest|host>.<email|sms>.<numbers|inApp>` (avec les numéros du pays,
+ ou renvoi à la réservation dans l’appli tant qu’ils ne sont pas fournis, hors production
+ seulement) ; emplacement `{assistance}` ajouté à `ntf.bookingConfirmed.*.body` et
+ `ntf.bookingConfirmedHost.*.body`.
  */
-export const CATALOG_VERSION = 88;
+export const CATALOG_VERSION = 90;
 
 /** Catalogues de base par langue ; la langue d'un profil de locale choisit le sien. */
 export const CATALOGS: Readonly<Record<CatalogLanguage, VersionedCatalog<MessageKey>>> = {

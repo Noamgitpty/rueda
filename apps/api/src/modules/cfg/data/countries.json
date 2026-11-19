@@ -69,6 +69,8 @@
       "$legalEntity": "17 §3.2 legal_entity ; ADR-013 en attente (OQ-MK-06) : aucune entité tant que le fondateur n'a pas choisi ; la production refuse de démarrer sans elle.",
       "taxDecision": { "decision": "TO_DECIDE", "decisionRef": "OQ-BR-14, OQ-MK-06 (avis fiscal)" },
       "legalEntity": null,
+      "$assistanceContacts": "Numéros donnés au voyageur par la confirmation de réservation (US-213 critère 2, 16 NTF-007, 08 BR-PROT-05 ; ADR-174, PROPOSÉ) : support de la plateforme et assistance de l'assureur partenaire (dépannage, accident), au format E.164 avec l'indicatif du pays ; jamais le téléphone de l'hôte. Donnée du fondateur (contrat de l'assureur, POUR_LE_FONDATEUR.md §2.13, BOARD N-298) : null tant qu'elle n'est pas fournie ; le message renvoie alors à la réservation dans l'appli et la production refuse de démarrer (ASSISTANCE_CONTACTS_MISSING).",
+      "assistanceContacts": null,
       "$holidays": "17 §1.3, §7.1 point 8 : calendrier versionné. Aucune liste de fériés dans les spécifications : calendrier vide, la production refuse de démarrer sans fériés pour l'année en cours.",
       "holidayCalendar": { "version": 1, "holidays": [] },
       "$timeZoneChecks": "Contrôle tzdata de démarrage (17 §1.3, ADR-019) : America/Panama = UTC−5 sans heure d'été.",
@@ -143,6 +145,7 @@
       ],
       "taxDecision": { "decision": "TO_DECIDE", "decisionRef": "OQ-BR-14, OQ-MK-06 (avis fiscal)" },
       "legalEntity": null,
+      "assistanceContacts": null,
       "holidayCalendar": { "version": 1, "holidays": [] },
       "$timeZoneChecks": "America/Asuncion = UTC−3 permanent (Ley 7354/2024, 08 BR-CXL-00, OQ-BR-20) ; instants qui encadrent les anciennes bascules d'heure d'été (EC-33) ; 2023-07-15 : UTC−4, preuve que la tzdata est historisée.",
       "timeZoneChecks": [
