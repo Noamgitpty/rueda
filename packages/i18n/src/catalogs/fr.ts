@@ -3123,9 +3123,9 @@ export const FR_MESSAGES = {
     'Des personnes, en espagnol et en anglais, tous les jours de {from} à {to} (heure locale).',
   'web.help.support.noHours':
     'Si notre équipe n’est pas disponible, tu reçois aussitôt les numéros d’assistance et nous te répondons dès que possible.',
-  'web.help.call': 'Appeler le {number}',
-  'web.help.trips.lead': 'Tu as un voyage ? Ouvre-le et choisis « Demander de l’aide ».',
-  'web.help.trips.link': 'Voir mes voyages',
+  'web.help.trips.lead':
+    'Tu as un voyage ? Va dans tes voyages pour demander de l’aide sur l’un d’eux.',
+  'web.help.trips.link': 'Mes voyages',
   'web.help.unavailable':
     'Nous n’avons pas pu charger les numéros. En cas d’urgence, appelle les services d’urgence locaux.',
   'web.help.faq.title': 'Questions fréquentes',

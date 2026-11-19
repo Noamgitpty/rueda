@@ -3057,9 +3057,8 @@ export const ES_MESSAGES = {
     'Atención de personas, en español y en inglés, todos los días de {from} a {to} (hora local).',
   'web.help.support.noHours':
     'Si nuestro equipo no está disponible, recibes enseguida los números de asistencia y te respondemos lo antes posible.',
-  'web.help.call': 'Llamar al {number}',
-  'web.help.trips.lead': '¿Tienes un viaje? Ábrelo y elige «Pedir ayuda».',
-  'web.help.trips.link': 'Ver mis viajes',
+  'web.help.trips.lead': '¿Tienes un viaje? Ve a tus viajes para pedir ayuda sobre uno de ellos.',
+  'web.help.trips.link': 'Mis viajes',
   'web.help.unavailable':
     'No pudimos cargar los números. En una emergencia, llama a los servicios de emergencia locales.',
   'web.help.faq.title': 'Preguntas frecuentes',

@@ -323,7 +323,7 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  US-707) : aide et urgence pendant le trip (US-310, ADR-182) : `web.shell.help` (lien
  d’aide de l’en-tête de chaque écran), `web.help.*` (S17 : urgences et autorité de circulation
  du pays, assistance de l’assureur partenaire, support et sa plage publiée, demande d’aide du trip
- à motif fermé et ses issues, FAQ courte), `common.help.unavailable`,
+ à motif fermé et ses issues, FAQ courte ; `web.help.call`, inutilisée, retirée avant la fusion), `common.help.unavailable`,
  `common.help.authority.<id>` (autorité de circulation de la configuration pays) et la réponse
  automatique hors plage `ntf.helpOffHours.*` / `ntf.helpOffHoursHost.*`.
  */

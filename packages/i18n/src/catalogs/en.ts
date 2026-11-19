@@ -2983,9 +2983,8 @@ export const EN_MESSAGES = {
     'Real people, in Spanish and English, every day from {from} to {to} (local time).',
   'web.help.support.noHours':
     "If our team isn't available, you get the assistance numbers right away and we reply as soon as possible.",
-  'web.help.call': 'Call {number}',
-  'web.help.trips.lead': 'Have a trip? Open it and choose “Get help”.',
-  'web.help.trips.link': 'See my trips',
+  'web.help.trips.lead': 'Have a trip? Go to your trips to ask for help with one of them.',
+  'web.help.trips.link': 'My trips',
   'web.help.unavailable':
     "We couldn't load the numbers. In an emergency, call local emergency services.",
   'web.help.faq.title': 'Frequently asked questions',
