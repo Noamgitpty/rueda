@@ -6,7 +6,9 @@
  * Est requise toute clé `BLOCK` non `optional`, dans chaque pays où elle n'est pas sans objet. Les
  * clés `FALSE` et `ZERO` ont une valeur d'absence sûre et ne sont pas requises. S'y ajoutent, par
  * pays : l'entité juridique (17 §3.2 `legal_entity`) et un calendrier de fériés couvrant l'année
- * de l'instant contrôlé (17 §1.3) : sans eux, facturation et jours ouvrés seraient faux en silence.
+ * de l'instant contrôlé (17 §1.3) : sans eux, facturation et jours ouvrés seraient faux en silence ;
+ * les numéros du support et de l'assistance de l'assureur (US-213, ADR-174) : sans eux, la
+ * confirmation de réservation ne les donnerait pas au voyageur.
  *
  * US-110 : toute valeur **en vigueur** dont le statut est `TO_DECIDE` (« À DÉCIDER », défaut
  * fail-closed de 22 chargé pour construire) refuse aussi la production (`PARAM_UNDECIDED`), de même
@@ -23,6 +25,7 @@ export interface ReadinessIssue {
   readonly kind:
     | 'PARAM_MISSING'
     | 'LEGAL_ENTITY_MISSING'
+    | 'ASSISTANCE_CONTACTS_MISSING'
     | 'HOLIDAYS_MISSING'
     | 'PARAM_UNDECIDED'
     | 'TAX_UNDECIDED';
@@ -35,6 +38,7 @@ export interface ReadinessIssue {
 const MISSING_KINDS: ReadonlySet<ReadinessIssue['kind']> = new Set([
   'PARAM_MISSING',
   'LEGAL_ENTITY_MISSING',
+  'ASSISTANCE_CONTACTS_MISSING',
   'HOLIDAYS_MISSING',
 ]);
 
@@ -64,6 +68,7 @@ export function findReadinessIssues(config: CountryConfig, at: Date): ReadinessI
   };
   for (const [country, entry] of [...config.countries].sort(([a], [b]) => a.localeCompare(b))) {
     if (entry.legalEntity === null) issue(country, 'LEGAL_ENTITY_MISSING');
+    if (entry.assistanceContacts === null) issue(country, 'ASSISTANCE_CONTACTS_MISSING');
     if (!entry.holidayCalendar.holidays.some((h) => h.date.startsWith(`${year}-`))) {
       issue(country, 'HOLIDAYS_MISSING');
     }

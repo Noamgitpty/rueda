@@ -15,8 +15,8 @@
 import { createHash } from 'node:crypto';
 import { CATALOGS, createTranslator } from '@rueda/i18n';
 import type { LocaleProfile, MessageKey, MessageValues } from '@rueda/i18n';
-import type { TemplateSpec, VariableSource } from './catalog.js';
-import { messageKeyOf } from './catalog.js';
+import type { AssistanceAudience, TemplateSpec, VariableSource } from './catalog.js';
+import { assistanceKeyOf, messageKeyOf } from './catalog.js';
 import type { MessageChannelKind } from './messaging-channel.port.js';
 
 export type RenderErrorCode = 'TEMPLATE_VARIABLE_MISSING' | 'TEMPLATE_UNKNOWN';
@@ -33,6 +33,15 @@ export class TemplateRenderError extends Error {
 /** Valeur stockée d'une variable de charge utile (`notification_dispatch.variables`). */
 export type StoredVariable = string | { readonly amount_minor: string; readonly currency: string };
 
+/**
+ * Numéros du support et de l'assistance de l'assureur du pays (CFG `assistanceContacts`, US-213,
+ * ADR-174) ; `null` : non fournis (hors production seulement).
+ */
+export interface AssistanceContacts {
+  readonly supportPhone: string;
+  readonly insurerAssistancePhone: string;
+}
+
 export interface RenderContext {
   readonly profile: LocaleProfile;
   /** Fuseau du pays de l'événement (CFG) ; `null` si l'événement n'a pas de pays. */
@@ -40,6 +49,8 @@ export interface RenderContext {
   /** Exposant d'une devise (CFG) ; `undefined` si inconnue. */
   readonly exponentOf: (currency: string) => number | undefined;
   readonly brand: string;
+  /** Numéros d'assistance du pays de l'événement ; `null` si absents ou pays inconnu. */
+  readonly assistance: AssistanceContacts | null;
   readonly firstName: string;
   readonly variables: Readonly<Record<string, StoredVariable>>;
 }
@@ -68,13 +79,43 @@ function missing(name: string): never {
   throw new TemplateRenderError('TEMPLATE_VARIABLE_MISSING', `variable « ${name} » absente`);
 }
 
+/**
+ * Phrase d'assistance (US-213, ADR-174) : numéros du pays s'ils sont fournis, sinon renvoi à la
+ * réservation dans l'appli. Jamais un numéro inventé ni le téléphone de l'hôte.
+ */
+function formatAssistance(
+  name: string,
+  audience: AssistanceAudience,
+  channel: MessageChannelKind,
+  ctx: RenderContext,
+  t: ReturnType<typeof createTranslator>,
+): string {
+  if (ctx.brand.trim() === '') return missing(name);
+  const contacts = ctx.assistance;
+  const key = assistanceKeyOf(audience, channel, contacts === null ? 'inApp' : 'numbers');
+  if (!Object.hasOwn(CATALOGS[ctx.profile.language].messages, key)) {
+    throw new TemplateRenderError('TEMPLATE_UNKNOWN', `clé absente : ${key}`);
+  }
+  const values: Record<string, string> = { brand: ctx.brand };
+  if (contacts !== null) {
+    if (contacts.supportPhone.trim() === '' || contacts.insurerAssistancePhone.trim() === '') {
+      return missing(name);
+    }
+    values['support_phone'] = contacts.supportPhone;
+    values['insurer_phone'] = contacts.insurerAssistancePhone;
+  }
+  return t.t(key as MessageKey, values as MessageValues);
+}
+
 function formatVariable(
   name: string,
   source: VariableSource,
+  channel: MessageChannelKind,
   ctx: RenderContext,
   t: ReturnType<typeof createTranslator>,
 ): string {
   if (source.from === 'brand') return ctx.brand.trim() === '' ? missing(name) : ctx.brand;
+  if (source.from === 'assistance') return formatAssistance(name, source.audience, channel, ctx, t);
   if (source.from === 'recipient_first_name') {
     return ctx.firstName.trim() === '' ? missing(name) : ctx.firstName;
   }
@@ -111,7 +152,7 @@ export function renderTemplate(
   const values: Record<string, string> = {};
   try {
     for (const [name, source] of Object.entries(template.variables)) {
-      values[name] = formatVariable(name, source, ctx, t);
+      values[name] = formatVariable(name, source, channel, ctx, t);
     }
   } catch (error) {
     if (error instanceof TemplateRenderError) throw error;

@@ -8,6 +8,8 @@ D'après 17 §2.2 et §2.13 : moteur unique de notifications (NTF-001) ; canaux 
 
 État du code : **livré pour la bêta e-mail et SMS** par US-020 (port `MessagingChannel`, ADR-058) et US-021 (moteur, ADR-061). Le catalogue réduit compte quinze gabarits (deux de la file d'ajout au catalogue, US-114 ; la confirmation de l'hôte et les demandes de réservation, US-213). Textes en es, en, fr et pt (pt-BR, DEC-FONDATEUR-18).
 
+US-213 (ADR-174) : la confirmation porte la variable `assistance` : au voyageur, le support et l'assistance de l'assureur ; à l'hôte, le support. Les numéros sont relus à l'envoi dans la configuration du pays (`assistanceContacts` de CFG, via `notificationCountryData`). Absents (hors production seulement : la production refuse de démarrer sans eux), le message renvoie à la réservation dans l'appli. Le téléphone de l'hôte n'est jamais une source. Textes `ntf.assistance.<guest|host>.<email|sms>.<numbers|inApp>` (catalogue v90).
+
 US-213 (ADR-157) : les parties d'une réservation (voyageur, titulaire du compte d'hôte) sont lues **en base** par le port `NotificationParties`. AVL fournit l'adaptateur (`core.booking_notification_parties`, 0133). Les producteurs de `booking.trip.booked`, `trip.status_changed` et `booking.request.*` ne portent en effet aucun identifiant de personne.
 
 Non câblé (reports) : processus `worker.ts` (US-003), accusés de remise, préférences et désinscription, WhatsApp (US-526), rappels de trip, e-mail de vérification d'IAM, habillage de marque, purge à 13 mois.

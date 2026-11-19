@@ -45,7 +45,7 @@ export function repositoryLocaleConfig(): LocaleConfig {
   return parseLocaleConfig(locales);
 }
 
-/** Fuseaux, locales et exposants lus dans la configuration pays (CFG, US-013). */
+/** Fuseaux, locales, numéros d'assistance (US-213) et exposants lus dans la configuration pays (CFG, US-013). */
 export function notificationCountryData(config: CountryConfig): {
   readonly countryOf: (code: string) => CountryNotificationProfile | undefined;
   readonly exponentOf: (currency: string) => number | undefined;
@@ -55,7 +55,12 @@ export function notificationCountryData(config: CountryConfig): {
       const entry = config.countries.get(code);
       return entry === undefined
         ? undefined
-        : { timeZone: entry.timeZone, defaultLocale: entry.defaultLocale, locales: entry.locales };
+        : {
+            timeZone: entry.timeZone,
+            defaultLocale: entry.defaultLocale,
+            locales: entry.locales,
+            assistanceContacts: entry.assistanceContacts,
+          };
     },
     exponentOf: (currency) => config.currencies.find((c) => c.code === currency)?.exponent,
   };

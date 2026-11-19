@@ -90,6 +90,8 @@ Pour chaque point : ce qu'on sait, puis **ma suggestion** (comme Turo, avec le m
 → **Ce qu'on attend de toi** : envoyer ces demandes quand tu veux (texte prêt, §1.2) ; rien d'autre.
 **2.13 Numéros du support et de l’assistance de l’assureur dans la confirmation** (US-213, 2026-11-17, GL-36). Le message de confirmation doit donner au voyageur le numéro du support de Kmino et celui de l’assistance de l’assureur (dépannage, accident), jamais le téléphone de l’hôte. Aujourd’hui, aucun des deux numéros n’existe : le message les omet et renvoie à la réservation dans l’appli. Sans ces numéros, aucun pays n’ouvre.
 → **Suggestion** (comme Turo, avec le moins de limites possible) : une ligne de support par pays, joignable par téléphone et par messagerie, et le numéro d’assistance 24 h sur 24 de l’assureur, inscrit dans son contrat (comme l’assistance routière de Turo). Il suffit de nous donner les deux numéros de chaque pays : ils iront dans la configuration du pays, pas dans le code.
+→ **Où on en est** (2026-11-18, ADR-174) : la place des deux numéros est prête dans la configuration de chaque pays ; la confirmation les affiche dès qu’ils y sont (au voyageur les deux, à l’hôte le support). Tant qu’ils manquent, le message renvoie à la réservation dans l’appli et la production refuse de démarrer.
+→ **Ce qu’on attend de toi** : pour le Panama et le Paraguay, le numéro du support de Kmino et celui de l’assistance de l’assureur (format international, par exemple « +507… »), au moment du contrat de l’assureur. Rien d’autre.
 
 ## 3. Réglages à trancher en une seule fois (liste groupée, avant la mise en ligne)
 
