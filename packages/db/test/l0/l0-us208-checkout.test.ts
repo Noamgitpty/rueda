@@ -663,12 +663,18 @@ describe.each(COUNTRIES.map((c) => [c.country, c] as const))(
       );
     });
 
-    it('N-129 : devis portant une ligne que la base ne rejoue pas (livraison) ⇒ QUOTE_LINE_NOT_SUPPORTED', async () => {
+    // US-222d (F-L2-ARG-01, 0155) : une ligne sans source en base (livraison) n'est plus figée ; le
+    // refus du checkout (N-129, QUOTE_LINE_NOT_SUPPORTED) reste en défense en profondeur, mais aucun
+    // devis figé ne peut plus porter cette ligne : la preuve passe au gel
+    it('N-129 / US-222d : devis portant une ligne que la base ne rejoue pas (livraison) ⇒ refusé au gel (QUOTE_MISMATCH), aucun devis, aucun hold', async () => {
       await run(async (tx, ctx) => {
-        const quoteId = await frozenQuote(tx, cc, ctx, docs(cc, ctx.groups, { delivery: true }));
-        expect((await checkout(tx, ctx.guest.hash, quoteId)).outcome).toBe(
-          'QUOTE_LINE_NOT_SUPPORTED',
+        const r = await freeze(
+          tx,
+          ctx.guest.hash,
+          ctx.listingId,
+          docs(cc, ctx.groups, { delivery: true }),
         );
+        expect(r).toEqual({ outcome: 'QUOTE_MISMATCH', quote_id: null });
         expect(await holdsOf(tx, ctx.guest)).toBe(0);
       });
     });

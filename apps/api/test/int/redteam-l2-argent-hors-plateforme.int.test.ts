@@ -10,6 +10,11 @@
  * signalement » (refus, texte masqué ou entrée de la file GRAY_MARKET). Le filtre automatique des textes publics (ADR-114, US-118, US-122) vise les
  * coordonnées ; il est éprouvé ici sur les coordonnées (bloqué, test vert) et sur une proposition de
  * paiement hors plateforme sans coordonnée (défaut : `it.fails` documenté, F-L2-ARG-02 et 03).
+ * US-222d (correctifs, migration 0155, ADR-176) : F-L2-ARG-02 et 03 sont corrigés (signal
+ * « paiement hors plateforme » : zone et ville refusées, libellé et adresse signalés dans la file
+ * GRAY_MARKET) ; leurs `it.fails` sont devenus des `it` sans changer l'attaque ni l'observation, et
+ * le chemin qui réussit est prouvé (texte légitime accepté, adresse avec chiffres acceptée et non
+ * signalée).
  */
 import { randomUUID } from 'node:crypto';
 // types du contexte fourni par le globalSetup du banc (inject('ruedaBench'))
@@ -224,32 +229,103 @@ describe.each(CASES)(
     // sans masque ni signalement (aucune entrée dans la file GRAY_MARKET de la console, 0064). Attendu
     // (pré-mortem RT-L2-M12) : détecté et masqué, ou bloqué, ou signalé à l'ops : chaque offre
     // admise doit être refusée, masquée ou présente dans la file GRAY_MARKET (`signalled`).
-    it.fails(
-      'F-L2-ARG-02 : une proposition de paiement hors plateforme dans la zone publique du lieu est refusée ou signalée',
-      async () => {
-        await open('app_api'); // L0-05
-        const o = observed.get(c.country)?.area ?? [];
-        // observation absente : rien à juger, le test passe et l'it.fails rougit
-        expect(o.filter((x) => !signalled(x, 'area')).map((x) => x.offer)).toEqual([]);
-      },
-    );
+    // US-222d : corrigé (0155) — `it.fails` inversé en `it`, attaque et jugement inchangés
+    it('F-L2-ARG-02 : une proposition de paiement hors plateforme dans la zone publique du lieu est refusée ou signalée', async () => {
+      await open('app_api'); // L0-05
+      const o = observed.get(c.country)?.area ?? [];
+      // US-222d : en `it`, une observation absente doit rougir : affirmée
+      expect(o).toHaveLength(OFFERS.length);
+      expect(o.filter((x) => !signalled(x, 'area')).map((x) => x.offer)).toEqual([]);
+    });
     // F-L2-ARG-03 (constat, gravité PROPOSÉE moyenne) : le libellé et l'adresse du lieu de remise,
     // lus par le voyageur après la réservation (catalog_guest_meeting_point, booking_guest_trips),
     // ne passent par AUCUN filtre : une proposition de paiement hors plateforme y est enregistrée
     // telle quelle et montrée au voyageur après son paiement. Attendu : même signal que F-L2-ARG-02
     // (un signalement à l'ops suffit : l'adresse porte des chiffres légitimes).
-    it.fails(
-      'F-L2-ARG-03 : une proposition de paiement hors plateforme dans le libellé ou l’adresse du lieu de remise est refusée ou signalée',
-      async () => {
-        await open('app_api'); // L0-05
-        const o = observed.get(c.country);
-        // observation absente : rien à juger, le test passe et l'it.fails rougit
-        const missed = [
-          ...(o?.label ?? []).filter((x) => !signalled(x, 'label')),
-          ...(o?.address ?? []).filter((x) => !signalled(x, 'address')),
-        ];
-        expect(missed.map((x) => x.offer)).toEqual([]);
-      },
-    );
+    // US-222d : corrigé (0155) — `it.fails` inversé en `it`, attaque et jugement inchangés
+    it('F-L2-ARG-03 : une proposition de paiement hors plateforme dans le libellé ou l’adresse du lieu de remise est refusée ou signalée', async () => {
+      await open('app_api'); // L0-05
+      const o = observed.get(c.country);
+      // US-222d : en `it`, une observation absente doit rougir : affirmée
+      expect(o?.label).toHaveLength(OFFERS.length);
+      expect(o?.address).toHaveLength(OFFERS.length);
+      const missed = [
+        ...(o?.label ?? []).filter((x) => !signalled(x, 'label')),
+        ...(o?.address ?? []).filter((x) => !signalled(x, 'address')),
+      ];
+      expect(missed.map((x) => x.offer)).toEqual([]);
+    });
+
+    // US-222d (preuve du chemin qui réussit, jamais plus lourd que Turo) : texte légitime accepté,
+    // adresse avec chiffres acceptée et NON signalée ; zone qui propose un paiement hors plateforme
+    // refusée (LOCATION_AREA_OFF_PLATFORM) ET compte d'hôte présent dans la file GRAY_MARKET ;
+    // libellé qui le propose : lieu créé, présent dans la file
+    it('US-222d : lieu légitime (zone, ville, libellé, adresse avec chiffres) créé et non signalé ; zone hors plateforme ⇒ refus et compte signalé ; libellé hors plateforme ⇒ lieu créé et signalé (GRAY_MARKET)', async () => {
+      const api = await open('app_api');
+      await inTx(api, {}, async (tx) => {
+        const h = await hostOf(tx, c.country);
+        const ops = await staffMember(tx, 'OPS_AGENT', c.country);
+        const queue = async (): Promise<string> => {
+          const s = await asStaff(tx, ops, c.country);
+          const q = await tx.query<{ outcome: string; body: unknown }>(
+            'SELECT outcome, body FROM core.support_staff_queues($1, $2, $3)',
+            [s.hash, 'GRAY_MARKET', 200],
+          );
+          expect(q.rows[0]?.outcome).toBe('OK');
+          return JSON.stringify(q.rows[0]?.body ?? null);
+        };
+        for (const t of [
+          {
+            label: 'Estacionamiento del centro comercial',
+            address: 'Calle 50 y Avenida Samuel Lewis, Edificio 12, local 3, piso 2',
+            city: 'Ciudad Uno',
+            area: 'Costa del Este',
+          },
+          {
+            label: 'Portaria do prédio',
+            address: 'Rua das Flores 1250, apto 34, bloco B',
+            city: 'Cidade Dois',
+            area: 'Bairro Jardim',
+          },
+          {
+            label: 'Main entrance',
+            address: '25 de Mayo 1580, garage 2',
+            city: 'Ciudad Tres',
+            area: 'Barrio Norte',
+          },
+        ]) {
+          const r = await createLocationRow(tx, h.hash, h.org, t);
+          expect(r.outcome, t.address).toBe('DONE');
+          const text = await queue();
+          expect(text.includes(r.id ?? '∅'), t.address).toBe(false);
+          expect(text.includes(h.org)).toBe(false);
+        }
+        // zone qui propose un paiement hors plateforme : refus, et le compte est dans la file
+        expect(
+          (await createLocationRow(tx, h.hash, h.org, { area: 'Pago por Yappy, sin comisión' }))
+            .outcome,
+        ).toBe('LOCATION_AREA_OFF_PLATFORM');
+        expect(
+          (await createLocationRow(tx, h.hash, h.org, { city: 'Ciudad Uno, efectivo' })).outcome,
+        ).toBe('LOCATION_CITY_OFF_PLATFORM');
+        expect(await queue()).toContain(h.org);
+        // libellé qui le propose : lieu créé (jamais bloqué), lieu dans la file
+        const flagged = await createLocationRow(tx, h.hash, h.org, {
+          label: 'Casa — pagamento por fora, direto comigo',
+        });
+        expect(flagged.outcome).toBe('DONE');
+        expect(await queue()).toContain(flagged.id!);
+        // faux positif connu et documenté (revue qa n° 5, revue argent n° 7 ; ADR-176) : un mot du
+        // catalogue employé honnêtement dans le libellé (« cajero de pago en efectivo ») signale le
+        // lieu à l'ops, sans jamais le bloquer : le lieu est créé, l'ops tranche (jamais plus lourd
+        // que Turo) ; le même mot dans la zone publique serait refusé
+        const honest = await createLocationRow(tx, h.hash, h.org, {
+          label: 'Junto al cajero de pago en efectivo del centro comercial',
+        });
+        expect(honest.outcome).toBe('DONE');
+        expect(await queue()).toContain(honest.id!);
+      });
+      await invariant(c.country);
+    });
   },
 );

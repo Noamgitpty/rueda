@@ -1225,6 +1225,8 @@ export const FR_MESSAGES = {
   'common.listing.areaLooksLikeAddress':
     'Indique seulement le quartier ou la zone, sans rue ni numéro : le voyageur le voit avant de réserver.',
   'common.listing.cityInvalid': 'Indique seulement la ville, sans adresse, téléphone ni lien.',
+  'common.listing.offPlatformPayment':
+    'Ne propose pas de paiement hors de la plateforme (espèces, virement ou portefeuille) : tout paiement passe par l’appli.',
   'common.listing.vehicleDescriptionInvalid':
     'Écris seulement la marque et le modèle de la voiture, sans téléphone, lien ni adresse.',
   'common.listing.photoAdded': 'Photo ajoutée.',

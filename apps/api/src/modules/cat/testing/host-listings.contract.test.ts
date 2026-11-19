@@ -559,6 +559,21 @@ describe('contrat HTTP — /host/accounts/{orgId} et /listings (US-115)', () => 
       fields: [{ field: 'city', reason: 'INVALID' }],
     });
     expect(w.store.locationsById.size).toBe(before);
+    // US-222d (F-L2-ARG-02) : zone ou ville qui proposent un paiement hors plateforme ⇒ 422,
+    // champ désigné, rien d'écrit
+    for (const [body, field] of [
+      [{ ...LOCATION, areaLabel: 'Pago por Yappy' }, 'areaLabel'],
+      [{ ...LOCATION, city: 'Ciudad, efectivo' }, 'city'],
+    ] as const) {
+      const off = await api.request('POST', `${d.base}/locations`, { headers: w.a, body });
+      expect(off.status).toBe(422);
+      expect(off.json).toEqual({
+        code: 'LOCATION_OFF_PLATFORM_PAYMENT',
+        messageKey: 'common.listing.offPlatformPayment',
+        fields: [{ field, reason: 'INVALID' }],
+      });
+    }
+    expect(w.store.locationsById.size).toBe(before);
   });
 
   it('US-114 : véhicule hors catalogue ⇒ demande d’ajout OPEN lue avec le véhicule ; elle ne bloque plus la publication (US-118, DEC-FONDATEUR-22 : la soumission va jusqu’à l’activation) ; nouvelle demande ⇒ 409 CATALOG_REQUEST_DUPLICATE tant qu’une demande est ouverte, 201 après un refus ; véhicule rattaché ⇒ 409 CATALOG_ALREADY_LINKED', async () => {

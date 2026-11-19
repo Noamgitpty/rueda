@@ -65,7 +65,7 @@ Relevé statique de l'inventaire (liste blanche, 2026-11-19) : 117 fonctions don
 
 Aucun constat critique. Deux constats élevés (F-L2-LB-01, F-L2-LB-02) : le critère 4 d'US-222 (« aucun constat critique ou élevé ouvert ») demande leur correction avant la sortie du lot. Aucun ne demande une décision du fondateur (sécurité, pas de produit).
 
-## Correctifs (US-222d2, branche `story/US-222-correctifs-rls`, migration 0155, ADR-177)
+## Correctifs (US-222d2, branche `story/US-222-correctifs-rls`, migration 0156, ADR-177)
 
 Les cinq constats sont **CORRIGÉS** ; chaque `it.fails` est inversé en `it` sans toucher à l'attaque ni au test vert « attaque jouée » ; chaque correctif a sa preuve du chemin légitime (règle 6). Agent de story correctifs (rôle back-end, `claude-opus-5-5`), autre que l'auteur de la red team.
 

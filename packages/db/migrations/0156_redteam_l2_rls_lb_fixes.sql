@@ -1,4 +1,4 @@
--- 0155 — Correctifs de la red team RLS / ex-porte LB du lot 2 (US-222, partie 222d2 ; ADR-177).
+-- 0156 — Correctifs de la red team RLS / ex-porte LB du lot 2 (US-222, partie 222d2 ; ADR-177).
 -- Constats de docs/team/redteam/L2-rls-lb.md (US-222c, PR n° 256) : F-L2-LB-01 et F-L2-LB-02
 -- (élevés), F-L2-LB-04 (N-114, faible) et F-L2-LB-05 (N-118, moyen) ; F-L2-LB-03 est corrigé côté
 -- API (DepositRailExecutor, lecture d'abord). 17 §2.3 (RLS-24, RLS-27 : deux personnes

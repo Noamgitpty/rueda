@@ -20,6 +20,7 @@
  * | `INSURER_LEDGER_COLLECTION`      | par trip : Σ écritures d'encaissement du registre de l'assureur = Σ jambes INSURER des encaissements portés, à l'unité mineure | 19 US-227 ; 08 E7 règle 1 ; 17 §2.9 |
  * | `INSURER_LEDGER_SETTLEMENT`      | par trip : Σ écritures de règlement du registre = Σ variations INSURER des versions stockées | 19 US-227 ; 08 E7 règle 3, E4 |
  * | `INSURER_BORDEREAU_OVERBILLED`   | par trip : Σ porté par des bordereaux émis ≤ prime due (Σ écritures) | 19 US-227 ; 08 E7 règle 3 bis |
+ * | `CHARGEBACK_UNIMPUTED`           | un chargeback SUCCEEDED a déplacé une jambe (imputation de TJ14a / TJ14b) | 08 E7 règle 7, BR-PAY-11 ; US-222d (F-L2-ARG-04) |
  *
  * La base refuse déjà la plupart de ces écarts (contraintes et trigger différé
  * `settlement_balanced`, 0027) : ce contrôle est le filet indépendant que demande 19 §1.8, au même
@@ -35,7 +36,11 @@
  * comparer). Les trois contrôles de la jambe assureur (US-227, ADR-165) lisent
  * `core.finance_insurer_ledger_facts()` (0143, même garde) ; une écriture sans contrat d'assureur
  * (aucun contrat en vigueur à la réservation) n'est pas un écart mais est COMPTÉE
- * (`examined.insurerUnattributed`) : elle n'entre dans aucun bordereau (GL-42).
+ * (`examined.insurerUnattributed`) : elle n'entre dans aucun bordereau (GL-42). Le contrôle des
+ * chargebacks (US-222d, ADR-176) lit `core.finance_chargeback_facts()` (0155, même garde) : tant
+ * que l'imputation de 08 (TJ14a / TJ14b) n'existe pas (US-709), tout chargeback SUCCEEDED est un
+ * écart ; sa jambe HOST est gelée dès l'enregistrement du chargeback (déclencheur de 0155), et les
+ * chargebacks dont la jambe HOST n'est pas gelée sont COMPTÉS (`examined.chargebackHostUnfrozen`).
  *
  * Fail-closed : un contexte autre que le travailleur `reconciliation` (la RLS ne montrerait rien et
  * le contrôle rendrait des zéros trompeurs), un compte illisible ou un montant hors du format
@@ -65,6 +70,7 @@ export const MONEY_RECONCILIATION_CHECKS = [
   'INSURER_LEDGER_COLLECTION',
   'INSURER_LEDGER_SETTLEMENT',
   'INSURER_BORDEREAU_OVERBILLED',
+  'CHARGEBACK_UNIMPUTED',
 ] as const;
 export type MoneyReconciliationCheck = (typeof MONEY_RECONCILIATION_CHECKS)[number];
 
@@ -142,6 +148,15 @@ export interface InsurerLedgerFact {
   readonly unattributed: boolean;
 }
 
+/** Faits d'un chargeback SUCCEEDED (`core.finance_chargeback_facts()`, 0155, US-222d). */
+export interface ChargebackFact {
+  readonly country: string;
+  /** Le chargeback a déplacé une jambe (imputation de TJ14a / TJ14b). */
+  readonly imputed: boolean;
+  /** La jambe HOST de son trip est gelée. */
+  readonly hostFrozen: boolean;
+}
+
 export interface CheckCount {
   readonly total: bigint;
   /** Violations par pays (seuls les pays en écart). */
@@ -160,6 +175,10 @@ export interface MoneyReconciliationReport {
     readonly insurerTrips: Readonly<Record<string, number>>;
     /** Trips dont une écriture du registre n'a pas de contrat d'assureur (comptés, pas un écart). */
     readonly insurerUnattributed: Readonly<Record<string, number>>;
+    /** Chargebacks SUCCEEDED examinés (US-222d). */
+    readonly chargebacks: Readonly<Record<string, number>>;
+    /** Chargebacks dont la jambe HOST n'est pas gelée (comptés ; l'écart est le contrôle). */
+    readonly chargebackHostUnfrozen: Readonly<Record<string, number>>;
   };
 }
 
@@ -197,6 +216,10 @@ export const TRIP_LEG_FACTS_SOURCE = `SELECT country_code, captured_minor, colle
 export const INSURER_LEDGER_FACTS_SOURCE = `SELECT country_code, collected_entries_minor, collected_legs_minor,
          settled_entries_minor, settled_variations_minor, billed_minor, due_minor, unattributed
     FROM core.finance_insurer_ledger_facts()`;
+
+/** Faits des chargebacks (US-222d, 0155) : pays et drapeaux seulement. */
+export const CHARGEBACK_FACTS_SOURCE = `SELECT country_code, imputed, host_frozen
+    FROM core.finance_chargeback_facts()`;
 
 /**
  * Une ligne par version de règlement : en-tête, version remplacée et agrégats des jambes. Montants
@@ -283,11 +306,22 @@ SELECT f.country_code AS country,
   FROM f`;
 }
 
+/** Une ligne par chargeback SUCCEEDED (US-222d). */
+export function chargebackFactsSql(facts: string = CHARGEBACK_FACTS_SOURCE): string {
+  return `
+WITH f AS (${facts})
+SELECT f.country_code AS country,
+       f.imputed,
+       f.host_frozen
+  FROM f`;
+}
+
 /** Requêtes de la tâche de production (sources réelles seulement). */
 export const SETTLEMENT_AGGREGATES_SQL = settlementAggregatesSql();
 export const LEG_BALANCE_AGGREGATES_SQL = legBalanceAggregatesSql();
 export const TRIP_LEG_FACTS_SQL = tripLegFactsSql();
 export const INSURER_LEDGER_FACTS_SQL = insurerLedgerFactsSql();
+export const CHARGEBACK_FACTS_SQL = chargebackFactsSql();
 
 const MINOR = /^-?[0-9]{1,19}$/;
 const COUNTRY = /^[A-Z]{2}$/;
@@ -388,6 +422,15 @@ export function parseInsurerLedgerFactRow(row: Record<string, unknown>): Insurer
   };
 }
 
+/** Lit une ligne de `CHARGEBACK_FACTS_SQL` ; fail-closed. */
+export function parseChargebackFactRow(row: Record<string, unknown>): ChargebackFact {
+  return {
+    country: country(row.country),
+    imputed: bool(row.imputed, 'imputed'),
+    hostFrozen: bool(row.host_frozen, 'host_frozen'),
+  };
+}
+
 /**
  * Contrôles en écart de la jambe assureur d'un trip (fonction pure, US-227) : le registre est le
  * miroir exact des jambes INSURER stockées, à l'unité mineure ; aucun bordereau émis ne porte plus
@@ -469,6 +512,7 @@ export function evaluateMoneyReconciliation(
   legBalances: readonly LegBalanceAggregate[],
   tripFacts: readonly TripLegFact[] = [],
   insurerFacts: readonly InsurerLedgerFact[] = [],
+  chargebackFacts: readonly ChargebackFact[] = [],
 ): MoneyReconciliationReport {
   const totals = new Map<MoneyReconciliationCheck, Map<string, bigint>>(
     MONEY_RECONCILIATION_CHECKS.map((c) => [c, new Map()]),
@@ -483,6 +527,8 @@ export function evaluateMoneyReconciliation(
   const examinedTrips: Record<string, number> = {};
   const examinedInsurer: Record<string, number> = {};
   const unattributed: Record<string, number> = {};
+  const examinedChargebacks: Record<string, number> = {};
+  const unfrozen: Record<string, number> = {};
   for (const s of settlements) {
     examinedSettlements[s.country] = (examinedSettlements[s.country] ?? 0) + 1;
     for (const check of settlementViolations(s)) hit(check, s.country);
@@ -499,6 +545,12 @@ export function evaluateMoneyReconciliation(
     examinedInsurer[f.country] = (examinedInsurer[f.country] ?? 0) + 1;
     if (f.unattributed) unattributed[f.country] = (unattributed[f.country] ?? 0) + 1;
     for (const check of insurerLedgerViolations(f)) hit(check, f.country);
+  }
+  for (const f of chargebackFacts) {
+    examinedChargebacks[f.country] = (examinedChargebacks[f.country] ?? 0) + 1;
+    if (!f.hostFrozen) unfrozen[f.country] = (unfrozen[f.country] ?? 0) + 1;
+    // F-L2-ARG-04 : un chargeback perdu sans imputation de 08 (TJ14a / TJ14b) est un écart
+    if (!f.imputed) hit('CHARGEBACK_UNIMPUTED', f.country);
   }
   let violations = 0n;
   const checks = Object.fromEntries(
@@ -520,6 +572,8 @@ export function evaluateMoneyReconciliation(
       trips: examinedTrips,
       insurerTrips: examinedInsurer,
       insurerUnattributed: unattributed,
+      chargebacks: examinedChargebacks,
+      chargebackHostUnfrozen: unfrozen,
     },
   };
 }
@@ -542,11 +596,13 @@ export async function runMoneyReconciliation(tx: SqlClient): Promise<MoneyReconc
   const balances = await tx.query<Record<string, unknown>>(LEG_BALANCE_AGGREGATES_SQL);
   const trips = await tx.query<Record<string, unknown>>(TRIP_LEG_FACTS_SQL);
   const insurer = await tx.query<Record<string, unknown>>(INSURER_LEDGER_FACTS_SQL);
+  const chargebacks = await tx.query<Record<string, unknown>>(CHARGEBACK_FACTS_SQL);
   return evaluateMoneyReconciliation(
     settlements.rows.map(parseSettlementRow),
     balances.rows.map(parseLegBalanceRow),
     trips.rows.map(parseTripLegFactRow),
     insurer.rows.map(parseInsurerLedgerFactRow),
+    chargebacks.rows.map(parseChargebackFactRow),
   );
 }
 

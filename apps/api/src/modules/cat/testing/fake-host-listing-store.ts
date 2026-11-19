@@ -129,6 +129,14 @@ export class FakeHostListingStore implements HostListingStore {
     if (/[0-9]{3,}|@|\bcalle\s*[0-9]+\D+[0-9]/i.test(input.city)) {
       return Promise.resolve({ outcome: 'LOCATION_CITY_INVALID', id: null });
     }
+    // proposition de paiement hors plateforme (catalogue de motifs de la base, 0155 ; modèle réduit)
+    const offPlatform = /\b(yappy|pix|efectivo|cash)\b/i;
+    if (input.areaLabel !== null && offPlatform.test(input.areaLabel)) {
+      return Promise.resolve({ outcome: 'LOCATION_AREA_OFF_PLATFORM', id: null });
+    }
+    if (offPlatform.test(input.city)) {
+      return Promise.resolve({ outcome: 'LOCATION_CITY_OFF_PLATFORM', id: null });
+    }
     const id = randomUUID();
     this.locationsById.set(id, { orgId, input });
     return Promise.resolve({ outcome: 'DONE', id });

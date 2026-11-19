@@ -600,6 +600,17 @@
         "advance_notice_minutes": "C0"
       }
     },
+    "core.catalog_offplatform_pattern": {
+      "lifecycle": "C",
+      "subjects": [],
+      "export": "none",
+      "columns": {
+        "code": "C1",
+        "lang": "C1",
+        "pattern": "C1",
+        "story": "C1"
+      }
+    },
     "core.catalog_value_class_rule": {
       "lifecycle": "C",
       "export": "none",

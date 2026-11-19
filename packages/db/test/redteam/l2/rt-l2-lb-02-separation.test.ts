@@ -22,7 +22,7 @@
  * - F-L2-LB-02 : même défaut pour `config_cmd_approve_go_live_switch` (0073 : `requested_by` ≠
  *   approbateur seulement) : l'interrupteur s'ouvre (dans la transaction annulée) par un SUPERADMIN
  *   lié au demandeur.
- * Les deux constats sont CORRIGÉS par US-222d2 (migration 0155, ADR-177) : chaque `it.fails` est
+ * Les deux constats sont CORRIGÉS par US-222d2 (migration 0156, ADR-177) : chaque `it.fails` est
  * inversé en `it`, attaque et attentes inchangées ; la même garde est prouvée pour DECIDE_ADVANCE et
  * WRITE_OFF_RECEIVABLE (non jouées par US-222c, revue argent n° 5 de la PR n° 256) et le chemin
  * légitime (approbateur réellement distinct, constat NOT_LINKED) est accepté.

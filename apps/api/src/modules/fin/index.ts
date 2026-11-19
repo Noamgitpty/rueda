@@ -40,8 +40,13 @@ export {
   insurerLedgerFactsSql,
   insurerLedgerViolations,
   parseInsurerLedgerFactRow,
+  // US-222d (ADR-176) : faits des chargebacks, lus de core.finance_chargeback_facts()
+  CHARGEBACK_FACTS_SOURCE,
+  chargebackFactsSql,
+  parseChargebackFactRow,
 } from './internal/money-reconciliation.js';
 export type {
+  ChargebackFact,
   InsurerLedgerFact,
   MoneyReconciliationCheck,
   MoneyReconciliationReport,

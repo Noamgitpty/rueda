@@ -15,7 +15,7 @@
  *
  * Constats (`it.fails` documentés, docs/team/redteam/L2-rls-lb.md) : F-L2-LB-04 (N-114, nom à un
  * seul mot : jumeau non lié, auto-réservation admise) et F-L2-LB-05 (N-118, dossier d'hôte REJETÉ :
- * le même titulaire, sous un second compte, est approuvé). CORRIGÉS par US-222d2 (migration 0155,
+ * le même titulaire, sous un second compte, est approuvé). CORRIGÉS par US-222d2 (migration 0156,
  * ADR-177) : chaque `it.fails` est inversé en `it`, attaque et attentes inchangées ; le chemin
  * légitime est prouvé (homonyme réel d'une autre naissance, ou constaté NOT_LINKED par l'ops, non
  * bloqué ; jumeau d'un dossier REJETÉ libéré par le constat NOT_LINKED).
