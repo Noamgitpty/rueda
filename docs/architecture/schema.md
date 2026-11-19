@@ -1721,9 +1721,6 @@ Politiques RLS :
 
 Contraintes :
 
-##[error]command (/home/runner/work/rueda/rueda/packages/db) /home/runner/setup-pnpm/node_modules/.bin/bin/pnpm run test:int exited (1)
-@rueda/db#test:int:  ERROR  command (/home/runner/work/rueda/rueda/packages/db) /home/runner/setup-pnpm/node_modules/.bin/bin/pnpm run test:int exited (1)
- ERROR  run failed: command  exited (1)
 - `catalog_value_class_rule_class_valid` : `CHECK (value_class = ANY (ARRAY['STANDARD'::text, 'PREMIUM'::text, 'LUXE'::text]))`
 - `catalog_value_class_rule_country_format` : `CHECK (country_code ~ '^[A-Z]{2}$'::text)`
 - `catalog_value_class_rule_make_slug_format` : `CHECK (make_slug ~ '^[a-z0-9]+(-[a-z0-9]+)*$'::text)`
@@ -4214,10 +4211,7 @@ Politiques RLS :
 Déclencheurs :
 
 - `messaging_message_flag_guard` : `CREATE TRIGGER messaging_message_flag_guard BEFORE DELETE OR UPDATE ON core.messaging_message_flag FOR EACH ROW EXECUTE FUNCTION core.messaging_record_guard()`
-- `messaging_message_flag_no_truncate` : `CREATE TRIGGER messaging_message_flag_no_truncate BEFORE TRUNCATE ON core.messaging_message_flag FOR EACH STATEMENT EXECUTE FUNC ^[[31m❯^[[39m test/int/schema-doc.test.ts ^[[2m(^[[22m^[[2m1 test^[[22m^[[2m | ^[[22m^[[31m1 failed^[[39m^[[2m)^[[22m^[[32m 161^[[2mms^[[22m^[[39m
-   ^[[31m❯^[[39m document du schéma (docs/architecture/schema.md) ^[[2m(1)^[[22m
-^[[31m     ^[[31m×^[[31m est à jour : régénéré depuis la base migrée, identique au fichier commité^[[39m^[[32m 159^[[2mms^[[22m^[[39m
-TION core.messaging_record_guard()`
+- `messaging_message_flag_no_truncate` : `CREATE TRIGGER messaging_message_flag_no_truncate BEFORE TRUNCATE ON core.messaging_message_flag FOR EACH STATEMENT EXECUTE FUNCTION core.messaging_record_guard()`
 
 ### `core.messaging_message_thread`
 
