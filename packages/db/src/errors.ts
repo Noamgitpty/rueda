@@ -204,7 +204,7 @@ export const CONSTRAINT_CODES: Readonly<Record<string, readonly [string, DbBusin
   settlement_immutable: [SQLSTATE.integrityConstraintViolation, 'IMMUTABLE_RECORD'],
   trip_leg_balance_no_delete: [SQLSTATE.integrityConstraintViolation, 'IMMUTABLE_RECORD'],
   trip_leg_balance_monotonic: [SQLSTATE.integrityConstraintViolation, 'INVARIANT_VIOLATION'],
-  // US-222d (F-L2-ARG-04, 0155) : gel de la jambe HOST réservé à un trip à chargeback, jamais levé
+  // US-222d (F-L2-ARG-04, 0155) : un gel n'est jamais levé ni requalifié
   trip_leg_balance_freeze_forbidden: [SQLSTATE.integrityConstraintViolation, 'INVARIANT_VIOLATION'],
   settlement_trip_unknown: [SQLSTATE.integrityConstraintViolation, 'INVARIANT_VIOLATION'],
   settlement_trip_mismatch: [SQLSTATE.integrityConstraintViolation, 'INVARIANT_VIOLATION'],

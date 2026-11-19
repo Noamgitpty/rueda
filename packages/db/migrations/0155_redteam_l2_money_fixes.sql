@@ -27,8 +27,8 @@
 --         CHARGEBACK ; droit de colonne `frozen, frozen_reason` accordé à cmd_money_owner avec une
 --         politique qui n'admet QUE le gel de la jambe HOST d'un trip qui porte un chargeback ;
 --         garde `core.settlement_trip_leg_balance_guard` (CREATE OR REPLACE depuis 0027) : un gel
---         ne se lève jamais et ne vise que la jambe HOST d'un trip à chargeback (le dégel est la
---         décision FIN d'US-709) ; une jambe gelée refuse déjà tout mouvement (`leg_frozen`) ;
+--         ne se lève ni ne se requalifie jamais (le dégel est la décision FIN d'US-709) ; une
+--         jambe gelée refuse déjà tout mouvement (`leg_frozen`) ;
 --      b. faits du contrôle FIN `CHARGEBACK_UNIMPUTED` : `core.finance_chargeback_facts()`
 --         (cmd_money_owner, EXECUTE app_worker, travailleur `reconciliation` seulement) : un
 --         chargeback SUCCEEDED sans mouvement de jambe est un écart du rapprochement nocturne.
@@ -724,9 +724,8 @@ REVOKE CREATE ON SCHEMA core FROM catalog_cmd_owner;
 
 -- 3. F-L2-ARG-04 : chargeback sans imputation -----------------------------------------------------
 
--- 3.1 Garde des soldes (corps de 0027 recopié, propriétaire migrator ; une règle ajoutée) : le gel
--- ne se lève jamais (le dégel est la décision FIN d'US-709) et ne vise que la jambe HOST d'un trip
--- qui porte un chargeback non échoué (08 E7 règle 7 « ouvert » : lots de l'hôte ON_HOLD ;
+-- 3.1 Garde des soldes (corps de 0027 recopié, propriétaire migrator ; une règle ajoutée) : un gel
+-- ne se lève ni ne se requalifie jamais (le dégel est la décision FIN d'US-709 ; 08 E7 règle 7,
 -- BR-PAY-11).
 CREATE OR REPLACE FUNCTION core.settlement_trip_leg_balance_guard()
   RETURNS trigger
@@ -748,18 +747,13 @@ BEGIN
     RAISE EXCEPTION 'trip_leg_balance: cumuls monotones, identité figée'
       USING ERRCODE = 'integrity_constraint_violation', CONSTRAINT = 'trip_leg_balance_monotonic';
   END IF;
-  -- US-222d (F-L2-ARG-04) : gel de la jambe HOST par un chargeback seulement, jamais levé ici
-  IF NEW.frozen IS DISTINCT FROM OLD.frozen
-     OR NEW.frozen_reason IS DISTINCT FROM OLD.frozen_reason THEN
-    IF OLD.frozen OR NOT NEW.frozen OR NEW.frozen_reason IS DISTINCT FROM 'CHARGEBACK'
-       OR NEW.leg <> 'HOST'
-       OR NOT EXISTS (SELECT 1 FROM core.payment_payment_operation AS o
-                       WHERE o.trip_id = NEW.trip_id AND o.kind = 'CHARGEBACK'
-                         AND o.status <> 'FAILED') THEN
-      RAISE EXCEPTION 'trip_leg_balance: gel réservé à la jambe HOST d''un trip à chargeback'
-        USING ERRCODE = 'integrity_constraint_violation',
-              CONSTRAINT = 'trip_leg_balance_freeze_forbidden';
-    END IF;
+  -- US-222d (F-L2-ARG-04) : un gel n'est jamais levé ni requalifié ici (le dégel est la décision
+  -- FIN d'US-709) ; QUI peut geler quoi relève des politiques (cmd_money_chargeback_freeze : la
+  -- jambe HOST d'un trip à chargeback ; 08 E7 règle 7 gèle aussi la part INSURER à l'ouverture)
+  IF OLD.frozen AND (NOT NEW.frozen OR NEW.frozen_reason IS DISTINCT FROM OLD.frozen_reason) THEN
+    RAISE EXCEPTION 'trip_leg_balance: un gel n''est jamais levé ni requalifié'
+      USING ERRCODE = 'integrity_constraint_violation',
+            CONSTRAINT = 'trip_leg_balance_freeze_forbidden';
   END IF;
   RETURN NEW;
 END
