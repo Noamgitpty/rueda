@@ -1,4 +1,4 @@
--- 0149 — CAT : base de la caution annoncée AVANT le checkout (fiche S03, cartes S01 / S02).
+-- 0150 — CAT : base de la caution annoncée AVANT le checkout (fiche S03, cartes S01 / S02).
 -- US-701 (partie 701c, critère T70 c ; BOARD N-372, N-89) ; 19 US-701 ; 16 SRC-011, PAY-011
 -- (T70 c) ; 08 BR-PAY-06 « Moment de l'évaluation » (avant le checkout, seuls COUNTRY et CLASS,
 -- connus du véhicule), « Source unique du montant » (`deposit_amount[pays][classe]`, plus

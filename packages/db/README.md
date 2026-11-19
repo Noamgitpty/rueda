@@ -1074,7 +1074,7 @@ Migration `0146_payment_deposit_hold`, fixture `9945_test_us701_deposit_hold_fix
 
 ## Base de la caution annoncée avant le checkout (US-701 partie 701c, T70 c ; 08 BR-PAY-06 ; ADR-173)
 
-Migration `0149_catalog_public_deposit_basis`. Aucune fixture nouvelle (annonces de 9998, classe de 9976, statut de 9985).
+Migration `0150_catalog_public_deposit_basis`. Aucune fixture nouvelle (annonces de 9998, classe de 9976, statut de 9985).
 
 - **Fonction** `core.catalog_public_deposit_basis(uuid[])` (catalog_cmd_owner, RLS-15, EXECUTE `app_api` seul, lecture seule) : pays, devise et classe de valeur du catalogue des annonces `LISTED` demandées, 50 au plus ; classe inconnue ⇒ `NULL`. La décision (montant `deposit_amount[pays][classe]`, mention générique, caution non disponible) reste celle de PAY, comme au checkout ; la classe n'est jamais rendue au visiteur.
 - **Droits** : aucun nouveau (colonnes déjà accordées à catalog_cmd_owner par 0103 et 0105). `deposit_amount_minor` de `catalog_public_cards` (0105) et `catalog_public_terms` (0118) gardé pour l'API N-1, plus lu ; contraction en suite (S-13).

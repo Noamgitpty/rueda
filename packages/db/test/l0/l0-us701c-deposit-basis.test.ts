@@ -1,5 +1,5 @@
 /**
- * US-701 partie 701c (T70 c ; migration 0149, ADR-173) — base de la caution annoncée avant le
+ * US-701 partie 701c (T70 c ; migration 0150, ADR-173) — base de la caution annoncée avant le
  * checkout, `core.catalog_public_deposit_basis(uuid[])`, sous les rôles de PRODUCTION (assertion
  * L0-05 par `connectAs`), en PA (USD) et en PY (PYG), transactions annulées :
  * - `app_api` : pays, devise et classe de valeur du CATALOGUE des seules annonces LISTED demandées

@@ -118,7 +118,7 @@ async function bootstrap(): Promise<void> {
   };
   // Caution annoncée avant le checkout (US-701c, T70 c, ADR-173) : la décision de PAY (stade
   // PRE_CHECKOUT, même lecteur de paramètres que le checkout, sous app_api) sur le pays et la classe
-  // rendus par core.catalog_public_deposit_basis (0149) ; jamais les déclencheurs ni la classe
+  // rendus par core.catalog_public_deposit_basis (0150) ; jamais les déclencheurs ni la classe
   const preCheckoutDeposits = new PreCheckoutDepositReader(new PgDepositRailConfigReader(pool));
   const listingDeposits: ListingDepositPolicy = {
     notice: async (country, valueClass) => {

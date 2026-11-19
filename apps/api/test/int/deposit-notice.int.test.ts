@@ -3,7 +3,7 @@
  * RÉELLE de la fiche et des cartes sur la base jetable du banc, sous app_api (assertion L0-05 par
  * `connectAs`), dans chaque pays configuré (USD au PA, PYG sans décimale au PY), transaction
  * ANNULÉE : base de la caution par `PgSearchStore.depositBasis` (`core.catalog_public_deposit_basis`,
- * 0149) puis décision de PAY par `PreCheckoutDepositReader` sur les paramètres lus par le lecteur du
+ * 0150) puis décision de PAY par `PreCheckoutDepositReader` sur les paramètres lus par le lecteur du
  * checkout (`PgDepositRailConfigReader`).
  *
  * Attendus : 08 BR-PAY-06 et vecteurs T70 c / T72 c (oracle `check_t49plus.py`), graine 0142 lue
