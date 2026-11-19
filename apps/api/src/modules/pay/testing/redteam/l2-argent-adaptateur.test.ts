@@ -138,7 +138,7 @@ describe.each(CASES)('RT-L2-ARG — adaptateur FAKE du port ($capture)', (v) => 
     }
   });
 
-  it('S7 : PSP complet : l’ordre porte et le PSP garde le montant EXPLICITE de chaque jambe de la capture puis du remboursement (TJ10b), jamais le prorata (TJ10c)', async () => {
+  it('S7 : PSP complet : l’ordre de paiement porte et le PSP garde le montant EXPLICITE de chaque jambe de la capture ; le contre-exemple au prorata de l’oracle (TJ10c) a la même somme que TJ10b mais d’autres jambes (le remboursement explicite est prouvé en base, redteam-l2-argent-annulations)', async () => {
     const { provider, psp } = fakeStack();
     const paid = await provider.createHostedPayment({
       idempotencyKey: `rt-l2-${randomUUID()}`,

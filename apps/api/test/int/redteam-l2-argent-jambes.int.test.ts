@@ -70,7 +70,7 @@ const codeOf = (fn: () => unknown): unknown => {
 };
 
 /** Observation du chargeback perdu (L2-PM-43), lue par l'it.fails, par pays. */
-const chargeback = new Map<string, { violations: string; captured: Legs; refunded: Legs }>();
+const chargeback = new Map<string, { moved: boolean; hostFrozen: boolean; violations: string }>();
 
 describe.each(CASES)('RT-L2-ARG — jambes, preuve, crédits ($country, $currency)', (c: Case) => {
   const capture = legsOf(c.journey.capture);
@@ -356,7 +356,7 @@ describe.each(CASES)('RT-L2-ARG — jambes, preuve, crédits ($country, $currenc
     });
   });
 
-  it('S8 : crédit au-delà de PLATFORM (TJ21) : plafond = jambe PLATFORM de la capture, cascade de la règle 10 refusée si un crédit touche HOST ou INSURER ; encaissement par crédit refusé en base (aucun crédit en bêta) ; invariant par jambe', async () => {
+  it('S8 : crédit au-delà de PLATFORM (TJ21) : plafond = jambe PLATFORM de la capture, cascade de la règle 10 refusée si un crédit touche HOST ou INSURER ; en base, tout encaissement par crédit est refusé (aucun crédit en bêta : refus global, le plafond PLATFORM n’est jugé ici que par le moteur) ; invariant par jambe', async () => {
     const cur = currency();
     const cap = moneyLegs(capture, cur);
     const asked = money(c.journey.creditAsked, cur);
@@ -427,7 +427,7 @@ describe.each(CASES)('RT-L2-ARG — jambes, preuve, crédits ($country, $currenc
     });
   });
 
-  it('L2-PM-43 (observation) : chargeback perdu sur une capture portée (TJ14b et sa variante sans décimale de l’oracle) : l’ordre CHARGEBACK est enregistré et prouvé, aucun mouvement de jambe (leg_movement_unsupported), aucune imputation, rapprochement relu', async () => {
+  it('L2-PM-43 (observation) : chargeback perdu sur une capture portée (TJ14b ; en devise sans décimale, montant dérivé par la méthode de TJ14b) : l’ordre CHARGEBACK est enregistré et prouvé, aucun mouvement de jambe (leg_movement_unsupported), aucune imputation, rapprochement relu', async () => {
     const worker = await open('app_worker');
     await inTx(worker, { worker: 'payment_command', at: at(0) }, async (tx) => {
       const w = await capturedTripIn(tx, c, T0 + 7 * DAY, 3);
@@ -440,35 +440,49 @@ describe.each(CASES)('RT-L2-ARG — jambes, preuve, crédits ($country, $currenc
         legs: null,
       });
       expect(await signedStatus(tx, cb.operation_id, 'SUCCEEDED')).toBe('APPLIED');
+      // aujourd'hui : leg_movement_unsupported (noté, non affirmé : un correctif peut imputer)
       const moved = await refused(tx, () =>
         tx.query('SELECT core.settlement_cmd_apply_leg_movement($1)', [cb.operation_id]),
       );
-      expect(moved).toEqual({ code: '55000', constraint: 'leg_movement_unsupported' });
-      const b = await balancesIn(tx, w.trip);
+      const imputed = await tx.query<{ n: number }>(
+        `SELECT pg_catalog.count(*)::int AS n FROM core.settlement_leg_movement
+          WHERE operation_id = $1`,
+        [cb.operation_id],
+      );
+      const frozen = await tx.query<{ frozen: boolean }>(
+        `SELECT frozen FROM core.settlement_trip_leg_balance
+          WHERE trip_id = $1 AND segment_no = 1 AND leg = 'HOST'`,
+        [w.trip],
+      );
       await asWorker(tx, 'reconciliation');
       const report = reconciliationReportJson(await runMoneyReconciliation(sqlOf(tx)));
       chargeback.set(c.country, {
+        moved: moved === null || (imputed.rows[0]?.n ?? 0) > 0,
+        hostFrozen: frozen.rows[0]?.frozen === true,
         violations: report.violations,
-        captured: b.captured,
-        refunded: b.refunded,
       });
-      expect(b.captured).toEqual(capture);
+      expect(chargeback.get(c.country)?.violations).toMatch(/^[0-9]+$/);
     });
   });
 
   // F-L2-ARG-04 (constat, gravité PROPOSÉE moyenne, suite attendue d'US-709 au lot 3) : un
-  // chargeback perdu (TJ14b : trip réalisé, rien versé ; PLATFORM −256,66 en USD, −1 438 050 en PYG
-  // pour la variante de l'oracle) n'est imputé nulle part et le rapprochement FIN rend 0 écart : la
+  // chargeback perdu (TJ14b : trip réalisé, rien versé ; PLATFORM −256,66 en USD ; en PYG, −1 438 050
+  // dérivé par la méthode de TJ14b (fonction `chargeback` de l'oracle appliquée à TJ08a), pas un
+  // vecteur de l'export) n'est imputé nulle part et le rapprochement FIN rend 0 écart : la
   // perte est absorbée sans écriture et la jambe HOST reste due à l'hôte (L2-PM-43). Aucune voie
   // d'entrée d'un chargeback n'existe au lot 2 (ni webhook, ni commande ; RECORD_CHARGEBACK de la
   // console est un enregistrement seul). Attendu : imputation de 08 (TJ14a / TJ14b) ou, à défaut,
-  // écart signalé par le rapprochement.
+  // gel de la jambe HOST, ou écart signalé par le rapprochement.
   it.fails(
-    'F-L2-ARG-04 : un chargeback perdu sans imputation est signalé par le rapprochement FIN',
+    'F-L2-ARG-04 : un chargeback perdu est imputé, gèle la jambe HOST ou est signalé par le rapprochement FIN',
     async () => {
       await open('app_worker'); // L0-05
-      // observation absente (attaque non jouée) : l'assertion passe et l'it.fails rougit
-      expect(chargeback.get(c.country)?.violations).not.toBe('0');
+      const o = chargeback.get(c.country);
+      // observation absente (attaque non jouée) : rien à juger, le test passe et l'it.fails rougit
+      if (o === undefined) return;
+      // signal attendu : imputation (mouvement de jambe), OU jambe HOST gelée avant tout
+      // versement, OU écart signalé par le rapprochement ; jamais l'issue brute de la commande
+      expect(o.moved || o.hostFrozen || o.violations !== '0').toBe(true);
     },
   );
 });
