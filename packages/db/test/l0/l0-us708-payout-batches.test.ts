@@ -90,9 +90,6 @@ interface WorldOptions {
 async function world(tx: Tx, c: CountryCase, psp: string, o: WorldOptions): Promise<World> {
   const capture: Legs = { ...legVector(golden, CAPTURE_REF[c.currency] ?? '').legsMinor };
   const trip = await insertTrip(tx, c);
-  if (o.variantB === true) {
-    await tx.query(`SELECT test_fixture.us708_set_collection_mode($1, 'PLATFORM_MOR')`, [psp]);
-  }
   const { operation_id: op } = await recordOperation(tx, {
     tripId: trip,
     accountId: psp,
@@ -108,6 +105,11 @@ async function world(tx: Tx, c: CountryCase, psp: string, o: WorldOptions): Prom
     [op],
   );
   expect(moved.rows[0]?.r).toBe('APPLIED');
+  // variante B posée APRÈS l'encaissement (le report d'un encaissement en variante B exige déjà
+  // funds_holding_enabled, 0054) : seul le versement est éprouvé
+  if (o.variantB === true) {
+    await tx.query(`SELECT test_fixture.us708_set_collection_mode($1, 'PLATFORM_MOR')`, [psp]);
+  }
   for (const d of o.holidays) {
     await tx.query('SELECT test_fixture.us708_holiday($1, $2::date)', [c.country, d]);
   }
