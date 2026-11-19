@@ -113,10 +113,11 @@ jobs:
     # externe). Image du runner épinglée : les polices du système font partie des références.
     name: e2e web (Playwright, mobiles et PWA)
     runs-on: ubuntu-24.04
-    # Durée mesurée (docs/ops/CI.md, « e2e web ») : 12 à 19 min sur main les 16 et 17 novembre,
-    # en hausse avec chaque écran ; la limite de 20 min a coupé la PR #206 (job 134039453617). 30 min,
-    # comme base-de-donnees : marge durable, y compris pour le rejeu des captures en échec.
-    timeout-minutes: 30
+    # Durée mesurée (docs/ops/CI.md, « e2e web ») : étape Playwright de 19 à 25 min sur main le
+    # 19 novembre, en hausse avec chaque écran ; un changement global d'en-tête (PR #269, run
+    # 44599702186 : 372 captures en échec en 24 min, rejeu coupé à 30 min) demande en plus ~8 min
+    # de rejeu. 45 min, comme les jobs les plus longs : suite, rejeu borné et artefact tiennent.
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -136,6 +137,9 @@ jobs:
       - name: références proposées (échec seulement, le job reste en échec)
         if: failure()
         working-directory: apps/web
+        # Borné pour que l'artefact soit toujours téléversé dans la limite du job : un rejeu coupé
+        # échoue (le job reste rouge) et l'étape suivante publie ce qui a été écrit.
+        timeout-minutes: 12
         # le rejeu réécrit test-results/ : les écarts (expected, actual, diff) sont mis de côté avant
         run: |
           cp -r test-results ecarts || true

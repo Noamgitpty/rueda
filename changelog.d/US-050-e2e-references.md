@@ -1,0 +1,1 @@
+exemption: US-050 — CI seule : limite du job e2e web portée de 30 à 45 min et rejeu des références proposées borné à 12 min, pour que l'artefact regression-visuelle soit toujours publié (durées mesurées dans docs/ops/CI.md) ; aucun seuil, aucune relance, aucun test ne change ; aucun comportement livré ne change
