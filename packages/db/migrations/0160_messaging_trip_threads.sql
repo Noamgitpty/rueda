@@ -167,21 +167,27 @@ CREATE FUNCTION core.messaging_record_guard()
   SET search_path = pg_catalog, pg_temp
 AS $fn$
 BEGIN
-  IF TG_OP = 'UPDATE' AND TG_TABLE_NAME = 'messaging_message'
-     AND OLD.hidden_at IS NULL AND NEW.hidden_at IS NOT NULL
-     AND (NEW.id, NEW.thread_id, NEW.author_user_id, NEW.author_role, NEW.body, NEW.body_masked,
-          NEW.channel_origin, NEW.status, NEW.sent_at)
-         IS NOT DISTINCT FROM
-         (OLD.id, OLD.thread_id, OLD.author_user_id, OLD.author_role, OLD.body, OLD.body_masked,
-          OLD.channel_origin, OLD.status, OLD.sent_at) THEN
-    RETURN NEW;
-  END IF;
-  IF TG_OP = 'UPDATE' AND TG_TABLE_NAME = 'messaging_message_flag'
-     AND OLD.outcome IS NULL AND NEW.outcome IS NOT NULL
-     AND (NEW.id, NEW.message_id, NEW.kind, NEW.matched, NEW.review_item_id, NEW.created_at)
-         IS NOT DISTINCT FROM
-         (OLD.id, OLD.message_id, OLD.kind, OLD.matched, OLD.review_item_id, OLD.created_at) THEN
-    RETURN NEW;
+  -- conditions imbriquées : chaque table n'évalue que ses propres colonnes (fonction compilée par
+  -- table de déclencheur)
+  IF TG_OP = 'UPDATE' THEN
+    IF TG_TABLE_NAME = 'messaging_message' THEN
+      IF OLD.hidden_at IS NULL AND NEW.hidden_at IS NOT NULL
+         AND (NEW.id, NEW.thread_id, NEW.author_user_id, NEW.author_role, NEW.body,
+              NEW.body_masked, NEW.channel_origin, NEW.status, NEW.sent_at)
+             IS NOT DISTINCT FROM
+             (OLD.id, OLD.thread_id, OLD.author_user_id, OLD.author_role, OLD.body,
+              OLD.body_masked, OLD.channel_origin, OLD.status, OLD.sent_at) THEN
+        RETURN NEW;
+      END IF;
+    ELSIF TG_TABLE_NAME = 'messaging_message_flag' THEN
+      IF OLD.outcome IS NULL AND NEW.outcome IS NOT NULL
+         AND (NEW.id, NEW.message_id, NEW.kind, NEW.matched, NEW.review_item_id, NEW.created_at)
+             IS NOT DISTINCT FROM
+             (OLD.id, OLD.message_id, OLD.kind, OLD.matched, OLD.review_item_id, OLD.created_at)
+      THEN
+        RETURN NEW;
+      END IF;
+    END IF;
   END IF;
   RAISE EXCEPTION 'messagerie : % refusé sur % (preuve, jamais supprimée)', TG_OP, TG_TABLE_NAME
     USING ERRCODE = 'integrity_constraint_violation', CONSTRAINT = 'messaging_record_guarded';
