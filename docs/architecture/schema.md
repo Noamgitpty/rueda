@@ -6605,7 +6605,7 @@ Politiques RLS :
 
 - `cmd_hold_inspection_ins` (INSERT, PERMISSIVE, cmd_hold_owner) WITH CHECK `((status = 'DRAFT'::text) AND (submitted_at IS NULL))`
 - `cmd_hold_inspection_sel` (SELECT, PERMISSIVE, cmd_hold_owner) USING `true`
-- `cmd_hold_inspection_upd` (UPDATE, PERMISSIVE, cmd_hold_owner) USING `(status = 'DRAFT'::text)` WITH CHECK `(status = 'SUBMITTED'::text)`
+- `cmd_hold_inspection_upd` (UPDATE, PERMISSIVE, cmd_hold_owner) USING `true` WITH CHECK `(status = 'SUBMITTED'::text)`
 - `migrator_all` (ALL, PERMISSIVE, migrator) USING `true` WITH CHECK `true`
 
 Déclencheurs :
@@ -6685,7 +6685,7 @@ Politiques RLS :
 
 - `cmd_hold_inspection_ins` (INSERT, PERMISSIVE, cmd_hold_owner) WITH CHECK `(used_at IS NULL)`
 - `cmd_hold_inspection_sel` (SELECT, PERMISSIVE, cmd_hold_owner) USING `true`
-- `cmd_hold_inspection_upd` (UPDATE, PERMISSIVE, cmd_hold_owner) USING `(used_at IS NULL)` WITH CHECK `(used_at IS NOT NULL)`
+- `cmd_hold_inspection_upd` (UPDATE, PERMISSIVE, cmd_hold_owner) USING `true` WITH CHECK `(used_at IS NOT NULL)`
 - `migrator_all` (ALL, PERMISSIVE, migrator) USING `true` WITH CHECK `true`
 
 Déclencheurs :
