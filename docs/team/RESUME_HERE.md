@@ -1,6 +1,6 @@
 # RESUME_HERE — point de reprise du dépôt
 
-> Lu en premier par toute session qui reprend le travail (handoff §4.9). Tenu par l'orchestrateur à chaque fin de session. **Dernière mise à jour : 2026-11-19, 7 h UTC (lot 2 : 26 stories sur 27 MERGED, 137 points sur 140 ; reste la porte, US-222 ; détail au `BOARD.md`).** Mise à jour précédente : 2026-11-18, 23 h UTC (lot 2 : 21 sur 27, 110 points). Avant : 2026-11-10 (porte du lot 0 tenue : PR #92, #93 et #94 fusionnées ; US-027 en revue).
+> Lu en premier par toute session qui reprend le travail (handoff §4.9). Tenu par l'orchestrateur à chaque fin de session. **Dernière mise à jour : 2026-11-19, 12 h UTC (fin du lot 2 : 27 stories sur 27 MERGED, 140 points sur 140 ; porte L2 franchie, #261 ; détail au `BOARD.md`).** Mise à jour précédente : 2026-11-19, 7 h UTC (lot 2 : 26 sur 27, 137 points). Avant : 2026-11-18, 23 h UTC (lot 2 : 21 sur 27, 110 points). Avant : 2026-11-10 (porte du lot 0 tenue : PR #92, #93 et #94 fusionnées ; US-027 en revue).
 
 ## Pour reprendre
 
@@ -8,7 +8,26 @@
 2. Sous Git Bash : `export PATH="/c/Program Files/nodejs:/c/Users/noamm/AppData/Roaming/npm:/c/Program Files/GitHub CLI:$PATH"`. Vérifie `node -v`, qui doit donner v26.13.0 (ADR-041).
 3. `git fetch`, `git worktree list`, puis relance les tests de chaque branche en cours **avant** de continuer (OPERATING_RULES §3).
 
-## État au 2026-11-19, 7 h UTC
+## État au 2026-11-19, fin du lot 2
+
+Le `BOARD.md` fait foi ; ce résumé ne sert qu'à reprendre vite.
+
+- **Lot 0** : porte tenue le 2026-11-10 ; 47 stories sur 49 fusionnées (US-027 IN_REVIEW, US-050 partielle).
+- **Lot 1** : porte tenue le 2026-11-14 ; 27 stories sur 28 MERGED (117 points sur 120) ; US-122 IN_REVIEW (post-mortem).
+- **Lot 2** : **clos, 27 MERGED sur 27, 140 points sur 140** ; **porte L2 franchie** le 2026-11-19 (#261, `218bf757`, `docs/team/gates/L2/gate.md` §7 : aucun constat critique, élevés corrigés, `test:l0` sans « expected fail » au run `44498559096`, restauration rejouée). Bêta : environ 54 % (466 points sur 869). Fusionnées depuis 7 h UTC : #256 (US-222c, red team ex-LB / RLS / console, cinq constats), #257 (US-222d, correctifs argent : N-399, N-400, N-401 ; N-402 en partie), #259 (US-222d2, correctifs RLS : N-114, N-118), #260 (préparation d'US-535a : 19 et registre des revues), #261 (US-222e, post-mortem et porte : N-139, N-403). **US-222 MERGED.** Les deux red teams ont trouvé neuf défauts, tous corrigés sauf l'imputation complète d'un chargeback perdu (jambe HOST gelée, contrôle FIN ; imputation à US-709, N-402, N-415).
+- **En revue** : **US-535a** (PR #262, brouillon, `story/US-535-commande-parametres` ; tranche d'US-535, 5 points hors total du lot 2 ; migration 0157, ADR-178, fixture 9929) : commande revue de changement d'une valeur de paramètre pays (N-411, N-421).
+- **Numéros sur `main`** (à reprendre à la suite) : dernière migration **0156** (#259 ; #262 prend 0157), catalogue **v93** (#257 ; suivante v94), dernier ADR **ADR-177** (#259 ; #262 prend ADR-178), dernière fixture de test **9931** (#257 ; #262 prend 9929, suivante libre 9930 à vérifier contre les PR ouvertes). Vérifier les PR ouvertes avant de réserver.
+- **Suites** : N-415 à N-432 inscrites au BOARD (suites d'US-222d, mineurs des revues de #256, #259, #260, #261, renvois à la porte du lot 3 N-423, manques bloquants pour la production N-424 à N-428, suites de `gate.md` §6 N-429 à N-432) ; S-04 (US-125) comptée parmi les élevés hérités ; inventaire « avant l'ouverture d'un pays » : 35 suites.
+- **Fondateur** : `POUR_LE_FONDATEUR.md` (page 1 inchangée) ; en information : lot 2 terminé et porte franchie (§0, §7.10) ; rappel des manques bloquants pour la production qui relèvent de lui : « oui » pour supprimer les branches mortes (§5, nuits rouges), jeton du bot et accès des agents (priorité 6, §2.8).
+
+## Prochaine action exacte (orchestrateur, 2026-11-19, fin du lot 2)
+
+1. Faire relire **#262** (US-535a) par les revues exigées (`node scripts/ci/check-story-reviews.mjs --branch story/US-535-commande-parametres --base origin/main --root . --author-model <modèle de l'auteur>`), argent / `SECURITY DEFINER` sur un autre modèle, puis fusionner CI verte et revues APPROUVÉ ; N-411 et N-421 passent alors FAIT.
+2. **Démarrer le lot 3** : pré-mortem du lot 3 (`docs/team/gates/L3/premortem.md`, US-313 critère 1, branche de story) et ordre des stories, en cours d'analyse par l'orchestrateur ; y reprendre les renvois de la porte du lot 2 (N-423) et les corrections de `gate.md` (N-422).
+3. Traiter l'inventaire « avant l'ouverture d'un pays » et les manques bloquants pour la production (N-424 à N-428) par petites PR ; N-431 (règles du §5.2 du post-mortem) avant le lot 3.
+4. Ne supprimer aucune branche distante sans le « oui » écrit du fondateur (`POUR_LE_FONDATEUR.md` §5, N-428).
+
+## État au 2026-11-19, 7 h UTC (historique)
 
 Le `BOARD.md` fait foi ; ce résumé ne sert qu'à reprendre vite.
 
@@ -21,7 +40,7 @@ Le `BOARD.md` fait foi ; ce résumé ne sert qu'à reprendre vite.
 - **Suites** : N-399 à N-414 inscrites au BOARD le 2026-11-19 ; inventaire « avant l'ouverture d'un pays » : 31 suites (N-399 et N-402 en cours dans US-222d).
 - **Fondateur** : `POUR_LE_FONDATEUR.md` ; nouveautés : **deux numéros par pays** (support de Kmino, assistance de l'assureur, format E.164 ; la production refuse de démarrer sans eux, GL-36), remontés en page 1 et au §2.13 ; vingt branches à supprimer sur son « oui » (§5) ; en information : mode « sur demande » prêt mais fermé jusqu'à GL-26 (§7.4), red team argent (§7.10).
 
-## Prochaine action exacte (orchestrateur, 2026-11-19)
+## Prochaine action exacte (orchestrateur, 2026-11-19, 7 h UTC, historique)
 
 1. Faire relire **#256** (US-222c) par les revues exigées (`node scripts/ci/check-story-reviews.mjs --branch story/US-222-redteam-rls-lb --base origin/main --root . --author-model <modèle de l'auteur>`), argent / RLS / `SECURITY DEFINER` sur un autre modèle, puis fusionner CI verte et revues APPROUVÉ.
 2. Faire aboutir les **correctifs US-222d** (`story/US-222-correctifs-argent`) : N-399 (élevé) à N-402, chaque `it.fails` de 222b (et de 222c s'il en ajoute) inversé en `it` sans toucher l'attaque, revue argent sur un autre modèle ; puis passer N-399 à N-402 en FAIT au BOARD.
