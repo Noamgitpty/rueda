@@ -108,7 +108,10 @@ CREATE POLICY iam_staff_help_insert ON core.support_support_case FOR INSERT TO i
   WITH CHECK (help_topic IS NOT NULL AND channel = 'IN_APP' AND status = 'OPEN'
               AND assignee_id IS NULL AND reason IS NULL AND category <> 'BREAK_GLASS');
 GRANT SELECT (time_zone) ON core.config_country TO iam_staff_owner;
+-- session de la personne (fonction d'iam_auth_owner : seul son propriétaire accorde EXECUTE)
+SET LOCAL ROLE iam_auth_owner;
 GRANT EXECUTE ON FUNCTION core.iam_session_resolve(bytea) TO iam_staff_owner;
+RESET ROLE;
 -- événement de la demande (acteur = la personne, rôle GUEST ou HOST)
 CREATE POLICY iam_staff_help_event ON core.outbox_outbox_event FOR INSERT TO iam_staff_owner
   WITH CHECK (type = 'support.help_request.received' AND aggregate_type = 'support_case'
