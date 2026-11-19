@@ -321,8 +321,8 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  fenêtre d’écriture, formulaire).
  Version 100 (les versions 97 à 99 sont réservées à US-310 et US-315 ; la 96 est celle
  d’US-525) : dossier de preuve d’un trip (US-308, ADR-184) : réponses de la console
- `common.evidenceBundle.*` (archive en préparation, lien échu après 7 j, constat d’empreinte ou
- pièce absente : rien n’est remis, coffre ou stockage indisponibles).
+ `common.evidenceBundle.*` (dossier d’un autre agent, archive en préparation, lien échu après 7 j,
+ constat d’empreinte ou pièce absente : rien n’est remis, coffre ou stockage indisponibles).
  */
 export const CATALOG_VERSION = 100;
 

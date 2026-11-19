@@ -6,19 +6,21 @@
  * | ---------------------------------------------- | -------------------------------- | ------------------------------ |
  * | POST /console/trips/:tripId/evidence-bundles   | 201 dossier scellé (REQUESTED) ; | 403 STAFF_CASE_REQUIRED,       |
  * |                                                | 200 rejeu de la même requête     | STAFF_SELF_FORBIDDEN ; 503     |
- * | GET /console/evidence-bundles/:bundleId        | 200 état (EXPIRED calculé),      | —                              |
+ * | GET /console/evidence-bundles/:bundleId        | 200 état (EXPIRED calculé),      | 404 EVIDENCE_BUNDLE_NOT_FOUND  |
  * |                                                | empreintes, pièces absentes      |                                |
  * | POST /console/evidence-bundles/:bundleId/      | 200 `application/zip` (archive   | 409 EVIDENCE_EXPORT_NOT_READY, |
  * |      download                                  | déchiffrée, SHA-256 revérifié)   | EVIDENCE_EXPORT_FAILED ; 410 ; |
- * |                                                |                                  | 403 ; 503                      |
+ * |                                                |                                  | 403 ; 404 ; 503                |
  *
  * Toutes : StaffGuard (401 AUTH_REQUIRED, 403 FORBIDDEN / 2FA_REQUIRED), 400 REQUEST_INVALID. La
  * base juge chaque droit (session élevée, `evidence.export` dans le pays du dossier de support
  * OUVERT de ce trip assigné à l'agent, garde ADR-122), scelle le manifeste et journalise chaque
  * demande, chaque ouverture et chaque refus. Le téléchargement est un POST : un motif (`reason`,
  * 10 à 500 caractères) est exigé et journalisé. Seul le demandeur lit l'état et ouvre l'archive ;
- * aucun hôte, voyageur ni co-hôte n'a de route. Production (bêta) : coffre et stockage absents ⇒
- * 503 EVIDENCE_EXPORT_UNAVAILABLE avant toute écriture.
+ * aucun hôte, voyageur ni co-hôte n'a de route ; le dossier d'un autre agent répond 404
+ * EVIDENCE_BUNDLE_NOT_FOUND (journalisé). Production (bêta) : coffre et stockage absents ⇒ la base
+ * juge et journalise d'abord (refus 401 / 403), puis 503 EVIDENCE_EXPORT_UNAVAILABLE et la
+ * transaction est annulée : aucun dossier n'est scellé, aucune archive n'est servie.
  */
 import { randomUUID } from 'node:crypto';
 import {
@@ -75,6 +77,8 @@ function refusal(outcome: string): never {
       throw new OpsHttpError('STAFF_SELF_FORBIDDEN');
     case 'REQUEST_INVALID':
       throw new AuthHttpError('REQUEST_INVALID');
+    case 'NOT_FOUND':
+      throw new EvidenceBundleHttpError('EVIDENCE_BUNDLE_NOT_FOUND');
     case 'NOT_READY':
       throw new EvidenceBundleHttpError('EVIDENCE_EXPORT_NOT_READY');
     case 'EXPIRED':
@@ -133,9 +137,6 @@ export class EvidenceBundleController {
     ) {
       throw new AuthHttpError('REQUEST_INVALID');
     }
-    if (!this.evidence.available()) {
-      throw new EvidenceBundleHttpError('EVIDENCE_EXPORT_UNAVAILABLE');
-    }
     let r: Awaited<ReturnType<EvidenceBundleService['request']>>;
     try {
       r = await this.evidence.request(staff, {
@@ -180,9 +181,6 @@ export class EvidenceBundleController {
     const staff = this.#staff(request);
     const reason = isObject(body) ? reasonOf(body['reason']) : null;
     if (!UUID.test(bundleId) || reason === null) throw new AuthHttpError('REQUEST_INVALID');
-    if (!this.evidence.available()) {
-      throw new EvidenceBundleHttpError('EVIDENCE_EXPORT_UNAVAILABLE');
-    }
     let r: Awaited<ReturnType<EvidenceBundleService['download']>>;
     try {
       r = await this.evidence.download(staff, randomUUID(), bundleId, reason);

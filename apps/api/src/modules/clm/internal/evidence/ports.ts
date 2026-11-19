@@ -8,8 +8,6 @@
  * Q-007) : leurs adaptateurs `Unavailable*` rendent les routes indisponibles (503) — jamais un FAKE
  * en production (C19).
  */
-import { fileAad, open } from '@rueda/db/audit';
-import type { FileStoreGetResult, Queryable, SubjectKeyStore } from '@rueda/db/audit';
 
 /** Exécuteur SQL minimal (client d'une transaction `pg`). */
 export interface EvidenceSqlExecutor {
@@ -42,9 +40,16 @@ export interface EvidenceExportVault {
   >;
 }
 
+/** Lecture de l'archive (forme de `FileStore.get` d'AUD : échecs en valeurs). */
+export type EvidenceFileGet =
+  | { readonly status: 'FOUND'; readonly body: Buffer }
+  | { readonly status: 'NOT_FOUND' }
+  | { readonly status: 'UNAVAILABLE' }
+  | { readonly status: 'TIMEOUT' };
+
 /** Lecture de l'archive dans le bucket PRIVATE_EVIDENCE (port `FileStore` d'AUD). */
 export interface EvidenceExportFiles {
-  get(bucket: 'PRIVATE_EVIDENCE', key: string): Promise<FileStoreGetResult>;
+  get(bucket: 'PRIVATE_EVIDENCE', key: string): Promise<EvidenceFileGet>;
 }
 
 export class UnavailableEvidenceExportVault implements EvidenceExportVault {
@@ -57,35 +62,7 @@ export class UnavailableEvidenceExportVault implements EvidenceExportVault {
 }
 
 export class UnavailableEvidenceExportFiles implements EvidenceExportFiles {
-  get(): Promise<FileStoreGetResult> {
+  get(): Promise<EvidenceFileGet> {
     return Promise.resolve({ status: 'UNAVAILABLE' });
   }
-}
-
-/** Coffre sur `SubjectKeyStore` (KMS par `KeyWrapper`) : FAKE en test, KMS réel au lot C. */
-export function subjectKeyExportVault(keys: SubjectKeyStore): EvidenceExportVault {
-  return {
-    async prepare(tx, userId) {
-      const k = await keys.dekFor(
-        tx as unknown as Queryable,
-        { type: 'USER', id: userId },
-        'create',
-      );
-      if (k.status !== 'OK') return 'UNAVAILABLE';
-      k.dek.fill(0);
-      return 'READY';
-    },
-    async open(tx, userId, fileId, body) {
-      const subject = { type: 'USER', id: userId } as const;
-      const k = await keys.dekFor(tx as unknown as Queryable, subject, 'read');
-      if (k.status !== 'OK') return { status: 'UNAVAILABLE' };
-      try {
-        return { status: 'OPENED', body: open(k.dek, body, fileAad(fileId, subject)) };
-      } catch {
-        return { status: 'REJECTED' };
-      } finally {
-        k.dek.fill(0);
-      }
-    },
-  };
 }

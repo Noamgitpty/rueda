@@ -14,7 +14,6 @@
  */
 import { createHash } from 'node:crypto';
 import type { EvidenceExportFiles, EvidenceExportVault } from './ports.js';
-import { UnavailableEvidenceExportFiles, UnavailableEvidenceExportVault } from './ports.js';
 import type {
   EvidenceBundleStore,
   EvidenceOpenOutcome,
@@ -53,14 +52,6 @@ export class EvidenceBundleService {
 
   constructor(options: EvidenceBundleServiceOptions) {
     this.#o = options;
-  }
-
-  /** Coffre et stockage branchés (production bêta : non, routes 503). */
-  available(): boolean {
-    return (
-      !(this.#o.vault instanceof UnavailableEvidenceExportVault) &&
-      !(this.#o.files instanceof UnavailableEvidenceExportFiles)
-    );
   }
 
   async request(

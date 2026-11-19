@@ -897,7 +897,8 @@ COMMENT ON FUNCTION core.support_staff_request_evidence_bundle(bytea, uuid, uuid
   'EXECUTE app_api. US-308 (ADR-184).';
 
 -- 5.2 État d'un dossier (demandeur seulement ; aucune donnée personnelle : lecture non inscrite au
--- journal d'accès, refus journalisés). Issues : OK, AUTH_REQUIRED, MFA_REQUIRED, FORBIDDEN.
+-- journal d'accès, refus journalisés). Issues : OK, AUTH_REQUIRED, MFA_REQUIRED, FORBIDDEN (dossier
+-- inconnu ou permission absente dans son pays), NOT_FOUND (dossier d'un autre agent).
 CREATE FUNCTION core.support_staff_evidence_bundle(p_token_hash bytea, p_request_id uuid,
                                                    p_bundle_id uuid)
   RETURNS TABLE (outcome text, body jsonb)
@@ -908,9 +909,11 @@ CREATE FUNCTION core.support_staff_evidence_bundle(p_token_hash bytea, p_request
 AS $fn$
 #variable_conflict use_column
 DECLARE
-  v_s   record;
-  b     record;
-  v_now timestamptz := platform.now();
+  v_s    record;
+  b      record;
+  v_role text;
+  v_deny text;
+  v_now  timestamptz := platform.now();
 BEGIN
   IF p_request_id IS NULL OR p_bundle_id IS NULL THEN
     RAISE EXCEPTION 'dossier de preuve : entrée invalide' USING ERRCODE = 'invalid_parameter_value';
@@ -931,23 +934,28 @@ BEGIN
     RETURN;
   END IF;
   SELECT x.* INTO b FROM core.claim_evidence_bundle AS x WHERE x.id = p_bundle_id;
-  -- dossier inconnu ou d'un autre agent : même issue (aucun oracle d'existence)
-  IF b.id IS NULL OR b.requested_by <> v_s.user_id
-     OR core.iam_staff_permitted(v_s.user_id, 'evidence.export', ARRAY[b.country_code], NULL)
-          IS NULL THEN
-    PERFORM core.iam_staff_audit(v_s.user_id, 'STAFF', 'STAFF_FORBIDDEN', 'EVIDENCE_BUNDLE',
-                                 p_bundle_id, NULL,
-                                 pg_catalog.jsonb_build_object('reason',
-                                   CASE WHEN b.id IS NULL THEN 'NOT_FOUND'
-                                        WHEN b.requested_by <> v_s.user_id THEN 'NOT_REQUESTER'
-                                        ELSE 'PERMISSION' END,
+  -- dossier inconnu, ou permission absente dans le pays du dossier : FORBIDDEN (même issue) ;
+  -- dossier d'un autre agent, permission détenue : NOT_FOUND (le dossier n'est jamais montré)
+  IF b.id IS NOT NULL THEN
+    v_role := core.iam_staff_permitted(v_s.user_id, 'evidence.export', ARRAY[b.country_code],
+                                       NULL);
+  END IF;
+  v_deny := CASE WHEN b.id IS NULL THEN 'NOT_FOUND'
+                 WHEN v_role IS NULL THEN 'PERMISSION'
+                 WHEN b.requested_by <> v_s.user_id THEN 'NOT_REQUESTER'
+                 ELSE NULL END;
+  IF v_deny IS NOT NULL THEN
+    PERFORM core.iam_staff_audit(v_s.user_id, COALESCE(v_role, 'STAFF'), 'STAFF_FORBIDDEN',
+                                 'EVIDENCE_BUNDLE', p_bundle_id, NULL,
+                                 pg_catalog.jsonb_build_object('reason', v_deny,
                                    'attempted', 'READ', 'permission', 'evidence.export',
                                    'field_or_file', 'evidence_bundle')
                                  || CASE WHEN b.id IS NULL THEN '{}'::jsonb
                                          ELSE pg_catalog.jsonb_build_object('country',
                                                 b.country_code) END,
                                  NULL, p_request_id);
-    RETURN QUERY SELECT 'FORBIDDEN'::text, NULL::jsonb;
+    RETURN QUERY SELECT CASE v_deny WHEN 'NOT_REQUESTER' THEN 'NOT_FOUND'
+                                    ELSE 'FORBIDDEN' END::text, NULL::jsonb;
     RETURN;
   END IF;
   RETURN QUERY SELECT 'OK'::text, pg_catalog.jsonb_build_object(
@@ -979,8 +987,9 @@ COMMENT ON FUNCTION core.support_staff_evidence_bundle(bytea, uuid, uuid) IS
 
 -- 5.3 Ouverture de l'archive (téléchargement). Issues : OK (accès au journal et audit chaîné, puis
 -- emplacement et empreinte de l'archive), NOT_READY, FAILED, EXPIRED (journalisé : lien rejoué),
--- AUTH_REQUIRED, MFA_REQUIRED, FORBIDDEN (dossier inconnu, d'un autre agent, permission absente),
--- CASE_REQUIRED (dossier de support clos ou réassigné), SELF_FORBIDDEN ; tous journalisés sauf
+-- AUTH_REQUIRED, MFA_REQUIRED, FORBIDDEN (dossier inconnu, permission absente dans son pays),
+-- NOT_FOUND (dossier d'un autre agent), CASE_REQUIRED (dossier de support clos ou réassigné),
+-- SELF_FORBIDDEN ; tous journalisés sauf
 -- AUTH_REQUIRED, NOT_READY et FAILED.
 CREATE FUNCTION core.support_staff_open_evidence_bundle(p_token_hash bytea, p_request_id uuid,
                                                         p_bundle_id uuid, p_reason text)
@@ -1035,10 +1044,11 @@ BEGIN
       FROM core.support_support_case AS c WHERE c.id = b.case_id;
   END IF;
   v_deny := CASE
-    -- dossier inconnu ou d'un autre agent : même issue (le lien ne se partage pas)
+    -- dossier inconnu ou permission absente dans son pays : FORBIDDEN ; dossier d'un autre agent :
+    -- NOT_FOUND (le lien ne se partage pas)
     WHEN b.id IS NULL THEN 'NOT_FOUND'
-    WHEN b.requested_by <> v_s.user_id THEN 'NOT_REQUESTER'
     WHEN v_role IS NULL THEN 'PERMISSION'
+    WHEN b.requested_by <> v_s.user_id THEN 'NOT_REQUESTER'
     WHEN v_case.status NOT IN ('OPEN', 'PENDING') THEN 'CASE'
     WHEN v_role <> 'ADMIN' AND v_case.assignee_id IS DISTINCT FROM v_s.user_id THEN 'CASE'
     WHEN core.support_actor_conflict(v_s.user_id, 'TRIP', b.trip_id) THEN 'SELF'
@@ -1058,6 +1068,7 @@ BEGIN
     RETURN QUERY SELECT CASE v_deny WHEN 'CASE' THEN 'CASE_REQUIRED'
                                     WHEN 'SELF' THEN 'SELF_FORBIDDEN'
                                     WHEN 'EXPIRED' THEN 'EXPIRED'
+                                    WHEN 'NOT_REQUESTER' THEN 'NOT_FOUND'
                                     ELSE 'FORBIDDEN' END::text,
                         NULL::uuid, NULL::text, NULL::text, NULL::bigint, NULL::text, NULL::uuid;
     RETURN;

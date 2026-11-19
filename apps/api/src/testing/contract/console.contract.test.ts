@@ -1073,7 +1073,7 @@ describe('contrat HTTP — /console', () => {
     await refusals(a, 'GET', '/console/security/abuse');
   });
 
-  it('dossier de preuve (US-308) : demande 201, 200, 400, 403, 503 ; état 200, 400, 403, 503 ; archive 200, 400, 403, 409, 410, 503', async () => {
+  it('dossier de preuve (US-308) : demande 201, 200, 400, 403, 503 ; état 200, 400, 403, 404, 503 ; archive 200, 400, 403, 404, 409, 410, 503', async () => {
     const a = await app();
     const headers = a.cookie('staff');
     const create = `/console/trips/${ID}/evidence-bundles`;
@@ -1124,6 +1124,10 @@ describe('contrat HTTP — /console', () => {
     );
     evidenceState.status = 'FORBIDDEN';
     expect((await a.api.request('GET', read, { headers })).status).toBe(403);
+    evidenceState.status = 'NOT_FOUND';
+    expect((await a.api.request('GET', read, { headers })).json).toMatchObject({
+      code: 'EVIDENCE_BUNDLE_NOT_FOUND',
+    });
     evidenceState.status = 'OK';
     evidenceState.down = true;
     expect((await a.api.request('GET', read, { headers })).status).toBe(503);
@@ -1145,6 +1149,7 @@ describe('contrat HTTP — /console', () => {
       ['EXPIRED', 410, 'EVIDENCE_EXPORT_EXPIRED'],
       ['FORBIDDEN', 403, 'FORBIDDEN'],
       ['CASE_REQUIRED', 403, 'STAFF_CASE_REQUIRED'],
+      ['NOT_FOUND', 404, 'EVIDENCE_BUNDLE_NOT_FOUND'],
     ] as const) {
       evidenceState.open = outcome;
       const r = await a.api.request('POST', download, { headers, body: { reason: REASON } });

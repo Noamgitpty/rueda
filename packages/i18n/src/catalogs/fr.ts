@@ -462,6 +462,8 @@ export const FR_MESSAGES = {
     'Fichier refusé : seuls les JPEG, PNG, HEIC ou PDF sains, de taille limitée.',
   'common.evidence.unavailable':
     'Impossible de recevoir des fichiers pour le moment. Rien n’a été enregistré.',
+  'common.evidenceBundle.notFound':
+    'Ce dossier de preuve ne fait pas partie des tiens. Seule la personne qui l’a demandé peut l’ouvrir.',
   'common.evidenceBundle.notReady':
     'Le dossier de preuve est encore en préparation. Réessaie dans quelques minutes.',
   'common.evidenceBundle.expired':

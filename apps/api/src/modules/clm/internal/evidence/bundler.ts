@@ -19,8 +19,6 @@
  * repris. Journaux : comptes et codes, jamais un identifiant, un nom ni un contenu (17 §6.3).
  */
 import { randomUUID } from 'node:crypto';
-import { fileAad, FileAssetError, readFileAsset, seal } from '@rueda/db/audit';
-import type { FileStore, Queryable, SubjectKeyStore } from '@rueda/db/audit';
 import type { SqlClient, WorkerTransactions } from '../../../bus/index.js';
 import { ManifestError, parseManifest, sha256Hex } from './manifest.js';
 import type { EvidenceManifest } from './manifest.js';
@@ -48,13 +46,56 @@ export interface EvidenceContractRenderer {
   render(source: EvidenceContractSource): Uint8Array;
 }
 
-/** Clés de sujet (`SubjectKeyStore` de `@rueda/db/audit`). */
-export type EvidenceKeys = Pick<SubjectKeyStore, 'dekFor'>;
+/**
+ * Lecture vérifiée d'un fichier de preuve (forme de `readFileAsset` de `@rueda/db/audit` : relecture,
+ * déchiffrement par la clé du sujet, empreinte recalculée égale à `file_asset.sha256`). Une panne
+ * passagère (stockage, KMS) LÈVE : pas un verdict sur la preuve.
+ */
+export type EvidenceFileRead =
+  | { readonly status: 'MATCH'; readonly content: Buffer }
+  | { readonly status: 'MISMATCH' }
+  | { readonly status: 'UNKNOWN_FILE' }
+  | {
+      readonly status: 'UNREADABLE';
+      readonly reason: 'DECRYPT_FAILED' | 'KEY_DESTROYED' | 'KEY_WITHHELD' | 'OBJECT_MISSING';
+    };
+
+export interface EvidenceFileReader {
+  read(tx: SqlClient, fileId: string): Promise<EvidenceFileRead>;
+}
+
+/** Chiffrement de l'archive par la clé USER du demandeur (enveloppe liée au fichier). */
+export interface EvidenceArchiveSealer {
+  seal(
+    tx: SqlClient,
+    requesterId: string,
+    fileId: string,
+    body: Buffer,
+  ): Promise<
+    | { readonly status: 'SEALED'; readonly body: Buffer }
+    | { readonly status: 'KEY_UNAVAILABLE'; readonly reason: string }
+  >;
+}
+
+/** Dépôt de l'archive en création seule (port `FileStore` d'AUD). */
+export interface EvidenceArchiveStore {
+  put(
+    bucket: 'PRIVATE_EVIDENCE',
+    key: string,
+    body: Buffer,
+  ): Promise<{ readonly status: 'STORED' | 'CONFLICT' | 'UNAVAILABLE' | 'TIMEOUT' }>;
+}
+
+/** Panne passagère : la transaction est annulée, le dossier reste dû. */
+export class EvidenceTransientError extends Error {
+  override readonly name = 'EvidenceTransientError';
+}
 
 export interface EvidenceBundlerOptions {
   readonly transactions: WorkerTransactions;
-  readonly files: FileStore;
-  readonly keys: EvidenceKeys;
+  readonly reader: EvidenceFileReader;
+  readonly sealer: EvidenceArchiveSealer;
+  readonly files: EvidenceArchiveStore;
   readonly renderer: EvidenceContractRenderer;
   readonly maxBytes?: number;
   /** Journal (une ligne JSON : comptes et codes) ; absent : rien n'est écrit. */
@@ -228,25 +269,21 @@ export class EvidenceBundler {
       );
     }
     const zip = buildZip(entries, manifest.sealedAt);
-    const subject = { type: 'USER', id: src.requested_by } as const;
-    const key = await this.#o.keys.dekFor(tx as unknown as Queryable, subject, 'read');
-    if (key.status !== 'OK') {
-      return this.#fail(tx, bundleId, 'KEY_UNAVAILABLE', [
-        { piece: 'ARCHIVE', ref: bundleId, reason: `KEY_${key.status}` },
-      ]);
-    }
     const fileId = randomUUID();
     const storageKey = `evidence-bundles/${bundleId}/${fileId}.zip`;
-    let sealed: Buffer;
-    try {
-      sealed = seal(key.dek, zip, fileAad(fileId, subject));
-    } finally {
-      key.dek.fill(0);
+    const closed = await this.#o.sealer.seal(tx, src.requested_by, fileId, zip);
+    if (closed.status !== 'SEALED') {
+      return this.#fail(tx, bundleId, 'KEY_UNAVAILABLE', [
+        { piece: 'ARCHIVE', ref: bundleId, reason: closed.reason },
+      ]);
     }
+    const sealed = closed.body;
     const put = await this.#o.files.put('PRIVATE_EVIDENCE', storageKey, sealed);
     if (put.status !== 'STORED') {
       // panne ou issue inconnue : transaction annulée, nouvelle clé au prochain passage
-      throw new FileAssetError(`stockage indisponible (${put.status}) : archive non déposée`);
+      throw new EvidenceTransientError(
+        `stockage indisponible (${put.status}) : archive non déposée`,
+      );
     }
     const done = await tx.query<{ r: string }>(COMPLETE_SQL, [
       bundleId,
@@ -282,12 +319,7 @@ export class EvidenceBundler {
         return { code: 'RENDER_FAILED', reason: 'RENDER_FAILED' };
       }
     }
-    const read = await readFileAsset(
-      tx as unknown as Queryable,
-      this.#o.files,
-      this.#o.keys as SubjectKeyStore,
-      ref,
-    );
+    const read = await this.#o.reader.read(tx, ref);
     switch (read.status) {
       case 'MATCH':
         return { data: read.content };

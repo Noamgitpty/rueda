@@ -453,6 +453,8 @@ export const PT_MESSAGES = {
   'common.evidence.rejected':
     'Arquivo recusado: apenas JPEG, PNG, HEIC ou PDF limpos, de tamanho limitado.',
   'common.evidence.unavailable': 'Não podemos receber arquivos agora. Nada foi salvo.',
+  'common.evidenceBundle.notFound':
+    'Este dossiê de provas não está entre os seus. Só quem o pediu pode abri-lo.',
   'common.evidenceBundle.notReady':
     'O dossiê de provas ainda está sendo preparado. Tente de novo em alguns minutos.',
   'common.evidenceBundle.expired':

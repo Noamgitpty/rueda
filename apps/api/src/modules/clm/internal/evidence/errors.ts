@@ -9,6 +9,8 @@
 import { HttpException } from '@nestjs/common';
 
 export const EVIDENCE_BUNDLE_MESSAGES = {
+  // dossier d'un autre agent (permission détenue) : jamais montré, le lien ne se partage pas
+  EVIDENCE_BUNDLE_NOT_FOUND: { status: 404, messageKey: 'common.evidenceBundle.notFound' },
   // archive pas encore générée (REQUESTED) : réessayer plus tard
   EVIDENCE_EXPORT_NOT_READY: { status: 409, messageKey: 'common.evidenceBundle.notReady' },
   // lien échu (168 h après la génération) : demander un nouveau dossier

@@ -433,6 +433,8 @@ export const EN_MESSAGES = {
   'common.evidence.rejected':
     'File refused: only clean JPEG, PNG, HEIC or PDF files of limited size.',
   'common.evidence.unavailable': 'We cannot receive files right now. Nothing was stored.',
+  'common.evidenceBundle.notFound':
+    'This evidence bundle is not among yours. Only the person who requested it can open it.',
   'common.evidenceBundle.notReady':
     'The evidence bundle is still being prepared. Try again in a few minutes.',
   'common.evidenceBundle.expired':

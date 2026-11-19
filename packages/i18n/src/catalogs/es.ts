@@ -450,6 +450,8 @@ export const ES_MESSAGES = {
   'common.evidence.rejected':
     'Archivo rechazado: solo JPEG, PNG, HEIC o PDF sanos, de tamaño limitado.',
   'common.evidence.unavailable': 'No podemos recibir archivos por ahora. No se guardó nada.',
+  'common.evidenceBundle.notFound':
+    'No encontramos este expediente de pruebas entre los tuyos. Solo quien lo pidió puede abrirlo.',
   'common.evidenceBundle.notReady':
     'El expediente de pruebas aún se está preparando. Vuelve a intentarlo en unos minutos.',
   'common.evidenceBundle.expired':

@@ -13879,6 +13879,26 @@
               }
             }
           },
+          "404": {
+            "description": "Dossier d'un autre agent (permission détenue) : jamais montré, le lien ne se partage pas (journalisé)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "EVIDENCE_BUNDLE_NOT_FOUND"
+                    }
+                  }
+                }
+              }
+            }
+          },
           "429": {
             "$ref": "#/components/responses/StaffRateLimited"
           },
@@ -14002,6 +14022,26 @@
                         "STAFF_CASE_REQUIRED",
                         "STAFF_SELF_FORBIDDEN"
                       ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Dossier d'un autre agent (permission détenue) : jamais montré, le lien ne se partage pas (journalisé)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "EVIDENCE_BUNDLE_NOT_FOUND"
                     }
                   }
                 }

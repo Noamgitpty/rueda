@@ -553,6 +553,7 @@ describe.each(COUNTRIES)('US-308 — dossier de preuve ($country, $currency)', (
         'requested_by'
       ] as string;
       const admin = await staff(api, 'ADMIN', [c.country]);
+      const away = await staff(api, 'OPS_AGENT', [other.country]);
       // archive : PRIVATE_EVIDENCE, C2, générée, chiffrée par la clé USER du demandeur
       await withTestTransaction(api, {}, async (tx) => {
         const b = await bundleOf(tx, bundleId);
@@ -613,18 +614,22 @@ describe.each(COUNTRIES)('US-308 — dossier de preuve ($country, $currency)', (
             purpose: REASON,
           }),
         ]);
-        // un autre membre du staff (même ADMIN du pays) : le lien ne se partage pas
-        for (const who of [admin.id]) {
+        // un autre membre du staff du pays (même ADMIN) : le lien ne se partage pas (NOT_FOUND,
+        // journalisé) ; un membre sans la permission, ou d'un autre pays : FORBIDDEN, journalisé
+        for (const [who, outcome, reason] of [
+          [admin.id, 'NOT_FOUND', 'NOT_REQUESTER'],
+          [away.id, 'FORBIDDEN', 'PERMISSION'],
+        ] as const) {
           const h = await elevated(tx, { id: who });
           const deniedId = uuid();
           expect(
             (await tx.query<Row>(OPEN, [h, deniedId, bundleId, REASON])).rows[0],
-          ).toMatchObject({ outcome: 'FORBIDDEN', storage_key: null });
+          ).toMatchObject({ outcome, storage_key: null });
           expect(await audits(tx, who, deniedId)).toEqual([
-            { action_code: 'STAFF_FORBIDDEN', reason: 'NOT_REQUESTER', field: 'evidence_bundle' },
+            { action_code: 'STAFF_FORBIDDEN', reason, field: 'evidence_bundle' },
           ]);
           expect((await tx.query<Row>(STATUS, [h, uuid(), bundleId])).rows[0]).toMatchObject({
-            outcome: 'FORBIDDEN',
+            outcome,
             body: null,
           });
         }
@@ -710,6 +715,32 @@ describe.each(COUNTRIES)('US-308 — dossier de preuve ($country, $currency)', (
   });
 
   it('RLS : aucun rôle applicatif ne lit ni n’écrit la table ; commandes du travailleur réservées à evidence_verifier sous app_worker ; portes du staff fermées aux travailleurs', async () => {
+    // catalogue : RLS ENABLE + FORCE, propriétaire migrator, politiques des seuls propriétaires
+    // NOLOGIN (commandes cmd_hold_owner, portes iam_staff_owner), aucune pour un rôle applicatif
+    await withRole('app_api', async (client) => {
+      const { rows } = await client.query<Row>(
+        `SELECT c.relrowsecurity AS rls, c.relforcerowsecurity AS force,
+                pg_catalog.pg_get_userbyid(c.relowner) AS owner,
+                pg_catalog.array_to_string(ARRAY(
+                  SELECT p.polname || ':' || pg_catalog.array_to_string(ARRAY(
+                           SELECT pg_catalog.pg_get_userbyid(r)
+                             FROM pg_catalog.unnest(p.polroles) AS r ORDER BY 1), ',')
+                    FROM pg_catalog.pg_policy p WHERE p.polrelid = c.oid ORDER BY 1), ';') AS pols
+           FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
+          WHERE n.nspname = 'core' AND c.relname ~ '^claim_' ORDER BY c.relname`,
+      );
+      expect(rows).toEqual([
+        {
+          rls: true,
+          force: true,
+          owner: 'migrator',
+          pols:
+            'cmd_hold_evidence_ins:cmd_hold_owner;cmd_hold_evidence_sel:cmd_hold_owner;' +
+            'cmd_hold_evidence_upd:cmd_hold_owner;iam_staff_evidence_sel:iam_staff_owner;' +
+            'migrator_all:migrator',
+        },
+      ]);
+    });
     for (const role of ['app_api', 'app_worker', 'app_anon'] as const) {
       await withRole(role, async (client) => {
         for (const sql of [

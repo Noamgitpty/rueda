@@ -10,12 +10,16 @@
 --      heure posée par le TEST) ;
 --   2. `us308_bundle` : relecture d'un dossier (aucun rôle applicatif ne lit la table) ;
 --   3. `us308_try_tamper` : écriture interdite d'un dossier scellé (manifeste, empreinte, état,
---      suppression) : la garde `claim_evidence_sealed` doit la refuser, même au propriétaire.
+--      suppression) : la garde `claim_evidence_sealed` doit la refuser, même au propriétaire ;
+--   4. `us308_seed_bundle` : dossier REQUESTED d'un trip (dossier de support ouvert et manifeste
+--      minimal scellé), demandé par une personne posée par le TEST, pour la matrice des routes
+--      (US-043) : tout autre membre du staff du pays le vise sans en être le demandeur.
 -- Appelées SEULEMENT dans une transaction ANNULÉE, ou sur des données de test validées sans
 -- interrupteur. AUCUNE fixture n'écrit un interrupteur de mise en service (17 §0.1).
 --
 -- Retour arrière : DROP FUNCTION test_fixture.us308_consent(uuid, text, timestamptz),
---   test_fixture.us308_bundle(uuid), test_fixture.us308_try_tamper(uuid, text).
+--   test_fixture.us308_bundle(uuid), test_fixture.us308_try_tamper(uuid, text),
+--   test_fixture.us308_seed_bundle(uuid, text, uuid).
 
 CREATE FUNCTION test_fixture.us308_consent(p_user uuid, p_kind text, p_at timestamptz)
   RETURNS integer
@@ -78,8 +82,34 @@ BEGIN
 END
 $fn$;
 
+CREATE FUNCTION test_fixture.us308_seed_bundle(p_trip uuid, p_country text, p_requester uuid)
+  RETURNS uuid
+  LANGUAGE plpgsql
+  SECURITY DEFINER
+  SET search_path = pg_catalog, pg_temp
+AS $fn$
+DECLARE
+  v_case uuid := pg_catalog.gen_random_uuid();
+  v_id   uuid := platform.uuid_v7();
+  v_m    jsonb := pg_catalog.jsonb_build_object('schema', 'clm.evidence/1', 'files', '[]'::jsonb);
+BEGIN
+  INSERT INTO core.support_support_case (id, country_code, trip_id, channel, category, status,
+                                         assignee_id)
+  VALUES (v_case, p_country, p_trip, 'INTERNAL', 'CLAIM', 'OPEN', p_requester);
+  INSERT INTO core.claim_evidence_bundle
+         (id, trip_id, country_code, case_id, purpose, requested_by, requested_role, request_id,
+          manifest, manifest_sha256)
+  VALUES (v_id, p_trip, p_country, v_case, 'DISPUTE', p_requester, 'OPS_AGENT',
+          pg_catalog.gen_random_uuid(), v_m,
+          pg_catalog.sha256(pg_catalog.convert_to(v_m::text, 'UTF8')));
+  RETURN v_id;
+END
+$fn$;
+
 REVOKE ALL ON FUNCTION test_fixture.us308_consent(uuid, text, timestamptz),
-  test_fixture.us308_bundle(uuid), test_fixture.us308_try_tamper(uuid, text) FROM PUBLIC;
+  test_fixture.us308_bundle(uuid), test_fixture.us308_try_tamper(uuid, text),
+  test_fixture.us308_seed_bundle(uuid, text, uuid) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION test_fixture.us308_consent(uuid, text, timestamptz),
-  test_fixture.us308_bundle(uuid), test_fixture.us308_try_tamper(uuid, text)
+  test_fixture.us308_bundle(uuid), test_fixture.us308_try_tamper(uuid, text),
+  test_fixture.us308_seed_bundle(uuid, text, uuid)
   TO app_api, app_worker;

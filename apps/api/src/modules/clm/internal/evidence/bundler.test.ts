@@ -11,7 +11,8 @@ import { fileAad, open, seal } from '@rueda/db/audit';
 import { describe, expect, it } from 'vitest';
 import type { SqlClient, WorkerTransactions } from '../../../bus/index.js';
 import { EvidenceBundler } from './bundler.js';
-import type { EvidenceContractRenderer, EvidenceKeys } from './bundler.js';
+import type { EvidenceContractRenderer } from './bundler.js';
+import { auditEvidenceAdapters } from '../../testing/audit-evidence-adapters.js';
 
 const sha = (b: Buffer | string): string =>
   createHash('sha256')
@@ -19,8 +20,8 @@ const sha = (b: Buffer | string): string =>
     .digest('hex');
 
 const DEK = randomBytes(32);
-const keys: EvidenceKeys = {
-  dekFor: () => Promise.resolve({ status: 'OK', dek: Buffer.from(DEK) }),
+const keys = {
+  dekFor: () => Promise.resolve({ status: 'OK' as const, dek: Buffer.from(DEK) }),
 };
 
 interface Photo {
@@ -162,8 +163,7 @@ describe('EvidenceBundler', () => {
     const lines: string[] = [];
     const b = new EvidenceBundler({
       transactions: transactions(w, contractsOf(w)),
-      files: w.store,
-      keys,
+      ...auditEvidenceAdapters(w.store, keys),
       renderer: renderer(w.pdf),
       log: (l) => lines.push(l),
     });
@@ -200,8 +200,7 @@ describe('EvidenceBundler', () => {
     w.store.corrupt('PRIVATE_EVIDENCE', w.photos[1]!.key, 60);
     const b = new EvidenceBundler({
       transactions: transactions(w, contractsOf(w)),
-      files: w.store,
-      keys,
+      ...auditEvidenceAdapters(w.store, keys),
       renderer: renderer(w.pdf),
     });
     expect(await b.generate(w.bundleId)).toBe('FAILED');
@@ -218,8 +217,7 @@ describe('EvidenceBundler', () => {
     w.store.lose('PRIVATE_EVIDENCE', w.photos[0]!.key);
     const missing = new EvidenceBundler({
       transactions: transactions(w, contractsOf(w)),
-      files: w.store,
-      keys,
+      ...auditEvidenceAdapters(w.store, keys),
       renderer: renderer(w.pdf),
     });
     expect(await missing.generate(w.bundleId)).toBe('FAILED');
@@ -228,8 +226,7 @@ describe('EvidenceBundler', () => {
     const v = await world();
     const other = new EvidenceBundler({
       transactions: transactions(v, contractsOf(v)),
-      files: v.store,
-      keys,
+      ...auditEvidenceAdapters(v.store, keys),
       renderer: renderer(Buffer.from('%PDF-1.7\nautre\n')),
     });
     expect(await other.generate(v.bundleId)).toBe('FAILED');
@@ -242,8 +239,7 @@ describe('EvidenceBundler', () => {
     t.messages = null;
     const purged = new EvidenceBundler({
       transactions: transactions(t, contractsOf(t)),
-      files: t.store,
-      keys,
+      ...auditEvidenceAdapters(t.store, keys),
       renderer: renderer(t.pdf),
     });
     expect(await purged.generate(t.bundleId)).toBe('FAILED');
@@ -254,8 +250,7 @@ describe('EvidenceBundler', () => {
     const u = await world();
     const erased = new EvidenceBundler({
       transactions: transactions(u, []),
-      files: u.store,
-      keys,
+      ...auditEvidenceAdapters(u.store, keys),
       renderer: renderer(u.pdf),
     });
     expect(await erased.generate(u.bundleId)).toBe('FAILED');
@@ -267,8 +262,7 @@ describe('EvidenceBundler', () => {
     w.manifestSha = sha('autre');
     const b = new EvidenceBundler({
       transactions: transactions(w, contractsOf(w)),
-      files: w.store,
-      keys,
+      ...auditEvidenceAdapters(w.store, keys),
       renderer: renderer(w.pdf),
     });
     expect(await b.generate(w.bundleId)).toBe('FAILED');
@@ -281,8 +275,7 @@ describe('EvidenceBundler', () => {
     const w = await world();
     const small = new EvidenceBundler({
       transactions: transactions(w, contractsOf(w)),
-      files: w.store,
-      keys,
+      ...auditEvidenceAdapters(w.store, keys),
       renderer: renderer(w.pdf),
       maxBytes: 100,
     });
@@ -293,8 +286,7 @@ describe('EvidenceBundler', () => {
     v.store.script.script('put', { kind: 'UNAVAILABLE' }, { kind: 'UNAVAILABLE' });
     const down = new EvidenceBundler({
       transactions: transactions(v, contractsOf(v)),
-      files: v.store,
-      keys,
+      ...auditEvidenceAdapters(v.store, keys),
       renderer: renderer(v.pdf),
     });
     await expect(down.generate(v.bundleId)).rejects.toThrow(/UNAVAILABLE/);

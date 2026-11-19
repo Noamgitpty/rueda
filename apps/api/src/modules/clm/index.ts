@@ -8,25 +8,29 @@ export {
   EVIDENCE_WORKER,
   EVIDENCE_ZIP_MAX_BYTES,
   EvidenceBundler,
+  EvidenceTransientError,
 } from './internal/evidence/bundler.js';
 export type {
+  EvidenceArchiveSealer,
+  EvidenceArchiveStore,
   EvidenceBundlerOptions,
   EvidenceContractRenderer,
   EvidenceContractSource,
+  EvidenceFileRead,
+  EvidenceFileReader,
   EvidenceGeneration,
-  EvidenceKeys,
 } from './internal/evidence/bundler.js';
 export { EVIDENCE_BUNDLE_MESSAGES, EvidenceBundleHttpError } from './internal/evidence/errors.js';
 export type { EvidenceBundleCode } from './internal/evidence/errors.js';
 export { MANIFEST_SCHEMA, ManifestError, parseManifest } from './internal/evidence/manifest.js';
 export type { EvidenceManifest, ManifestFile } from './internal/evidence/manifest.js';
 export {
-  subjectKeyExportVault,
   UnavailableEvidenceExportFiles,
   UnavailableEvidenceExportVault,
 } from './internal/evidence/ports.js';
 export type {
   EvidenceExportFiles,
+  EvidenceFileGet,
   EvidenceExportVault,
   EvidenceSqlClient,
   EvidenceSqlExecutor,

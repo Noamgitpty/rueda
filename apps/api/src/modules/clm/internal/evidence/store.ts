@@ -38,7 +38,7 @@ export type EvidenceRequestOutcome =
 
 export type EvidenceStatusOutcome =
   | { readonly outcome: 'OK'; readonly body: Record<string, unknown> }
-  | { readonly outcome: 'AUTH_REQUIRED' | 'MFA_REQUIRED' | 'FORBIDDEN' };
+  | { readonly outcome: 'AUTH_REQUIRED' | 'MFA_REQUIRED' | 'FORBIDDEN' | 'NOT_FOUND' };
 
 export type EvidenceOpenOutcome =
   | {
@@ -50,7 +50,9 @@ export type EvidenceOpenOutcome =
       readonly manifestSha256: string;
       readonly tripId: string;
     }
-  | { readonly outcome: EvidenceAccessRefusal | 'NOT_READY' | 'FAILED' | 'EXPIRED' };
+  | {
+      readonly outcome: EvidenceAccessRefusal | 'NOT_FOUND' | 'NOT_READY' | 'FAILED' | 'EXPIRED';
+    };
 
 export interface EvidenceRequestInput {
   readonly requestId: string;
@@ -212,7 +214,11 @@ export class PgEvidenceBundleStore implements EvidenceBundleStore {
     );
     const r = rows[0];
     if (r?.outcome === 'OK' && r.body !== null) return { outcome: 'OK', body: r.body };
-    if (r?.outcome === 'AUTH_REQUIRED' || r?.outcome === 'MFA_REQUIRED') {
+    if (
+      r?.outcome === 'AUTH_REQUIRED' ||
+      r?.outcome === 'MFA_REQUIRED' ||
+      r?.outcome === 'NOT_FOUND'
+    ) {
       return { outcome: r.outcome };
     }
     return { outcome: 'FORBIDDEN' };
@@ -254,7 +260,7 @@ export class PgEvidenceBundleStore implements EvidenceBundleStore {
         tripId: r.trip_id,
       };
     }
-    const known = [...REFUSALS, 'NOT_READY', 'FAILED', 'EXPIRED'];
+    const known = [...REFUSALS, 'NOT_FOUND', 'NOT_READY', 'FAILED', 'EXPIRED'];
     return {
       outcome: known.includes(r?.outcome ?? '')
         ? (r!.outcome as Exclude<EvidenceOpenOutcome['outcome'], 'OK'>)
