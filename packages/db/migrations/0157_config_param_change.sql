@@ -357,7 +357,7 @@ CREATE POLICY cmd_param_ins ON core.config_param_value FOR INSERT TO cmd_param_o
 -- demandes : lecture, création PENDING dans la portée, changement d'état ; aucune politique DELETE
 GRANT SELECT ON core.config_param_change_request TO cmd_param_owner;
 GRANT INSERT (id, key, country_code, value, currency, valid_from, reason, decision_ref, requested_by,
-              expires_at, status)
+              requested_at, expires_at, status)
   ON core.config_param_change_request TO cmd_param_owner;
 GRANT UPDATE (approved_by, approved_at, status) ON core.config_param_change_request
   TO cmd_param_owner;
@@ -559,12 +559,14 @@ BEGIN
     RETURN;
   END IF;
   -- aucun effet sur la valeur : la demande seule ; échéance 72 h (délai de 0073, PROPOSÉ)
+  -- instant de la demande = instant des contrôles (l'horloge de production avance pendant la
+  -- commande : valid_from = maintenant reste recevable)
   INSERT INTO core.config_param_change_request (id, key, country_code, value, currency, valid_from,
-                                                reason, decision_ref, requested_by, expires_at,
-                                                status)
+                                                reason, decision_ref, requested_by, requested_at,
+                                                expires_at, status)
   VALUES (p_request_id, p_key, p_country, p_value, p_currency, p_valid_from,
-          pg_catalog.btrim(p_reason), p_decision_ref, v_s.user_id, v_now + interval '72 hours',
-          'PENDING');
+          pg_catalog.btrim(p_reason), p_decision_ref, v_s.user_id, v_now,
+          v_now + interval '72 hours', 'PENDING');
   PERFORM core.iam_staff_audit(v_s.user_id, v_role, 'PARAM_CHANGE_REQUESTED', 'PARAM_CHANGE',
                                p_request_id, pg_catalog.jsonb_build_object('value', v_open.value),
                                pg_catalog.jsonb_build_object('key', p_key, 'country', p_country,
