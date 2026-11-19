@@ -13,7 +13,8 @@
 -- scheduled_end) + 72 h`, `min(release_at, auth_expiry − deposit_safety_h)`), jamais de cette
 -- fixture. Aucun interrupteur de mise en service n'est écrit.
 --
--- `us702b_conversion_disposition` : disposition `CONVERSION` du hold converti de
+-- `us702b_conversion_disposition` : opération de loyer rattachée au hold et disposition `CONVERSION`
+-- du hold converti de
 -- `us701_converted_deposit` (9945 ; opération de loyer et trip du hold), que la contrainte différée
 -- `hold_conversion_matches_disposition` exige au COMMIT : elle ne sert qu'aux preuves à deux
 -- connexions de `l0-us702b-deposit-race.test.ts` (groupe isolé), dont la mise en place est validée.
@@ -42,6 +43,10 @@ CREATE FUNCTION test_fixture.us702b_conversion_disposition(p_hold_id uuid)
   SECURITY DEFINER
   SET search_path = pg_catalog, pg_temp
 AS $fn$
+  -- opération de loyer de 9300 rattachée au hold (0006 : paiement de loyer réussi DE CE hold)
+  UPDATE core.payment_payment_operation AS o SET hold_id = h.id
+    FROM core.booking_checkout_hold AS h
+   WHERE h.id = p_hold_id AND o.id = h.conversion_operation_id AND o.hold_id IS NULL;
   INSERT INTO core.booking_payment_disposition (operation_id, hold_id, disposition, trip_id)
   SELECT h.conversion_operation_id, h.id, 'CONVERSION', h.converted_trip_id
     FROM core.booking_checkout_hold AS h
