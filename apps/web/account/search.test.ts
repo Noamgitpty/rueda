@@ -156,6 +156,11 @@ describe('US-201 — recherche côté site', () => {
       { ...RESULT, billableDays: 1.5 },
       { ...RESULT, depositAmountMinor: 300 },
       { ...RESULT, depositAmountMinor: undefined },
+      // US-701c : statut incohérent avec le montant, ou hors vocabulaire
+      { ...RESULT, depositStatus: 'REQUIRED' },
+      { ...RESULT, depositAmountMinor: '30000', depositStatus: 'GENERIC' },
+      { ...RESULT, depositAmountMinor: '30000', depositStatus: 'UNAVAILABLE' },
+      { ...RESULT, depositStatus: 'LUXE' },
       { ...RESULT, approximatePoint: { lat: 91, lng: 0 } },
       { ...RESULT, approximatePoint: { lat: '8.99', lng: -79.51 } },
       { ...RESULT, rating: { averageX100: 600, reviewCount: 1, tripCount: 1 } },
@@ -165,6 +170,25 @@ describe('US-201 — recherche côté site', () => {
     ]) {
       expect(searchResultsOf(reply({ results: [bad] })), JSON.stringify(bad)).toBeNull();
     }
+  });
+
+  it('US-701c (T70 c) : caution annoncée — montant, mention générique ou caution non disponible ; statut absent (API N-1) déduit du montant', () => {
+    const one = (extra: Record<string, unknown>) =>
+      (searchResultsOf(reply({ results: [{ ...RESULT, ...extra }] })) ?? [])[0];
+    expect(one({ depositAmountMinor: '30000', depositStatus: 'REQUIRED' })).toMatchObject({
+      depositAmountMinor: 30000n,
+      depositStatus: 'REQUIRED',
+    });
+    expect(one({ depositStatus: 'GENERIC' })).toMatchObject({
+      depositAmountMinor: null,
+      depositStatus: 'GENERIC',
+    });
+    expect(one({ depositStatus: 'UNAVAILABLE' })).toMatchObject({
+      depositAmountMinor: null,
+      depositStatus: 'UNAVAILABLE',
+    });
+    expect(one({ depositAmountMinor: '30000' })).toMatchObject({ depositStatus: 'REQUIRED' });
+    expect(one({})).toMatchObject({ depositStatus: 'GENERIC' });
   });
 
   it('lieu : valeur d’option aller-retour, zone nulle = toute la ville ; valeur forgée refusée', () => {

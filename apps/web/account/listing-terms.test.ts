@@ -153,6 +153,8 @@ describe('listingConditionsOf', () => {
       timezone: 'UTC',
       cancellation: { leadHours: 24, thresholdHours: 25, windowMinutes: 60 },
       depositMinor: 25000n,
+      // statut absent (API N-1) : déduit du montant
+      depositStatus: 'REQUIRED',
       protection: {
         ...PROTECTION,
         rcAmountMinor: 10000000n,
@@ -177,8 +179,36 @@ describe('listingConditionsOf', () => {
       expect(listingConditionsOf(conditions({ protection: p })), JSON.stringify(p)).toBeNull();
     }
     expect(listingConditionsOf(conditions({ deposit: { amountMinor: '0' } }))).toBeNull();
+    // US-701c : statut incohérent avec le montant, ou inconnu ⇒ illisible (rien n'est promis)
+    for (const bad of [
+      { deposit: null, depositStatus: 'REQUIRED' },
+      { deposit: { amountMinor: '25000' }, depositStatus: 'GENERIC' },
+      { deposit: { amountMinor: '25000' }, depositStatus: 'UNAVAILABLE' },
+      { deposit: null, depositStatus: 'MAYBE' },
+      { deposit: null, depositStatus: null },
+    ]) {
+      expect(listingConditionsOf(conditions(bad)), JSON.stringify(bad)).toBeNull();
+    }
     expect(listingConditionsOf(conditions({ currency: 'abc' }))).toBeNull();
     expect(listingConditionsOf({ status: 503, json: {}, session: null })).toBeNull();
+  });
+});
+
+describe('listingConditionsOf — caution annoncée (US-701c, T70 c)', () => {
+  it('montant, mention générique ou caution non disponible, tels que l’API les rend', () => {
+    const with_ = (extra: Record<string, unknown>) => listingConditionsOf(conditions(extra));
+    expect(with_({ deposit: { amountMinor: '30000' }, depositStatus: 'REQUIRED' })).toMatchObject({
+      depositMinor: 30000n,
+      depositStatus: 'REQUIRED',
+    });
+    expect(with_({ deposit: null, depositStatus: 'GENERIC' })).toMatchObject({
+      depositMinor: null,
+      depositStatus: 'GENERIC',
+    });
+    expect(with_({ deposit: null, depositStatus: 'UNAVAILABLE' })).toMatchObject({
+      depositMinor: null,
+      depositStatus: 'UNAVAILABLE',
+    });
   });
 });
 

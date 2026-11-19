@@ -53,8 +53,10 @@ export interface SearchResultView {
   /** Total TTC du séjour (devis provisoire de l'API, jamais recalculé ici ; 16 SRC-042). */
   readonly totalMinor: bigint;
   readonly billableDays: number;
-  /** Caution par carte de la plateforme ; `null` : mention générique (16 SRC-011, T70 c). */
+  /** Caution annoncée : montant si `depositStatus` = `REQUIRED`, sinon `null` (16 SRC-011, T70 c). */
   readonly depositAmountMinor: bigint | null;
+  /** Mention générique, montant ou caution non disponible (US-701c, 10b UX-21). */
+  readonly depositStatus: DepositNoticeStatus;
   readonly rating: SearchRatingView | null;
   /**
    * La base promet la protection de l'assureur partenaire (US-205b) : seule condition de la
@@ -104,6 +106,28 @@ export function searchAreasOf(reply: ApiResult): SearchAreaView[] | null {
   return out;
 }
 
+/**
+ * Caution annoncée avant le checkout (US-701c ; 08 BR-PAY-06 T70 c ; 10b UX-21) : `GENERIC`
+ * (mention générique), `REQUIRED` (montant) ou `UNAVAILABLE` (caution non disponible pour ce
+ * véhicule : le paiement la refusera, même texte que S05).
+ */
+export type DepositNoticeStatus = 'GENERIC' | 'REQUIRED' | 'UNAVAILABLE';
+
+/**
+ * Statut de la caution d'une réponse, cohérent avec son montant : `REQUIRED` ⇔ montant ≥ 1 ;
+ * statut absent (API N-1, avant US-701c) ⇒ déduit du montant ; autre forme ⇒ `undefined`
+ * (réponse illisible, rien n'est promis).
+ */
+export function depositStatusOf(
+  status: unknown,
+  amount: bigint | null,
+): DepositNoticeStatus | undefined {
+  if (status === undefined) return amount === null ? 'GENERIC' : 'REQUIRED';
+  if (status === 'REQUIRED') return amount !== null && amount >= 1n ? 'REQUIRED' : undefined;
+  if (status === 'GENERIC' || status === 'UNAVAILABLE') return amount === null ? status : undefined;
+  return undefined;
+}
+
 const finite = (v: unknown): number | null =>
   typeof v === 'number' && Number.isFinite(v) ? v : null;
 
@@ -150,12 +174,17 @@ export function searchResultsOf(reply: ApiResult): SearchResultView[] | null {
     const deposit = r['depositAmountMinor'] === null ? null : str(r['depositAmountMinor']);
     const point = pointOf(r['approximatePoint']);
     const rating = ratingOf(r['rating']);
+    const depositStatus = depositStatusOf(
+      r['depositStatus'],
+      deposit === null || !MINOR.test(deposit) ? null : BigInt(deposit),
+    );
     if (
       total === null ||
       !MINOR.test(total) ||
       days === null ||
       days < 1 ||
       (r['depositAmountMinor'] !== null && (deposit === null || !MINOR.test(deposit))) ||
+      depositStatus === undefined ||
       point === undefined ||
       rating === undefined ||
       !UUID.test(String(r['id'])) ||
@@ -183,6 +212,7 @@ export function searchResultsOf(reply: ApiResult): SearchResultView[] | null {
       totalMinor: BigInt(total),
       billableDays: days,
       depositAmountMinor: deposit === null ? null : BigInt(deposit),
+      depositStatus,
       rating,
       // fail-closed : seul `true` exact promet la couverture
       protectionOffered: r['protectionOffered'] === true,

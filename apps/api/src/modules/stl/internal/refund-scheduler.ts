@@ -138,7 +138,7 @@ export class RefundScheduler {
           // marque sans la transition (ou l'inverse) n'est jamais validée. N-364 (ADR-166 n° 7) :
           // l'attente du choix d'ABORD (verrou du trip, puis ligne de l'instance), la marque ensuite,
           // dans l'ordre de la supersession (trip puis instance) : jamais d'interblocage avec elle ;
-          // la base prend aussi le trip avant l'instance dans la marque (0151)
+          // la base prend aussi le trip avant l'instance dans la marque (0152)
           if (due.status === 'FAILED' && alert.key === FAILED_ALERT_KEY) {
             await orders.awaitChoice(due.instanceId);
           }

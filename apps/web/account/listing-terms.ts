@@ -10,6 +10,8 @@
  * aucune constante de pays, de devise ni de fuseau.
  */
 import type { ApiResult } from './api-client.ts';
+import { depositStatusOf } from './search.ts';
+import type { DepositNoticeStatus } from './search.ts';
 
 type Obj = Record<string, unknown>;
 const isObj = (v: unknown): v is Obj => typeof v === 'object' && v !== null && !Array.isArray(v);
@@ -122,7 +124,10 @@ export interface ListingConditionsView {
     readonly thresholdHours: number;
     readonly windowMinutes: number;
   } | null;
+  /** Montant de la caution annoncée si `depositStatus` = `REQUIRED`, sinon `null`. */
   readonly depositMinor: bigint | null;
+  /** Mention générique, montant ou caution non disponible (US-701c, T70 c). */
+  readonly depositStatus: DepositNoticeStatus;
   /** `null` : la base ne promet aucune couverture (véhicule non réservable, 19 US-205 c. 4). */
   readonly protection: ProtectionView | null;
 }
@@ -196,9 +201,11 @@ export function listingConditionsOf(reply: ApiResult): ListingConditionsView | n
     depositMinor = minor(c['deposit']['amountMinor']);
     if (depositMinor === null || depositMinor < 1n) return null;
   }
+  const depositStatus = depositStatusOf(c['depositStatus'], depositMinor);
+  if (depositStatus === undefined) return null;
   const protection = protectionOf(c['protection']);
   if (protection === undefined) return null;
-  return { currency, timezone, cancellation, depositMinor, protection };
+  return { currency, timezone, cancellation, depositMinor, depositStatus, protection };
 }
 
 /**

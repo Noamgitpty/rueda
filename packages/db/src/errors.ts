@@ -232,7 +232,7 @@ export const CONSTRAINT_CODES: Readonly<Record<string, readonly [string, DbBusin
     SQLSTATE.integrityConstraintViolation,
     'PAYMENT_SUBJECT_MISMATCH',
   ],
-  // US-224 (N-367, 0151, ADR-166 n° 9) : encaissement par crédit refusé tant que les crédits
+  // US-224 (N-367, 0152, ADR-166 n° 9) : encaissement par crédit refusé tant que les crédits
   // n'existent pas
   payment_operation_credit_unavailable: [
     SQLSTATE.objectNotInPrerequisiteState,

@@ -1074,6 +1074,14 @@ Migration `0146_payment_deposit_hold`, fixture `9945_test_us701_deposit_hold_fix
 - **Droits ajoutés** à cmd_hold_owner : politiques de lecture `cmd_hold_deposit_read` de `config_param_value` (`deposit_always_required`, `deposit_trigger_classes`, `deposit_amount`, `funds_holding_enabled`) et de `config_param_definition` (`funds_holding_enabled`) ; `SELECT (conversion_operation_id)` de `booking_checkout_hold`.
 - **Preuves** : `test/l0/l0-us701-deposit-hold.test.ts` (PA USD, PY PYG ; `app_api`, `app_worker`).
 
+## Base de la caution annoncée avant le checkout (US-701 partie 701c, T70 c ; 08 BR-PAY-06 ; ADR-173)
+
+Migration `0151_catalog_public_deposit_basis`. Aucune fixture nouvelle (annonces de 9998, classe de 9976, statut de 9985).
+
+- **Fonction** `core.catalog_public_deposit_basis(uuid[])` (catalog_cmd_owner, RLS-15, EXECUTE `app_api` seul, lecture seule) : pays, devise et classe de valeur du catalogue des annonces `LISTED` demandées, 50 au plus ; classe inconnue ⇒ `NULL`. La décision (montant `deposit_amount[pays][classe]`, mention générique, caution non disponible) reste celle de PAY, comme au checkout ; la classe n'est jamais rendue au visiteur.
+- **Droits** : aucun nouveau (colonnes déjà accordées à catalog_cmd_owner par 0103 et 0105). `deposit_amount_minor` de `catalog_public_cards` (0105) et `catalog_public_terms` (0118) gardé pour l'API N-1, plus lu ; contraction en suite (S-13).
+- **Preuves** : `test/l0/l0-us701c-deposit-basis.test.ts` (PA USD, PY PYG : `app_api` ; `app_worker` et `app_anon` : 42501).
+
 ## Hôte figé de la constancia et hôte du checkout S05 (US-212 partie 212b ; BOARD N-345, N-346 ; ADR-162)
 
 Migration `0147_ctr_constancia_frozen_host_checkout_host`. Fixture `9938_test_us212b_host_rename_fixtures` (nom légal d'un compte changé après la réservation, transaction annulée).
@@ -1113,7 +1121,7 @@ Migration `0150_payment_deposit_decision`, fixture `9934_test_us702_deposit_deci
 
 ## Durcissement argent n° 2 (US-224 ; suites N-364, N-365, N-367 ; ADR-166 n° 7 à 9, ADR-150)
 
-Migration `0151_payment_refund_lock_order_credit_collection`. Fixture `9933_test_hardening_money_fixtures` (moyen crédit de 08 posé sur une capture `PENDING` enregistrée par la vraie commande ; transactions de test).
+Migration `0152_payment_refund_lock_order_credit_collection`. Fixture `9933_test_hardening_money_fixtures` (moyen crédit de 08 posé sur une capture `PENDING` enregistrée par la vraie commande ; transactions de test).
 
 - **N-364** : corps de `core.payment_cmd_refund_mark_alerted` (0127) remplacé : verrou du trip (`FOR UPDATE`) avant la ligne de l'instance ; instance inconnue ⇒ `false`, comme avant. Corps de `core.payment_cmd_refund_await_choice` (0141) recopié, commentaire de l'ordre des verrous corrigé. Ordre unique trip puis instance (planification, envoi, report, marque, attente du choix, supersession).
 - **N-367** : corps de `core.payment_cmd_record_operation` à 15 arguments (0121) remplacé : `CREDIT_REDEMPTION`, et `AUTH` / `CAPTURE` / `MIT_CHARGE` / `DEBT_COLLECTION` / `DEPOSIT_AUTH` / `DEPOSIT_CAPTURE` d'un moyen `CREDIT_CASH` / `CREDIT_PROMO` (casse ignorée) ⇒ `payment_operation_credit_unavailable` (55000, `PAYMENT_METHOD_UNAVAILABLE`), avant toute écriture et avant le rejeu.

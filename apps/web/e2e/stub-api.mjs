@@ -258,6 +258,10 @@ const SEARCH_NO_POINT_ID = '20300000-0000-4000-8000-00000000f003';
 // Départ à 09:30 ⇒ réservation de dernière minute (aucune date limite, fenêtre de 60 min) ;
 // sinon gratuite jusqu'à 24 h avant le départ (08 BR-CXL-01, règle du pays du double).
 const NO_COVER_ID = '20500000-0000-4000-8000-00000000f005';
+// US-701c (T70 c) : fiche d'un véhicule dont la classe impose une caution sans montant décidé
+// (LUXE, `deposit_amount` À DÉCIDER) ⇒ conditions « caution non disponible » (UNAVAILABLE) ; sans
+// photo, couverte comme `PUBLIC_ID`. Aucune capture de référence ne l'ouvre.
+const DEPOSIT_UNAVAILABLE_ID = '70100000-0000-4000-8000-00000000f006';
 const LAST_MINUTE_TIME = 'T09:30';
 const FREE_CANCEL_LEAD_H = 24;
 const LAST_MINUTE_THRESHOLD_H = 25;
@@ -1198,6 +1202,8 @@ async function hostRoute(req, res, url) {
       totalMinor: String(Math.round((daily * days * 107) / 100)),
       billableDays: days,
       depositAmountMinor: null,
+      // US-701c : mention générique, sauf la LUXE ci-dessous (montant)
+      depositStatus: 'GENERIC',
       rating: null,
       // US-205b : la base promet la protection de l'assureur (mention « protección incluida »)
       protectionOffered: true,
@@ -1218,6 +1224,7 @@ async function hostRoute(req, res, url) {
               year: 2022,
               approximatePoint: { lat: 9.01, lng: -79.5 },
               depositAmountMinor: '30000',
+              depositStatus: 'REQUIRED',
               rating: { averageX100: 480, reviewCount: 3, tripCount: 5 },
             }),
             card(SEARCH_NO_POINT_ID, 3000, {
@@ -1245,7 +1252,7 @@ async function hostRoute(req, res, url) {
   }
   const avail = /^\/listings\/([0-9a-f-]{36})\/availability$/.exec(path)?.[1];
   if (req.method === 'GET' && avail !== undefined) {
-    if (avail !== PUBLIC_ID && avail !== MANUAL_ID && avail !== NO_COVER_ID) {
+    if (![PUBLIC_ID, MANUAL_ID, NO_COVER_ID, DEPOSIT_UNAVAILABLE_ID].includes(avail)) {
       return err(res, 404, 'LISTING_NOT_FOUND', 'common.listing.notFound');
     }
     const start = url.searchParams.get('start') ?? '';
@@ -1306,7 +1313,7 @@ async function hostRoute(req, res, url) {
   }
   const cond = /^\/listings\/([0-9a-f-]{36})\/conditions$/.exec(path)?.[1];
   if (req.method === 'GET' && cond !== undefined) {
-    if (cond !== PUBLIC_ID && cond !== MANUAL_ID && cond !== NO_COVER_ID) {
+    if (![PUBLIC_ID, MANUAL_ID, NO_COVER_ID, DEPOSIT_UNAVAILABLE_ID].includes(cond)) {
       return err(res, 404, 'LISTING_NOT_FOUND', 'common.listing.notFound');
     }
     return json(res, 200, {
@@ -1319,6 +1326,8 @@ async function hostRoute(req, res, url) {
           lastMinuteWindowMinutes: LAST_MINUTE_WINDOW_MIN,
         },
         deposit: null,
+        // US-701c : caution non disponible pour la classe de cette fiche, sinon mention générique
+        depositStatus: cond === DEPOSIT_UNAVAILABLE_ID ? 'UNAVAILABLE' : 'GENERIC',
         protection: cond === NO_COVER_ID ? null : PROTECTION,
       },
     });
@@ -1343,11 +1352,11 @@ async function hostRoute(req, res, url) {
   const pub = /^\/listings\/([0-9a-f-]{36})$/.exec(path)?.[1];
   if (req.method === 'GET' && pub !== undefined) {
     if (pub === DOWN_ID) return err(res, 503, 'LISTING_UNAVAILABLE', 'common.listing.unavailable');
-    if (pub !== PUBLIC_ID && pub !== MANUAL_ID && pub !== NO_COVER_ID) {
+    if (![PUBLIC_ID, MANUAL_ID, NO_COVER_ID, DEPOSIT_UNAVAILABLE_ID].includes(pub)) {
       return err(res, 404, 'LISTING_NOT_FOUND', 'common.listing.notFound');
     }
     const manual = pub === MANUAL_ID;
-    const bare = manual || pub === NO_COVER_ID;
+    const bare = manual || pub === NO_COVER_ID || pub === DEPOSIT_UNAVAILABLE_ID;
     return json(res, 200, {
       listing: {
         id: pub,

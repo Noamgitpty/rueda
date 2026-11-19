@@ -1,11 +1,11 @@
--- 9933 — Fixtures de TEST du durcissement argent n° 2 d'US-224 (migration 0151, ADR-166 n° 9 ;
+-- 9933 — Fixtures de TEST du durcissement argent n° 2 d'US-224 (migration 0152, ADR-166 n° 9 ;
 -- BOARD N-367). Jamais en production (test-migrations/ seulement). SECURITY DEFINER sous migrator
 -- (politique migrator_all), search_path figé ; l'appelant reste sous un rôle de production (L0-05),
 -- dans une transaction de test.
 --
 --   - hard2_credit_tender : donne à un encaissement `CAPTURE` encore `PENDING` (enregistré par la
 --     vraie commande sur une carte) un moyen crédit de 08 (`CREDIT_CASH`, `CREDIT_PROMO`). Depuis
---     0151, la commande refuse un encaissement par crédit tant que les crédits n'existent pas ; les
+--     0152, la commande refuse un encaissement par crédit tant que les crédits n'existent pas ; les
 --     preuves de 224f qui rejouent les moyens d'origine RÉELS de 08 (T33 : crédit cash et crédit
 --     promo ; TJ16d : crédit cash) n'ont donc plus d'autre moyen d'en poser un, pour prouver que le
 --     remboursement d'un crédit reste refusé sur tout rail (défense en profondeur).

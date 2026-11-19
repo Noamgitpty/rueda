@@ -14,6 +14,11 @@
  * du pricer, la caution rendue par la base (ou rien : mention générique), la note de REV (ou rien :
  * badge « Nuevo ») ; devis impossible ⇒ annonce exclue et alerte ops ; pricer ou notes en panne ⇒
  * 503 (jamais un total ou un badge inventés).
+ *
+ * US-701c (T70 c, ADR-173) : la caution de chaque carte est la décision de PAY (port
+ * `ListingDepositPolicy`, FAKE ici ; la règle est prouvée dans `pay/internal/deposit-notice.test.ts`
+ * avec l'oracle) sur la base rendue par la base (pays, classe) : montant, mention générique ou
+ * caution non disponible ; jamais la classe ni un déclencheur dans la réponse ; panne ⇒ 503.
  */
 import { afterAll, describe, expect, it } from 'vitest';
 import {
@@ -25,10 +30,15 @@ import {
 } from '../../../testing/contract/support.js';
 import type { ContractApp } from '../../../testing/contract/support.js';
 import { missingCoverage } from '../../../testing/openapi-contract.js';
-import type { SearchPricer, SearchRatings } from '../internal/search/cards.js';
+import type {
+  ListingDepositPolicy,
+  SearchPricer,
+  SearchRatings,
+} from '../internal/search/cards.js';
 import type { AvailabilityProbeLimiter } from '../internal/search/search.service.js';
 import type { SearchResult } from '../internal/search/store.js';
 import {
+  FakeDepositPolicy,
   fakeResult,
   FakeSearchPricer,
   FakeSearchRatings,
@@ -51,6 +61,7 @@ async function app(
     readonly pricer?: SearchPricer;
     readonly ratings?: SearchRatings;
     readonly alertQuoteUnavailable?: (listingId: string, country: string) => void;
+    readonly deposits?: ListingDepositPolicy;
   } = {},
 ) {
   const results = store.outcome.outcome === 'OK' ? store.outcome.results : [];
@@ -61,6 +72,8 @@ async function app(
       pricer: more.pricer ?? pricerFor(...results),
       ...(more.ratings ? { ratings: more.ratings } : {}),
       ...(more.alertQuoteUnavailable ? { alertQuoteUnavailable: more.alertQuoteUnavailable } : {}),
+      // US-701c : politique de caution imposée (mention générique par défaut)
+      deposits: more.deposits ?? new FakeDepositPolicy(),
     },
   });
   apps.push(a);
@@ -73,6 +86,8 @@ function cardOf(r: SearchResult, extra: Record<string, unknown> = {}) {
   delete c0.quotedAt;
   return {
     ...c0,
+    depositAmountMinor: null,
+    depositStatus: 'GENERIC',
     totalMinor: '12840',
     billableDays: 3,
     rating: null,
@@ -245,10 +260,7 @@ describe('US-201 — contrat de la recherche publique', () => {
   });
 
   it('US-203 : total TTC et jours du devis provisoire, caution de la base, note de REV ou badge « Nuevo » ; mêmes annonces dans le même ordre ; le pricer reçoit l’annonce, la période et l’instant de la base', async () => {
-    const luxe = fakeResult({
-      id: '00000000-0000-4000-8000-0000000000d1',
-      depositAmountMinor: '30000',
-    });
+    const luxe = fakeResult({ id: '00000000-0000-4000-8000-0000000000d1' });
     const plain = fakeResult({
       id: '00000000-0000-4000-8000-0000000000d2',
       approximatePoint: null,
@@ -257,15 +269,24 @@ describe('US-201 — contrat de la recherche publique', () => {
     store.outcome = { outcome: 'OK', results: [luxe, plain] };
     // US-205b : protection promise par la base pour la seule annonce couverte
     store.coveredListings.add(luxe.id);
+    // US-701c : base de la caution rendue par la base, décision imposée au FAKE de PAY
+    store.depositBases.set(luxe.id, { country: FIRST_COUNTRY, valueClass: 'LUXE' });
+    store.depositBases.set(plain.id, { country: FIRST_COUNTRY, valueClass: 'STANDARD' });
+    const deposits = new FakeDepositPolicy();
+    deposits.notices.set(`${FIRST_COUNTRY}|LUXE`, { status: 'REQUIRED', amountMinor: '30000' });
     const pricer = pricerFor(luxe, plain);
     const ratings = new FakeSearchRatings();
     ratings.rows.set(plain.id, { averageX100: 480, reviewCount: 3, tripCount: 5 });
-    const api = await app(store, undefined, { pricer, ratings });
+    const api = await app(store, undefined, { pricer, ratings, deposits });
     const r = await api.request('GET', q(VALID));
     expect(r.status).toBe(200);
     expect(r.json).toEqual({
       results: [
-        cardOf(luxe, { depositAmountMinor: '30000', protectionOffered: true }),
+        cardOf(luxe, {
+          depositAmountMinor: '30000',
+          depositStatus: 'REQUIRED',
+          protectionOffered: true,
+        }),
         cardOf(plain, { rating: { averageX100: 480, reviewCount: 3, tripCount: 5 } }),
       ],
     });
@@ -282,6 +303,41 @@ describe('US-201 — contrat de la recherche publique', () => {
       })),
     );
     expect(ratings.asked).toEqual([[luxe.id, plain.id]]);
+    expect(store.depositBasisAsked).toEqual([[luxe.id, plain.id]]);
+    expect(deposits.asked).toEqual([
+      [FIRST_COUNTRY, 'LUXE'],
+      [FIRST_COUNTRY, 'STANDARD'],
+    ]);
+    expect(JSON.stringify(r.json)).not.toMatch(/LUXE|STANDARD|valueClass|trigger/);
+  });
+
+  it('US-701c (T70 c) : caution non disponible (montant À DÉCIDER) ⇒ statut UNAVAILABLE sans montant ; annonce sans base (retirée) ⇒ classe inconnue (fail-closed) ; une décision par pays et classe ; politique ou base en panne ⇒ 503', async () => {
+    const a = fakeResult({ id: '00000000-0000-4000-8000-0000000000f1' });
+    const b = fakeResult({ id: '00000000-0000-4000-8000-0000000000f2' });
+    const gone = fakeResult({ id: '00000000-0000-4000-8000-0000000000f3' });
+    const store = new FakeSearchStore();
+    store.outcome = { outcome: 'OK', results: [a, b, gone] };
+    store.depositBases.set(a.id, { country: FIRST_COUNTRY, valueClass: 'LUXE' });
+    store.depositBases.set(b.id, { country: FIRST_COUNTRY, valueClass: 'LUXE' });
+    const deposits = new FakeDepositPolicy();
+    deposits.notices.set(`${FIRST_COUNTRY}|LUXE`, { status: 'UNAVAILABLE' });
+    deposits.notices.set(`${FIRST_COUNTRY}|`, { status: 'UNAVAILABLE' });
+    const api = await app(store, undefined, { deposits });
+    const r = await api.request('GET', q(VALID));
+    expect(r.status).toBe(200);
+    expect(r.json).toEqual({
+      results: [a, b, gone].map((x) => cardOf(x, { depositStatus: 'UNAVAILABLE' })),
+    });
+    expect(deposits.asked).toEqual([
+      [FIRST_COUNTRY, 'LUXE'],
+      [FIRST_COUNTRY, null],
+    ]);
+    deposits.down = true;
+    expect((await api.request('GET', q(VALID))).status).toBe(503);
+    const none = await app(store, undefined, {
+      deposits: { notice: () => Promise.reject(new Error('aucune politique')) },
+    });
+    expect((await none.request('GET', q(VALID))).status).toBe(503);
   });
 
   it('US-203 : devis impossible ⇒ annonce exclue et alerte ops (identifiant seul) ; pricer ou notes en panne ⇒ 503', async () => {
