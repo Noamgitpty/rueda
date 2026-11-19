@@ -6,8 +6,9 @@
 --
 -- Rôle (SECURITY DEFINER sous migrator, search_path figé ; aucun SQL dynamique) :
 --   1. `us315_payment` : opération de loyer du hold du trip (AUTH, RENT, SUCCEEDED) avec la preuve
---      voulue (`WEBHOOK_SIGNED`, `POLL`, ou NULL : aucune opération), telle que la conversion
---      l'aurait trouvée ; montant posé par le test ;
+--      voulue (`WEBHOOK_SIGNED`, `POLL`, ou NULL : aucune opération) et ses quatre jambes
+--      (`fixture_operation_legs` de 9001), telle que la conversion l'aurait trouvée ; montant posé
+--      par le test ;
 --   2. `us315_deposit` : décision de caution du hold du trip (`NOT_REQUIRED`, `PLANNED`,
 --      `AUTHORIZED`), forme de 0146 ; montant posé par le test ;
 --   3. `us315_restrict` : restriction active d'un compte (forme de 9967) ; `us315_birth` : date de
@@ -36,7 +37,7 @@ BEGIN
   IF p_proof IS NULL THEN
     RETURN NULL;
   END IF;
-  SELECT tr.source_hold_id, tr.country_code, tr.currency INTO t
+  SELECT tr.source_hold_id, tr.country_code, tr.currency, tr.org_id INTO t
     FROM core.booking_trip AS tr WHERE tr.id = p_trip;
   INSERT INTO core.payment_payment_operation
          (id, hold_id, psp_account_id, country_code, provider, kind, purpose, amount_minor, currency,
@@ -45,6 +46,9 @@ BEGIN
           t.country_code, 'FAKE', 'AUTH', 'RENT', p_amount, t.currency, 1, 'SUCCEEDED',
           pg_catalog.format('hold:%s:AUTH:op:%s', t.source_hold_id, v_op),
           pg_catalog.format('test:%s', v_op), p_proof);
+  -- jambes de l'opération (contrainte différée payment_operation_legs_complete : forme de 9001)
+  PERFORM test_fixture.fixture_operation_legs(v_op, 'AUTH', t.org_id, NULL, t.country_code,
+                                              p_amount);
   RETURN v_op;
 END
 $fn$;
