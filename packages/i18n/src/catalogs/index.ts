@@ -302,8 +302,11 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  `web.s06.request.authorizationRelease` (S06 refusée ou expirée : l’autorisation de la carte est
  annulée, sans débit) ; es de `web.s06.request.captureFailed.body` aligné sur en (« Estamos
  anulando », BOARD N-289).
+ Version 93 (la 92 est celle d’US-223e) : signal « paiement hors plateforme » des textes publics
+ de l’hôte (US-222d, ADR-176, comme Turo) : `common.listing.offPlatformPayment` (zone ou ville
+ qui proposent un paiement hors de la plateforme : refus rattaché au champ).
  */
-export const CATALOG_VERSION = 92;
+export const CATALOG_VERSION = 93;
 
 /** Catalogues de base par langue ; la langue d'un profil de locale choisit le sien. */
 export const CATALOGS: Readonly<Record<CatalogLanguage, VersionedCatalog<MessageKey>>> = {

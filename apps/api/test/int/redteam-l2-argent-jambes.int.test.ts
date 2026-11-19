@@ -473,16 +473,62 @@ describe.each(CASES)('RT-L2-ARG — jambes, preuve, crédits ($country, $currenc
   // d'entrée d'un chargeback n'existe au lot 2 (ni webhook, ni commande ; RECORD_CHARGEBACK de la
   // console est un enregistrement seul). Attendu : imputation de 08 (TJ14a / TJ14b) ou, à défaut,
   // gel de la jambe HOST, ou écart signalé par le rapprochement.
-  it.fails(
-    'F-L2-ARG-04 : un chargeback perdu est imputé, gèle la jambe HOST ou est signalé par le rapprochement FIN',
-    async () => {
-      await open('app_worker'); // L0-05
-      const o = chargeback.get(c.country);
-      // observation absente (attaque non jouée) : rien à juger, le test passe et l'it.fails rougit
-      if (o === undefined) return;
-      // signal attendu : imputation (mouvement de jambe), OU jambe HOST gelée avant tout
-      // versement, OU écart signalé par le rapprochement ; jamais l'issue brute de la commande
-      expect(o.moved || o.hostFrozen || o.violations !== '0').toBe(true);
-    },
-  );
+  // US-222d : corrigé (0155 : gel de la jambe HOST au chargeback, contrôle FIN CHARGEBACK_UNIMPUTED)
+  // — `it.fails` inversé en `it`, attaque et jugement inchangés
+  it('F-L2-ARG-04 : un chargeback perdu est imputé, gèle la jambe HOST ou est signalé par le rapprochement FIN', async () => {
+    await open('app_worker'); // L0-05
+    const o = chargeback.get(c.country);
+    // US-222d : en `it`, une observation absente (attaque non jouée) doit rougir : affirmée
+    if (o === undefined) throw new Error('observation L2-PM-43 absente');
+    // signal attendu : imputation (mouvement de jambe), OU jambe HOST gelée avant tout
+    // versement, OU écart signalé par le rapprochement ; jamais l'issue brute de la commande
+    expect(o.moved || o.hostFrozen || o.violations !== '0').toBe(true);
+  });
+
+  // US-222d (preuve du correctif, 0155) : sans chargeback, la jambe HOST n'est pas gelée et aucun
+  // écart CHARGEBACK_UNIMPUTED ; un chargeback enregistré gèle la jambe HOST (frozen_reason
+  // CHARGEBACK) avant toute preuve ; prouvé (SUCCEEDED) sans imputation, il est un écart FIN
+  it('US-222d : chargeback ⇒ jambe HOST gelée (CHARGEBACK) dès l’enregistrement, écart FIN CHARGEBACK_UNIMPUTED une fois prouvé ; trip sans chargeback ⇒ ni gel ni écart', async () => {
+    const worker = await open('app_worker');
+    await inTx(worker, { worker: 'payment_command', at: at(0) }, async (tx) => {
+      const w = await capturedTripIn(tx, c, T0 + 8 * DAY, 3);
+      const host = async (): Promise<{ frozen: boolean; frozen_reason: string | null }> =>
+        (
+          await tx.query<{ frozen: boolean; frozen_reason: string | null }>(
+            `SELECT frozen, frozen_reason FROM core.settlement_trip_leg_balance
+              WHERE trip_id = $1 AND segment_no = 1 AND leg = 'HOST'`,
+            [w.trip],
+          )
+        ).rows[0]!;
+      const unimputed = async (): Promise<string> => {
+        await tx.query('SAVEPOINT rt_l2_fin');
+        await asWorker(tx, 'reconciliation');
+        const r = reconciliationReportJson(await runMoneyReconciliation(sqlOf(tx)));
+        await tx.query('ROLLBACK TO SAVEPOINT rt_l2_fin');
+        return r.checks['CHARGEBACK_UNIMPUTED']?.byCountry[c.country] ?? '0';
+      };
+      expect(await host()).toEqual({ frozen: false, frozen_reason: null });
+      expect(await unimputed()).toBe('0');
+      const cb = await recordOperation(tx, {
+        tripId: w.trip,
+        accountId: w.account,
+        kind: 'CHARGEBACK',
+        amountMinor: total,
+        currency: c.currency,
+        legs: null,
+      });
+      expect(await host()).toEqual({ frozen: true, frozen_reason: 'CHARGEBACK' });
+      expect(await unimputed()).toBe('0');
+      expect(await signedStatus(tx, cb.operation_id, 'SUCCEEDED')).toBe('APPLIED');
+      expect(await host()).toEqual({ frozen: true, frozen_reason: 'CHARGEBACK' });
+      expect(await unimputed()).toBe('1');
+      // les autres jambes ne sont pas gelées (08 E7 règle 7 : seule HOST est en jeu sur un trip)
+      const others = await tx.query<{ n: number }>(
+        `SELECT pg_catalog.count(*)::int AS n FROM core.settlement_trip_leg_balance
+          WHERE trip_id = $1 AND leg <> 'HOST' AND frozen`,
+        [w.trip],
+      );
+      expect(others.rows[0]?.n).toBe(0);
+    });
+  });
 });

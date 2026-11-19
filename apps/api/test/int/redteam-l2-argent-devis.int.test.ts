@@ -541,20 +541,18 @@ describe.each(CASES)(
     // l'hôte (prise sur sa jambe HOST, sans son accord) ou de la plateforme. Attendu (défaut
     // fail-closed, comme les crédits refusés en bêta, N-367) : gel refusé tant que la ligne n'a pas
     // de source vérifiée. Suite proposée : N-xxx-A (rapport).
-    it.fails(
-      'F-L2-ARG-01 : une remise de l’hôte portée par la demande (PROMO_HOST, sans code ni accord) est refusée au gel',
-      async () => {
-        await open('app_api'); // L0-05
-        // observation absente (attaque non jouée) : l'assertion passe et l'it.fails rougit
-        expect(observed.get(c.country)?.promoHost?.outcome).not.toBe('DONE');
-      },
-    );
-    it.fails(
-      'F-L2-ARG-01 : une remise de la plateforme portée par la demande (PROMO_PLATFORM, aucune promotion en bêta) est refusée au gel',
-      async () => {
-        await open('app_api'); // L0-05
-        expect(observed.get(c.country)?.promoPlatform?.outcome).not.toBe('DONE');
-      },
-    );
+    // US-222d : corrigé (0155, QUOTE_MISMATCH) — `it.fails` inversés en `it`, attaque et jugement
+    // inchangés ; le devis légitime est figé (DONE) par S1 / S2 / S7 ci-dessus, après l'attaque
+    it('F-L2-ARG-01 : une remise de l’hôte portée par la demande (PROMO_HOST, sans code ni accord) est refusée au gel', async () => {
+      await open('app_api'); // L0-05
+      // US-222d : en `it`, une observation absente (attaque non jouée) doit rougir : affirmée
+      expect(observed.get(c.country)?.promoHost?.outcome).toMatch(/^[A-Z_]+$/);
+      expect(observed.get(c.country)?.promoHost?.outcome).not.toBe('DONE');
+    });
+    it('F-L2-ARG-01 : une remise de la plateforme portée par la demande (PROMO_PLATFORM, aucune promotion en bêta) est refusée au gel', async () => {
+      await open('app_api'); // L0-05
+      expect(observed.get(c.country)?.promoPlatform?.outcome).toMatch(/^[A-Z_]+$/);
+      expect(observed.get(c.country)?.promoPlatform?.outcome).not.toBe('DONE');
+    });
   },
 );

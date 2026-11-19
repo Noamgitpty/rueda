@@ -204,6 +204,8 @@ export const CONSTRAINT_CODES: Readonly<Record<string, readonly [string, DbBusin
   settlement_immutable: [SQLSTATE.integrityConstraintViolation, 'IMMUTABLE_RECORD'],
   trip_leg_balance_no_delete: [SQLSTATE.integrityConstraintViolation, 'IMMUTABLE_RECORD'],
   trip_leg_balance_monotonic: [SQLSTATE.integrityConstraintViolation, 'INVARIANT_VIOLATION'],
+  // US-222d (F-L2-ARG-04, 0155) : un gel n'est jamais levé ni requalifié
+  trip_leg_balance_freeze_forbidden: [SQLSTATE.integrityConstraintViolation, 'INVARIANT_VIOLATION'],
   settlement_trip_unknown: [SQLSTATE.integrityConstraintViolation, 'INVARIANT_VIOLATION'],
   settlement_trip_mismatch: [SQLSTATE.integrityConstraintViolation, 'INVARIANT_VIOLATION'],
   settlement_supersession_invalid: [SQLSTATE.integrityConstraintViolation, 'INVARIANT_VIOLATION'],
@@ -402,6 +404,8 @@ export const CONSTRAINT_CODES: Readonly<Record<string, readonly [string, DbBusin
   deposit_decision_mismatch: [SQLSTATE.checkViolation, 'INVARIANT_VIOLATION'],
   deposit_rail_closed: [SQLSTATE.objectNotInPrerequisiteState, 'FORBIDDEN'],
   deposit_hold_guarded: [SQLSTATE.objectNotInPrerequisiteState, 'INVARIANT_VIOLATION'],
+  // US-222d (F-L2-ARG-02 / 03, 0155) : file GRAY_MARKET indisponible, rien d'écrit
+  gray_market_unavailable: [SQLSTATE.objectNotInPrerequisiteState, 'INVARIANT_VIOLATION'],
   deposit_hold_command_forbidden: [SQLSTATE.insufficientPrivilege, 'FORBIDDEN'],
   deposit_hold_hold_unique: [SQLSTATE.uniqueViolation, 'INVARIANT_VIOLATION'],
   // décision exécutée de la caution (0150, US-702, ADR-172) : forme d'un état final (Σ = montant)

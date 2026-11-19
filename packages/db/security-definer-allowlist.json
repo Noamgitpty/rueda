@@ -2003,6 +2003,20 @@
       "story": "US-217"
     },
     {
+      "signature": "core.finance_chargeback_facts()",
+      "family": "cmd_money",
+      "owner": "cmd_money_owner",
+      "execute": ["app_worker"],
+      "story": "US-222"
+    },
+    {
+      "signature": "core.settlement_freeze_host_on_chargeback()",
+      "family": "cmd_money",
+      "owner": "cmd_money_owner",
+      "execute": [],
+      "story": "US-222"
+    },
+    {
       "signature": "core.booking_trip_receipt(bytea,uuid)",
       "family": "cmd_hold",
       "owner": "cmd_hold_owner",

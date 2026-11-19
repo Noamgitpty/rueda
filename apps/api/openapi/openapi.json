@@ -4461,7 +4461,7 @@
             "$ref": "#/components/responses/NotJson"
           },
           "422": {
-            "description": "Zone ou ville affichées qui ressemblent à une adresse exacte ou portent un contact (téléphone, courriel, lien ; BOARD N-62, US-118) : `fields` désigne `areaLabel` ou `city`, rien n'est écrit",
+            "description": "Zone ou ville affichées qui ressemblent à une adresse exacte ou portent un contact (téléphone, courriel, lien ; BOARD N-62, US-118), ou qui proposent un paiement hors plateforme (`LOCATION_OFF_PLATFORM_PAYMENT`, US-222d : compte signalé à l'ops, file GRAY_MARKET) : `fields` désigne `areaLabel` ou `city`, aucun lieu n'est créé",
             "headers": {
               "Cache-Control": {
                 "$ref": "#/components/headers/NoStore"
@@ -4473,7 +4473,11 @@
                   "$ref": "#/components/schemas/ListingError",
                   "properties": {
                     "code": {
-                      "enum": ["LOCATION_AREA_ADDRESS", "LOCATION_CITY_INVALID"]
+                      "enum": [
+                        "LOCATION_AREA_ADDRESS",
+                        "LOCATION_CITY_INVALID",
+                        "LOCATION_OFF_PLATFORM_PAYMENT"
+                      ]
                     }
                   }
                 }

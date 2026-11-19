@@ -45,6 +45,9 @@
  * `LISTING_UNLISTED`, `LOCATION_AREA_ADDRESS` (zone affichée qui ressemble à une adresse exacte,
  * BOARD N-62), `LOCATION_CITY_INVALID`, `VEHICLE_DESCRIPTION_INVALID` (textes publics :
  * adresse ou contact), `VEHICLE_ELIGIBILITY_REQUIRED` (véhicule pas encore confirmé par l'hôte, US-124).
+ * PROPOSÉ par US-222d (ADR-176, comme Turo) : `LOCATION_OFF_PLATFORM_PAYMENT` (zone ou ville
+ * publiques qui proposent un paiement hors plateforme : refus rattaché au champ, compte signalé à
+ * l'ops dans la file GRAY_MARKET).
  *
  * Trips de l'hôte (US-219, ADR-128), PROPOSÉS : `TRIP_NOT_FOUND` (trip inconnu ou d'un autre hôte,
  * 16 HDB-002 : « 404 sans état révélé »), `HOST_TRIPS_UNAVAILABLE` (lecture indisponible).
@@ -146,6 +149,11 @@ export const HOST_LISTING_MESSAGES = {
   LOCATION_AREA_ADDRESS: { status: 422, messageKey: 'common.listing.areaLooksLikeAddress' },
   // ville affichée qui ressemble à une adresse ou porte un contact (revue sécurité US-118)
   LOCATION_CITY_INVALID: { status: 422, messageKey: 'common.listing.cityInvalid' },
+  // zone ou ville qui proposent un paiement hors plateforme (US-222d, F-L2-ARG-02 ; ADR-176)
+  LOCATION_OFF_PLATFORM_PAYMENT: {
+    status: 422,
+    messageKey: 'common.listing.offPlatformPayment',
+  },
   // marque ou modèle saisis (hors catalogue) qui portent une adresse ou un contact (US-118)
   VEHICLE_DESCRIPTION_INVALID: {
     status: 422,
