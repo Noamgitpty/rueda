@@ -167,6 +167,8 @@ export const TEMPLATE_KEYS = [
   // décision de la caution (US-702, ADR-172) : libération entière, ou frais annoncés capturés
   'EVT_DEPOSIT_RELEASED',
   'EVT_DEPOSIT_PARTIALLY_CAPTURED',
+  // US-702b (08 E3 repli 4) : VOID refusé ⇒ montant bloqué jusqu'à l'expiration de l'autorisation
+  'EVT_DEPOSIT_BLOCKED_UNTIL_EXPIRY',
 ] as const;
 export type TemplateKey = (typeof TEMPLATE_KEYS)[number];
 
@@ -350,7 +352,8 @@ export const TEMPLATES: Readonly<Record<TemplateKey, TemplateSpec>> = {
     critical: true,
   },
   // `deposit.decision.executed` (0150 : deposit_id, trip_id, status, captured_minor,
-  // released_minor, currency) ; 16 PAY-011 `EVT_DEPOSIT_RELEASED` (PROPOSÉ, ADR-172)
+  // released_minor, currency ; 0153 : notice, auth_expiry_at) ; 16 PAY-011 `EVT_DEPOSIT_RELEASED`
+  // (PROPOSÉ, ADR-172)
   EVT_DEPOSIT_RELEASED: {
     key: 'EVT_DEPOSIT_RELEASED',
     slug: 'depositReleased',
@@ -372,6 +375,22 @@ export const TEMPLATES: Readonly<Record<TemplateKey, TemplateSpec>> = {
         field: 'captured_minor',
         currencyField: 'currency',
       },
+    },
+    channels: EMAIL_THEN_SMS,
+    critical: false,
+  },
+  // US-702b (08 E3 repli 4, BR-PAY-06) : l'annulation de l'autorisation a été refusée ou n'est pas
+  // prise en charge ; rien n'est prélevé, la banque garde le montant bloqué jusqu'à l'expiration de
+  // l'autorisation (jamais « libérée », jamais « gardée » par Kmino ou l'hôte, 10b UX-25)
+  EVT_DEPOSIT_BLOCKED_UNTIL_EXPIRY: {
+    key: 'EVT_DEPOSIT_BLOCKED_UNTIL_EXPIRY',
+    slug: 'depositBlockedUntilExpiry',
+    variables: {
+      first_name: FIRST_NAME,
+      brand: BRAND,
+      booking_ref: BOOKING_REF,
+      amount: RELEASED,
+      expires_at: { from: 'payload', type: 'instant', field: 'auth_expiry_at' },
     },
     channels: EMAIL_THEN_SMS,
     critical: false,
@@ -526,21 +545,27 @@ export const RULES: readonly RuleSpec[] = [
     parties: CAPTURE_DECLINED_PARTIES,
   },
   // décision de la caution exécutée (0150, US-702, ADR-172 ; 16 PAY-011 « Notifications ») :
-  // voyageur du trip (parties lues en base) ; libération entière ou frais annoncés capturés
+  // voyageur du trip (parties lues en base) ; avis choisi par `notice` (0153, US-702b), posé par la
+  // base : libération entière, frais annoncés capturés, ou montant bloqué jusqu'à l'expiration de
+  // l'autorisation (VOID refusé, 08 E3 repli 4) ; `notice` absent ⇒ erreur de contrat
   {
     eventType: 'deposit.decision.executed',
     template: 'EVT_DEPOSIT_RELEASED',
-    condition: {
-      field: 'status',
-      matches: (v) => v === 'VOIDED' || v === 'EXPIRED' || v === 'REFUNDED',
-    },
+    condition: fieldIs('notice', 'RELEASED'),
     recipients: [GUEST],
     parties: TRIP_PARTIES,
   },
   {
     eventType: 'deposit.decision.executed',
     template: 'EVT_DEPOSIT_PARTIALLY_CAPTURED',
-    condition: fieldIs('status', 'PARTIALLY_CAPTURED'),
+    condition: fieldIs('notice', 'PARTIALLY_CAPTURED'),
+    recipients: [GUEST],
+    parties: TRIP_PARTIES,
+  },
+  {
+    eventType: 'deposit.decision.executed',
+    template: 'EVT_DEPOSIT_BLOCKED_UNTIL_EXPIRY',
+    condition: fieldIs('notice', 'BLOCKED_UNTIL_EXPIRY'),
     recipients: [GUEST],
     parties: TRIP_PARTIES,
   },

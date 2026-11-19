@@ -318,6 +318,25 @@ describe.each(CASES)('US-702 — libération automatique ($country, $currency)',
     ]);
   });
 
+  it('US-702b : PSP injoignable au VOID (la requête ne l’a pas atteint) ⇒ jamais EXPIRED, rien d’écrit, nouvel essai ; DEPOSIT_DECISION_FAILED une fois par caution et par cause, puis VOIDED', async () => {
+    const down = { kind: 'UNAVAILABLE' } as const;
+    const s = await setup(c, { scenario: { responses: { VOID: [down, down, down, down] } } });
+    // trois passages de la tâche (une minute chacun) : une seule alerte
+    for (let i = 0; i < 3; i += 1) expect(await s.timer.process(s.due())).toBe('FAILED');
+    expect(s.decided).toEqual([]);
+    expect(s.alerts.map((a) => [a.code, a.severity, a.labels])).toEqual([
+      ['DEPOSIT_DECISION_FAILED', 'P1', { country: c.country, provider: 'FAKE' }],
+    ]);
+    // une autre caution en échec pour la même cause : sa propre alerte
+    const other = '0190f5a2-7c3e-7d4b-8a1f-00000000d0d0';
+    expect(await s.timer.process(s.due({ depositId: other }))).toBe('FAILED');
+    expect(s.alerts).toHaveLength(2);
+    // le PSP revient : VOID aboutit (même clé), VOIDED reporté, aucune alerte de plus
+    expect(await s.timer.process(s.due())).toBe('VOIDED');
+    expect(s.decided.map(([id, , o]) => [id, o.status])).toEqual([[IDS.deposit, 'VOIDED']]);
+    expect(s.alerts).toHaveLength(2);
+  });
+
   it('aucun connecteur (production avant le lot C) ⇒ rien n’est envoyé ni écrit ; décision concurrente ⇒ STALE sans alerte', async () => {
     const none = await setup(c, { noConnector: true });
     expect(await none.timer.process(none.due())).toBe('NO_CONNECTOR');

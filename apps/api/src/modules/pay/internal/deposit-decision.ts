@@ -18,9 +18,12 @@
  *    `deposit.decision.executed` dans la même transaction : journal et avis au voyageur).
  * Issue inconnue ou en cours ⇒ rien n'est écrit, la MÊME clé est rejouée au passage suivant
  * (17 §4.3). VOID refusé définitivement ⇒ l'autorisation est laissée expirer (08 E3 repli 4),
- * alerte ops `DEPOSIT_DECISION_FAILED`. Débit MIT refusé ou impossible ⇒ la caution reste libérée,
- * alerte `DEPOSIT_FEES_UNCOLLECTED` (frais à recouvrer, BR-PAY-10). Autre échec ⇒ alerte, rien
- * d'écrit, nouvel essai au passage suivant.
+ * alerte ops `DEPOSIT_DECISION_FAILED` ; la base écrit alors `notice = BLOCKED_UNTIL_EXPIRY` et le
+ * voyageur reçoit le montant bloqué et la date d'expiration, jamais « libérée » (US-702b). Débit MIT
+ * refusé ou impossible ⇒ la caution reste libérée, alerte `DEPOSIT_FEES_UNCOLLECTED` (frais à
+ * recouvrer, BR-PAY-10). Autre échec ⇒ rien d'écrit, nouvel essai au passage suivant ; alerte
+ * `DEPOSIT_DECISION_FAILED` UNE fois par caution et par cause (US-702b, revue code n° 5 d'US-702),
+ * pas à chaque passage de la tâche.
  * Aucun connecteur pour le fournisseur (production jusqu'au lot C) ⇒ rien n'est envoyé.
  * Journal : comptes et codes seulement, jamais un identifiant (17 §6.3).
  */
@@ -35,6 +38,7 @@ import type {
   DepositStep,
 } from './deposit-rails.js';
 import { DepositRailExecutor } from './deposit-executor.js';
+import { PaymentError } from './errors.js';
 import type { DepositExecution, DepositReference } from './deposit-executor.js';
 import { PgDepositRailConfigReader } from './pg-deposit-config.js';
 import type { DepositRailConfig } from './pg-deposit-config.js';
@@ -44,6 +48,12 @@ import type { SqlExecutor } from './pg-stores.js';
 /** Nom de travailleur exigé par la base pour la file et la transition. */
 const PAYMENT_COMMAND_WORKER = 'payment_command';
 export const DEPOSIT_DECISION_BATCH = 50;
+/**
+ * Mémoire des échecs déjà alertés (caution et cause), bornée : au-delà, les plus anciennes sont
+ * oubliées (une alerte de plus au pire, jamais une alerte perdue). Propre au processus : un
+ * redémarrage réalerte une fois.
+ */
+export const DEPOSIT_DECISION_ALERT_MEMORY = 10_000;
 
 const RAILS: readonly DepositRail[] = ['PREAUTH_SINGLE', 'REAUTH', 'CHARGE_THEN_REFUND'];
 
@@ -217,7 +227,23 @@ export function withoutMit(plan: DepositDecisionPlan): DepositDecisionPlan {
 const capturedOf = (exec: DepositExecution): bigint =>
   exec.completed.reduce((sum, r) => (r.step.op === 'CAPTURE' ? sum + r.step.amountMinor : sum), 0n);
 
+/** Cause d'un échec définitif : opération et statut rendu, ou code d'erreur du port (aucun texte). */
+function failureCause(failure: NonNullable<DepositExecution['failed']>): string {
+  const reason =
+    failure.status ?? (failure.error instanceof PaymentError ? failure.error.code : 'ERROR');
+  return `${failure.step.op}:${reason}`;
+}
+
+/**
+ * La requête n'a pas atteint le PSP (`PROVIDER_UNAVAILABLE`) : rien n'est fait, le rejeu garde la
+ * même clé (17 §2.8) ; ce n'est PAS un refus de l'annulation (US-702b).
+ */
+const unreached = (failure: NonNullable<DepositExecution['failed']>): boolean =>
+  failure.error instanceof PaymentError && failure.error.code === 'PROVIDER_UNAVAILABLE';
+
 export class DepositDecisionTimer {
+  readonly #alerted = new Set<string>();
+
   constructor(private readonly deps: DepositDecisionDeps) {}
 
   /** Une caution ; ne lève jamais (une caution ne bloque pas les suivantes). */
@@ -286,7 +312,7 @@ export class DepositDecisionTimer {
         if (step !== 'STALE') await this.#alert('DEPOSIT_FEES_UNCOLLECTED', 'P2', due);
         return step;
       }
-      if (failedOp === 'VOID') {
+      if (failedOp === 'VOID' && !unreached(exec.failed)) {
         // 08 E3 repli 4 : annulation refusée ⇒ l'autorisation est laissée expirer
         const captured = capturedOf(exec);
         const step = await this.#report(due, {
@@ -297,7 +323,16 @@ export class DepositDecisionTimer {
         if (step !== 'STALE') await this.#alert('DEPOSIT_DECISION_FAILED', 'P1', due);
         return step;
       }
-      await this.#alert('DEPOSIT_DECISION_FAILED', 'P1', due);
+      // rien d'écrit, nouvel essai au passage suivant : une alerte par caution et par cause
+      const key = `${due.depositId}:${failureCause(exec.failed)}`;
+      if (!this.#alerted.has(key)) {
+        await this.#alert('DEPOSIT_DECISION_FAILED', 'P1', due);
+        this.#alerted.add(key);
+        if (this.#alerted.size > DEPOSIT_DECISION_ALERT_MEMORY) {
+          const oldest = this.#alerted.values().next();
+          if (oldest.done !== true) this.#alerted.delete(oldest.value);
+        }
+      }
       return 'FAILED';
     } catch {
       return 'ERROR';

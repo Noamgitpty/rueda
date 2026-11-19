@@ -290,8 +290,12 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  ou renvoi à la réservation dans l’appli tant qu’ils ne sont pas fournis, hors production
  seulement) ; emplacement `{assistance}` ajouté à `ntf.bookingConfirmed.*.body` et
  `ntf.bookingConfirmedHost.*.body`.
+ Version 91 (la 89, réservée, n’a pas été prise ; la 90 est celle d’US-213b) : corrections « avant ouverture »
+ de la décision de la caution (US-702b, ADR-172) : avis au voyageur
+ `ntf.depositBlockedUntilExpiry.*` (annulation de l’autorisation refusée : montant bloqué par la
+ banque jusqu’à l’expiration de l’autorisation, rien de prélevé ; 08 E3 repli 4).
  */
-export const CATALOG_VERSION = 90;
+export const CATALOG_VERSION = 91;
 
 /** Catalogues de base par langue ; la langue d'un profil de locale choisit le sien. */
 export const CATALOGS: Readonly<Record<CatalogLanguage, VersionedCatalog<MessageKey>>> = {

@@ -10,7 +10,11 @@
  *   [C2] ; transition FINALE gardée (jamais avant l'heure de décision, jamais de capture après
  *   l'expiration, Σ capturé + libéré = montant, `REFUNDED` ⇔ rail b, rang attendu) et événement
  *   `deposit.decision.executed` dans la même transaction ; autre travailleur ⇒ rien lu, refus ;
- * - `app_anon` : aucune des fonctions de la caution (0146, 0150) n'est exécutable.
+ * - `app_anon` : aucune des fonctions de la caution (0146, 0150) n'est exécutable ;
+ * - US-702b (0153) : V ne peut plus avancer la décision au-delà de la règle (rail revérifié en base) ;
+ *   libération et décision EFFECTIVES sur le retour réel (`(checkout_at ?? scheduled_end) + 72 h`,
+ *   un retour tardif ne prolonge jamais l'autorisation), dans la file des décisions et celle des
+ *   ré-autorisations ; avis `notice` : VOID refusé ⇒ `BLOCKED_UNTIL_EXPIRY` et date d'expiration.
  * Attendus : 08 BR-PAY-06 (T57 : 300,00 de test, décision à fin + 70 h, libération fin + 72 h ; T73 :
  * 1 500 000 PYG), 16 PAY-011 « États », 17 §3.2.7, la graine (durées 24 / 72 / 2 / 24 h de 0009 et
  * 0142) — jamais le code testé. Personnes, devis et checkout par les VRAIES commandes (US-208,
@@ -188,6 +192,39 @@ describe.each(COUNTRIES)(
       });
     });
 
+    it('US-702b : V qui ne justifie pas le rail ⇒ refus (pré-autorisation unique : H_requise = 24 + 72 + 72 = 168 h > V = 167 h ; ré-autorisation : V = 24 h = deposit_reauth_lead_h), rien n’est écrit ; V = 168 h accepté (T57)', async () => {
+      await run(async (tx, groups) => {
+        const { p, hold } = await luxeHold(tx, cc, groups);
+        for (const [mechanism, vHours] of [
+          ['PREAUTH_SINGLE', 167],
+          ['PREAUTH_SINGLE', 0],
+          ['REAUTH', 24],
+        ] as const) {
+          const e = await failure(tx, record, [
+            p.hash,
+            hold,
+            JSON.stringify(hostile(depositOf(cc), mechanism, vHours)),
+          ]);
+          expect(e, `${mechanism} ${vHours}`).toMatchObject({
+            code: '23514',
+            constraint: 'deposit_decision_mismatch',
+          });
+        }
+        expect(await schedule(tx, hold)).toBeUndefined();
+        // décision d'une pré-autorisation unique jamais plus de deposit_safety_h (2 h) avant la
+        // libération, même avec un V gonflé (aucun VOID anticipé ; la pose réelle relira l'expiration)
+        const r = await tx.query<{ r: string }>(record, [
+          p.hash,
+          hold,
+          JSON.stringify(hostile(depositOf(cc), 'PREAUTH_SINGLE', 999_999)),
+        ]);
+        expect(r.rows[0]!.r).toBe('RECORDED');
+        const s = await schedule(tx, hold);
+        expect(iso(s['release_at'])).toBe(at(START, 72 + 72));
+        expect(iso(s['decision_at'])).toBe(at(START, 72 + 72));
+      });
+    });
+
     it('fail-closed : V absent ou illisible ⇒ refus, rien n’est écrit (les durées de 08 sont typées par la garde de 0008)', async () => {
       await run(async (tx, groups) => {
         const { p, hold } = await luxeHold(tx, cc, groups);
@@ -307,12 +344,16 @@ describe.each(COUNTRIES)('US-702 — décision à l’heure de décision ($count
           captured_minor: '0',
           released_minor: amount.toString(),
           currency: cc.currency,
+          notice: 'RELEASED',
         });
+        expect(Date.parse(String(payload['auth_expiry_at']))).toBe(Date.parse(expiry));
         expect(Object.keys(payload).sort()).toEqual([
+          'auth_expiry_at',
           'captured_minor',
           'currency',
           'decided_at',
           'deposit_id',
+          'notice',
           'released_minor',
           'status',
           'trip_id',
@@ -389,6 +430,109 @@ describe.each(COUNTRIES)('US-702 — décision à l’heure de décision ($count
     );
   });
 
+  /** Avis et date d'expiration de l'unique événement de la caution (lecture de l'outbox). */
+  const noticeOf = async (tx: Tx, id: unknown) => {
+    await tx.query(`SELECT pg_catalog.set_config('app.worker_name', 'outbox_relay', true)`);
+    const ev = await tx.query<Row>(
+      'SELECT payload FROM core.outbox_outbox_event WHERE aggregate_id = $1',
+      [id],
+    );
+    await tx.query(`SELECT pg_catalog.set_config('app.worker_name', 'payment_command', true)`);
+    expect(ev.rows).toHaveLength(1);
+    const payload = ev.rows[0]!['payload'] as Record<string, unknown>;
+    return {
+      notice: payload['notice'],
+      authExpiryAt:
+        payload['auth_expiry_at'] === null ? null : Date.parse(String(payload['auth_expiry_at'])),
+    };
+  };
+  const recordReturn = (tx: Tx, trip: unknown, when: string) =>
+    tx.query('SELECT test_fixture.us702b_record_return($1, $2)', [trip, when]);
+
+  it('US-702b (08 E3 repli 4) : EXPIRED écrit à l’heure de décision, avant l’expiration (VOID refusé) ⇒ notice BLOCKED_UNTIL_EXPIRY et date d’expiration ; EXPIRED à l’expiration ⇒ RELEASED', async () => {
+    await withRole('app_worker', (client) =>
+      payTx(client, { worker: 'payment_command', virtualNow: decision }, async (tx) => {
+        const amount = depositOf(cc);
+        const refused = await seed(tx);
+        expect(await decide(tx, refused['deposit_id'], 'EXPIRED', 0n, amount)).toBe('APPLIED');
+        expect(await noticeOf(tx, refused['deposit_id'])).toEqual({
+          notice: 'BLOCKED_UNTIL_EXPIRY',
+          authExpiryAt: Date.parse(expiry),
+        });
+        const partial = await seed(tx);
+        const one = amount / 300n;
+        expect(
+          await decide(tx, partial['deposit_id'], 'PARTIALLY_CAPTURED', one, amount - one),
+        ).toBe('APPLIED');
+        expect((await noticeOf(tx, partial['deposit_id'])).notice).toBe('PARTIALLY_CAPTURED');
+        await setClock(tx, expiry);
+        const lapsed = await seed(tx);
+        expect(await decide(tx, lapsed['deposit_id'], 'EXPIRED', 0n, amount)).toBe('APPLIED');
+        expect((await noticeOf(tx, lapsed['deposit_id'])).notice).toBe('RELEASED');
+      }),
+    );
+  });
+
+  it('US-702b (08 BR-PAY-06) : retour anticipé de 5 h ⇒ libération (checkout_at + 72 h = fin + 67 h) et décision à fin + 67 h, jamais avant ; garde de la transition sur la même heure', async () => {
+    await withRole('app_worker', (client) =>
+      payTx(client, { worker: 'payment_command', virtualNow: at(end, -5) }, async (tx) => {
+        const s = await seed(tx);
+        const amount = depositOf(cc);
+        await recordReturn(tx, s['trip_id'], at(end, -5));
+        await setClock(tx, new Date(Date.parse(at(end, 67)) - 1).toISOString());
+        expect(await dueOf(tx, s['deposit_id'])).toEqual([]);
+        expect(
+          await failure(tx, decideSql, [s['deposit_id'], 0, 'VOIDED', '0', amount.toString()]),
+        ).toMatchObject({ code: '55000', constraint: 'deposit_hold_guarded' });
+        await setClock(tx, at(end, 67));
+        const due = await dueOf(tx, s['deposit_id']);
+        expect(due).toHaveLength(1);
+        expect(iso(due[0]!['decision_at'])).toBe(at(end, 67));
+        expect(await decide(tx, s['deposit_id'], 'VOIDED', 0n, amount)).toBe('APPLIED');
+      }),
+    );
+  });
+
+  it('US-702b (08 BR-PAY-06) : retour tardif de 5 h ⇒ la libération (fin + 77 h) ne prolonge pas l’autorisation : décision toujours à min(fin + 77 h, expiration − 2 h) = fin + 70 h', async () => {
+    await withRole('app_worker', (client) =>
+      payTx(client, { worker: 'payment_command', virtualNow: at(end, 5) }, async (tx) => {
+        const s = await seed(tx);
+        await recordReturn(tx, s['trip_id'], at(end, 5));
+        await setClock(tx, at(end, 69));
+        expect(await dueOf(tx, s['deposit_id'])).toEqual([]);
+        await setClock(tx, decision);
+        const due = await dueOf(tx, s['deposit_id']);
+        expect(due).toHaveLength(1);
+        expect(iso(due[0]!['decision_at'])).toBe(decision);
+        expect(await decide(tx, s['deposit_id'], 'VOIDED', 0n, depositOf(cc))).toBe('APPLIED');
+      }),
+    );
+  });
+
+  it('US-702b (08 BR-PAY-06) : rail (b) sans expiration, retour tardif de 5 h ⇒ remboursement à checkout_at + 72 h = fin + 77 h, jamais à fin + 72 h', async () => {
+    await withRole('app_worker', (client) =>
+      payTx(client, { worker: 'payment_command', virtualNow: at(end, 5) }, async (tx) => {
+        const s = await seed(tx, 'CHARGE_THEN_REFUND');
+        const amount = depositOf(cc);
+        await recordReturn(tx, s['trip_id'], at(end, 5));
+        await setClock(tx, release);
+        expect(await dueOf(tx, s['deposit_id'])).toEqual([]);
+        expect(
+          await failure(tx, decideSql, [s['deposit_id'], 0, 'REFUNDED', '0', amount.toString()]),
+        ).toMatchObject({ code: '55000', constraint: 'deposit_hold_guarded' });
+        await setClock(tx, at(end, 77));
+        const due = await dueOf(tx, s['deposit_id']);
+        expect(due).toHaveLength(1);
+        expect(iso(due[0]!['decision_at'])).toBe(at(end, 77));
+        expect(await decide(tx, s['deposit_id'], 'REFUNDED', 0n, amount)).toBe('APPLIED');
+        expect(await noticeOf(tx, s['deposit_id'])).toEqual({
+          notice: 'RELEASED',
+          authExpiryAt: null,
+        });
+      }),
+    );
+  });
+
   it('autre travailleur : file vide, décision refusée (42501)', async () => {
     await withRole('app_worker', (client) =>
       payTx(client, { worker: 'payment_command', virtualNow: decision }, async (tx) => {
@@ -404,6 +548,63 @@ describe.each(COUNTRIES)('US-702 — décision à l’heure de décision ($count
         ]);
         expect(e).toMatchObject({ code: '42501', constraint: 'deposit_hold_command_forbidden' });
         expect(translateDbError(e ?? {}).code).toBe('FORBIDDEN');
+      }),
+    );
+  });
+});
+
+describe.each(COUNTRIES)('US-702b — ré-autorisation et retour réel ($country, $currency)', (cc) => {
+  /** T59 en rail (a) (fixture d'US-701) : expiration début + 144 h, libération début + 144 h 25. */
+  const start = '2031-08-01T10:00:00.000Z';
+  const end = at(start, 72);
+  const expiry = at(start, 144);
+  const release = new Date(Date.parse(start) + (144 * 60 + 25) * 60_000).toISOString();
+  const reauthDue = at(start, 120);
+  const seed = async (tx: Tx) =>
+    (
+      await tx.query<Row>(
+        `SELECT * FROM test_fixture.us701_converted_deposit($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+        [
+          cc.country,
+          cc.currency,
+          cc.timezone,
+          start,
+          end,
+          depositOf(cc).toString(),
+          expiry,
+          release,
+          release,
+          reauthDue,
+          `fake-${uuid()}`,
+        ],
+      )
+    ).rows[0]!;
+  const reauthOf = async (tx: Tx, id: unknown) =>
+    (await tx.query<Row>('SELECT * FROM core.payment_deposit_reauth_due(500)')).rows.filter(
+      (r) => r['deposit_id'] === id,
+    );
+
+  it('libération rendue = min(release_at, checkout_at + 72 h) : retour anticipé de 10 h ⇒ début + 134 h 25 ; retour tardif ⇒ release_at inchangée (aucune ré-autorisation de plus)', async () => {
+    await withRole('app_worker', (client) =>
+      payTx(client, { worker: 'payment_command', virtualNow: reauthDue }, async (tx) => {
+        const early = await seed(tx);
+        const late = await seed(tx);
+        await tx.query('SELECT test_fixture.us702b_record_return($1, $2)', [
+          early['trip_id'],
+          at(end, -10),
+        ]);
+        await tx.query('SELECT test_fixture.us702b_record_return($1, $2)', [
+          late['trip_id'],
+          at(end, 10),
+        ]);
+        const e = await reauthOf(tx, early['deposit_id']);
+        const l = await reauthOf(tx, late['deposit_id']);
+        expect(e).toHaveLength(1);
+        expect(l).toHaveLength(1);
+        expect(iso(e[0]!['release_at'])).toBe(
+          new Date(Date.parse(start) + (134 * 60 + 25) * 60_000).toISOString(),
+        );
+        expect(iso(l[0]!['release_at'])).toBe(release);
       }),
     );
   });
