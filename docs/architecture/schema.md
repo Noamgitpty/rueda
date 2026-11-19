@@ -7,7 +7,7 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 
 ## Synthèse
 
-- 158 migrations ; 132 tables ; 3 vues ; 757 politiques RLS ; 305 fonctions `SECURITY DEFINER` ; 261 autres fonctions.
+- 159 migrations ; 136 tables ; 3 vues ; 772 politiques RLS ; 310 fonctions `SECURITY DEFINER` ; 263 autres fonctions.
 - Tables sans RLS `ENABLE` + `FORCE` : aucune.
 - Rôles applicatifs avec `SUPERUSER` ou `BYPASSRLS` : aucun.
 
@@ -173,6 +173,7 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 | `0155_redteam_l2_money_fixes` | Correctifs des constats de la red team argent du lot 2 (US-222d ; rapport |
 | `0156_redteam_l2_rls_lb_fixes` | Correctifs de la red team RLS / ex-porte LB du lot 2 (US-222, partie 222d2 ; ADR-177). |
 | `0157_config_param_change` | CFG : changement revu d'une valeur de paramètre pays, par deux personnes distinctes. |
+| `0158_trip_inspection_photos` | TRP : photos guidées de l'état du véhicule, horodatage serveur et empreintes (bêta). |
 
 ## Rôles
 
@@ -457,6 +458,7 @@ Politiques RLS :
 - `api_insert` (INSERT, PERMISSIVE, app_api) WITH CHECK `(app.actor_kind() = ANY (ARRAY['GUEST'::text, 'HOST'::text, 'STAFF'::text]))`
 - `catalog_cmd_doc_insert` (INSERT, PERMISSIVE, catalog_cmd_owner) WITH CHECK `((bucket = 'DOCUMENTS'::text) AND (classification = 'C2'::text) AND (source = 'HOST_UPLOAD'::text) AND (enc_subject_type = 'USER'::text) AND (enc_subject_id IS NOT NULL) AND (enc_subject_id = uploader_user_id) AND (retention_class = 'VEHICLE_DOCUMENT'::text) AND (mime = ANY (ARRAY['image/jpeg'::text, 'image/png'::text, 'image/heic'::text, 'application/pdf'::text])))`
 - `catalog_cmd_photo_insert` (INSERT, PERMISSIVE, catalog_cmd_owner) WITH CHECK `((bucket = 'PUBLIC_LISTING'::text) AND (classification = 'C0'::text) AND (source = 'HOST_UPLOAD'::text) AND (enc_subject_type IS NULL) AND (retention_class = 'LISTING_PHOTO'::text) AND (mime = ANY (ARRAY['image/jpeg'::text, 'image/png'::text, 'image/webp'::text])))`
+- `cmd_hold_inspection_file_ins` (INSERT, PERMISSIVE, cmd_hold_owner) WITH CHECK `((bucket = 'PRIVATE_EVIDENCE'::text) AND (classification = 'C2'::text) AND (source = 'IN_APP_CAMERA'::text) AND (retention_class = 'TRIP_INSPECTION'::text) AND (enc_subject_type = 'USER'::text) AND (enc_subject_id IS NOT NULL) AND (enc_subject_id = uploader_user_id) AND (mime = ANY (ARRAY['image/jpeg'::text, 'image/webp'::text])))`
 - `iam_staff_evidence_insert` (INSERT, PERMISSIVE, iam_staff_owner) WITH CHECK `((bucket = 'PRIVATE_EVIDENCE'::text) AND (classification = 'C2'::text) AND (source = 'STAFF_UPLOAD'::text) AND (enc_subject_type = 'USER'::text) AND (enc_subject_id IS NOT NULL) AND (retention_class = 'STAFF_EVIDENCE'::text))`
 - `iam_staff_insert` (INSERT, PERMISSIVE, iam_staff_owner) WITH CHECK `((bucket = 'BRAND'::text) AND (classification = 'C0'::text) AND (source = 'STAFF_UPLOAD'::text) AND (enc_subject_type IS NULL) AND (retention_class = 'BRAND_PUBLIC'::text))`
 - `iam_staff_select` (SELECT, PERMISSIVE, iam_staff_owner) USING `true`
@@ -2758,6 +2760,7 @@ Politiques RLS :
 - `cmd_hold_cancel_read` (SELECT, PERMISSIVE, cmd_hold_owner) USING `(key = ANY (ARRAY['free_cancel_lead'::text, 'last_minute_threshold'::text, 'host_penalty'::text, 'platform_funded_host_compensation'::text]))`
 - `cmd_hold_contract_param_read` (SELECT, PERMISSIVE, cmd_hold_owner) USING `(key = 'grace_minutes'::text)`
 - `cmd_hold_deposit_read` (SELECT, PERMISSIVE, cmd_hold_owner) USING `(key = ANY (ARRAY['deposit_always_required'::text, 'deposit_trigger_classes'::text, 'deposit_amount'::text, 'funds_holding_enabled'::text, 'auth_lead_h'::text, 'release_delay_h'::text, 'deposit_safety_h'::text, 'deposit_reauth_lead_h'::text, 'marge_h'::text]))`
+- `cmd_hold_inspection_param_read` (SELECT, PERMISSIVE, cmd_hold_owner) USING `(key = ANY (ARRAY['photo_max_kb'::text, 'photo_max_px'::text, 'clock_skew_flag_h'::text]))`
 - `cmd_hold_meeting_read` (SELECT, PERMISSIVE, cmd_hold_owner) USING `(key = 'review_window_days'::text)`
 - `cmd_hold_read` (SELECT, PERMISSIVE, cmd_hold_owner) USING `(key = ANY (ARRAY['buffer_minutes'::text, 'hold_ttl_minutes'::text, 'hold_max_total_minutes'::text, 'max_active_holds_per_guest'::text, 'hold_creations_per_guest_vehicle_hour'::text, 'sweep_grace_s'::text, 'flagged_booking_payment_order'::text, 'review_hold_minutes'::text, 'payment_in_flight_margin_s'::text, 'psp_call_timeout_s'::text, 'conversion_start_tolerance_minutes'::text, 'payment_attempts_per_hold'::text, 'max_trip_days'::text, 'advance_notice_minutes'::text, 'no_show_grace_minutes'::text, 'overdue_detection_minutes'::text, 'p2p_private_hosts_enabled'::text, 'insurer_contract_active'::text]))`
 - `cmd_hold_request_param_read` (SELECT, PERMISSIVE, cmd_hold_owner) USING `(key = ANY (ARRAY['booking_request_mode_enabled'::text, 'booking_request_expiry_hours'::text]))`
@@ -6568,6 +6571,160 @@ Déclencheurs :
 
 - `touch_row` : `CREATE TRIGGER touch_row BEFORE UPDATE ON core.support_support_case FOR EACH ROW EXECUTE FUNCTION platform.touch_row()`
 
+### `core.trip_ops_inspection`
+
+- RLS : ENABLE + FORCE ; propriétaire `migrator`
+- Droits : cmd_hold_owner: INSERT, SELECT ; migrator: DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE
+
+| Colonne | Type | NOT NULL | Défaut |
+| ------- | ---- | -------- | ------ |
+| `id` | `uuid` | oui | `platform.uuid_v7()` |
+| `trip_id` | `uuid` | oui | — |
+| `country_code` | `text` | oui | — |
+| `kind` | `text` | oui | — |
+| `performer_role` | `text` | oui | — |
+| `performed_by` | `uuid` | oui | — |
+| `template_version` | `smallint` | oui | — |
+| `status` | `text` | oui | `'DRAFT'::text` |
+| `created_at` | `timestamp with time zone` | oui | `platform.now()` |
+| `submitted_at` | `timestamp with time zone` | non | — |
+
+Contraintes :
+
+- `trip_inspection_country_format` : `CHECK (country_code ~ '^[A-Z]{2}$'::text)`
+- `trip_inspection_kind_valid` : `CHECK (kind = ANY (ARRAY['CHECKIN'::text, 'CHECKOUT'::text]))`
+- `trip_inspection_one_per_side` : `UNIQUE (trip_id, kind, performer_role)`
+- `trip_inspection_pkey` : `PRIMARY KEY (id)`
+- `trip_inspection_role_valid` : `CHECK (performer_role = ANY (ARRAY['HOST'::text, 'GUEST'::text]))`
+- `trip_inspection_status_valid` : `CHECK (status = ANY (ARRAY['DRAFT'::text, 'SUBMITTED'::text]))`
+- `trip_inspection_submitted_coherent` : `CHECK ((status = 'SUBMITTED'::text) = (submitted_at IS NOT NULL))`
+- `trip_ops_inspection_performed_by_fkey` : `FOREIGN KEY (performed_by) REFERENCES core.iam_user_account(id)`
+- `trip_ops_inspection_trip_id_fkey` : `FOREIGN KEY (trip_id) REFERENCES core.booking_trip(id)`
+
+Politiques RLS :
+
+- `cmd_hold_inspection_ins` (INSERT, PERMISSIVE, cmd_hold_owner) WITH CHECK `((status = 'DRAFT'::text) AND (submitted_at IS NULL))`
+- `cmd_hold_inspection_sel` (SELECT, PERMISSIVE, cmd_hold_owner) USING `true`
+- `cmd_hold_inspection_upd` (UPDATE, PERMISSIVE, cmd_hold_owner) USING `(status = 'DRAFT'::text)` WITH CHECK `(status = 'SUBMITTED'::text)`
+- `migrator_all` (ALL, PERMISSIVE, migrator) USING `true` WITH CHECK `true`
+
+Déclencheurs :
+
+- `trip_inspection_immutable` : `CREATE TRIGGER trip_inspection_immutable BEFORE DELETE OR UPDATE ON core.trip_ops_inspection FOR EACH ROW EXECUTE FUNCTION core.trip_inspection_guard()`
+- `trip_inspection_no_truncate` : `CREATE TRIGGER trip_inspection_no_truncate BEFORE TRUNCATE ON core.trip_ops_inspection FOR EACH STATEMENT EXECUTE FUNCTION core.audit_append_only('trip_inspection_immutable')`
+
+### `core.trip_ops_inspection_photo`
+
+- RLS : ENABLE + FORCE ; propriétaire `migrator`
+- Droits : cmd_hold_owner: INSERT, SELECT ; migrator: DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE
+
+| Colonne | Type | NOT NULL | Défaut |
+| ------- | ---- | -------- | ------ |
+| `inspection_id` | `uuid` | oui | — |
+| `slot_code` | `text` | oui | — |
+| `file_id` | `uuid` | oui | — |
+| `taken_by_role` | `text` | oui | — |
+| `capture_id` | `uuid` | oui | — |
+| `sha256` | `bytea` | oui | — |
+| `bytes` | `bigint` | oui | — |
+| `received_at` | `timestamp with time zone` | oui | `platform.now()` |
+| `device_captured_at` | `timestamp with time zone` | non | — |
+| `clock_skew_flag` | `boolean` | oui | — |
+
+Contraintes :
+
+- `trip_inspection_photo_bytes_positive` : `CHECK (bytes > 0)`
+- `trip_inspection_photo_capture_unique` : `UNIQUE (capture_id)`
+- `trip_inspection_photo_file_unique` : `UNIQUE (file_id)`
+- `trip_inspection_photo_pkey` : `PRIMARY KEY (inspection_id, slot_code, file_id)`
+- `trip_inspection_photo_role_valid` : `CHECK (taken_by_role = ANY (ARRAY['HOST'::text, 'GUEST'::text]))`
+- `trip_inspection_photo_sha256_size` : `CHECK (octet_length(sha256) = 32)`
+- `trip_ops_inspection_photo_capture_id_fkey` : `FOREIGN KEY (capture_id) REFERENCES core.trip_ops_photo_capture(id)`
+- `trip_ops_inspection_photo_file_id_fkey` : `FOREIGN KEY (file_id) REFERENCES core.audit_file_asset(id)`
+- `trip_ops_inspection_photo_inspection_id_fkey` : `FOREIGN KEY (inspection_id) REFERENCES core.trip_ops_inspection(id)`
+
+Politiques RLS :
+
+- `cmd_hold_inspection_ins` (INSERT, PERMISSIVE, cmd_hold_owner) WITH CHECK `true`
+- `cmd_hold_inspection_sel` (SELECT, PERMISSIVE, cmd_hold_owner) USING `true`
+- `migrator_all` (ALL, PERMISSIVE, migrator) USING `true` WITH CHECK `true`
+
+Déclencheurs :
+
+- `trip_inspection_immutable` : `CREATE TRIGGER trip_inspection_immutable BEFORE DELETE OR UPDATE ON core.trip_ops_inspection_photo FOR EACH ROW EXECUTE FUNCTION core.trip_inspection_guard()`
+- `trip_inspection_no_truncate` : `CREATE TRIGGER trip_inspection_no_truncate BEFORE TRUNCATE ON core.trip_ops_inspection_photo FOR EACH STATEMENT EXECUTE FUNCTION core.audit_append_only('trip_inspection_immutable')`
+
+### `core.trip_ops_photo_capture`
+
+- RLS : ENABLE + FORCE ; propriétaire `migrator`
+- Droits : cmd_hold_owner: INSERT, SELECT ; migrator: DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE
+
+| Colonne | Type | NOT NULL | Défaut |
+| ------- | ---- | -------- | ------ |
+| `id` | `uuid` | oui | `platform.uuid_v7()` |
+| `inspection_id` | `uuid` | oui | — |
+| `slot_code` | `text` | oui | — |
+| `issued_to` | `uuid` | oui | — |
+| `issued_at` | `timestamp with time zone` | oui | `platform.now()` |
+| `expires_at` | `timestamp with time zone` | oui | — |
+| `used_at` | `timestamp with time zone` | non | — |
+
+Contraintes :
+
+- `trip_ops_photo_capture_inspection_id_fkey` : `FOREIGN KEY (inspection_id) REFERENCES core.trip_ops_inspection(id)`
+- `trip_ops_photo_capture_issued_to_fkey` : `FOREIGN KEY (issued_to) REFERENCES core.iam_user_account(id)`
+- `trip_photo_capture_expiry` : `CHECK (expires_at > issued_at)`
+- `trip_photo_capture_pkey` : `PRIMARY KEY (id)`
+- `trip_photo_capture_used` : `CHECK (used_at IS NULL OR used_at >= issued_at)`
+
+Index :
+
+- `trip_photo_capture_inspection_idx` : `CREATE INDEX trip_photo_capture_inspection_idx ON core.trip_ops_photo_capture USING btree (inspection_id)`
+
+Politiques RLS :
+
+- `cmd_hold_inspection_ins` (INSERT, PERMISSIVE, cmd_hold_owner) WITH CHECK `(used_at IS NULL)`
+- `cmd_hold_inspection_sel` (SELECT, PERMISSIVE, cmd_hold_owner) USING `true`
+- `cmd_hold_inspection_upd` (UPDATE, PERMISSIVE, cmd_hold_owner) USING `(used_at IS NULL)` WITH CHECK `(used_at IS NOT NULL)`
+- `migrator_all` (ALL, PERMISSIVE, migrator) USING `true` WITH CHECK `true`
+
+Déclencheurs :
+
+- `trip_inspection_immutable` : `CREATE TRIGGER trip_inspection_immutable BEFORE DELETE OR UPDATE ON core.trip_ops_photo_capture FOR EACH ROW EXECUTE FUNCTION core.trip_inspection_guard()`
+- `trip_inspection_no_truncate` : `CREATE TRIGGER trip_inspection_no_truncate BEFORE TRUNCATE ON core.trip_ops_photo_capture FOR EACH STATEMENT EXECUTE FUNCTION core.audit_append_only('trip_inspection_immutable')`
+
+### `core.trip_ops_photo_slot`
+
+- RLS : ENABLE + FORCE ; propriétaire `migrator`
+- Droits : cmd_hold_owner: SELECT ; migrator: DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE
+
+| Colonne | Type | NOT NULL | Défaut |
+| ------- | ---- | -------- | ------ |
+| `template_version` | `smallint` | oui | — |
+| `slot_code` | `text` | oui | — |
+| `slot_group` | `text` | oui | — |
+| `required` | `boolean` | oui | — |
+| `position` | `smallint` | oui | — |
+
+Contraintes :
+
+- `trip_photo_slot_code_format` : `CHECK (slot_code ~ '^(EXT_[0-9]{2}\|INT_[0-9]{2}\|FUEL\|ODOMETER\|KEY\|DAMAGE_[0-9]{2})$'::text)`
+- `trip_photo_slot_group_valid` : `CHECK (slot_group = ANY (ARRAY['EXTERIOR'::text, 'INTERIOR'::text, 'FUEL'::text, 'ODOMETER'::text, 'KEY'::text, 'DAMAGE'::text]))`
+- `trip_photo_slot_pkey` : `PRIMARY KEY (template_version, slot_code)`
+- `trip_photo_slot_position_range` : `CHECK ("position" >= 1 AND "position" <= 99)`
+- `trip_photo_slot_position_unique` : `UNIQUE (template_version, "position")`
+- `trip_photo_slot_version_positive` : `CHECK (template_version >= 1)`
+
+Politiques RLS :
+
+- `cmd_hold_inspection_sel` (SELECT, PERMISSIVE, cmd_hold_owner) USING `true`
+- `migrator_all` (ALL, PERMISSIVE, migrator) USING `true` WITH CHECK `true`
+
+Déclencheurs :
+
+- `trip_inspection_immutable` : `CREATE TRIGGER trip_inspection_immutable BEFORE DELETE OR UPDATE ON core.trip_ops_photo_slot FOR EACH ROW EXECUTE FUNCTION core.trip_inspection_guard()`
+- `trip_inspection_no_truncate` : `CREATE TRIGGER trip_inspection_no_truncate BEFORE TRUNCATE ON core.trip_ops_photo_slot FOR EACH STATEMENT EXECUTE FUNCTION core.audit_append_only('trip_inspection_immutable')`
+
 ### `platform.environment_declaration`
 
 - RLS : ENABLE + FORCE ; propriétaire `migrator`
@@ -6949,6 +7106,11 @@ Chacune a un propriétaire `NOLOGIN` dédié (ADR-053) et un `search_path` figé
 | `core.support_staff_vehicle_eligibility(p_token_hash bytea, p_request_id uuid, p_item_id uuid, p_purpose text)` | `TABLE(outcome text, body jsonb)` | `iam_staff_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; iam_staff_owner: EXECUTE |
 | `core.support_staff_vehicle_file(p_token_hash bytea, p_request_id uuid, p_item_id uuid, p_subject_type text, p_file_id uuid, p_purpose text)` | `TABLE(outcome text, body jsonb)` | `iam_staff_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; iam_staff_owner: EXECUTE |
 | `core.support_worker_review_sla(p_batch integer)` | `TABLE(queue text, country_code text, breached integer)` | `iam_staff_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; iam_staff_owner: EXECUTE |
+| `core.trip_cmd_add_inspection_photo(p_token_hash bytea, p_trip_id uuid, p_kind text, p_capture_id uuid, p_slot text, p_file_id uuid, p_mime text, p_bytes bigint, p_sha256 bytea, p_device_captured_at timestamp with time zone)` | `TABLE(outcome text, storage_key text, received_at timestamp with time zone)` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; cmd_hold_owner: EXECUTE |
+| `core.trip_cmd_open_photo_capture(p_token_hash bytea, p_trip_id uuid, p_kind text, p_slot text)` | `TABLE(outcome text, capture_id uuid, expires_at timestamp with time zone)` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; cmd_hold_owner: EXECUTE |
+| `core.trip_cmd_submit_inspection(p_token_hash bytea, p_trip_id uuid, p_kind text)` | `TABLE(outcome text, submitted_at timestamp with time zone, missing text[])` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; cmd_hold_owner: EXECUTE |
+| `core.trip_inspection_view(p_token_hash bytea, p_trip_id uuid, p_kind text)` | `jsonb` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; cmd_hold_owner: EXECUTE |
+| `core.trip_photo_capture_check(p_token_hash bytea, p_trip_id uuid, p_kind text, p_capture_id uuid, p_slot text)` | `TABLE(outcome text, max_kb integer, max_px integer)` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; cmd_hold_owner: EXECUTE |
 | `platform.declared_environment()` | `text` | `guard_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; app_worker: EXECUTE ; cmd_hold_owner: EXECUTE ; cmd_money_owner: EXECUTE ; guard_owner: EXECUTE |
 | `platform.guest_hold_guard(p_period tstzrange)` | `TABLE(live_holds integer, trip_overlap boolean)` | `guard_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; cmd_hold_owner: EXECUTE ; guard_owner: EXECUTE |
 
@@ -7211,6 +7373,8 @@ Chacune a un propriétaire `NOLOGIN` dédié (ADR-053) et un `search_path` figé
 | `core.support_staff_vehicle_item(p_user uuid, p_item_id uuid, p_subject_type text, p_attempted text, p_request_id uuid, OUT refusal text, OUT role text, OUT subject_id uuid, OUT country_code text)` | `record` | `iam_staff_owner` | iam_staff_owner: EXECUTE |
 | `core.support_subject_parties(p_subject_type text, p_subject_id uuid)` | `uuid[]` | `iam_staff_owner` | iam_staff_owner: EXECUTE |
 | `core.support_subject_resolver_check(p_resolver regprocedure)` | `text` | `migrator` | iam_staff_owner: EXECUTE ; migrator: EXECUTE |
+| `core.trip_inspection_guard()` | `trigger` | `migrator` | migrator: EXECUTE |
+| `core.trip_inspection_party(p_token_hash bytea, p_trip_id uuid, p_kind text)` | `TABLE(user_id uuid, role text, trip_id uuid, country_code text, open boolean)` | `cmd_hold_owner` | cmd_hold_owner: EXECUTE |
 | `platform.declare_environment(p_environment text)` | `text` | `migrator` | migrator: EXECUTE |
 | `platform.deployment_env()` | `text` | `migrator` | app_api: EXECUTE ; app_worker: EXECUTE ; cmd_hold_owner: EXECUTE ; cmd_money_owner: EXECUTE ; kyc_cmd_owner: EXECUTE ; migrator: EXECUTE ; privacy_cmd_owner: EXECUTE |
 | `platform.environment_declaration_immutable()` | `trigger` | `migrator` | migrator: EXECUTE |

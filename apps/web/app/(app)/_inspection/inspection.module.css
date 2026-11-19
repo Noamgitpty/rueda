@@ -4,3 +4,8 @@
   inline-size: 100%;
   border-radius: var(--radius-md);
 }
+
+/* Panneau de la caméra fermé : retiré de la mise en page (la vidéo reste montée pour son flux). */
+.closed {
+  display: none;
+}
