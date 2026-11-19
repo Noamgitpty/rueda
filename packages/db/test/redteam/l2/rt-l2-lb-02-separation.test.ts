@@ -22,6 +22,10 @@
  * - F-L2-LB-02 : même défaut pour `config_cmd_approve_go_live_switch` (0073 : `requested_by` ≠
  *   approbateur seulement) : l'interrupteur s'ouvre (dans la transaction annulée) par un SUPERADMIN
  *   lié au demandeur.
+ * Les deux constats sont CORRIGÉS par US-222d2 (migration 0156, ADR-177) : chaque `it.fails` est
+ * inversé en `it`, attaque et attentes inchangées ; la même garde est prouvée pour DECIDE_ADVANCE et
+ * WRITE_OFF_RECEIVABLE (non jouées par US-222c, revue argent n° 5 de la PR n° 256) et le chemin
+ * légitime (approbateur réellement distinct, constat NOT_LINKED) est accepté.
  * Interrupteur : ouvert seulement dans la transaction annulée, par la procédure à deux personnes
  * (`support/golive.ts` : tête d'audit puis verrou consultatif), relu fermé après l'annulation.
  */
@@ -33,7 +37,7 @@ import type { StaffActor } from '../../support/golive.ts';
 import { auditOf, installTestProofKey } from '../../support/staff.ts';
 import { outcomeOf } from '../l1/support-host.ts';
 import { cohost, decideLink, staffPerson } from '../l1/support-p2.ts';
-import { byCountry, otherOf, rolledBack, uuid } from '../l1/support.ts';
+import { byCountry, hostOf, otherOf, rolledBack, uuid } from '../l1/support.ts';
 import type { Tx } from '../l1/support.ts';
 import { failure, newSessionHash } from './support-l2.ts';
 
@@ -188,29 +192,168 @@ describe.each(byCountry)(
         });
       });
 
-      // F-L2-LB-01 (élevée, PROPOSÉE) : l'approbateur d'une décision FINANCE ne doit être ni le
-      // demandeur, ni une personne de ses comptes d'hôte, ni un compte lié (garde ADR-122 appliquée au
-      // DEMANDEUR : `support_actor_conflict(approbateur, 'USER_ACCOUNT', demandeur)`). Signal attendu
-      // après correction : SELF_FORBIDDEN, bordereau resté DRAFT, sans émetteur.
-      it.fails(
-        `F-L2-LB-01 — ${label} : l’approbation est refusée (SELF_FORBIDDEN), le bordereau reste DRAFT`,
-        async () => {
+      // F-L2-LB-01 (élevée, PROPOSÉE ; CORRIGÉ par US-222d2, `it.fails` inversé en `it`) :
+      // l'approbateur d'une décision FINANCE ne doit être ni le demandeur, ni une personne de ses
+      // comptes d'hôte, ni un compte lié (garde ADR-122 appliquée au DEMANDEUR :
+      // `support_actor_conflict(approbateur, 'USER_ACCOUNT', demandeur)`). Signal attendu après
+      // correction : SELF_FORBIDDEN, bordereau resté DRAFT, sans émetteur.
+      it(`F-L2-LB-01 — ${label} : l’approbation est refusée (SELF_FORBIDDEN), le bordereau reste DRAFT`, async () => {
+        await rolledBack(async (tx) => {
+          await installTestProofKey(tx);
+          const a = await staffPerson(tx, country, 'FINANCE');
+          const b = await staffPerson(tx, country, 'FINANCE');
+          await relate(tx, a, b, country);
+          const r = await requested(tx, country, currency, a);
+          expect(await finance(tx, b, country, APPROVE, [r.approval])).toBe('SELF_FORBIDDEN');
+          expect(await bordereauRow(tx, r.bordereau)).toEqual({
+            status: 'DRAFT',
+            issued_by: null,
+            second_validated_by: null,
+          });
+        });
+      });
+    }
+  },
+);
+
+/** Avance de Kmino d'un compte d'hôte sans lien avec A ni B : PLANNED (décision) ou OPEN (perte). */
+async function advanceFor(
+  tx: Tx,
+  cc: { country: string; currency: string; timezone: string },
+  action: 'DECIDE_ADVANCE' | 'WRITE_OFF_RECEIVABLE',
+): Promise<string> {
+  const owner = await hostOf(tx, cc.country);
+  const trip = uuid();
+  const advance = uuid();
+  await tx.query('SELECT test_fixture.rls_insert_trip($1, $2, $3, $4, $5, $6, $7, $8, $9)', [
+    trip,
+    uuid(),
+    owner.org,
+    uuid(),
+    cc.country,
+    cc.currency,
+    cc.timezone,
+    new Date(Date.now() + 5 * 86_400_000).toISOString(),
+    new Date(Date.now() + 8 * 86_400_000).toISOString(),
+  ]);
+  if (action === 'DECIDE_ADVANCE') {
+    await tx.query('SELECT test_fixture.us224b_insert_planned_advance($1, $2, $3::bigint)', [
+      advance,
+      trip,
+      '7500',
+    ]);
+  } else {
+    // créance ouverte non recouvrée (fixture 9700 : RELEASED_LEG ⇒ créance = montant, OPEN)
+    await tx.query('SELECT test_fixture.us062_insert_advance($1, $2, $3, $4::bigint)', [
+      advance,
+      trip,
+      'RELEASED_LEG',
+      '7500',
+    ]);
+  }
+  return advance;
+}
+
+const advanceRow = async (tx: Tx, id: string) =>
+  (
+    await tx.query<{
+      status: string;
+      decided_by: string | null;
+      written_off_by: string | null;
+    }>('SELECT status, decided_by, written_off_by FROM test_fixture.us062_advance_row($1)', [id])
+  ).rows[0];
+const approvalStatus = async (tx: Tx, id: string) =>
+  (
+    await tx.query<{ status: string; approved_by: string | null }>(
+      'SELECT status, approved_by FROM test_fixture.us062_approval_row($1)',
+      [id],
+    )
+  ).rows[0];
+
+describe.each(byCountry)(
+  'F-L2-LB-01 étendu (US-222d2) — DECIDE_ADVANCE et WRITE_OFF_RECEIVABLE (%s, %s)',
+  (country, _currency, cc) => {
+    for (const action of ['DECIDE_ADVANCE', 'WRITE_OFF_RECEIVABLE'] as const) {
+      for (const [label, relate] of Object.entries(VARIANTS)) {
+        it(`${action} — ${label} : l’approbation est refusée (SELF_FORBIDDEN, journalisée), la demande reste en attente, l’avance inchangée`, async () => {
           await rolledBack(async (tx) => {
             await installTestProofKey(tx);
             const a = await staffPerson(tx, country, 'FINANCE');
             const b = await staffPerson(tx, country, 'FINANCE');
             await relate(tx, a, b, country);
-            const r = await requested(tx, country, currency, a);
-            expect(await finance(tx, b, country, APPROVE, [r.approval])).toBe('SELF_FORBIDDEN');
-            expect(await bordereauRow(tx, r.bordereau)).toEqual({
-              status: 'DRAFT',
-              issued_by: null,
-              second_validated_by: null,
+            const advance = await advanceFor(tx, cc, action);
+            const before = await advanceRow(tx, advance);
+            const approval = uuid();
+            expect(
+              await finance(tx, a, country, REQUEST, [approval, action, advance, REASON]),
+            ).toBe('REQUESTED');
+            expect(await finance(tx, b, country, APPROVE, [approval])).toBe('SELF_FORBIDDEN');
+            expect(await approvalStatus(tx, approval)).toEqual({
+              status: 'PENDING',
+              approved_by: null,
             });
+            expect(await advanceRow(tx, advance)).toEqual(before);
+            const audit = (await auditOf(tx, b.userId)).map((x) => x.action_code);
+            expect(audit).toContain('FINANCE_SELF_APPROVAL_DENIED');
           });
-        },
-      );
+        });
+      }
+
+      it(`${action} — chemin légitime : une seconde personne sans lien, puis une personne constatée NOT_LINKED, approuvent`, async () => {
+        await rolledBack(async (tx) => {
+          await installTestProofKey(tx);
+          const a = await staffPerson(tx, country, 'FINANCE');
+          const b = await staffPerson(tx, country, 'FINANCE');
+          const advance = await advanceFor(tx, cc, action);
+          const approval = uuid();
+          expect(await finance(tx, a, country, REQUEST, [approval, action, advance, REASON])).toBe(
+            'REQUESTED',
+          );
+          expect(await finance(tx, b, country, APPROVE, [approval])).toBe('APPROVED');
+          expect(await approvalStatus(tx, approval)).toEqual({
+            status: 'APPROVED',
+            approved_by: b.userId,
+          });
+          expect(await advanceRow(tx, advance)).toMatchObject(
+            action === 'DECIDE_ADVANCE'
+              ? { decided_by: a.userId }
+              : { status: 'WRITTEN_OFF', written_off_by: a.userId },
+          );
+        });
+        await rolledBack(async (tx) => {
+          await installTestProofKey(tx);
+          const a = await staffPerson(tx, country, 'FINANCE');
+          const b = await staffPerson(tx, country, 'FINANCE');
+          expect((await decideLink(tx, null, a.userId, b.userId, 'NOT_LINKED')).outcome).toBe(
+            'RECORDED',
+          );
+          const advance = await advanceFor(tx, cc, action);
+          const approval = uuid();
+          expect(await finance(tx, a, country, REQUEST, [approval, action, advance, REASON])).toBe(
+            'REQUESTED',
+          );
+          expect(await finance(tx, b, country, APPROVE, [approval])).toBe('APPROVED');
+        });
+      });
     }
+
+    it('ISSUE_BORDEREAU — chemin légitime : deux personnes constatées NOT_LINKED par l’ops ⇒ ISSUED', async () => {
+      await rolledBack(async (tx) => {
+        await installTestProofKey(tx);
+        const a = await staffPerson(tx, country, 'FINANCE');
+        const b = await staffPerson(tx, country, 'FINANCE');
+        expect((await decideLink(tx, null, a.userId, b.userId, 'NOT_LINKED')).outcome).toBe(
+          'RECORDED',
+        );
+        const r = await requested(tx, country, cc.currency, a);
+        expect(await finance(tx, b, country, APPROVE, [r.approval])).toBe('APPROVED');
+        expect(await bordereauRow(tx, r.bordereau)).toEqual({
+          status: 'ISSUED',
+          issued_by: a.userId,
+          second_validated_by: b.userId,
+        });
+      });
+    });
   },
 );
 
@@ -249,17 +392,42 @@ describe.each(byCountry)('RLS-27 rejoué — interrupteur à deux personnes (%s,
     await closedAfter();
   });
 
-  // F-L2-LB-02 (élevée, PROPOSÉE) : la décision écrite du fondateur passe par deux personnes
-  // DISTINCTES (DEC-FONDATEUR-15, RLS-27) ; un compte lié au demandeur est la même personne (ADR-122).
-  // Signal attendu après correction : approbation refusée (issue autre que APPLIED), interrupteur
-  // resté fermé dans la transaction même.
-  it.fails(
-    'F-L2-LB-02 — SUPERADMIN lié (LINKED) au demandeur : l’approbation est refusée, l’interrupteur reste fermé',
-    async () => {
-      const linked = await play(true);
-      await closedAfter();
-      expect(linked.outcome).not.toBe('APPLIED');
-      expect(linked.open).toBe(false);
-    },
-  );
+  // F-L2-LB-02 (élevée, PROPOSÉE ; CORRIGÉ par US-222d2, `it.fails` inversé en `it`) : la décision
+  // écrite du fondateur passe par deux personnes DISTINCTES (DEC-FONDATEUR-15, RLS-27) ; un compte
+  // lié au demandeur est la même personne (ADR-122). Signal attendu après correction : approbation
+  // refusée (issue autre que APPLIED), interrupteur resté fermé dans la transaction même.
+  it('F-L2-LB-02 — SUPERADMIN lié (LINKED) au demandeur : l’approbation est refusée, l’interrupteur reste fermé', async () => {
+    const linked = await play(true);
+    await closedAfter();
+    expect(linked.outcome).not.toBe('APPLIED');
+    expect(linked.open).toBe(false);
+  });
+
+  it('US-222d2 — SUPERADMIN co-hôte du compte d’hôte du demandeur : SELF_FORBIDDEN journalisé (GO_LIVE_SELF_APPROVAL_DENIED), la demande reste en attente, l’interrupteur reste fermé', async () => {
+    const r = await rolledBack(async (tx) => {
+      await installTestProofKey(tx);
+      const a = await staffPerson(tx, country, 'ADMIN');
+      const b = await staffPerson(tx, country, 'SUPERADMIN');
+      await cohost(tx, b.userId, await orgOf(tx, a.userId, country));
+      const req = await requestSwitch(tx, actor(a), KEY, country, true);
+      expect(req.outcome).toBe('REQUESTED');
+      const approved = await approveSwitch(tx, actor(b), req.request_id ?? '');
+      const audit = (await auditOf(tx, b.userId)).map((x) => x.action_code);
+      // la demande est restée en attente : rejugée, même refus (et non NOT_PENDING)
+      const again = await approveSwitch(tx, actor(b), req.request_id ?? '');
+      return {
+        outcome: approved.outcome,
+        again: again.outcome,
+        denied: audit.includes('GO_LIVE_SELF_APPROVAL_DENIED'),
+        open: await goLive(tx, KEY, country),
+      };
+    });
+    expect(r).toEqual({
+      outcome: 'SELF_FORBIDDEN',
+      again: 'SELF_FORBIDDEN',
+      denied: true,
+      open: false,
+    });
+    await closedAfter();
+  });
 });

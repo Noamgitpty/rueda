@@ -16,6 +16,13 @@
  *   débit** de remplacement. Issue inconnue ou en cours (`PENDING`, `SUBMITTED`, `UNKNOWN`,
  *   `UNKNOWN_OUTCOME`) : `REAUTH_PENDING` (lire l'état puis rejouer la MÊME clé), jamais
  *   `REAUTHORIZED` à tort (US-701, suite des revues d'US-225).
+ * - US-222d2 (F-L2-LB-03 ; 17 §2.8, N-108, comme `MoneyCommandSender` d'US-223) : sans
+ *   `SUPPORTS_IDEMPOTENCY_HEADER` validé (capacité inconnue = non), le PSP peut ignorer la clé ;
+ *   chaque ordre de la caution (capture, VOID, remboursement, débit MIT, ré-autorisation) est donc
+ *   précédé d'une **lecture d'abord** (`getOperation` par notre clé) : une opération déjà faite est
+ *   reconnue et rien n'est renvoyé ; aucune trouvée : l'ordre part ; lecture par clé impossible
+ *   (`SUPPORTS_LOOKUP_BY_MERCHANT_REF` non validée) : **rien n'est envoyé** (fail-closed,
+ *   `UNSUPPORTED_CAPABILITY`, même suite qu'une capacité absente).
  */
 import { PaymentError, isPaymentError } from './errors.js';
 import { depositOperationKey, idempotencyKeyToSend } from './idempotency.js';
@@ -36,6 +43,7 @@ export type DepositPaymentProvider = Pick<
   | 'refund'
   | 'chargeMIT'
   | 'reauthorize'
+  | 'getOperation'
 >;
 
 export interface DepositReference {
@@ -184,10 +192,10 @@ export class DepositRailExecutor {
     attemptNo: number,
   ): Promise<DepositReauthOutcome> {
     try {
-      const result = await this.#provider.reauthorize({
-        idempotencyKey: this.#key(ref, 'DEPOSIT_REAUTH', instanceSeq, attemptNo),
-        providerReference,
-      });
+      const idempotencyKey = this.#key(ref, 'DEPOSIT_REAUTH', instanceSeq, attemptNo);
+      const result = await this.#readFirstOr(idempotencyKey, () =>
+        this.#provider.reauthorize({ idempotencyKey, providerReference }),
+      );
       if (result.status === 'SUCCEEDED') return { kind: 'REAUTHORIZED', result };
       if (result.status === 'FAILED') {
         return { kind: 'REAUTH_REFUSED', opsSignal: 'DEPOSIT_REAUTH_FAILED', reason: 'DECLINED' };
@@ -246,7 +254,11 @@ export class DepositRailExecutor {
     for (const step of steps) {
       let result: OperationResult | null;
       try {
-        result = await this.#run(ref, step, code, target, instanceSeq);
+        const key = this.#stepKey(ref, step, target, instanceSeq);
+        result =
+          key === null
+            ? null
+            : await this.#readFirstOr(key, () => this.#run(ref, step, code, target, key));
       } catch (error) {
         return {
           failure: {
@@ -274,18 +286,62 @@ export class DepositRailExecutor {
     return null;
   }
 
+  /** Clé de l'ordre d'une étape ; `null` : étape sans appel au PSP (`LET_EXPIRE`, `DEBT`). */
+  #stepKey(ref: DepositReference, step: DepositStep, target: Target, i: number): string | null {
+    const a = target.attemptNo;
+    switch (step.op) {
+      case 'CAPTURE':
+        return this.#key(ref, 'DEPOSIT_CAPTURE', i, a);
+      case 'VOID':
+        return this.#key(ref, 'DEPOSIT_VOID', i, a);
+      case 'REFUND':
+        return this.#key(ref, 'REFUND', i, a);
+      case 'MIT_CHARGE':
+        return this.#key(ref, 'MIT_CHARGE', i, a);
+      case 'LET_EXPIRE':
+      case 'DEBT':
+        return null;
+    }
+  }
+
+  /**
+   * US-222d2 (F-L2-LB-03, N-108) : sans en-tête d'idempotence validé, lecture d'abord par notre clé ;
+   * une opération trouvée est rendue telle que le PSP la tient (rien n'est renvoyé), sinon l'ordre
+   * part. Lecture par clé non validée : rien n'est envoyé (`UNSUPPORTED_CAPABILITY`, fail-closed).
+   * Une erreur de la lecture (`UNKNOWN_OUTCOME`, `PROVIDER_UNAVAILABLE`) remonte telle quelle : même
+   * suite qu'une erreur de l'ordre (lecture puis même clé au passage suivant, ou rien n'est parti).
+   */
+  async #readFirstOr(
+    idempotencyKey: string,
+    send: () => Promise<OperationResult>,
+  ): Promise<OperationResult> {
+    const caps = this.#provider.capabilities();
+    if (caps.bool('SUPPORTS_IDEMPOTENCY_HEADER')) return send();
+    if (!caps.bool('SUPPORTS_LOOKUP_BY_MERCHANT_REF')) {
+      throw new PaymentError(
+        'UNSUPPORTED_CAPABILITY',
+        'ordre de la caution sans en-tête d’idempotence ni lecture par clé : rien n’est envoyé',
+        { missing: ['SUPPORTS_IDEMPOTENCY_HEADER', 'SUPPORTS_LOOKUP_BY_MERCHANT_REF'] },
+      );
+    }
+    const found = await this.#provider.getOperation({ merchantReference: idempotencyKey });
+    if (found !== null) {
+      return { providerReference: found.providerReference, status: found.status };
+    }
+    return send();
+  }
+
   async #run(
     ref: DepositReference,
     step: DepositStep,
     currency: string,
     target: Target,
-    i: number,
-  ): Promise<OperationResult | null> {
-    const a = target.attemptNo;
+    idempotencyKey: string,
+  ): Promise<OperationResult> {
     switch (step.op) {
       case 'CAPTURE':
         return this.#provider.capture({
-          idempotencyKey: this.#key(ref, 'DEPOSIT_CAPTURE', i, a),
+          idempotencyKey,
           providerReference: target.providerReference,
           amountMinor: step.amountMinor,
           currency,
@@ -293,12 +349,12 @@ export class DepositRailExecutor {
         });
       case 'VOID':
         return this.#provider.void({
-          idempotencyKey: this.#key(ref, 'DEPOSIT_VOID', i, a),
+          idempotencyKey,
           providerReference: target.providerReference,
         });
       case 'REFUND':
         return this.#provider.refund({
-          idempotencyKey: this.#key(ref, 'REFUND', i, a),
+          idempotencyKey,
           providerReference: target.providerReference,
           amountMinor: step.amountMinor,
           currency,
@@ -306,7 +362,7 @@ export class DepositRailExecutor {
         });
       case 'MIT_CHARGE':
         return this.#provider.chargeMIT({
-          idempotencyKey: this.#key(ref, 'MIT_CHARGE', i, a),
+          idempotencyKey,
           tripReference: ref.tripReference,
           reason: step.reason,
           instrumentToken: target.instrumentToken,
@@ -316,7 +372,7 @@ export class DepositRailExecutor {
         });
       case 'LET_EXPIRE':
       case 'DEBT':
-        return null;
+        throw new PaymentError('INVALID_REQUEST', 'étape sans appel au PSP');
     }
   }
 }
