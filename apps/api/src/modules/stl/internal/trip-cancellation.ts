@@ -12,7 +12,9 @@
  *    preuve validée dérivée des pièces de l'action, devis figé, paramètres du pays ;
  * 2. moteur UNIQUE de `@rueda/money` (`buildSettlementRecord`, `cxl-beta/1`) sur le trip tiré du
  *    devis figé REJOUÉ (`replayFrozenQuote`, `quoteSettlementTrip` de PRC), instants et paramètres
- *    de la base ; `REFUND_OUT_OF_RANGE` ⇒ revue FIN (`settleOrFinReview`), rien d'écrit ;
+ *    de la base ; `REFUND_OUT_OF_RANGE` ⇒ revue FIN (`settleOrFinReview`), rien d'écrit ; le même
+ *    refus levé plus loin par 08 E2 (`ordersByTender` : remboursement au-delà des reliquats des
+ *    moyens) est lui aussi une revue FIN (`classify`, N-365, ADR-166 n° 8), jamais un `FAILED` ;
  * 3. `core.settlement_cmd_record` (travailleur `settlement`), version 1 ;
  * 4. `core.booking_cmd_trip_settle_cancellation` (travailleur `trip_lifecycle`) : la base requalifie,
  *    LIE le règlement à la demande et applique la transition avec `settlement_id` ;
@@ -736,7 +738,13 @@ const CONSTRAINT = /^[a-z][a-z0-9_]{1,62}$/;
  */
 export function classify(error: unknown): CancellationOutcome {
   if (error instanceof CancellationPlanError) return { outcome: 'FAILED', code: error.code };
-  if (isSettlementError(error)) return { outcome: 'FAILED', code: error.code };
+  if (isSettlementError(error)) {
+    // N-365 (ADR-090 décision 2, ADR-166 n° 8) : un remboursement hors bornes n'est jamais réduit
+    // ni abandonné ; où qu'il soit levé (moteur ou 08 E2 des moyens), il va à la revue FIN
+    return error.code === 'REFUND_OUT_OF_RANGE'
+      ? { outcome: 'FIN_REVIEW', code: error.code }
+      : { outcome: 'FAILED', code: error.code };
+  }
   const e = typeof error === 'object' && error !== null ? (error as Record<string, unknown>) : {};
   const state = typeof e['code'] === 'string' && SQLSTATE.test(e['code']) ? e['code'] : null;
   if (state === null) throw error;

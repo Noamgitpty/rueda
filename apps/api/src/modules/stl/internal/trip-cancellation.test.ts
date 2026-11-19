@@ -8,7 +8,12 @@
  * vecteurs (trip, événement, paramètres de test de 08) viennent de l'adaptateur de test du moteur
  * (`@rueda/money/testing`). Pays fictif `XA` (aucune constante de pays).
  */
-import { SettlementError, canonicalJson, type SettlementTrip } from '@rueda/money';
+import {
+  SettlementError,
+  buildSettlementRecord,
+  canonicalJson,
+  type SettlementTrip,
+} from '@rueda/money';
 import { legVector, loadGoldenVectors, settlementVector } from '@rueda/money/golden-vectors';
 import { testParams, toEvent, toTrip } from '@rueda/money/testing';
 import { describe, expect, it } from 'vitest';
@@ -34,6 +39,7 @@ import {
   registerTripCancellations,
   tenderKindOf,
   type CancellationFacts,
+  type CancellationPlan,
   type CaptureTender,
 } from './trip-cancellation.js';
 
@@ -316,6 +322,69 @@ describe('classement des refus', () => {
     });
     expect(classify({ code: '40P01' })).toEqual({ outcome: 'RETRY', code: 'RETRY' });
     expect(() => classify(new Error('réseau'))).toThrow('réseau');
+  });
+
+  it('N-365 (ADR-090 décision 2, ADR-166 n° 8) : REFUND_OUT_OF_RANGE, où qu’il soit levé, va à la revue FIN ; les autres refus du moteur restent FAILED', () => {
+    expect(classify(new SettlementError('REFUND_OUT_OF_RANGE', 'hors bornes'))).toEqual({
+      outcome: 'FIN_REVIEW',
+      code: 'REFUND_OUT_OF_RANGE',
+    });
+    expect(classify(new SettlementError('TOTAL_PAID_NOT_POSITIVE', 'total nul'))).toEqual({
+      outcome: 'FAILED',
+      code: 'TOTAL_PAID_NOT_POSITIVE',
+    });
+  });
+});
+
+describe('N-365 — preuves de 224f : rattachement de la réaffectation (ADR-166 n° 2)', () => {
+  // T39 (USD) : variation TJ05b, PLATFORM en hausse ⇒ réaffectation passée avant le remboursement
+  // (08 E7 règle 3) ; remboursement de chaque moyen : `allocate` de `check_t49plus.py` et `e2_refunds`
+  // de `check_legs.py` (`python -I -X utf8`, 2026-11-18) : deux cartes [150,00 ; 106,66] ⇒
+  // {c1 : 138,22, c2 : 0} ; Yappy capturé d'abord puis carte ⇒ {carte : 138,22, Yappy : 0}
+  it('réaffectation sur le premier moyen de la cascade : catégorie native d’abord, puis la capture la plus ancienne (clé et compte du moyen)', () => {
+    // T39 est un no-show du voyageur (motif hors de la console) : règlement du moteur unique sur le
+    // vecteur, comme `recordOfVector` des preuves L0 ; seuls le règlement et la devise sont lus
+    const { facts } = factsOf('T39');
+    const v = settlementVector(golden, 'T39');
+    const trip = toTrip(v.trip);
+    const plan: CancellationPlan = {
+      record: buildSettlementRecord(trip, toEvent(v.event), testParams(trip.currency)),
+      currency: trip.currency,
+      orders: [],
+    };
+    const realloc = (o: ReturnType<typeof ordersByTender>) =>
+      o.filter((x) => x.kind === 'LEG_REALLOCATION');
+    const platformGain = legsOf('TJ05b')['PLATFORM'] ?? 0n;
+    expect(platformGain > 0n).toBe(true);
+
+    const cards = ordersByTender(plan, [card('c1', 15_000n), card('c2', 10_666n)]);
+    expect(cards.map((o) => o.kind)).toEqual(['LEG_REALLOCATION', 'REFUND']);
+    expect(realloc(cards).map((o) => [o.tender.operationId, o.tender.accountId])).toEqual([
+      ['c1', 'acc-c1'],
+    ]);
+    const moved = realloc(cards)[0];
+    if (moved === undefined) throw new Error('réaffectation attendue');
+    expect(moved.amountMinor).toBe(platformGain);
+    expect(moved.legs['PLATFORM']).toBe(platformGain);
+    expect(orderKey(facts, moved, moved.tender.operationId)).toBe(
+      `${TRIP_ID}:${SEGMENT_ID}:v1:LEG_REALLOCATION:c1:i1:a1`,
+    );
+    expect(refundsOf(cards).map((o) => [o.tender.operationId, o.amountMinor])).toEqual([
+      ['c1', 13_822n],
+    ]);
+
+    // le moyen capturé en premier n'est pas natif : la réaffectation suit la cascade (carte)
+    const mixed = ordersByTender(plan, [
+      card('yappy', 10_666n, 0n, 'YAPPY'),
+      card('card', 15_000n),
+    ]);
+    expect(realloc(mixed).map((o) => [o.tender.operationId, o.tender.accountId])).toEqual([
+      ['card', 'acc-card'],
+    ]);
+    expect(refundsOf(mixed).map((o) => [o.tender.operationId, o.rail, o.amountMinor])).toEqual([
+      ['card', 'NATIVE_PARTIAL', 13_822n],
+    ]);
+    expect(refundsOf(mixed)[0]?.amountMinor).toBe(expected('T39').guestRefundMinor);
   });
 });
 
@@ -615,6 +684,52 @@ describe('isolement des demandes, alertes et essais bornés (revue code n° 1 à
     });
     expect(alerts.sent.map((a) => a.code)).toEqual(['FIN_SETTLEMENT_REVIEW']);
     expect(db.calls.some((c) => c.sql.includes('booking_cmd_trip_park_cancellation'))).toBe(true);
+  });
+
+  it('N-365 : REFUND_OUT_OF_RANGE de 08 E2 (moyen déjà engagé) ⇒ FIN_REVIEW garé, UNE alerte FIN_SETTLEMENT_REVIEW, aucun ordre écrit', async () => {
+    const { facts, trip } = factsOf('T27');
+    const db = new FakeDb((sql) => {
+      if (sql.includes('booking_trip_cancellation_begin')) return [beginRow(facts)];
+      if (sql.includes('settlement_cmd_record')) return [{ id: 'set-1' }];
+      if (sql.includes('booking_cmd_trip_settle_cancellation'))
+        return [{ r: { costBearer: 'GUEST' } }];
+      if (sql.includes('payment_payment_operation'))
+        // première carte déjà entièrement engagée : Σ reliquats (438 050) < remboursement de T27
+        return [
+          {
+            id: 'c1',
+            psp_account_id: 'acc-c1',
+            method: 'CARD',
+            amount_minor: '1000000',
+            committed_minor: '1000000',
+          },
+          {
+            id: 'c2',
+            psp_account_id: 'acc-c2',
+            method: 'CARD',
+            amount_minor: '438050',
+            committed_minor: '0',
+          },
+        ];
+      if (sql.includes('booking_cmd_trip_park_cancellation')) return [{ r: 'PARKED' }];
+      return new Error(sql);
+    });
+    const alerts = new Alerts();
+    const p = new TripCancellationProcessor({
+      transactions: transactionsOf(db),
+      alerts,
+      tripOf: () => trip,
+    });
+    expect(await p.process(CANCELLATION_ID)).toEqual({
+      outcome: 'FIN_REVIEW',
+      code: 'REFUND_OUT_OF_RANGE',
+    });
+    expect(alerts.sent.map((a) => [a.code, a.labels?.error_code])).toEqual([
+      ['FIN_SETTLEMENT_REVIEW', 'REFUND_OUT_OF_RANGE'],
+    ]);
+    expect(db.calls.some((c) => c.sql.includes('payment_cmd_plan_refund'))).toBe(false);
+    const parked = db.calls.filter((c) => c.sql.includes('booking_cmd_trip_park_cancellation'));
+    expect(parked).toHaveLength(1);
   });
 
   it('interblocages répétés : RETRY jusqu’à la borne, puis FAILED RETRY_EXHAUSTED, alerté et garé', async () => {

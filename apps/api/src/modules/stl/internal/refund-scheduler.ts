@@ -22,7 +22,8 @@
  * 4. `FAILED` : alerte FIN `FIN_REFUND_FAILED` (une fois) ; dans la transaction qui la marque, le
  *    rejet confirmé ouvre le choix d'un autre rail par le voyageur (SM-8 `PENDING_CUSTOMER_CHOICE`,
  *    `attempt_no` + 1, `core.payment_cmd_refund_await_choice`, US-224f, ADR-166) ; aucun autre rail
- *    n'est ouvert en bêta, rien n'est converti en crédit.
+ *    n'est ouvert en bêta, rien n'est converti en crédit. Ordre des verrous (N-364) : attente du
+ *    choix puis marque, toutes deux trip puis instance, comme la supersession.
  *
  * Une instance ne bloque jamais les suivantes (`process` ne lève pas). Chaque état n'est signalé
  * qu'une fois (`fin_alert`, posé APRÈS l'envoi de l'alerte : une alerte perdue est rejouée). Les
@@ -133,12 +134,15 @@ export class RefundScheduler {
         });
         await this.#deps.transactions.run(PAYMENT_COMMAND_WORKER, async (db) => {
           const orders = new PgRefundOrders(db);
-          await orders.markAlerted(due.instanceId, alert.key);
           // US-224f (08 SM-8, E4) : rejet confirmé signalé ⇒ attente du choix d'un autre rail ; une
-          // marque sans la transition (ou l'inverse) n'est jamais validée
+          // marque sans la transition (ou l'inverse) n'est jamais validée. N-364 (ADR-166 n° 7) :
+          // l'attente du choix d'ABORD (verrou du trip, puis ligne de l'instance), la marque ensuite,
+          // dans l'ordre de la supersession (trip puis instance) : jamais d'interblocage avec elle ;
+          // la base prend aussi le trip avant l'instance dans la marque (0152)
           if (due.status === 'FAILED' && alert.key === FAILED_ALERT_KEY) {
             await orders.awaitChoice(due.instanceId);
           }
+          await orders.markAlerted(due.instanceId, alert.key);
         });
       } catch (error) {
         // alerte ou marque impossible : rejouée au passage suivant (jamais perdue en silence)

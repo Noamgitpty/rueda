@@ -280,7 +280,11 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  Version 87 (la 86 est celle d’US-212b) : décision de la caution (US-702, ADR-172) : avis au
  voyageur `ntf.depositReleased.*` (caution libérée en entier) et `ntf.depositPartiallyCaptured.*`
  (frais annexes annoncés capturés, reste libéré), sur `deposit.decision.executed`.
- Version 90 (88 et 89 réservées au durcissement d’US-224 et à US-702b ; la 87 est celle d’US-702) :
+ Version 88 (la 87 est celle d’US-702) : durcissement argent n° 2 d'US-224 (BOARD
+ N-365) : texte pt-BR de `backoffice.cancel.outcome.REFUND_RAIL_NOT_NATIVE` corrigé (« sobre outro
+ meio de pagamento », calque de l'espagnol, devient « para um pagamento feito com outro meio ») ;
+ es, en, fr inchangés.
+ Version 90 (la 88 est celle du durcissement d’US-224 ; la 89 est réservée à US-702b) :
  numéros du support et de l’assistance de l’assureur dans la confirmation de réservation (US-213,
  ADR-174) : `ntf.assistance.<guest|host>.<email|sms>.<numbers|inApp>` (avec les numéros du pays,
  ou renvoi à la réservation dans l’appli tant qu’ils ne sont pas fournis, hors production

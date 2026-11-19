@@ -15,6 +15,14 @@
  * - montant de chaque moyen (08 E2) : T33 (carte 150,00, Yappy 37,44), TJ16c (carte 1 000 000,
  *   crédit cash 367) ; deux cartes : `allocate` de `check_t49plus.py` (la plus récente absorbe
  *   d'abord : seconde carte 37,44 / 367) ; états et `attempt_no` : 08 SM-8 et E4.
+ *
+ * Durcissement argent n° 2 (migration 0152, BOARD N-365 et N-367, ADR-166 n° 8 et 9) : un crédit
+ * (`CREDIT_CASH`, `CREDIT_PROMO`) n'est plus encaissable par la commande tant que les crédits
+ * n'existent pas ; les moyens d'origine RÉELS de 08 qui en comptent (T33, TJ16d) sont posés par la
+ * fixture 9933 (`hard2_credit_tender` : capture enregistrée sur une carte par la vraie commande,
+ * puis moyen crédit) pour prouver que leur remboursement reste refusé sur tout rail. « Deux
+ * cartes » : l'unité de trop est refusée sur CHACUN des deux moyens par la garde du règlement
+ * (`leg_refund_exceeds_settlement`, 0121), pas seulement par un 55000.
  */
 import { legVector } from '@rueda/money/golden-vectors';
 import type { GoldenLegVector } from '@rueda/money/golden-vectors';
@@ -46,6 +54,8 @@ import {
 } from '../support/settlement.ts';
 
 type Tx = pg.ClientBase;
+/** Moyens crédit de 08 : jamais encaissables par la commande depuis 0152 (N-367). */
+const CREDITS: ReadonlySet<string> = new Set(['CREDIT_CASH', 'CREDIT_PROMO']);
 const LEGS = ['HOST', 'INSURER', 'TAX_THIRD_PARTY', 'PLATFORM'] as const;
 const tj = (id: string): GoldenLegVector => legVector(golden, id);
 const legsOf = (v: GoldenLegVector): Legs => ({ ...v.legsMinor });
@@ -127,6 +137,7 @@ async function paid(
   const account = await insertAccount(tx, { country: c.country });
   const tenders: string[] = [];
   for (const p of parts) {
+    const credit = CREDITS.has(p.method);
     const { operation_id: op } = await recordOperation(tx, {
       tripId: trip,
       accountId: account,
@@ -135,8 +146,12 @@ async function paid(
       currency: c.currency,
       idemPlain: `trip:${trip}:CAPTURE:${uuid()}`,
       legs: p.legs,
-      method: p.method,
+      // N-367 (0152) : un crédit n'est plus encaissable par la commande ; fixture 9933 ensuite
+      method: credit ? 'CARD' : p.method,
     });
+    if (credit) {
+      await tx.query('SELECT test_fixture.hard2_credit_tender($1, $2)', [op, p.method]);
+    }
     expect(await applySignedStatus(tx, op, 'SUCCEEDED')).toBe('APPLIED');
     expect(await applyMovement(tx, op)).toBe('APPLIED');
     tenders.push(op);
@@ -255,11 +270,18 @@ describe.each(COUNTRIES)(
         expect(await orderLegs(tx, a.operation_id)).toEqual(textLegs(first));
         expect(await orderLegs(tx, b.operation_id)).toEqual(textLegs(second));
         for (const leg of LEGS) expect(first[leg] + second[leg]).toBe(owed[leg]);
-        // plus rien à rembourser : une unité de plus, sur l'un ou l'autre moyen, est refusée
-        const extra = await caught(tx, () =>
-          plan(tx, v1, w.tenders[1]!, legs(0n, 0n, 0n, 1n), 'NATIVE_PARTIAL', 2),
+        // plus rien à rembourser : une unité de plus, sur l'un OU l'autre moyen, est refusée par la
+        // garde du règlement (PLATFORM déjà remboursée de toute sa variation, 0121) ; N-365
+        for (const tender of w.tenders) {
+          expect(
+            await caught(tx, () => plan(tx, v1, tender, legs(0n, 0n, 0n, 1n), 'NATIVE_PARTIAL', 2)),
+          ).toMatchObject({ code: '55000', constraint: 'leg_refund_exceeds_settlement' });
+        }
+        const { rows: engaged } = await tx.query<{ n: string }>(
+          'SELECT pg_catalog.count(*)::text AS n FROM core.payment_refund_instance WHERE trip_id = $1',
+          [w.trip],
         );
-        expect(extra?.code).toBe('55000');
+        expect(engaged[0]?.n).toBe('2');
       });
     });
 
