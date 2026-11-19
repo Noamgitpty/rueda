@@ -68,6 +68,8 @@ const READERS = [
   // US-223 (0116) : preuve POLL / API_RESPONSE d'un compte de bac à sable hors production seulement
   'core.payment_cmd_apply_operation_status',
   'core.payment_cmd_receive_webhook',
+  // US-702 (0149) : fournisseur de la caution recalculé par la base, même choix que T1 (0116)
+  'core.payment_cmd_record_deposit_decision',
   'core.payment_cmd_record_operation',
   'core.payment_cmd_register_submerchant',
   // US-701 (0146) : compte marchand du pays de la caution, même choix que T1 (0116)
