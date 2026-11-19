@@ -51,6 +51,7 @@ import { PgListingRatingStore } from './modules/rev/index.js';
 import { availabilityProbeLimiter, postgresRiskAdapters } from './modules/risk/index.js';
 import {
   PgFinanceApprovalStore,
+  PgHelpStore,
   PgManualActionStore,
   PgOpsConsoleStore,
   unavailableEvidence,
@@ -173,6 +174,8 @@ async function bootstrap(): Promise<void> {
         // KMS et stockage objet indisponibles tant qu'US-003 et Q-019 ne sont pas livrés (503)
         ops: new PgOpsConsoleStore(pool),
         evidence: unavailableEvidence(pool),
+        // aide et urgence du trip (US-310, 0162) : commandes SUP sous app_api
+        help: new PgHelpStore(pool),
       },
       brand,
       risk,

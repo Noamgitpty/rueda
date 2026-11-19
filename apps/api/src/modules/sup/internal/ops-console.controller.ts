@@ -217,9 +217,9 @@ function actorOf(request: object): StaffActor {
 // US-108 : instants du dossier de l'hôte (screenedAt, decidedAt, activatedAt)
 // US-209b : instants du dossier d'une réservation signalée (flaggedAt, reviewedAt, expiresAt,
 // declaredAt ; la date d'entrée déclarée reste une date) ; US-215b : heure de la demande d'annulation
-// (requestedAt ; decidedAt déjà là)
+// (requestedAt ; decidedAt déjà là) ; US-310 : première réponse d'une demande d'aide (firstResponseAt)
 const DATE_FIELD =
-  /^(createdAt|slaDueAt|liftedAt|scheduledStart|scheduledEnd|updatedAt|startsAt|endsAt|screenedAt|decidedAt|activatedAt|flaggedAt|reviewedAt|expiresAt|declaredAt|requestedAt)$/;
+  /^(createdAt|slaDueAt|liftedAt|scheduledStart|scheduledEnd|updatedAt|startsAt|endsAt|screenedAt|decidedAt|activatedAt|flaggedAt|reviewedAt|expiresAt|declaredAt|requestedAt|firstResponseAt)$/;
 
 /** Décision de la file d'ajout (US-114) : la forme est jugée ici, les valeurs par la base. */
 function resolutionOf(b: Record<string, unknown>): CatalogResolution {

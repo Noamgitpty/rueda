@@ -56,6 +56,7 @@ import {
 import type { RateLimitPolicy } from '../modules/risk/index.js';
 import {
   PgFinanceApprovalStore,
+  PgHelpStore,
   PgManualActionStore,
   PgOpsConsoleStore,
   unavailableEvidence,
@@ -297,6 +298,20 @@ async function requestOf(
       return { method: 'GET', path: `/brand/assets/${id}` };
     case 'GET /regulatory-notices':
       return { method: 'GET', path: `/regulatory-notices?country=${country}&audience=GUEST` };
+    // aide et urgence (US-310) : configuration pays (public) ; trip inconnu de l'acteur ⇒ 404 ;
+    // console : demandes des pays permis seulement
+    case 'GET /help':
+      return { method: 'GET', path: `/help?country=${country}` };
+    case 'GET /trips/{tripId}/help':
+      return { method: 'GET', path: `/trips/${randomUUID()}/help` };
+    case 'POST /trips/{tripId}/help-requests':
+      return {
+        method: 'POST',
+        path: `/trips/${randomUUID()}/help-requests`,
+        body: { requestId: randomUUID(), topic: 'OTHER' },
+      };
+    case 'GET /console/help-requests':
+      return { method: 'GET', path: `/console/help-requests?country=${country}&limit=5` };
     case 'POST /auth/signup':
       return {
         method: 'POST',
@@ -1205,6 +1220,8 @@ beforeAll(async () => {
         // US-109 : commandes réelles ; pièces : adaptateurs de production (indisponibles, 503)
         ops: new PgOpsConsoleStore(client),
         evidence: unavailableEvidence(singlePool),
+        // US-310 : commandes réelles de l'aide (0162), même connexion de test
+        help: new PgHelpStore(client),
       },
       {
         store: new PgBrandStore(client),

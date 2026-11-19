@@ -53,6 +53,8 @@ describe('abonnement', () => {
       'deposit.decision.executed',
       'kyc.verification.status_changed',
       'payout.batch.status_changed',
+      // US-310 : réponse automatique à une demande d'aide hors plage
+      'support.help_request.received',
       'trip.overdue.detected',
       'trip.status_changed',
     ]);

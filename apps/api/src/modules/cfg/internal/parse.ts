@@ -26,6 +26,7 @@ import type {
   DecisionInfo,
   DecisionStatus,
   FailMode,
+  HelpConfig,
   HolidayConfig,
   LegalEntityConfig,
   NameLanguage,
@@ -41,6 +42,7 @@ import type {
   ValueClass,
   PhoneNumberingConfig,
   RegulatoryNotice,
+  SupportHoursConfig,
 } from './model.js';
 
 export interface CountryConfigSources {
@@ -315,6 +317,68 @@ function parseAssistanceContacts(
   return Object.freeze({ supportPhone, insurerAssistancePhone });
 }
 
+const EMERGENCY_NUMBER = /^[0-9]{3,6}$/;
+const AUTHORITY_ID = /^[a-z][a-zA-Z0-9]{0,31}$/;
+const CLOCK = /^([01][0-9]|2[0-3]):[0-5][0-9]$/;
+
+/** Plage du support (US-310, ADR-182) : `null`, ou `{ from, to, staffingPlanRef }`, from < to. */
+function parseSupportHours(c: Collector, path: string, value: unknown): SupportHoursConfig | null {
+  if (value === null) return null;
+  if (!isObject(value)) {
+    c.add(path, 'objet ou null attendu');
+    return null;
+  }
+  checkKeys(c, path, value, ['from', 'to', 'staffingPlanRef']);
+  const from = value['from'];
+  const to = value['to'];
+  let ok = true;
+  for (const [field, raw] of [
+    ['from', from],
+    ['to', to],
+  ] as const) {
+    if (typeof raw !== 'string' || !CLOCK.test(raw)) {
+      c.add(`${path}.${field}`, 'heure locale HH:MM attendue');
+      ok = false;
+    }
+  }
+  if (ok && (from as string) >= (to as string)) {
+    c.add(path, 'la fermeture doit suivre l’ouverture (même jour)');
+    ok = false;
+  }
+  const staffingPlanRef = str(c, `${path}.staffingPlanRef`, value['staffingPlanRef']);
+  if (!ok || staffingPlanRef === undefined) return null;
+  return Object.freeze({ from: from as string, to: to as string, staffingPlanRef });
+}
+
+/** Aide et urgence du pays (US-310, ADR-182) : champ obligatoire. */
+function parseHelp(c: Collector, path: string, value: unknown): HelpConfig | undefined {
+  if (!isObject(value)) {
+    c.add(path, 'objet { emergencyNumber, trafficAuthority, supportHours } attendu');
+    return undefined;
+  }
+  checkKeys(c, path, value, ['emergencyNumber', 'trafficAuthority', 'supportHours']);
+  const emergencyNumber = value['emergencyNumber'];
+  if (typeof emergencyNumber !== 'string' || !EMERGENCY_NUMBER.test(emergencyNumber)) {
+    c.add(`${path}.emergencyNumber`, 'numéro d’urgence attendu (3 à 6 chiffres)');
+  }
+  const trafficAuthority = value['trafficAuthority'];
+  if (typeof trafficAuthority !== 'string' || !AUTHORITY_ID.test(trafficAuthority)) {
+    c.add(`${path}.trafficAuthority`, 'identifiant camelCase attendu');
+  }
+  if (!('supportHours' in value))
+    c.add(`${path}.supportHours`, 'champ obligatoire (objet ou null)');
+  const supportHours = parseSupportHours(c, `${path}.supportHours`, value['supportHours']);
+  if (
+    typeof emergencyNumber !== 'string' ||
+    !EMERGENCY_NUMBER.test(emergencyNumber) ||
+    typeof trafficAuthority !== 'string' ||
+    !AUTHORITY_ID.test(trafficAuthority)
+  ) {
+    return undefined;
+  }
+  return Object.freeze({ emergencyNumber, trafficAuthority, supportHours });
+}
+
 function parseLegalEntity(c: Collector, path: string, value: unknown): LegalEntityConfig | null {
   if (value === null) return null;
   if (!isObject(value)) {
@@ -561,6 +625,7 @@ function parseCountries(
       'taxDecision',
       'legalEntity',
       'assistanceContacts',
+      'help',
       'holidayCalendar',
       'timeZoneChecks',
     ]);
@@ -644,6 +709,7 @@ function parseCountries(
       raw['assistanceContacts'],
       phone?.callingCode,
     );
+    const help = parseHelp(c, `${p}.help`, raw['help']);
     const holidayCalendar = parseHolidays(c, `${p}.holidayCalendar`, raw['holidayCalendar']);
     const timeZoneChecks = parseTimeZoneChecks(c, `${p}.timeZoneChecks`, raw['timeZoneChecks']);
 
@@ -656,6 +722,7 @@ function parseCountries(
       taxDecision === undefined ||
       phone === undefined ||
       regulatoryNotices === undefined ||
+      help === undefined ||
       NAME_LANGUAGES.some((l) => names[l] === undefined)
     ) {
       return;
@@ -677,6 +744,7 @@ function parseCountries(
         taxDecision,
         legalEntity,
         assistanceContacts,
+        help,
         holidayCalendar,
         timeZoneChecks: Object.freeze(timeZoneChecks),
       }),

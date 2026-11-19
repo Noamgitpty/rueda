@@ -53,19 +53,23 @@ SUP ne décide pas les règles des autres modules : une action de console appell
 - **US-224e** (ADR-163, migration 0140) : hôte défaillant (08 BR-TRUST-09).
   - `CANCEL_HOST_TRIPS` de `POST /console/actions` (sujet = le compte d'hôte, permission `ops.platform_cancel`, aucune saisie) est liée à `core.booking_manual_action_cancel_host_trips` : l'hôte doit d'abord être restreint pour la sûreté (`RESTRICT_ACCOUNT` : `TS_HOLD` ou `POLICY_VIOLATION`, ou `KYC_REVOKED` ; depuis 0148, N-354, ADR-171, une restriction d'argent `UNPAID_BALANCE`, `PAYMENT_PLAN_ACTIVE` ou `CHARGEBACK` ne suffit pas : `HOST_NOT_RESTRICTED`) ; 201 `STAFF_ACTION_DONE` = une demande `CANCEL_TRIP_PLATFORM` / `HOST_ACCOUNT_CLOSED` enregistrée par trip à venir du compte, chacune réglée par le travailleur `trip_lifecycle` (remboursement intégral, aucune pénalité) et lue par `GET /console/cancellations/{id}` ; refus 409 `STAFF_ACTION_REFUSED` (`values.reason` : `HOST_NOT_RESTRICTED`, `NO_TRIP_TO_CANCEL`, `NOT_FOUND`, `SELF_FORBIDDEN`). Bouton de la fiche 360° : suite (écran et textes).
 - **US-224d** (ADR-154, migration 0130) : `GET /console/refunds/{id}` (identifiant du trip) : remboursements SM-8 du trip pour OPS_AGENT, FINANCE et ADMIN (`ops.platform_cancel` ou `finance.platform_advance` dans le pays du trip, commande `core.support_staff_trip_refunds`) : état, montant, rail, tentative, version du règlement, jambes demandées et de l'ordre envoyé, statut de l'ordre, motif de blocage, alerte FIN, avance, dates de planification et d'émission ; montants en texte avec l'exposant de la devise ; garde ADR-122 (403 `STAFF_SELF_FORBIDDEN`), trip inconnu ou d'un autre pays 403 `FORBIDDEN`, refus journalisés ; lecture non inscrite au journal des accès (aucune donnée personnelle).
+- **US-310** (ADR-182, migration 0162) : aide et urgence pendant le trip (`internal/help/`, `SupHelpModule`, monté par le seul processus API).
+  - `GET /help?country=` (public, cache court) : aide du pays lue de la configuration (`help` et `assistanceContacts` de CFG) : numéro d'urgence, autorité de circulation (`common.help.authority.<id>`), numéros du support et de l'assistance de l'assureur ou `null`, plage publiée ou `null` (SUP-020) ; jamais la référence du planning ; 400 `REQUEST_INVALID`.
+  - `GET /trips/{tripId}/help` et `POST /trips/{tripId}/help-requests` (`SessionGuard`, `TermsGuard`) : rôle de la session dans le trip (voyageur ou titulaire du compte d'hôte, jugé par `core.support_trip_help_context`) et aide du pays du trip ; demande d'aide à motif fermé (`ACCIDENT`, `BREAKDOWN`, `HANDOVER`, `SAFETY`, `OTHER`), identifiant de la demande obligatoire, aucun texte libre : 201 `OPENED`, 200 `DUPLICATE` / `EXISTS`, 404 `TRIP_NOT_FOUND` (autrui, inconnu, mal formé : même réponse), 503 `HELP_UNAVAILABLE`. Commande `core.support_cmd_open_help_request` : dossier `IN_APP`, hors plage jugé par la base (horloge, fuseau du pays, plage transmise depuis la configuration), événement `support.help_request.received`.
+  - `GET /console/help-requests?country=&limit=` (StaffGuard, `support.case_write`) : demandes vivantes sans donnée personnelle et M6 des 28 derniers jours par pays (`core.support_staff_help_requests`). Prise d'une demande non assignée et première réponse (`first_response_at`) par `POST /console/cases/{id}/status` (`core.support_staff_set_case_status` remplacée en 0162 ; garde ADR-122 inchangée) ; `RESOLVED` pose `resolved_at`.
 - À venir : gestes commerciaux (US-533), console à rôles complets (US-534), commandes de domaine d'état liées par leurs stories (US-208, US-124…), mise en file par les commandes productrices (US-114, US-118, US-209), notification de l'ADMIN sur `kyc.host_screening.flagged`.
 
 ## Entités
 
 Bêta (17 §10 point 3) : schéma unique `core`, tables préfixées `support_`.
 
-| Entité (17 §3.2.13)  | État                                                                                 |
-| -------------------- | ------------------------------------------------------------------------------------ |
-| `support_case`       | table `core.support_support_case` (migration 0024), sous-ensemble des colonnes de 17 |
-| `manual_action`      | table `core.support_manual_action` (migration 0034)                                  |
-| `internal_note`      | table `core.support_internal_note` (migration 0064), ajout seul                      |
-| `review_queue_item`  | table `core.support_review_queue_item` (migration 0064)                              |
-| `commercial_gesture` | cible 17, pas encore créée                                                           |
+| Entité (17 §3.2.13)  | État                                                                                                                                                                                                                              |
+| -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `support_case`       | table `core.support_support_case` (migration 0024), sous-ensemble des colonnes de 17 ; colonnes de la demande d'aide (`help_topic`, `requester_role`, `off_hours`, `first_response_at`, `resolved_at`) ajoutées par 0162 (US-310) |
+| `manual_action`      | table `core.support_manual_action` (migration 0034)                                                                                                                                                                               |
+| `internal_note`      | table `core.support_internal_note` (migration 0064), ajout seul                                                                                                                                                                   |
+| `review_queue_item`  | table `core.support_review_queue_item` (migration 0064)                                                                                                                                                                           |
+| `commercial_gesture` | cible 17, pas encore créée                                                                                                                                                                                                        |
 
 Tables présentes en base mais absentes de 17 : `core.support_manual_action_catalog` (migration 0034, complété par 0060), catalogue fermé des codes d'action ; `core.support_manual_action_handler` (migration 0060), liaison d'une action à sa commande de domaine ; `core.support_review_queue` (migration 0064), files déclarées avec leur permission et leur paramètre de délai.
 
@@ -76,6 +80,8 @@ Tables présentes en base mais absentes de 17 : `core.support_manual_action_cata
 ## Événements
 
 Émis (US-106, par la base, travailleur `review_sla_watch`) : `support.review_queue.sla_breached` (`item_id`, `queue`, `sla_due_at`, `severity` P2), une fois par élément en retard.
+
+Émis (US-310, par la commande de la demande d'aide, 0162 ; PROPOSÉ, à reporter dans 17 §4.5) : `support.help_request.received` (`case_id`, `trip_id`, `requester_user_id`, `requester_role`, `topic`, `off_hours`, `auto_reply` ∈ GUEST, HOST, NONE), consommé par NTF (réponse automatique hors plage).
 
 Cible :
 
@@ -91,11 +97,12 @@ Port interne, exporté par `index.ts` :
 - adaptateur PostgreSQL `PgManualActionStore`, qui appelle `core.iam_staff_cmd_manual_action` en autocommit, contexte STAFF posé dans l'instruction ;
 - `FinanceApprovalStore` (`internal/finance-approval-store.ts`) : `pending(acteur, limite)` et `approve(acteur, demande)` ; adaptateur `PgFinanceApprovalStore` (lecture en transaction courte sous la RLS, approbation en une instruction).
 - `OpsConsoleStore` (`internal/ops-console-store.ts`, US-109) : une méthode par commande `core.support_staff_*` ; adaptateur `PgOpsConsoleStore` (une instruction en autocommit, sauf l'enregistrement d'une pièce, fait dans la transaction du téléversement).
+- `HelpStore` (`internal/help/help-store.ts`, US-310) : `context`, `open`, `staffRequests` ; adaptateur `PgHelpStore` (une instruction par appel, en autocommit) ; sans magasin : `UnavailableHelpStore` (503).
 - Pièces du staff (`internal/evidence.ts`, US-109) : `EvidenceScanner` (antivirus et type réel, même forme que `UploadScanner` d'AUD), `EvidenceVault` (clé de la personne et chiffrement, KMS), `EvidenceFileStore` (seau `PRIVATE_EVIDENCE`, création seule). Production : `UnavailableEvidenceScanner`, `UnavailableEvidenceVault`, `UnavailableEvidenceFileStore` (`unavailableEvidence`), jamais un FAKE.
 
 Le test du contrôleur remplace ce magasin par un double en mémoire. Aucun adaptateur FAKE de `packages/fake-adapters` ne concerne SUP.
 
-API publique de `index.ts` : `SupModule`, `SupConsoleModule` (et le type `SupConsoleOptions`), `PgManualActionStore`, le type `ManualActionStore`, `PgFinanceApprovalStore`, les types `FinanceApprovalStore` et `SqlPool`, `PgOpsConsoleStore`, `OpsStoreError`, `OPS_MESSAGES`, les types `OpsConsoleStore` et `OpsResult`, les ports et adaptateurs indisponibles des pièces (`unavailableEvidence`…), `SupBrandConsoleModule`, `SupSecurityConsoleModule`.
+API publique de `index.ts` : `SupModule`, `SupConsoleModule` (et le type `SupConsoleOptions`), `PgManualActionStore`, le type `ManualActionStore`, `PgFinanceApprovalStore`, les types `FinanceApprovalStore` et `SqlPool`, `PgOpsConsoleStore`, `OpsStoreError`, `OPS_MESSAGES`, les types `OpsConsoleStore` et `OpsResult`, les ports et adaptateurs indisponibles des pièces (`unavailableEvidence`…), `SupBrandConsoleModule`, `SupSecurityConsoleModule` ; aide et urgence (US-310) : `SupHelpModule`, `PgHelpStore`, `UnavailableHelpStore`, `HelpStoreError`, `HELP_TOPICS`, `HELP_MESSAGES`, `helpViewOf`, `authorityMessageKey` et les types `HelpStore`, `HelpTopic`, `HelpRole`, `HelpHours`, `HelpContextRow`, `HelpOpenRow`, `HelpStaffResult`, `HelpCountryView`.
 
 ## Commandes de test
 
@@ -112,6 +119,6 @@ pnpm --filter @rueda/db exec vitest run --config vitest.l0.config.ts test/l0/l0-
 pnpm --filter @rueda/db exec vitest run --config vitest.l0.config.ts test/l0/l0-rls-actors.test.ts
 ```
 
-`l0-staff-console` prouve la commande `manual_action` (MFA, portée pays, journal, idempotence) ; `l0-us109-review-queues-360` prouve les files, la fiche 360°, le journal d'accès, les restrictions et les pièces d'US-109 (PA et PY, IDOR) ; `l0-us101-console-actions` prouve le cadre d'US-101 (commande liée dans la même transaction, aucun montant, pièces, FINANCE à deux personnes). Test:int des adaptateurs : `pnpm --filter @rueda/api exec vitest run --config vitest.int.config.ts src/modules/sup`. `l0-rls-actors` prouve la lecture de `support_support_case` (RLS-6). La console de marque est prouvée côté CFG (`test/l0/l0-brand.test.ts`).
+`l0-us310-help-request` prouve la demande d'aide d'US-310 (PA et PY : parties, IDOR, idempotence, demande vivante, plage au fuseau du pays, événement minimisé, prise, M6, séparation des tâches) ; contrat HTTP : `testing/help.contract.test.ts`. `l0-staff-console` prouve la commande `manual_action` (MFA, portée pays, journal, idempotence) ; `l0-us109-review-queues-360` prouve les files, la fiche 360°, le journal d'accès, les restrictions et les pièces d'US-109 (PA et PY, IDOR) ; `l0-us101-console-actions` prouve le cadre d'US-101 (commande liée dans la même transaction, aucun montant, pièces, FINANCE à deux personnes). Test:int des adaptateurs : `pnpm --filter @rueda/api exec vitest run --config vitest.int.config.ts src/modules/sup`. `l0-rls-actors` prouve la lecture de `support_support_case` (RLS-6). La console de marque est prouvée côté CFG (`test/l0/l0-brand.test.ts`).
 
 Les preuves L0 demandent PostgreSQL : guide `docs/ops/INSTALL.md` (compose de dev) ou `RUEDA_PG_TESTCONTAINERS=1`.
