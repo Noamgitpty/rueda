@@ -334,8 +334,11 @@ BEGIN
            'assignedToMe', x.assignee_id IS NOT DISTINCT FROM v_s.user_id)
            ORDER BY x.prio_rank, x.created_at, x.id), '[]'::jsonb)
     INTO v_items
-    FROM (SELECT c.*, CASE c.priority WHEN 'URGENT' THEN 0 WHEN 'HIGH' THEN 1
-                                      WHEN 'NORMAL' THEN 2 ELSE 3 END AS prio_rank
+    -- colonnes nommées : jamais le motif C2 (`reason`), que le propriétaire ne lit pas
+    FROM (SELECT c.id, c.trip_id, c.country_code, c.help_topic, c.requester_role, c.priority,
+                 c.status, c.off_hours, c.created_at, c.first_response_at, c.assignee_id,
+                 CASE c.priority WHEN 'URGENT' THEN 0 WHEN 'HIGH' THEN 1
+                                 WHEN 'NORMAL' THEN 2 ELSE 3 END AS prio_rank
             FROM core.support_support_case AS c
            WHERE c.help_topic IS NOT NULL AND c.country_code = ANY (v_countries)
              AND c.status IN ('OPEN', 'PENDING')
