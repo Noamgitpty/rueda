@@ -2845,6 +2845,67 @@
         "updated_at": "C1"
       }
     },
+    "core.payout_payout_batch": {
+      "lifecycle": "B",
+      "subjects": [
+        {
+          "column": "org_id",
+          "type": "ORG"
+        }
+      ],
+      "export": "controller",
+      "columns": {
+        "id": "C1",
+        "org_id": "C1",
+        "country_code": "C1",
+        "currency": "C1",
+        "kind": "C1",
+        "variant": "C1",
+        "psp_account_id": "C1",
+        "payout_account_id": "C1",
+        "first_payout": "C1",
+        "status": "C1",
+        "scheduled_for": "C1",
+        "gross_minor": "C1",
+        "netted_minor": "C1",
+        "net_minor": "C1",
+        "hold_reasons": "C1",
+        "netted_at": "C1",
+        "attempt_no": "C1",
+        "idempotency_key": "C1",
+        "provider_ref": "C1",
+        "initiated_at": "C1",
+        "paid_at": "C1",
+        "row_version": "C1",
+        "created_at": "C1",
+        "updated_at": "C1"
+      }
+    },
+    "core.payout_payout_item": {
+      "lifecycle": "A",
+      "subjects": [
+        {
+          "column": "org_id",
+          "type": "ORG"
+        }
+      ],
+      "export": "controller",
+      "columns": {
+        "id": "C1",
+        "batch_id": "C1",
+        "trip_id": "C1",
+        "segment_no": "C1",
+        "leg": "C1",
+        "org_id": "C1",
+        "country_code": "C1",
+        "currency": "C1",
+        "amount_minor": "C1",
+        "release_attempt": "C1",
+        "release_operation_id": "C1",
+        "created_at": "C1",
+        "updated_at": "C1"
+      }
+    },
     "core.kyc_host_tax_profile": {
       "lifecycle": "B",
       "subjects": [

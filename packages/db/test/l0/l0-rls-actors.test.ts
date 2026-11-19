@@ -701,6 +701,10 @@ describe('RLS-5, RLS-12, RLS-18', () => {
           // US-707 (0159, ADR-180) : AUCUN droit ni politique d'app_api ; accès par les seules
           // fonctions SECURITY DEFINER de cmd_money_owner (titulaire désigné par son jeton)
           'payout_payout_account',
+          // US-708 (0166, ADR-185) : même règle (lots et items de versement, commandes du
+          // travailleur payment_command seulement)
+          'payout_payout_batch',
+          'payout_payout_item',
           'kyc_host_verification',
           'payment_payment_operation_leg', // US-019 : jambe HOST du titulaire, ADMIN / FINANCE
           'payment_psp_submerchant', // US-061 : statut du titulaire, ADMIN / FINANCE

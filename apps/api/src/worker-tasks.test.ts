@@ -97,6 +97,8 @@ describe('tâches du travailleur (US-003)', () => {
       'ntf_dispatcher',
       'ntf_sender',
       'ops_monitor',
+      // US-708 (ADR-185) : lots de versement (aucun connecteur en production, payouts_enabled false)
+      'payout_scheduler',
       'privacy_request',
       'reconciliation',
       // US-224c (ADR-150) : remboursements planifiés (aucun connecteur en production)
@@ -120,6 +122,7 @@ describe('tâches du travailleur (US-003)', () => {
       ['iam_otp_pruner', 3_600, 5],
       ['kyc_score_pruner', 3_600, 5],
       ['ops_monitor', 60, 5],
+      ['payout_scheduler', 60, 5],
       ['privacy_request', 3_600, 5],
       ['reconciliation', 86_400, 5],
       ['refund_scheduler', 10, 5],

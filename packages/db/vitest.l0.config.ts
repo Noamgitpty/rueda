@@ -65,6 +65,9 @@ const ISOLATED = [
   // US-702b : ré-autorisation contre décision de la même caution à deux sessions, caution commitée
   // puis toujours menée à un état final (aucune caution laissée dans une file)
   'test/l0/l0-us702b-deposit-race.test.ts',
+  // US-708 : deux travailleurs préparent le versement du même trip, à deux sessions ; trip encaissé
+  // et terminé VALIDÉ sur le compte PSP ACTIVE partagé du pays (fixture 9800), lot validé
+  'test/l0/l0-us708-payout-race.test.ts',
 ];
 const C11 = ['test/l0/l0-c11-fuzz.test.ts'];
 // US-049 : les attaques de la red team (test/redteam/<axe>/) tournent seules, après tous les autres
