@@ -590,6 +590,13 @@
       "story": "US-061, US-223"
     },
     {
+      "signature": "core.settlement_cmd_apply_conversion_capture(uuid)",
+      "family": "cmd_money",
+      "owner": "cmd_money_owner",
+      "execute": ["app_worker"],
+      "story": "US-221"
+    },
+    {
       "signature": "core.settlement_cmd_approve_finance_action(bytea,uuid)",
       "family": "cmd_money",
       "owner": "cmd_money_owner",
@@ -1801,6 +1808,13 @@
     },
     {
       "signature": "core.booking_host_constancia_search(bytea,text,date)",
+      "family": "cmd_hold",
+      "owner": "cmd_hold_owner",
+      "execute": ["app_api"],
+      "story": "US-212"
+    },
+    {
+      "signature": "core.booking_checkout_host_name(bytea,uuid)",
       "family": "cmd_hold",
       "owner": "cmd_hold_owner",
       "execute": ["app_api"],

@@ -34,6 +34,18 @@ import type { Language } from './fixtures.ts';
 import { SPEC_TEXT } from './oracle.ts';
 import { PUBLIC_ID } from './search-data.ts';
 
+/**
+ * US-212b (19 US-212 critère 3, BOARD N-346) : sur S05, la plateforme est dite intermédiaire entre
+ * particuliers et marchand de référence, pas une société de location, et l'hôte est nommé en prénom
+ * et initiale (double : « Ana P. »), jamais par son nom complet.
+ */
+const INTERMEDIARY: Readonly<Record<Language, RegExp>> = {
+  es: /plataforma entre particulares.*comerciante de referencia.*no es una empresa de alquiler.*Ana P\./,
+  en: /peer-to-peer marketplace.*merchant of record.*not a rental company.*Ana P\./,
+  fr: /place de marché entre particuliers.*marchand de référence.*pas une société de location.*Ana P\./,
+  pt: /plataforma entre particulares.*comerciante de referência.*não é uma locadora.*Ana P\./,
+};
+
 /** Fiche à boîte manuelle du double. */
 const MANUAL_ID = '11500000-0000-4000-8000-00000000f004';
 /** TA01 : total 128,40 ; prix redemandé du double : 134,82 (montants en unités de la devise). */
@@ -171,6 +183,12 @@ for (const language of LANGUAGES) {
       await expect(s05.locator('dd').nth(1)).toHaveText(TA01_TAX);
       await expect(s05.locator('dd').last()).toHaveText(TA01_TOTAL);
       await expect(page.locator('#s05-manual')).toHaveCount(0);
+
+      // US-212b : mention d'intermédiaire et hôte en prénom et initiale (critère 3)
+      await expect(page.locator('[data-testid="s05-intermediary"]')).toHaveText(
+        INTERMEDIARY[language],
+      );
+      await expect(page.locator('#s05-summary').locator('..')).toContainText('Ana P.');
 
       // bouton inactif : annoncé, aide liée ; un clic n'envoie rien et montre ce qui manque
       const button = submit(page);

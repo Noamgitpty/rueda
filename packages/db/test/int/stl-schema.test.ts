@@ -95,7 +95,9 @@ describe('schéma STL (US-018, 0027)', () => {
         if (r.cmd === 'a' || r.cmd === 'w') expect(r.roles, label).toBe('cmd_money_owner');
         expect(['app_api', 'app_worker', 'cmd_money_owner'], label).toContain(r.roles);
       }
-      // trip_leg_balance : un seul écrivain, cmd_apply_leg_movement (US-061, 0039)
+      // trip_leg_balance : écrivains cmd_apply_leg_movement (US-061, 0039) et, depuis US-221b
+      // (0149, ADR-170), le report de la capture convertie (cmd_apply_conversion_capture) : ses
+      // politiques sont réservées aux travailleurs de conversion et miroir exact de la capture
       expect(
         rows
           .filter(
@@ -104,7 +106,12 @@ describe('schéma STL (US-018, 0027)', () => {
           )
           .map((r) => `${r.pol}:${r.cmd}:${r.roles}`)
           .sort(),
-      ).toEqual(['cmd_money_ins:a:cmd_money_owner', 'cmd_money_upd:w:cmd_money_owner']);
+      ).toEqual([
+        'cmd_money_conversion_ins:a:cmd_money_owner',
+        'cmd_money_conversion_upd:w:cmd_money_owner',
+        'cmd_money_ins:a:cmd_money_owner',
+        'cmd_money_upd:w:cmd_money_owner',
+      ]);
     });
   });
 

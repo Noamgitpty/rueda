@@ -8,6 +8,8 @@
  *   ouverts par la procédure à deux personnes d'US-125, dans la transaction du test) ;
  * - marque ou modèle de valeur haute, du catalogue ou saisi hors catalogue ⇒ classe haute, jamais
  *   STANDARD (contrat limité à STANDARD ⇒ VEHICLE_NOT_COVERED : jamais sous-assuré) ;
+ * - N-313 (migration 0148, ADR-171) : écritures courantes d'une saisie libre (« G 500 », « S580 »,
+ *   « LandCruiser », « MercedesBenz »), marques et modèles ajoutés à la graine ;
  * - aucune régression : un véhicule déjà classé garde sa classe ; une variante générale de la
  *   graine v1 suit le défaut ; un véhicule jamais publié reste sans classe au rattachement ;
  * - le défaut est un paramètre du pays (autre valeur ⇒ autre classe) ; contrat fermé ⇒ toujours
@@ -157,6 +159,21 @@ const OFF_CATALOG_CASES: ReadonlyArray<{
   { make: 'Mercedes', model: 'C 200', expected: 'PREMIUM', source: 'MAKE_RULE' },
   { make: 'Range Rover', model: 'Velar', expected: 'LUXE', source: 'MAKE_RULE' },
   { make: 'Marca Inventada', model: 'Modelo Uno', expected: 'DEFAULT', source: 'COUNTRY_DEFAULT' },
+  // N-313 (migration 0148, ADR-171) : écritures d'une saisie libre (espaces, casse, tirets
+  // absents, chiffres collés), marques et modèles ajoutés ; jamais une règle qui déborde
+  { make: 'Mercedes-Benz', model: 'G 500', expected: 'LUXE', source: 'MODEL_RULE' },
+  { make: 'MERCEDES', model: 'S580', expected: 'LUXE', source: 'MODEL_RULE' },
+  { make: 'MercedesBenz', model: 'S-Class', expected: 'LUXE', source: 'MODEL_RULE' },
+  { make: 'Mercedes', model: 'GLA 200', expected: 'PREMIUM', source: 'MAKE_RULE' },
+  { make: 'Toyota', model: 'LandCruiser 300', expected: 'LUXE', source: 'MODEL_RULE' },
+  { make: 'toyota', model: 'LandCruiser Prado', expected: 'PREMIUM', source: 'MODEL_RULE' },
+  { make: 'GMC', model: 'Yukon Denali', expected: 'PREMIUM', source: 'MODEL_RULE' },
+  { make: 'GMC', model: 'Sierra 1500', expected: 'PREMIUM', source: 'MODEL_RULE' },
+  { make: 'Rivian', model: 'R1S', expected: 'PREMIUM', source: 'MAKE_RULE' },
+  { make: 'Lexus', model: 'LX570', expected: 'LUXE', source: 'MODEL_RULE' },
+  { make: 'BMW', model: '740i', expected: 'LUXE', source: 'MODEL_RULE' },
+  { make: 'LandRover', model: 'Defender 110', expected: 'LUXE', source: 'MODEL_RULE' },
+  { make: 'Volkswagen', model: 'Golf', expected: 'DEFAULT', source: 'COUNTRY_DEFAULT' },
 ];
 
 // ---- aides : hôte, véhicule, annonce, publication ----------------------------------------------

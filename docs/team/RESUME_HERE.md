@@ -1,6 +1,6 @@
 # RESUME_HERE — point de reprise du dépôt
 
-> Lu en premier par toute session qui reprend le travail (handoff §4.9). Tenu par l'orchestrateur à chaque fin de session. **Dernière mise à jour : 2026-11-10 (porte du lot 0 tenue : PR #92, #93 et #94 fusionnées ; US-027 en revue).**
+> Lu en premier par toute session qui reprend le travail (handoff §4.9). Tenu par l'orchestrateur à chaque fin de session. **Dernière mise à jour : 2026-11-18, 23 h UTC (lot 2 : 21 stories sur 27 fusionnées, 110 points sur 140 ; détail au `BOARD.md`).** Mise à jour précédente : 2026-11-10 (porte du lot 0 tenue : PR #92, #93 et #94 fusionnées ; US-027 en revue).
 
 ## Pour reprendre
 
@@ -8,7 +8,26 @@
 2. Sous Git Bash : `export PATH="/c/Program Files/nodejs:/c/Users/noamm/AppData/Roaming/npm:/c/Program Files/GitHub CLI:$PATH"`. Vérifie `node -v`, qui doit donner v26.13.0 (ADR-041).
 3. `git fetch`, `git worktree list`, puis relance les tests de chaque branche en cours **avant** de continuer (OPERATING_RULES §3).
 
-## État du projet
+## État au 2026-11-18, 23 h UTC
+
+Le `BOARD.md` fait foi ; ce résumé ne sert qu'à reprendre vite.
+
+- **Lot 0** : porte tenue le 2026-11-10 ; 47 stories sur 49 fusionnées (US-027 IN_REVIEW, US-050 partielle).
+- **Lot 1** : porte tenue le 2026-11-14 ; 27 stories sur 28 MERGED (117 points sur 120) ; US-122 IN_REVIEW (post-mortem).
+- **Lot 2** (ouvert le 2026-11-14) : **21 MERGED sur 27, 110 points sur 140**. Fusionnées depuis le 2026-11-18, 14 h UTC : US-224 (224f, #239), US-225 (#236), US-227 (#237), US-514 (#241), US-217 (217b, #240), US-212 (212b, #244) ; US-214 passe MERGED avec le reçu de #240 ; 701a (#242). **IN_PROGRESS** : US-222 (porte : red team et post-mortem à venir), US-223 (ouverture du mode sur demande, N-246), US-213 (numéros de l'assureur, N-298, donnée du fondateur), US-701 (T70 c : fiche et cartes, N-372). **IN_REVIEW** : US-221 (parcours dorés, PR #245, remplace #243 fermée), US-221b (PR #246, défauts D1 et D2 : N-388, N-389, **avant l'ouverture d'un pays**), US-702 (PR #248). Durcissement d'US-224 avant l'ouverture d'un pays : PR #247 (N-354, N-342, N-313).
+- **Numéros sur `main`** (à reprendre à la suite) : dernière migration **0147** (#244 ; #248 prend 0148), catalogue **v86**, dernier ADR fusionné **ADR-169** (ADR-170 : #246, ADR-171 : #247, ADR-172 : #248, en revue).
+- **Revues d'US-221** : #246 a pris le suffixe `r` ; les revues suivantes de #245 viennent après (`s`, `t`…).
+- **Suites** : N-364 à N-398 inscrites au BOARD le 2026-11-18 ; l'inventaire des suites « avant l'ouverture d'un pays » est sous le tableau des suites du BOARD (32 suites ouvertes).
+- **Fondateur** : `POUR_LE_FONDATEUR.md` (page 1 « Ce que j'attends de toi ») ; nouveautés : montant de la caution LUXE (`deposit_amount[pays][LUXE]`, À DÉCIDER, priorité 9), sept branches de PR fermées à supprimer sur son « oui » (§5), question au contrat de l'assureur sur le bordereau (§2.3 septies).
+
+## Prochaine action exacte (orchestrateur, 2026-11-18)
+
+1. Faire relire puis fusionner, CI verte et revues APPROUVÉ : **#246** (US-221b, argent sur un autre modèle), puis **#245** (US-221, après #246 : retirer les `it.fails` et prolonger le segment B), **#247** (durcissement d'US-224) et **#248** (US-702), dans l'ordre des migrations.
+2. Lancer **N-372** (US-701, T70 c) pour fermer US-701, puis la porte du lot 2 (US-222 : red team et post-mortem).
+3. Traiter l'inventaire des suites « avant l'ouverture d'un pays » du BOARD par petites PR.
+4. Ne supprimer aucune branche distante sans le « oui » écrit du fondateur (`POUR_LE_FONDATEUR.md` §5).
+
+## État du projet au 2026-11-10 (historique)
 
 **Modèle** : Kmino, place de marché de location de voitures **de particulier à particulier**, comme Turo, au Panama et au Paraguay ; **aucune agence** (DEC-FONDATEUR-13 à 16) ; produit **quadrilingue es / en / fr / pt-BR** (DEC-FONDATEUR-17, 18). Fusion autonome de toutes les PR par l'orchestrateur, avec garde-fous (DEC-FONDATEUR-15).
 
@@ -28,7 +47,7 @@
 
 Rappel : US-014 (français et portugais du Brésil : PR #26 et #61) est fusionnée ; la colonne `fr` du catalogue est livrée.
 
-## Prochaine action exacte (orchestrateur)
+## Prochaine action exacte au 2026-11-10 (historique, lot 0)
 
 1. Faire relire **US-027** (code, architecture), puis fusionner la PR quand la CI est verte et les deux revues APPROUVÉ.
 2. **Démarrer le lot 1** (identité, hôtes, véhicules ; 19 v3 §2, 28 stories, 120 points) par son **pré-mortem**, avant toute story du lot : `docs/team/gates/L1/premortem.md`, porté par US-122 (règle 11 du post-mortem du lot 0). Ensuite, suivre l'ordre de 19 v3 §2. En tête du chemin critique : US-101 (cadre `manual_action`), puis US-107, US-115 et US-119. Chaque story livre ses textes en es, en, fr et pt-BR (catalogue 10b §4.3) et note ses choix « comme Turo » dans `docs/team/COMME_TURO.md`.
