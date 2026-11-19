@@ -1,6 +1,6 @@
 /**
  * Demande d'aide pendant le trip (US-310, ADR-182 ; 16 SUP-004) : port du magasin et adaptateur
- * PostgreSQL. La base juge tout (0161) : la personne de la SESSION (empreinte du jeton, jamais un
+ * PostgreSQL. La base juge tout (0162) : la personne de la SESSION (empreinte du jeton, jamais un
  * identifiant reçu), son rôle dans le trip (voyageur, titulaire du compte d'hôte), le pays du trip,
  * le « hors plage » à son horloge et au fuseau du pays, l'idempotence et la demande vivante. Une
  * instruction par appel, en autocommit (une connexion par appel, libérée par le pool).
@@ -15,7 +15,7 @@ export interface SqlExecutor {
   ): Promise<{ rows: R[] }>;
 }
 
-/** Motifs fermés d'une demande d'aide (0161 `help_topic`) : aucun texte libre (minimisation). */
+/** Motifs fermés d'une demande d'aide (0162 `help_topic`) : aucun texte libre (minimisation). */
 export const HELP_TOPICS = ['ACCIDENT', 'BREAKDOWN', 'HANDOVER', 'SAFETY', 'OTHER'] as const;
 export type HelpTopic = (typeof HELP_TOPICS)[number];
 

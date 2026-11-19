@@ -171,7 +171,7 @@ async function bootstrap(): Promise<void> {
         // KMS et stockage objet indisponibles tant qu'US-003 et Q-019 ne sont pas livrés (503)
         ops: new PgOpsConsoleStore(pool),
         evidence: unavailableEvidence(pool),
-        // aide et urgence du trip (US-310, 0161) : commandes SUP sous app_api
+        // aide et urgence du trip (US-310, 0162) : commandes SUP sous app_api
         help: new PgHelpStore(pool),
       },
       brand,

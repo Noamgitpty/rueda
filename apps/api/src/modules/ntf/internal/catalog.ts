@@ -601,7 +601,7 @@ export const RULES: readonly RuleSpec[] = [
     recipients: [GUEST],
     parties: TRIP_PARTIES,
   },
-  // demande d'aide du trip (0161, US-310, ADR-182 ; PROPOSÉ, à reporter dans 17 §4.5) : case_id,
+  // demande d'aide du trip (0162, US-310, ADR-182 ; PROPOSÉ, à reporter dans 17 §4.5) : case_id,
   // trip_id, requester_user_id, requester_role, topic, off_hours, auto_reply posé par la base
   // (GUEST ou HOST hors plage, NONE dans la plage) ; destinataire = le demandeur, dans la langue
   // de son compte ; auto_reply absent ⇒ erreur de contrat

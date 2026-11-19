@@ -1,4 +1,4 @@
--- 0161 — SUP : demande d'aide pendant le trip (voyageur ou hôte), réponse automatique hors plage
+-- 0162 — SUP : demande d'aide pendant le trip (voyageur ou hôte), réponse automatique hors plage
 -- et mesure du délai de première réponse (M6).
 -- US-310 ; 19 US-310 (critères 1 à 3) ; 16 SUP-004 / SUP-011 (« ticket(trip_id, channel, lang,
 -- first_response_at, resolved_at) », états OPEN → PENDING → RESOLVED, « hors plage → message

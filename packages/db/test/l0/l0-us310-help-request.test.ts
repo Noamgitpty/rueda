@@ -1,5 +1,5 @@
 /**
- * US-310 (migration 0161, ADR-182) — demande d'aide pendant le trip, réponse automatique hors plage
+ * US-310 (migration 0162, ADR-182) — demande d'aide pendant le trip, réponse automatique hors plage
  * et mesure M6 : `core.support_trip_help_context`, `core.support_cmd_open_help_request`,
  * `core.support_staff_help_requests` et `core.support_staff_set_case_status` (prise d'une demande
  * non assignée, première réponse, résolution). Rôles de PRODUCTION seulement (assertion L0-05 par

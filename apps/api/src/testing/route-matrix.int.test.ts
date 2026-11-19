@@ -1138,7 +1138,7 @@ beforeAll(async () => {
         // US-109 : commandes réelles ; pièces : adaptateurs de production (indisponibles, 503)
         ops: new PgOpsConsoleStore(client),
         evidence: unavailableEvidence(singlePool),
-        // US-310 : commandes réelles de l'aide (0161), même connexion de test
+        // US-310 : commandes réelles de l'aide (0162), même connexion de test
         help: new PgHelpStore(client),
       },
       {
