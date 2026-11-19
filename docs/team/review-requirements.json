@@ -505,11 +505,91 @@
     },
     "US-709": {
       "require": ["code", "architecture", "securite", "argent", "qa"],
-      "why": "US-709a host_ledger (N-219, avancée du lot 3) : grand livre de l hôte en unités mineures, commande SECURITY DEFINER appelée par déclencheur dans la transaction du règlement, RLS, lecture FINANCE / ADMIN : argent, sécurité, concurrence, schéma ; Revue design : NON (aucun texte visible) ; décision de l orchestrateur 2026-11-17"
+      "why": "US-709a host_ledger (N-219, avancée du lot 3) : grand livre de l hôte en unités mineures, commande SECURITY DEFINER appelée par déclencheur dans la transaction du règlement, RLS, lecture FINANCE / ADMIN : argent, sécurité, concurrence, schéma ; Revue design : NON (aucun texte visible) ; décision de l orchestrateur 2026-11-17 ; élargie le 2026-11-19 au reste de US-709 (lot 3, 19 v3 §3.4) : grand livre de l hôte complet, chargebacks (T53, T54, T55, T67, TJ14a à TJ14c), compensation NETTING des créances de la règle 3 bis (TJ18b, TJ18d) lue par l hôte dans host_advance_v sans identifiant du personnel (RLS-26), co-hôte sans lecture (RLS-28), platform_advance, adjustPayout et capacité SUPPORTS_NEGATIVE_BALANCE_RECOVERY sur le FAKE, passage en perte par décision FINANCE à deux personnes (WRITE_OFF_RECEIVABLE), suites N-270 à N-277 et N-402 ; mêmes rôles (Revue design : NON) ; chemins db, i18n (codes d erreur), money, fake-adapters, config (vecteurs dorés)"
     },
     "US-535": {
       "require": ["code", "architecture", "securite", "argent", "qa"],
       "why": "US-535a (N-411, partie serveur avancée du lot 5 au lot 2, 19 US-535 « Découpage ») : commande à deux personnes de changement d une valeur de paramètre pays (cmd_request_param_change / cmd_approve_param_change), SECURITY DEFINER, garde de conflit d acteurs, RLS, refus des clés go_live_switch, valeurs monétaires datées PA / PY sans rétroactivité : argent, sécurité, concurrence, schéma ; Revue design : NON pour 535a (aucun texte visible) ; l écran de US-535 (Revue design : OUI) ajoutera ux à cette entrée avant sa PR ; décision de l orchestrateur 2026-11-19"
+    },
+    "US-303": {
+      "require": ["code", "architecture", "securite", "ux", "qa"],
+      "why": "capture photo guidée (TRP-004) : inspection_photo, file_asset en bucket privé PRIVATE_EVIDENCE à verrou objet, UploadScanner FAKE, empreintes SHA-256 : schéma et RLS (architecture, sécurité), écran de capture (Revue design : OUI, ux), QA (M8) ; aucun montant ; chemins db, i18n, ui, fake-adapters ; lot 3 (19 v3 §3.4), inscrite avant son démarrage ; PROPOSÉ, décision de l orchestrateur 2026-11-19"
+    },
+    "US-315": {
+      "require": ["code", "architecture", "securite", "argent", "ux", "qa"],
+      "why": "remise et retour entre particuliers (TRP-002, VER-015, TRP-033) : trip_inspection, trip_identity_check sans image (minimisation US-062), occupation libérée par commande, jambe HOST libérable à payout_at, frais de carburant / nettoyage refusés selon BR-FUEL / BR-RETURN : argent, sécurité, concurrence, écrans A03 / A04 / S09 (ux) ; chemins db, i18n, ui, money, fake-adapters ; lot 3 (19 v3 §3.4), inscrite avant son démarrage ; PROPOSÉ, décision de l orchestrateur 2026-11-19"
+    },
+    "US-305": {
+      "require": ["code", "architecture", "securite", "argent", "qa"],
+      "why": "détection des retards (TRP-035, C10) : overdue_case, minuterie pg-boss, aucun chevauchement actif avec le hold suivant, variantes PA / PY de l oracle US-016, frais de retard débités par US-703 : argent, concurrence, schéma, sécurité ; Revue design : NON (alertes par les gabarits de notification, textes dans i18n) ; chemins db, i18n, money, fake-adapters, config (vecteurs dorés) ; lot 3 (19 v3 §3.4), inscrite avant son démarrage ; PROPOSÉ, décision de l orchestrateur 2026-11-19"
+    },
+    "US-306": {
+      "require": ["code", "architecture", "securite", "ux", "qa"],
+      "why": "escalade de non-restitution et vue des retards (TRP-038, ADM-022) : action de console ESCALATE_OVERDUE journalisée, vue RPT, gabarits remis à l hôte : RLS de la console et données personnelles (sécurité), schéma, écran (Revue design : OUI, ux) ; aucun montant ; chemins db, i18n, ui ; lot 3 (19 v3 §3.4), inscrite avant son démarrage ; PROPOSÉ, décision de l orchestrateur 2026-11-19"
+    },
+    "US-307": {
+      "require": ["code", "architecture", "securite", "argent", "ux", "qa"],
+      "why": "no-show et refus (TRP-015, TRP-007) : commandes AVL et moteur US-017, T05 à T08, T38, T39, TJ04, TJ05, reallocate de la jambe HOST (SUPPORTS_PAYOUT_ADJUSTMENT), remboursement par jambe US-224, pénalité au host_ledger : argent, concurrence, sécurité, écran (ux) ; chemins db, i18n, ui, money, fake-adapters, config (vecteurs dorés) ; lot 3 (19 v3 §3.4), inscrite avant son démarrage ; PROPOSÉ, décision de l orchestrateur 2026-11-19"
+    },
+    "US-308": {
+      "require": ["code", "architecture", "securite", "qa"],
+      "why": "dossier de preuve exportable (CLM-034) : evidence_bundle, manifeste SHA-256, lien expirant, signature horodatée US-211, export des données personnelles d un trip (sécurité, RLS), schéma ; Revue design : NON ; aucun montant calculé ; chemins db, i18n, fake-adapters (stockage) ; lot 3 (19 v3 §3.4), inscrite avant son démarrage ; PROPOSÉ, décision de l orchestrateur 2026-11-19"
+    },
+    "US-309": {
+      "require": ["code", "architecture", "securite", "argent", "ux", "qa"],
+      "why": "dommages et décisions avec l assureur partenaire (CLM-001, CLM-002, CLM-006, ADM-008) : support_case, decision, RECORD_CLAIM, ISSUE_DECISION, franchise du voyageur par débit séparé (BR-PAY-09 bis), franchise de l hôte au host_ledger, jambe de l assureur : argent, sécurité, schéma, écran (ux) ; chemins db, i18n, ui, money, fake-adapters ; lot 3 (19 v3 §3.4), inscrite avant son démarrage ; PROPOSÉ, décision de l orchestrateur 2026-11-19"
+    },
+    "US-310": {
+      "require": ["code", "architecture", "securite", "ux", "qa"],
+      "why": "aide, urgence et support (SUP-004, SUP-011, SUP-020) : support_case, réponse automatique dans la langue du compte, écran S17 (ux) ; securite ajoutée à la liste proposée (fail-closed : schéma dans packages/db, données personnelles des demandes de support, pathRule securite de packages/db) ; aucun montant ; chemins db, i18n, ui, fake-adapters (notifications) ; lot 3 (19 v3 §3.4), inscrite avant son démarrage ; PROPOSÉ, décision de l orchestrateur 2026-11-19"
+    },
+    "US-525": {
+      "require": ["code", "architecture", "securite", "ux", "qa"],
+      "why": "messagerie par trip et marché gris (MSG-001, MSG-007) : message_thread, message, message_flag, masquage des coordonnées, aucun visiteur sans trip : RLS et données personnelles (sécurité), schéma, écran S16 (ux) ; aucun montant ; chemins db, i18n, ui, fake-adapters (notifications) ; lot 3 (19 v3 §3.4), inscrite avant son démarrage ; PROPOSÉ, décision de l orchestrateur 2026-11-19"
+    },
+    "US-316": {
+      "require": ["code", "architecture", "securite", "ux", "qa"],
+      "why": "confidentialité de la messagerie (MSG-001, RLS-9) : vues security_invoker, minimisation US-062, rétention et purge US-111, rendez-vous rattaché au trip : RLS (sécurité), schéma, écran (ux) ; aucun montant ; chemins db, i18n, ui ; lot 3 (19 v3 §3.4), inscrite avant son démarrage ; PROPOSÉ, décision de l orchestrateur 2026-11-19"
+    },
+    "US-317": {
+      "require": ["code", "architecture", "securite", "ux", "qa"],
+      "why": "avis réciproques en double aveugle (REV-002, REV-004, LST-020) : review, rating_aggregate, minuterie review_window_days, publication simultanée, droit d accès Ley 81 : RLS (sécurité), schéma, concurrence de la publication, écrans S13 / A12 / A13 (ux) ; aucun montant ; chemins db, i18n, ui ; lot 3 (19 v3 §3.4), inscrite avant son démarrage ; PROPOSÉ, décision de l orchestrateur 2026-11-19"
+    },
+    "US-703": {
+      "require": ["code", "architecture", "securite", "argent", "ux", "qa"],
+      "why": "carte enregistrée et MIT (PAY-015, PAY-037) : payment_instrument, mit_consent, debt_balance, chargeMIT(reason, amount, legs) sur le FAKE, T29 / T50 / T64 / T68, TJ07, TJ17, TJ19, capacité bloquante SUPPORTS_MIT : argent, sécurité, idempotence, écran de consentement (ux) ; chemins db, i18n, ui, money, fake-adapters, config (vecteurs dorés) ; lot 3 (19 v3 §3.4), inscrite avant son démarrage ; PROPOSÉ, décision de l orchestrateur 2026-11-19"
+    },
+    "US-706": {
+      "require": ["code", "architecture", "securite", "argent", "ux", "qa"],
+      "why": "frais annexes (CLM-021, SM-5) : incidental_invoice, damage_charge, délai de réponse du voyageur, contestation vers US-309, débit par US-703, liste fermée de BR-REIMB : argent, sécurité, schéma, écran (ux) ; chemins db, i18n, ui, money, fake-adapters ; lot 3 (19 v3 §3.4), inscrite avant son démarrage ; PROPOSÉ, décision de l orchestrateur 2026-11-19"
+    },
+    "US-707": {
+      "require": ["code", "architecture", "securite", "argent", "ux", "qa"],
+      "why": "compte de versement vérifié de l hôte (PYO-001) : payout_account, psp_submerchant (US-061), concordance titulaire / cédula / RUC, ON_HOLD après un changement de compte, permission payout.manage_account du titulaire seul : argent (versements), sécurité (données bancaires, RLS), écran (ux) ; chemins db, i18n, ui, money, fake-adapters ; lot 3 (19 v3 §3.4), inscrite avant son démarrage ; PROPOSÉ, décision de l orchestrateur 2026-11-19"
+    },
+    "US-708": {
+      "require": ["code", "architecture", "securite", "argent", "ux", "qa"],
+      "why": "versements aux hôtes depuis la jambe HOST (PYO-002, SM-6) : payout_batch, payout_item, payout_at à J+2 ouvrés du pays, releaseLeg émis une seule fois (clé d idempotence), variante B seulement si funds_holding_enabled, payout(host, amount) sur le FAKE : argent, concurrence, sécurité, écran (ux) ; chemins db, i18n, ui, money, fake-adapters ; lot 3 (19 v3 §3.4), inscrite avant son démarrage ; PROPOSÉ, décision de l orchestrateur 2026-11-19"
+    },
+    "US-314": {
+      "require": ["code", "architecture", "securite", "argent", "ux", "qa"],
+      "why": "versements fermés par pays (PYO-003) : payouts_enabled[pays] absent ou false ⇒ ON_HOLD PAYOUTS_DISABLED sans appel payout, SUPPORTS_B2C_PAYOUT, holdLeg en litige, adjustPayout, TJ18a à TJ18d, interrupteur US-125 jamais changé par du code : argent, sécurité, écran A08 (ux) ; chemins db, i18n, ui, money, fake-adapters, config (vecteurs dorés) ; lot 3 (19 v3 §3.4), inscrite avant son démarrage ; PROPOSÉ, décision de l orchestrateur 2026-11-19"
+    },
+    "US-318": {
+      "require": ["code", "architecture", "securite", "argent", "ux", "qa"],
+      "why": "sinistres entre particuliers (TRP-038, ADM-022, CLM-002, BR-TT) : overdue_case, incident_report, support_case, jambe HOST gelée au vol présumé, amendes / péages / fourrière refacturés par débit séparé US-703 avec frais de gestion, déclaration à l assureur partenaire : argent, sécurité, schéma, écran S17 (ux) ; chemins db, i18n, ui, money, fake-adapters ; lot 3 (19 v3 §3.4), inscrite avant son démarrage ; PROPOSÉ, décision de l orchestrateur 2026-11-19"
+    },
+    "US-311": {
+      "require": ["code", "architecture", "securite", "argent", "ux", "qa"],
+      "why": "vues de la bêta, KPI et rapprochement par jambe (FIN-005) : vues RPT, data.export CSV, reconciliation_run, reconciliation_item, listLegBalances du FAKE apparié à l unité mineure, TJ15a à TJ15d : argent, sécurité (export, RLS de la console), écrans (Revue design : OUI, ux) ; chemins db, i18n, ui, money, fake-adapters, config (vecteurs dorés) ; lot 3 (19 v3 §3.4), inscrite avant son démarrage ; PROPOSÉ, décision de l orchestrateur 2026-11-19"
+    },
+    "US-312": {
+      "require": ["code", "architecture", "securite", "argent", "qa"],
+      "why": "parcours dorés trip complet PA et PY (prolonge US-221) : états, montants par jambe, host_ledger, versements ON_HOLD et notifications sous les rôles de production : argent, QA, sécurité ; architecture ajoutée à la liste proposée (fail-closed : fixtures et preuves dans packages/db comme US-221, pathRule architecture de packages/db) ; Revue design : NON ; chemins db, i18n, money, fake-adapters, config ; lot 3 (19 v3 §3.4), inscrite avant son démarrage ; PROPOSÉ, décision de l orchestrateur 2026-11-19"
+    },
+    "US-313": {
+      "require": ["code", "architecture", "securite", "argent", "qa"],
+      "why": "porte du lot 3 : pré-mortem, red team remise / preuves / versements (scénarios de l ex-porte LB, T53, T55, RLS-26, RLS-28) et post-mortem ; même périmètre de revue que US-222 ; Revue design : NON ; chemins de US-222 (db, i18n, money, fake-adapters, config, design-tokens) ; lot 3 (19 v3 §3.4), inscrite avant son démarrage ; PROPOSÉ, décision de l orchestrateur 2026-11-19"
     }
   },
   "pathOwners": {
@@ -534,7 +614,15 @@
       "US-225",
       "US-704",
       "US-221",
-      "US-222"
+      "US-222",
+      "US-305",
+      "US-307",
+      "US-703",
+      "US-314",
+      "US-311",
+      "US-312",
+      "US-313",
+      "US-709"
     ],
     "packages/db/": [
       "US-001",
@@ -621,7 +709,27 @@
       "US-221",
       "US-222",
       "US-709",
-      "US-535"
+      "US-535",
+      "US-303",
+      "US-315",
+      "US-305",
+      "US-306",
+      "US-307",
+      "US-308",
+      "US-309",
+      "US-310",
+      "US-525",
+      "US-316",
+      "US-317",
+      "US-703",
+      "US-706",
+      "US-707",
+      "US-708",
+      "US-314",
+      "US-318",
+      "US-311",
+      "US-312",
+      "US-313"
     ],
     "packages/money/": [
       "US-015",
@@ -640,7 +748,21 @@
       "US-701",
       "US-225",
       "US-704",
-      "US-222"
+      "US-222",
+      "US-315",
+      "US-305",
+      "US-307",
+      "US-309",
+      "US-703",
+      "US-706",
+      "US-707",
+      "US-708",
+      "US-314",
+      "US-318",
+      "US-311",
+      "US-312",
+      "US-313",
+      "US-709"
     ],
     "packages/i18n/": [
       "US-014",
@@ -703,7 +825,28 @@
       "US-702",
       "US-704",
       "US-514",
-      "US-222"
+      "US-222",
+      "US-303",
+      "US-315",
+      "US-305",
+      "US-306",
+      "US-307",
+      "US-308",
+      "US-309",
+      "US-310",
+      "US-525",
+      "US-316",
+      "US-317",
+      "US-703",
+      "US-706",
+      "US-707",
+      "US-708",
+      "US-314",
+      "US-318",
+      "US-311",
+      "US-312",
+      "US-313",
+      "US-709"
     ],
     "packages/design-tokens/": [
       "US-030",
@@ -714,7 +857,8 @@
       "US-120",
       "US-044",
       "US-122",
-      "US-222"
+      "US-222",
+      "US-313"
     ],
     "packages/ui/": [
       "US-032",
@@ -754,7 +898,23 @@
       "US-701",
       "US-225",
       "US-704",
-      "US-514"
+      "US-514",
+      "US-303",
+      "US-315",
+      "US-306",
+      "US-307",
+      "US-309",
+      "US-310",
+      "US-525",
+      "US-316",
+      "US-317",
+      "US-703",
+      "US-706",
+      "US-707",
+      "US-708",
+      "US-314",
+      "US-318",
+      "US-311"
     ],
     "packages/fake-adapters/": [
       "US-019",
@@ -781,7 +941,25 @@
       "US-701",
       "US-225",
       "US-702",
-      "US-222"
+      "US-222",
+      "US-303",
+      "US-315",
+      "US-305",
+      "US-307",
+      "US-308",
+      "US-309",
+      "US-310",
+      "US-525",
+      "US-703",
+      "US-706",
+      "US-707",
+      "US-708",
+      "US-314",
+      "US-318",
+      "US-311",
+      "US-312",
+      "US-313",
+      "US-709"
     ]
   },
   "sharedPaths": [
