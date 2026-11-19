@@ -9,7 +9,7 @@
  * quel (aucune redirection ouverte) ; jamais de texte de message dans une URL.
  */
 import { redirect } from 'next/navigation';
-import { callApi } from '../../../account/api-client.ts';
+import { callApi, codeOf } from '../../../account/api-client.ts';
 import { messageKeyOf } from '../../../account/host-listings.ts';
 import { clientContext } from '../../../account/request.ts';
 import {
@@ -53,6 +53,7 @@ export async function postMessageAction(
     body: draft,
   });
   if (reply.status === 401) redirect('/login');
+  if (codeOf(reply) === 'TERMS_REACCEPT_REQUIRED') redirect('/terms/update');
   const notices = sentNoticesOf(reply);
   if (notices === null) {
     const key =

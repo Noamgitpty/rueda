@@ -1,6 +1,6 @@
 # MSG — Messaging (`apps/api/src/modules/msg`)
 
-**MSG — Messaging** : fil par trip, masquage des coordonnées, détection du marché gris. Dépendances autorisées : IAM, AVL (socle implicite : CFG, AUD, BUS ; source : 17 §2.2 ; §2.1 MSG --> IAM). Dépendance réelle : IAM (`SessionGuard`, `sessionProofOf`).
+**MSG — Messaging** : fil par trip, masquage des coordonnées, détection du marché gris. Dépendances autorisées : IAM, AVL, CTR (socle implicite : CFG, AUD, BUS ; source : 17 §2.2 ; §2.1 MSG --> IAM ; ADR-181 : MSG --> CTR). Dépendances réelles : IAM (`SessionGuard`, `sessionProofOf`), CTR (`TermsGuard`).
 
 ## Responsabilité
 
@@ -8,10 +8,10 @@ D'après 17 §2.2 et §2.13, 16 MSG-001 / MSG-007 et 19 US-525 (ADR-181) : un fi
 
 État du code (US-525) :
 
-- routes `GET /trips/{tripId}/messages` et `POST /trips/{tripId}/messages` (`internal/trip-messages.controller.ts`, `SessionGuard`, `no-store`), service `TripMessagesService` (corps contrôlé, issues traduites, rappels `CONTACT_MASKED` / `OFF_PLATFORM_PAYMENT`), magasin `PgTripMessageStore` (fonctions `core.messaging_thread_read` et `core.messaging_cmd_post_message` de la migration 0160, lecture STRICTE des lignes, fail-closed) ;
+- routes `GET /trips/{tripId}/messages` et `POST /trips/{tripId}/messages` (`internal/trip-messages.controller.ts`, `SessionGuard` puis `TermsGuard`, `no-store`), service `TripMessagesService` (corps contrôlé, issues traduites, rappels `CONTACT_MASKED` / `OFF_PLATFORM_PAYMENT`), magasin `PgTripMessageStore` (fonctions `core.messaging_thread_read` et `core.messaging_cmd_post_message` de la migration 0160, lecture STRICTE des lignes, fail-closed) ;
 - module dynamique `MsgTripMessagesModule` (sans adaptateurs : 503), adaptateurs de production `postgresMsgAdapters(pool)` ; `MsgModule` reste la coquille statique d'US-001.
 
-Pas de `TermsGuard` (PROPOSÉ, ADR-181) : le fil sert le rendez-vous d'un trip déjà réservé. Relais WhatsApp et questions pré-réservation filtrées : P1. MSG n'envoie pas de notification (NTF ; avis « nouveau message » sans contenu : suite).
+`TermsGuard` (CTR) sur les deux routes, comme toute route d'un trip (US-102) : dépendance MSG → CTR au graphe (ADR-181, écart de 17 §2.2 à reporter). Relais WhatsApp et questions pré-réservation filtrées : P1. MSG n'envoie pas de notification (NTF ; avis « nouveau message » sans contenu : suite).
 
 ## Entités
 

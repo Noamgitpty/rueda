@@ -14,7 +14,7 @@ import { randomUUID } from 'node:crypto';
 import type { ReactNode } from 'react';
 import { redirect } from 'next/navigation';
 import { Banner, ButtonLink, EmptyState, ErrorState } from '@rueda/ui';
-import { callApi } from '../../../account/api-client.ts';
+import { callApi, codeOf } from '../../../account/api-client.ts';
 import { clientContext } from '../../../account/request.ts';
 import { noticesFromQuery, threadPath, tripThreadOf } from '../../../account/trip-messages.ts';
 import type { TripMessage, ViewerRole } from '../../../account/trip-messages.ts';
@@ -74,6 +74,7 @@ export async function ThreadScreen({ scope, tripId, back, query }: ThreadScreenP
   if (self === null) return notFound;
   const reply = await callApi('GET', `/trips/${tripId}/messages`, ctx);
   if (reply.status === 401) redirect('/login');
+  if (codeOf(reply) === 'TERMS_REACCEPT_REQUIRED') redirect('/terms/update');
   if (reply.status === 404) return notFound;
   const thread = tripThreadOf(reply, tripId);
   if (thread === null) {

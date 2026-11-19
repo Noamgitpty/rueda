@@ -59,6 +59,7 @@ flowchart LR
   CLM --> PAY
   MSG --> IAM
   MSG --> AVL
+  MSG --> CTR
   REV --> AVL
   SUP --> IAM
   SUP --> KYC
@@ -115,7 +116,7 @@ flowchart LR
 | PYO | Payouts | `payout` (PROPOSÉ) | compte de versement vérifié de l'hôte, lots depuis la jambe HOST, compensation des débits (NETTING), gel et reprise | KYC, PAY, STL, CFG, AUD, BUS | — | — | coquille |
 | TRP | Trip operations | `trip_ops` (PROPOSÉ) | check-in et check-out par l'hôte et le voyageur, hors ligne, retards et non-restitution, refus du véhicule, remises du jour | KYC, AVL, PAY, CFG, AUD, BUS | — | — | coquille |
 | CLM | Claims & Disputes | `claim` (PROPOSÉ) | dommages et incidents, factures annexes, débits de dommage par jambe, litiges, dossiers de preuve, décisions | PAY, STL, TRP, CFG, AUD, BUS | — | — | coquille |
-| MSG | Messaging | `messaging` (PROPOSÉ) | fil par trip, masquage des coordonnées, détection du marché gris | IAM, AVL, CFG, AUD, BUS | IAM | `GET /trips/{tripId}/messages`<br>`POST /trips/{tripId}/messages` | construit |
+| MSG | Messaging | `messaging` (PROPOSÉ) | fil par trip, masquage des coordonnées, détection du marché gris | IAM, AVL, CTR, CFG, AUD, BUS | IAM, CTR | `GET /trips/{tripId}/messages`<br>`POST /trips/{tripId}/messages` | construit |
 | NTF | Notifications | `notification` (PROPOSÉ) | règles événement → destinataires → canaux → gabarit, repli, idempotence, préférences | CFG, AUD, BUS | CFG, BUS | — | construit |
 | REV | Reviews | `review` (PROPOSÉ) | avis guest, avis hôte (P1), agrégats | AVL, CFG, AUD, BUS | — | — | construit |
 | SUP | Support & back-office | `support` (PROPOSÉ) | console interne, fiche 360°, files de revue (KYC, annonces, vérification d'hôte), dossiers de support, actions manuelles | IAM, KYC, CAT, AVL, PRC, CTR, PAY, STL, PYO, TRP, CLM, MSG, NTF, REV, FIN, RISK, CFG, AUD, BUS | IAM, CAT, RISK, CFG | `GET /console/brand/versions`<br>`GET /console/brand/versions/{id}`<br>`GET /console/cancellations/{id}`<br>`GET /console/content/gaps`<br>`GET /console/finance/approvals`<br>`GET /console/queues`<br>`GET /console/refunds/{id}`<br>`GET /console/security/abuse`<br>`POST /console/actions`<br>`POST /console/brand/assets`<br>`POST /console/brand/drafts`<br>`POST /console/brand/rollback`<br>`POST /console/brand/versions/{id}/publish`<br>`POST /console/cases`<br>`POST /console/cases/{id}/status`<br>`POST /console/content/drafts`<br>`POST /console/content/publish`<br>`POST /console/content/rollback`<br>`POST /console/evidence`<br>`POST /console/finance/approvals/{id}/approve`<br>`POST /console/queues/items/{id}/catalog-addition`<br>`POST /console/queues/items/{id}/catalog-addition/resolve`<br>`POST /console/queues/items/{id}/claim`<br>`POST /console/queues/items/{id}/files/{fileId}`<br>`POST /console/queues/items/{id}/host-verification`<br>`POST /console/queues/items/{id}/kyc`<br>`POST /console/queues/items/{id}/listing/decide`<br>`POST /console/queues/items/{id}/risk-review`<br>`POST /console/queues/items/{id}/vehicle`<br>`POST /console/queues/items/{id}/vehicle-claim`<br>`POST /console/queues/items/{id}/vehicle-claim/decide`<br>`POST /console/queues/items/{id}/vehicle/decide`<br>`POST /console/users/search`<br>`POST /console/users/{id}/notes`<br>`POST /console/users/{id}/profile` | construit |

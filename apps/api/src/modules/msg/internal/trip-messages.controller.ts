@@ -1,6 +1,7 @@
 /**
  * Routes de la messagerie par trip (US-525, ADR-181 ; 16 MSG-001 / MSG-007 ; écran S16). Gardées
- * par `SessionGuard` (JSON exigé pour une écriture : parade CSRF) ; la partie du trip est celle de
+ * par `SessionGuard` puis `TermsGuard` (CGU à jour, US-102 : toute route d'un trip le porte ; JSON
+ * exigé pour une écriture : parade CSRF) ; la partie du trip est celle de
  * la SESSION (empreinte du jeton), jugée en base : voyageur, titulaire du compte d'hôte, co-hôte de
  * portée. Corps d'erreur `{ code, messageKey }` ; réponses `Cache-Control: no-store`.
  *
@@ -10,8 +11,6 @@
  * | POST /trips/{tripId}/messages | 201 MESSAGE_SENT ; 400 ; 401 ; 404 ; 409 MESSAGE_THREAD_CLOSED ; |
  * |                              | 415 ; 422 MESSAGE_INVALID ; 503                                  |
  *
- * Pas de `TermsGuard` (PROPOSÉ, ADR-181) : le fil sert le rendez-vous d'un trip déjà réservé ; une
- * nouvelle version des CGU ne doit pas couper la conversation le jour de la remise.
  */
 import {
   Controller,
@@ -24,6 +23,7 @@ import {
   Res,
   UseGuards,
 } from '@nestjs/common';
+import { TermsGuard } from '../../ctr/index.js';
 import { SessionGuard, sessionProofOf } from '../../iam/index.js';
 import { MSG_TRIP_MESSAGES_SERVICE } from './tokens.js';
 import type {
@@ -41,7 +41,7 @@ interface MsgResponse {
 }
 
 @Controller('trips')
-@UseGuards(SessionGuard)
+@UseGuards(SessionGuard, TermsGuard)
 export class TripMessagesController {
   constructor(@Inject(MSG_TRIP_MESSAGES_SERVICE) private readonly messages: TripMessagesService) {}
 
