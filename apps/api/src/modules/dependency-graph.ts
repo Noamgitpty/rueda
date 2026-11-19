@@ -169,8 +169,10 @@ export const MODULES: Readonly<Record<ModuleCode, ModuleSpec>> = {
     code: 'MSG',
     name: 'Messaging',
     responsibility: 'fil par trip, masquage des coordonnées, détection du marché gris',
-    dependsOn: ['IAM', 'AVL'],
-    source: '17 §2.2 ; §2.1 MSG --> IAM',
+    // CTR : garde TermsGuard des routes /trips/{tripId}/messages (US-525, ADR-181 ; règle
+    // « toute route de réservation porte TermsGuard » d'US-102 ; écart assumé de 17 §2.2, à reporter)
+    dependsOn: ['IAM', 'AVL', 'CTR'],
+    source: '17 §2.2 ; §2.1 MSG --> IAM ; ADR-181 (MSG --> CTR)',
   },
   NTF: {
     code: 'NTF',

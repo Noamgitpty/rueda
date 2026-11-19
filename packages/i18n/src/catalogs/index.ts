@@ -314,8 +314,13 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  numéro de compte ou rail refusés, titulaire discordant, coffre, base ou rail du pays
  indisponibles) et écran `web.a07.payout.*` (compte masqué aux 4 derniers chiffres, statut, retenue de 48 h après un
  changement, formulaire).
+ Version 96 (la 95 est celle d’US-707 ; la 94 celle d’US-303) : messagerie par trip et signal du marché gris (US-525, ADR-181) : `common.messages.*`
+ (réponses des routes `/trips/{id}/messages` : fil, message envoyé, fil fermé, texte invalide,
+ indisponible), `web.s16.*` (S16 : bandeau `web.s16.payOnPlatform` et vide `web.s16.empty` de 10b
+ §4.3, prénom de l’autre partie, coordonnées masquées, rappels à l’expéditeur après un signal,
+ fenêtre d’écriture, formulaire).
  */
-export const CATALOG_VERSION = 95;
+export const CATALOG_VERSION = 96;
 
 /** Catalogues de base par langue ; la langue d'un profil de locale choisit le sien. */
 export const CATALOGS: Readonly<Record<CatalogLanguage, VersionedCatalog<MessageKey>>> = {

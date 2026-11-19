@@ -162,6 +162,7 @@ describe('schéma core (US-006)', () => {
             AND c.relname !~ '^contract_'     -- tables CTR : test/l0/l0-ctr-consents.test.ts (US-102)
             AND c.relname !~ '^catalog_'      -- tables CAT : test/l0/l0-us113-vehicle-catalog.test.ts (US-113)
             AND c.relname !~ '^kyc_'          -- tables KYC : test/l0/l0-us105-identity-verification.test.ts (US-105)
+            AND c.relname !~ '^messaging_'    -- tables MSG : test/l0/l0-us525-messaging.test.ts (US-525)
           ORDER BY c.relname`,
       );
       expect(rows.map((r) => r.relname)).toEqual(
@@ -225,11 +226,13 @@ describe('schéma core (US-006)', () => {
                               ? 'privacy_cmd_owner'
                               : r.polname.startsWith('review_cmd_') // avis sur un trip (0104, US-218)
                                 ? 'review_cmd_owner'
-                                : r.polname.startsWith('worker_')
-                                  ? 'app_worker'
-                                  : r.polname.startsWith('host_view_') // host_guest_v (0035, US-062)
-                                    ? 'host_view_owner'
-                                    : 'app_api';
+                                : r.polname.startsWith('messaging_cmd_') // parties du trip (0161, US-525)
+                                  ? 'messaging_cmd_owner'
+                                  : r.polname.startsWith('worker_')
+                                    ? 'app_worker'
+                                    : r.polname.startsWith('host_view_') // host_guest_v (0035, US-062)
+                                      ? 'host_view_owner'
+                                      : 'app_api';
         expect(r.roles, `${r.relname}.${r.polname}`).toBe(expected);
       }
       // les politiques d'app_api sont toutes des lectures (US-011, ADR-035)
