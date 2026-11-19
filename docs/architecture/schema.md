@@ -3980,10 +3980,7 @@ Politiques RLS :
 ### `core.kyc_identity_verification`
 
 - RLS : ENABLE + FORCE ; propriétaire `migrator`
-- Droits : kyc_cmd_owner: INSERT, SELECT ; migrator: DELETE, ❯ test/int/schema-doc.test.ts (1 test | 1 failed) 129ms
-   ❯ document du schéma (docs/architecture/schema.md) (1)
-     × est à jour : régénéré depuis la base migrée, identique au fichier commité 128ms
- INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE
+- Droits : kyc_cmd_owner: INSERT, SELECT ; migrator: DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE
 
 | Colonne | Type | NOT NULL | Défaut |
 | ------- | ---- | -------- | ------ |
