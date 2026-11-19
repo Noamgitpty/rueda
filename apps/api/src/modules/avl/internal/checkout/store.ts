@@ -88,7 +88,7 @@ export interface CheckoutDocument {
 }
 
 /**
- * Mode sur demande du pays (US-223, ADR-175), lu par `core.catalog_public_request_terms` (0153) ;
+ * Mode sur demande du pays (US-223, ADR-175), lu par `core.catalog_public_request_terms` (0154) ;
  * même forme que la fiche S03 (`RequestModeTerms` de CAT, non importée : AVL ne dépend pas de CAT).
  */
 export interface RequestModeTerms {
@@ -122,7 +122,7 @@ export interface CheckoutQuote {
   readonly manualTransmission: boolean;
   readonly instantBook: boolean;
   /**
-   * Mode sur demande du pays (US-223, ADR-175 ; `core.catalog_public_request_terms`, 0153) : une
+   * Mode sur demande du pays (US-223, ADR-175 ; `core.catalog_public_request_terms`, 0154) : une
    * annonce `instantBook = false` n'est proposée au checkout que si la base le dit ouvert.
    */
   readonly requestMode: RequestModeTerms;

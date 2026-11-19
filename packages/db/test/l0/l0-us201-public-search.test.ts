@@ -493,7 +493,7 @@ describe('US-201 — recherche publique par zone, lieu, dates et heures (0103)',
         await car(tx, cc, { city, listed: false });
         // réservation sur demande (REQUEST) : écartée tant que le mode est fermé dans le pays
         // (`booking_request_mode_enabled` faux, 0125 ; 19 US-223 DoR 2 ; ouvert : bloc US-223 en
-        // fin de fichier, 0153)
+        // fin de fichier, 0154)
         const onRequest = await car(tx, cc, { city, instantBook: false });
         const listed = await tx.query<{ instant_book: boolean }>(
           'SELECT instant_book FROM core.catalog_public_listing($1)',
@@ -561,7 +561,7 @@ describe('US-201 — recherche publique par zone, lieu, dates et heures (0103)',
 });
 
 /**
- * US-223 (ouverture du mode sur demande, migration 0153, ADR-175 ; BOARD N-246) : le filtre
+ * US-223 (ouverture du mode sur demande, migration 0154, ADR-175 ; BOARD N-246) : le filtre
  * « réservation immédiate seulement » de 0103 est levé PAR PAYS, seulement quand le checkout
  * accepterait la demande. Attendus tirés de 19 US-223 DoR 2 (mode fermé : une annonce
  * `instant_book = false` n'est ni proposée par la recherche ni réservable), de 22 OQ-P2P-10 (REQUEST
@@ -570,7 +570,7 @@ describe('US-201 — recherche publique par zone, lieu, dates et heures (0103)',
  * {count} horas »), jamais du code testé. Le paramètre n'est ouvert que dans la transaction ANNULÉE
  * du test, par la fixture 9959 (`us223c_set_request_mode`, comme la console de configuration).
  */
-describe('US-223 — points d’entrée du mode sur demande (0153)', () => {
+describe('US-223 — points d’entrée du mode sur demande (0154)', () => {
   /** 17 §7.2 `booking_request_expiry_hours` (graine 0125, PROPOSÉ ; 22 OQ-P2P-10 : 4 h). */
   const EXPIRY_HOURS = 4;
   const terms = async (c: Tx, country: string): Promise<Row[]> =>

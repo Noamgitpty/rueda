@@ -147,7 +147,7 @@ Depuis US-115, `core.booking_vehicle_party` lit `catalog_vehicle` et son annonce
 
 ### Mode sur demande : fiche S03 (US-223, ouverture du mode ; ADR-175)
 
-- **Base** (0153, `catalog_cmd_owner`, EXECUTE `app_api` seul) : `core.catalog_public_request_terms(pays)` rend le mode du pays et le délai de réponse de l'hôte ; la recherche et les zones proposent une annonce sur demande seulement si le mode est ouvert dans son pays.
+- **Base** (0154, `catalog_cmd_owner`, EXECUTE `app_api` seul) : `core.catalog_public_request_terms(pays)` rend le mode du pays et le délai de réponse de l'hôte ; la recherche et les zones proposent une annonce sur demande seulement si le mode est ouvert dans son pays.
 - **Réponse** : `requestMode` (`RequestModeTerms` : `enabled`, `expiryHours`) dans `GET /listings/{id}`, lu en fail-closed par `requestModeOf` (`internal/host-listings/store.ts`) : ouvert seulement avec un délai entier ≥ 1.
 - **Tests** : `internal/host-listings/request-mode.test.ts`, contrat `testing/listing-page.contract.test.ts` ; L0 `packages/db/test/l0/l0-us201-public-search.test.ts` (bloc US-223).
 

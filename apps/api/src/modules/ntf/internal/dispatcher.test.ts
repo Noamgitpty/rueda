@@ -113,9 +113,16 @@ describe.each(COUNTRY_CASES)('planDispatches — $country ($currency)', (c) => {
     expect(() => planDispatches(real)).toThrow(NotificationContractError);
   });
 
-  it('US-702 : décision de la caution exécutée ⇒ le voyageur du trip (base) ; libérée en entier ou frais annoncés capturés ; montants dans la devise du pays', () => {
-    // 0150 : deposit_id, trip_id, status, captured_minor, released_minor, currency, decided_at
-    const decided = (status: string, captured: string, released: string) =>
+  it('US-702 / US-702b : décision de la caution exécutée ⇒ le voyageur du trip (base) ; avis choisi par `notice` de la base : libérée en entier, frais annoncés capturés, ou bloquée jusqu’à l’expiration (VOID refusé, 08 E3 repli 4) ; montants dans la devise du pays', () => {
+    // 0150 : deposit_id, trip_id, status, captured_minor, released_minor, currency, decided_at ;
+    // 0153 : notice, auth_expiry_at
+    const decided = (
+      status: string,
+      notice: string,
+      captured: string,
+      released: string,
+      authExpiryAt: string | null = '2031-07-16T10:00:00+00:00',
+    ) =>
       event(
         'deposit.decision.executed',
         {
@@ -126,11 +133,21 @@ describe.each(COUNTRY_CASES)('planDispatches — $country ($currency)', (c) => {
           released_minor: released,
           currency: c.currency,
           decided_at: '2031-07-16T08:00:00+00:00',
+          notice,
+          auth_expiry_at: authExpiryAt,
         },
         c.country,
       );
-    for (const status of ['VOIDED', 'EXPIRED', 'REFUNDED']) {
-      const plan = planDispatches(decided(status, '0', '1500000'), RULES, tripMap());
+    for (const [status, expiry] of [
+      ['VOIDED', '2031-07-16T10:00:00+00:00'],
+      ['EXPIRED', '2031-07-16T08:00:00+00:00'],
+      ['REFUNDED', null],
+    ] as const) {
+      const plan = planDispatches(
+        decided(status, 'RELEASED', '0', '1500000', expiry),
+        RULES,
+        tripMap(),
+      );
       expect(who(plan)).toEqual([['GUEST', guest, 'EMAIL', 'EVT_DEPOSIT_RELEASED']]);
       expect(plan[0]?.variables).toEqual({
         booking_ref: '0190F5A2',
@@ -138,7 +155,7 @@ describe.each(COUNTRY_CASES)('planDispatches — $country ($currency)', (c) => {
       });
     }
     const partial = planDispatches(
-      decided('PARTIALLY_CAPTURED', '1200', '28800'),
+      decided('PARTIALLY_CAPTURED', 'PARTIALLY_CAPTURED', '1200', '28800'),
       RULES,
       tripMap(),
     );
@@ -148,8 +165,32 @@ describe.each(COUNTRY_CASES)('planDispatches — $country ($currency)', (c) => {
       amount: { amount_minor: '28800', currency: c.currency },
       captured: { amount_minor: '1200', currency: c.currency },
     });
-    // statut absent : erreur de contrat (jamais un avis deviné)
-    const bad = event('deposit.decision.executed', { trip_id: tripId }, c.country);
+    // VOID refusé : jamais « libérée » ; montant bloqué et date d'expiration de l'autorisation
+    const blocked = planDispatches(
+      decided('EXPIRED', 'BLOCKED_UNTIL_EXPIRY', '0', '1500000'),
+      RULES,
+      tripMap(),
+    );
+    expect(who(blocked)).toEqual([['GUEST', guest, 'EMAIL', 'EVT_DEPOSIT_BLOCKED_UNTIL_EXPIRY']]);
+    expect(blocked[0]?.variables).toEqual({
+      booking_ref: '0190F5A2',
+      amount: { amount_minor: '1500000', currency: c.currency },
+      expires_at: '2031-07-16T10:00:00+00:00',
+    });
+    // date d'expiration absente : erreur de contrat (jamais un avis sans date)
+    expect(() =>
+      planDispatches(
+        decided('EXPIRED', 'BLOCKED_UNTIL_EXPIRY', '0', '1500000', null),
+        RULES,
+        tripMap(),
+      ),
+    ).toThrow(NotificationContractError);
+    // avis absent (statut seul) : erreur de contrat (jamais un avis deviné)
+    const bad = event(
+      'deposit.decision.executed',
+      { trip_id: tripId, status: 'VOIDED' },
+      c.country,
+    );
     expect(() => planDispatches(bad, RULES, tripMap())).toThrow(NotificationContractError);
   });
 

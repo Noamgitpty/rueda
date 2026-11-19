@@ -78,7 +78,7 @@ export class FakeHostListingStore implements HostListingStore {
   readonly futureTrips = new Set<string>();
   /** Nom affiché au voyageur par compte d'hôte (N-37, US-124 : premier mot du prénom légal). */
   readonly hostFirstNames = new Map<string, string>();
-  /** Mode sur demande par pays (US-223, 0153) ; absent : fermé, comme la graine 0125. */
+  /** Mode sur demande par pays (US-223, 0154) ; absent : fermé, comme la graine 0125. */
   readonly requestModes = new Map<string, RequestModeTerms>();
   /**
    * Plans de gains vendus par pays (`host_share_pct`, donnée de test ; US-226) et plan choisi par

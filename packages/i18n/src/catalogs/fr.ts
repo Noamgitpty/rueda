@@ -1414,6 +1414,11 @@ export const FR_MESSAGES = {
     'Bonjour {first_name}. Sur le dépôt de garantie du voyage {booking_ref}, nous avons prélevé {captured} pour les frais annexes qui t’ont été annoncés et libéré {amount}. Ta banque peut mettre quelques jours à l’afficher.',
   'ntf.depositPartiallyCaptured.sms.body':
     '{brand} : sur ton dépôt du voyage {booking_ref}, {captured} de frais annoncés prélevés, {amount} libérés.',
+  'ntf.depositBlockedUntilExpiry.email.subject': 'Ton dépôt de {amount} reste bloqué',
+  'ntf.depositBlockedUntilExpiry.email.body':
+    'Bonjour {first_name}. Nous n’avons pas pu annuler le blocage de ton dépôt de garantie de {amount} du voyage {booking_ref}. Rien n’a été prélevé : ta banque maintient ce montant bloqué au plus tard jusqu’au {expires_at}, puis le libère automatiquement.',
+  'ntf.depositBlockedUntilExpiry.sms.body':
+    '{brand} : ton dépôt de {amount} du voyage {booking_ref} reste bloqué par ta banque jusqu’au {expires_at}, sans prélèvement. Il sera ensuite libéré automatiquement.',
   'backoffice.catalog.open': 'Ouvrir la demande',
   'backoffice.catalog.heading': 'Demande d’ajout au catalogue',
   'backoffice.catalog.requested': 'Saisie de l’hôte',

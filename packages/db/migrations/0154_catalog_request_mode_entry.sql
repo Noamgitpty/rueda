@@ -1,4 +1,4 @@
--- 0153 — CAT : points d'entrée du mode sur demande (recherche, zones, fiche S03, devis S05).
+-- 0154 — CAT : points d'entrée du mode sur demande (recherche, zones, fiche S03, devis S05).
 -- US-223 (ouverture du mode, BOARD N-246, GL-26) ; 19 US-223 DoR 2 (« tant que REQUEST n'existe pas,
 -- une annonce instant_book = false n'est ni proposée par la recherche ni réservable ») ; 08
 -- BR-BOOK-01 (mode REQUEST au choix de l'hôte) ; 22 OQ-P2P-10 (instantanée par défaut, REQUEST

@@ -1,5 +1,5 @@
 /**
- * US-223 (ADR-175) — lecture fail-closed de `core.catalog_public_request_terms` (0153) par
+ * US-223 (ADR-175) — lecture fail-closed de `core.catalog_public_request_terms` (0154) par
  * CAT (fiche S03) ; même règle dans AVL : `avl/internal/checkout/request-mode.test.ts`. Ouvert seulement si la base rend `true` ET
  * un délai entier ≥ 1 (17 §7.2 `booking_request_expiry_hours` ; 19 US-223 DoR 2 : mode fermé,
  * jamais réservable).

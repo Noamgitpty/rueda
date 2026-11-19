@@ -62,6 +62,9 @@ const ISOLATED = [
   // US-224 (N-364) : marque de l'alerte et attente du choix contre la supersession, à deux sessions,
   // remboursement en échec préparé et VALIDÉ sur le compte PSP ACTIVE partagé du pays (fixture 9800)
   'test/l0/l0-us224-await-choice-race.test.ts',
+  // US-702b : ré-autorisation contre décision de la même caution à deux sessions, caution commitée
+  // puis toujours menée à un état final (aucune caution laissée dans une file)
+  'test/l0/l0-us702b-deposit-race.test.ts',
 ];
 const C11 = ['test/l0/l0-c11-fuzz.test.ts'];
 // US-049 : les attaques de la red team (test/redteam/<axe>/) tournent seules, après tous les autres

@@ -180,7 +180,7 @@ describe('US-204 — contrat de la fiche du véhicule', () => {
       listing: { ...PUBLIC, hostFirstName: null, photos: [], hostVerified: false, ratings: null },
     });
 
-    // US-223 (0153) : annonce sur demande d'un pays où le mode est ouvert (délai de la base rendu)
+    // US-223 (0154) : annonce sur demande d'un pays où le mode est ouvert (délai de la base rendu)
     const request = new PageStore();
     request.listing = {
       ...PUBLIC,

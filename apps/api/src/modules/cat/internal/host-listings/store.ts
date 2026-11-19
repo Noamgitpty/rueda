@@ -142,7 +142,7 @@ export interface PublicListing {
    */
   readonly photos: readonly PublicPhoto[];
   /**
-   * Mode sur demande du pays (US-223, ADR-175 ; `core.catalog_public_request_terms`, 0153) :
+   * Mode sur demande du pays (US-223, ADR-175 ; `core.catalog_public_request_terms`, 0154) :
    * ouvert seulement si la base le dit ; fermé : `{ enabled: false, expiryHours: null }`.
    */
   readonly requestMode: RequestModeTerms;

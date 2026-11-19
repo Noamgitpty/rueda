@@ -1128,9 +1128,19 @@ Migration `0152_payment_refund_lock_order_credit_collection`. Fixture `9933_test
 - **Droits** : aucun nouveau ; signatures, propriétaire (`cmd_money_owner`), `SECURITY DEFINER` et `EXECUTE` inchangés.
 - **Preuves** : `test/l0/l0-us224-await-choice-race.test.ts` (deux connexions réelles et une d'observation, les deux ordres d'arrivée, attente observée, aucun `40P01` ; groupe isolé), `test/l0/l0-us224-credit-collection.test.ts`, `test/l0/l0-us224f-multi-tender.test.ts` (unité de trop refusée sur chacun des deux moyens par `leg_refund_exceeds_settlement` ; crédits de T33 et TJ16d posés par la fixture 9933) — PA USD, PY PYG, rôles de production.
 
+## Décision de la caution : corrections « avant ouverture d'un pays » (US-702b ; revues de la PR 248 ; ADR-172)
+
+Migration `0153_payment_deposit_decision_before_opening`, fixture `9932_test_us702b_deposit_return_fixtures.sql` (`test_fixture.us702b_record_return` : retour réel, transition `RETURNED` du journal d'état à l'heure donnée, EXECUTE `app_worker`).
+
+- **Validité V** : `payment_cmd_record_deposit_decision` remplacée : rail revérifié en base (pré-autorisation unique ⇔ `(release_at − auth_at) + marge_h ≤ V` ; ré-autorisation ⇔ `V > deposit_reauth_lead_h`), sinon `deposit_decision_mismatch` : V reçu de l'API ne peut plus provoquer de VOID anticipé.
+- **Libération effective** : `core.payment_deposit_effective_schedule(…)` (SECURITY INVOKER, aucun EXECUTE) : `(retour réel ?? fin prévue) + délai figé` ; décision `min(decision_at, libération)` sur retour à l'heure ou anticipé, `min(libération, auth_expiry − deposit_safety_h)` jamais avant `decision_at` sur retour tardif ; lue par `payment_deposit_decision_due`, `payment_cmd_deposit_decide` et `payment_deposit_reauth_due` (`release_at` rendu = `min(release_at, libération effective)`), remplacées à signature et droits identiques.
+- **Avis** : charge utile de `deposit.decision.executed` étendue de `notice` (`RELEASED`, `PARTIALLY_CAPTURED`, `BLOCKED_UNTIL_EXPIRY` : `EXPIRED` écrit avant l'expiration) et `auth_expiry_at`.
+- **Droits** : politique `cmd_hold_deposit_read` élargie à `marge_h` ; `SELECT (at)` de `booking_trip_state_log` à cmd_hold_owner.
+- **Preuves** : `test/l0/l0-us702-deposit-decision.test.ts` (V, retour anticipé, tardif, rail b, file des ré-autorisations, `notice`) ; `test/l0/l0-us702b-deposit-race.test.ts` (groupe isolé : ré-autorisation contre décision à deux connexions, dans les deux ordres).
+
 ## Points d'entrée du mode sur demande (US-223, ouverture du mode ; BOARD N-246 ; ADR-175)
 
-Migration `0153_catalog_request_mode_entry`. Aucune fixture nouvelle (réglage posé en transaction annulée par `test_fixture.us223c_set_request_mode` de 9959).
+Migration `0154_catalog_request_mode_entry`. Aucune fixture nouvelle (réglage posé en transaction annulée par `test_fixture.us223c_set_request_mode` de 9959).
 
 - **Aide** `core.catalog_request_mode_hours(text)` (SECURITY INVOKER, EXECUTE catalog_cmd_owner seul) : délai de réponse de l'hôte si `booking_request_mode_enabled` est vrai et `booking_request_expiry_hours` un entier ≥ 1 dans le pays, sinon `NULL` (fail-closed).
 - **Fonction** `core.catalog_public_request_terms(text)` (catalog_cmd_owner, RLS-15, EXECUTE `app_api` seul, lecture seule) : `(request_mode_enabled, request_expiry_hours)` ; pays inconnu ou réglage absent : `(false, NULL)`.

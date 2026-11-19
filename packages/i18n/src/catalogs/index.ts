@@ -290,7 +290,11 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  ou renvoi à la réservation dans l’appli tant qu’ils ne sont pas fournis, hors production
  seulement) ; emplacement `{assistance}` ajouté à `ntf.bookingConfirmed.*.body` et
  `ntf.bookingConfirmedHost.*.body`.
- Version 91 (la 90 est celle d’US-213 ; la 89 reste réservée à US-702b) : ouverture du mode sur
+ Version 91 (la 89, réservée, n’a pas été prise ; la 90 est celle d’US-213b) : corrections « avant ouverture »
+ de la décision de la caution (US-702b, ADR-172) : avis au voyageur
+ `ntf.depositBlockedUntilExpiry.*` (annulation de l’autorisation refusée : montant bloqué par la
+ banque jusqu’à l’expiration de l’autorisation, rien de prélevé ; 08 E3 repli 4).
+ Version 92 (la 91 est celle d’US-702b ; la 89, réservée, n’a pas été prise) : ouverture du mode sur
  demande (US-223, ADR-175 ; BOARD N-246, N-288) : `web.s03.request` (S03 : « {host_name} confirma
  en hasta {count} horas », texte de 10b promu du prototype, qui lit désormais le catalogue
  officiel), `web.s05.request.continue` (bouton du devis S05 d’une annonce sur demande : le voyageur
@@ -299,7 +303,7 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  annulée, sans débit) ; es de `web.s06.request.captureFailed.body` aligné sur en (« Estamos
  anulando », BOARD N-289).
  */
-export const CATALOG_VERSION = 91;
+export const CATALOG_VERSION = 92;
 
 /** Catalogues de base par langue ; la langue d'un profil de locale choisit le sien. */
 export const CATALOGS: Readonly<Record<CatalogLanguage, VersionedCatalog<MessageKey>>> = {
