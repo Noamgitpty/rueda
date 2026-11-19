@@ -277,8 +277,12 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  (`ctr.constancia.title`, `ctr.constancia.platform`, `web.s09.documents.constancia`) ; tutoiement
  du centre juridique (`web.legalCenter.trip.body`, `web.legalCenter.disputes.body1` à `body3`, es
  et fr). Textes juridiques toujours BROUILLON (GL-39).
+ Version 88 (la 87 est réservée à US-702, PR #248) : durcissement argent n° 2 d'US-224 (BOARD
+ N-365) : texte pt-BR de `backoffice.cancel.outcome.REFUND_RAIL_NOT_NATIVE` corrigé (« sobre outro
+ meio de pagamento », calque de l'espagnol, devient « para um pagamento feito com outro meio ») ;
+ es, en, fr inchangés.
  */
-export const CATALOG_VERSION = 86;
+export const CATALOG_VERSION = 88;
 
 /** Catalogues de base par langue ; la langue d'un profil de locale choisit le sien. */
 export const CATALOGS: Readonly<Record<CatalogLanguage, VersionedCatalog<MessageKey>>> = {

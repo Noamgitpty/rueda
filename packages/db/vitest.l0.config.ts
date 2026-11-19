@@ -59,6 +59,9 @@ const ISOLATED = [
   // US-221b : paiement prouvé puis conversion (report de la capture sur les soldes par jambe), à
   // deux sessions, données commitées, compte PSP ACTIVE du pays partagé (comme US-223a)
   'test/l0/l0-us221b-conversion-capture.test.ts',
+  // US-224 (N-364) : marque de l'alerte et attente du choix contre la supersession, à deux sessions,
+  // remboursement en échec préparé et VALIDÉ sur le compte PSP ACTIVE partagé du pays (fixture 9800)
+  'test/l0/l0-us224-await-choice-race.test.ts',
 ];
 const C11 = ['test/l0/l0-c11-fuzz.test.ts'];
 // US-049 : les attaques de la red team (test/redteam/<axe>/) tournent seules, après tous les autres

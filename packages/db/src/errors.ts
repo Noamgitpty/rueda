@@ -232,6 +232,12 @@ export const CONSTRAINT_CODES: Readonly<Record<string, readonly [string, DbBusin
     SQLSTATE.integrityConstraintViolation,
     'PAYMENT_SUBJECT_MISMATCH',
   ],
+  // US-224 (N-367, 0150, ADR-166 n° 9) : encaissement par crédit refusé tant que les crédits
+  // n'existent pas
+  payment_operation_credit_unavailable: [
+    SQLSTATE.objectNotInPrerequisiteState,
+    'PAYMENT_METHOD_UNAVAILABLE',
+  ],
   // table d'occupation unique, blocages de l'hôte, tampons (0032, US-022)
   occupancy_host_forbidden: [SQLSTATE.insufficientPrivilege, 'FORBIDDEN'],
   occupancy_vehicle_single_org: [SQLSTATE.exclusionViolation, 'FORBIDDEN'],

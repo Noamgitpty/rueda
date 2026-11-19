@@ -1099,3 +1099,12 @@ Migration `0149_settlement_conversion_capture_legs`. Fixture `9936_test_us221b_c
 - **Rapprochement** : `core.finance_trip_leg_facts()` (0137) remplacé : tout trip dont la disposition `CONVERSION` porte une capture prouvée est tenu ; « encaissé » = encaissements portés et cette capture.
 - **Codes** : `operation_trip_attach_invalid` ⇒ `INVARIANT_VIOLATION` ; refus du report sous les noms de 0123 (`leg_movement_unsupported`, `leg_movement_unproven`, `leg_movement_not_succeeded`, `leg_funds_holding_disabled`).
 - **Preuves** : `test/l0/l0-us221b-conversion-capture.test.ts` (TJ01 PA USD, TJ08a PY PYG ; groupe isolé) ; inventaire des écrivains de `trip_leg_balance` mis à jour (`test/int/stl-schema.test.ts`).
+
+## Durcissement argent n° 2 (US-224 ; suites N-364, N-365, N-367 ; ADR-166 n° 7 à 9, ADR-150)
+
+Migration `0150_payment_refund_lock_order_credit_collection`. Fixture `9933_test_hardening_money_fixtures` (moyen crédit de 08 posé sur une capture `PENDING` enregistrée par la vraie commande ; transactions de test).
+
+- **N-364** : corps de `core.payment_cmd_refund_mark_alerted` (0127) remplacé : verrou du trip (`FOR UPDATE`) avant la ligne de l'instance ; instance inconnue ⇒ `false`, comme avant. Corps de `core.payment_cmd_refund_await_choice` (0141) recopié, commentaire de l'ordre des verrous corrigé. Ordre unique trip puis instance (planification, envoi, report, marque, attente du choix, supersession).
+- **N-367** : corps de `core.payment_cmd_record_operation` à 15 arguments (0121) remplacé : `CREDIT_REDEMPTION`, et `AUTH` / `CAPTURE` / `MIT_CHARGE` / `DEBT_COLLECTION` / `DEPOSIT_AUTH` / `DEPOSIT_CAPTURE` d'un moyen `CREDIT_CASH` / `CREDIT_PROMO` (casse ignorée) ⇒ `payment_operation_credit_unavailable` (55000, `PAYMENT_METHOD_UNAVAILABLE`), avant toute écriture et avant le rejeu.
+- **Droits** : aucun nouveau ; signatures, propriétaire (`cmd_money_owner`), `SECURITY DEFINER` et `EXECUTE` inchangés.
+- **Preuves** : `test/l0/l0-us224-await-choice-race.test.ts` (deux connexions réelles et une d'observation, les deux ordres d'arrivée, attente observée, aucun `40P01` ; groupe isolé), `test/l0/l0-us224-credit-collection.test.ts`, `test/l0/l0-us224f-multi-tender.test.ts` (unité de trop refusée sur chacun des deux moyens par `leg_refund_exceeds_settlement` ; crédits de T33 et TJ16d posés par la fixture 9933) — PA USD, PY PYG, rôles de production.
