@@ -280,8 +280,12 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  Version 87 (la 86 est celle d’US-212b) : décision de la caution (US-702, ADR-172) : avis au
  voyageur `ntf.depositReleased.*` (caution libérée en entier) et `ntf.depositPartiallyCaptured.*`
  (frais annexes annoncés capturés, reste libéré), sur `deposit.decision.executed`.
+ Version 88 (la 87 est celle d’US-702) : durcissement argent n° 2 d'US-224 (BOARD
+ N-365) : texte pt-BR de `backoffice.cancel.outcome.REFUND_RAIL_NOT_NATIVE` corrigé (« sobre outro
+ meio de pagamento », calque de l'espagnol, devient « para um pagamento feito com outro meio ») ;
+ es, en, fr inchangés.
  */
-export const CATALOG_VERSION = 87;
+export const CATALOG_VERSION = 88;
 
 /** Catalogues de base par langue ; la langue d'un profil de locale choisit le sien. */
 export const CATALOGS: Readonly<Record<CatalogLanguage, VersionedCatalog<MessageKey>>> = {

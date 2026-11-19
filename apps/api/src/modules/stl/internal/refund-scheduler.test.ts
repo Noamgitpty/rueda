@@ -361,10 +361,11 @@ describe('ordonnanceur — états et refus', () => {
       step: 'ATTENTION',
       alert: { code: 'FIN_REFUND_FAILED', key: 'FAILED', errorCode: 'REFUND_FAILED' },
     });
-    // US-224f : marque et attente du choix d'un autre rail dans LA MÊME transaction, après l'alerte
+    // US-224f : marque et attente du choix d'un autre rail dans LA MÊME transaction, après l'alerte ;
+    // N-364 (ADR-166 n° 7) : attente du choix (trip puis instance) AVANT la marque
     expect(db.calls.slice(-2).map((c) => [c.sql.match(/core\.(\w+)/)?.[1], c.params])).toEqual([
-      ['payment_cmd_refund_mark_alerted', [INSTANCE, 'FAILED']],
       ['payment_cmd_refund_await_choice', [INSTANCE]],
+      ['payment_cmd_refund_mark_alerted', [INSTANCE, 'FAILED']],
     ]);
     await s.process(due({ status: 'FAILED', operationStatus: 'FAILED', finAlert: 'FAILED' }));
     expect(alerts.sent.map((a) => a.code)).toEqual(['FIN_REFUND_FAILED']);
@@ -395,6 +396,8 @@ describe('ordonnanceur — états et refus', () => {
     });
     await s2.process(due({ status: 'FAILED', operationStatus: 'FAILED' }));
     expect(lines.some((l) => l.includes('alert_deferred'))).toBe(true);
+    // N-364 : l'attente du choix refusée ⇒ la marque n'est même pas tentée (rejouée au passage suivant)
+    expect(odd.called('payment_cmd_refund_mark_alerted')).toEqual([]);
   });
 
   it('issue inconnue : UNKNOWN appliqué, repris plus tard ; ordre en vol relu d’abord (aucun renvoi) puis SENT', async () => {

@@ -2631,7 +2631,7 @@ export const PT_MESSAGES = {
   'backoffice.cancel.outcome.REFUND_RAIL_UNAVAILABLE':
     'Um reembolso iria para um meio de pagamento que ainda não é reembolsado automaticamente. Nada foi registrado; o FINANCE cuida disso.',
   'backoffice.cancel.outcome.REFUND_RAIL_NOT_NATIVE':
-    'Foi pedido um reembolso no cartão sobre outro meio de pagamento. Nada foi registrado.',
+    'Foi pedido um reembolso no cartão para um pagamento feito com outro meio. Nada foi registrado.',
   'backoffice.cancel.outcome.REFUND_EXCEEDS_TENDER':
     'Um reembolso supera o que um meio de pagamento pagou.',
   // US-214 (ADR-160) : « Mis viajes » (S08) et détail du trip du voyageur (S09)
