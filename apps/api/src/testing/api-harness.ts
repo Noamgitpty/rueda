@@ -49,7 +49,7 @@ import {
   UnavailableBotChallenge,
 } from '../modules/risk/index.js';
 import type { RateLimitPolicy, RiskHttpOptions } from '../modules/risk/index.js';
-import type { SupConsoleOptions } from '../modules/sup/index.js';
+import type { SupConsoleOptions, SupEvidenceBundleOptions } from '../modules/sup/index.js';
 import type { TrpInspectionOptions } from '../modules/trp/index.js';
 import { CountryConfigService } from '../modules/cfg/index.js';
 
@@ -137,6 +137,8 @@ export interface ApiHarnessOverrides {
   readonly trp?: Partial<TrpInspectionOptions>;
   /** Compte de versement (US-707) ; absent : magasin indisponible, ni coffre ni PSP (503). */
   readonly pyo?: Partial<PyoPayoutOptions>;
+  /** US-308 : dossier de preuve (absent : coffre et stockage indisponibles, routes 503). */
+  readonly evidence?: SupEvidenceBundleOptions;
 }
 
 export async function startApiHarness(overrides: ApiHarnessOverrides = {}): Promise<ApiHarness> {
@@ -388,6 +390,7 @@ export async function startApiHarness(overrides: ApiHarnessOverrides = {}): Prom
       { ...UNAVAILABLE_AVL_CHECKOUT, ...overrides.checkout },
       { ...overrides.trp },
       { ...unavailablePyoOptions(), ...overrides.pyo },
+      { ...overrides.evidence },
     ),
     {
       rawBody: true,

@@ -13462,6 +13462,395 @@
           }
         }
       }
+    },
+    "/console/trips/{tripId}/evidence-bundles": {
+      "post": {
+        "operationId": "consoleEvidenceBundleRequest",
+        "tags": ["sup"],
+        "summary": "Dossier de preuve d'un trip (16 CLM-034, US-308) : manifeste scellé par la base (photos et empreintes, contrat et signature, CGU acceptées, journal d'état, pièces absentes), archive générée ensuite par le travailleur ; permission evidence.export dans le pays du dossier de support OUVERT de ce trip assigné à l'agent, motif journalisé (BULK_EXPORT), refus journalisés",
+        "parameters": [
+          {
+            "name": "tripId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["requestId", "caseId", "purpose", "reason"],
+                "additionalProperties": false,
+                "properties": {
+                  "requestId": {
+                    "$ref": "#/components/schemas/Uuid"
+                  },
+                  "caseId": {
+                    "$ref": "#/components/schemas/Uuid"
+                  },
+                  "purpose": {
+                    "enum": ["ACODECO", "CHARGEBACK", "INSURER", "DISPUTE"]
+                  },
+                  "reason": {
+                    "type": "string",
+                    "minLength": 10,
+                    "maxLength": 500
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Rejeu de la même requête : le dossier d'origine",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EvidenceBundleRequested"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Dossier scellé (REQUESTED)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EvidenceBundleRequested"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/StaffRequestInvalid"
+          },
+          "401": {
+            "$ref": "#/components/responses/StaffAuthRequired"
+          },
+          "403": {
+            "description": "Sans rôle interne ou sans `evidence.export` dans le pays du dossier (FORBIDDEN, journalisé) ; session non élevée (2FA_REQUIRED) ; dossier de support inconnu, clos, d'un autre trip ou non assigné à l'agent (STAFF_CASE_REQUIRED, journalisé) ; trip qui concerne l'agent (STAFF_SELF_FORBIDDEN, journalisé, ADR-122)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "enum": [
+                        "FORBIDDEN",
+                        "2FA_REQUIRED",
+                        "STAFF_CASE_REQUIRED",
+                        "STAFF_SELF_FORBIDDEN"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "415": {
+            "$ref": "#/components/responses/NotJsonNoStore"
+          },
+          "429": {
+            "$ref": "#/components/responses/StaffRateLimited"
+          },
+          "503": {
+            "description": "Coffre ou stockage du dossier de preuve indisponibles (production bêta) : rien n'est demandé ni servi",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "EVIDENCE_EXPORT_UNAVAILABLE"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/console/evidence-bundles/{bundleId}": {
+      "get": {
+        "operationId": "consoleEvidenceBundleStatus",
+        "tags": ["sup"],
+        "summary": "État d'un dossier de preuve pour son demandeur seulement (REQUESTED, READY, EXPIRED calculé, FAILED et constat), empreintes, pièces absentes ; aucune donnée personnelle (US-308)",
+        "parameters": [
+          {
+            "name": "bundleId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "État du dossier",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EvidenceBundleStatus"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/StaffRequestInvalid"
+          },
+          "401": {
+            "$ref": "#/components/responses/StaffAuthRequired"
+          },
+          "403": {
+            "description": "Sans rôle interne ou sans evidence.export (FORBIDDEN) ; dossier d'un autre agent ou inconnu (FORBIDDEN, journalisé) ; session non élevée (2FA_REQUIRED)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "enum": ["FORBIDDEN", "2FA_REQUIRED"]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "$ref": "#/components/responses/StaffRateLimited"
+          },
+          "503": {
+            "description": "Base du dossier de preuve indisponible",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "EVIDENCE_EXPORT_UNAVAILABLE"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/console/evidence-bundles/{bundleId}/download": {
+      "post": {
+        "operationId": "consoleEvidenceBundleDownload",
+        "tags": ["sup"],
+        "summary": "Archive ZIP du dossier de preuve (manifest.json scellé, photos, contrat) pour son demandeur seulement, avant l'échéance de 168 h ; ouverture journalisée (BULK_EXPORT) ; servie seulement si son SHA-256 recalculé égale l'empreinte enregistrée (US-308)",
+        "parameters": [
+          {
+            "name": "bundleId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["reason"],
+                "additionalProperties": false,
+                "properties": {
+                  "reason": {
+                    "type": "string",
+                    "minLength": 10,
+                    "maxLength": 500
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Archive ZIP ; ses empreintes sont dans X-Evidence-Sha256 et X-Evidence-Manifest-Sha256",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              },
+              "Content-Disposition": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "pattern": "^attachment; filename=\"evidence-[0-9a-f-]{36}-[0-9a-f-]{36}\\.zip\"$"
+                }
+              },
+              "X-Evidence-Sha256": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$"
+                }
+              },
+              "X-Evidence-Manifest-Sha256": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$"
+                }
+              }
+            },
+            "content": {
+              "application/zip": {
+                "schema": {
+                  "type": "string",
+                  "contentMediaType": "application/zip"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/StaffRequestInvalid"
+          },
+          "401": {
+            "$ref": "#/components/responses/StaffAuthRequired"
+          },
+          "403": {
+            "description": "Sans rôle interne ou sans evidence.export (FORBIDDEN) ; dossier d'un autre agent : le lien ne se partage pas (FORBIDDEN, journalisé) ; session non élevée (2FA_REQUIRED) ; dossier de support clos ou réassigné (STAFF_CASE_REQUIRED, journalisé) ; trip qui concerne l'agent (STAFF_SELF_FORBIDDEN, journalisé)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "enum": [
+                        "FORBIDDEN",
+                        "2FA_REQUIRED",
+                        "STAFF_CASE_REQUIRED",
+                        "STAFF_SELF_FORBIDDEN"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Archive pas encore générée (EVIDENCE_EXPORT_NOT_READY) ; constat du travailleur ou archive dont l'empreinte diffère : rien n'est servi (EVIDENCE_EXPORT_FAILED, 16 CLM-034)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "enum": ["EVIDENCE_EXPORT_NOT_READY", "EVIDENCE_EXPORT_FAILED"]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "Lien échu (168 h après la génération) : refus journalisé",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "EVIDENCE_EXPORT_EXPIRED"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "415": {
+            "$ref": "#/components/responses/NotJsonNoStore"
+          },
+          "429": {
+            "$ref": "#/components/responses/StaffRateLimited"
+          },
+          "503": {
+            "description": "Coffre ou stockage du dossier de preuve indisponibles (production bêta) : rien n'est demandé ni servi",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "EVIDENCE_EXPORT_UNAVAILABLE"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -22754,6 +23143,134 @@
                 }
               }
             ]
+          }
+        }
+      },
+      "EvidenceBundleRequested": {
+        "type": "object",
+        "required": ["bundleId", "status", "manifestSha256"],
+        "additionalProperties": false,
+        "properties": {
+          "bundleId": {
+            "$ref": "#/components/schemas/Uuid"
+          },
+          "status": {
+            "enum": ["REQUESTED", "READY", "FAILED"]
+          },
+          "manifestSha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          }
+        }
+      },
+      "EvidenceBundleStatus": {
+        "type": "object",
+        "required": [
+          "bundleId",
+          "tripId",
+          "country",
+          "purpose",
+          "status",
+          "manifestSha256",
+          "requestedAt",
+          "generatedAt",
+          "expiresAt",
+          "exportSha256",
+          "exportBytes",
+          "failureCode",
+          "findings",
+          "absent",
+          "fileCount"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "bundleId": {
+            "$ref": "#/components/schemas/Uuid"
+          },
+          "tripId": {
+            "$ref": "#/components/schemas/Uuid"
+          },
+          "country": {
+            "type": "string",
+            "pattern": "^[A-Z]{2}$"
+          },
+          "purpose": {
+            "enum": ["ACODECO", "CHARGEBACK", "INSURER", "DISPUTE"]
+          },
+          "status": {
+            "enum": ["REQUESTED", "READY", "EXPIRED", "FAILED"]
+          },
+          "manifestSha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "requestedAt": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+          },
+          "generatedAt": {
+            "type": ["string", "null"],
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+          },
+          "expiresAt": {
+            "type": ["string", "null"],
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+          },
+          "exportSha256": {
+            "type": ["string", "null"],
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "exportBytes": {
+            "type": ["integer", "null"],
+            "minimum": 1
+          },
+          "failureCode": {
+            "enum": [
+              "INTEGRITY_MISMATCH",
+              "OBJECT_MISSING",
+              "KEY_UNAVAILABLE",
+              "RENDER_FAILED",
+              "TOO_LARGE",
+              null
+            ]
+          },
+          "findings": {
+            "type": ["array", "null"],
+            "items": {
+              "type": "object",
+              "required": ["piece", "ref", "reason"],
+              "additionalProperties": false,
+              "properties": {
+                "piece": {
+                  "type": "string"
+                },
+                "ref": {
+                  "type": "string"
+                },
+                "reason": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "absent": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["piece", "reason"],
+              "properties": {
+                "piece": {
+                  "type": "string"
+                },
+                "reason": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "fileCount": {
+            "type": "integer",
+            "minimum": 0
           }
         }
       }

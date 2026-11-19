@@ -453,6 +453,14 @@ export const PT_MESSAGES = {
   'common.evidence.rejected':
     'Arquivo recusado: apenas JPEG, PNG, HEIC ou PDF limpos, de tamanho limitado.',
   'common.evidence.unavailable': 'Não podemos receber arquivos agora. Nada foi salvo.',
+  'common.evidenceBundle.notReady':
+    'O dossiê de provas ainda está sendo preparado. Tente de novo em alguns minutos.',
+  'common.evidenceBundle.expired':
+    'O link do dossiê de provas expirou (7 dias). Peça um novo dossiê.',
+  'common.evidenceBundle.failed':
+    'Não foi possível entregar o dossiê: uma prova está faltando ou não corresponde à sua impressão digital. A constatação foi registrada.',
+  'common.evidenceBundle.unavailable':
+    'O dossiê de provas não está disponível agora. Nada foi pedido nem entregue.',
   'backoffice.action.RESTRICT_ACCOUNT': 'Restringir a conta',
   'backoffice.action.LIFT_RESTRICTION': 'Suspender a restrição',
   'backoffice.queues.current': 'Fila exibida',

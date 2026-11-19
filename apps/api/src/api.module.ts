@@ -22,9 +22,10 @@ import type { RiskHttpOptions } from './modules/risk/index.js';
 import {
   SupBrandConsoleModule,
   SupConsoleModule,
+  SupEvidenceBundleModule,
   SupSecurityConsoleModule,
 } from './modules/sup/index.js';
-import type { SupConsoleOptions } from './modules/sup/index.js';
+import type { SupConsoleOptions, SupEvidenceBundleOptions } from './modules/sup/index.js';
 import { TrpInspectionModule } from './modules/trp/index.js';
 import type { TrpInspectionOptions } from './modules/trp/index.js';
 
@@ -38,7 +39,7 @@ import type { TrpInspectionOptions } from './modules/trp/index.js';
  * consentement biométrique, US-105 : sans adaptateurs KYC, magasin indisponible et aucun
  * fournisseur, fail-closed ; recherche publique, US-201 : sans adaptateurs, 503 ; checkout, devis
  * figé et pose du hold, US-208 : sans adaptateurs, 503 ; photos d'état du véhicule, US-303 : sans
- * adaptateurs, 503).
+ * adaptateurs, 503 ; dossier de preuve, US-308 : sans coffre ni stockage, 503).
  */
 @Module({})
 export class ApiModule {
@@ -56,6 +57,7 @@ export class ApiModule {
     checkout?: AvlCheckoutOptions,
     trp?: TrpInspectionOptions,
     pyo?: PyoPayoutOptions,
+    evidence?: SupEvidenceBundleOptions,
   ): DynamicModule {
     return {
       module: ApiModule,
@@ -88,6 +90,9 @@ export class ApiModule {
         RegulatoryNoticesModule,
         SupBrandConsoleModule,
         SupSecurityConsoleModule,
+        // US-308 : dossier de preuve /console/trips/{tripId}/evidence-bundles et
+        // /console/evidence-bundles/{bundleId}… (StaffGuard) ; sans coffre ni stockage, 503
+        SupEvidenceBundleModule.register(evidence),
       ],
     };
   }

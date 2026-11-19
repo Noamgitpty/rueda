@@ -686,7 +686,10 @@ describe('documents en vigueur, empreintes et droits', () => {
           // US-107 (0061) : pays du compte lu par la console (résolveur du type USER_ACCOUNT)
           // US-105 (0072) : consentement biométrique (genre BIOMETRIC_CONSENT, contexte KYC) seulement
           // US-106 (0076) : pays du compte (CGU acceptées, genre TOS_GUEST) pour la file KYC
-          pols: 'iam_auth_insert:iam_auth_owner;iam_auth_select:iam_auth_owner;iam_staff_select:iam_staff_owner;kyc_cmd_insert:kyc_cmd_owner;kyc_cmd_read:kyc_cmd_owner;kyc_cmd_read_tos:kyc_cmd_owner;migrator_all:migrator',
+          // US-308 (0165) : versions des CGU acceptées lues par cmd_hold_owner pour le manifeste du
+          // dossier de preuve (genre, version, langue, heure ; jamais l'IP ni le user-agent) ;
+          // politique SELECT d'un propriétaire NOLOGIN, aucun droit applicatif ajouté
+          pols: 'cmd_hold_evidence_consent_sel:cmd_hold_owner;iam_auth_insert:iam_auth_owner;iam_auth_select:iam_auth_owner;iam_staff_select:iam_staff_owner;kyc_cmd_insert:kyc_cmd_owner;kyc_cmd_read:kyc_cmd_owner;kyc_cmd_read_tos:kyc_cmd_owner;migrator_all:migrator',
         },
         // US-211 (0122) : contrat de location (registres et partie nominative) sous cmd_hold_owner
         {

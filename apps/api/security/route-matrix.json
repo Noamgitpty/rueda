@@ -169,6 +169,27 @@
       "portee": "pays",
       "idor": "trip de l’autre pays ou inconnu : 403 FORBIDDEN journalisé, aucune donnée ; trip qui concerne l’agent : 403 STAFF_SELF_FORBIDDEN ; aucune donnée personnelle rendue (preuve L0 l0-us224d-refund-read)"
     },
+    "POST /console/trips/{tripId}/evidence-bundles": {
+      "acces": "staff",
+      "permission": "evidence.export (OPS_AGENT, ADMIN) dans le pays du dossier de support OUVERT de ce trip assigné à l’agent (ADMIN : tout dossier de son pays), garde ADR-122, motif journalisé (BULK_EXPORT, audit chaîné), refus journalisés (US-308, 0165)",
+      "roles": ["OPS_AGENT", "ADMIN"],
+      "portee": "pays",
+      "idor": "trip ou dossier de l’autre pays, dossier d’un collègue, clos ou d’un autre trip : 403 journalisé, rien n’est scellé ; trip qui concerne l’agent : 403 STAFF_SELF_FORBIDDEN ; hôte, voyageur, co-hôte : aucune route (preuve L0 l0-us308-evidence-bundle, RT-L3-D03)"
+    },
+    "GET /console/evidence-bundles/{bundleId}": {
+      "acces": "staff",
+      "permission": "evidence.export, demandeur du dossier seulement (US-308, 0165) ; aucune donnée personnelle rendue",
+      "roles": ["OPS_AGENT", "ADMIN"],
+      "portee": "pays",
+      "idor": "dossier d’un autre agent (ADMIN compris) ou inconnu : 403 FORBIDDEN journalisé, aucune donnée (preuve L0 l0-us308-evidence-bundle)"
+    },
+    "POST /console/evidence-bundles/{bundleId}/download": {
+      "acces": "staff",
+      "permission": "evidence.export, demandeur du dossier seulement, dossier de support toujours ouvert et assigné, avant l’échéance de 168 h ; ouverture journalisée (BULK_EXPORT, audit chaîné) (US-308, 0165)",
+      "roles": ["OPS_AGENT", "ADMIN"],
+      "portee": "pays",
+      "idor": "dossier d’un autre agent : 403 journalisé (le lien ne se partage pas) ; lien rejoué après 7 j : 410 EVIDENCE_EXPORT_EXPIRED journalisé ; archive dont l’empreinte diffère : 409 EVIDENCE_EXPORT_FAILED, rien n’est servi (preuve L0 l0-us308-evidence-bundle)"
+    },
     "GET /console/cancellations/{id}": {
       "acces": "staff",
       "permission": "ops.platform_cancel (permission des trois actions d’annulation CANCEL_TRIP_*, dans le pays du trip), garde ADR-122, refus journalisés",

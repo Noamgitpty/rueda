@@ -314,8 +314,12 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  numéro de compte ou rail refusés, titulaire discordant, coffre, base ou rail du pays
  indisponibles) et écran `web.a07.payout.*` (compte masqué aux 4 derniers chiffres, statut, retenue de 48 h après un
  changement, formulaire).
+ Version 100 (les versions 96 à 99 sont réservées à US-525, US-310 et US-315 ; la 95 est celle
+ d’US-707) : dossier de preuve d’un trip (US-308, ADR-184) : réponses de la console
+ `common.evidenceBundle.*` (archive en préparation, lien échu après 7 j, constat d’empreinte ou
+ pièce absente : rien n’est remis, coffre ou stockage indisponibles).
  */
-export const CATALOG_VERSION = 95;
+export const CATALOG_VERSION = 100;
 
 /** Catalogues de base par langue ; la langue d'un profil de locale choisit le sien. */
 export const CATALOGS: Readonly<Record<CatalogLanguage, VersionedCatalog<MessageKey>>> = {

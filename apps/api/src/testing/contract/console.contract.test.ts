@@ -9,6 +9,8 @@
  */
 import { createHash, randomUUID } from 'node:crypto';
 import { afterAll, describe, expect, it } from 'vitest';
+import { EvidenceBundleService, EvidenceStoreError } from '../../modules/clm/index.js';
+import type { EvidenceBundleStore } from '../../modules/clm/index.js';
 import { AbuseBoardAccessError } from '../../modules/risk/index.js';
 import type { BrandStore, StaffVersion } from '../../modules/cfg/index.js';
 import type { StaffOptions } from '../../modules/iam/index.js';
@@ -599,11 +601,89 @@ describe('contrat HTTP — /console', () => {
     },
     files: { put: () => Promise.resolve({ status: 'STORED' as const }) },
   };
+  // Dossier de preuve (US-308) : vrai service de CLM, magasin, coffre et stockage en mémoire
+  const ZIP = Buffer.from('PK\u0003\u0004 archive de test', 'latin1');
+  const ZIP_SHA = createHash('sha256').update(ZIP).digest('hex');
+  const MANIFEST_SHA = 'a'.repeat(64);
+  const evidenceState: {
+    down: boolean;
+    vault: 'READY' | 'UNAVAILABLE';
+    request: string;
+    status: string;
+    open: string;
+    sha: string;
+  } = { down: false, vault: 'READY', request: 'REQUESTED', status: 'OK', open: 'OK', sha: ZIP_SHA };
+  const evidenceStore: EvidenceBundleStore = {
+    transaction: async (_staff, fn) => {
+      if (evidenceState.down) throw new EvidenceStoreError('08006');
+      const tx = { query: () => Promise.resolve({ rows: [] }) };
+      return (await fn(tx)).value;
+    },
+    request: () =>
+      Promise.resolve(
+        evidenceState.request === 'REQUESTED' || evidenceState.request === 'ALREADY_REQUESTED'
+          ? {
+              outcome: evidenceState.request,
+              bundleId: ID,
+              status: 'REQUESTED',
+              manifestSha256: MANIFEST_SHA,
+            }
+          : ({ outcome: evidenceState.request } as never),
+      ),
+    status: () =>
+      Promise.resolve(
+        evidenceState.status === 'OK'
+          ? {
+              outcome: 'OK' as const,
+              body: {
+                bundleId: ID,
+                tripId: ID,
+                country: FIRST_COUNTRY,
+                purpose: 'INSURER',
+                status: 'READY',
+                manifestSha256: MANIFEST_SHA,
+                requestedAt: '2031-07-01T08:00:00.000Z',
+                generatedAt: '2031-07-01T08:05:00.000Z',
+                expiresAt: '2031-07-08T08:05:00.000Z',
+                exportSha256: ZIP_SHA,
+                exportBytes: ZIP.length,
+                failureCode: null,
+                findings: null,
+                absent: [{ piece: 'CONSTANCIA', reason: 'RENDERED_ON_DEMAND' }],
+                fileCount: 27,
+              },
+            }
+          : ({ outcome: evidenceState.status } as never),
+      ),
+    open: () =>
+      Promise.resolve(
+        evidenceState.open === 'OK'
+          ? {
+              outcome: 'OK' as const,
+              fileId: ID,
+              storageKey: `evidence-bundles/${ID}/${ID}.zip`,
+              sha256: evidenceState.sha,
+              bytes: ZIP.length,
+              manifestSha256: MANIFEST_SHA,
+              tripId: ID,
+            }
+          : ({ outcome: evidenceState.open } as never),
+      ),
+  };
+  const evidenceService = new EvidenceBundleService({
+    store: evidenceStore,
+    vault: {
+      prepare: () => Promise.resolve(evidenceState.vault),
+      open: (_tx, _u, _f, body) => Promise.resolve({ status: 'OPENED' as const, body }),
+    },
+    files: { get: () => Promise.resolve({ status: 'FOUND' as const, body: ZIP }) },
+  });
   afterAll(closeContractApps);
 
   async function app(limits?: StaffOptions['limits']): Promise<ContractApp> {
     const ref: { self?: ContractApp } = {};
     const a = await startContractApp({
+      evidence: { service: evidenceService },
       staff: { store: staffStore(() => ref.self), ...(limits !== undefined ? { limits } : {}) },
       sup: {
         store: {
@@ -991,6 +1071,99 @@ describe('contrat HTTP — /console', () => {
     expect((await a.api.request('GET', '/console/security/abuse', { headers })).status).toBe(403);
     boardRefusal = null;
     await refusals(a, 'GET', '/console/security/abuse');
+  });
+
+  it('dossier de preuve (US-308) : demande 201, 200, 400, 403, 503 ; état 200, 400, 403, 503 ; archive 200, 400, 403, 409, 410, 503', async () => {
+    const a = await app();
+    const headers = a.cookie('staff');
+    const create = `/console/trips/${ID}/evidence-bundles`;
+    const body = { requestId: randomUUID(), caseId: ID, purpose: 'INSURER', reason: REASON };
+    const created = await a.api.request('POST', create, { headers, body });
+    expect(created.status).toBe(201);
+    expect(created.json).toEqual({
+      bundleId: ID,
+      status: 'REQUESTED',
+      manifestSha256: MANIFEST_SHA,
+    });
+    evidenceState.request = 'ALREADY_REQUESTED';
+    expect((await a.api.request('POST', create, { headers, body })).status).toBe(200);
+    for (const bad of [
+      { ...body, purpose: 'OTHER' },
+      { ...body, reason: 'court' },
+      { ...body, caseId: 'x' },
+    ]) {
+      expect((await a.api.request('POST', create, { headers, body: bad })).status).toBe(400);
+    }
+    expect(
+      (await a.api.request('POST', '/console/trips/x/evidence-bundles', { headers, body })).status,
+    ).toBe(400);
+    for (const [outcome, code] of [
+      ['FORBIDDEN', 'FORBIDDEN'],
+      ['CASE_REQUIRED', 'STAFF_CASE_REQUIRED'],
+      ['SELF_FORBIDDEN', 'STAFF_SELF_FORBIDDEN'],
+    ] as const) {
+      evidenceState.request = outcome;
+      const r = await a.api.request('POST', create, { headers, body });
+      expect(r.status).toBe(403);
+      expect(r.json).toMatchObject({ code });
+    }
+    evidenceState.request = 'REQUESTED';
+    evidenceState.vault = 'UNAVAILABLE';
+    expect((await a.api.request('POST', create, { headers, body })).json).toMatchObject({
+      code: 'EVIDENCE_EXPORT_UNAVAILABLE',
+    });
+    evidenceState.vault = 'READY';
+    await refusals(a, 'POST', create);
+
+    const read = `/console/evidence-bundles/${ID}`;
+    const st = await a.api.request('GET', read, { headers });
+    expect(st.status).toBe(200);
+    expect(st.json).toMatchObject({ status: 'READY', fileCount: 27 });
+    expect((await a.api.request('GET', '/console/evidence-bundles/x', { headers })).status).toBe(
+      400,
+    );
+    evidenceState.status = 'FORBIDDEN';
+    expect((await a.api.request('GET', read, { headers })).status).toBe(403);
+    evidenceState.status = 'OK';
+    evidenceState.down = true;
+    expect((await a.api.request('GET', read, { headers })).status).toBe(503);
+    evidenceState.down = false;
+    await refusals(a, 'GET', read);
+
+    const download = `/console/evidence-bundles/${ID}/download`;
+    const zip = await a.api.request('POST', download, { headers, body: { reason: REASON } });
+    expect(zip.status).toBe(200);
+    expect(zip.headers.get('content-type')).toMatch(/^application\/zip/);
+    expect(zip.headers.get('x-evidence-sha256')).toBe(ZIP_SHA);
+    expect(Buffer.from(zip.text, 'utf8').equals(ZIP)).toBe(true);
+    expect(
+      (await a.api.request('POST', download, { headers, body: { reason: 'court' } })).status,
+    ).toBe(400);
+    for (const [outcome, status, code] of [
+      ['NOT_READY', 409, 'EVIDENCE_EXPORT_NOT_READY'],
+      ['FAILED', 409, 'EVIDENCE_EXPORT_FAILED'],
+      ['EXPIRED', 410, 'EVIDENCE_EXPORT_EXPIRED'],
+      ['FORBIDDEN', 403, 'FORBIDDEN'],
+      ['CASE_REQUIRED', 403, 'STAFF_CASE_REQUIRED'],
+    ] as const) {
+      evidenceState.open = outcome;
+      const r = await a.api.request('POST', download, { headers, body: { reason: REASON } });
+      expect(r.status, outcome).toBe(status);
+      expect(r.json).toMatchObject({ code });
+    }
+    evidenceState.open = 'OK';
+    // archive dont l'empreinte ne correspond plus : rien n'est servi
+    evidenceState.sha = 'b'.repeat(64);
+    expect(
+      (await a.api.request('POST', download, { headers, body: { reason: REASON } })).json,
+    ).toMatchObject({ code: 'EVIDENCE_EXPORT_FAILED' });
+    evidenceState.sha = ZIP_SHA;
+    evidenceState.down = true;
+    expect(
+      (await a.api.request('POST', download, { headers, body: { reason: REASON } })).status,
+    ).toBe(503);
+    evidenceState.down = false;
+    await refusals(a, 'POST', download);
   });
 
   it('files de revue, fiche 360°, notes, dossiers, pièces (US-109) : chaque statut déclaré', async () => {

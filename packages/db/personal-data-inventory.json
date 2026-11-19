@@ -3225,6 +3225,37 @@
         "device_captured_at": "C1",
         "clock_skew_flag": "C1"
       }
+    },
+    "core.claim_evidence_bundle": {
+      "lifecycle": "A",
+      "subjects": [
+        {
+          "column": "requested_by",
+          "type": "USER"
+        }
+      ],
+      "export": "controller",
+      "columns": {
+        "id": "C1",
+        "trip_id": "C1",
+        "country_code": "C1",
+        "case_id": "C1",
+        "purpose": "C1",
+        "requested_by": "C1",
+        "requested_role": "C1",
+        "request_id": "C1",
+        "status": "C1",
+        "manifest": "C1",
+        "manifest_sha256": "C1",
+        "requested_at": "C1",
+        "generated_at": "C1",
+        "expires_at": "C1",
+        "export_file_id": "C1",
+        "export_sha256": "C1",
+        "export_bytes": "C1",
+        "failure_code": "C1",
+        "findings": "C1"
+      }
     }
   }
 }

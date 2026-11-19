@@ -433,6 +433,14 @@ export const EN_MESSAGES = {
   'common.evidence.rejected':
     'File refused: only clean JPEG, PNG, HEIC or PDF files of limited size.',
   'common.evidence.unavailable': 'We cannot receive files right now. Nothing was stored.',
+  'common.evidenceBundle.notReady':
+    'The evidence bundle is still being prepared. Try again in a few minutes.',
+  'common.evidenceBundle.expired':
+    'The evidence bundle link has expired (7 days). Request a new bundle.',
+  'common.evidenceBundle.failed':
+    'The bundle could not be delivered: a piece of evidence is missing or does not match its fingerprint. The finding was recorded.',
+  'common.evidenceBundle.unavailable':
+    'Evidence bundles are not available right now. Nothing was requested or delivered.',
   'backoffice.action.RESTRICT_ACCOUNT': 'Restrict the account',
   'backoffice.action.LIFT_RESTRICTION': 'Lift the restriction',
   'backoffice.queues.current': 'Queue shown',

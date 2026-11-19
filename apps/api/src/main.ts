@@ -52,6 +52,7 @@ import {
   PgFinanceApprovalStore,
   PgManualActionStore,
   PgOpsConsoleStore,
+  postgresEvidenceBundle,
   unavailableEvidence,
 } from './modules/sup/index.js';
 import { postgresTrpAdapters } from './modules/trp/index.js';
@@ -186,6 +187,9 @@ async function bootstrap(): Promise<void> {
       postgresTrpAdapters(pool),
       // US-707 : compte de versement (aucun coffre ni PSP avant le lot C : enregistrement 503)
       postgresPyoAdapters(pool),
+      // US-308 : dossier de preuve (portes core.support_staff_*_evidence_bundle sous app_api) ;
+      // coffre KMS et stockage à verrou objet (US-003, Q-007) indisponibles : routes 503
+      postgresEvidenceBundle(pool),
     ),
     { rawBody: true },
   );
