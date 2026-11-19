@@ -415,6 +415,21 @@ async function openHostRefund(
   await expect(page.locator('[data-testid="a05-refunds"]')).toBeVisible();
 }
 
+/** S09 · check-in : photos de départ du voyageur (US-303), série vide, trip créé par le double. */
+async function openInspection(
+  page: Page,
+  context: BrowserContext,
+  language: Language,
+): Promise<void> {
+  await signInGuest(context, language);
+  const token = (await context.cookies()).find((c) => c.name === '__Host-session')?.value ?? '';
+  const r = await fetch(`${API}/__e2e/inspection/new?guest=${token}&host=`);
+  expect(r.status).toBe(200);
+  const { tripId } = (await r.json()) as { tripId: string };
+  await page.goto(`/trips/${tripId}/inspection/checkin`);
+  await expect(page.locator('[data-testid="inspection-progress"]')).toBeVisible();
+}
+
 interface Screen {
   /** Nom stable de la capture (dossier de références). */
   readonly name: string;
@@ -785,6 +800,12 @@ export const SCREENS: readonly Screen[] = [
     name: 'hote-gains',
     source: 'A08, US-217',
     open: (page, context) => openHostEarnings(page, context),
+  },
+  // US-303 : photos de départ du voyageur (S09 · check-in), série vide
+  {
+    name: 'photos-depart',
+    source: 'S09 · check-in, US-303',
+    open: (page, context, language) => openInspection(page, context, language),
   },
   { name: 'vitrine-composants', source: 'US-032', open: at('/ui?width=mobile') },
 ];

@@ -305,8 +305,12 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  Version 93 (la 92 est celle d’US-223e) : signal « paiement hors plateforme » des textes publics
  de l’hôte (US-222d, ADR-176, comme Turo) : `common.listing.offPlatformPayment` (zone ou ville
  qui proposent un paiement hors de la plateforme : refus rattaché au champ).
+ Version 94 (la 93 est celle d’US-222d) : photos guidées de l’état du véhicule (US-303, ADR-179) :
+ `common.inspection.*` (refus des routes `/trips/{id}/inspections/…`), `web.inspection.*` (écran
+ des photos de départ et de retour de l’hôte et du voyageur, angles du gabarit) et `web.s09c.done`
+ de 10b §4.3 (texte portugais ajouté).
  */
-export const CATALOG_VERSION = 93;
+export const CATALOG_VERSION = 94;
 
 /** Catalogues de base par langue ; la langue d'un profil de locale choisit le sien. */
 export const CATALOGS: Readonly<Record<CatalogLanguage, VersionedCatalog<MessageKey>>> = {

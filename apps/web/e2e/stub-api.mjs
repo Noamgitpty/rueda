@@ -2515,12 +2515,149 @@ function earningsRoute(req, res, url) {
   });
 }
 
+// Photos d'état du véhicule (US-303) : `GET /__e2e/inspection/new?guest=&host=` crée un trip dont
+// les séries sont ouvertes (départ) pour ces deux jetons ; toute autre session ⇒ 404
+// INSPECTION_NOT_FOUND (comme l'API). Gabarit de la version 1 (migration 0158) ; jeton de capture
+// à usage unique ; source autre que CAMERA ⇒ 422 PHOTO_GALLERY_FORBIDDEN ; gabarit incomplet ⇒ 422.
+const INSPECTION_TZ = JSON.parse(
+  readFileSync(new URL('../../api/src/modules/cfg/data/countries.json', import.meta.url), 'utf8'),
+).countries[0].timeZone;
+const INSPECTION_SLOTS = [
+  ...Array.from({ length: 15 }, (_, i) => ({
+    code: `EXT_${String(i + 1).padStart(2, '0')}`,
+    group: 'EXTERIOR',
+    required: true,
+  })),
+  ...Array.from({ length: 8 }, (_, i) => ({
+    code: `INT_${String(i + 1).padStart(2, '0')}`,
+    group: 'INTERIOR',
+    required: true,
+  })),
+  { code: 'FUEL', group: 'FUEL', required: true },
+  { code: 'ODOMETER', group: 'ODOMETER', required: true },
+  { code: 'KEY', group: 'KEY', required: false },
+  ...Array.from({ length: 10 }, (_, i) => ({
+    code: `DAMAGE_${String(i + 1).padStart(2, '0')}`,
+    group: 'DAMAGE',
+    required: false,
+  })),
+];
+const inspections = new Map();
+const INSPECTION_RECEIVED_AT = '2036-12-10T14:05:00.000Z';
+
+async function inspectionRoute(req, res, url) {
+  const path = url.pathname;
+  if (req.method === 'GET' && path === '/__e2e/inspection/new') {
+    const tripId = uuid();
+    inspections.set(tripId, {
+      guest: url.searchParams.get('guest') ?? '',
+      host: url.searchParams.get('host') ?? '',
+      sides: {
+        HOST: { status: 'DRAFT', photos: new Map() },
+        GUEST: { status: 'DRAFT', photos: new Map() },
+      },
+      captures: new Map(),
+    });
+    return json(res, 200, { tripId });
+  }
+  const m = /^\/trips\/([^/]+)\/inspections\/([^/]+)(\/captures|\/photos|\/submit)?$/.exec(path);
+  if (m === null) return false;
+  const token = tokenOf(req);
+  if (token === undefined) return err(res, 401, 'AUTH_REQUIRED', 'common.auth.sessionRequired');
+  const t = inspections.get(m[1]);
+  const role =
+    t === undefined ? null : token === t.guest ? 'GUEST' : token === t.host ? 'HOST' : null;
+  if (t === undefined || role === null || m[2] !== 'checkin') {
+    return err(res, 404, 'INSPECTION_NOT_FOUND', 'common.inspection.notFound');
+  }
+  const mine = t.sides[role];
+  if (m[3] === undefined && req.method === 'GET') {
+    const side = (r) => ({
+      role: r,
+      status:
+        t.sides[r].status === 'SUBMITTED'
+          ? 'SUBMITTED'
+          : t.sides[r].photos.size > 0
+            ? 'DRAFT'
+            : 'NONE',
+      submittedAt: t.sides[r].status === 'SUBMITTED' ? INSPECTION_RECEIVED_AT : null,
+      photos: [...t.sides[r].photos.values()],
+    });
+    return json(res, 200, {
+      tripId: m[1],
+      kind: 'checkin',
+      viewerRole: role,
+      timezone: INSPECTION_TZ,
+      open: true,
+      uploads: {
+        open: true,
+        maxBytes: 76032,
+        maxLongSidePx: 1600,
+        mimeTypes: ['image/jpeg', 'image/webp'],
+      },
+      slots: INSPECTION_SLOTS,
+      sides: [side('HOST'), side('GUEST')],
+    });
+  }
+  if (req.method !== 'POST' || m[3] === undefined) return false;
+  const b = (await readBody(req)) ?? {};
+  if (mine.status === 'SUBMITTED' && m[3] !== '/submit') {
+    return err(res, 409, 'INSPECTION_SUBMITTED', 'common.inspection.submitted');
+  }
+  if (m[3] === '/captures') {
+    if (!INSPECTION_SLOTS.some((x) => x.code === b.slot)) {
+      return err(res, 400, 'REQUEST_INVALID', 'common.auth.requestInvalid');
+    }
+    const captureId = uuid();
+    t.captures.set(captureId, { role, slot: b.slot });
+    return json(res, 201, { captureId, slot: b.slot, expiresAt: '2036-12-10T14:07:00.000Z' });
+  }
+  if (m[3] === '/photos') {
+    const c = t.captures.get(b.captureId);
+    if (b.source !== 'CAMERA' || c === undefined || c.role !== role || c.slot !== b.slot) {
+      return err(res, 422, 'PHOTO_GALLERY_FORBIDDEN', 'common.inspection.galleryForbidden');
+    }
+    t.captures.delete(b.captureId);
+    const fileId = uuid();
+    const bytes = Buffer.from(String(b.dataBase64 ?? ''), 'base64');
+    const photo = {
+      slot: b.slot,
+      fileId,
+      sha256: sha256hex(bytes),
+      bytes: bytes.length,
+      receivedAt: INSPECTION_RECEIVED_AT,
+      clockSkew: false,
+    };
+    mine.photos.set(b.slot, photo);
+    return json(res, 201, {
+      fileId,
+      slot: b.slot,
+      sha256: photo.sha256,
+      bytes: photo.bytes,
+      receivedAt: photo.receivedAt,
+    });
+  }
+  const missing = INSPECTION_SLOTS.filter((x) => x.required && !mine.photos.has(x.code)).map(
+    (x) => x.code,
+  );
+  if (mine.status !== 'SUBMITTED' && missing.length > 0) {
+    return json(res, 422, {
+      code: 'PHOTO_TEMPLATE_INCOMPLETE',
+      messageKey: 'common.inspection.templateIncomplete',
+      missing,
+    });
+  }
+  mine.status = 'SUBMITTED';
+  return json(res, 200, { status: 'SUBMITTED', submittedAt: INSPECTION_RECEIVED_AT });
+}
+
 createServer(async (req, res) => {
   const url = new URL(req.url ?? '/', 'http://127.0.0.1');
   const path = url.pathname;
   if ((await paymentRoute(req, res, url)) !== false) return;
   if ((await hostRequestRoute(req, res, url)) !== false) return;
   if ((await contractRoute(req, res, url)) !== false) return;
+  if ((await inspectionRoute(req, res, url)) !== false) return;
   if ((await constanciaRoute(req, res, url)) !== false) return;
   if (refundRoute(req, res, url) !== false) return;
   if (receiptRoute(req, res, url) !== false) return;

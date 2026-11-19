@@ -151,8 +151,9 @@ export const MODULES: Readonly<Record<ModuleCode, ModuleSpec>> = {
     name: 'Trip operations',
     responsibility:
       "check-in et check-out par l'hôte et le voyageur, hors ligne, retards et non-restitution, refus du véhicule, remises du jour",
-    dependsOn: ['AVL', 'KYC', 'PAY', 'AUD'],
-    source: '17 §2.2 ; §2.1 TRP --> AVL, AUD',
+    // US-303 (ADR-179) : SessionGuard (IAM) et TermsGuard (CTR) sur les routes des photos du trip
+    dependsOn: ['AVL', 'KYC', 'PAY', 'AUD', 'IAM', 'CTR'],
+    source: '17 §2.2 ; §2.1 TRP --> AVL, AUD ; US-303 : IAM, CTR (gardes des routes)',
   },
   CLM: {
     code: 'CLM',

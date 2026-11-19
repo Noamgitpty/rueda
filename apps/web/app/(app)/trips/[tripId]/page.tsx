@@ -141,6 +141,22 @@ export default async function GuestTripPage({
         )}
       </section>
 
+      {/* photos de l'état du véhicule (US-303) : au départ (check-in ouvert) et au retour */}
+      {(trip.status === 'CHECKIN_OPEN' ||
+        trip.status === 'IN_PROGRESS' ||
+        trip.status === 'OVERDUE') && (
+        <a
+          className={styles['link']}
+          href={`/trips/${trip.id}/inspection/${trip.status === 'CHECKIN_OPEN' ? 'checkin' : 'checkout'}`}
+          data-testid="s09-inspection"
+        >
+          {t(
+            trip.status === 'CHECKIN_OPEN'
+              ? 'web.inspection.link.checkin'
+              : 'web.inspection.link.checkout',
+          )}
+        </a>
+      )}
       <section
         className={styles['section']}
         aria-labelledby="s09-documents"

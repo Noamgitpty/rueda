@@ -44,6 +44,12 @@ const TRIP_SM_TABLES = [
   // US-215 (0124) : demandes d'annulation de la console, réglées par le travailleur trip_lifecycle ;
   // preuves : test/l0/l0-us215-trip-cancellation
   'booking_trip_cancellation',
+  // US-303 (0158) : photos d'état du véhicule (gabarit, séries, jetons de capture, photos), écrites
+  // et lues par les commandes de cmd_hold_owner seulement ; preuves : test/l0/l0-us303-inspection-photos
+  'trip_ops_inspection',
+  'trip_ops_inspection_photo',
+  'trip_ops_photo_capture',
+  'trip_ops_photo_slot',
 ] as const;
 
 // Tables de configuration pays (US-013, 0008) : même socle RLS (ENABLE + FORCE, migrator_all),
