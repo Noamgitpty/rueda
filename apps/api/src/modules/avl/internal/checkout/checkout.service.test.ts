@@ -118,6 +118,7 @@ describe('niveaux proposés du devis lu (US-226, revue de code n° 3)', () => {
     expired: false,
     manualTransmission: false,
     instantBook: true,
+    requestMode: { enabled: false, expiryHours: null },
     documents: [],
     protectionLevel: 'BASICA',
     driverAge: null,

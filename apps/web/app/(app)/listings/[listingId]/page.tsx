@@ -271,6 +271,24 @@ function BookingSection({
               endAt={view.endAt}
               label={t('web.s03.cta')}
             />
+          ) : listing.requestHours !== null ? (
+            // US-223 (ADR-175) : annonce sur demande d'un pays où l'API dit le mode ouvert ; le
+            // délai vient de la base (`booking_request_expiry_hours`), jamais d'une constante
+            <>
+              <p className={accountStyles['text']} data-testid="s03-request">
+                {t('web.s03.request', {
+                  host_name: listing.hostFirstName ?? t('web.s07.request.hostFallback'),
+                  count: listing.requestHours,
+                })}
+              </p>
+              <BookForm
+                localeTag={localeTag}
+                listingId={listing.id}
+                startAt={view.startAt}
+                endAt={view.endAt}
+                label={t('web.s03.cta')}
+              />
+            </>
           ) : (
             <Banner tone="info">{t('common.checkout.requestModeUnavailable')}</Banner>
           )}
@@ -295,6 +313,9 @@ function BookingSection({
  * - prix final TTC des dates acceptées (devis provisoire de l'API, jamais recalculé par le site) et
  *   « Reservar » vers le checkout S05 (US-208), seulement si la base promet la protection de
  *   l'assureur partenaire (US-205 critère 4) ;
+ * - annonce sur demande (US-223, ADR-175) : « {host_name} confirma en hasta {count} horas » et
+ *   « Reservar » seulement si l'API dit le mode ouvert dans le pays (`requestMode`) ; sinon le
+ *   bandeau `common.checkout.requestModeUnavailable` (fail-closed, 19 US-223 DoR 2) ;
  * - conditions (US-205, `listing-terms.tsx`) : annulation gratuite en dates (heure du lieu) ou
  *   règle du pays, distance incluse sur la période, protection de l'assureur (RC, franchises,
  *   exclusions du contrat) ou aucune promesse, caution de la plateforme ;

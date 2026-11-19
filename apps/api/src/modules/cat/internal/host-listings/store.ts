@@ -141,6 +141,30 @@ export interface PublicListing {
    * clé du bucket public PUBLIC_LISTING (C0, métadonnées retirées au dépôt), rien d'autre.
    */
   readonly photos: readonly PublicPhoto[];
+  /**
+   * Mode sur demande du pays (US-223, ADR-175 ; `core.catalog_public_request_terms`, 0154) :
+   * ouvert seulement si la base le dit ; fermé : `{ enabled: false, expiryHours: null }`.
+   */
+  readonly requestMode: RequestModeTerms;
+}
+
+/** Mode sur demande d'un pays (fiche S03, devis S05 ; 10b `web.s03.request`). */
+export interface RequestModeTerms {
+  readonly enabled: boolean;
+  /** Délai de réponse de l'hôte (`booking_request_expiry_hours`), `null` si le mode est fermé. */
+  readonly expiryHours: number | null;
+}
+
+/**
+ * Ligne de `core.catalog_public_request_terms` lue en fail-closed : ouvert seulement si la base rend
+ * `true` ET un délai entier ≥ 1 ; toute autre forme vaut « fermé ».
+ */
+export function requestModeOf(row: Record<string, unknown> | undefined): RequestModeTerms {
+  const hours = row?.['request_expiry_hours'];
+  const n = typeof hours === 'number' ? hours : typeof hours === 'string' ? Number(hours) : NaN;
+  return row?.['request_mode_enabled'] === true && Number.isInteger(n) && n >= 1
+    ? { enabled: true, expiryHours: n }
+    : { enabled: false, expiryHours: null };
 }
 
 /** Photo de la galerie publique (`core.catalog_public_gallery`, 0106). */
@@ -682,6 +706,11 @@ export class PgHostListingStore implements HostListingStore {
       'SELECT g.photo_id, g.photo_order, g.storage_key FROM core.catalog_public_gallery($1::uuid) AS g',
       [listingId],
     );
+    const request = await this.#rows<Record<string, unknown>>(
+      'mode sur demande',
+      'SELECT t.request_mode_enabled, t.request_expiry_hours FROM core.catalog_public_request_terms($1) AS t',
+      [String(r['country_code'])],
+    );
     const lat = num(r['geo_public_lat']);
     const lng = num(r['geo_public_lng']);
     return {
@@ -712,6 +741,7 @@ export class PgHostListingStore implements HostListingStore {
         order: Number(g.photo_order),
         key: String(g.storage_key),
       })),
+      requestMode: requestModeOf(request[0]),
     };
   }
 

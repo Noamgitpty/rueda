@@ -145,6 +145,12 @@ Depuis US-115, `core.booking_vehicle_party` lit `catalog_vehicle` et son annonce
 - **Écrans** : S03 (`listing-terms.tsx`, `data-testid="s03-deposit-text"`) et cartes S02 : montant, mention générique, ou `web.deposit.unavailableNone` (le texte de S05) ; aucun texte nouveau.
 - **Tests** : PAY `internal/deposit-notice.test.ts` (oracle T70 c, T72 c, T73) ; contrats `testing/search.contract.test.ts`, `testing/listing-page.contract.test.ts` ; int `apps/api/test/int/deposit-notice.int.test.ts` ; L0 `packages/db/test/l0/l0-us701c-deposit-basis.test.ts` ; site `account/search.test.ts`, `account/listing-terms.test.ts`, e2e `e2e/deposit-notice.spec.ts` (360 px).
 
+### Mode sur demande : fiche S03 (US-223, ouverture du mode ; ADR-175)
+
+- **Base** (0154, `catalog_cmd_owner`, EXECUTE `app_api` seul) : `core.catalog_public_request_terms(pays)` rend le mode du pays et le délai de réponse de l'hôte ; la recherche et les zones proposent une annonce sur demande seulement si le mode est ouvert dans son pays.
+- **Réponse** : `requestMode` (`RequestModeTerms` : `enabled`, `expiryHours`) dans `GET /listings/{id}`, lu en fail-closed par `requestModeOf` (`internal/host-listings/store.ts`) : ouvert seulement avec un délai entier ≥ 1.
+- **Tests** : `internal/host-listings/request-mode.test.ts`, contrat `testing/listing-page.contract.test.ts` ; L0 `packages/db/test/l0/l0-us201-public-search.test.ts` (bloc US-223).
+
 ## Événements
 
 Émis : `catalog.addition_request.resolved` (US-114, outbox, par `core.catalog_resolve_addition` : `request_id`, `status`, `resolved_variant_id`, extensions `vehicle_id`, `org_id`, `host_user_id`, `reject_reason` ; consommé par NTF). Cible 17 §4.5, pas encore émis : `catalog.listing.status_changed`, `catalog.vehicle.restricted`, `catalog.deposit_policy.changed` (17 §2.2), `catalog.vehicle_document.expiring`.

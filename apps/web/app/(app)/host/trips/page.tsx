@@ -1,14 +1,15 @@
 import type { Metadata } from 'next';
+import { cookies } from 'next/headers';
 import type { ReactNode } from 'react';
 import { Banner, Button, ButtonLink, EmptyState, ErrorState } from '@rueda/ui';
 import { callApi } from '../../../../account/api-client.ts';
 import { hostAccountsOf, listingsOf, vehiclesOf } from '../../../../account/host-listings.ts';
 import {
-  DECISION_STATUSES,
+  DECISION_COOKIE,
+  decisionFromCookie,
   hostRequestsOf,
   requestHref,
 } from '../../../../account/host-requests.ts';
-import type { DecisionStatus } from '../../../../account/host-requests.ts';
 import { hostTripsOf, TRIP_TABS, tripFilterQuery } from '../../../../account/host-trips.ts';
 import { clientContext } from '../../../../account/request.ts';
 import { getRequestI18n } from '../../../../i18n.ts';
@@ -38,7 +39,8 @@ const orgOf = (q: Readonly<Record<string, string | string[] | undefined>>): stri
  * `web.a05.decline` avec heure limite ») : bloc « Solicitudes por responder » en tête, seulement
  * s'il y a des demandes (en attente, ou acceptées dont la capture attend sa preuve) ; chaque carte
  * mène à la demande (accepter ou refuser, avec confirmation). Issue d'une décision annoncée au
- * retour (`?request=CAPTURING|ACCEPTED|DECLINED`). Liste illisible : message, sans bloquer les trips.
+ * retour par un cookie httpOnly d'une minute déposé par l'action serveur après la réponse de l'API,
+ * jamais par l'URL (BOARD N-286, ADR-175). Liste illisible : message, sans bloquer les trips.
  */
 export default async function HostTripsPage({
   searchParams,
@@ -113,10 +115,8 @@ export default async function HostTripsPage({
       ? null
       : `${[v.makeText, v.modelText].filter(Boolean).join(' ')} ${v.year} · ${v.plate}`;
   };
-  const doneRaw = typeof query['request'] === 'string' ? query['request'] : '';
-  const done = (DECISION_STATUSES as readonly string[]).includes(doneRaw)
-    ? (doneRaw as DecisionStatus)
-    : null;
+  // BOARD N-286 : issue déposée par l'action serveur (cookie httpOnly), jamais lue dans l'URL
+  const done = decisionFromCookie((await cookies()).get(DECISION_COOKIE)?.value);
   // période inversée (ou autre filtre refusé par l'API) : message, sans liste
   const invalid = tripsReply.status === 400;
   const read = invalid ? null : hostTripsOf(tripsReply);

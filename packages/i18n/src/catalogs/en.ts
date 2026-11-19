@@ -2282,6 +2282,16 @@ export const EN_MESSAGES = {
   'web.s06.request.captureFailed.body':
     'The charge couldn’t be completed and the booking wasn’t made. We’re cancelling the authorization on your card; if you see a charge, we’ll refund it in full.',
   'web.s06.request.searchCta': 'See available cars',
+  // US-223 (ouverture du mode sur demande, ADR-175) : S03 (délai de réponse de l’hôte, 10b), CTA
+  // du devis S05 d’une annonce sur demande, libération de l’autorisation après un refus ou une
+  // expiration (S06, BOARD N-288)
+  'web.s03.request': {
+    one: '{host_name} confirms within {count} hour',
+    other: '{host_name} confirms within {count} hours',
+  },
+  'web.s05.request.continue': 'Continue with your request',
+  'web.s06.request.authorizationRelease':
+    'We’re cancelling the authorization on your card. If your bank still shows it, it will disappear within a few days, with no charge.',
   'web.error.requestDeclined':
     '{host_name} can’t host you on these dates. You weren’t charged. Here are cars available for your dates.',
   'web.error.requestExpired':

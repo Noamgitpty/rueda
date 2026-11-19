@@ -2401,6 +2401,16 @@ export const FR_MESSAGES = {
   'web.s06.request.captureFailed.body':
     'Le paiement n’a pas pu aboutir et la réservation n’a pas été faite. Nous annulons l’autorisation sur ta carte ; si tu vois un débit, nous te le remboursons intégralement.',
   'web.s06.request.searchCta': 'Voir les voitures disponibles',
+  // US-223 (ouverture du mode sur demande, ADR-175) : S03 (délai de réponse de l’hôte, 10b), CTA
+  // du devis S05 d’une annonce sur demande, libération de l’autorisation après un refus ou une
+  // expiration (S06, BOARD N-288)
+  'web.s03.request': {
+    one: '{host_name} confirme sous {count} heure maximum',
+    other: '{host_name} confirme sous {count} heures maximum',
+  },
+  'web.s05.request.continue': 'Continuer ma demande',
+  'web.s06.request.authorizationRelease':
+    'Nous annulons l’autorisation sur ta carte. Si ta banque l’affiche encore, elle disparaîtra d’ici quelques jours, sans aucun débit.',
   'web.error.requestDeclined':
     '{host_name} ne peut pas te confier sa voiture à ces dates. Tu n’as rien payé. Voici des voitures disponibles à tes dates.',
   'web.error.requestExpired':

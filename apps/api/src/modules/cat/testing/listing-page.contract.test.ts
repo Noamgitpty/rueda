@@ -73,6 +73,7 @@ const PUBLIC: PublicListing = {
     { id: P2, order: 0, key: `listing/${LISTING}/${P2}` },
     { id: P1, order: 1, key: `listing/${LISTING}/${P1}` },
   ],
+  requestMode: { enabled: false, expiryHours: null },
 };
 
 const MEETING: GuestMeetingPoint = {
@@ -177,6 +178,18 @@ describe('US-204 — contrat de la fiche du véhicule', () => {
     const p = await plain.api.request('GET', `/listings/${LISTING}`);
     expect(p.json).toEqual({
       listing: { ...PUBLIC, hostFirstName: null, photos: [], hostVerified: false, ratings: null },
+    });
+
+    // US-223 (0154) : annonce sur demande d'un pays où le mode est ouvert (délai de la base rendu)
+    const request = new PageStore();
+    request.listing = {
+      ...PUBLIC,
+      instantBook: false,
+      requestMode: { enabled: true, expiryHours: 4 },
+    };
+    const q = await (await app({ store: request })).api.request('GET', `/listings/${LISTING}`);
+    expect(q.json).toMatchObject({
+      listing: { instantBook: false, requestMode: { enabled: true, expiryHours: 4 } },
     });
 
     const down = await app({ ratings: { ratings: () => Promise.reject(new Error('panne')) } });

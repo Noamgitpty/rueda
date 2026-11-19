@@ -129,6 +129,7 @@ const VIEW: CheckoutQuote = {
   expired: false,
   manualTransmission: true,
   instantBook: true,
+  requestMode: { enabled: false, expiryHours: null },
   documents: [
     { kind: 'TOS_GUEST', version: 1, locale: 'es', title: 'Términos' },
     { kind: 'CANCELLATION_POLICY', version: 1, locale: 'es', title: 'Cancelación' },

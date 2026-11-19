@@ -2343,8 +2343,18 @@ export const ES_MESSAGES = {
   'web.s06.request.expired.title': 'Solicitud vencida',
   'web.s06.request.captureFailed.title': 'No pudimos completar tu reserva',
   'web.s06.request.captureFailed.body':
-    'El cobro no se pudo completar y la reserva no se hizo. Anulamos la autorización de tu tarjeta; si ves un cargo, te lo devolvemos completo.',
+    'El cobro no se pudo completar y la reserva no se hizo. Estamos anulando la autorización de tu tarjeta; si ves un cargo, te lo devolvemos completo.',
   'web.s06.request.searchCta': 'Ver autos disponibles',
+  // US-223 (ouverture du mode sur demande, ADR-175) : S03 (délai de réponse de l’hôte, 10b), CTA
+  // du devis S05 d’une annonce sur demande, libération de l’autorisation après un refus ou une
+  // expiration (S06, BOARD N-288)
+  'web.s03.request': {
+    one: '{host_name} confirma en hasta {count} hora',
+    other: '{host_name} confirma en hasta {count} horas',
+  },
+  'web.s05.request.continue': 'Continuar con la solicitud',
+  'web.s06.request.authorizationRelease':
+    'Estamos anulando la autorización de tu tarjeta. Si tu banco todavía la muestra, desaparecerá en unos días, sin ningún cobro.',
   'web.error.requestDeclined':
     '{host_name} no puede recibirte en estas fechas. No se te cobró nada. Mira estos autos disponibles en tus fechas.',
   'web.error.requestExpired':

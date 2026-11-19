@@ -342,6 +342,12 @@ export default async function PaymentPage({
             <Banner tone="warning" live="off">
               {body}
             </Banner>
+            {(requestScreen === 'REQUEST_DECLINED' || requestScreen === 'REQUEST_EXPIRED') && (
+              // BOARD N-288 : refus ou expiration, l'autorisation de la carte est annulée (VOID)
+              <p className={accountStyles['muted']} data-testid="s06-request-release">
+                {t('web.s06.request.authorizationRelease')}
+              </p>
+            )}
             {car}
             {reference}
             {again}

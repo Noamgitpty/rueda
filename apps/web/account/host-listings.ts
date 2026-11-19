@@ -7,6 +7,7 @@
 import { CATALOGS } from '@rueda/i18n';
 import type { LocaleProfile, MessageKey } from '@rueda/i18n';
 import type { ApiResult } from './api-client.ts';
+import { requestHoursOf } from './request-mode.ts';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const MINOR = /^(0|[1-9][0-9]{0,17})$/;
@@ -240,6 +241,11 @@ export interface PublicListingView {
   readonly timezone: string | null;
   /** Premier mot du prénom légal de l'hôte (BOARD N-37, US-124) ; jamais le nom de famille. */
   readonly hostFirstName: string | null;
+  /**
+   * Délai de réponse de l'hôte (heures) si le mode sur demande est ouvert dans le pays (US-223,
+   * ADR-175) ; `null` : fermé ou illisible (fail-closed, `request-mode.ts`).
+   */
+  readonly requestHours: number | null;
 }
 
 /** Fiche publique de `GET /listings/{id}` (colonnes C0 seulement) ; `null` si illisible. */
@@ -297,6 +303,7 @@ export function publicListingOf(reply: ApiResult): PublicListingView | null {
         ? name
         : null;
     })(),
+    requestHours: requestHoursOf(l['requestMode']),
   };
 }
 

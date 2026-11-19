@@ -1137,3 +1137,13 @@ Migration `0153_payment_deposit_decision_before_opening`, fixture `9932_test_us7
 - **Avis** : charge utile de `deposit.decision.executed` étendue de `notice` (`RELEASED`, `PARTIALLY_CAPTURED`, `BLOCKED_UNTIL_EXPIRY` : `EXPIRED` écrit avant l'expiration) et `auth_expiry_at`.
 - **Droits** : politique `cmd_hold_deposit_read` élargie à `marge_h` ; `SELECT (at)` de `booking_trip_state_log` à cmd_hold_owner.
 - **Preuves** : `test/l0/l0-us702-deposit-decision.test.ts` (V, retour anticipé, tardif, rail b, file des ré-autorisations, `notice`) ; `test/l0/l0-us702b-deposit-race.test.ts` (groupe isolé : ré-autorisation contre décision à deux connexions, dans les deux ordres).
+
+## Points d'entrée du mode sur demande (US-223, ouverture du mode ; BOARD N-246 ; ADR-175)
+
+Migration `0154_catalog_request_mode_entry`. Aucune fixture nouvelle (réglage posé en transaction annulée par `test_fixture.us223c_set_request_mode` de 9959).
+
+- **Aide** `core.catalog_request_mode_hours(text)` (SECURITY INVOKER, EXECUTE catalog_cmd_owner seul) : délai de réponse de l'hôte si `booking_request_mode_enabled` est vrai et `booking_request_expiry_hours` un entier ≥ 1 dans le pays, sinon `NULL` (fail-closed).
+- **Fonction** `core.catalog_public_request_terms(text)` (catalog_cmd_owner, RLS-15, EXECUTE `app_api` seul, lecture seule) : `(request_mode_enabled, request_expiry_hours)` ; pays inconnu ou réglage absent : `(false, NULL)`.
+- **Recherche et zones** : corps de `core.catalog_public_search` et `core.catalog_public_areas` (0103) recopiés à signature, propriétaire et droits identiques ; seul le filtre change : `instant_book OR mode ouvert dans le pays`. Réglage faux (graine 0125, PA et PY) : résultat identique à 0103.
+- **Droits** : politique `catalog_cmd_request_mode_read` de `config_param_value` (les deux clés du mode, catalog_cmd_owner) ; EXECUTE de `core.booking_param_bool` (0126) à catalog_cmd_owner. Aucune valeur de paramètre changée : le passage du réglage à vrai est une ligne de GL-26.
+- **Preuves** : `test/l0/l0-us201-public-search.test.ts`, bloc US-223 (PA USD, PY PYG : fermé, ouvert, l'autre pays fermé, refermé ; `app_worker` et `app_anon` : 42501 ; aide interne refusée à `app_api`) ; inventaire des politiques `test/int/config-country.test.ts`.

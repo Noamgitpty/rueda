@@ -206,6 +206,10 @@ describe('configuration pays : structure et droits', () => {
             t === 'config_param_value'
               ? [{ t, pol: 'catalog_cmd_read', cmd: 'r', roles: 'catalog_cmd_owner' }]
               : []),
+            // mode sur demande de la recherche et de la fiche (US-223, 0154) : ses deux clés seulement
+            ...(t === 'config_param_value'
+              ? [{ t, pol: 'catalog_cmd_request_mode_read', cmd: 'r', roles: 'catalog_cmd_owner' }]
+              : []),
             // recherche publique (US-201, 0103) : durée maximale d'un trip et tampon seulement
             ...(t === 'config_param_value'
               ? [{ t, pol: 'catalog_cmd_search_read', cmd: 'r', roles: 'catalog_cmd_owner' }]
