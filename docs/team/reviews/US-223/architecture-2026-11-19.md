@@ -1,0 +1,18 @@
+# Revue architecture — US-223 « ouverture du mode sur demande (223e) » (PR n° 255) — 2026-11-19
+
+Relecteur : revue-architecture / claude-sonnet-5-5 (famille A, modèle autre que l'auteur claude-opus-5-5)
+Entrées : 66e9a15d..1bbc9f8a
+
+Contexte : relu : `0154_catalog_request_mode_entry.sql` (recopie des corps de 0103 comparée par diff : seul le filtre `instant_book` change), ADR-175, README db / CAT / AVL / site, GL-26, passation 223e, `requestModeOf` (CAT, AVL), lecture côté site. CI verte sur la tête 1bbc9f8a (run 44464252681).
+
+| #   | Gravité | Constat                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| --- | ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | INFO    | **Une seule source par pays.** Le mode se lit en base (`catalog_request_mode_hours`), jamais déduit de `instantBook` ni d'une constante : aucune constante propre à un pays, délai lu dans `booking_request_expiry_hours`. La règle du checkout (0126) reste la seule à créer un hold REQUEST ; la recherche est plus stricte (délai entier ≥ 1 exigé en plus), donc jamais plus ouverte que le checkout : fail-closed cohérent. |
+| 2   | INFO    | **Expand / contract tenu.** Deux fonctions et une politique ajoutées ; deux fonctions de 0103 remplacées à signature, colonnes, propriétaire et droits identiques ; retour arrière documenté en tête de migration. Réglage non touché (faux en PA et en PY) : rien ne s'ouvre en production tant que GL-26 n'a pas posé la valeur.                                                                                               |
+| 3   | MINEUR  | **Duplication assumée CAT / AVL.** `requestModeOf` et `RequestModeTerms` sont écrits deux fois (AVL ne dépend pas de CAT, motivé dans l'ADR n° 4 et le code). Acceptable ; à factoriser dans un paquet partagé si un troisième lecteur apparaît.                                                                                                                                                                                 |
+| 4   | INFO    | **Modules.** Aucun import de l'intérieur d'un autre module ; le site lit `requestMode` de l'API (`request-mode.ts`), jamais la base. GL-26 reprend bien les conditions du lot C (VOID, notifications, limiteur, CGU).                                                                                                                                                                                                            |
+| 5   | INFO    | **Choix de N-286.** Le cookie à la place de la relecture de l'état de la demande est justifié (une demande décidée disparaît de `GET …/requests/{id}`) et consigné dans l'ADR (options écartées, conséquence du bandeau d'une minute).                                                                                                                                                                                           |
+
+Aucun constat majeur ou bloquant.
+
+Verdict : APPROUVÉ
