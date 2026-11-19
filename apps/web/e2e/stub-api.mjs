@@ -2348,6 +2348,87 @@ function guestTripsRoute(req, res, url) {
   return json(res, 200, { trip: guestTripView(found[0], found[1]) });
 }
 
+// ---- Messagerie par trip (US-525) : fil S16 du voyageur ------------------------------------------
+// Deux trips FIXES (captures stables) : MESSAGES_TRIP (fil ouvert, un message de l'hôte au départ) et
+// MESSAGES_CLOSED_TRIP (fil en lecture seule). Partie : toute session « G0st… » (voyageur), un fil par
+// session ; toute autre session ⇒ 404 TRIP_NOT_FOUND (comme l'API). Masquage IMITÉ (7 chiffres ou
+// plus ⇒ « ••• ») et signal imité (« efectivo ») : les vraies règles sont prouvées sur PostgreSQL
+// (l0-us525-messaging). Jamais le texte d'un message dans un journal.
+const MESSAGES_TRIP = '00000000-0000-4000-8000-000000525e2e';
+const MESSAGES_CLOSED_TRIP = '00000000-0000-4000-8000-000000525c10';
+const threadsByToken = new Map();
+
+function seedThread() {
+  return [
+    {
+      id: '00000000-0000-4000-8000-000000525001',
+      mine: false,
+      authorRole: 'HOST',
+      authorName: 'María',
+      body: 'Hola, te espero en el lugar de entrega. Avísame si llegas tarde.',
+      masked: false,
+      offPlatform: false,
+      sentAt: '2036-12-09T15:00:00.000Z',
+    },
+  ];
+}
+
+async function messagesRoute(req, res, url) {
+  const m = /^\/trips\/([^/]+)\/messages$/.exec(url.pathname);
+  if (m === null) return false;
+  const token = tokenOf(req);
+  if (token === undefined) return err(res, 401, 'AUTH_REQUIRED', 'common.auth.sessionRequired');
+  const tripId = m[1].toLowerCase();
+  if (!GUEST_TOKEN.test(token) || (tripId !== MESSAGES_TRIP && tripId !== MESSAGES_CLOSED_TRIP)) {
+    return err(res, 404, 'TRIP_NOT_FOUND', 'common.trips.notFound');
+  }
+  const key = `${token}:${tripId}`;
+  if (!threadsByToken.has(key)) threadsByToken.set(key, seedThread());
+  const messages = threadsByToken.get(key);
+  const writable = tripId === MESSAGES_TRIP;
+  if (req.method === 'GET') {
+    return json(res, 200, {
+      code: 'TRIP_MESSAGES',
+      messageKey: 'common.messages.thread',
+      tripId,
+      viewerRole: 'GUEST',
+      counterpartName: 'María',
+      writable,
+      closesAt: '2036-12-23T15:00:00.000Z',
+      timezone: 'UTC',
+      messages,
+    });
+  }
+  if (req.method !== 'POST') return err(res, 404, 'TRIP_NOT_FOUND', 'common.trips.notFound');
+  const b = await readBody(req);
+  if (b === null || typeof b.id !== 'string' || typeof b.body !== 'string') {
+    return err(res, 400, 'REQUEST_INVALID', 'common.auth.requestInvalid');
+  }
+  if (!writable) return err(res, 409, 'MESSAGE_THREAD_CLOSED', 'common.messages.threadClosed');
+  const text = b.body.trim();
+  if (text.length < 1 || [...text].length > 2000) {
+    return err(res, 422, 'MESSAGE_INVALID', 'common.messages.invalid');
+  }
+  const body = text.replace(/\+?\d[\d\s().-]{5,}\d/g, '•••');
+  const masked = body !== text;
+  const offPlatform = /\befectivo\b/i.test(text);
+  const sentAt = new Date(Date.parse('2036-12-09T16:00:00.000Z') + messages.length * 60_000);
+  const message = { id: b.id, body, masked, offPlatform, sentAt: sentAt.toISOString() };
+  if (!messages.some((x) => x.id === b.id)) {
+    messages.push({ ...message, mine: true, authorRole: 'GUEST', authorName: 'Lucía' });
+  }
+  const notices = [
+    ...(masked ? ['CONTACT_MASKED'] : []),
+    ...(offPlatform ? ['OFF_PLATFORM_PAYMENT'] : []),
+  ];
+  return json(res, 201, {
+    code: 'MESSAGE_SENT',
+    messageKey: 'common.messages.sent',
+    message,
+    notices,
+  });
+}
+
 // ---- Reçu du voyageur et gains de l'hôte (US-217 partie 217b) ---------------------------------
 // `GET /trips/{id}/receipt` : la partie voyageur du contrat lit le reçu de son paiement ; toute autre
 // session ⇒ 404 RECEIPT_NOT_FOUND (comme l'API). Montants FIXES de forme (le total est celui du détail
@@ -2525,6 +2606,7 @@ createServer(async (req, res) => {
   if (refundRoute(req, res, url) !== false) return;
   if (receiptRoute(req, res, url) !== false) return;
   if (earningsRoute(req, res, url) !== false) return;
+  if ((await messagesRoute(req, res, url)) !== false) return;
   if (guestTripsRoute(req, res, url) !== false) return;
   if ((await checkoutRoute(req, res, path)) !== false) return;
   if ((await hostRoute(req, res, url)) !== false) return;

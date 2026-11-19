@@ -41,6 +41,7 @@ import {
 } from '../modules/ctr/index.js';
 import { postgresIamAdapters, postgresStaffAdapters } from '../modules/iam/index.js';
 import { postgresKycAdapters } from '../modules/kyc/index.js';
+import { postgresMsgAdapters } from '../modules/msg/index.js';
 import type { StaffOptions } from '../modules/iam/index.js';
 import { postgresPayAdapters } from '../modules/pay/index.js';
 import {
@@ -810,6 +811,15 @@ async function requestOf(
       return { method: 'GET', path: `/host/accounts/${randomUUID()}/earnings/2034-05` };
     case 'GET /trips/{tripId}/contract/pdf':
       return { method: 'GET', path: `/trips/${randomUUID()}/contract/pdf` };
+    // messagerie par trip (US-525) : trip dont l'acteur n'est pas partie ⇒ 404, rien d'écrit
+    case 'GET /trips/{tripId}/messages':
+      return { method: 'GET', path: `/trips/${randomUUID()}/messages` };
+    case 'POST /trips/{tripId}/messages':
+      return {
+        method: 'POST',
+        path: `/trips/${randomUUID()}/messages`,
+        body: { id: randomUUID(), body: 'Hola, ¿dónde nos vemos?' },
+      };
     case 'POST /trips/{tripId}/contract/sign':
       return {
         method: 'POST',
@@ -1152,6 +1162,8 @@ beforeAll(async () => {
       postgresCheckoutAdapters(client, (ctx) =>
         new QuoteService(new CountryConfigService()).params(ctx),
       ),
+      // messagerie par trip (US-525) : fonctions réelles de 0160 sous app_api
+      postgresMsgAdapters(client),
     ),
     { rawBody: true, logger: false },
   );

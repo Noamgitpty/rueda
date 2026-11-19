@@ -38,6 +38,8 @@ import type { CtrLegalOptions } from '../modules/ctr/index.js';
 import type { IamAuthOptions, StaffOptions } from '../modules/iam/index.js';
 import { kycCountries } from '../modules/kyc/index.js';
 import type { IdentityStore, KycIdentityOptions } from '../modules/kyc/index.js';
+import { unavailableMsgOptions } from '../modules/msg/index.js';
+import type { MsgTripMessagesOptions } from '../modules/msg/index.js';
 import type { PayWebhookOptions } from '../modules/pay/index.js';
 import {
   AbuseGuard,
@@ -130,6 +132,8 @@ export interface ApiHarnessOverrides {
   readonly search?: Partial<CatSearchOptions>;
   /** Checkout (US-208) ; absent : 503 après les gardes (aucun adaptateur). */
   readonly checkout?: Partial<AvlCheckoutOptions>;
+  /** Messagerie par trip (US-525) ; absent : magasin indisponible (503). */
+  readonly msg?: Partial<MsgTripMessagesOptions>;
 }
 
 export async function startApiHarness(overrides: ApiHarnessOverrides = {}): Promise<ApiHarness> {
@@ -379,6 +383,7 @@ export async function startApiHarness(overrides: ApiHarnessOverrides = {}): Prom
       { ...kyc, ...overrides.kyc },
       { ...search, ...overrides.search },
       { ...UNAVAILABLE_AVL_CHECKOUT, ...overrides.checkout },
+      { ...unavailableMsgOptions(), ...overrides.msg },
     ),
     {
       rawBody: true,

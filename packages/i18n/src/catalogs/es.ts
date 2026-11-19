@@ -2858,6 +2858,45 @@ export const ES_MESSAGES = {
   'web.a08.empty': 'Aún no tienes ganancias',
   'web.a08.payoutsOff':
     'Tus ganancias quedan registradas. Los pagos a anfitriones en {country} aún no están abiertos; te avisaremos.',
+  // US-525 (ADR-181) : messagerie par trip (S16) et rappels du signal hors plateforme
+  'common.messages.thread': 'Mensajes del viaje.',
+  'common.messages.sent': 'Mensaje enviado.',
+  'common.messages.threadClosed':
+    'Esta conversación ya está cerrada: puedes leerla, pero no enviar mensajes.',
+  'common.messages.invalid': 'Escribe un mensaje de 1 a 2000 caracteres.',
+  'common.messages.unavailable':
+    'No pudimos cargar ni enviar mensajes en este momento. Tu texto sigue aquí: vuelve a intentarlo en unos minutos.',
+  'web.s16.heading': 'Mensajes',
+  'web.s16.back': 'Volver al viaje',
+  'web.s16.with': 'Conversación con {name}',
+  'web.s16.withUnknown': 'Conversación del viaje',
+  'web.s16.payOnPlatform': 'Todos los pagos se hacen en {brand}: nunca por fuera.',
+  'web.s16.privacy':
+    'Solo ves el nombre de pila. Ocultamos teléfonos, correos y enlaces para cuidarlos a los dos.',
+  'web.s16.empty':
+    'Aún no hay mensajes. Escríbele a {host_name} si tienes una pregunta sobre la entrega.',
+  'web.s16.emptyHost': 'Aún no hay mensajes. Escríbele a {name} para coordinar la entrega.',
+  'web.s16.you': 'Tú',
+  'web.s16.role.GUEST': 'Viajero',
+  'web.s16.role.HOST': 'Anfitrión',
+  'web.s16.role.CO_HOST': 'Coanfitrión',
+  'web.s16.sentAt': 'Enviado el {date}',
+  'web.s16.masked': 'Ocultamos datos de contacto en este mensaje.',
+  'web.s16.hidden': 'El equipo de soporte ocultó este mensaje.',
+  'web.s16.closesAt': 'Puedes escribir hasta el {date}.',
+  'web.s16.closed': 'Esta conversación ya está cerrada: puedes leerla, pero no enviar mensajes.',
+  'web.s16.loadError': 'No pudimos cargar los mensajes.',
+  'web.s16.retry': 'Volver a intentar',
+  'web.s16.form.label': 'Tu mensaje',
+  'web.s16.form.hint':
+    'Coordina aquí la hora y el lugar de la entrega. Nunca compartas datos de pago.',
+  'web.s16.form.send': 'Enviar',
+  'web.s16.form.required': 'Escribe un mensaje.',
+  'web.s16.notice.contactMasked':
+    'Ocultamos los datos de contacto de tu mensaje: la conversación se queda en {brand}, donde estás protegido.',
+  'web.s16.notice.offPlatform':
+    'Recuerda: todo pago pasa por {brand}. Un pago por fuera no tiene protección ni reembolso, y nuestro equipo revisa estos mensajes.',
+  'web.s16.sent': 'Mensaje enviado.',
 } as const satisfies Catalog;
 
 export type MessageKey = keyof typeof ES_MESSAGES;

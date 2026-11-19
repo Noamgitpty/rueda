@@ -1,40 +1,43 @@
 # MSG — Messaging (`apps/api/src/modules/msg`)
 
-**MSG — Messaging** : fil par trip, masquage des coordonnées, détection du marché gris. Dépendances autorisées : IAM, AVL (socle implicite : CFG, AUD, BUS ; source : 17 §2.2 ; §2.1 MSG --> IAM).
+**MSG — Messaging** : fil par trip, masquage des coordonnées, détection du marché gris. Dépendances autorisées : IAM, AVL (socle implicite : CFG, AUD, BUS ; source : 17 §2.2 ; §2.1 MSG --> IAM). Dépendance réelle : IAM (`SessionGuard`, `sessionProofOf`).
 
 ## Responsabilité
 
-D'après 17 §2.2 et §2.13 : un fil de messages par trip, ouvert après la réservation ; masquage automatique des téléphones, e-mails et liens WhatsApp ; détection des mots-clés de marché gris (`message_flag` et file ops MSG-007). Les messages servent de preuve (`hostMessageTraced` de 08) : jamais supprimés, seulement masqués (`hidden_at`). Relais WhatsApp et questions pré-réservation filtrées : P1. MSG n'envoie pas de notification (NTF).
+D'après 17 §2.2 et §2.13, 16 MSG-001 / MSG-007 et 19 US-525 (ADR-181) : un fil de messages par trip entre le voyageur et l'hôte (titulaire du compte d'hôte ou co-hôte dont la portée couvre le véhicule), ouvert dès la réservation (le trip n'existe qu'à partir de `BOOKED`, BR-BOOK-02 : aucun contact avant) ; prénoms seulement ; masquage automatique des téléphones, courriels, identifiants et liens ; signal « paiement hors plateforme » par le catalogue de motifs d'ADR-176 réutilisé ; signal à l'ops (file `GRAY_MARKET`) et rappel à l'expéditeur, **jamais** de refus d'un texte légitime (jamais plus lourd que Turo) ; fil en lecture seule après la fin du trip + `review_window_days`. Les messages servent de preuve (`hostMessageTraced` de 08) : jamais supprimés, seulement masqués (`hidden_at`). **Aucun texte de message dans un journal** : seuls des codes et un SQLSTATE sont journalisés.
 
-État du code : **squelette, rien d'implémenté**. `MsgModule` est vide (US-001) et `internal/` ne contient qu'un `.gitkeep`. Le module arrive avec US-525 (messagerie par trip et marché gris) et US-316 (confidentialité, rendez-vous, rétention).
+État du code (US-525) :
+
+- routes `GET /trips/{tripId}/messages` et `POST /trips/{tripId}/messages` (`internal/trip-messages.controller.ts`, `SessionGuard`, `no-store`), service `TripMessagesService` (corps contrôlé, issues traduites, rappels `CONTACT_MASKED` / `OFF_PLATFORM_PAYMENT`), magasin `PgTripMessageStore` (fonctions `core.messaging_thread_read` et `core.messaging_cmd_post_message` de la migration 0160, lecture STRICTE des lignes, fail-closed) ;
+- module dynamique `MsgTripMessagesModule` (sans adaptateurs : 503), adaptateurs de production `postgresMsgAdapters(pool)` ; `MsgModule` reste la coquille statique d'US-001.
+
+Pas de `TermsGuard` (PROPOSÉ, ADR-181) : le fil sert le rendez-vous d'un trip déjà réservé. Relais WhatsApp et questions pré-réservation filtrées : P1. MSG n'envoie pas de notification (NTF ; avis « nouveau message » sans contenu : suite).
 
 ## Entités
 
-Entités de 17 §3.2.12 ; aucune n'est encore créée en base :
+Entités de 17 §3.2.12, créées par la migration 0160 (préfixe bêta `messaging_`) :
 
-| Entité           | État en base               |
-| ---------------- | -------------------------- |
-| `message_thread` | cible 17, pas encore créée |
-| `message`        | cible 17, pas encore créée |
-| `message_flag`   | cible 17, pas encore créée |
+| Entité           | Table                           | Notes                                                                           |
+| ---------------- | ------------------------------- | ------------------------------------------------------------------------------- |
+| `message_thread` | `core.messaging_message_thread` | un fil par trip (UQ), créé au premier message                                   |
+| `message`        | `core.messaging_message`        | `body` (preuve, jamais servi), `body_masked` (servi), `SENT` / `FLAGGED`        |
+| `message_flag`   | `core.messaging_message_flag`   | `CONTACT_MASKED`, `GRAY_MARKET_KEYWORD` : codes seulement ; élément GRAY_MARKET |
+
+Aucun droit applicatif sur ces tables : lecture et écriture par les deux fonctions `SECURITY DEFINER` (propriétaire `messaging_cmd_owner`, `EXECUTE` au seul `app_api`).
 
 ## Événements
 
-Aucun événement n'est émis ni consommé par le code aujourd'hui.
+Aucun événement n'est émis ni consommé par le code aujourd'hui (le signal à l'ops est l'élément de la file `GRAY_MARKET`, écrit dans la même transaction que le message).
 
-Cible (17 §2.2, §4.5) :
-
-- émis : `message.posted`, `message.flagged` (consommateurs : NTF, SUP pour la file marché gris, STL pour la preuve `hostMessageTraced`) ;
-- consommé : `booking.trip.booked` (ouverture du fil).
+Cible (17 §2.2, §4.5), en suite : émis `message.posted`, `message.flagged` (consommateurs : NTF pour l'avis sans contenu, SUP, STL pour `hostMessageTraced`) ; consommé `booking.trip.booked` (le fil est aujourd'hui créé au premier message).
 
 ## Ports
 
-Aucun port propre. Le relais WhatsApp (P1) passera par le port `MessagingChannel` de NTF (`@rueda/fake-adapters/messaging` indique « NTF, utilisé par MSG »).
+Port interne `TripMessageStore` (`internal/trip-message-store.ts`) : production `PgTripMessageStore` ; tests `FakeTripMessageStore` (`testing/`, jamais compilé dans l'image). Le relais WhatsApp (P1) passera par le port `MessagingChannel` de NTF.
 
-API publique (`index.ts`) : `MsgModule` seulement.
+API publique (`index.ts`) : `MsgModule`, `MsgTripMessagesModule`, `unavailableMsgOptions`, `postgresMsgAdapters`, `PgTripMessageStore`, `UnavailableTripMessageStore`, `MSG_MESSAGES`, `MsgHttpError`.
 
 ## Commandes de test
 
-Aucun test du module pour l'instant. Commande unitaire (vitest, sans base ; config `apps/api/vitest.config.ts`) : `pnpm --filter @rueda/api exec vitest run src/modules/msg --passWithNoTests` (sans `--passWithNoTests`, vitest sort en erreur faute de fichier de test).
-
-Pas de test d'intégration ni L0. Quand il y en aura, ils demanderont PostgreSQL : guide `docs/ops/INSTALL.md` (compose de dev) ou `RUEDA_PG_TESTCONTAINERS=1`.
+- Unitaires et contrat HTTP (vitest, sans base) : `pnpm --filter @rueda/api exec vitest run src/modules/msg` (`internal/trip-message-store.test.ts`, `testing/trip-messages.contract.test.ts` sur l'application réelle et le FAKE du magasin, confronté au contrat OpenAPI).
+- Preuves en base (PostgreSQL réel, rôles de production, PA et PY) : `packages/db/test/l0/l0-us525-messaging.test.ts` (`pnpm --filter @rueda/db test:l0`) ; matrice des routes `src/testing/route-matrix.int.test.ts` (`pnpm --filter @rueda/api test:int`). Guide : `docs/ops/INSTALL.md` (compose de dev) ou `RUEDA_PG_TESTCONTAINERS=1` ; la CI (Testcontainers) fait foi.

@@ -595,6 +595,14 @@
       "acces": "session",
       "idor": "trip d'une autre personne (ni son voyageur ni le titulaire de son compte d'hôte), inconnu ou identifiant mal formé : 404 CONTRACT_NOT_FOUND, même réponse (17 §2.3 point 5) ; la partie est celle de la session, jugée en base (core.booking_trip_contract, core.booking_cmd_sign_contract ; signature : voyageur seulement) ; du voyageur seulement prénom et initiale (L2-PM-35) ; preuves base : l0-us211"
     },
+    "GET /trips/{tripId}/messages": {
+      "acces": "session",
+      "idor": "trip dont la session n'est pas partie (autre voyageur, autre hôte, co-hôte hors de sa portée ou révoqué, visiteur sans trip), inconnu ou identifiant mal formé : 404 TRIP_NOT_FOUND, même réponse (17 §2.3 point 5, RLS-9) ; la partie est celle de la session, jugée en base (core.messaging_thread_read, 0160) ; texte masqué et prénoms seulement ; preuves base : l0-us525-messaging"
+    },
+    "POST /trips/{tripId}/messages": {
+      "acces": "session",
+      "idor": "trip dont la session n'est pas partie : 404 TRIP_NOT_FOUND, aucun message ni fil écrit (19 US-525 : un visiteur sans trip ne peut pas écrire ; core.messaging_cmd_post_message, 0160) ; preuves base : l0-us525-messaging"
+    },
     "POST /trips/{tripId}/contract/sign": {
       "acces": "session",
       "idor": "trip d'une autre personne (ni son voyageur ni le titulaire de son compte d'hôte), inconnu ou identifiant mal formé : 404 CONTRACT_NOT_FOUND, même réponse (17 §2.3 point 5) ; la partie est celle de la session, jugée en base (core.booking_trip_contract, core.booking_cmd_sign_contract ; signature : voyageur seulement) ; du voyageur seulement prénom et initiale (L2-PM-35) ; preuves base : l0-us211"

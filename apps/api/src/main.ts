@@ -39,6 +39,7 @@ import type {
 import { postgresCtrAdapters } from './modules/ctr/index.js';
 import { postgresIamAdapters, postgresStaffAdapters } from './modules/iam/index.js';
 import { postgresKycAdapters } from './modules/kyc/index.js';
+import { postgresMsgAdapters } from './modules/msg/index.js';
 import {
   PgDepositRailConfigReader,
   postgresPayAdapters,
@@ -178,6 +179,8 @@ async function bootstrap(): Promise<void> {
       kyc,
       search,
       checkout,
+      // US-525 : messagerie par trip (fonctions de 0160 sous app_api)
+      postgresMsgAdapters(pool),
     ),
     { rawBody: true },
   );

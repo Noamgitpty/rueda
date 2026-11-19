@@ -13,6 +13,8 @@ import { IamAuthModule, StaffConsoleModule } from './modules/iam/index.js';
 import { KycIdentityModule } from './modules/kyc/index.js';
 import type { KycIdentityOptions } from './modules/kyc/index.js';
 import type { IamAuthOptions, StaffOptions } from './modules/iam/index.js';
+import { MsgTripMessagesModule } from './modules/msg/index.js';
+import type { MsgTripMessagesOptions } from './modules/msg/index.js';
 import { PayWebhookModule } from './modules/pay/index.js';
 import type { PayWebhookOptions } from './modules/pay/index.js';
 import { RiskHttpModule } from './modules/risk/index.js';
@@ -49,6 +51,7 @@ export class ApiModule {
     kyc?: KycIdentityOptions,
     search?: CatSearchOptions,
     checkout?: AvlCheckoutOptions,
+    msg?: MsgTripMessagesOptions,
   ): DynamicModule {
     return {
       module: ApiModule,
@@ -67,6 +70,9 @@ export class ApiModule {
         AvlCheckoutModule.register(checkout),
         // après IAM : routes /identity gardées par SessionGuard ; rappels /kyc/webhooks (US-105)
         KycIdentityModule.register(kyc),
+        // US-525 : messagerie par trip /trips/{tripId}/messages (après IAM : SessionGuard) ; sans
+        // adaptateurs, 503
+        MsgTripMessagesModule.register(msg),
         PayWebhookModule.register(pay),
         StaffConsoleModule.register(staff),
         SupConsoleModule.register(sup),

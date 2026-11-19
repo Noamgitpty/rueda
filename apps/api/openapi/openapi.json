@@ -12343,6 +12343,231 @@
         }
       }
     },
+    "/trips/{tripId}/messages": {
+      "get": {
+        "operationId": "tripMessages",
+        "tags": ["msg"],
+        "summary": "Fil des messages d'un trip (S16 ; 16 MSG-001 / MSG-007 ; US-525) pour une partie du trip de la session (voyageur, titulaire du compte d'hôte, co-hôte de portée) : prénoms seulement, texte servi avec téléphones, courriels, identifiants et liens masqués, fenêtre d'écriture (fin du trip + review_window_days)",
+        "parameters": [
+          {
+            "name": "tripId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Fil de la partie de la session (200 derniers messages, du plus ancien au plus récent)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TripMessages"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthRequired"
+          },
+          "404": {
+            "description": "Trip dont la session n'est pas partie (autre voyageur, autre hôte, co-hôte hors de sa portée ou révoqué, visiteur sans trip), inconnu ou identifiant mal formé : même réponse (17 §2.3 point 5, RLS-9)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "TRIP_NOT_FOUND"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Base indisponible, file GRAY_MARKET indisponible ou réponse inattendue : rien n’est servi ni écrit (fail-closed ; le texte reste dans le champ pour réessayer)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "MESSAGES_UNAVAILABLE"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "postTripMessage",
+        "tags": ["msg"],
+        "summary": "Message d'une partie du trip de la session (US-525) : coordonnées masquées et proposition de paiement hors plateforme signalées à l'ops (file GRAY_MARKET), jamais refusées ; rappels à montrer à l'expéditeur ; identifiant choisi par le client (réessai sans doublon)",
+        "parameters": [
+          {
+            "name": "tripId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TripMessageRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Message enregistré (ou déjà enregistré sous cet identifiant : le message d'origine)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TripMessageSent"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Corps invalide (identifiant absent ou mal formé, texte absent, champ inconnu) ou identifiant déjà pris par un autre message",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "REQUEST_INVALID"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthRequired"
+          },
+          "404": {
+            "description": "Trip dont la session n'est pas partie (autre voyageur, autre hôte, co-hôte hors de sa portée ou révoqué, visiteur sans trip), inconnu ou identifiant mal formé : même réponse (17 §2.3 point 5, RLS-9)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "TRIP_NOT_FOUND"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Fil en lecture seule : fin du trip + review_window_days passée (16 MSG-001)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "MESSAGE_THREAD_CLOSED"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "415": {
+            "$ref": "#/components/responses/NotJson"
+          },
+          "422": {
+            "description": "Texte vide ou de plus de 2 000 caractères",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "MESSAGE_INVALID"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Base indisponible, file GRAY_MARKET indisponible ou réponse inattendue : rien n’est servi ni écrit (fail-closed ; le texte reste dans le champ pour réessayer)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "MESSAGES_UNAVAILABLE"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/trips/{tripId}/constancia": {
       "get": {
         "operationId": "tripConstancia",
@@ -21555,6 +21780,173 @@
           },
           "trip": {
             "$ref": "#/components/schemas/HostTrip"
+          }
+        }
+      },
+      "TripMessage": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "mine",
+          "authorRole",
+          "authorName",
+          "body",
+          "masked",
+          "offPlatform",
+          "sentAt"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+          },
+          "mine": {
+            "type": "boolean"
+          },
+          "authorRole": {
+            "enum": ["GUEST", "HOST", "CO_HOST"]
+          },
+          "authorName": {
+            "type": ["string", "null"],
+            "description": "prénom de l'auteur (premier mot du prénom légal) ; null : compte pseudonymisé"
+          },
+          "body": {
+            "type": ["string", "null"],
+            "description": "texte servi : coordonnées remplacées par « ••• » ; null : message masqué par l'ops"
+          },
+          "masked": {
+            "type": "boolean",
+            "description": "coordonnées masquées dans ce message"
+          },
+          "offPlatform": {
+            "type": "boolean",
+            "description": "proposition de paiement hors plateforme dans un message de la session (rappel) ; toujours false pour un message de l'autre partie"
+          },
+          "sentAt": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}[.][0-9]{3}Z$"
+          }
+        }
+      },
+      "TripMessages": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "code",
+          "messageKey",
+          "tripId",
+          "viewerRole",
+          "counterpartName",
+          "writable",
+          "closesAt",
+          "timezone",
+          "messages"
+        ],
+        "properties": {
+          "code": {
+            "const": "TRIP_MESSAGES"
+          },
+          "messageKey": {
+            "$ref": "#/components/schemas/MessageKey"
+          },
+          "tripId": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+          },
+          "viewerRole": {
+            "enum": ["GUEST", "HOST", "CO_HOST"]
+          },
+          "counterpartName": {
+            "type": ["string", "null"],
+            "description": "prénom de l'autre partie (titulaire du compte d'hôte pour le voyageur, voyageur pour l'hôte)"
+          },
+          "writable": {
+            "type": "boolean"
+          },
+          "timezone": {
+            "type": "string",
+            "description": "fuseau du trip (IANA), pour l'affichage des heures"
+          },
+          "closesAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}[.][0-9]{3}Z$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "fin de la fenêtre d'écriture ; null : paramètre du pays absent (fil fermé, fail-closed)"
+          },
+          "messages": {
+            "type": "array",
+            "maxItems": 200,
+            "items": {
+              "$ref": "#/components/schemas/TripMessage"
+            }
+          }
+        }
+      },
+      "TripMessageRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "body"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+            "description": "identifiant du message choisi par le client (UUID) : un réessai avec le même identifiant rend le message enregistré"
+          },
+          "body": {
+            "type": "string",
+            "description": "texte du message (1 à 2 000 caractères après les blancs de bord)"
+          }
+        }
+      },
+      "TripMessageSent": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["code", "messageKey", "message", "notices"],
+        "properties": {
+          "code": {
+            "const": "MESSAGE_SENT"
+          },
+          "messageKey": {
+            "$ref": "#/components/schemas/MessageKey"
+          },
+          "message": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "body", "masked", "offPlatform", "sentAt"],
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+              },
+              "body": {
+                "type": "string"
+              },
+              "masked": {
+                "type": "boolean"
+              },
+              "offPlatform": {
+                "type": "boolean"
+              },
+              "sentAt": {
+                "type": "string",
+                "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}[.][0-9]{3}Z$"
+              }
+            }
+          },
+          "notices": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "enum": ["CONTACT_MASKED", "OFF_PLATFORM_PAYMENT"]
+            },
+            "description": "rappels à montrer à l'expéditeur (S16)"
           }
         }
       }
