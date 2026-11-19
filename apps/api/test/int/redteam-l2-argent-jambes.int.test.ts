@@ -456,7 +456,7 @@ describe.each(CASES)('RT-L2-ARG — jambes, preuve, crédits ($country, $currenc
     });
   });
 
-  // F-L2-ARG-05 (constat, gravité PROPOSÉE moyenne, suite attendue d'US-709 au lot 3) : un
+  // F-L2-ARG-04 (constat, gravité PROPOSÉE moyenne, suite attendue d'US-709 au lot 3) : un
   // chargeback perdu (TJ14b : trip réalisé, rien versé ; PLATFORM −256,66 en USD, −1 438 050 en PYG
   // pour la variante de l'oracle) n'est imputé nulle part et le rapprochement FIN rend 0 écart : la
   // perte est absorbée sans écriture et la jambe HOST reste due à l'hôte (L2-PM-43). Aucune voie
@@ -464,7 +464,7 @@ describe.each(CASES)('RT-L2-ARG — jambes, preuve, crédits ($country, $currenc
   // console est un enregistrement seul). Attendu : imputation de 08 (TJ14a / TJ14b) ou, à défaut,
   // écart signalé par le rapprochement.
   it.fails(
-    'F-L2-ARG-05 : un chargeback perdu sans imputation est signalé par le rapprochement FIN',
+    'F-L2-ARG-04 : un chargeback perdu sans imputation est signalé par le rapprochement FIN',
     async () => {
       await open('app_worker'); // L0-05
       // observation absente (attaque non jouée) : l'assertion passe et l'it.fails rougit

@@ -9,7 +9,7 @@
  * transactions ANNULÉES. Attendu (pré-mortem, RT-L2-M12) : « détecté et masqué, ou bloqué avec
  * signalement ». Le filtre automatique des textes publics (ADR-114, US-118, US-122) vise les
  * coordonnées ; il est éprouvé ici sur les coordonnées (bloqué, test vert) et sur une proposition de
- * paiement hors plateforme sans coordonnée (défaut : `it.fails` documenté, F-L2-ARG-03 et 04).
+ * paiement hors plateforme sans coordonnée (défaut : `it.fails` documenté, F-L2-ARG-02 et 04).
  */
 import { randomUUID } from 'node:crypto';
 // types du contexte fourni par le globalSetup du banc (inject('ruedaBench'))
@@ -150,13 +150,13 @@ describe.each(CASES)(
       await invariant(c.country);
     });
 
-    // F-L2-ARG-03 (constat, gravité PROPOSÉE moyenne) : le filtre des textes PUBLICS de l'hôte (zone,
+    // F-L2-ARG-02 (constat, gravité PROPOSÉE moyenne) : le filtre des textes PUBLICS de l'hôte (zone,
     // ville ; 0084, 0093) ne vise que les coordonnées : une proposition de paiement hors plateforme
     // qui nomme un moyen local (Yappy, Pix), les espèces ou une remise « sans la commission » passe,
     // sans masque ni signalement (aucune entrée dans la file GRAY_MARKET de la console, 0064). Attendu
     // (pré-mortem RT-L2-M12) : détecté et masqué, ou bloqué avec signalement à l'ops.
     it.fails(
-      'F-L2-ARG-03 : une proposition de paiement hors plateforme dans la zone publique du lieu est refusée ou signalée',
+      'F-L2-ARG-02 : une proposition de paiement hors plateforme dans la zone publique du lieu est refusée ou signalée',
       async () => {
         await open('app_api'); // L0-05
         const o = observed.get(c.country)?.area ?? [];
@@ -164,12 +164,12 @@ describe.each(CASES)(
         expect(o.filter((x) => x === 'DONE')).toEqual([]);
       },
     );
-    // F-L2-ARG-04 (constat, gravité PROPOSÉE moyenne) : le libellé et l'adresse du lieu de remise,
+    // F-L2-ARG-03 (constat, gravité PROPOSÉE moyenne) : le libellé et l'adresse du lieu de remise,
     // lus par le voyageur après la réservation (catalog_guest_meeting_point, booking_guest_trips),
     // ne passent par AUCUN filtre : une proposition de paiement hors plateforme y est enregistrée
     // telle quelle et montrée au voyageur après son paiement.
     it.fails(
-      'F-L2-ARG-04 : une proposition de paiement hors plateforme dans le libellé ou l’adresse du lieu de remise est refusée ou signalée',
+      'F-L2-ARG-03 : une proposition de paiement hors plateforme dans le libellé ou l’adresse du lieu de remise est refusée ou signalée',
       async () => {
         await open('app_api'); // L0-05
         const o = observed.get(c.country);
