@@ -7,7 +7,7 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 
 ## Synthèse
 
-- 151 migrations ; 129 tables ; 3 vues ; 735 politiques RLS ; 298 fonctions `SECURITY DEFINER` ; 255 autres fonctions.
+- 152 migrations ; 129 tables ; 3 vues ; 735 politiques RLS ; 298 fonctions `SECURITY DEFINER` ; 255 autres fonctions.
 - Tables sans RLS `ENABLE` + `FORCE` : aucune.
 - Rôles applicatifs avec `SUPERUSER` ou `BYPASSRLS` : aucun.
 
@@ -166,6 +166,7 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 | `0148_hardening_country_open` | SUP / FIN / CAT : durcissement avant l'ouverture d'un pays (suites des revues : BOARD |
 | `0149_settlement_conversion_capture_legs` | STL / AVL / FIN : la capture prouvée d'un hold converti est rattachée au trip né de la |
 | `0150_payment_deposit_decision` | PAY : décision de la caution à l'heure de décision (libération automatique, transitions |
+| `0151_payment_refund_lock_order_credit_collection` | PAY : durcissement argent n° 2 d'US-224 (suites des revues de #239, partie 224f : BOARD |
 
 ## Rôles
 
