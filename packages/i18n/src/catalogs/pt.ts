@@ -1370,6 +1370,11 @@ export const PT_MESSAGES = {
     'Olá, {first_name}. Da caução da viagem {booking_ref}, cobramos {captured} pelas taxas extras já avisadas e liberamos {amount}. O banco pode levar alguns dias para mostrar.',
   'ntf.depositPartiallyCaptured.sms.body':
     '{brand}: da sua caução da viagem {booking_ref}, cobramos {captured} de taxas já avisadas e liberamos {amount}.',
+  'ntf.depositBlockedUntilExpiry.email.subject': 'Sua caução de {amount} segue bloqueada',
+  'ntf.depositBlockedUntilExpiry.email.body':
+    'Olá, {first_name}. Não conseguimos cancelar o bloqueio da sua caução de {amount} da viagem {booking_ref}. Nada foi cobrado: o seu banco mantém esse valor bloqueado no máximo até {expires_at} e depois o libera automaticamente.',
+  'ntf.depositBlockedUntilExpiry.sms.body':
+    '{brand}: a sua caução de {amount} da viagem {booking_ref} fica bloqueada pelo banco até {expires_at}, sem cobrança. Depois é liberada automaticamente.',
   'backoffice.catalog.open': 'Abrir o pedido',
   'backoffice.catalog.heading': 'Pedido de inclusão no catálogo',
   'backoffice.catalog.requested': 'O que o anfitrião digitou',

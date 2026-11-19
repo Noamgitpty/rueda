@@ -1110,3 +1110,13 @@ Migration `0150_payment_deposit_decision`, fixture `9934_test_us702_deposit_deci
 - **Fonctions** (cmd_hold_owner, RLS-15) : `payment_cmd_record_deposit_decision` remplacée (fournisseur et échéancier recalculés par la base) ; `payment_deposit_decision_due(lot)` et `payment_cmd_deposit_decide(…)` (EXECUTE `app_worker`, nom `payment_command`) : jamais avant l'heure de décision sauf expiration, aucune capture après l'expiration, `REFUNDED` ⇔ rail b, rang attendu (`STALE`), événement `deposit.decision.executed`.
 - **Droits** : politique `cmd_hold_deposit_read` de `config_param_value` élargie (`auth_lead_h`, `release_delay_h`, `deposit_safety_h`, `deposit_reauth_lead_h`) ; politique ajoutée `cmd_hold_deposit_event_ins` sur `outbox_outbox_event` ; `UPDATE` des trois colonnes à cmd_hold_owner.
 - **Preuves** : `test/l0/l0-us702-deposit-decision.test.ts` (PA USD, PY PYG ; `app_api`, `app_worker`, `app_anon` par `has_function_privilege`).
+
+### Corrections « avant ouverture d'un pays » (US-702b ; revues de la PR 248 ; ADR-172)
+
+Migration `0153_payment_deposit_decision_before_opening`, fixture `9932_test_us702b_deposit_return_fixtures.sql` (`test_fixture.us702b_record_return` : retour réel, transition `RETURNED` du journal d'état à l'heure donnée, EXECUTE `app_worker`).
+
+- **Validité V** : `payment_cmd_record_deposit_decision` remplacée : rail revérifié en base (pré-autorisation unique ⇔ `(release_at − auth_at) + marge_h ≤ V` ; ré-autorisation ⇔ `V > deposit_reauth_lead_h`), sinon `deposit_decision_mismatch` : V reçu de l'API ne peut plus provoquer de VOID anticipé.
+- **Libération effective** : `core.payment_deposit_effective_schedule(…)` (SECURITY INVOKER, aucun EXECUTE) : `(retour réel ?? fin prévue) + délai figé` ; décision `min(decision_at, libération)` sur retour à l'heure ou anticipé, `min(libération, auth_expiry − deposit_safety_h)` jamais avant `decision_at` sur retour tardif ; lue par `payment_deposit_decision_due`, `payment_cmd_deposit_decide` et `payment_deposit_reauth_due` (`release_at` rendu = `min(release_at, libération effective)`), remplacées à signature et droits identiques.
+- **Avis** : charge utile de `deposit.decision.executed` étendue de `notice` (`RELEASED`, `PARTIALLY_CAPTURED`, `BLOCKED_UNTIL_EXPIRY` : `EXPIRED` écrit avant l'expiration) et `auth_expiry_at`.
+- **Droits** : politique `cmd_hold_deposit_read` élargie à `marge_h` ; `SELECT (at)` de `booking_trip_state_log` à cmd_hold_owner.
+- **Preuves** : `test/l0/l0-us702-deposit-decision.test.ts` (V, retour anticipé, tardif, rail b, file des ré-autorisations, `notice`) ; `test/l0/l0-us702b-deposit-race.test.ts` (groupe isolé : ré-autorisation contre décision à deux connexions, dans les deux ordres).

@@ -59,6 +59,9 @@ const ISOLATED = [
   // US-221b : paiement prouvé puis conversion (report de la capture sur les soldes par jambe), à
   // deux sessions, données commitées, compte PSP ACTIVE du pays partagé (comme US-223a)
   'test/l0/l0-us221b-conversion-capture.test.ts',
+  // US-702b : ré-autorisation contre décision de la même caution à deux sessions, caution commitée
+  // puis toujours menée à un état final (aucune caution laissée dans une file)
+  'test/l0/l0-us702b-deposit-race.test.ts',
 ];
 const C11 = ['test/l0/l0-c11-fuzz.test.ts'];
 // US-049 : les attaques de la red team (test/redteam/<axe>/) tournent seules, après tous les autres

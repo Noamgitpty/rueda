@@ -1369,6 +1369,11 @@ export const ES_MESSAGES = {
     'Hola, {first_name}. Del depósito de garantía del viaje {booking_ref}, cobramos {captured} por los cargos adicionales que te avisamos y liberamos {amount}. Tu banco puede tardar unos días en mostrarlo.',
   'ntf.depositPartiallyCaptured.sms.body':
     '{brand}: de tu depósito del viaje {booking_ref}, cobramos {captured} de cargos ya avisados y liberamos {amount}.',
+  'ntf.depositBlockedUntilExpiry.email.subject': 'Tu depósito de {amount} sigue bloqueado',
+  'ntf.depositBlockedUntilExpiry.email.body':
+    'Hola, {first_name}. No pudimos anular la retención de tu depósito de garantía de {amount} del viaje {booking_ref}. No te cobramos nada: tu banco mantiene ese monto bloqueado como máximo hasta el {expires_at} y luego lo libera automáticamente.',
+  'ntf.depositBlockedUntilExpiry.sms.body':
+    '{brand}: tu depósito de {amount} del viaje {booking_ref} sigue bloqueado por tu banco hasta el {expires_at}, sin cobro. Luego se libera solo.',
   'backoffice.catalog.open': 'Abrir la solicitud',
   'backoffice.catalog.heading': 'Solicitud de alta al catálogo',
   'backoffice.catalog.requested': 'Lo que escribió el anfitrión',

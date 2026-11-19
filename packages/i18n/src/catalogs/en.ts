@@ -1331,6 +1331,11 @@ export const EN_MESSAGES = {
     'Hi {first_name}. From the security deposit for trip {booking_ref}, we charged {captured} for the extra fees we told you about and released {amount}. Your bank may take a few days to show it.',
   'ntf.depositPartiallyCaptured.sms.body':
     '{brand}: from your deposit for trip {booking_ref}, we charged {captured} in fees already notified and released {amount}.',
+  'ntf.depositBlockedUntilExpiry.email.subject': 'Your {amount} deposit is still on hold',
+  'ntf.depositBlockedUntilExpiry.email.body':
+    'Hi {first_name}. We couldn’t cancel the hold on your {amount} security deposit for trip {booking_ref}. Nothing was charged: your bank holds that amount until {expires_at} at the latest, then releases it automatically.',
+  'ntf.depositBlockedUntilExpiry.sms.body':
+    '{brand}: your {amount} deposit for trip {booking_ref} stays on hold at your bank until {expires_at}, with no charge. It is then released automatically.',
   'backoffice.catalog.open': 'Open the request',
   'backoffice.catalog.heading': 'Catalog addition request',
   'backoffice.catalog.requested': 'What the host entered',
