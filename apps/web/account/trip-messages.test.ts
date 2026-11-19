@@ -37,6 +37,8 @@ describe('tripThreadOf', () => {
     const t = tripThreadOf(reply(thread()), TRIP);
     expect(t).toMatchObject({ viewerRole: 'GUEST', counterpartName: 'María', writable: true });
     expect(t?.messages[0]).toMatchObject({ id: MSG, body: 'Hola •••', masked: true });
+    // fuseau sans région (« UTC ») : accepté
+    expect(tripThreadOf(reply(thread({ timezone: 'UTC' })), TRIP)?.timezone).toBe('UTC');
   });
 
   it('forme inattendue, autre trip ou autre statut : null', () => {

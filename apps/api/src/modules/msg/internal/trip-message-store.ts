@@ -146,7 +146,7 @@ export function threadOf(rows: readonly Record<string, unknown>[]): ThreadReadRe
   const writable = bool(head['writable'], 'read');
   const closesAt = head['closes_at'] === null ? null : date(head['closes_at'], 'read');
   const timezone = head['timezone'];
-  if (typeof timezone !== 'string' || !/^[A-Za-z]+(\/[A-Za-z0-9_+-]+)+$/.test(timezone)) {
+  if (typeof timezone !== 'string' || !/^[A-Za-z_]+(\/[A-Za-z0-9_+-]+)*$/.test(timezone)) {
     throw new TripMessageStoreError('read: forme', undefined);
   }
   const messages: StoredMessage[] = [];

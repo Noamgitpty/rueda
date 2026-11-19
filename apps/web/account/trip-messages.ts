@@ -42,7 +42,8 @@ export interface TripThread {
 }
 
 const ISO = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
-const ZONE = /^[A-Za-z]+(\/[A-Za-z0-9_+-]+)+$/;
+/** Fuseau IANA (« Region/Ville » ou « UTC ») ; jamais une chaîne libre. */
+const ZONE = /^[A-Za-z_]+(\/[A-Za-z0-9_+-]+)*$/;
 
 const isRecord = (v: unknown): v is Record<string, unknown> =>
   typeof v === 'object' && v !== null && !Array.isArray(v);
