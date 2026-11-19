@@ -237,20 +237,6 @@ describe('configuration pays : structure et droits', () => {
             t === 'config_param_value'
               ? [{ t, pol: 'cmd_golive_sel', cmd: 'r', roles: 'cmd_golive_owner' }]
               : []),
-            // changement de paramètre à deux personnes (US-535a, 0157) : lecture des pays et des
-            // définitions ; versions COUNTRY des clés non gardées : lecture, fermeture et insertion
-            // de la seule version recopiant une demande approuvée
-            ...(t === 'config_param_value'
-              ? [{ t, pol: 'cmd_param_ins', cmd: 'a', roles: 'cmd_param_owner' }]
-              : []),
-            ...(t === 'config_country' ||
-            t === 'config_param_definition' ||
-            t === 'config_param_value'
-              ? [{ t, pol: 'cmd_param_sel', cmd: 'r', roles: 'cmd_param_owner' }]
-              : []),
-            ...(t === 'config_param_value'
-              ? [{ t, pol: 'cmd_param_upd', cmd: 'w', roles: 'cmd_param_owner' }]
-              : []),
             // paiement du checkout (US-223, 0116) : fuseau du pays, à défaut de celui du véhicule
             ...(t === 'config_country'
               ? [{ t, pol: 'cmd_hold_country_read', cmd: 'r', roles: 'cmd_hold_owner' }]
@@ -304,6 +290,20 @@ describe('configuration pays : structure et droits', () => {
             // gardes de versement et de détention de fonds (US-049, 0054) : interrupteurs seulement
             ...(t === 'config_param_value' || t === 'config_param_definition'
               ? [{ t, pol: 'cmd_money_sel', cmd: 'r', roles: 'cmd_money_owner' }]
+              : []),
+            // changement de paramètre à deux personnes (US-535a, 0157) : lecture des pays et des
+            // définitions ; versions COUNTRY des clés non gardées : lecture, fermeture et insertion
+            // de la seule version recopiant une demande approuvée
+            ...(t === 'config_param_value'
+              ? [{ t, pol: 'cmd_param_ins', cmd: 'a', roles: 'cmd_param_owner' }]
+              : []),
+            ...(t === 'config_country' ||
+            t === 'config_param_definition' ||
+            t === 'config_param_value'
+              ? [{ t, pol: 'cmd_param_sel', cmd: 'r', roles: 'cmd_param_owner' }]
+              : []),
+            ...(t === 'config_param_value'
+              ? [{ t, pol: 'cmd_param_upd', cmd: 'w', roles: 'cmd_param_owner' }]
               : []),
             // compte d'hôte (US-107, 0061) : âge minimal de l'hôte (host_min_age_years) seulement
             ...(t === 'config_param_value'
