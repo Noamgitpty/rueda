@@ -7,9 +7,11 @@
  *
  * Ce que rend le port (C0 seulement, comme la fiche publique d'US-115) : prix par jour, véhicule,
  * ville, zone saisie par l'hôte, point arrondi au centième de degré, fuseau et instants UTC de la
- * période ; caution de la plateforme du pays et de la classe (montant seul, jamais la classe ni
- * les déclencheurs, BR-PAY-06) ; jamais le nom ni l'adresse du lieu, son point exact, la plaque,
- * le VIN, le compte d'hôte ni l'occupation (L1-PM-19, L2-PM-29).
+ * période ; jamais le nom ni l'adresse du lieu, son point exact, la plaque, le VIN, le compte
+ * d'hôte ni l'occupation (L1-PM-19, L2-PM-29). Caution annoncée avant le checkout (US-701c, T70 c,
+ * ADR-173) : la base ne rend que sa BASE (pays, devise, classe de valeur, `depositBasis`) ; la
+ * décision est celle de PAY (port `ListingDepositPolicy`) et la classe n'est jamais rendue au
+ * visiteur. `deposit_amount_minor` de 0105 / 0118 (`catalog_deposit_policy`) n'est plus lu.
  */
 import type { FuelType, LocationKind, Transmission } from '../host-listings/model.js';
 import type { SqlExecutor } from '../host-listings/store.js';
@@ -47,12 +49,6 @@ export interface SearchResult {
   /** Début et fin de la période, instants UTC (ISO 8601). */
   readonly startAt: string;
   readonly endAt: string;
-  /**
-   * Caution par carte de la plateforme (`deposit_policy` du pays et de la classe du véhicule, en
-   * vigueur, même devise, > 0 ; 16 SRC-011, T70 c), unités mineures ; `null` : aucune caution
-   * annoncée avant le checkout, mention générique (US-203).
-   */
-  readonly depositAmountMinor: string | null;
   /** `platform.now()` de la lecture (instant du devis provisoire), ISO 8601 UTC (US-203). */
   readonly quotedAt: string;
 }
@@ -135,6 +131,19 @@ export interface SearchStore {
    * fiche) ; une seule requête pour les résultats d'une page.
    */
   protectionOffered(listingIds: readonly string[]): Promise<ReadonlySet<string>>;
+  /**
+   * Base de la caution annoncée avant le checkout (US-701c, `core.catalog_public_deposit_basis` de
+   * 0149) : pays et classe de valeur du catalogue des annonces LISTED demandées (50 au plus) ; une
+   * annonce absente de la réponse est inconnue ou retirée. Jamais rendue au visiteur.
+   */
+  depositBasis(listingIds: readonly string[]): Promise<ReadonlyMap<string, DepositBasis>>;
+}
+
+/** Ce que le véhicule permet de connaître de la caution (08 BR-PAY-06 : COUNTRY, CLASS). */
+export interface DepositBasis {
+  readonly country: string;
+  /** `value_class` du catalogue, texte lu en base ; `null` : inconnue (fail-closed côté PAY). */
+  readonly valueClass: string | null;
 }
 
 /** Niveaux de protection de la grille du pays (US-226, ADR-136), dans leur ordre de rang. */
@@ -184,8 +193,6 @@ export interface ListingTerms {
   readonly mileageMode: 'UNLIMITED' | 'INCLUDED';
   readonly includedKmPerDay: number | null;
   readonly extraKmPriceMinor: string | null;
-  /** Caution de la plateforme (même règle que les cartes) ; `null` : mention générique. */
-  readonly depositAmountMinor: string | null;
   readonly protection: ListingProtection | null;
 }
 
@@ -219,6 +226,7 @@ export class UnavailableSearchStore implements SearchStore {
   slotCheck = (): Promise<SlotOutcome> => this.#fail();
   terms = (): Promise<ListingTerms | null> => this.#fail();
   protectionOffered = (): Promise<ReadonlySet<string>> => this.#fail();
+  depositBasis = (): Promise<ReadonlyMap<string, DepositBasis>> => this.#fail();
 }
 
 const SLOT_REFUSALS: ReadonlySet<string> = new Set<SlotRefusal>([
@@ -313,7 +321,6 @@ export class PgSearchStore implements SearchStore {
           timezone: String(r['timezone']),
           startAt: iso(r['start_at']),
           endAt: iso(r['end_at']),
-          depositAmountMinor: str(r['deposit_amount_minor']),
           quotedAt: iso(r['quoted_at']),
         };
       }),
@@ -356,7 +363,6 @@ export class PgSearchStore implements SearchStore {
               CASE WHEN t.listing_id IS NULL THEN NULL
                    ELSE pg_catalog.to_jsonb(t.*) || pg_catalog.jsonb_build_object(
                           'extra_km_price_minor', t.extra_km_price_minor::text,
-                          'deposit_amount_minor', t.deposit_amount_minor::text,
                           'rc_amount_minor', t.rc_amount_minor::text)
               END AS terms
          FROM core.catalog_public_slot_check($1::uuid, $2::timestamp, $3::timestamp) AS s
@@ -424,6 +430,22 @@ export class PgSearchStore implements SearchStore {
       }
     }
     return offered;
+  }
+
+  async depositBasis(listingIds: readonly string[]): Promise<ReadonlyMap<string, DepositBasis>> {
+    if (listingIds.length === 0) return new Map();
+    const rows = await this.#rows(
+      'base de la caution',
+      'SELECT * FROM core.catalog_public_deposit_basis($1::uuid[])',
+      [listingIds],
+    );
+    const out = new Map<string, DepositBasis>();
+    for (const r of rows) {
+      const country = str(r['country_code']);
+      if (country === null) throw new SearchStoreError('ligne inattendue', undefined);
+      out.set(String(r['listing_id']), { country, valueClass: str(r['value_class']) });
+    }
+    return out;
   }
 }
 
@@ -525,7 +547,6 @@ function termsOf(r: Record<string, unknown>): ListingTerms {
     mileageMode: mode,
     includedKmPerDay: num(r['included_km_per_day']),
     extraKmPriceMinor: minorOrNull(r['extra_km_price_minor']),
-    depositAmountMinor: minorOrNull(r['deposit_amount_minor']),
     protection,
   };
 }

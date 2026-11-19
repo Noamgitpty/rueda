@@ -30,10 +30,14 @@ import {
   UnavailableHostListingStore,
 } from '../internal/host-listings/store.js';
 import type { GuestMeetingPoint, PublicListing } from '../internal/host-listings/store.js';
-import type { SearchPriceInput, SearchPricer } from '../internal/search/cards.js';
+import type {
+  ListingDepositPolicy,
+  SearchPriceInput,
+  SearchPricer,
+} from '../internal/search/cards.js';
 import type { ListingTerms } from '../internal/search/store.js';
 import type { AvailabilityProbeLimiter } from '../internal/search/search.service.js';
-import { FakeSearchStore } from './fake-search-store.js';
+import { FakeDepositPolicy, FakeSearchStore } from './fake-search-store.js';
 
 const LISTING = '00000000-0000-4000-8000-0000000204a1';
 const OTHER = '00000000-0000-4000-8000-0000000204a2';
@@ -114,6 +118,7 @@ async function app(
     readonly search?: FakeSearchStore;
     readonly probe?: AvailabilityProbeLimiter;
     readonly pricer?: SearchPricer;
+    readonly deposits?: ListingDepositPolicy;
   } = {},
 ) {
   const a = await startContractApp({
@@ -125,6 +130,8 @@ async function app(
       store: options.search ?? new FakeSearchStore(),
       ...(options.probe ? { probe: options.probe } : {}),
       ...(options.pricer ? { pricer: options.pricer } : {}),
+      // US-701c : caution annoncée imposée (mention générique par défaut)
+      deposits: options.deposits ?? new FakeDepositPolicy(),
     },
   });
   apps.push(a);
@@ -407,7 +414,6 @@ describe('US-204 — contrat de la fiche du véhicule', () => {
       mileageMode: 'INCLUDED',
       includedKmPerDay: 200,
       extraKmPriceMinor: '35',
-      depositAmountMinor: null,
       protection: null,
     };
     search.listingTerms.set(LISTING, terms);
@@ -511,10 +517,14 @@ describe('US-204 — contrat de la fiche du véhicule', () => {
       mileageMode: 'UNLIMITED',
       includedKmPerDay: null,
       extraKmPriceMinor: null,
-      depositAmountMinor: '25000',
       protection,
     });
-    const a = await app({ search });
+    // US-701c : base de la caution (pays, classe) et décision imposée au FAKE de PAY
+    search.depositBases.set(LISTING, { country: FIRST_COUNTRY, valueClass: 'LUXE' });
+    const deposits = new FakeDepositPolicy();
+    deposits.notices.set(`${FIRST_COUNTRY}|LUXE`, { status: 'REQUIRED', amountMinor: '25000' });
+    deposits.notices.set(`${FIRST_COUNTRY}|`, { status: 'UNAVAILABLE' });
+    const a = await app({ search, deposits });
     const r = await a.api.request('GET', `/listings/${LISTING}/conditions`);
     expect(r.status).toBe(200);
     expect(r.headers.get('cache-control')).toBe('no-store');
@@ -528,12 +538,16 @@ describe('US-204 — contrat de la fiche du véhicule', () => {
           lastMinuteWindowMinutes: 60,
         },
         deposit: { amountMinor: '25000' },
+        depositStatus: 'REQUIRED',
         protection,
       },
     });
     expect(search.termsAsked).toEqual([null]);
-    // contrat inactif (ou RC sous le minimum, véhicule hors contrat) : la base ne promet rien
+    expect(JSON.stringify(r.json)).not.toMatch(/LUXE|valueClass|trigger/);
+    // contrat inactif (ou RC sous le minimum, véhicule hors contrat) : la base ne promet rien ;
+    // base de la caution absente (US-701c) : classe inconnue, caution non disponible (fail-closed)
     search.listingTerms.delete(LISTING);
+    search.depositBases.delete(LISTING);
     const none = await a.api.request('GET', `/listings/${LISTING}/conditions`);
     expect(none.json).toEqual({
       conditions: {
@@ -541,10 +555,15 @@ describe('US-204 — contrat de la fiche du véhicule', () => {
         timezone: 'UTC',
         cancellation: null,
         deposit: null,
+        depositStatus: 'UNAVAILABLE',
         protection: null,
       },
     });
     expect(none.text).not.toContain('Aseguradora');
+    expect(deposits.asked).toEqual([
+      [FIRST_COUNTRY, 'LUXE'],
+      [FIRST_COUNTRY, null],
+    ]);
     const unknown = await a.api.request('GET', `/listings/${OTHER}/conditions`);
     expect(unknown.status).toBe(404);
     expect(unknown.json).toMatchObject({ code: 'LISTING_NOT_FOUND' });
@@ -553,6 +572,12 @@ describe('US-204 — contrat de la fiche du véhicule', () => {
     const down = await a.api.request('GET', `/listings/${LISTING}/conditions`);
     expect(down.status).toBe(503);
     expect(down.json).toMatchObject({ code: 'SEARCH_UNAVAILABLE' });
+    // US-701c : décision de la caution en panne ⇒ 503, jamais la mention générique
+    search.down = false;
+    deposits.down = true;
+    const noDeposit = await a.api.request('GET', `/listings/${LISTING}/conditions`);
+    expect(noDeposit.status).toBe(503);
+    expect(noDeposit.json).toMatchObject({ code: 'SEARCH_UNAVAILABLE' });
   });
 
   it('US-205b (revue sécurité de 205a, n° 8) : conditions limitées par IP comme les dates (sonde du pays de l’annonce) ⇒ 429 RATE_LIMITED et Retry-After ; limiteur en panne ⇒ 503', async () => {

@@ -31,11 +31,19 @@ import {
 } from './modules/cfg/index.js';
 import { postgresCheckoutAdapters } from './modules/avl/index.js';
 import { postgresCatAdapters, postgresSearchAdapters } from './modules/cat/index.js';
-import type { PublicListingRatings, SearchRatings } from './modules/cat/index.js';
+import type {
+  ListingDepositPolicy,
+  PublicListingRatings,
+  SearchRatings,
+} from './modules/cat/index.js';
 import { postgresCtrAdapters } from './modules/ctr/index.js';
 import { postgresIamAdapters, postgresStaffAdapters } from './modules/iam/index.js';
 import { postgresKycAdapters } from './modules/kyc/index.js';
-import { postgresPayAdapters } from './modules/pay/index.js';
+import {
+  PgDepositRailConfigReader,
+  postgresPayAdapters,
+  PreCheckoutDepositReader,
+} from './modules/pay/index.js';
 import { QuoteService, searchQuotePricer } from './modules/prc/index.js';
 import { PgListingRatingStore } from './modules/rev/index.js';
 import { availabilityProbeLimiter, postgresRiskAdapters } from './modules/risk/index.js';
@@ -108,11 +116,24 @@ async function bootstrap(): Promise<void> {
         ]),
       ),
   };
+  // Caution annoncée avant le checkout (US-701c, T70 c, ADR-173) : la décision de PAY (stade
+  // PRE_CHECKOUT, même lecteur de paramètres que le checkout, sous app_api) sur le pays et la classe
+  // rendus par core.catalog_public_deposit_basis (0149) ; jamais les déclencheurs ni la classe
+  const preCheckoutDeposits = new PreCheckoutDepositReader(new PgDepositRailConfigReader(pool));
+  const listingDeposits: ListingDepositPolicy = {
+    notice: async (country, valueClass) => {
+      const n = await preCheckoutDeposits.notice(country, valueClass);
+      return n.status === 'REQUIRED'
+        ? { status: 'REQUIRED', amountMinor: n.amountMinor.toString() }
+        : { status: n.status };
+    },
+  };
   const search = postgresSearchAdapters(
     pool,
     availabilityProbeLimiter(risk.guard),
     searchQuotePricer((ctx) => quotes.params(ctx)),
     searchRatings,
+    listingDeposits,
   );
   // Fiche du véhicule (US-204) : notes du véhicule et de l'hôte par REV (même lecture que la
   // recherche) ; annonce sans ligne : badge « Nuevo »

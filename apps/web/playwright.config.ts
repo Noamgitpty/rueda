@@ -71,6 +71,11 @@ const CONSTANCIA = /trip-constancia\.spec\.ts$/;
  * seulement (durée du job e2e ; les deux écrans passent à 390 px et en tablette par SCREENS).
  */
 const RECEIPT = /trip-receipt\.spec\.ts$/;
+/**
+ * Caution annoncée sur la fiche S03 (US-701 partie 701c, T70 c) : 360 px seulement (durée du job
+ * e2e ; la fiche passe à 390 px par LISTING et SCREENS).
+ */
+const DEPOSIT_NOTICE = /deposit-notice\.spec\.ts$/;
 /** Balayage axe + captures de chaque écran du site (US-044). */
 const SCREENS = /screens\.spec\.ts$/;
 /** Balayage des écrans de la console interne (US-044). */
@@ -161,6 +166,7 @@ export default defineConfig({
         GUEST_TRIPS,
         CONSTANCIA,
         RECEIPT,
+        DEPOSIT_NOTICE,
         SCREENS,
       ],
       use: { ...phone, viewport: { width: 360, height: 780 } },

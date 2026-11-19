@@ -193,6 +193,9 @@ export type {
   RecordedDeposit,
 } from './internal/deposit-checkout.js';
 export { PgDepositCheckoutStore } from './internal/pg-deposit-checkout.js';
+// Caution annoncée avant le checkout : fiche S03 et cartes, T70 c (US-701c, ADR-173)
+export { preCheckoutDeposit, PreCheckoutDepositReader } from './internal/deposit-notice.js';
+export type { PreCheckoutDeposit } from './internal/deposit-notice.js';
 export {
   DEPOSIT_TIMER_BATCH,
   DEPOSIT_TIMER_PERIOD_SECONDS,

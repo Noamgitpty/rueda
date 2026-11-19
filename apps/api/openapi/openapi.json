@@ -19583,7 +19583,14 @@
           "conditions": {
             "type": "object",
             "additionalProperties": false,
-            "required": ["currency", "timezone", "cancellation", "deposit", "protection"],
+            "required": [
+              "currency",
+              "timezone",
+              "cancellation",
+              "deposit",
+              "depositStatus",
+              "protection"
+            ],
             "properties": {
               "currency": {
                 "type": "string",
@@ -19637,7 +19644,11 @@
                       }
                     }
                   }
-                ]
+                ],
+                "description": "Montant de la caution annoncée (deposit_amount[pays][classe], 08 BR-PAY-06) si depositStatus = REQUIRED, sinon null (US-701c)"
+              },
+              "depositStatus": {
+                "$ref": "#/components/schemas/DepositNoticeStatus"
               },
               "protection": {
                 "oneOf": [
@@ -19803,6 +19814,11 @@
           }
         }
       },
+      "DepositNoticeStatus": {
+        "type": "string",
+        "enum": ["GENERIC", "REQUIRED", "UNAVAILABLE"],
+        "description": "Caution annoncée avant le checkout (US-701c, 08 BR-PAY-06 « Moment de l'évaluation », T70 c) : GENERIC = mention générique (aucun déclencheur du véhicule) ; REQUIRED = montant ; UNAVAILABLE = déclencheur vrai sans montant (À DÉCIDER), le checkout refusera ce trip (PARAM_MISSING). Jamais les déclencheurs ni la classe."
+      },
       "SearchResult": {
         "type": "object",
         "additionalProperties": false,
@@ -19826,6 +19842,7 @@
           "startAt",
           "endAt",
           "depositAmountMinor",
+          "depositStatus",
           "totalMinor",
           "billableDays",
           "rating",
@@ -19918,7 +19935,10 @@
                 "$ref": "#/components/schemas/MinorUnits"
               }
             ],
-            "description": "Caution par carte de la plateforme (deposit_policy du pays et de la classe, 16 SRC-011, 08 T70 c), unités mineures de `currency` ; null : aucune caution annoncée avant le checkout, mention générique (US-203)"
+            "description": "Caution annoncée avant le checkout (08 BR-PAY-06, T70 c ; deposit_amount[pays][classe], décision de PAY, US-701c), unités mineures de `currency`, si depositStatus = REQUIRED ; sinon null"
+          },
+          "depositStatus": {
+            "$ref": "#/components/schemas/DepositNoticeStatus"
           },
           "totalMinor": {
             "$ref": "#/components/schemas/MinorUnits",
