@@ -1121,7 +1121,7 @@ Migration `0150_payment_deposit_decision`, fixture `9934_test_us702_deposit_deci
 
 ### Corrections « avant ouverture d'un pays » (US-702b ; revues de la PR 248 ; ADR-172)
 
-Migration `0153_payment_deposit_decision_before_opening`, fixture `9932_test_us702b_deposit_return_fixtures.sql` (`test_fixture.us702b_record_return` : retour réel, transition `RETURNED` du journal d'état à l'heure donnée, EXECUTE `app_worker`).
+Migration `0152_payment_deposit_decision_before_opening`, fixture `9932_test_us702b_deposit_return_fixtures.sql` (`test_fixture.us702b_record_return` : retour réel, transition `RETURNED` du journal d'état à l'heure donnée, EXECUTE `app_worker`).
 
 - **Validité V** : `payment_cmd_record_deposit_decision` remplacée : rail revérifié en base (pré-autorisation unique ⇔ `(release_at − auth_at) + marge_h ≤ V` ; ré-autorisation ⇔ `V > deposit_reauth_lead_h`), sinon `deposit_decision_mismatch` : V reçu de l'API ne peut plus provoquer de VOID anticipé.
 - **Libération effective** : `core.payment_deposit_effective_schedule(…)` (SECURITY INVOKER, aucun EXECUTE) : `(retour réel ?? fin prévue) + délai figé` ; décision `min(decision_at, libération)` sur retour à l'heure ou anticipé, `min(libération, auth_expiry − deposit_safety_h)` jamais avant `decision_at` sur retour tardif ; lue par `payment_deposit_decision_due`, `payment_cmd_deposit_decide` et `payment_deposit_reauth_due` (`release_at` rendu = `min(release_at, libération effective)`), remplacées à signature et droits identiques.

@@ -321,7 +321,7 @@ export const TEMPLATES: Readonly<Record<TemplateKey, TemplateSpec>> = {
     critical: true,
   },
   // `deposit.decision.executed` (0150 : deposit_id, trip_id, status, captured_minor,
-  // released_minor, currency ; 0153 : notice, auth_expiry_at) ; 16 PAY-011 `EVT_DEPOSIT_RELEASED`
+  // released_minor, currency ; 0152 : notice, auth_expiry_at) ; 16 PAY-011 `EVT_DEPOSIT_RELEASED`
   // (PROPOSÉ, ADR-172)
   EVT_DEPOSIT_RELEASED: {
     key: 'EVT_DEPOSIT_RELEASED',
@@ -514,7 +514,7 @@ export const RULES: readonly RuleSpec[] = [
     parties: CAPTURE_DECLINED_PARTIES,
   },
   // décision de la caution exécutée (0150, US-702, ADR-172 ; 16 PAY-011 « Notifications ») :
-  // voyageur du trip (parties lues en base) ; avis choisi par `notice` (0153, US-702b), posé par la
+  // voyageur du trip (parties lues en base) ; avis choisi par `notice` (0152, US-702b), posé par la
   // base : libération entière, frais annoncés capturés, ou montant bloqué jusqu'à l'expiration de
   // l'autorisation (VOID refusé, 08 E3 repli 4) ; `notice` absent ⇒ erreur de contrat
   {

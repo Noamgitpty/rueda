@@ -1,5 +1,5 @@
 /**
- * US-702b (migrations 0146 et 0153, ADR-169 et ADR-172) — minuterie de ré-autorisation contre
+ * US-702b (migrations 0146 et 0152, ADR-169 et ADR-172) — minuterie de ré-autorisation contre
  * décision finale sur la MÊME caution, sur DEUX connexions (modèle `rt-conc-*` et US-224 ; revues
  * qa n° 6 et sécurité n° 9 de la PR 248) : `payment_cmd_deposit_transition` (ré-autorisation
  * acceptée) et `payment_cmd_deposit_decide` (VOID entier) prennent le même verrou de ligne et

@@ -1,5 +1,5 @@
 -- 9932 — fixtures des preuves des corrections « avant ouverture » de la décision de la caution
--- (US-702b, migration 0153 ; ADR-172). TESTS SEULEMENT.
+-- (US-702b, migration 0152 ; ADR-172). TESTS SEULEMENT.
 --
 -- JAMAIS appliquée hors tests : seul le harnais ajoute test-migrations/, et seulement à la base
 -- jetable principale `rueda_test_*` (le schéma test_fixture est créé par 9001).
@@ -8,7 +8,7 @@
 -- garde (transition `RETURNED` du journal d'état du trip, `booking_trip_state_log`, heure de la
 -- base), écrit directement sous le propriétaire : le check-out du retour (S-4, TRP) n'a pas encore
 -- de commande. Appelée par app_worker dans des transactions de test ANNULÉES, sur un trip de
--- `us702_converted_deposit` (9934) ; elle sert à éprouver la libération effective de 0153 sous le
+-- `us702_converted_deposit` (9934) ; elle sert à éprouver la libération effective de 0152 sous le
 -- rôle de production. Les attendus du test viennent de 08 BR-PAY-06 (`(checkout_at ??
 -- scheduled_end) + 72 h`, `min(release_at, auth_expiry − deposit_safety_h)`), jamais de cette
 -- fixture. Aucun interrupteur de mise en service n'est écrit.

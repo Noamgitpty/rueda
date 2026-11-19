@@ -1,4 +1,4 @@
--- 0153 — PAY : décision de la caution, corrections « avant ouverture d'un pays » (US-702b).
+-- 0152 — PAY : décision de la caution, corrections « avant ouverture d'un pays » (US-702b).
 -- Réserves des revues de la PR 248 (US-702, 0150 ; docs/team/reviews/US-702/) : argent n° 8 et 9,
 -- sécurité n° 8, architecture n° 7 et 8 ; 08 BR-PAY-06 (« Mécanisme », « Libération à heure fixe,
 -- jamais suspendue » : `release_at = (checkout_at ?? scheduled_end) + 72 h`, `deposit_decision_at =
