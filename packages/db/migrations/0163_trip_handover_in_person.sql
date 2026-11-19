@@ -432,9 +432,12 @@ AS $fn$
 DECLARE
   p          record;
   t          record;
-  g          record;
-  ic         record;
   v_other    text;
+  v_ic       text;
+  v_ic_at    timestamptz;
+  v_first    text;
+  v_initial  text;
+  v_year     integer;
   v_blockers text[] := '{}'::text[];
   v_opens    timestamptz;
   v_now      timestamptz := platform.now();
@@ -457,15 +460,15 @@ BEGIN
       v_blockers := core.trip_handover_blockers(p.trip_id);
     END IF;
     v_done := t.checkin_validated_at;
-    SELECT c.status, c.checked_at INTO ic
+    SELECT c.status, c.checked_at INTO v_ic, v_ic_at
       FROM core.trip_ops_identity_check AS c WHERE c.trip_id = p.trip_id;
     IF p.role = 'HOST' THEN
-      SELECT CASE WHEN u.pseudonymized_at IS NULL THEN u.legal_first_name END AS first_name,
+      SELECT CASE WHEN u.pseudonymized_at IS NULL THEN u.legal_first_name END,
              CASE WHEN u.pseudonymized_at IS NULL AND u.legal_last_name IS NOT NULL
-                  THEN pg_catalog.upper(pg_catalog.left(u.legal_last_name, 1)) END AS last_initial,
+                  THEN pg_catalog.upper(pg_catalog.left(u.legal_last_name, 1)) END,
              CASE WHEN u.pseudonymized_at IS NULL AND u.date_of_birth IS NOT NULL
-                  THEN pg_catalog.date_part('year', u.date_of_birth)::integer END AS birth_year
-        INTO g
+                  THEN pg_catalog.date_part('year', u.date_of_birth)::integer END
+        INTO v_first, v_initial, v_year
         FROM core.iam_user_account AS u WHERE u.id = p.guest_user_id;
     END IF;
   ELSE
@@ -496,13 +499,12 @@ BEGIN
                AND pg_catalog.cardinality(v_blockers) = 0,
     'blockers', pg_catalog.to_jsonb(v_blockers),
     'identityCheck', CASE WHEN p_kind = 'CHECKIN' THEN pg_catalog.jsonb_build_object(
-                       'status', CASE ic.status WHEN 'TRIP_ID_OK' THEN 'OK'
-                                                WHEN 'TRIP_ID_FAILED' THEN 'FAILED'
-                                                ELSE 'PENDING' END,
-                       'checkedAt', ic.checked_at) END,
+                       'status', CASE v_ic WHEN 'TRIP_ID_OK' THEN 'OK'
+                                           WHEN 'TRIP_ID_FAILED' THEN 'FAILED'
+                                           ELSE 'PENDING' END,
+                       'checkedAt', v_ic_at) END,
     'guest', CASE WHEN p_kind = 'CHECKIN' AND p.role = 'HOST' THEN pg_catalog.jsonb_build_object(
-               'firstName', g.first_name, 'lastInitial', g.last_initial,
-               'birthYear', g.birth_year) END,
+               'firstName', v_first, 'lastInitial', v_initial, 'birthYear', v_year) END,
     'photos', pg_catalog.jsonb_build_object(
       'mine', COALESCE((SELECT i.status FROM core.trip_ops_inspection AS i
                          WHERE i.trip_id = p.trip_id AND i.kind = p_kind
