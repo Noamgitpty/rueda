@@ -2950,7 +2950,7 @@ export const EN_MESSAGES = {
   'web.a03.arrived': 'I’m here',
   'web.a03.refuse': 'Don’t hand over the car',
   'web.a03.handover': 'Hand over the keys',
-  'web.a03.check.face': 'The person looks like the license photo and their profile photo',
+  'web.a03.check.face': 'The person looks like the license photo',
   'web.a03.check.name': 'The first name and last initial match the license',
   'web.a03.check.birthYear': 'The birth year matches',
   'web.a03.check.valid': 'The license hasn’t expired',

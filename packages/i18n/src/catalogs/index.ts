@@ -330,7 +330,7 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  particuliers (US-315, ADR-183) : `common.handover.*` (refus des routes `/trips/{id}/handover/…`,
  dont `common.handover.unavailable` : sans réseau, réessayer, aucune file hors ligne au lot 3),
  `web.a03.arrived`, `web.a03.refuse`, `web.a03.handover` et les 6 points `web.a03.check.*` de
- 10b §4.3 (texte portugais ajouté), `web.handover.*` (étapes A03, A04 et S09 · check-in /
+ 10b §4.3 (texte portugais ajouté ; `web.a03.check.face` sans la photo de profil, absente côté IAM : écart d'ADR-183), `web.handover.*` (étapes A03, A04 et S09 · check-in /
  check-out, blocages, relevés, validation, liens du détail du trip).
  */
 export const CATALOG_VERSION = 98;

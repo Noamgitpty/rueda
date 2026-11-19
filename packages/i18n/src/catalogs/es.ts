@@ -3024,7 +3024,7 @@ export const ES_MESSAGES = {
   'web.a03.arrived': 'Ya llegué',
   'web.a03.refuse': 'No entregar el auto',
   'web.a03.handover': 'Entregar las llaves',
-  'web.a03.check.face': 'La persona se parece a la foto de la licencia y a su foto de perfil',
+  'web.a03.check.face': 'La persona se parece a la foto de la licencia',
   'web.a03.check.name': 'El nombre y la inicial del apellido coinciden con la licencia',
   'web.a03.check.birthYear': 'El año de nacimiento coincide',
   'web.a03.check.valid': 'La licencia está vigente',

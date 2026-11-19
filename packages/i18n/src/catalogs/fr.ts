@@ -3091,7 +3091,7 @@ export const FR_MESSAGES = {
   'web.a03.arrived': 'Je suis sur place',
   'web.a03.refuse': 'Ne pas remettre la voiture',
   'web.a03.handover': 'Remettre les clés',
-  'web.a03.check.face': 'La personne ressemble à la photo du permis et à sa photo de profil',
+  'web.a03.check.face': 'La personne ressemble à la photo du permis',
   'web.a03.check.name': 'Le prénom et l’initiale du nom correspondent au permis',
   'web.a03.check.birthYear': 'L’année de naissance correspond',
   'web.a03.check.valid': 'Le permis est en cours de validité',

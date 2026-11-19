@@ -25,6 +25,7 @@ La remise et le retour se font en personne, entre l'hôte et le voyageur, au lie
 - `trip_inspection.status = VALIDATED` n'est pas utilisé : la validation de la partie est une ligne de `trip_ops_handover_validation`, la série reste SUBMITTED (US-303 inchangée).
 - Relevés (`odometer_km`, `fuel_level_eighths`) portés par la validation de chaque partie plutôt que par la série ; carburant en huitièmes, recharge d'un véhicule électrique (`ev_soc_pct`) : suite.
 - `trip_identity_check.evidence_file_ids` (photo-preuve d'un refus) : US-307.
+- **Photo de profil** (19 US-315 critère 2, 10b UX-37 « photo de profil ») : aucune photo de profil n'existe côté IAM (ni colonne, ni fichier, ni route ; `web.s14.profilePhoto` n'est qu'un texte du prototype). Rien n'est donc servi à l'hôte et la case `face` est reformulée « la personne ressemble à la photo de la licence » (es / en / fr / pt-BR), au lieu du texte de 10b §4.3 qui citait aussi la photo de profil ; la comparaison au prénom, à l'initiale et à l'année de naissance reste. Suite inscrite : photo de profil du voyageur (téléversement par lui, servie à l'hôte de ce trip pendant CHECKIN_OPEN seulement, sous RLS), puis rétablir le texte de 10b.
 - Événements `trip.checkin.validated` et `trip.checkout.completed` : non émis ; `trip.status_changed` (motifs `CHECKIN_VALIDATED`, `CHECKOUT_VALIDATED`) porte la transition. Suite avec les notifications EVT_CHECKIN_DONE / EVT_CHECKOUT_DONE.
 
 ## Options écartées

@@ -3030,7 +3030,7 @@ export const PT_MESSAGES = {
   'web.a03.arrived': 'Já cheguei',
   'web.a03.refuse': 'Não entregar o carro',
   'web.a03.handover': 'Entregar as chaves',
-  'web.a03.check.face': 'A pessoa se parece com a foto da carteira e com a foto do perfil',
+  'web.a03.check.face': 'A pessoa se parece com a foto da carteira',
   'web.a03.check.name': 'O nome e a inicial do sobrenome batem com a carteira',
   'web.a03.check.birthYear': 'O ano de nascimento confere',
   'web.a03.check.valid': 'A carteira está dentro da validade',
