@@ -1,6 +1,6 @@
 # RESUME_HERE — point de reprise du dépôt
 
-> Lu en premier par toute session qui reprend le travail (handoff §4.9). Tenu par l'orchestrateur à chaque fin de session. **Dernière mise à jour : 2026-11-18, 23 h UTC (lot 2 : 21 stories sur 27 fusionnées, 110 points sur 140 ; détail au `BOARD.md`).** Mise à jour précédente : 2026-11-10 (porte du lot 0 tenue : PR #92, #93 et #94 fusionnées ; US-027 en revue).
+> Lu en premier par toute session qui reprend le travail (handoff §4.9). Tenu par l'orchestrateur à chaque fin de session. **Dernière mise à jour : 2026-11-19, 7 h UTC (lot 2 : 26 stories sur 27 MERGED, 137 points sur 140 ; reste la porte, US-222 ; détail au `BOARD.md`).** Mise à jour précédente : 2026-11-18, 23 h UTC (lot 2 : 21 sur 27, 110 points). Avant : 2026-11-10 (porte du lot 0 tenue : PR #92, #93 et #94 fusionnées ; US-027 en revue).
 
 ## Pour reprendre
 
@@ -8,7 +8,28 @@
 2. Sous Git Bash : `export PATH="/c/Program Files/nodejs:/c/Users/noamm/AppData/Roaming/npm:/c/Program Files/GitHub CLI:$PATH"`. Vérifie `node -v`, qui doit donner v26.13.0 (ADR-041).
 3. `git fetch`, `git worktree list`, puis relance les tests de chaque branche en cours **avant** de continuer (OPERATING_RULES §3).
 
-## État au 2026-11-18, 23 h UTC
+## État au 2026-11-19, 7 h UTC
+
+Le `BOARD.md` fait foi ; ce résumé ne sert qu'à reprendre vite.
+
+- **Lot 0** : porte tenue le 2026-11-10 ; 47 stories sur 49 fusionnées (US-027 IN_REVIEW, US-050 partielle).
+- **Lot 1** : porte tenue le 2026-11-14 ; 27 stories sur 28 MERGED (117 points sur 120) ; US-122 IN_REVIEW (post-mortem).
+- **Lot 2** : **26 MERGED sur 27, 137 points sur 140** ; bêta : environ 53 % (463 points sur 869). Fusionnées depuis le 2026-11-18, 23 h UTC : #247 (durcissement d'US-224 : N-354, N-342, N-313), #246 (US-221b : D1 / D2, N-388, N-389), #245 (US-221), #248 (US-702), #250 (US-701c : T70 c, N-372), #251 (durcissement argent : N-364, N-365, N-367), #252 (US-702b), #253 (US-213b : N-298 côté code), #254 (US-222b, red team argent), #255 (US-223e : N-246 sans la bascule, N-286, N-288 ; N-287 close). Passent MERGED : US-221, US-213, US-223, US-701, US-702 (critères qui exigent un PSP réel, un canal réel ou une bascule de mise en service renvoyés au lot C et documentés, comme US-227). **IN_PROGRESS** : US-222 seule (porte).
+- **US-222 (porte du lot 2), découpage** : pré-mortem fait ; **222b** red team argent fusionnée (#254, rapport `docs/team/redteam/L2-argent.md`, quatre constats : F-L2-ARG-01 élevé, 02 à 04 moyens, N-399 à N-402) ; **222c** red team ex-LB / RLS-21 à 28 / console : PR #256 (brouillon, `story/US-222-redteam-rls-lb`), en revue ; **222d** correctifs des constats (`story/US-222-correctifs-argent`, autre famille d'auteur que la red team, L2-PM-39 ; PR peut-être pas encore ouverte) : en cours ; **222e** post-mortem et porte : en dernier.
+- **Numéros sur `main`** (à reprendre à la suite) : dernière migration **0154** (#255 ; suivante 0155), catalogue **v92** (suivante v93), dernier ADR **ADR-175** (suivant ADR-176), dernière fixture de test **9932** (#252 ; suivante libre 9931). Vérifier aussi les PR ouvertes (#256 n'en prend aucun) avant de réserver.
+- **Suffixes des fichiers de revue** : US-221 est close (#246 a pris `r`, #245 `s` et `t`). **US-222** : sur `main`, les revues vont jusqu'à `2026-11-19b` (#254, 222b) ; chaque PR suivante d'US-222 (#256, puis 222d, 222e) prend un suffixe libre **après** le dernier pris sur `main` **et** dans les autres PR ouvertes d'US-222 (`c`, `d`…), pour qu'aucune fusion n'écrase la revue d'une autre partie.
+- **Suites** : N-399 à N-414 inscrites au BOARD le 2026-11-19 ; inventaire « avant l'ouverture d'un pays » : 31 suites (N-399 et N-402 en cours dans US-222d).
+- **Fondateur** : `POUR_LE_FONDATEUR.md` ; nouveautés : **deux numéros par pays** (support de Kmino, assistance de l'assureur, format E.164 ; la production refuse de démarrer sans eux, GL-36), remontés en page 1 et au §2.13 ; vingt branches à supprimer sur son « oui » (§5) ; en information : mode « sur demande » prêt mais fermé jusqu'à GL-26 (§7.4), red team argent (§7.10).
+
+## Prochaine action exacte (orchestrateur, 2026-11-19)
+
+1. Faire relire **#256** (US-222c) par les revues exigées (`node scripts/ci/check-story-reviews.mjs --branch story/US-222-redteam-rls-lb --base origin/main --root . --author-model <modèle de l'auteur>`), argent / RLS / `SECURITY DEFINER` sur un autre modèle, puis fusionner CI verte et revues APPROUVÉ.
+2. Faire aboutir les **correctifs US-222d** (`story/US-222-correctifs-argent`) : N-399 (élevé) à N-402, chaque `it.fails` de 222b (et de 222c s'il en ajoute) inversé en `it` sans toucher l'attaque, revue argent sur un autre modèle ; puis passer N-399 à N-402 en FAIT au BOARD.
+3. Lancer **US-222e** : post-mortem du lot 2 et porte (`docs/team/gates/L2/postmortem.md`), après 222c et 222d ; y traiter N-403 ; GL-17 / N-172 si des constats élevés restent.
+4. Traiter l'inventaire des suites « avant l'ouverture d'un pays » du BOARD par petites PR (en tête : N-411, moyen revu de changer une valeur de paramètre ; N-395 ; N-407).
+5. Ne supprimer aucune branche distante sans le « oui » écrit du fondateur (`POUR_LE_FONDATEUR.md` §5) ; le dossier local `wt/US-223b-residu-2026-11-16` peut être supprimé du poste (N-414).
+
+## État au 2026-11-18, 23 h UTC (historique)
 
 Le `BOARD.md` fait foi ; ce résumé ne sert qu'à reprendre vite.
 
@@ -20,7 +41,7 @@ Le `BOARD.md` fait foi ; ce résumé ne sert qu'à reprendre vite.
 - **Suites** : N-364 à N-398 inscrites au BOARD le 2026-11-18 ; l'inventaire des suites « avant l'ouverture d'un pays » est sous le tableau des suites du BOARD (32 suites ouvertes).
 - **Fondateur** : `POUR_LE_FONDATEUR.md` (page 1 « Ce que j'attends de toi ») ; nouveautés : montant de la caution LUXE (`deposit_amount[pays][LUXE]`, À DÉCIDER, priorité 9), sept branches de PR fermées à supprimer sur son « oui » (§5), question au contrat de l'assureur sur le bordereau (§2.3 septies).
 
-## Prochaine action exacte (orchestrateur, 2026-11-18)
+## Prochaine action exacte (orchestrateur, 2026-11-18, historique)
 
 1. Faire relire puis fusionner, CI verte et revues APPROUVÉ : **#246** (US-221b, argent sur un autre modèle), puis **#245** (US-221, après #246 : retirer les `it.fails` et prolonger le segment B), **#247** (durcissement d'US-224) et **#248** (US-702), dans l'ordre des migrations.
 2. Lancer **N-372** (US-701, T70 c) pour fermer US-701, puis la porte du lot 2 (US-222 : red team et post-mortem).
