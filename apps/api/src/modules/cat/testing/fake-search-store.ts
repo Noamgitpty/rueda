@@ -3,10 +3,13 @@
  * règles (hôte activable, disponibilité, préavis, fuseau, durée, instant présent, caution) sont
  * prouvées en base (packages/db/test/l0/l0-us201-public-search.test.ts,
  * l0-us203-search-cards.test.ts) ; ce double rend ce qu'on lui impose et retient la dernière
- * requête reçue, pour vérifier ce que l'API transmet à la base. Doubles du prix et des notes : ils
- * rendent ce qu'on leur impose (le moteur de devis est prouvé dans PRC, `search-pricer.test.ts`).
+ * requête reçue, pour vérifier ce que l'API transmet à la base. Doubles du prix, des notes et de la
+ * caution annoncée : ils rendent ce qu'on leur impose (le moteur de devis est prouvé dans PRC,
+ * `search-pricer.test.ts` ; la décision de la caution dans PAY, `deposit-notice.test.ts`, US-701c).
  */
 import type {
+  DepositNotice,
+  ListingDepositPolicy,
   SearchPrice,
   SearchPriceInput,
   SearchPricer,
@@ -15,6 +18,7 @@ import type {
 } from '../internal/search/cards.js';
 import type { SearchQuery } from '../internal/search/model.js';
 import type {
+  DepositBasis,
   ListingPrice,
   ListingTerms,
   SearchArea,
@@ -89,6 +93,22 @@ export class FakeSearchStore implements SearchStore {
     return Promise.resolve(new Set(listingIds.filter((id) => this.coveredListings.has(id))));
   }
 
+  // ---- base de la caution annoncée (US-701c) ----------------------------------------------------
+  /** Pays et classe par annonce ; une annonce absente est inconnue ou retirée. */
+  depositBases = new Map<string, DepositBasis>();
+  depositBasisAsked: (readonly string[])[] = [];
+
+  depositBasis(listingIds: readonly string[]): Promise<ReadonlyMap<string, DepositBasis>> {
+    if (this.down) return Promise.reject(new Error('base indisponible (FAKE)'));
+    this.depositBasisAsked.push([...listingIds]);
+    const out = new Map<string, DepositBasis>();
+    for (const id of listingIds) {
+      const b = this.depositBases.get(id);
+      if (b !== undefined) out.set(id, b);
+    }
+    return Promise.resolve(out);
+  }
+
   // ---- conditions de la fiche (US-205) -------------------------------------------------------
   /** Conditions par annonce publiée ; absente : conditions par défaut (aucune promesse). */
   listingTerms = new Map<string, ListingTerms>();
@@ -109,7 +129,6 @@ export class FakeSearchStore implements SearchStore {
       mileageMode: 'UNLIMITED',
       includedKmPerDay: null,
       extraKmPriceMinor: null,
-      depositAmountMinor: null,
       protection: null,
     });
   }
@@ -136,7 +155,6 @@ export function fakeResult(overrides: Partial<SearchResult> = {}): SearchResult 
     timezone: 'UTC',
     startAt: '2036-12-10T15:00:00.000Z',
     endAt: '2036-12-12T15:00:00.000Z',
-    depositAmountMinor: null,
     quotedAt: '2036-12-01T12:00:00.000Z',
     ...overrides,
   };
@@ -166,5 +184,23 @@ export class FakeSearchRatings implements SearchRatings {
     if (this.down) return Promise.reject(new Error('notes indisponibles (FAKE)'));
     this.asked.push([...listingIds]);
     return Promise.resolve(new Map([...this.rows].filter(([id]) => listingIds.includes(id))));
+  }
+}
+
+/**
+ * Caution annoncée imposée par classe (clé `pays|classe`, classe vide si inconnue) ; absente :
+ * mention générique. `down` : panne simulée. Retient les demandes reçues.
+ */
+export class FakeDepositPolicy implements ListingDepositPolicy {
+  notices = new Map<string, DepositNotice>();
+  asked: [string, string | null][] = [];
+  down = false;
+
+  notice(country: string, valueClass: string | null): Promise<DepositNotice> {
+    if (this.down) return Promise.reject(new Error('caution indisponible (FAKE)'));
+    this.asked.push([country, valueClass]);
+    return Promise.resolve(
+      this.notices.get(`${country}|${valueClass ?? ''}`) ?? { status: 'GENERIC' },
+    );
   }
 }

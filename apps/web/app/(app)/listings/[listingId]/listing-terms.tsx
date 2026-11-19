@@ -279,14 +279,17 @@ function ProtectionSection({
 }
 
 /**
- * Caution de la plateforme (10b UX-21, 16 SRC-011 ; même règle que les cartes de la recherche,
- * ADR-131) : le montant si le pays ou la classe l'impose, sinon la mention générique ; jamais les
- * déclencheurs.
+ * Caution de la plateforme (10b UX-21, 16 SRC-011 ; même décision que les cartes de la recherche
+ * et que S05, US-701c, ADR-173) : le montant `deposit_amount[pays][classe]` si le pays ou la classe
+ * l'impose ; « caution non disponible » si elle est exigée sans montant (le paiement la refusera,
+ * même texte que S05) ; sinon la mention générique ; jamais les déclencheurs. Devise différente de
+ * l'annonce : aucun montant (fail-closed : non disponible).
  */
 function DepositSection({ i18n, listing, conditions }: Omit<TermsProps, 'slot' | 'localeTag'>) {
   const t = i18n.t.bind(i18n);
+  const status = conditions === null ? 'GENERIC' : conditions.depositStatus;
   const amount =
-    conditions !== null && conditions.currency === listing.currency
+    conditions !== null && status === 'REQUIRED' && conditions.currency === listing.currency
       ? conditions.depositMinor
       : null;
   return (
@@ -294,16 +297,22 @@ function DepositSection({ i18n, listing, conditions }: Omit<TermsProps, 'slot' |
       <h2 id="s03-deposit" className={accountStyles['h2']}>
         {t('web.s03.deposit.title')}
       </h2>
-      <p className={accountStyles['text']}>
-        {amount === null
-          ? t('web.search.deposit.maybe')
-          : t('web.search.deposit.amount', {
+      <p
+        className={accountStyles['text']}
+        data-testid="s03-deposit-text"
+        data-deposit-status={status}
+      >
+        {amount !== null
+          ? t('web.search.deposit.amount', {
               amount: i18n.money({
                 amountMinor: amount,
                 currency: listing.currency,
                 exponent: listing.currencyExponent,
               }),
-            })}
+            })
+          : status === 'GENERIC'
+            ? t('web.search.deposit.maybe')
+            : t('web.deposit.unavailableNone')}
       </p>
     </section>
   );

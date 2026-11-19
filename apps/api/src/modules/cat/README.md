@@ -105,10 +105,10 @@ Depuis US-115, `core.booking_vehicle_party` lit `catalog_vehicle` et son annonce
 
 ### Cartes des résultats : total TTC, caution, note, carte des marqueurs (US-203, ADR-131)
 
-- **Base** : `core.catalog_public_cards` (0105, `catalog_cmd_owner`, EXECUTE `app_api`) enveloppe `core.catalog_public_search` sans la modifier (mêmes annonces, même ordre, mêmes refus) et ajoute `deposit_amount_minor` (version en vigueur de `catalog_deposit_policy` pour le pays et la classe de valeur du véhicule, même devise, > 0 ; `NULL` : mention générique, 08 T70 c ; la classe n'est jamais rendue) et `quoted_at` (`platform.now()`, instant du devis).
+- **Base** : `core.catalog_public_cards` (0105, `catalog_cmd_owner`, EXECUTE `app_api`) enveloppe `core.catalog_public_search` sans la modifier (mêmes annonces, même ordre, mêmes refus) et ajoute `deposit_amount_minor` (version en vigueur de `catalog_deposit_policy` ; **plus lu depuis US-701c**, voir « Caution annoncée avant le checkout ») et `quoted_at` (`platform.now()`, instant du devis).
 - **Total TTC** : port `SearchPricer` ; adaptateur `searchQuotePricer` de PRC (PRC dépend de CAT), câblé par `main.ts` : devis provisoire `prc.quote/3` non persisté (loyer des jours facturables, trip fee, protection minimale du pays `BASICA` depuis US-226 (N-141), taxe par ligne). Devis impossible ⇒ annonce exclue, alerte `search.quote_unavailable` (identifiant et pays seulement) ; pricer en panne ⇒ 503.
 - **Notes** : port `SearchRatings`, par défaut `NO_SEARCH_RATINGS` (badge « Nuevo ») ; en production, `main.ts` le câble sur `PgListingRatingStore` de REV (US-218, note du véhicule). Notes en panne ⇒ 503.
-- **Réponse** : colonnes C0 d'US-201, plus `totalMinor`, `billableDays`, `depositAmountMinor`, `rating` (OpenAPI `SearchResult`).
+- **Réponse** : colonnes C0 d'US-201, plus `totalMinor`, `billableDays`, `depositAmountMinor`, `depositStatus` (US-701c), `rating` (OpenAPI `SearchResult`).
 - **Écran S02** (`apps/web/app/(app)/search`) : cartes `CarCard` et carte des marqueurs de prix (`_search/results-map.tsx`, positions de `account/search-map.ts`), rendues du même tableau : mêmes annonces, mêmes totaux ; fond schématique sans tuile tant qu'aucun fournisseur n'est retenu (Q-020) ; textes `web.search.results.count`, `web.search.deposit.*`, `web.search.map.*` (catalogue v50).
 - **Tests** : contrat `testing/search.contract.test.ts` ; PRC `internal/quote/search-pricer.test.ts` (TA01 128,40, variante sans décimale de l'oracle, configuration du dépôt) ; L0 `packages/db/test/l0/l0-us203-search-cards.test.ts` (fixture `9983`) et série de fumée `recherche.sequentielle` ; site `account/search.test.ts`, `account/search-map.test.ts`, e2e `e2e/search.spec.ts`.
 
@@ -136,6 +136,14 @@ Depuis US-115, `core.booking_vehicle_party` lit `catalog_vehicle` et son annonce
 - **Lecture atomique** : `SearchStore.slotCheck` rend le contrôle des dates et les conditions du départ accepté en une requête (`LEFT JOIN LATERAL`).
 - **Limite de débit** : `GET /listings/{id}/conditions` passe par la sonde de la fiche (`availability_probe_per_minute` du pays, 429 `RATE_LIMITED` et `Retry-After`).
 - **Cartes** : `protectionOffered` (port `SearchStore.protectionOffered`, une requête par page) : mention « protection incluse » seulement si la base promet la couverture.
+
+### Caution annoncée avant le checkout : fiche et cartes (US-701 partie 701c, T70 c ; ADR-173)
+
+- **Base** (0151, `catalog_cmd_owner`, EXECUTE `app_api` seul) : `core.catalog_public_deposit_basis(annonces)` : pays, devise et classe de valeur du catalogue des annonces `LISTED` demandées (50 au plus) ; jamais rendue au visiteur. Le `deposit_amount_minor` de `catalog_public_cards` (0105) et de `catalog_public_terms` (0118), lu de `catalog_deposit_policy`, n'est plus lu (gardé pour l'API N-1 ; contraction : suite S-13).
+- **Décision** : celle de PAY (`PreCheckoutDepositReader`, stade `PRE_CHECKOUT` de la porte du checkout : `COUNTRY` et `CLASS` seulement, montant `deposit_amount[pays][classe]`) par le port `ListingDepositPolicy` (`internal/search/cards.ts`), câblé par `main.ts` (CAT ne dépend pas de PAY) ; sans politique ⇒ 503. Une décision par pays et classe et par requête (`SearchService`) ; annonce absente de la base ⇒ classe inconnue (fail-closed : non disponible).
+- **Réponse** : `depositStatus` (`GENERIC`, `REQUIRED`, `UNAVAILABLE` ; OpenAPI `DepositNoticeStatus`) sur chaque carte et dans `GET /listings/{id}/conditions` ; montant (`depositAmountMinor`, `deposit.amountMinor`) seulement si `REQUIRED`. Jamais la classe ni un déclencheur.
+- **Écrans** : S03 (`listing-terms.tsx`, `data-testid="s03-deposit-text"`) et cartes S02 : montant, mention générique, ou `web.deposit.unavailableNone` (le texte de S05) ; aucun texte nouveau.
+- **Tests** : PAY `internal/deposit-notice.test.ts` (oracle T70 c, T72 c, T73) ; contrats `testing/search.contract.test.ts`, `testing/listing-page.contract.test.ts` ; int `apps/api/test/int/deposit-notice.int.test.ts` ; L0 `packages/db/test/l0/l0-us701c-deposit-basis.test.ts` ; site `account/search.test.ts`, `account/listing-terms.test.ts`, e2e `e2e/deposit-notice.spec.ts` (360 px).
 
 ## Événements
 

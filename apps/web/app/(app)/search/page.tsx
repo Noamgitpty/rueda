@@ -148,11 +148,15 @@ export default async function SearchPage({
                           <br />
                         </>
                       )}
-                      {r.depositAmountMinor === null
-                        ? t('web.search.deposit.maybe')
-                        : t('web.search.deposit.amount', {
+                      {/* US-701c (T70 c, 10b UX-21) : montant, caution non disponible (même
+                          texte que S05) ou mention générique ; jamais les déclencheurs */}
+                      {r.depositStatus === 'REQUIRED' && r.depositAmountMinor !== null
+                        ? t('web.search.deposit.amount', {
                             amount: i18n.money(amountOf(r, r.depositAmountMinor)),
-                          })}
+                          })
+                        : r.depositStatus === 'UNAVAILABLE'
+                          ? t('web.deposit.unavailableNone')
+                          : t('web.search.deposit.maybe')}
                     </>
                   }
                 />

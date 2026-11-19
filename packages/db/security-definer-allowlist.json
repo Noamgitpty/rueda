@@ -988,6 +988,13 @@
       "story": "US-203"
     },
     {
+      "signature": "core.catalog_public_deposit_basis(uuid[])",
+      "family": "catalog_cmd",
+      "owner": "catalog_cmd_owner",
+      "execute": ["app_api"],
+      "story": "US-701"
+    },
+    {
       "signature": "core.catalog_public_gallery(uuid)",
       "family": "catalog_cmd",
       "owner": "catalog_cmd_owner",
