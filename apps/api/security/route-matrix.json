@@ -181,14 +181,14 @@
       "permission": "evidence.export, demandeur du dossier seulement (US-308, 0165) ; aucune donnée personnelle rendue",
       "roles": ["OPS_AGENT", "ADMIN"],
       "portee": "pays",
-      "idor": "dossier d’un autre agent (ADMIN compris) ou inconnu : 403 FORBIDDEN journalisé, aucune donnée (preuve L0 l0-us308-evidence-bundle)"
+      "idor": "dossier d’un autre agent du pays (ADMIN compris) : 404 EVIDENCE_BUNDLE_NOT_FOUND journalisé (le dossier n’est jamais montré) ; dossier inconnu ou d’un autre pays : 403 FORBIDDEN journalisé ; aucune donnée (preuve L0 l0-us308-evidence-bundle)"
     },
     "POST /console/evidence-bundles/{bundleId}/download": {
       "acces": "staff",
       "permission": "evidence.export, demandeur du dossier seulement, dossier de support toujours ouvert et assigné, avant l’échéance de 168 h ; ouverture journalisée (BULK_EXPORT, audit chaîné) (US-308, 0165)",
       "roles": ["OPS_AGENT", "ADMIN"],
       "portee": "pays",
-      "idor": "dossier d’un autre agent : 403 journalisé (le lien ne se partage pas) ; lien rejoué après 7 j : 410 EVIDENCE_EXPORT_EXPIRED journalisé ; archive dont l’empreinte diffère : 409 EVIDENCE_EXPORT_FAILED, rien n’est servi (preuve L0 l0-us308-evidence-bundle)"
+      "idor": "dossier d’un autre agent du pays : 404 EVIDENCE_BUNDLE_NOT_FOUND journalisé (le lien ne se partage pas) ; dossier inconnu ou d’un autre pays : 403 FORBIDDEN journalisé ; lien rejoué après 7 j : 410 EVIDENCE_EXPORT_EXPIRED journalisé ; archive dont l’empreinte diffère : 409 EVIDENCE_EXPORT_FAILED, rien n’est servi (preuve L0 l0-us308-evidence-bundle)"
     },
     "GET /console/cancellations/{id}": {
       "acces": "staff",

@@ -208,18 +208,25 @@ export class EvidenceBundler {
       return 'NOT_DUE';
     }
     if (src.requested_by === null) return this.#fail(tx, bundleId, 'KEY_UNAVAILABLE', []);
+    // scellé d'abord : texte ≠ empreinte enregistrée ⇒ SEAL_MISMATCH ; texte scellé mais de forme
+    // inattendue ⇒ MANIFEST_INVALID (deux constats distincts)
+    if (sha256Hex(src.manifest) !== src.manifest_sha256) {
+      return this.#fail(tx, bundleId, 'INTEGRITY_MISMATCH', [
+        { piece: 'MANIFEST', ref: bundleId, reason: 'SEAL_MISMATCH' },
+      ]);
+    }
     let manifest: EvidenceManifest;
     try {
       manifest = parseManifest(src.manifest, src.manifest_sha256);
     } catch (error) {
       if (!(error instanceof ManifestError)) throw error;
       return this.#fail(tx, bundleId, 'INTEGRITY_MISMATCH', [
-        { piece: 'MANIFEST', ref: bundleId, reason: 'SEAL_MISMATCH' },
+        { piece: 'MANIFEST', ref: bundleId, reason: 'MANIFEST_INVALID' },
       ]);
     }
     if (manifest.bundleId !== bundleId) {
       return this.#fail(tx, bundleId, 'INTEGRITY_MISMATCH', [
-        { piece: 'MANIFEST', ref: bundleId, reason: 'SEAL_MISMATCH' },
+        { piece: 'MANIFEST', ref: bundleId, reason: 'MANIFEST_INVALID' },
       ]);
     }
     const contracts = contractsOf(src.contracts);

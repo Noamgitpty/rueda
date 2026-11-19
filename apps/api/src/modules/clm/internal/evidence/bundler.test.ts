@@ -271,6 +271,21 @@ describe('EvidenceBundler', () => {
     ]);
   });
 
+  it('manifeste scellé mais de forme inattendue ⇒ MANIFEST_INVALID (distinct de SEAL_MISMATCH)', async () => {
+    const w = await world();
+    w.manifest = JSON.stringify({ schema: 'autre/1' });
+    w.manifestSha = sha(w.manifest);
+    const b = new EvidenceBundler({
+      transactions: transactions(w, []),
+      ...auditEvidenceAdapters(w.store, keys),
+      renderer: renderer(w.pdf),
+    });
+    expect(await b.generate(w.bundleId)).toBe('FAILED');
+    expect(JSON.parse(w.failed[0]![2] as string)).toEqual([
+      { piece: 'MANIFEST', ref: w.bundleId, reason: 'MANIFEST_INVALID' },
+    ]);
+  });
+
   it('archive au-delà du plafond ⇒ TOO_LARGE ; stockage indisponible ⇒ panne passagère (exception, rien n’est écrit)', async () => {
     const w = await world();
     const small = new EvidenceBundler({

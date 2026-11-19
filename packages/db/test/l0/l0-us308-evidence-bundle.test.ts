@@ -66,6 +66,7 @@ const POST = 'SELECT * FROM core.messaging_cmd_post_message($1, $2::uuid, $3::uu
 /** Numéros FICTIFS de test, au format de chaque pays (données de test, pas du code). */
 const PHONE: Readonly<Record<string, string>> = { PA: '+507 6123-4567', PY: '+595 981 123 456' };
 const HELLO = 'Hola, llego a las diez al punto de entrega';
+const LATE = 'Ya llegué, estoy en la entrada';
 const ADD = `SELECT * FROM core.trip_cmd_add_inspection_photo($1, $2::uuid, $3, $4::uuid, $5, $6::uuid,
                                                               $7, $8::bigint, $9, $10::timestamptz)`;
 const DUE = 'SELECT bundle_id::text AS bundle_id FROM core.claim_worker_evidence_due($1)';
@@ -529,6 +530,14 @@ describe.each(COUNTRIES)('US-308 — dossier de preuve ($country, $currency)', (
         for (const p of elsewhere.photos) expect(text.includes(p.fileId)).toBe(false);
       });
 
+      // message arrivé APRÈS le scellé, avant le passage du travailleur : hors du dossier (fil borné
+      // au sealedAt), donc jamais un faux écart d'empreinte
+      await withTestTransaction(api, { virtualNow: plus(T1, 60), commit: true }, async (tx) => {
+        const g = await openSession(tx, w.guest);
+        const r = (await tx.query<Row>(POST, [g.hash, w.trip, uuid(), LATE])).rows[0]!;
+        expect(r['outcome']).toBe('DONE');
+      });
+
       // scellé : aucune écriture, même par le propriétaire (manifeste, empreinte, suppression)
       for (const what of ['MANIFEST', 'SHA256', 'DELETE']) {
         await withTestTransaction(api, {}, async (tx) => {
@@ -550,8 +559,10 @@ describe.each(COUNTRIES)('US-308 — dossier de preuve ($country, $currency)', (
     await withRole('app_worker', async (worker) => {
       const g = await generate(worker, keys, store, bundleId, T2);
       expect(g.verdicts).toEqual(['MATCH', 'MATCH', 'MATCH', 'MATCH']);
-      // le document du fil porte le texte reçu (preuve) et le texte masqué servi aux parties
+      // le document du fil porte le texte reçu (preuve) et le texte masqué servi aux parties,
+      // jamais un message postérieur au scellé
       expect(g.messages).toContain(HELLO);
+      expect(g.messages).not.toContain(LATE);
       expect(g.messages).toContain(PHONE[c.country]!);
       expect(g.outcome).toBe('READY');
       // création seule : l'archive déposée ne se remplace pas

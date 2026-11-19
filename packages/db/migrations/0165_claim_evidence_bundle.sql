@@ -62,7 +62,7 @@
 --
 -- Retour arrière (base sans dossier) :
 --   DROP FUNCTION core.support_staff_open_evidence_bundle(bytea, uuid, uuid, text),
---     core.messaging_evidence_messages(uuid),
+--     core.messaging_evidence_messages(uuid, timestamptz),
 --     core.support_staff_evidence_bundle(bytea, uuid, uuid),
 --     core.support_staff_request_evidence_bundle(bytea, uuid, uuid, uuid, text, text),
 --     core.claim_worker_fail_evidence_bundle(uuid, text, jsonb),
@@ -221,11 +221,15 @@ GRANT SELECT (id, reason_code, actor_role) ON core.booking_trip_state_log TO cmd
 
 -- 3.2 Fil de messages du trip (propriétaire messaging_cmd_owner, qui lit déjà ses tables, 0161) :
 -- document JSON canonique (texte de jsonb), mêmes données ⇒ même texte ⇒ même empreinte ; aucune
--- ligne s'il n'y a pas de fil. EXECUTE cmd_hold_owner (manifeste et sources du travailleur) seulement.
+-- ligne s'il n'y a pas de fil. Le fil est BORNÉ à l'heure du scellé (`p_until` = `sealedAt`) : un
+-- message, un signal ou un masquage postérieur au scellé n'entre pas dans le document (sinon la
+-- relecture par le travailleur donnerait un faux écart) ; la décision de l'ops sur un signal
+-- (`outcome`, posée plus tard) n'y figure pas. EXECUTE cmd_hold_owner (manifeste et sources du
+-- travailleur) seulement.
 GRANT CREATE ON SCHEMA core TO messaging_cmd_owner;
 SET LOCAL ROLE messaging_cmd_owner;
 
-CREATE FUNCTION core.messaging_evidence_messages(p_trip_id uuid)
+CREATE FUNCTION core.messaging_evidence_messages(p_trip_id uuid, p_until timestamptz)
   RETURNS TABLE (thread_id uuid, document text, message_count integer, flagged_count integer)
   LANGUAGE sql
   STABLE
@@ -245,35 +249,35 @@ AS $fn$
                       'authorRole', m.author_role,
                       'channel', m.channel_origin,
                       'status', m.status,
-                      'hiddenAt', pg_catalog.to_char(m.hidden_at AT TIME ZONE 'UTC',
-                                                     'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),
+                      'hiddenAt', CASE WHEN m.hidden_at <= p_until THEN
+                                    pg_catalog.to_char(m.hidden_at AT TIME ZONE 'UTC',
+                                                       'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') END,
                       'body', m.body,
                       'bodyMasked', m.body_masked,
                       'flags', COALESCE((
                         SELECT pg_catalog.jsonb_agg(pg_catalog.jsonb_build_object(
                                  'kind', f.kind, 'matched', pg_catalog.to_jsonb(f.matched),
-                                 'outcome', f.outcome,
                                  'createdAt', pg_catalog.to_char(f.created_at AT TIME ZONE 'UTC',
                                                                  'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'))
                                ORDER BY f.kind)
                           FROM core.messaging_message_flag AS f
-                         WHERE f.message_id = m.id), '[]'::jsonb))
+                         WHERE f.message_id = m.id AND f.created_at <= p_until), '[]'::jsonb))
                     ORDER BY m.sent_at, m.id)
                FROM core.messaging_message AS m
-              WHERE m.thread_id = t.id), '[]'::jsonb))::text,
+              WHERE m.thread_id = t.id AND m.sent_at <= p_until), '[]'::jsonb))::text,
          (SELECT pg_catalog.count(*)::integer FROM core.messaging_message AS m
-           WHERE m.thread_id = t.id),
+           WHERE m.thread_id = t.id AND m.sent_at <= p_until),
          (SELECT pg_catalog.count(*)::integer FROM core.messaging_message AS m
-           WHERE m.thread_id = t.id AND m.status = 'FLAGGED')
+           WHERE m.thread_id = t.id AND m.sent_at <= p_until AND m.status = 'FLAGGED')
     FROM core.messaging_message_thread AS t
-   WHERE t.trip_id = p_trip_id
+   WHERE t.trip_id = p_trip_id AND p_until IS NOT NULL AND t.created_at <= p_until
 $fn$;
-COMMENT ON FUNCTION core.messaging_evidence_messages(uuid) IS
+COMMENT ON FUNCTION core.messaging_evidence_messages(uuid, timestamptz) IS
   'Fil de messages d''un trip pour le dossier de preuve (US-308) : texte reçu (preuve, jamais servi '
   'aux parties) et texte masqué, rôle, heure serveur, signaux (codes) ; document JSON canonique et '
-  'comptes. EXECUTE cmd_hold_owner seulement. US-308 (ADR-184).';
-REVOKE ALL ON FUNCTION core.messaging_evidence_messages(uuid) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION core.messaging_evidence_messages(uuid) TO cmd_hold_owner;
+  'comptes, borné à l''heure du scellé. EXECUTE cmd_hold_owner seulement. US-308 (ADR-184).';
+REVOKE ALL ON FUNCTION core.messaging_evidence_messages(uuid, timestamptz) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION core.messaging_evidence_messages(uuid, timestamptz) TO cmd_hold_owner;
 
 RESET ROLE;
 REVOKE CREATE ON SCHEMA core FROM messaging_cmd_owner;
@@ -436,7 +440,7 @@ BEGIN
   END LOOP;
   -- fil de messages (US-525) : un fichier de l'archive ; le manifeste n'en porte que l'empreinte
   SELECT x.thread_id, x.document, x.message_count, x.flagged_count INTO v_msg
-    FROM core.messaging_evidence_messages(t.id) AS x;
+    FROM core.messaging_evidence_messages(t.id, p_sealed_at) AS x;
   IF v_msg.thread_id IS NULL THEN
     v_absent := v_absent || pg_catalog.jsonb_build_array(
       pg_catalog.jsonb_build_object('piece', 'MESSAGES', 'reason', 'NO_THREAD'));
@@ -632,7 +636,8 @@ BEGIN
   IF p_bundle_id IS NULL THEN
     RAISE EXCEPTION 'evidence bundle: input invalid' USING ERRCODE = 'invalid_parameter_value';
   END IF;
-  SELECT x.id, x.trip_id, x.status, x.manifest, x.manifest_sha256, x.requested_by INTO b
+  SELECT x.id, x.trip_id, x.status, x.manifest, x.manifest_sha256, x.requested_by, x.requested_at
+    INTO b
     FROM core.claim_evidence_bundle AS x WHERE x.id = p_bundle_id
      FOR UPDATE SKIP LOCKED;
   IF b.id IS NULL THEN
@@ -658,7 +663,8 @@ BEGIN
              FROM core.contract_generated_document AS d
              JOIN core.contract_document_party AS p ON p.document_id = d.id
             WHERE d.trip_id = b.trip_id AND p.pseudonymized_at IS NULL), '[]'::jsonb),
-         (SELECT x.document FROM core.messaging_evidence_messages(b.trip_id) AS x);
+         (SELECT x.document
+            FROM core.messaging_evidence_messages(b.trip_id, b.requested_at) AS x);
 END
 $fn$;
 COMMENT ON FUNCTION core.claim_worker_evidence_source(uuid) IS

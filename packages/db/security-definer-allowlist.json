@@ -2306,7 +2306,7 @@
       "story": "US-308"
     },
     {
-      "signature": "core.messaging_evidence_messages(uuid)",
+      "signature": "core.messaging_evidence_messages(uuid,timestamp with time zone)",
       "family": "messaging_cmd",
       "owner": "messaging_cmd_owner",
       "execute": ["cmd_hold_owner"],
