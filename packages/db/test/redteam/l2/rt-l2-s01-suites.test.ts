@@ -28,7 +28,7 @@ import { installTestProofKey } from '../../support/staff.ts';
 import { placeHoldCommand, registerVehicles } from '../../support/concurrency.ts';
 import { act, first, hostState, readyHost } from '../l1/support-host.ts';
 import { decideLink, staffPerson } from '../l1/support-p2.ts';
-import { byCountry, ops, rolledBack } from '../l1/support.ts';
+import { byCountry, hostOf, ops, rolledBack } from '../l1/support.ts';
 import type { CountryCase, Tx } from '../l1/support.ts';
 
 const uuid = (): string => randomUUID();
@@ -92,7 +92,7 @@ async function twins(
   holder: { given: string; last: string },
   twin: { given: string; last: string },
   birth: string,
-): Promise<{ org: string; vehicle: string; twin: string; holder: string }> {
+): Promise<{ org: string; vehicle: string; twin: string }> {
   const org = uuid();
   const vehicle = uuid();
   const h = await tx.query<{ h: string }>('SELECT test_fixture.create_org($1, $2, $3) AS h', [
@@ -105,7 +105,7 @@ async function twins(
   const second = uuid();
   await tx.query('SELECT test_fixture.ensure_party($1, NULL, NULL)', [second]);
   await verify(tx, second, cc, twin.given, twin.last, birth);
-  return { org, vehicle, twin: second, holder: h.rows[0]!.h };
+  return { org, vehicle, twin: second };
 }
 
 /** Noms à un seul mot distinct de deux lettres ou plus (revues de la PR #146, N-114). */
@@ -165,15 +165,23 @@ describe.each(byCountry)(
       it(`chemin légitime (US-222d2) — ${m.label} : homonyme d’une autre naissance ⇒ OK ; homonyme de même naissance constaté NOT_LINKED par l’ops ⇒ OK (jamais bloqué sans revue humaine)`, async () => {
         await rolledBack(async (tx) => {
           const birth = birthOf(31 + byCountry.findIndex(([c]) => c === country));
-          const w = await twins(tx, cc, m.holder, m.twin, birth);
-          const other = uuid();
-          await tx.query('SELECT test_fixture.ensure_party($1, NULL, NULL)', [other]);
-          await verify(tx, other, cc, m.twin.given, m.twin.last, '1990-04-13');
-          expect(await pose(tx, other, w.vehicle, w.org)).toBe('OK');
+          // personnes inscrites (CGU du voyageur acceptées : le constat de l'ops lit leur pays)
+          const host = await hostOf(tx, country, { first: m.holder.given, last: m.holder.last });
+          const vehicle = uuid();
+          await registerVehicles(tx, [vehicle], host.org, cc);
+          await verify(tx, host.userId, cc, m.holder.given, m.holder.last, birth);
+          const twin = await person(tx, country, { first: m.twin.given, last: m.twin.last });
+          await verify(tx, twin.userId, cc, m.twin.given, m.twin.last, birth);
+          const other = await person(tx, country, { first: m.twin.given, last: m.twin.last });
+          await verify(tx, other.userId, cc, m.twin.given, m.twin.last, '1990-04-13');
+          expect(await pose(tx, other.userId, vehicle, host.org)).toBe('OK');
+          // même naissance : reconnu tant que l'ops n'a rien constaté, puis libéré par NOT_LINKED
+          expect(await pose(tx, twin.userId, vehicle, host.org)).toBe('SELF_BOOKING_FORBIDDEN');
           expect(
-            (await decideLink(tx, null, w.twin, w.holder, 'NOT_LINKED', 'SAME_IDENTITY')).outcome,
+            (await decideLink(tx, null, twin.userId, host.userId, 'NOT_LINKED', 'SAME_IDENTITY'))
+              .outcome,
           ).toBe('RECORDED');
-          expect(await pose(tx, w.twin, w.vehicle, w.org)).toBe('OK');
+          expect(await pose(tx, twin.userId, vehicle, host.org)).toBe('OK');
         });
       });
     }
