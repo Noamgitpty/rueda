@@ -973,6 +973,44 @@
         "status": "C1"
       }
     },
+    "core.config_param_bound": {
+      "lifecycle": "C",
+      "export": "none",
+      "columns": {
+        "key": "C1",
+        "country_code": "C1",
+        "min_value": "C1",
+        "max_value": "C1",
+        "source_ref": "C1",
+        "created_at": "C1",
+        "created_by": "C1"
+      }
+    },
+    "core.config_param_change_request": {
+      "lifecycle": "A",
+      "export": "none",
+      "columns": {
+        "id": "C1",
+        "key": "C1",
+        "country_code": "C1",
+        "value": "C1",
+        "currency": "C1",
+        "valid_from": "C1",
+        "reason": {
+          "class": "C2",
+          "erasure": "derogation",
+          "justification": "motif libre d’une demande de changement de paramètre, figé par la garde (registre de décision) ; lu des seules commandes de cmd_param_owner, aucun rôle applicatif ; recopié dans la version approuvée (change_reason, même classe) ; consigne : aucune donnée de personne",
+          "report": "US-536"
+        },
+        "decision_ref": "C1",
+        "requested_by": "C1",
+        "requested_at": "C1",
+        "expires_at": "C1",
+        "approved_by": "C1",
+        "approved_at": "C1",
+        "status": "C1"
+      }
+    },
     "core.config_holiday_calendar": {
       "lifecycle": "C",
       "export": "none",
