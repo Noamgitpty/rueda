@@ -309,8 +309,14 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  `common.inspection.*` (refus des routes `/trips/{id}/inspections/…`), `web.inspection.*` (écran
  des photos de départ et de retour de l’hôte et du voyageur, angles du gabarit) et `web.s09c.done`
  de 10b §4.3 (texte portugais ajouté).
+ Version 98 (95 à 97 réservées à US-707, US-525 et US-310) : remise et retour du véhicule entre
+ particuliers (US-315, ADR-183) : `common.handover.*` (refus des routes `/trips/{id}/handover/…`,
+ dont `common.handover.unavailable` : sans réseau, réessayer, aucune file hors ligne au lot 3),
+ `web.a03.arrived`, `web.a03.refuse`, `web.a03.handover` et les 6 points `web.a03.check.*` de
+ 10b §4.3 (texte portugais ajouté), `web.handover.*` (étapes A03, A04 et S09 · check-in /
+ check-out, blocages, relevés, validation, liens du détail du trip).
  */
-export const CATALOG_VERSION = 94;
+export const CATALOG_VERSION = 98;
 
 /** Catalogues de base par langue ; la langue d'un profil de locale choisit le sien. */
 export const CATALOGS: Readonly<Record<CatalogLanguage, VersionedCatalog<MessageKey>>> = {

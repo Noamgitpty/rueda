@@ -2651,6 +2651,163 @@ async function inspectionRoute(req, res, url) {
   return json(res, 200, { status: 'SUBMITTED', submittedAt: INSPECTION_RECEIVED_AT });
 }
 
+// Remise et retour entre particuliers (US-315) : `GET /__e2e/handover/new?guest=&host=&status=`
+// crée un trip (statut SM-1 donné, BOOKED par défaut) dont les deux séries de photos sont déjà
+// validées ; toute autre session ⇒ 404 HANDOVER_NOT_FOUND (comme l'API). Contrôle du permis :
+// hôte seulement, 6 points ou motif ; validation : en personne seulement, aucune heure reçue, la
+// seconde validation termine l'étape à l'heure « serveur » fixe du double.
+const handovers = new Map();
+const HANDOVER_AT = '2036-12-10T15:00:00.000Z';
+const HANDOVER_CHECKS = ['face', 'name', 'birthYear', 'valid', 'provisional', 'restrictions'];
+const HANDOVER_REASONS = ['INVALID_LICENSE', 'IDENTITY_NOT_VERIFIED', 'OTHER_DRIVER_SENT'];
+
+async function handoverRoute(req, res, url) {
+  const path = url.pathname;
+  if (req.method === 'GET' && path === '/__e2e/handover/new') {
+    const tripId = uuid();
+    handovers.set(tripId, {
+      guest: url.searchParams.get('guest') ?? '',
+      host: url.searchParams.get('host') ?? '',
+      status: url.searchParams.get('status') ?? 'BOOKED',
+      identity: null,
+      done: { checkin: null, checkout: null },
+      validations: {
+        checkin: { HOST: null, GUEST: null },
+        checkout: { HOST: null, GUEST: null },
+      },
+    });
+    return json(res, 200, { tripId });
+  }
+  const m = /^\/trips\/([^/]+)\/handover\/([^/]+)(\/open|\/identity|\/validate)?$/.exec(path);
+  if (m === null) return false;
+  const token = tokenOf(req);
+  if (token === undefined) return err(res, 401, 'AUTH_REQUIRED', 'common.auth.sessionRequired');
+  const t = handovers.get(m[1]);
+  const role =
+    t === undefined ? null : token === t.guest ? 'GUEST' : token === t.host ? 'HOST' : null;
+  const direction = m[2];
+  if (t === undefined || role === null || (direction !== 'checkin' && direction !== 'checkout')) {
+    return err(res, 404, 'HANDOVER_NOT_FOUND', 'common.handover.notFound');
+  }
+  const checkin = direction === 'checkin';
+  const open = checkin
+    ? t.status === 'CHECKIN_OPEN' || t.status === 'START_WINDOW_EXPIRED'
+    : t.status === 'IN_PROGRESS' || t.status === 'OVERDUE';
+  const other = role === 'HOST' ? 'GUEST' : 'HOST';
+  if (m[3] === undefined && req.method === 'GET') {
+    return json(res, 200, {
+      tripId: m[1],
+      direction,
+      viewerRole: role,
+      tripStatus: t.status,
+      timezone: INSPECTION_TZ,
+      opensAt: checkin ? '2036-12-09T15:00:00.000Z' : null,
+      open,
+      canOpen: checkin && t.status === 'BOOKED',
+      blockers: [],
+      identityCheck: checkin
+        ? {
+            status: t.identity === null ? 'PENDING' : t.identity,
+            checkedAt: t.identity === null ? null : HANDOVER_AT,
+          }
+        : null,
+      guest:
+        checkin && role === 'HOST' ? { firstName: 'Ana', lastInitial: 'P', birthYear: 1990 } : null,
+      photos: { mine: 'SUBMITTED', other: 'SUBMITTED' },
+      validations: {
+        mine: t.validations[direction][role],
+        other: t.validations[direction][other],
+      },
+      contactlessOffered: false,
+      completedAt: t.done[direction],
+    });
+  }
+  if (req.method !== 'POST' || m[3] === undefined) return false;
+  const b = (await readBody(req)) ?? {};
+  if (m[3] === '/open') {
+    if (!checkin || Object.keys(b).length > 0) {
+      return err(res, 400, 'REQUEST_INVALID', 'common.auth.requestInvalid');
+    }
+    if (t.status === 'BOOKED') t.status = 'CHECKIN_OPEN';
+    if (t.status !== 'CHECKIN_OPEN') {
+      return err(res, 409, 'CHECKIN_NOT_OPEN', 'common.handover.checkinNotOpen');
+    }
+    return json(res, 200, { tripStatus: 'CHECKIN_OPEN', openedAt: HANDOVER_AT });
+  }
+  if (m[3] === '/identity') {
+    if (!checkin) return err(res, 404, 'HANDOVER_NOT_FOUND', 'common.handover.notFound');
+    if (role !== 'HOST') return err(res, 403, 'HANDOVER_HOST_ONLY', 'common.handover.hostOnly');
+    if (!open) return err(res, 409, 'CHECKIN_NOT_OPEN', 'common.handover.checkinNotOpen');
+    const c = b.checklist;
+    const keys = c !== null && typeof c === 'object' ? Object.keys(c) : [];
+    if (
+      keys.length !== 6 ||
+      !HANDOVER_CHECKS.every((k) => typeof c[k] === 'boolean') ||
+      Object.keys(b).some((k) => k !== 'checklist' && k !== 'subreason')
+    ) {
+      return err(
+        res,
+        422,
+        'CHECKIN_LICENSE_CHECK_INCOMPLETE',
+        'common.handover.licenseCheckIncomplete',
+      );
+    }
+    const ok = HANDOVER_CHECKS.every((k) => c[k]);
+    if (ok === (b.subreason !== undefined) || (!ok && !HANDOVER_REASONS.includes(b.subreason))) {
+      return err(res, 400, 'REQUEST_INVALID', 'common.auth.requestInvalid');
+    }
+    const already = t.identity !== null;
+    if (!already) t.identity = ok ? 'OK' : 'FAILED';
+    return json(res, 200, { status: t.identity, checkedAt: HANDOVER_AT, alreadyChecked: already });
+  }
+  // validation : en personne seulement ; toute clé inconnue (une heure du client) est refusée
+  if (Object.keys(b).some((k) => !['odometerKm', 'fuelEighths', 'method'].includes(k))) {
+    return err(res, 400, 'REQUEST_INVALID', 'common.auth.requestInvalid');
+  }
+  if (b.method === 'CONTACTLESS') {
+    return err(res, 409, 'CONTACTLESS_UNAVAILABLE', 'common.handover.contactlessUnavailable');
+  }
+  if (b.method !== 'IN_PERSON') {
+    return err(res, 400, 'REQUEST_INVALID', 'common.auth.requestInvalid');
+  }
+  if (!open) {
+    return checkin
+      ? err(res, 409, 'CHECKIN_NOT_OPEN', 'common.handover.checkinNotOpen')
+      : err(res, 409, 'CHECKOUT_NOT_OPEN', 'common.handover.checkoutNotOpen');
+  }
+  if (
+    !Number.isSafeInteger(b.odometerKm) ||
+    b.odometerKm < 0 ||
+    b.odometerKm > 9999999 ||
+    !Number.isSafeInteger(b.fuelEighths) ||
+    b.fuelEighths < 0 ||
+    b.fuelEighths > 8
+  ) {
+    return err(res, 422, 'READING_INVALID', 'common.handover.readingInvalid');
+  }
+  if (checkin && role === 'HOST' && t.identity !== 'OK') {
+    return t.identity === 'FAILED'
+      ? err(res, 409, 'IDENTITY_CHECK_FAILED', 'common.handover.identityFailed')
+      : err(res, 422, 'CHECKIN_LICENSE_CHECK_INCOMPLETE', 'common.handover.licenseCheckIncomplete');
+  }
+  const v = t.validations[direction];
+  const already = v[role] !== null;
+  if (!already) {
+    v[role] = { validatedAt: HANDOVER_AT, odometerKm: b.odometerKm, fuelEighths: b.fuelEighths };
+  }
+  if (v.HOST !== null && v.GUEST !== null && t.done[direction] === null) {
+    t.done[direction] = HANDOVER_AT;
+    t.status = checkin ? 'IN_PROGRESS' : 'RETURNED';
+  }
+  return json(res, 200, {
+    validatedAt: v[role].validatedAt,
+    completed: t.done[direction] !== null,
+    completedAt: t.done[direction],
+    tripStatus: t.status,
+    alreadyValidated: already,
+  });
+}
+
 createServer(async (req, res) => {
   const url = new URL(req.url ?? '/', 'http://127.0.0.1');
   const path = url.pathname;
@@ -2658,6 +2815,7 @@ createServer(async (req, res) => {
   if ((await hostRequestRoute(req, res, url)) !== false) return;
   if ((await contractRoute(req, res, url)) !== false) return;
   if ((await inspectionRoute(req, res, url)) !== false) return;
+  if ((await handoverRoute(req, res, url)) !== false) return;
   if ((await constanciaRoute(req, res, url)) !== false) return;
   if (refundRoute(req, res, url) !== false) return;
   if (receiptRoute(req, res, url) !== false) return;

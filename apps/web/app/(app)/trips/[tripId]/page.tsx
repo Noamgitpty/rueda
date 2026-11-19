@@ -157,6 +157,22 @@ export default async function GuestTripPage({
           )}
         </a>
       )}
+      {/* remise et retour en personne (US-315, N-283) : S09 · check-in puis S09 · check-out */}
+      {(['BOOKED', 'CHECKIN_OPEN', 'START_WINDOW_EXPIRED', 'IN_PROGRESS', 'OVERDUE'] as const).some(
+        (s) => s === trip.status,
+      ) && (
+        <a
+          className={styles['link']}
+          href={`/trips/${trip.id}/handover/${trip.status === 'IN_PROGRESS' || trip.status === 'OVERDUE' ? 'checkout' : 'checkin'}`}
+          data-testid="s09-handover"
+        >
+          {t(
+            trip.status === 'IN_PROGRESS' || trip.status === 'OVERDUE'
+              ? 'web.handover.link.checkout'
+              : 'web.handover.link.checkin',
+          )}
+        </a>
+      )}
       <section
         className={styles['section']}
         aria-labelledby="s09-documents"
