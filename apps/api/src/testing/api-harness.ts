@@ -48,6 +48,7 @@ import {
 } from '../modules/risk/index.js';
 import type { RateLimitPolicy, RiskHttpOptions } from '../modules/risk/index.js';
 import type { SupConsoleOptions } from '../modules/sup/index.js';
+import type { TrpInspectionOptions } from '../modules/trp/index.js';
 import { CountryConfigService } from '../modules/cfg/index.js';
 
 export type HarnessActor = 'voyageur' | 'staff_sans_mfa' | 'staff';
@@ -130,6 +131,8 @@ export interface ApiHarnessOverrides {
   readonly search?: Partial<CatSearchOptions>;
   /** Checkout (US-208) ; absent : 503 après les gardes (aucun adaptateur). */
   readonly checkout?: Partial<AvlCheckoutOptions>;
+  /** Photos d'état du véhicule (US-303) ; absent : 503 après les gardes (aucun adaptateur). */
+  readonly trp?: Partial<TrpInspectionOptions>;
 }
 
 export async function startApiHarness(overrides: ApiHarnessOverrides = {}): Promise<ApiHarness> {
@@ -379,6 +382,7 @@ export async function startApiHarness(overrides: ApiHarnessOverrides = {}): Prom
       { ...kyc, ...overrides.kyc },
       { ...search, ...overrides.search },
       { ...UNAVAILABLE_AVL_CHECKOUT, ...overrides.checkout },
+      { ...overrides.trp },
     ),
     {
       rawBody: true,

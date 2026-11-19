@@ -12646,6 +12646,549 @@
           }
         }
       }
+    },
+    "/trips/{tripId}/inspections/{kind}": {
+      "get": {
+        "operationId": "getTripInspection",
+        "tags": ["trp"],
+        "summary": "Série de photos d'état du véhicule vue par une partie du trip : gabarit d'angles, bornes du pays, les deux séries (16 TRP-004)",
+        "parameters": [
+          {
+            "name": "tripId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "kind",
+            "in": "path",
+            "required": true,
+            "description": "Série : checkin (départ) ou checkout (retour)",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Gabarit, bornes et séries de l'hôte et du voyageur",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TripInspection"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthRequired"
+          },
+          "404": {
+            "description": "Trip inconnu, d'une autre personne, type de série ou identifiant mal formé : même réponse (17 §2.3 point 5)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "INSPECTION_NOT_FOUND"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Base indisponible ou bornes du pays absentes : rien n'est écrit",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "INSPECTION_UNAVAILABLE"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/trips/{tripId}/inspections/{kind}/captures": {
+      "post": {
+        "operationId": "openInspectionCapture",
+        "tags": ["trp"],
+        "summary": "Jeton de capture d'un angle, émis au déclenchement de la caméra de l'application (120 s, usage unique)",
+        "parameters": [
+          {
+            "name": "tripId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "kind",
+            "in": "path",
+            "required": true,
+            "description": "Série : checkin (départ) ou checkout (retour)",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InspectionCaptureRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Jeton émis (heure serveur)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InspectionCapture"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Corps invalide ou angle hors du gabarit",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "REQUEST_INVALID"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthRequired"
+          },
+          "404": {
+            "description": "Trip inconnu, d'une autre personne, type de série ou identifiant mal formé : même réponse (17 §2.3 point 5)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "INSPECTION_NOT_FOUND"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Série hors de sa fenêtre, déjà validée, ou plafond de photos atteint",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "enum": ["INSPECTION_NOT_OPEN", "INSPECTION_SUBMITTED", "PHOTO_LIMIT_REACHED"]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "415": {
+            "$ref": "#/components/responses/NotJson"
+          },
+          "503": {
+            "description": "Base indisponible ou bornes du pays absentes : rien n'est écrit",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "INSPECTION_UNAVAILABLE"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/trips/{tripId}/inspections/{kind}/photos": {
+      "post": {
+        "operationId": "addInspectionPhoto",
+        "tags": ["trp"],
+        "summary": "Photo d'un angle prise par la caméra de l'application : jeton consommé, empreinte SHA-256 des octets reçus, heure serveur (16 TRP-004)",
+        "parameters": [
+          {
+            "name": "tripId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "kind",
+            "in": "path",
+            "required": true,
+            "description": "Série : checkin (départ) ou checkout (retour)",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InspectionPhotoRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Photo reçue",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InspectionPhoto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Corps invalide",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "REQUEST_INVALID"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthRequired"
+          },
+          "404": {
+            "description": "Trip inconnu, d'une autre personne, type de série ou identifiant mal formé : même réponse (17 §2.3 point 5)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "INSPECTION_NOT_FOUND"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Série hors de sa fenêtre, déjà validée, ou plafond de photos atteint",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "enum": ["INSPECTION_NOT_OPEN", "INSPECTION_SUBMITTED", "PHOTO_LIMIT_REACHED"]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "415": {
+            "$ref": "#/components/responses/NotJson"
+          },
+          "422": {
+            "description": "Photo hors de la caméra de l'application (galerie, jeton absent, expiré, consommé ou d'un autre angle), ou photo refusée (type réel, taille, dimensions, empreinte, antivirus)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "enum": ["PHOTO_GALLERY_FORBIDDEN", "PHOTO_INVALID"]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Antivirus, coffre ou stockage indisponibles, ou base indisponible : rien n'est reçu",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "enum": ["PHOTO_UPLOAD_UNAVAILABLE", "INSPECTION_UNAVAILABLE"]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/trips/{tripId}/inspections/{kind}/submit": {
+      "post": {
+        "operationId": "submitTripInspection",
+        "tags": ["trp"],
+        "summary": "Validation de sa série par la partie : gabarit complet exigé (heure serveur) ; idempotente",
+        "parameters": [
+          {
+            "name": "tripId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "kind",
+            "in": "path",
+            "required": true,
+            "description": "Série : checkin (départ) ou checkout (retour)",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InspectionSubmitRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Série validée (ou déjà validée : l'heure d'origine)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InspectionSubmitted"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Corps invalide",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "REQUEST_INVALID"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthRequired"
+          },
+          "404": {
+            "description": "Trip inconnu, d'une autre personne, type de série ou identifiant mal formé : même réponse (17 §2.3 point 5)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "INSPECTION_NOT_FOUND"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Série hors de sa fenêtre",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "INSPECTION_NOT_OPEN"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "415": {
+            "$ref": "#/components/responses/NotJson"
+          },
+          "422": {
+            "description": "Gabarit incomplet : `missing` liste les angles obligatoires manquants",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "PHOTO_TEMPLATE_INCOMPLETE"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Base indisponible ou bornes du pays absentes : rien n'est écrit",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "INSPECTION_UNAVAILABLE"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -13755,6 +14298,14 @@
                   "type": "string"
                 }
               }
+            }
+          },
+          "missing": {
+            "type": "array",
+            "description": "PHOTO_TEMPLATE_INCOMPLETE (US-303) : angles obligatoires manquants du gabarit",
+            "items": {
+              "type": "string",
+              "pattern": "^(EXT_[0-9]{2}|INT_[0-9]{2}|FUEL|ODOMETER|KEY|DAMAGE_[0-9]{2})$"
             }
           }
         }
@@ -16026,7 +16577,14 @@
             }
           },
           "totalMinor": {
-            "anyOf": [{ "$ref": "#/components/schemas/MinorUnits" }, { "type": "null" }],
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MinorUnits"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "description": "total du devis figé ; null : trip sans devis source (la ligne reste servie)"
           },
           "contract": {
@@ -21555,6 +22113,252 @@
           },
           "trip": {
             "$ref": "#/components/schemas/HostTrip"
+          }
+        }
+      },
+      "TripInspection": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "tripId",
+          "kind",
+          "viewerRole",
+          "timezone",
+          "open",
+          "uploads",
+          "slots",
+          "sides"
+        ],
+        "properties": {
+          "tripId": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+          },
+          "kind": {
+            "enum": ["checkin", "checkout"]
+          },
+          "viewerRole": {
+            "enum": ["HOST", "GUEST"]
+          },
+          "timezone": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Fuseau IANA du pays du trip (affichage de l'heure serveur)"
+          },
+          "open": {
+            "type": "boolean",
+            "description": "Série dans sa fenêtre (départ : CHECKIN_OPEN ; retour : IN_PROGRESS, OVERDUE)"
+          },
+          "uploads": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["open", "maxBytes", "maxLongSidePx", "mimeTypes"],
+            "properties": {
+              "open": {
+                "type": "boolean",
+                "description": "Envoi possible : fenêtre ouverte, bornes du pays présentes, antivirus, coffre et stockage branchés"
+              },
+              "maxBytes": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "maxLongSidePx": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "mimeTypes": {
+                "type": "array",
+                "items": {
+                  "enum": ["image/jpeg", "image/webp"]
+                }
+              }
+            }
+          },
+          "slots": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["code", "group", "required"],
+              "properties": {
+                "code": {
+                  "type": "string",
+                  "pattern": "^(EXT_[0-9]{2}|INT_[0-9]{2}|FUEL|ODOMETER|KEY|DAMAGE_[0-9]{2})$"
+                },
+                "group": {
+                  "enum": ["EXTERIOR", "INTERIOR", "FUEL", "ODOMETER", "KEY", "DAMAGE"]
+                },
+                "required": {
+                  "type": "boolean"
+                }
+              }
+            }
+          },
+          "sides": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["role", "status", "submittedAt", "photos"],
+              "properties": {
+                "role": {
+                  "enum": ["HOST", "GUEST"]
+                },
+                "status": {
+                  "enum": ["NONE", "DRAFT", "SUBMITTED"]
+                },
+                "submittedAt": {
+                  "oneOf": [
+                    {
+                      "type": "string",
+                      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}[.][0-9]{3}Z$"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "photos": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["slot", "fileId", "sha256", "bytes", "receivedAt", "clockSkew"],
+                    "properties": {
+                      "slot": {
+                        "type": "string",
+                        "pattern": "^(EXT_[0-9]{2}|INT_[0-9]{2}|FUEL|ODOMETER|KEY|DAMAGE_[0-9]{2})$"
+                      },
+                      "fileId": {
+                        "type": "string",
+                        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+                      },
+                      "sha256": {
+                        "type": "string",
+                        "pattern": "^[0-9a-f]{64}$"
+                      },
+                      "bytes": {
+                        "type": "integer",
+                        "minimum": 1
+                      },
+                      "receivedAt": {
+                        "type": "string",
+                        "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}[.][0-9]{3}Z$"
+                      },
+                      "clockSkew": {
+                        "type": "boolean"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "InspectionCaptureRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["slot"],
+        "properties": {
+          "slot": {
+            "type": "string",
+            "pattern": "^(EXT_[0-9]{2}|INT_[0-9]{2}|FUEL|ODOMETER|KEY|DAMAGE_[0-9]{2})$"
+          }
+        }
+      },
+      "InspectionCapture": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["captureId", "slot", "expiresAt"],
+        "properties": {
+          "captureId": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+          },
+          "slot": {
+            "type": "string",
+            "pattern": "^(EXT_[0-9]{2}|INT_[0-9]{2}|FUEL|ODOMETER|KEY|DAMAGE_[0-9]{2})$"
+          },
+          "expiresAt": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}[.][0-9]{3}Z$"
+          }
+        }
+      },
+      "InspectionPhotoRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["captureId", "slot", "source", "sha256", "dataBase64"],
+        "properties": {
+          "captureId": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+          },
+          "slot": {
+            "type": "string",
+            "pattern": "^(EXT_[0-9]{2}|INT_[0-9]{2}|FUEL|ODOMETER|KEY|DAMAGE_[0-9]{2})$"
+          },
+          "source": {
+            "const": "CAMERA",
+            "description": "Caméra de l'application ; toute autre source (galerie) : PHOTO_GALLERY_FORBIDDEN"
+          },
+          "deviceCapturedAt": {
+            "type": ["string", "null"],
+            "description": "Heure de l'appareil, indicative (l'heure serveur fait foi)"
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "dataBase64": {
+            "type": "string"
+          }
+        }
+      },
+      "InspectionPhoto": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["fileId", "slot", "sha256", "bytes", "receivedAt"],
+        "properties": {
+          "fileId": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+          },
+          "slot": {
+            "type": "string",
+            "pattern": "^(EXT_[0-9]{2}|INT_[0-9]{2}|FUEL|ODOMETER|KEY|DAMAGE_[0-9]{2})$"
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "bytes": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "receivedAt": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}[.][0-9]{3}Z$"
+          }
+        }
+      },
+      "InspectionSubmitRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {}
+      },
+      "InspectionSubmitted": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["status", "submittedAt"],
+        "properties": {
+          "status": {
+            "const": "SUBMITTED"
+          },
+          "submittedAt": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}[.][0-9]{3}Z$"
           }
         }
       }

@@ -1,0 +1,6 @@
+/* Aperçu de la caméra de l’assistant photo (US-303) : pleine largeur, rayon du thème. */
+.preview {
+  display: block;
+  inline-size: 100%;
+  border-radius: var(--radius-md);
+}
