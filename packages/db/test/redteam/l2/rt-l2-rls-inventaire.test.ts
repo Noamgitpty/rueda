@@ -345,12 +345,23 @@ describe.each(COUNTRIES)(
           // 0027) ; les jambes d'opération ne le sont pas (observé en CI, run 44467099987 : 0 ligne),
           // elles ne servent donc pas de témoin ici
           expect(witness.trip_leg_balance).toBe(4);
+          // US-222d2 (revue qa n° 2 de la PR n° 256) : témoins positifs des autres zéros — l'avance et
+          // le bordereau sont ouverts à `settlement` (worker_money_read de 0036), les jambes
+          // d'opération à `payment_command` (worker_select de 0028)
+          expect(witness.platform_advance).toBe(1);
+          expect(witness.insurer_bordereau).toBe(1);
+          await setSessionContext(tx, { kind: 'WORKER', workerName: 'payment_command' });
+          expect((await visible(tx, m)).payment_operation_leg, 'payment_command').toBe(4);
           for (const intruder of ['rt_l2_intrus', 'outbox_relay', 'webhook_ingest']) {
             await setSessionContext(tx, { kind: 'WORKER', workerName: intruder });
             const seen = await visible(tx, m);
             expect(seen.trip_leg_balance, intruder).toBe(0);
             expect(seen.platform_advance, intruder).toBe(0);
             expect(seen.insurer_bordereau, intruder).toBe(0);
+            // jambes d'opération : `webhook_ingest` en est un lecteur documenté (0028), pas un intrus
+            if (intruder !== 'webhook_ingest') {
+              expect(seen.payment_operation_leg, intruder).toBe(0);
+            }
             const e = await failure(tx, 'SELECT core.settlement_cmd_apply_leg_movement($1)', [
               uuid(),
             ]);
@@ -476,7 +487,12 @@ describe('L2-PM-42 — inventaire SECURITY DEFINER des commandes du lot 2 (base 
             ORDER BY 1`,
           [[...APP_ROLES], lot2.map((f) => f.signature)],
         );
-        expect(rows.map((r) => r.sig)).toEqual(lot2.map((f) => f.signature).sort());
+        // US-222d2 (revue code n° 5 de la PR n° 256) : comparaison sans dépendre de la collation de la
+        // base (tri SQL contre tri JS) : les deux listes sont triées ici, par le même comparateur
+        const byCode = (a: string, b: string): number => (a < b ? -1 : a > b ? 1 : 0);
+        expect(rows.map((r) => r.sig).sort(byCode)).toEqual(
+          lot2.map((f) => f.signature).sort(byCode),
+        );
         const bad: string[] = [];
         for (const r of rows) {
           const f = lot2.find((x) => x.signature === r.sig);

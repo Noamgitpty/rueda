@@ -506,6 +506,10 @@
     "US-709": {
       "require": ["code", "architecture", "securite", "argent", "qa"],
       "why": "US-709a host_ledger (N-219, avancée du lot 3) : grand livre de l hôte en unités mineures, commande SECURITY DEFINER appelée par déclencheur dans la transaction du règlement, RLS, lecture FINANCE / ADMIN : argent, sécurité, concurrence, schéma ; Revue design : NON (aucun texte visible) ; décision de l orchestrateur 2026-11-17"
+    },
+    "US-535": {
+      "require": ["code", "architecture", "securite", "argent", "qa"],
+      "why": "US-535a (N-411, partie serveur avancée du lot 5 au lot 2, 19 US-535 « Découpage ») : commande à deux personnes de changement d une valeur de paramètre pays (cmd_request_param_change / cmd_approve_param_change), SECURITY DEFINER, garde de conflit d acteurs, RLS, refus des clés go_live_switch, valeurs monétaires datées PA / PY sans rétroactivité : argent, sécurité, concurrence, schéma ; Revue design : NON pour 535a (aucun texte visible) ; l écran de US-535 (Revue design : OUI) ajoutera ux à cette entrée avant sa PR ; décision de l orchestrateur 2026-11-19"
     }
   },
   "pathOwners": {
@@ -616,7 +620,8 @@
       "US-514",
       "US-221",
       "US-222",
-      "US-709"
+      "US-709",
+      "US-535"
     ],
     "packages/money/": [
       "US-015",

@@ -223,6 +223,7 @@ function captureReturning(
     refund: (r) => p.refund(r),
     chargeMIT: (r) => p.chargeMIT(r),
     reauthorize: (r) => p.reauthorize(r),
+    getOperation: (l) => p.getOperation(l),
   };
   return new DepositRailExecutor(port);
 }

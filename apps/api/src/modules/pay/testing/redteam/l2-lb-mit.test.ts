@@ -17,10 +17,10 @@
  * de test de 60 000 (valeur de test, non un vecteur de l'export) : `capture` 0, `void` 1 500 000,
  * `mit` 60 000, décision à fin + 70 h. Jamais le code testé.
  *
- * Constat F-L2-LB-03 (`it.fails` documenté) : chez un PSP dont l'en-tête d'idempotence n'est pas
- * validé (capacité inconnue = non, 17 §2.8, N-108) et qui ne déduplique pas la clé, le rejeu de la
- * minuterie RENVOIE les ordres sans lecture d'abord, contrairement à `MoneyCommandSender` (US-223) ;
- * voir `docs/team/redteam/L2-rls-lb.md`.
+ * Constat F-L2-LB-03 (`it.fails` documenté par US-222c, CORRIGÉ par US-222d2 et inversé en `it`) :
+ * chez un PSP dont l'en-tête d'idempotence n'est pas validé (capacité inconnue = non, 17 §2.8,
+ * N-108) et qui ne déduplique pas la clé, le rejeu de la minuterie renvoyait les ordres sans lecture
+ * d'abord, contrairement à `MoneyCommandSender` (US-223) ; voir `docs/team/redteam/L2-rls-lb.md`.
  */
 import { readFileSync } from 'node:fs';
 import { createCurrencyRegistry, money, ratio } from '@rueda/money';
@@ -151,7 +151,13 @@ const fuel =
  * `lose` premières décisions perdues (connexion coupée avant le COMMIT : exception, rien d'écrit),
  * puis la première décision appliquée, les suivantes `STALE` (verrou de ligne et rang de 0150).
  */
-async function rig(c: Case, options: FakeStackOptions, lose = 0) {
+async function rig(
+  c: Case,
+  options: FakeStackOptions,
+  lose = 0,
+  /** Capacités retirées du port vu par la minuterie seulement (la pose reste celle du FAKE complet). */
+  hidden: readonly string[] = [],
+) {
   const stack = fakeStack({ ...options, override: [...NO_PARTIAL_CAPTURE] });
   const order = await new DepositRailExecutor(stack.provider).place(
     {
@@ -170,6 +176,21 @@ async function rig(c: Case, options: FakeStackOptions, lose = 0) {
     },
   );
   stack.psp.customerPays(order.providerReference);
+  const seen = new CapabilitySet(
+    stack.capabilities
+      .filter((x) => !hidden.includes(x.capability))
+      .map((x) => ({ ...x, status: x.status as 'VALIDATED_SANDBOX' })),
+  );
+  const port =
+    hidden.length === 0
+      ? stack.provider
+      : new Proxy(stack.provider, {
+          get: (target, prop, receiver) => {
+            if (prop === 'capabilities') return () => seen;
+            const value: unknown = Reflect.get(target, prop, receiver);
+            return typeof value === 'function' ? value.bind(target) : value;
+          },
+        });
   const applied: DepositOutcome[] = [];
   const lost: DepositOutcome[] = [];
   const alerts: OpsAlert[] = [];
@@ -194,7 +215,7 @@ async function rig(c: Case, options: FakeStackOptions, lose = 0) {
           return Promise.resolve();
         },
       },
-      connectors: { get: (name) => (name === 'FAKE' ? stack.provider : undefined) },
+      connectors: { get: (name) => (name === 'FAKE' ? port : undefined) },
     });
   const due: DueDepositDecision = {
     depositId: IDS.deposit,
@@ -275,26 +296,56 @@ describe.each(CASES)('RT-L2-LB01 — MIT de T58 rejoué ($country, $currency)', 
     expect(r.mits()).toEqual([[c.mit, c.mit]]);
   });
 
-  // F-L2-LB-03 (moyenne, PROPOSÉE) : sans `SUPPORTS_IDEMPOTENCY_HEADER` validé, le rejeu doit LIRE
-  // d'abord (getOperation par la clé, comme MoneyCommandSender, N-108) : la caution déjà annulée et le
-  // MIT déjà débité sont reconnus, rien n'est renvoyé, la décision VOIDED est reportée (pas EXPIRED
-  // ni BLOCKED_UNTIL_EXPIRY). Signal attendu après correction : un seul VOID et un seul MIT envoyés
-  // au PSP, VOIDED reporté, aucune alerte DEPOSIT_DECISION_FAILED.
-  it.fails(
-    'F-L2-LB-03 — PSP sans en-tête d’idempotence validé : le rejeu lit d’abord, ne renvoie ni le VOID ni le MIT, et reporte VOIDED',
-    async () => {
-      const r = await rig(
-        c,
-        { scenario: { ignoreIdempotency: true }, without: ['SUPPORTS_IDEMPOTENCY_HEADER'] },
-        1,
-      );
-      expect(await r.timer().process(r.due)).toBe('ERROR');
-      expect(await r.timer().process(r.due)).toBe('VOIDED');
-      expect(r.stack.psp.calls('VOID')).toBe(1);
-      expect(r.stack.psp.calls('MIT_CHARGE')).toBe(1);
-      expect(r.mits()).toEqual([[c.mit, c.mit]]);
-      expect(r.applied).toEqual([VOIDED(c)]);
-      expect(r.alerts.map((a) => a.code)).not.toContain('DEPOSIT_DECISION_FAILED');
-    },
-  );
+  // F-L2-LB-03 (moyenne, PROPOSÉE ; CORRIGÉ par US-222d2, `it.fails` inversé en `it`, attaque et
+  // attentes inchangées) : sans `SUPPORTS_IDEMPOTENCY_HEADER` validé, le rejeu LIT d'abord
+  // (getOperation par la clé, comme MoneyCommandSender, N-108) : la caution déjà annulée et le MIT
+  // déjà débité sont reconnus, rien n'est renvoyé, la décision VOIDED est reportée (pas EXPIRED ni
+  // BLOCKED_UNTIL_EXPIRY). Signal : un seul VOID et un seul MIT envoyés au PSP, VOIDED reporté,
+  // aucune alerte DEPOSIT_DECISION_FAILED.
+  it('F-L2-LB-03 — PSP sans en-tête d’idempotence validé : le rejeu lit d’abord, ne renvoie ni le VOID ni le MIT, et reporte VOIDED', async () => {
+    const r = await rig(
+      c,
+      { scenario: { ignoreIdempotency: true }, without: ['SUPPORTS_IDEMPOTENCY_HEADER'] },
+      1,
+    );
+    expect(await r.timer().process(r.due)).toBe('ERROR');
+    expect(await r.timer().process(r.due)).toBe('VOIDED');
+    expect(r.stack.psp.calls('VOID')).toBe(1);
+    expect(r.stack.psp.calls('MIT_CHARGE')).toBe(1);
+    expect(r.mits()).toEqual([[c.mit, c.mit]]);
+    expect(r.applied).toEqual([VOIDED(c)]);
+    expect(r.alerts.map((a) => a.code)).not.toContain('DEPOSIT_DECISION_FAILED');
+  });
+  it('chemin légitime (US-222d2) — en-tête d’idempotence validé : aucun ordre n’est précédé d’une lecture ; sans en-tête, première passe : lecture puis un seul VOID et un seul MIT, VOIDED', async () => {
+    const honest = await rig(c, {});
+    expect(await honest.timer().process(honest.due)).toBe('VOIDED');
+    expect(honest.stack.psp.calls('LOOKUP')).toBe(0);
+    expect(honest.mits()).toEqual([[c.mit, c.mit]]);
+    const unvalidated = await rig(c, {
+      scenario: { ignoreIdempotency: true },
+      without: ['SUPPORTS_IDEMPOTENCY_HEADER'],
+    });
+    expect(await unvalidated.timer().process(unvalidated.due)).toBe('VOIDED');
+    expect(unvalidated.stack.psp.calls('LOOKUP')).toBe(2);
+    expect(unvalidated.stack.psp.calls('VOID')).toBe(1);
+    expect(unvalidated.stack.psp.calls('MIT_CHARGE')).toBe(1);
+    expect(unvalidated.applied).toEqual([VOIDED(c)]);
+    expect(unvalidated.alerts).toEqual([]);
+  });
+
+  it('fail-closed (US-222d2) — ni en-tête d’idempotence ni lecture par clé validés : aucun ordre n’est envoyé, la caution n’est jamais dite libérée', async () => {
+    // la lecture par clé est une capacité bloquante de la place de marché (aucune pose sans elle) :
+    // elle n'est retirée que du port vu par la minuterie
+    const r = await rig(c, { scenario: { ignoreIdempotency: true } }, 0, [
+      'SUPPORTS_IDEMPOTENCY_HEADER',
+      'SUPPORTS_LOOKUP_BY_MERCHANT_REF',
+    ]);
+    const step = await r.timer().process(r.due);
+    expect(r.stack.psp.calls('VOID')).toBe(0);
+    expect(r.stack.psp.calls('MIT_CHARGE')).toBe(0);
+    expect(r.mits()).toEqual([]);
+    // aucune annulation prouvée : jamais VOIDED ; au plus l'expiration annoncée (08 E3 repli 4)
+    expect(step).not.toBe('VOIDED');
+    expect(r.applied.every((o) => o.status !== 'VOIDED')).toBe(true);
+  });
 });

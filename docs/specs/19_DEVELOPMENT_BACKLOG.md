@@ -3177,13 +3177,38 @@ Les stories de ce lot construisent les lignes MANUEL et DIFFÉRÉ et complètent
 - **Références** : 16 fiche ADM-014 / ADM-031
 - **Critères d'acceptation** :
   - Given un trip réservé sous l'ancienne valeur, When la nouvelle entre en vigueur, Then son devis garde l'ancienne ; valeur rétroactive ⇒ `PARAM_RETROACTIVE`.
-- **Notes techniques** : double validation pour les paramètres monétaires.
+- **Notes techniques** : double validation pour les paramètres monétaires. **Partie serveur avancée en US-535a** (ci-dessous, lot 2) : la commande à deux personnes, la validation des valeurs et le journal y sont livrés ; US-535 garde l'écran de la console, qui appelle ces commandes, et ses textes en es, en, fr et pt-BR. La double validation devient celle de US-535a (toutes les clés).
 - **Dépendances** : US-110, US-032
 - **Estimation** : 3 pts
 - **Lot** : L5
 - **Tranche bêta** : NON
 - **Revue design** : OUI
 - **Bloqué par (défaut)** : —
+- **Découpage** : US-535a ci-dessous est une **tranche** de US-535 (suite N-411 du BOARD), suivie sous l'identifiant de sa story mère comme les autres tranches (US-709a, US-223e) : entrée `US-535` du registre `docs/team/review-requirements.json`, branche `story/US-535-<slug>`, passation `docs/team/handoffs/US-535.md`, rapports `docs/team/reviews/US-535/`. Elle n'a pas de titre de niveau 4 : les contrôles de §7 et le job « revues » ne lisent que des identifiants `US-` à trois chiffres ; ses points ne sont pas comptés dans les totaux de §7.
+
+  **US-535a — Commande revue de changement d'une valeur de paramètre pays (partie serveur)**
+  - **Epic** : E12
+  - **Récit** : En tant qu'admin, je veux changer la valeur datée d'un paramètre d'un pays par une commande revue à deux personnes, avec motif et journal, afin de ne plus passer par une migration et qu'aucune personne seule ne change une règle.
+  - **Features** : ADM-014, ADM-031
+  - **Références** : 16 fiche ADM-014 / ADM-031 ; 17 §0.1, §2.3 (`config.param_write`, `config.go_live_switch`), §7.2 ; RLS-27 ; DEC-FONDATEUR-15 ; migration 0073 (interrupteurs à deux personnes, US-125, modèle de la mécanique) ; garde de conflit d'acteurs `core.support_staff_conflict` (US-222d2, PR n° 259, 0155) ; BOARD N-411, N-22
+  - **Critères d'acceptation** :
+    - Given un ADMIN ou SUPERADMIN qui détient `config.param_write` dans le pays, When il appelle `cmd_request_param_change(jeton, clé, pays, valeur, valid_from, motif, decision_ref)`, Then une demande `PENDING` est créée (identité tirée de la session désignée par l'empreinte du jeton, jamais d'un réglage `app.*` ni d'un paramètre) ; une seconde demande sur la même clé et le même pays rend `ALREADY_PENDING` (une seule demande `PENDING` par clé et pays, index unique partiel) ; une demande non approuvée expire au délai de 0073 (72 h, PROPOSÉ) et son approbation rend `EXPIRED` ; le demandeur peut l'annuler (`CANCELLED`).
+    - Given une demande `PENDING`, When `cmd_approve_param_change(jeton, demande)` est appelée par le demandeur, y compris dans une seconde session, ou par une personne en conflit avec lui (garde de conflit d'acteurs de US-222d2, dans les deux sens, jugée à l'approbation), Then refus `SELF_FORBIDDEN` journalisé et la demande reste en attente ; When elle est appelée par un second ADMIN ou SUPERADMIN réellement distinct qui détient `config.param_write` dans le pays, alors que le demandeur détient encore la permission, Then la nouvelle version est écrite.
+    - Given n'importe quelle clé de paramètre, monétaire ou non, When une valeur est changée, Then deux personnes distinctes sont exigées (PROPOSÉ, fail-closed : plus strict que « paramètres monétaires seulement » ; aucune clé n'est changée par une seule personne).
+    - Given une clé dont la définition porte `go_live_switch` (les quatre interrupteurs de 17 §0.1), en toute casse, When elle est passée à `cmd_request_param_change` ou que la commande tente de l'écrire, Then refus à la demande comme à l'écriture : ces clés ne changent que par `cmd_request_go_live_switch` / `cmd_approve_go_live_switch` (US-125) ; le trigger `param_value_go_live_guard` reste inchangé.
+    - Given une valeur hors du type de la définition (`INT`, `BOOL`, `DURATION`, `MONEY`, `BPS`, `ENUM`, `JSON`), hors de ses bornes (bornes min / max à modéliser dans la définition, absentes = refus pour une clé numérique, fail-closed) ou d'une devise autre que celle du pays pour une clé liée à la devise, When la demande est créée, Then refus `PARAM_INVALID_VALUE` (code PROPOSÉ, à ajouter aux codes d'erreur de 16 par la story) journalisé, sans demande ; une clé inconnue rend `PARAM_UNKNOWN`.
+    - Given un `valid_from` antérieur à `platform.now()`, When la demande est créée ou approuvée, Then refus `PARAM_RETROACTIVE` ; Given un `valid_from` égal à maintenant ou futur, When la demande est approuvée, Then la version ouverte précédente est fermée à `valid_from` et la nouvelle s'ouvre à `valid_from`, sans trou ni recouvrement.
+    - Given un trip dont le devis est figé sous l'ancienne valeur, en PA (USD) et en PY (PYG sans décimale), When la nouvelle valeur entre en vigueur, Then son devis garde l'ancienne valeur (critère de US-535) ; les montants attendus viennent de 08 et des oracles de `docs/specs/tools/`, jamais du code testé.
+    - Given une version de statut `TO_DECIDE` à `valid_from` futur (N-22), When elle est demandée ou approuvée en production, Then refus `PARAM_UNDECIDED` : seule une valeur décidée (avec `decision_ref`) peut être programmée.
+    - Given une approbation acceptée, When elle s'exécute, Then une seule transaction écrit le statut `APPLIED`, `decision_ref`, `approved_by`, la nouvelle version de `param_value`, l'événement `config.param.changed` et l'audit ; tout refus (droit, conflit, expiration, type, bornes, rétroactivité, clé gardée) est journalisé sans aucune écriture de valeur.
+    - Given les rôles de production `app_api`, `app_worker` et `app_anon` (assertion L0-05 en tête de chaque test), When `INSERT`, `UPDATE` ou `DELETE` direct de `param_value` ou de la table des demandes est tenté, ou une commande est appelée avec des paramètres hostiles (jeton d'une autre session, pays hors portée, clé en casse mixte, `valid_from` nul, valeur hors type), Then refus, preuves RLS et L0 comprises ; aucune valeur réelle de paramètre n'est changée par la story (les preuves écrivent dans une transaction annulée).
+  - **Notes techniques** : mécanique de 0073 reprise pour toutes les clés non gardées (table de demandes à identité figée, commandes `SECURITY DEFINER` sous un propriétaire `NOLOGIN` dédié inscrit à la liste blanche, `search_path` figé, `CHECK (approved_by <> requested_by)`) ; complément de 17 §2.3 (commandes, table, propriétaire, matrice) par une demande de fusion revue ; codes d'erreur traduits par l'API sans texte nouveau visible côté produit (l'écran et ses textes restent dans US-535) ; DoD habituelle (README du module, ADR, CHANGELOG, paramètres).
+  - **Dépendances** : US-110, US-125, US-222 (garde de conflit d'acteurs de US-222d2, PR n° 259)
+  - **Estimation** : 5 pts
+  - **Lot** : L2 (lot en cours ; justification : préalable de l'étape GL-26 de l'ouverture du mode sur demande, US-223, N-412, et de tout réglage fixé par le fondateur ; ses dépendances sont des lots 1 et 2 ; hors de la porte du lot 2, US-222)
+  - **Tranche bêta** : OUI
+  - **Revue design** : NON (aucun texte visible ; l'écran est en US-535)
+  - **Bloqué par (défaut)** : PR n° 259 (garde de conflit d'acteurs) fusionnée ; bornes des définitions (PROPOSÉES, à modéliser par la story) ; aucune valeur réelle changée sans décision écrite du fondateur
 
 #### US-536 — Outil d'effacement et registre Ley 81 dans la console
 - **Epic** : E13

@@ -1572,7 +1572,7 @@
       "signature": "core.support_staff_conflict(uuid,text,uuid)",
       "family": "iam_staff",
       "owner": "iam_staff_owner",
-      "execute": ["cmd_money_owner"],
+      "execute": ["cmd_golive_owner", "cmd_money_owner"],
       "story": "US-122"
     },
     {
