@@ -78,6 +78,192 @@
     }
   },
   "paths": {
+    "/help": {
+      "get": {
+        "operationId": "getHelp",
+        "tags": ["sup"],
+        "summary": "Aide et urgence par pays (S17, US-310) : urgences, autorité de circulation, assistance de l’assureur, support et plage publiée",
+        "description": "Lu de la configuration pays (ADR-174, ADR-182), jamais en dur ; numéro absent ⇒ null (hors production seulement) et l’écran renvoie à l’aide dans l’appli. Aucun téléphone d’une partie du trip.",
+        "parameters": [
+          {
+            "name": "country",
+            "in": "query",
+            "required": false,
+            "schema": { "$ref": "#/components/schemas/CountryCode" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Aide du pays demandé (sans pays : de chaque pays configuré)",
+            "headers": { "Cache-Control": { "$ref": "#/components/headers/PublicCache" } },
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/HelpReply" } }
+            }
+          },
+          "400": {
+            "description": "Pays mal formé ou non configuré",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": { "code": { "const": "REQUEST_INVALID" } }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/trips/{tripId}/help": {
+      "get": {
+        "operationId": "getTripHelp",
+        "tags": ["sup"],
+        "summary": "Aide d’un trip : rôle de la session (voyageur ou hôte) et aide du pays du trip (US-310)",
+        "parameters": [
+          { "name": "tripId", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Rôle de la session dans le trip et aide de son pays",
+            "headers": { "Cache-Control": { "$ref": "#/components/headers/NoStore" } },
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/TripHelpReply" } }
+            }
+          },
+          "401": { "$ref": "#/components/responses/AuthRequired" },
+          "404": {
+            "description": "Trip inconnu, d’une autre personne ou identifiant mal formé : même réponse (17 §2.3 point 5)",
+            "headers": { "Cache-Control": { "$ref": "#/components/headers/NoStore" } },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": { "code": { "const": "TRIP_NOT_FOUND" } }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Base indisponible ou réponse inattendue : rien n’est écrit ; l’écran garde les numéros de la page (fail-closed)",
+            "headers": { "Cache-Control": { "$ref": "#/components/headers/NoStore" } },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": { "code": { "const": "HELP_UNAVAILABLE" } }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/trips/{tripId}/help-requests": {
+      "post": {
+        "operationId": "openTripHelpRequest",
+        "tags": ["sup"],
+        "summary": "Demande d’aide du trip par son voyageur ou le titulaire du compte d’hôte (SUP-004, US-310) ; réponse automatique hors plage",
+        "parameters": [
+          { "name": "tripId", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": { "schema": { "$ref": "#/components/schemas/HelpRequestBody" } }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Rejeu (DUPLICATE) ou demande vivante du même motif (EXISTS) : rien de nouveau",
+            "headers": { "Cache-Control": { "$ref": "#/components/headers/NoStore" } },
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/HelpRequestReply" } }
+            }
+          },
+          "201": {
+            "description": "Demande ouverte (dossier IN_APP, hors plage jugé par la base)",
+            "headers": { "Cache-Control": { "$ref": "#/components/headers/NoStore" } },
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/HelpRequestReply" } }
+            }
+          },
+          "400": {
+            "description": "Corps invalide (motif hors liste, identifiant mal formé, champ inconnu)",
+            "headers": { "Cache-Control": { "$ref": "#/components/headers/NoStore" } },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": { "code": { "const": "REQUEST_INVALID" } }
+                }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/AuthRequired" },
+          "404": {
+            "description": "Trip inconnu, d’une autre personne ou identifiant mal formé : même réponse (17 §2.3 point 5)",
+            "headers": { "Cache-Control": { "$ref": "#/components/headers/NoStore" } },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": { "code": { "const": "TRIP_NOT_FOUND" } }
+                }
+              }
+            }
+          },
+          "415": { "$ref": "#/components/responses/NotJson" },
+          "503": {
+            "description": "Base indisponible ou réponse inattendue : rien n’est écrit ; l’écran garde les numéros de la page (fail-closed)",
+            "headers": { "Cache-Control": { "$ref": "#/components/headers/NoStore" } },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": { "code": { "const": "HELP_UNAVAILABLE" } }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/console/help-requests": {
+      "get": {
+        "operationId": "consoleHelpRequests",
+        "tags": ["sup"],
+        "summary": "Demandes d’aide vivantes et mesure M6 des 28 derniers jours (US-310)",
+        "parameters": [
+          {
+            "name": "country",
+            "in": "query",
+            "required": false,
+            "schema": { "$ref": "#/components/schemas/CountryCode" }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "integer", "minimum": 1, "maximum": 200 }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Demandes vivantes (sans donnée personnelle) et M6 par pays permis",
+            "headers": { "Cache-Control": { "$ref": "#/components/headers/NoStore" } },
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ConsoleHelpRequests" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/StaffRequestInvalid" },
+          "401": { "$ref": "#/components/responses/StaffAuthRequired" },
+          "403": { "$ref": "#/components/responses/StaffForbidden" },
+          "429": { "$ref": "#/components/responses/StaffRateLimited" }
+        }
+      }
+    },
     "/brand": {
       "get": {
         "operationId": "getPublishedBrand",
@@ -13961,6 +14147,165 @@
       }
     },
     "schemas": {
+      "HelpCountry": {
+        "type": "object",
+        "description": "Aide et urgence d’un pays (US-310, 10b S17), lue de la configuration pays : jamais le téléphone d’une partie du trip",
+        "additionalProperties": false,
+        "required": [
+          "country",
+          "names",
+          "emergencyNumber",
+          "trafficAuthority",
+          "supportPhone",
+          "insurerAssistancePhone",
+          "supportHours"
+        ],
+        "properties": {
+          "country": { "$ref": "#/components/schemas/CountryCode" },
+          "names": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["es", "en", "fr", "pt"],
+            "properties": {
+              "es": { "type": "string" },
+              "en": { "type": "string" },
+              "fr": { "type": "string" },
+              "pt": { "type": "string" }
+            }
+          },
+          "emergencyNumber": { "type": "string", "pattern": "^[0-9]{3,6}$" },
+          "trafficAuthority": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "messageKey"],
+            "properties": {
+              "id": { "type": "string", "pattern": "^[a-z][a-zA-Z0-9]{0,31}$" },
+              "messageKey": { "$ref": "#/components/schemas/MessageKey" }
+            }
+          },
+          "supportPhone": {
+            "type": ["string", "null"],
+            "pattern": "^\\+[1-9][0-9]{6,14}$",
+            "description": "null : non fourni (hors production seulement, ADR-174)"
+          },
+          "insurerAssistancePhone": {
+            "type": ["string", "null"],
+            "pattern": "^\\+[1-9][0-9]{6,14}$",
+            "description": "null : non fourni (hors production seulement)"
+          },
+          "supportHours": {
+            "description": "Plage publiée du support (heures locales, 7 j / 7) ; null : aucune plage publiée (SUP-020)",
+            "oneOf": [
+              { "type": "null" },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["from", "to"],
+                "properties": {
+                  "from": { "type": "string", "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$" },
+                  "to": { "type": "string", "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$" }
+                }
+              }
+            ]
+          }
+        }
+      },
+      "HelpReply": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["countries"],
+        "properties": {
+          "countries": { "type": "array", "items": { "$ref": "#/components/schemas/HelpCountry" } }
+        }
+      },
+      "TripHelpReply": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["tripId", "role", "help"],
+        "properties": {
+          "tripId": { "$ref": "#/components/schemas/Uuid" },
+          "role": { "enum": ["GUEST", "HOST"] },
+          "help": { "$ref": "#/components/schemas/HelpCountry" }
+        }
+      },
+      "HelpRequestBody": {
+        "type": "object",
+        "description": "Motif fermé, aucun texte libre (minimisation, ADR-182)",
+        "additionalProperties": false,
+        "required": ["requestId", "topic"],
+        "properties": {
+          "requestId": { "$ref": "#/components/schemas/Uuid" },
+          "topic": { "enum": ["ACCIDENT", "BREAKDOWN", "HANDOVER", "SAFETY", "OTHER"] }
+        }
+      },
+      "HelpRequestReply": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["caseId", "outcome", "offHours"],
+        "properties": {
+          "caseId": { "$ref": "#/components/schemas/Uuid" },
+          "outcome": { "enum": ["OPENED", "DUPLICATE", "EXISTS"] },
+          "offHours": { "type": "boolean" }
+        }
+      },
+      "ConsoleHelpRequests": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["items", "m6", "windowDays"],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "caseId",
+                "tripId",
+                "country",
+                "topic",
+                "requesterRole",
+                "priority",
+                "status",
+                "offHours",
+                "createdAt",
+                "firstResponseAt",
+                "assigned",
+                "assignedToMe"
+              ],
+              "properties": {
+                "caseId": { "$ref": "#/components/schemas/Uuid" },
+                "tripId": { "$ref": "#/components/schemas/Uuid" },
+                "country": { "$ref": "#/components/schemas/CountryCode" },
+                "topic": { "enum": ["ACCIDENT", "BREAKDOWN", "HANDOVER", "SAFETY", "OTHER"] },
+                "requesterRole": { "enum": ["GUEST", "HOST"] },
+                "priority": { "enum": ["LOW", "NORMAL", "HIGH", "URGENT"] },
+                "status": { "enum": ["OPEN", "PENDING"] },
+                "offHours": { "type": "boolean" },
+                "createdAt": { "type": "string" },
+                "firstResponseAt": { "type": ["string", "null"] },
+                "assigned": { "type": "boolean" },
+                "assignedToMe": { "type": "boolean" }
+              }
+            }
+          },
+          "m6": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["country", "opened", "answered", "medianSeconds", "p90Seconds"],
+              "properties": {
+                "country": { "$ref": "#/components/schemas/CountryCode" },
+                "opened": { "type": "integer", "minimum": 0 },
+                "answered": { "type": "integer", "minimum": 0 },
+                "medianSeconds": { "type": ["integer", "null"], "minimum": 0 },
+                "p90Seconds": { "type": ["integer", "null"], "minimum": 0 }
+              }
+            }
+          },
+          "windowDays": { "type": "integer", "minimum": 1 }
+        }
+      },
       "TripContract": {
         "type": "object",
         "additionalProperties": false,

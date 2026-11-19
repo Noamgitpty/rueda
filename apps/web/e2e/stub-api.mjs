@@ -2509,6 +2509,66 @@ async function messagesRoute(req, res, url) {
   });
 }
 
+// ---- Aide et urgence (US-310) -------------------------------------------------------------------
+// `GET /help` : aide du marché fictif (pays réservé ZZ, ADR-024 : aucun vrai pays) ; numéros
+// d'assistance ABSENTS (comme le dépôt tant que le fondateur ne les a pas fournis) et aucune plage
+// publiée (SUP-020) : l'écran doit renvoyer à l'aide dans l'appli sans inventer de numéro.
+// `GET /trips/{id}/help` et `POST /trips/{id}/help-requests` : la partie voyageur du contrat
+// seulement ; toute autre session ⇒ 404 TRIP_NOT_FOUND (comme l'API). La demande : motif fermé,
+// identifiant de la demande ; rejeu ⇒ 200 DUPLICATE ; hors plage (aucune plage) ⇒ offHours.
+const HELP_TOPICS = ['ACCIDENT', 'BREAKDOWN', 'HANDOVER', 'SAFETY', 'OTHER'];
+const helpRequests = new Map();
+const helpView = () => ({
+  country: MARKET.country,
+  names: { es: 'Tierra de prueba', en: 'Test country', fr: 'Pays de test', pt: 'Terra de teste' },
+  emergencyNumber: '911',
+  trafficAuthority: { id: 'attt', messageKey: 'common.help.authority.attt' },
+  supportPhone: null,
+  insurerAssistancePhone: null,
+  supportHours: null,
+});
+
+async function helpRoute(req, res, url) {
+  const path = url.pathname;
+  if (req.method === 'GET' && path === '/help') {
+    const country = url.searchParams.get('country');
+    if (country !== null && country !== MARKET.country) {
+      return err(res, 400, 'REQUEST_INVALID', 'common.auth.requestInvalid');
+    }
+    return json(res, 200, { countries: [helpView()] });
+  }
+  const m = /^\/trips\/([^/]+)\/(help|help-requests)$/.exec(path);
+  if (m === null) return false;
+  if (
+    (m[2] === 'help' && req.method !== 'GET') ||
+    (m[2] === 'help-requests' && req.method !== 'POST')
+  ) {
+    return false;
+  }
+  const token = tokenOf(req);
+  if (token === undefined) return err(res, 401, 'AUTH_REQUIRED', 'common.auth.sessionRequired');
+  const tripId = m[1].toLowerCase();
+  const c = contracts.get(tripId);
+  if (c === undefined || c.guest !== token) {
+    return err(res, 404, 'TRIP_NOT_FOUND', 'common.trips.notFound');
+  }
+  if (m[2] === 'help') return json(res, 200, { tripId, role: 'GUEST', help: helpView() });
+  const body = await readBody(req);
+  if (
+    body === null ||
+    typeof body.requestId !== 'string' ||
+    !/^[0-9a-f-]{36}$/.test(body.requestId) ||
+    !HELP_TOPICS.includes(body.topic)
+  ) {
+    return err(res, 400, 'REQUEST_INVALID', 'common.auth.requestInvalid');
+  }
+  if (helpRequests.has(body.requestId)) {
+    return json(res, 200, { caseId: body.requestId, outcome: 'DUPLICATE', offHours: true });
+  }
+  helpRequests.set(body.requestId, { tripId, topic: body.topic });
+  return json(res, 201, { caseId: body.requestId, outcome: 'OPENED', offHours: true });
+}
+
 // ---- Reçu du voyageur et gains de l'hôte (US-217 partie 217b) ---------------------------------
 // `GET /trips/{id}/receipt` : la partie voyageur du contrat lit le reçu de son paiement ; toute autre
 // session ⇒ 404 RECEIPT_NOT_FOUND (comme l'API). Montants FIXES de forme (le total est celui du détail
@@ -2824,6 +2884,7 @@ createServer(async (req, res) => {
   if (receiptRoute(req, res, url) !== false) return;
   if (earningsRoute(req, res, url) !== false) return;
   if ((await messagesRoute(req, res, url)) !== false) return;
+  if ((await helpRoute(req, res, url)) !== false) return;
   if (guestTripsRoute(req, res, url) !== false) return;
   if ((await checkoutRoute(req, res, path)) !== false) return;
   if ((await hostRoute(req, res, url)) !== false) return;

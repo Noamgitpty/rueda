@@ -169,6 +169,9 @@ export const TEMPLATE_KEYS = [
   'EVT_DEPOSIT_PARTIALLY_CAPTURED',
   // US-702b (08 E3 repli 4) : VOID refusé ⇒ montant bloqué jusqu'à l'expiration de l'autorisation
   'EVT_DEPOSIT_BLOCKED_UNTIL_EXPIRY',
+  // réponse automatique à une demande d'aide reçue hors plage (US-310, ADR-182)
+  'EVT_HELP_REQUEST_OFF_HOURS',
+  'EVT_HELP_REQUEST_OFF_HOURS_HOST',
 ] as const;
 export type TemplateKey = (typeof TEMPLATE_KEYS)[number];
 
@@ -395,6 +398,35 @@ export const TEMPLATES: Readonly<Record<TemplateKey, TemplateSpec>> = {
     channels: EMAIL_THEN_SMS,
     critical: false,
   },
+  // US-310 (16 SUP-004 « hors horaires, réponse automatique vers l'assistance routière de
+  // l'assureur partenaire » ; ADR-182, PROPOSÉ) : demande d'aide reçue hors de la plage publiée du
+  // support (ou plage non publiée, SUP-020) ; aucun délai promis ; urgence d'abord (SMS d'abord,
+  // e-mail en repli, message critique de trip). Voyageur : support et assistance de l'assureur ;
+  // hôte : le support (ADR-174)
+  EVT_HELP_REQUEST_OFF_HOURS: {
+    key: 'EVT_HELP_REQUEST_OFF_HOURS',
+    slug: 'helpOffHours',
+    variables: {
+      first_name: FIRST_NAME,
+      brand: BRAND,
+      booking_ref: BOOKING_REF,
+      assistance: GUEST_ASSISTANCE,
+    },
+    channels: SMS_THEN_EMAIL,
+    critical: true,
+  },
+  EVT_HELP_REQUEST_OFF_HOURS_HOST: {
+    key: 'EVT_HELP_REQUEST_OFF_HOURS_HOST',
+    slug: 'helpOffHoursHost',
+    variables: {
+      first_name: FIRST_NAME,
+      brand: BRAND,
+      booking_ref: BOOKING_REF,
+      assistance: HOST_ASSISTANCE,
+    },
+    channels: SMS_THEN_EMAIL,
+    critical: true,
+  },
 };
 
 const GUEST: RecipientSpec = { role: 'GUEST', field: 'guest_user_id' };
@@ -568,6 +600,22 @@ export const RULES: readonly RuleSpec[] = [
     condition: fieldIs('notice', 'BLOCKED_UNTIL_EXPIRY'),
     recipients: [GUEST],
     parties: TRIP_PARTIES,
+  },
+  // demande d'aide du trip (0162, US-310, ADR-182 ; PROPOSÉ, à reporter dans 17 §4.5) : case_id,
+  // trip_id, requester_user_id, requester_role, topic, off_hours, auto_reply posé par la base
+  // (GUEST ou HOST hors plage, NONE dans la plage) ; destinataire = le demandeur, dans la langue
+  // de son compte ; auto_reply absent ⇒ erreur de contrat
+  {
+    eventType: 'support.help_request.received',
+    template: 'EVT_HELP_REQUEST_OFF_HOURS',
+    condition: fieldIs('auto_reply', 'GUEST'),
+    recipients: [{ role: 'GUEST', field: 'requester_user_id' }],
+  },
+  {
+    eventType: 'support.help_request.received',
+    template: 'EVT_HELP_REQUEST_OFF_HOURS_HOST',
+    condition: fieldIs('auto_reply', 'HOST'),
+    recipients: [{ role: 'HOST', field: 'requester_user_id' }],
   },
 ];
 

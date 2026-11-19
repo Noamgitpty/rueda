@@ -24,6 +24,7 @@ import type { RiskHttpOptions } from './modules/risk/index.js';
 import {
   SupBrandConsoleModule,
   SupConsoleModule,
+  SupHelpModule,
   SupSecurityConsoleModule,
 } from './modules/sup/index.js';
 import type { SupConsoleOptions } from './modules/sup/index.js';
@@ -94,6 +95,9 @@ export class ApiModule {
         RegulatoryNoticesModule,
         SupBrandConsoleModule,
         SupSecurityConsoleModule,
+        // US-310 : aide et urgence (route publique /help ; routes du trip gardées par SessionGuard,
+        // /console/help-requests par StaffGuard) ; sans magasin, 503 (fail-closed)
+        SupHelpModule.register(sup.help),
       ],
     };
   }

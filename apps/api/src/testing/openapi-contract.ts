@@ -437,6 +437,10 @@ export const CONTRACT_SUITES: Readonly<Record<string, string>> = {
   '/trips/constancias': 'modules/ctr/testing/trip-constancia.contract.test.ts',
   // photos d'état du véhicule d'un trip (US-303, module TRP)
   '/trips/{tripId}/inspections': 'modules/trp/testing/trip-inspection.contract.test.ts',
+  // aide et urgence (US-310, module SUP) : S17 public, aide d'un trip, demande d'aide, console
+  '/help': 'modules/sup/testing/help.contract.test.ts',
+  '/trips/{tripId}/help': 'modules/sup/testing/help.contract.test.ts',
+  '/console/help-requests': 'modules/sup/testing/help.contract.test.ts',
   '/staff': 'testing/contract/staff.contract.test.ts',
   '/console': 'testing/contract/console.contract.test.ts',
   '/webhooks': 'testing/contract/webhooks.contract.test.ts',

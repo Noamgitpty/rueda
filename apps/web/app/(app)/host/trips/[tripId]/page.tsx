@@ -159,6 +159,15 @@ export default async function HostTripPage({
           )}
         </section>
       )}
+      {/* aide et urgence du trip (US-310, S17) : numéros du pays du trip, demande d'aide */}
+      <section className={styles['section']} aria-labelledby="a05-help-title">
+        <h2 id="a05-help-title" className={accountStyles['h2']}>
+          {t('web.help.trip.section')}
+        </h2>
+        <a className={styles['link']} href={`/trips/${tripId}/help`} data-testid="a05-help">
+          {t('web.help.trip.open')}
+        </a>
+      </section>
       <p className={styles['hint']}>{t('web.a05.earnings.note')}</p>
       <p className={styles['hint']}>{t('web.a05.privacy')}</p>
     </>,

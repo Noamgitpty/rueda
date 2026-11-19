@@ -2963,4 +2963,73 @@ export const EN_MESSAGES = {
   'web.s16.notice.offPlatform':
     'Remember: every payment goes through {brand}. A payment outside it has no protection or refund, and our team reviews these messages.',
   'web.s16.sent': 'Message sent.',
+  // aide et urgence pendant le trip (US-310, ADR-182, catalogue v97)
+  'web.shell.help': 'Help',
+  'web.help.title': 'Help and emergencies',
+  'web.help.lead': 'Emergency and assistance numbers are always on this page.',
+  'web.help.emergency.title': 'In an emergency',
+  'web.help.emergency.call': 'Emergency services: {number}',
+  'web.help.emergency.accident': 'After a traffic accident, also notify {authority}.',
+  'web.help.emergency.safety':
+    'If you or someone else is in danger, get to safety and call emergency services first.',
+  'web.help.roadside.title': 'Breakdown or accident',
+  'web.help.roadside.number': 'Partner insurer assistance: {number}',
+  'web.help.roadside.inApp':
+    "The partner insurer's assistance number will appear here. In the meantime, ask for help from your trip.",
+  'web.help.support.title': '{brand} support team',
+  'web.help.support.number': 'Support phone: {number}',
+  'web.help.support.inApp': 'Ask for help from your trip details: your request reaches our team.',
+  'web.help.support.hours':
+    'Real people, in Spanish and English, every day from {from} to {to} (local time).',
+  'web.help.support.noHours':
+    "If our team isn't available, you get the assistance numbers right away and we reply as soon as possible.",
+  'web.help.trips.lead': 'Have a trip? Go to your trips to ask for help with one of them.',
+  'web.help.trips.link': 'My trips',
+  'web.help.unavailable':
+    "We couldn't load the numbers. In an emergency, call local emergency services.",
+  'web.help.faq.title': 'Frequently asked questions',
+  'web.help.faq.accident.q': 'What do I do after an accident?',
+  'web.help.faq.accident.a':
+    'Get to safety and call emergency services if anyone is hurt. Notify the traffic authority and the insurer assistance, take photos and ask for help from your trip.',
+  'web.help.faq.privacy.q': 'Does support share my phone number?',
+  'web.help.faq.privacy.a':
+    'No. We never give your phone number to the other person on the trip: only message each other through {brand}.',
+  'web.help.trip.title': 'Help with this trip',
+  'web.help.trip.back': 'Back to the trip',
+  'web.help.trip.section': 'Help and emergencies',
+  'web.help.trip.open': 'Get help or see emergency numbers',
+  'web.help.request.title': 'Ask {brand} for help',
+  'web.help.request.topic': 'What is happening?',
+  'web.help.topic.ACCIDENT': 'I had an accident',
+  'web.help.topic.BREAKDOWN': 'The car broke down',
+  'web.help.topic.HANDOVER': 'Problem with the handover or the return',
+  'web.help.topic.SAFETY': 'I have a safety problem',
+  'web.help.topic.OTHER': 'Another question about this trip',
+  'web.help.request.safetyHint': 'If there is immediate danger, call emergency services first.',
+  'web.help.request.privacy':
+    'Your request only states the topic and the trip. We never share your phone number with the other person.',
+  'web.help.request.submit': 'Send request',
+  'web.help.request.topicRequired': 'Choose a topic.',
+  'web.help.request.sent': 'We received your request.',
+  'web.help.request.offHours':
+    "Our team isn't available right now: we sent you the assistance numbers and will reply as soon as possible.",
+  'web.help.request.inHours': 'Our team will review it and contact you.',
+  'web.help.request.exists':
+    'You already have an open request on this topic: our team is following it.',
+  'web.help.request.error': "We couldn't send your request. Use the numbers on this page.",
+  'common.help.unavailable':
+    "In-app help isn't available right now. In an emergency, call emergency services.",
+  'common.help.authority.attt': 'Tránsito (ATTT)',
+  'common.help.authority.caminera':
+    'the Policía Caminera or the Policía Municipal de Tránsito (PMT)',
+  'ntf.helpOffHours.email.subject': 'We received your help request ({booking_ref})',
+  'ntf.helpOffHours.email.body':
+    "Hi {first_name}. We received your help request about booking {booking_ref}. Our team isn't available right now and will reply as soon as possible. If anyone is in danger or hurt, call emergency services. {assistance}",
+  'ntf.helpOffHours.sms.body':
+    '{brand}: we received your request ({booking_ref}). We will reply as soon as possible. If in danger, call emergency services. {assistance}',
+  'ntf.helpOffHoursHost.email.subject': 'We received your help request ({booking_ref})',
+  'ntf.helpOffHoursHost.email.body':
+    "Hi {first_name}. We received your help request about booking {booking_ref}. Our team isn't available right now and will reply as soon as possible. If anyone is in danger or hurt, call emergency services. {assistance}",
+  'ntf.helpOffHoursHost.sms.body':
+    '{brand}: we received your request ({booking_ref}). We will reply as soon as possible. If in danger, call emergency services. {assistance}',
 } as const satisfies Readonly<Record<MessageKey, Message>>;

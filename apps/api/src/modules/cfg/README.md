@@ -44,6 +44,7 @@ Consommés : aucun.
 API publique (`index.ts`) :
 
 - configuration pays : `CfgModule`, `CountryConfigService`, `parseCountryConfig`, `resolveParam`, `findOptionalParam`, `isGoLiveSwitchOn`, `assertNotRetroactive`, `assertProductionReady`, `findReadinessIssues`, `runStartupChecks`, `parseRuntimeEnvironment`, contrôles tzdata, `ConfigError` et les types du modèle ;
+- aide et urgence (US-310, ADR-182) : champ `help` de chaque pays (`emergencyNumber`, `trafficAuthority`, `supportHours` : `null` ou `{ from, to, staffingPlanRef }`) dans `CountryConfigEntry` (type `HelpConfig`, `SupportHoursConfig`) ; production refusée sans plage validée (`SUPPORT_HOURS_MISSING`) ;
 - avertissements réglementaires (US-125) : `RegulatoryNoticesModule`, `RegulatoryNoticesController`, `noticeMessageKey`, `NOTICE_AUDIENCES` et les types `RegulatoryNotice`, `NoticeAudience`, `RegulatoryNoticesResponse` ;
 - socle de marque : `BrandModule`, `BrandReadService`, `BrandConsoleService`, `PgBrandStore`, `loadBrandParams`, erreurs et types.
 

@@ -220,6 +220,53 @@ describe('validation fail-closed (CONFIG_INVALID)', () => {
         }),
       /champ inconnu « hostPhone »/,
     ],
+    // US-310 (ADR-182) : aide et urgence du pays (S17), plage du support (SUP-020)
+    ['aide non déclarée', (s) => delete country(s, 'PA')['help'], /help : objet/],
+    [
+      'numéro d’urgence non numérique',
+      (s) => ((country(s, 'PY')['help'] as Record<string, unknown>)['emergencyNumber'] = '9-1-1'),
+      /help\.emergencyNumber : numéro d’urgence attendu/,
+    ],
+    [
+      'autorité de circulation mal formée',
+      (s) => ((country(s, 'PA')['help'] as Record<string, unknown>)['trafficAuthority'] = 'ATTT'),
+      /help\.trafficAuthority : identifiant camelCase attendu/,
+    ],
+    [
+      'plage du support non déclarée',
+      (s) => delete (country(s, 'PA')['help'] as Record<string, unknown>)['supportHours'],
+      /help\.supportHours : champ obligatoire/,
+    ],
+    [
+      'plage du support inversée',
+      (s) =>
+        ((country(s, 'PA')['help'] as Record<string, unknown>)['supportHours'] = {
+          from: '20:00',
+          to: '08:00',
+          staffingPlanRef: 'SUP-020',
+        }),
+      /help\.supportHours : la fermeture doit suivre/,
+    ],
+    [
+      'plage du support sans planning validé',
+      (s) =>
+        ((country(s, 'PY')['help'] as Record<string, unknown>)['supportHours'] = {
+          from: '08:00',
+          to: '20:00',
+        }),
+      /help\.supportHours\.staffingPlanRef : chaîne non vide attendue/,
+    ],
+    [
+      'plage du support : heure mal formée et champ inconnu',
+      (s) =>
+        ((country(s, 'PA')['help'] as Record<string, unknown>)['supportHours'] = {
+          from: '8h',
+          to: '20:00',
+          staffingPlanRef: 'SUP-020',
+          days: 'MON-FRI',
+        }),
+      /help\.supportHours\.from : heure locale HH:MM attendue[\s\S]*champ inconnu « days »|champ inconnu « days »[\s\S]*help\.supportHours\.from/,
+    ],
     ['champ inconnu', (s) => (country(s, 'PA')['vatRate'] = 7), /champ inconnu « vatRate »/],
     // US-104 : plan de numérotation des mobiles (OTP du téléphone)
     [
