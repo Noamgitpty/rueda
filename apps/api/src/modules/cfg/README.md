@@ -12,7 +12,7 @@ CFG ne contient aucune règle métier : il valide, charge et résout des valeurs
 
 - US-013 (ADR-024, ADR-033, ADR-049) : données `data/*.json`, validation, résolution des paramètres, interrupteurs, contrôles de démarrage et de tzdata. Détail : [`internal/README.md`](internal/README.md).
 - US-034 (ADR-036, ADR-067) : socle de marque. Détail : [`internal/brand/README.md`](internal/brand/README.md).
-- US-125 (ADR-103, PROPOSÉ) : interrupteurs de mise en service changés **seulement** par deux personnes distinctes (commandes en base `core.config_cmd_request_go_live_switch` / `core.config_cmd_approve_go_live_switch`, migration 0073, RLS-27) ; avertissements réglementaires versionnés par pays (`regulatoryNotices` de `data/countries.json`, textes `common.regulatory.*` du catalogue en es, en, fr et pt), servis par `GET /regulatory-notices?country=XX&audience=HOST|GUEST` (`internal/notices/`).
+- US-125 (ADR-103, PROPOSÉ) : interrupteurs de mise en service changés **seulement** par deux personnes distinctes (commandes en base `core.config_cmd_request_go_live_switch` / `core.config_cmd_approve_go_live_switch`, migration 0073, RLS-27 ; US-222d2, ADR-177, migration 0155 : l'approbateur n'est ni un compte lié LINKED au demandeur, ni une personne de ses comptes d'hôte, sinon `SELF_FORBIDDEN` journalisé) ; avertissements réglementaires versionnés par pays (`regulatoryNotices` de `data/countries.json`, textes `common.regulatory.*` du catalogue en es, en, fr et pt), servis par `GET /regulatory-notices?country=XX&audience=HOST|GUEST` (`internal/notices/`).
 
 ## Entités
 

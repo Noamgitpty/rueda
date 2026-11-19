@@ -1147,3 +1147,13 @@ Migration `0154_catalog_request_mode_entry`. Aucune fixture nouvelle (réglage p
 - **Recherche et zones** : corps de `core.catalog_public_search` et `core.catalog_public_areas` (0103) recopiés à signature, propriétaire et droits identiques ; seul le filtre change : `instant_book OR mode ouvert dans le pays`. Réglage faux (graine 0125, PA et PY) : résultat identique à 0103.
 - **Droits** : politique `catalog_cmd_request_mode_read` de `config_param_value` (les deux clés du mode, catalog_cmd_owner) ; EXECUTE de `core.booking_param_bool` (0126) à catalog_cmd_owner. Aucune valeur de paramètre changée : le passage du réglage à vrai est une ligne de GL-26.
 - **Preuves** : `test/l0/l0-us201-public-search.test.ts`, bloc US-223 (PA USD, PY PYG : fermé, ouvert, l'autre pays fermé, refermé ; `app_worker` et `app_anon` : 42501 ; aide interne refusée à `app_api`) ; inventaire des politiques `test/int/config-country.test.ts`.
+
+## Correctifs de la red team RLS / ex-porte LB du lot 2 (US-222, partie 222d2 ; ADR-177)
+
+Migration `0155_redteam_l2_rls_lb_fixes`. Aucune fixture nouvelle (fixtures 9700, 9955 et 9947 réutilisées).
+
+- **F-L2-LB-01** : corps de `core.settlement_cmd_approve_finance_action` (0123) recopié ; après `SELF_APPROVAL`, `SELF_FORBIDDEN` (journal `FINANCE_SELF_APPROVAL_DENIED`, raison `REQUESTER_RELATED`) si `core.support_staff_conflict(approbateur, 'USER_ACCOUNT', demandeur)` ou l'inverse : compte lié LINKED, personne des comptes d'hôte du demandeur. Toute action FINANCE ; la demande reste en attente.
+- **F-L2-LB-02** : corps de `core.config_cmd_approve_go_live_switch` (0073) recopié ; même garde, jugée à l'approbation (issue `SELF_FORBIDDEN`, journal `GO_LIVE_SELF_APPROVAL_DENIED`). Aucune valeur d'interrupteur écrite.
+- **F-L2-LB-04 et 05** : corps de `core.risk_self_booking_signal` (0093) et `core.kyc_host_identity_duplicate` (0097) recopiés ; SAME_IDENTITY = sacs de mots inclus OU même `kyc_legal_name_key` (prénoms et noms non vides), à naissance égale ; le doublon d'hôte compte les dossiers `APPROVED`, `REJECTED` et `REVOKED`. Le constat NOT_LINKED de l'ops libère, comme avant (aucun refus définitif).
+- **Droits** : EXECUTE de `core.support_staff_conflict` à `cmd_golive_owner` (liste blanche RLS-15) ; politique `risk_host_duplicate_read` élargie aux trois états. Signatures, propriétaires et `EXECUTE` des fonctions remplacées inchangés.
+- **Preuves** : `test/redteam/l2/rt-l2-lb-02-separation.test.ts` (F-L2-LB-01 et 02 inversés ; DECIDE_ADVANCE et WRITE_OFF_RECEIVABLE ; chemins légitimes, NOT_LINKED), `test/redteam/l2/rt-l2-s01-suites.test.ts` (F-L2-LB-04 et 05 inversés ; homonymes réels non bloqués) — PA USD, PY PYG, rôles de production, transactions annulées.

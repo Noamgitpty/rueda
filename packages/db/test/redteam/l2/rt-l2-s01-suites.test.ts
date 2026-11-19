@@ -15,7 +15,10 @@
  *
  * Constats (`it.fails` documentés, docs/team/redteam/L2-rls-lb.md) : F-L2-LB-04 (N-114, nom à un
  * seul mot : jumeau non lié, auto-réservation admise) et F-L2-LB-05 (N-118, dossier d'hôte REJETÉ :
- * le même titulaire, sous un second compte, est approuvé).
+ * le même titulaire, sous un second compte, est approuvé). CORRIGÉS par US-222d2 (migration 0155,
+ * ADR-177) : chaque `it.fails` est inversé en `it`, attaque et attentes inchangées ; le chemin
+ * légitime est prouvé (homonyme réel d'une autre naissance, ou constaté NOT_LINKED par l'ops, non
+ * bloqué ; jumeau d'un dossier REJETÉ libéré par le constat NOT_LINKED).
  */
 import { randomUUID } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
@@ -89,7 +92,7 @@ async function twins(
   holder: { given: string; last: string },
   twin: { given: string; last: string },
   birth: string,
-): Promise<{ org: string; vehicle: string; twin: string }> {
+): Promise<{ org: string; vehicle: string; twin: string; holder: string }> {
   const org = uuid();
   const vehicle = uuid();
   const h = await tx.query<{ h: string }>('SELECT test_fixture.create_org($1, $2, $3) AS h', [
@@ -102,7 +105,7 @@ async function twins(
   const second = uuid();
   await tx.query('SELECT test_fixture.ensure_party($1, NULL, NULL)', [second]);
   await verify(tx, second, cc, twin.given, twin.last, birth);
-  return { org, vehicle, twin: second };
+  return { org, vehicle, twin: second, holder: h.rows[0]!.h };
 }
 
 /** Noms à un seul mot distinct de deux lettres ou plus (revues de la PR #146, N-114). */
@@ -147,19 +150,32 @@ describe.each(byCountry)(
         });
       });
 
-      // F-L2-LB-04 (moyenne, PROPOSÉE ; N-114) : garder aussi l'égalité de la clé de nom normalisée
-      // (`kyc_legal_name_key`, OU avec l'inclusion des sacs) à date de naissance égale. Signal attendu
-      // après correction : SELF_BOOKING_FORBIDDEN, aucun hold.
-      it.fails(
-        `F-L2-LB-04 — ${m.label} : le jumeau de même naissance est reconnu (SELF_BOOKING_FORBIDDEN)`,
-        async () => {
-          await rolledBack(async (tx) => {
-            const birth = birthOf(21 + byCountry.findIndex(([c]) => c === country));
-            const w = await twins(tx, cc, m.holder, m.twin, birth);
-            expect(await pose(tx, w.twin, w.vehicle, w.org)).toBe('SELF_BOOKING_FORBIDDEN');
-          });
-        },
-      );
+      // F-L2-LB-04 (faible, PROPOSÉE ; N-114 ; CORRIGÉ par US-222d2, `it.fails` inversé en `it`) :
+      // garder aussi l'égalité de la clé de nom normalisée (`kyc_legal_name_key`, OU avec l'inclusion
+      // des sacs) à date de naissance égale. Signal attendu après correction : SELF_BOOKING_FORBIDDEN,
+      // aucun hold.
+      it(`F-L2-LB-04 — ${m.label} : le jumeau de même naissance est reconnu (SELF_BOOKING_FORBIDDEN)`, async () => {
+        await rolledBack(async (tx) => {
+          const birth = birthOf(21 + byCountry.findIndex(([c]) => c === country));
+          const w = await twins(tx, cc, m.holder, m.twin, birth);
+          expect(await pose(tx, w.twin, w.vehicle, w.org)).toBe('SELF_BOOKING_FORBIDDEN');
+        });
+      });
+
+      it(`chemin légitime (US-222d2) — ${m.label} : homonyme d’une autre naissance ⇒ OK ; homonyme de même naissance constaté NOT_LINKED par l’ops ⇒ OK (jamais bloqué sans revue humaine)`, async () => {
+        await rolledBack(async (tx) => {
+          const birth = birthOf(31 + byCountry.findIndex(([c]) => c === country));
+          const w = await twins(tx, cc, m.holder, m.twin, birth);
+          const other = uuid();
+          await tx.query('SELECT test_fixture.ensure_party($1, NULL, NULL)', [other]);
+          await verify(tx, other, cc, m.twin.given, m.twin.last, '1990-04-13');
+          expect(await pose(tx, other, w.vehicle, w.org)).toBe('OK');
+          expect(
+            (await decideLink(tx, null, w.twin, w.holder, 'NOT_LINKED', 'SAME_IDENTITY')).outcome,
+          ).toBe('RECORDED');
+          expect(await pose(tx, w.twin, w.vehicle, w.org)).toBe('OK');
+        });
+      });
     }
   },
 );
@@ -274,24 +290,39 @@ describe.each(byCountry)('N-118 rejouée — doublon d’identité d’hôte (%s
     });
   });
 
-  // F-L2-LB-05 (moyenne, PROPOSÉE ; N-118) : un dossier d'hôte REJETÉ (ou REVOKED) du même titulaire
-  // compte comme un doublon : le second dossier part en revue de l'ops (constat de comptes liés).
-  // Signal attendu après correction : REFUSED / HOST_IDENTITY_DUPLICATE, second dossier IN_REVIEW.
-  it.fails(
-    'F-L2-LB-05 — dossier du premier REJETÉ : le jumeau n’est pas approuvé (HOST_IDENTITY_DUPLICATE), il reste en revue',
-    async () => {
-      await rolledBack(async (tx) => {
-        await installTestProofKey(tx);
-        const agent = await ops(tx, 'OPS_AGENT', [country]);
-        const a = await readyHost(tx, country, 'CLEAR');
-        const b = await readyHost(tx, country, 'CLEAR');
-        expect((await decision(tx, agent, a.org, 'REJECTED')).outcome).toBe('DONE');
-        expect(await decision(tx, agent, b.org, 'APPROVED')).toMatchObject({
-          outcome: 'REFUSED',
-          detail: 'HOST_IDENTITY_DUPLICATE',
-        });
-        expect((await hostState(tx, b))['verification_status']).toBe('IN_REVIEW');
+  // F-L2-LB-05 (moyenne, PROPOSÉE ; N-118 ; CORRIGÉ par US-222d2, `it.fails` inversé en `it`) : un
+  // dossier d'hôte REJETÉ (ou REVOKED) du même titulaire compte comme un doublon : le second dossier
+  // part en revue de l'ops (constat de comptes liés). Signal attendu après correction : REFUSED /
+  // HOST_IDENTITY_DUPLICATE, second dossier IN_REVIEW.
+  it('F-L2-LB-05 — dossier du premier REJETÉ : le jumeau n’est pas approuvé (HOST_IDENTITY_DUPLICATE), il reste en revue', async () => {
+    await rolledBack(async (tx) => {
+      await installTestProofKey(tx);
+      const agent = await ops(tx, 'OPS_AGENT', [country]);
+      const a = await readyHost(tx, country, 'CLEAR');
+      const b = await readyHost(tx, country, 'CLEAR');
+      expect((await decision(tx, agent, a.org, 'REJECTED')).outcome).toBe('DONE');
+      expect(await decision(tx, agent, b.org, 'APPROVED')).toMatchObject({
+        outcome: 'REFUSED',
+        detail: 'HOST_IDENTITY_DUPLICATE',
       });
-    },
-  );
+      expect((await hostState(tx, b))['verification_status']).toBe('IN_REVIEW');
+    });
+  });
+
+  it('chemin légitime (US-222d2) — dossier du premier REJETÉ, puis constat NOT_LINKED de l’ops entre les deux titulaires (deux personnes) : le second dossier est approuvé', async () => {
+    await rolledBack(async (tx) => {
+      await installTestProofKey(tx);
+      const agent = await ops(tx, 'OPS_AGENT', [country]);
+      const a = await readyHost(tx, country, 'CLEAR');
+      const b = await readyHost(tx, country, 'CLEAR');
+      expect((await decision(tx, agent, a.org, 'REJECTED')).outcome).toBe('DONE');
+      expect(await decision(tx, agent, b.org, 'APPROVED')).toMatchObject({
+        detail: 'HOST_IDENTITY_DUPLICATE',
+      });
+      expect(
+        (await decideLink(tx, null, a.userId, b.userId, 'NOT_LINKED', 'SAME_IDENTITY')).outcome,
+      ).toBe('RECORDED');
+      expect((await decision(tx, agent, b.org, 'APPROVED')).outcome).toBe('DONE');
+    });
+  });
 });
