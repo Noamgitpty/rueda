@@ -10,7 +10,7 @@
  * = `Lock`), jamais supposée par un délai. Une connexion par client, toujours libérée.
  *
  * Fichier ISOLÉ (`vitest.l0.config.ts`, projet `l0-concurrence`) : la caution de la fixture 9945
- * (`us701_converted_deposit`, rail a) est validée (COMMIT), puis toujours menée à un état FINAL :
+ * (`us701_converted_deposit`, rail a), avec sa disposition CONVERSION (fixture 9932), est validée (COMMIT), puis toujours menée à un état FINAL :
  * aucune caution de ce fichier ne reste dans une file. Aucun interrupteur de mise en service écrit.
  *
  * Sous app_worker (rôle de PRODUCTION, assertion L0-05 : withRole / connectAs), en USD (PA) et en
@@ -67,6 +67,10 @@ async function setup(cc: CountryCase): Promise<{ deposit: string; amount: bigint
           `fake-${uuid()}`,
         ],
       );
+      // disposition CONVERSION exigée au COMMIT (contrainte différée de 0006)
+      await tx.query('SELECT test_fixture.us702b_conversion_disposition($1)', [
+        rows[0]!['hold_id'],
+      ]);
       return String(rows[0]!['deposit_id']);
     }),
   );
