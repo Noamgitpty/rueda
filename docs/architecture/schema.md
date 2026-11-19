@@ -7,7 +7,7 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 
 ## Synthèse
 
-- 162 migrations ; 140 tables ; 3 vues ; 793 politiques RLS ; 318 fonctions `SECURITY DEFINER` ; 270 autres fonctions.
+- 163 migrations ; 140 tables ; 3 vues ; 795 politiques RLS ; 321 fonctions `SECURITY DEFINER` ; 270 autres fonctions.
 - Tables sans RLS `ENABLE` + `FORCE` : aucune.
 - Rôles applicatifs avec `SUPERUSER` ou `BYPASSRLS` : aucun.
 
@@ -177,6 +177,7 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 | `0159_payout_payout_account` | PYO : compte de versement vérifié de l'hôte (`payout_account`). |
 | `0160_config_payout_account_params` | graine complémentaire : paramètres « payout_account_rails* » (US-707 ; 17 §7.2). |
 | `0161_messaging_trip_threads` | MSG : messagerie par trip entre le voyageur et l'hôte, masquage des coordonnées et |
+| `0162_support_help_request` | SUP : demande d'aide pendant le trip (voyageur ou hôte), réponse automatique hors plage |
 
 ## Rôles
 
@@ -4420,6 +4421,7 @@ Politiques RLS :
 - `cmd_param_event_ins` (INSERT, PERMISSIVE, cmd_param_owner) WITH CHECK `((type = 'config.param.changed'::text) AND (aggregate_type = 'param_value'::text) AND (actor_role = ANY (ARRAY['ADMIN'::text, 'SUPERADMIN'::text])) AND (actor_user_id IS NOT NULL))`
 - `cmd_trip_event_ins` (INSERT, PERMISSIVE, cmd_hold_owner) WITH CHECK `((aggregate_type = 'trip'::text) AND (type = ANY (ARRAY['trip.status_changed'::text, 'trip.cancellation.qualified'::text])) AND (actor_role = 'SYSTEM'::text) AND (actor_user_id IS NULL))`
 - `iam_auth_otp_event_ins` (INSERT, PERMISSIVE, iam_auth_owner) WITH CHECK `((((type = 'iam.otp.requested'::text) AND (aggregate_type = 'otp_challenge'::text)) OR ((type = 'iam.phone.verified'::text) AND (aggregate_type = 'user_account'::text))) AND (actor_role = 'GUEST'::text) AND (actor_user_id IS NOT NULL))`
+- `iam_staff_help_event` (INSERT, PERMISSIVE, iam_staff_owner) WITH CHECK `((type = 'support.help_request.received'::text) AND (aggregate_type = 'support_case'::text) AND (actor_user_id IS NOT NULL) AND (actor_role = ANY (ARRAY['GUEST'::text, 'HOST'::text])))`
 - `iam_staff_incident_event` (INSERT, PERMISSIVE, iam_staff_owner) WITH CHECK `((type = 'security.incident.opened'::text) AND (aggregate_type = 'security_incident'::text) AND (actor_user_id IS NOT NULL) AND (actor_role = ANY (ARRAY['OPS_AGENT'::text, 'ADMIN'::text, 'SUPERADMIN'::text])))`
 - `iam_staff_sla_event` (INSERT, PERMISSIVE, iam_staff_owner) WITH CHECK `((type = 'support.review_queue.sla_breached'::text) AND (aggregate_type = 'review_queue_item'::text) AND (actor_role = 'SYSTEM'::text))`
 - `kyc_cmd_event_ins` (INSERT, PERMISSIVE, kyc_cmd_owner) WITH CHECK `((((type = 'kyc.verification.status_changed'::text) AND (aggregate_type = 'identity_verification'::text)) OR ((type = 'kyc.consent.withdrawn'::text) AND (aggregate_type = 'user_account'::text))) AND (actor_role = ANY (ARRAY['GUEST'::text, 'SYSTEM'::text])))`
@@ -6733,6 +6735,11 @@ Déclencheurs :
 | `updated_at` | `timestamp with time zone` | oui | `platform.now()` |
 | `updated_by` | `uuid` | non | — |
 | `row_version` | `integer` | oui | `0` |
+| `help_topic` | `text` | non | — |
+| `requester_role` | `text` | non | — |
+| `off_hours` | `boolean` | non | — |
+| `first_response_at` | `timestamp with time zone` | non | — |
+| `resolved_at` | `timestamp with time zone` | non | — |
 
 Contraintes :
 
@@ -6740,7 +6747,12 @@ Contraintes :
 - `support_case_category_valid` : `CHECK (category = ANY (ARRAY['TRIP'::text, 'PAYMENT'::text, 'ACCOUNT'::text, 'LISTING'::text, 'CLAIM'::text, 'SAFETY'::text, 'OTHER'::text, 'BREAK_GLASS'::text]))`
 - `support_case_channel_valid` : `CHECK (channel = ANY (ARRAY['WHATSAPP'::text, 'EMAIL'::text, 'PHONE'::text, 'IN_APP'::text, 'INTERNAL'::text]))`
 - `support_case_country_format` : `CHECK (country_code ~ '^[A-Z]{2}$'::text)`
+- `support_case_first_response_after` : `CHECK (first_response_at IS NULL OR first_response_at >= created_at)`
+- `support_case_help_shape` : `CHECK (help_topic IS NULL AND requester_role IS NULL AND off_hours IS NULL OR help_topic IS NOT NULL AND requester_role IS NOT NULL AND off_hours IS NOT NULL AND trip_id IS NOT NULL AND requester_user_id IS NOT NULL AND channel = 'IN_APP'::text AND (category = ANY (ARRAY['TRIP'::text, 'SAFETY'::text])))`
+- `support_case_help_topic_valid` : `CHECK (help_topic = ANY (ARRAY['ACCIDENT'::text, 'BREAKDOWN'::text, 'HANDOVER'::text, 'SAFETY'::text, 'OTHER'::text]))`
 - `support_case_priority_valid` : `CHECK (priority = ANY (ARRAY['LOW'::text, 'NORMAL'::text, 'HIGH'::text, 'URGENT'::text]))`
+- `support_case_requester_role_valid` : `CHECK (requester_role = ANY (ARRAY['GUEST'::text, 'HOST'::text]))`
+- `support_case_resolved_after` : `CHECK (resolved_at IS NULL OR resolved_at >= created_at)`
 - `support_case_status_valid` : `CHECK (status = ANY (ARRAY['OPEN'::text, 'PENDING'::text, 'RESOLVED'::text, 'CLOSED'::text]))`
 - `support_case_trip_country_fk` : `FOREIGN KEY (trip_id, country_code) REFERENCES core.booking_trip(id, country_code)`
 - `support_support_case_assignee_id_fkey` : `FOREIGN KEY (assignee_id) REFERENCES core.iam_user_account(id)`
@@ -6749,10 +6761,13 @@ Contraintes :
 
 Index :
 
+- `support_case_help_country_idx` : `CREATE INDEX support_case_help_country_idx ON core.support_support_case USING btree (country_code, created_at) WHERE (help_topic IS NOT NULL)`
+- `support_case_help_live_unique` : `CREATE UNIQUE INDEX support_case_help_live_unique ON core.support_support_case USING btree (requester_user_id, trip_id, help_topic) WHERE ((help_topic IS NOT NULL) AND (status = ANY (ARRAY['OPEN'::text, 'PENDING'::text])))`
 - `support_case_trip_assignee_idx` : `CREATE INDEX support_case_trip_assignee_idx ON core.support_support_case USING btree (trip_id, assignee_id) WHERE (status = ANY (ARRAY['OPEN'::text, 'PENDING'::text]))`
 
 Politiques RLS :
 
+- `iam_staff_help_insert` (INSERT, PERMISSIVE, iam_staff_owner) WITH CHECK `((help_topic IS NOT NULL) AND (channel = 'IN_APP'::text) AND (status = 'OPEN'::text) AND (assignee_id IS NULL) AND (reason IS NULL) AND (category <> 'BREAK_GLASS'::text))`
 - `iam_staff_insert` (INSERT, PERMISSIVE, iam_staff_owner) WITH CHECK `((category <> 'BREAK_GLASS'::text) AND (status = 'OPEN'::text) AND (trip_id IS NULL) AND (reason IS NULL))`
 - `iam_staff_select` (SELECT, PERMISSIVE, iam_staff_owner) USING `true`
 - `iam_staff_update` (UPDATE, PERMISSIVE, iam_staff_owner) USING `(category <> 'BREAK_GLASS'::text)` WITH CHECK `(category <> 'BREAK_GLASS'::text)`
@@ -7164,7 +7179,7 @@ Chacune a un propriétaire `NOLOGIN` dédié (ADR-053) et un `search_path` figé
 | `core.iam_manual_action_restriction(p_token_hash bytea, p_action_id uuid, p_action_code text, p_subject_id uuid, p_input jsonb, p_reason text, p_actor uuid, p_actor_role text)` | `TABLE(outcome text, ref_id uuid, emitted_event_ids uuid[])` | `iam_auth_owner` | search_path=pg_catalog, pg_temp | iam_auth_owner: EXECUTE ; iam_staff_owner: EXECUTE |
 | `core.iam_notification_contact(p_user_id uuid)` | `TABLE(email text, phone_e164 text, preferred_locale text, first_name text)` | `iam_auth_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; iam_auth_owner: EXECUTE |
 | `core.iam_phone_otp_state(p_token_hash bytea)` | `TABLE(outcome text, verified_phone text, pending_phone text, resend_after_s integer, expires_in_s integer, locked_for_s integer, attempts_left integer)` | `iam_auth_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; iam_auth_owner: EXECUTE |
-| `core.iam_session_resolve(p_token_hash bytea)` | `TABLE(session_id uuid, user_id uuid, mfa_level text, expires_at timestamp with time zone, email_verified boolean)` | `iam_auth_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; catalog_cmd_owner: EXECUTE ; cmd_hold_owner: EXECUTE ; cmd_money_owner: EXECUTE ; iam_auth_owner: EXECUTE ; kyc_cmd_owner: EXECUTE ; messaging_cmd_owner: EXECUTE |
+| `core.iam_session_resolve(p_token_hash bytea)` | `TABLE(session_id uuid, user_id uuid, mfa_level text, expires_at timestamp with time zone, email_verified boolean)` | `iam_auth_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; catalog_cmd_owner: EXECUTE ; cmd_hold_owner: EXECUTE ; cmd_money_owner: EXECUTE ; iam_auth_owner: EXECUTE ; iam_staff_owner: EXECUTE ; kyc_cmd_owner: EXECUTE ; messaging_cmd_owner: EXECUTE |
 | `core.iam_staff_audit_read(p_token_hash bytea, p_before_id bigint, p_limit integer)` | `TABLE(id bigint, at timestamp with time zone, actor_user_id uuid, actor_role text, action_code text, subject_type text, subject_id uuid, reason text, before jsonb, after jsonb)` | `iam_staff_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; iam_staff_owner: EXECUTE |
 | `core.iam_staff_cmd_begin(p_token_hash bytea)` | `TABLE(outcome text, user_id uuid, factor_id uuid, roles jsonb)` | `iam_staff_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; iam_staff_owner: EXECUTE |
 | `core.iam_staff_cmd_data_access(p_token_hash bytea, p_request_id uuid, p_case_id uuid, p_subject_type text, p_subject_id uuid, p_field_or_file text, p_access_kind text, p_purpose text)` | `TABLE(outcome text, access_id uuid)` | `iam_staff_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; iam_staff_owner: EXECUTE |
@@ -7282,6 +7297,7 @@ Chacune a un propriétaire `NOLOGIN` dédié (ADR-053) et un `search_path` figé
 | `core.settlement_post_insurer_variation()` | `trigger` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | cmd_money_owner: EXECUTE |
 | `core.settlement_staff_cancellation_summary(p_settlement_id uuid)` | `jsonb` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | cmd_money_owner: EXECUTE ; iam_staff_owner: EXECUTE |
 | `core.support_close_review_item(p_item_id uuid, p_status text, p_decision text, p_actor uuid)` | `TABLE(outcome text, item_id uuid)` | `iam_staff_owner` | search_path=pg_catalog, pg_temp | cmd_hold_owner: EXECUTE ; iam_staff_owner: EXECUTE ; kyc_cmd_owner: EXECUTE |
+| `core.support_cmd_open_help_request(p_token_hash bytea, p_request_id uuid, p_trip_id uuid, p_topic text, p_support_hours jsonb)` | `TABLE(outcome text, case_id uuid, off_hours boolean, requester_role text, country_code text)` | `iam_staff_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; iam_staff_owner: EXECUTE |
 | `core.support_enqueue_review(p_queue text, p_subject_type text, p_subject_id uuid, p_country text, p_actor uuid)` | `TABLE(outcome text, item_id uuid)` | `iam_staff_owner` | search_path=pg_catalog, pg_temp | catalog_cmd_owner: EXECUTE ; cmd_hold_owner: EXECUTE ; iam_staff_owner: EXECUTE ; kyc_cmd_owner: EXECUTE ; messaging_cmd_owner: EXECUTE |
 | `core.support_manual_action_finance_request(p_token_hash bytea, p_action_id uuid, p_action_code text, p_subject_id uuid, p_input jsonb, p_reason text, p_actor uuid, p_actor_role text)` | `TABLE(outcome text, ref_id uuid, emitted_event_ids uuid[])` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | cmd_money_owner: EXECUTE ; iam_staff_owner: EXECUTE |
 | `core.support_staff_add_note(p_token_hash bytea, p_request_id uuid, p_user_id uuid, p_body text)` | `TABLE(outcome text, body jsonb)` | `iam_staff_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; iam_staff_owner: EXECUTE |
@@ -7294,6 +7310,7 @@ Chacune a un propriétaire `NOLOGIN` dédié (ADR-053) et un `search_path` figé
 | `core.support_staff_decide_vehicle_eligibility(p_token_hash bytea, p_request_id uuid, p_item_id uuid, p_checklist jsonb, p_documents jsonb)` | `TABLE(outcome text, body jsonb)` | `iam_staff_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; iam_staff_owner: EXECUTE |
 | `core.support_staff_evidence_permitted(p_token_hash bytea, p_request_id uuid, p_subject_user uuid)` | `TABLE(outcome text, body jsonb)` | `iam_staff_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; iam_staff_owner: EXECUTE |
 | `core.support_staff_find_user(p_token_hash bytea, p_request_id uuid, p_email text, p_purpose text)` | `TABLE(outcome text, body jsonb)` | `iam_staff_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; iam_staff_owner: EXECUTE |
+| `core.support_staff_help_requests(p_token_hash bytea, p_country text, p_limit integer)` | `TABLE(outcome text, body jsonb)` | `iam_staff_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; iam_staff_owner: EXECUTE |
 | `core.support_staff_host_dossier(p_token_hash bytea, p_request_id uuid, p_item_id uuid, p_purpose text)` | `TABLE(outcome text, body jsonb)` | `iam_staff_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; iam_staff_owner: EXECUTE |
 | `core.support_staff_kyc_dossier(p_token_hash bytea, p_request_id uuid, p_item_id uuid, p_purpose text)` | `TABLE(outcome text, body jsonb)` | `iam_staff_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; iam_staff_owner: EXECUTE |
 | `core.support_staff_open_case(p_token_hash bytea, p_request_id uuid, p_requester uuid, p_category text, p_priority text, p_channel text)` | `TABLE(outcome text, body jsonb)` | `iam_staff_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; iam_staff_owner: EXECUTE |
@@ -7307,6 +7324,7 @@ Chacune a un propriétaire `NOLOGIN` dédié (ADR-053) et un `search_path` figé
 | `core.support_staff_vehicle_claim(p_token_hash bytea, p_request_id uuid, p_item_id uuid, p_purpose text)` | `TABLE(outcome text, body jsonb)` | `iam_staff_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; iam_staff_owner: EXECUTE |
 | `core.support_staff_vehicle_eligibility(p_token_hash bytea, p_request_id uuid, p_item_id uuid, p_purpose text)` | `TABLE(outcome text, body jsonb)` | `iam_staff_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; iam_staff_owner: EXECUTE |
 | `core.support_staff_vehicle_file(p_token_hash bytea, p_request_id uuid, p_item_id uuid, p_subject_type text, p_file_id uuid, p_purpose text)` | `TABLE(outcome text, body jsonb)` | `iam_staff_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; iam_staff_owner: EXECUTE |
+| `core.support_trip_help_context(p_token_hash bytea, p_trip_id uuid)` | `TABLE(outcome text, requester_role text, country_code text)` | `iam_staff_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; iam_staff_owner: EXECUTE |
 | `core.support_worker_review_sla(p_batch integer)` | `TABLE(queue text, country_code text, breached integer)` | `iam_staff_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; iam_staff_owner: EXECUTE |
 | `core.trip_cmd_add_inspection_photo(p_token_hash bytea, p_trip_id uuid, p_kind text, p_capture_id uuid, p_slot text, p_file_id uuid, p_mime text, p_bytes bigint, p_sha256 bytea, p_device_captured_at timestamp with time zone)` | `TABLE(outcome text, storage_key text, received_at timestamp with time zone)` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; cmd_hold_owner: EXECUTE |
 | `core.trip_cmd_open_photo_capture(p_token_hash bytea, p_trip_id uuid, p_kind text, p_slot text)` | `TABLE(outcome text, capture_id uuid, expires_at timestamp with time zone)` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; cmd_hold_owner: EXECUTE |
