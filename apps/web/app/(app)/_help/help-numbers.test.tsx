@@ -15,7 +15,12 @@ import { embeddedBrand } from '../../../brand-source.ts';
 import { LOCALE_CONFIG } from '../../../locale-config.ts';
 import { HelpNumbers } from './help-numbers.tsx';
 
-const NAMES = { es: 'Tierra de prueba', en: 'Test country', fr: 'Pays de test', pt: 'Terra de teste' };
+const NAMES = {
+  es: 'Tierra de prueba',
+  en: 'Test country',
+  fr: 'Pays de test',
+  pt: 'Terra de teste',
+};
 const raw = (over: Record<string, unknown> = {}) => ({
   country: 'ZZ',
   names: NAMES,
