@@ -16,29 +16,29 @@
 
 19 v3 §3.4 et §7 (`L3 21 stories 110 pts`, vérifié dans la sortie de `check_backlog.py` reproduite au §7) : **21 stories, 110 points**.
 
-| Story  | Objet (court)                                                                      | Points | Dépendances (toutes fusionnées sauf mention)                                    |
-| ------ | ---------------------------------------------------------------------------------- | -----: | ------------------------------------------------------------------------------- |
-| US-303 | Capture photo guidée, horodatage serveur, empreintes                               |      5 | US-026, US-020, US-009, US-032                                                  |
-| US-315 | Remise et retour entre particuliers : rendez-vous, identité, photos des deux côtés |     13 | **US-303**, US-223, US-211, US-225, US-062                                      |
-| US-305 | Détection automatique des retards                                                  |      3 | **US-315**, US-110                                                              |
-| US-306 | Escalade de non-restitution et vue des retards                                     |      2 | **US-305**, US-101                                                              |
-| US-307 | No-show et refus du véhicule                                                       |      5 | US-215, **US-315**, US-224                                                      |
-| US-308 | Dossier de preuve exportable par trip                                              |      5 | **US-303**, US-211, US-111                                                      |
-| US-309 | Dommages, incidents et décisions                                                   |      5 | **US-308**, US-101, US-227                                                      |
-| US-310 | Aide, urgence et support                                                           |      3 | US-213, US-021                                                                  |
-| US-525 | Messagerie par trip et détection du marché gris                                    |      8 | US-214, US-021                                                                  |
-| US-316 | Messagerie : confidentialité, rendez-vous, rétention                               |      3 | **US-525**, US-062, US-111                                                      |
-| US-317 | Avis réciproques en double aveugle                                                 |      5 | US-218, **US-315**, US-021                                                      |
-| US-703 | Carte enregistrée, MIT et débits post-trip                                         |      8 | US-223, **US-315**                                                              |
-| US-706 | Frais annexes : paiement ou contestation                                           |      5 | **US-309**, **US-703**                                                          |
-| US-707 | Compte de versement vérifié de l'hôte                                              |      3 | US-123, US-061                                                                  |
-| US-708 | Versements aux hôtes depuis la jambe `HOST`                                        |      8 | **US-707**, US-018, US-223                                                      |
-| US-709 | Grand livre de l'hôte, chargebacks, solde négatif (709a fusionnée au lot 2)        |      8 | **US-708**, US-224                                                              |
-| US-314 | Versements fermés par pays, `ON_HOLD`, gel en litige, ajustements                  |      5 | **US-708**, **US-709**, US-125                                                  |
-| US-318 | Sinistres entre particuliers : vol, accident, amendes, péages, fourrière           |      5 | **US-306**, **US-309**, **US-703**                                              |
-| US-311 | Vues de la bêta, KPI de sortie, rapprochement par jambe                            |      3 | US-217, **US-305**                                                              |
-| US-312 | Parcours dorés « trip complet » PA et PY                                           |      5 | US-221, **US-307**, **US-308**, **US-314**                                      |
-| US-313 | Porte du lot 3 (cette story)                                                       |      3 | toutes les précédentes (US-303, US-315, US-307, US-308, US-312, US-709, US-314) |
+| Story  | Objet (court)                                                                      | Points | Dépendances (toutes fusionnées sauf mention)                                            |
+| ------ | ---------------------------------------------------------------------------------- | -----: | --------------------------------------------------------------------------------------- |
+| US-303 | Capture photo guidée, horodatage serveur, empreintes                               |      5 | US-026, US-020, US-009, US-032                                                          |
+| US-315 | Remise et retour entre particuliers : rendez-vous, identité, photos des deux côtés |     13 | **US-303**, US-223, US-211, US-225, US-062                                              |
+| US-305 | Détection automatique des retards                                                  |      3 | **US-315**, US-110                                                                      |
+| US-306 | Escalade de non-restitution et vue des retards                                     |      2 | **US-305**, US-101                                                                      |
+| US-307 | No-show et refus du véhicule                                                       |      5 | US-215, **US-315**, US-224                                                              |
+| US-308 | Dossier de preuve exportable par trip                                              |      5 | **US-303**, US-211, US-111                                                              |
+| US-309 | Dommages, incidents et décisions                                                   |      5 | **US-308**, US-101, US-227                                                              |
+| US-310 | Aide, urgence et support                                                           |      3 | US-213, US-021                                                                          |
+| US-525 | Messagerie par trip et détection du marché gris                                    |      8 | US-214, US-021                                                                          |
+| US-316 | Messagerie : confidentialité, rendez-vous, rétention                               |      3 | **US-525**, US-062, US-111                                                              |
+| US-317 | Avis réciproques en double aveugle                                                 |      5 | US-218, **US-315**, US-021                                                              |
+| US-703 | Carte enregistrée, MIT et débits post-trip                                         |      8 | US-223, **US-315**                                                                      |
+| US-706 | Frais annexes : paiement ou contestation                                           |      5 | **US-309**, **US-703**                                                                  |
+| US-707 | Compte de versement vérifié de l'hôte                                              |      3 | US-123, US-061                                                                          |
+| US-708 | Versements aux hôtes depuis la jambe `HOST`                                        |      8 | **US-707**, US-018, US-223                                                              |
+| US-709 | Grand livre de l'hôte, chargebacks, solde négatif (709a fusionnée au lot 2)        |      8 | **US-708**, US-224                                                                      |
+| US-314 | Versements fermés par pays, `ON_HOLD`, gel en litige, ajustements                  |      5 | **US-708**, **US-709**, US-125                                                          |
+| US-318 | Sinistres entre particuliers : vol, accident, amendes, péages, fourrière           |      5 | **US-306**, **US-309**, **US-703**                                                      |
+| US-311 | Vues de la bêta, KPI de sortie, rapprochement par jambe                            |      3 | US-217, **US-305**                                                                      |
+| US-312 | Parcours dorés « trip complet » PA et PY                                           |      5 | US-221, **US-307**, **US-308**, **US-314**                                              |
+| US-313 | Porte du lot 3 (cette story)                                                       |      3 | **US-303**, **US-315**, **US-307**, **US-308**, **US-312**, **US-709**, **US-314** (19) |
 
 Total : 5 + 13 + 3 + 2 + 5 + 5 + 5 + 3 + 8 + 3 + 5 + 8 + 5 + 3 + 8 + 8 + 5 + 5 + 3 + 5 + 3 = **110 points**. Hors produit : US-301, US-302, US-304 (19 §3.9). Hors total du lot 3 : US-535a (PR #262, N-411), qui donne la voie revue de changement d'un paramètre dont dépend L3-PM-44.
 
