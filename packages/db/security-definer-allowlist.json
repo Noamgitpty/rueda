@@ -590,6 +590,13 @@
       "story": "US-061, US-223"
     },
     {
+      "signature": "core.settlement_cmd_apply_conversion_capture(uuid)",
+      "family": "cmd_money",
+      "owner": "cmd_money_owner",
+      "execute": ["app_worker"],
+      "story": "US-221"
+    },
+    {
       "signature": "core.settlement_cmd_approve_finance_action(bytea,uuid)",
       "family": "cmd_money",
       "owner": "cmd_money_owner",
