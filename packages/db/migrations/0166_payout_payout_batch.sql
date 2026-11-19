@@ -424,11 +424,14 @@ CREATE TRIGGER trip_leg_balance_release_at_guard
 -- (lot READY, clé `release:{trip}:1:HOST:i{n}`, rang n = rang de l'item + 1, montant de l'item) et
 -- y est rattaché. Trigger d'instruction AFTER INSERT des jambes, nommé pour passer AVANT la garde
 -- `payment_operation_leg_release_guard` de 0054 (ordre alphabétique) : un ordre hors lot (preuves
--- de 0054, S-04) garde le seul refus de 0054 / 0123. SECURITY INVOKER : l'écrivain est la
--- commande `payment_cmd_record_operation` (cmd_money_owner, payment_command).
+-- de 0054, S-04) garde le seul refus de 0054 / 0123. SECURITY DEFINER sous cmd_money_owner, aucun
+-- EXECUTE (comme le gel de 0155) : d'autres propriétaires insèrent des jambes (encaissement,
+-- caution) avec des droits de colonnes restreints sur `payment_payment_operation` ; seul un ordre
+-- LEG_RELEASE (commande de payment_command) atteint les lots.
 CREATE FUNCTION core.payout_release_item_guard()
   RETURNS trigger
   LANGUAGE plpgsql
+  SECURITY DEFINER
   SET search_path = pg_catalog, pg_temp
 AS $fn$
 DECLARE
@@ -1239,4 +1242,5 @@ ALTER FUNCTION core.payout_cmd_recheck_batch(uuid) OWNER TO cmd_money_owner;
 ALTER FUNCTION core.payout_release_items(uuid) OWNER TO cmd_money_owner;
 ALTER FUNCTION core.payout_cmd_initiate_batch(uuid) OWNER TO cmd_money_owner;
 ALTER FUNCTION core.payout_cmd_record_payout_result(uuid, text, text) OWNER TO cmd_money_owner;
+ALTER FUNCTION core.payout_release_item_guard() OWNER TO cmd_money_owner;
 REVOKE CREATE ON SCHEMA core FROM cmd_money_owner;
