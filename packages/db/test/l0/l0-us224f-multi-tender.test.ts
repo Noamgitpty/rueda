@@ -16,7 +16,7 @@
  *   crédit cash 367) ; deux cartes : `allocate` de `check_t49plus.py` (la plus récente absorbe
  *   d'abord : seconde carte 37,44 / 367) ; états et `attempt_no` : 08 SM-8 et E4.
  *
- * Durcissement argent n° 2 (migration 0150, BOARD N-365 et N-367, ADR-166 n° 8 et 9) : un crédit
+ * Durcissement argent n° 2 (migration 0151, BOARD N-365 et N-367, ADR-166 n° 8 et 9) : un crédit
  * (`CREDIT_CASH`, `CREDIT_PROMO`) n'est plus encaissable par la commande tant que les crédits
  * n'existent pas ; les moyens d'origine RÉELS de 08 qui en comptent (T33, TJ16d) sont posés par la
  * fixture 9933 (`hard2_credit_tender` : capture enregistrée sur une carte par la vraie commande,
@@ -54,7 +54,7 @@ import {
 } from '../support/settlement.ts';
 
 type Tx = pg.ClientBase;
-/** Moyens crédit de 08 : jamais encaissables par la commande depuis 0150 (N-367). */
+/** Moyens crédit de 08 : jamais encaissables par la commande depuis 0151 (N-367). */
 const CREDITS: ReadonlySet<string> = new Set(['CREDIT_CASH', 'CREDIT_PROMO']);
 const LEGS = ['HOST', 'INSURER', 'TAX_THIRD_PARTY', 'PLATFORM'] as const;
 const tj = (id: string): GoldenLegVector => legVector(golden, id);
@@ -146,7 +146,7 @@ async function paid(
       currency: c.currency,
       idemPlain: `trip:${trip}:CAPTURE:${uuid()}`,
       legs: p.legs,
-      // N-367 (0150) : un crédit n'est plus encaissable par la commande ; fixture 9933 ensuite
+      // N-367 (0151) : un crédit n'est plus encaissable par la commande ; fixture 9933 ensuite
       method: credit ? 'CARD' : p.method,
     });
     if (credit) {

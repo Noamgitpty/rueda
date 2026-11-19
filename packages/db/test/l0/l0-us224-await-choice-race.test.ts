@@ -1,5 +1,5 @@
 /**
- * US-224, durcissement argent n° 2 (migration 0150, BOARD N-364 et N-365, ADR-166 n° 7) — la
+ * US-224, durcissement argent n° 2 (migration 0151, BOARD N-364 et N-365, ADR-166 n° 7) — la
  * marque de l'alerte FIN et l'attente du choix du rail (SM-8 `FAILED → PENDING_CUSTOMER_CHOICE`)
  * contre la supersession d'une version du règlement, sur DEUX connexions réelles (une connexion par
  * client, plus une connexion d'observation en lecture seule, toutes libérées).
@@ -8,8 +8,8 @@
  * - supersession (`core.settlement_cmd_record` v2, travailleur `settlement`) : TRIP (`FOR UPDATE`)
  *   puis LIGNES des instances (`payment_refund_instance_supersede`) ;
  * - attente du choix (`core.payment_cmd_refund_await_choice`) : TRIP puis LIGNE de l'instance ;
- * - marque de l'alerte (`core.payment_cmd_refund_mark_alerted`, 0150) : TRIP puis LIGNE de
- *   l'instance (avant 0150 : la ligne seule, d'où le cycle instance → trip contre trip → instance
+ * - marque de l'alerte (`core.payment_cmd_refund_mark_alerted`, 0151) : TRIP puis LIGNE de
+ *   l'instance (avant 0151 : la ligne seule, d'où le cycle instance → trip contre trip → instance
  *   quand l'ordonnanceur marquait AVANT d'attendre le choix : `40P01`, N-364) ;
  * - l'ordonnanceur appelle l'attente du choix, PUIS la marque (refund-scheduler.ts).
  * Les deux scénarios : (1) la marque d'abord (l'ancien ordre de l'ordonnanceur, celui qui
@@ -236,12 +236,12 @@ describe.each(COUNTRIES)(
       await withThree(async (pay, stl, observer) => {
         await begin(pay, 'payment_command');
         const stlPid = await begin(stl, 'settlement');
-        // pay : TRIP puis LIGNE de l'instance (0150)
+        // pay : TRIP puis LIGNE de l'instance (0151)
         expect(await markAlerted(pay, f.instance)).toBe(true);
-        // stl : attend le TRIP (avant 0150 : prenait le trip, puis attendait la ligne de l'instance)
+        // stl : attend le TRIP (avant 0151 : prenait le trip, puis attendait la ligne de l'instance)
         const racing = settled(supersede(stl, c, f));
         await waitUntilLocked(observer, stlPid);
-        // pay tient déjà le trip : l'attente du choix ne forme aucun cycle (avant 0150 : 40P01)
+        // pay tient déjà le trip : l'attente du choix ne forme aucun cycle (avant 0151 : 40P01)
         expect(await awaitChoice(pay, f.instance)).toBe('AWAITING_CHOICE');
         await pay.query('COMMIT');
         expect(await racing).toEqual({ ok: true });

@@ -1,5 +1,5 @@
 /**
- * US-224, durcissement argent n° 2 (migration 0150, BOARD N-367, ADR-166 n° 9) — aucun
+ * US-224, durcissement argent n° 2 (migration 0151, BOARD N-367, ADR-166 n° 9) — aucun
  * encaissement par crédit tant que les crédits n'existent pas. Sous app_worker (rôle de
  * PRODUCTION, assertion L0-05 en tête : withRole), travailleur `payment_command`, en USD (PA) et en
  * PYG sans décimale (PY), transactions annulées.

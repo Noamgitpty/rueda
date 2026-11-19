@@ -54,11 +54,23 @@ const H = 3_600_000;
 const T = Date.parse('2031-07-10T10:00:00.000Z');
 const at = (hours: number, minutes = 0): Date => new Date(T + hours * H + minutes * 60_000);
 
-/** 300,00 de T57 (valeur de test du mécanisme) à l'exposant de la devise du pays. */
-const CASES = countryCases().map((c) => ({
-  ...c,
-  deposit: 300n * 10n ** BigInt(CURRENCIES.get(c.currency).exponent),
-}));
+/**
+ * Montant de test de `deposit_amount[pays][LUXE]` selon l'exposant de la devise du pays (US-702,
+ * revues argent et qa d'US-701) : les oracles expriment T57 en centimes (exposant 2 : 300,00 =
+ * capture + VOID de T57, 30 000) et T73 a sans décimale (exposant 0 : 1 500 000, `AMT_PY`) ; jamais
+ * 300 mis à l'échelle. Aucun code de pays ni de devise écrit ici.
+ */
+const T57 = check('T57', /^T57$/) as Record<string, bigint>;
+const T73 = check('T73', /^T73 a\/b$/) as unknown[];
+const DEPOSIT_BY_EXPONENT = new Map<number, bigint>([
+  [2, (T57['capture'] ?? 0n) + (T57['void'] ?? 0n)],
+  [0, T73[1] as bigint],
+]);
+const CASES = countryCases().map((c) => {
+  const deposit = DEPOSIT_BY_EXPONENT.get(CURRENCIES.get(c.currency).exponent);
+  if (deposit === undefined) throw new Error(`devise sans vecteur de caution : ${c.currency}`);
+  return { ...c, deposit };
+});
 
 const rec = (capability: string, value: unknown): CapabilityRecord => ({
   capability,

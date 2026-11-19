@@ -43,6 +43,10 @@ export const ALERT_CODES = [
   // caution (US-701, ADR-169) : ré-autorisation refusée, trip signalé à l'ops, AUCUN débit
   // (19 US-225 critère 3) ; une fois par caution (la transition retire la minuterie)
   'DEPOSIT_REAUTH_FAILED',
+  // décision de la caution (US-702, ADR-172) : annulation refusée (autorisation laissée expirer) ou
+  // autre échec de la décision (P1) ; frais annexes non recouvrés, caution libérée quand même (P2)
+  'DEPOSIT_DECISION_FAILED',
+  'DEPOSIT_FEES_UNCOLLECTED',
   // files de revue (US-106, ADR-106) : élément en retard (16 ADM-002, P2) ; dossier KYC en revue
   // qui ne peut pas être mis en file (P1 : personne ne le verrait)
   'OPS_REVIEW_SLA_BREACH',

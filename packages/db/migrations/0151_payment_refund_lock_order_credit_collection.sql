@@ -1,4 +1,4 @@
--- 0150 — PAY : durcissement argent n° 2 d'US-224 (suites des revues de #239, partie 224f : BOARD
+-- 0151 — PAY : durcissement argent n° 2 d'US-224 (suites des revues de #239, partie 224f : BOARD
 -- N-364, N-367 ; ADR-150 et ADR-166 complétés, PROPOSÉ). Appliquée sous `migrator`, en une
 -- transaction.
 --

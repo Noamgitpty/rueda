@@ -10,6 +10,8 @@
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { createCurrencyRegistry } from '@rueda/money';
+import { checksFor, loadGoldenVectors } from '@rueda/money/golden-vectors';
+import type { GoldenValue } from '@rueda/money/golden-vectors';
 import { describe, expect, it } from 'vitest';
 import type { OpsAlert } from '../../bus/index.js';
 import { CapabilitySet } from '../internal/capabilities.js';
@@ -26,6 +28,13 @@ import { countryCases } from '../../../../test/support/countries.js';
 import { fakeStack } from './fake-stack.js';
 import type { FakeStackOptions } from './fake-stack.js';
 
+const set = loadGoldenVectors();
+const check = (vectorId: string, label: RegExp): GoldenValue => {
+  const found = checksFor(set, vectorId).find((c) => label.test(c.label));
+  if (found === undefined) throw new Error(`contrôle ${vectorId} ${label} absent`);
+  return found.expected;
+};
+
 const CURRENCIES = createCurrencyRegistry(
   (
     JSON.parse(
@@ -41,11 +50,23 @@ const PARAMS = (
 const p = (key: string, country: string): unknown =>
   PARAMS.find((x) => x.key === key)?.values[country];
 
-const CASES = countryCases().map((c) => ({
-  ...c,
-  exponent: CURRENCIES.get(c.currency).exponent,
-  deposit: 300n * 10n ** BigInt(CURRENCIES.get(c.currency).exponent),
-}));
+/**
+ * Montant de test de la caution selon l'exposant de la devise du pays (US-702, revues argent et qa
+ * d'US-701) : T57 en centimes (exposant 2 : 300,00 = 30 000) ; T73 a sans décimale (exposant 0 :
+ * `deposit_amount[PY][LUXE]` = 1 500 000). Aucun code de pays ni de devise écrit ici.
+ */
+const T57 = check('T57', /^T57$/) as Record<string, bigint>;
+const T73 = check('T73', /^T73 a\/b$/) as unknown[];
+const DEPOSIT_BY_EXPONENT = new Map<number, bigint>([
+  [2, (T57['capture'] ?? 0n) + (T57['void'] ?? 0n)],
+  [0, T73[1] as bigint],
+]);
+const CASES = countryCases().map((c) => {
+  const exponent = CURRENCIES.get(c.currency).exponent;
+  const deposit = DEPOSIT_BY_EXPONENT.get(exponent);
+  if (deposit === undefined) throw new Error(`devise sans vecteur de caution : ${c.currency}`);
+  return { ...c, exponent, deposit };
+});
 
 const H = 3_600_000;
 const T = Date.parse('2031-07-10T10:00:00.000Z');
