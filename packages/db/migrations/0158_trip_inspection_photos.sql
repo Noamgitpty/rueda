@@ -250,14 +250,19 @@ CREATE POLICY cmd_hold_inspection_sel ON core.trip_ops_inspection FOR SELECT TO 
   USING (true);
 CREATE POLICY cmd_hold_inspection_ins ON core.trip_ops_inspection FOR INSERT TO cmd_hold_owner
   WITH CHECK (status = 'DRAFT' AND submitted_at IS NULL);
+-- USING (true) : SELECT … FOR UPDATE applique aussi la condition USING de la politique UPDATE ; une
+-- série validée doit rester verrouillable et lisible (ALREADY_SUBMITTED). La transition elle-même
+-- (DRAFT → SUBMITTED seulement) est imposée par le déclencheur trip_inspection_immutable.
 CREATE POLICY cmd_hold_inspection_upd ON core.trip_ops_inspection FOR UPDATE TO cmd_hold_owner
-  USING (status = 'DRAFT') WITH CHECK (status = 'SUBMITTED');
+  USING (true) WITH CHECK (status = 'SUBMITTED');
 CREATE POLICY cmd_hold_inspection_sel ON core.trip_ops_photo_capture FOR SELECT TO cmd_hold_owner
   USING (true);
 CREATE POLICY cmd_hold_inspection_ins ON core.trip_ops_photo_capture FOR INSERT TO cmd_hold_owner
   WITH CHECK (used_at IS NULL);
+-- même raison : un jeton consommé reste verrouillable (le rejeu est refusé par la commande) ; la
+-- seule écriture admise (used_at posé une fois) est imposée par le déclencheur
 CREATE POLICY cmd_hold_inspection_upd ON core.trip_ops_photo_capture FOR UPDATE TO cmd_hold_owner
-  USING (used_at IS NULL) WITH CHECK (used_at IS NOT NULL);
+  USING (true) WITH CHECK (used_at IS NOT NULL);
 CREATE POLICY cmd_hold_inspection_sel ON core.trip_ops_inspection_photo FOR SELECT TO cmd_hold_owner
   USING (true);
 CREATE POLICY cmd_hold_inspection_ins ON core.trip_ops_inspection_photo FOR INSERT TO cmd_hold_owner
@@ -445,7 +450,7 @@ BEGIN
      WHERE i.trip_id = p.trip_id AND i.kind = p_kind AND i.performer_role = p.role
      FOR UPDATE;
   END IF;
-  IF v_insp.status <> 'DRAFT' THEN
+  IF v_insp.status IS DISTINCT FROM 'DRAFT' THEN
     RETURN QUERY SELECT 'INSPECTION_SUBMITTED'::text, NULL::uuid, NULL::timestamptz;
     RETURN;
   END IF;

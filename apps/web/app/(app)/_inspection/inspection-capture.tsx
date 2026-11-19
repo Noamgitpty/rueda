@@ -172,9 +172,7 @@ export function InspectionCapture(props: InspectionCaptureProps) {
       )}
       {props.editable && (
         <section
-          className={
-            slot === null ? `${styles['card']} ${inspectionStyles['closed']}` : styles['card']
-          }
+          className={slot === null ? inspectionStyles['closed'] : styles['card']}
           hidden={slot === null}
           aria-label={
             slot === null ? undefined : t('web.inspection.camera.for', { slot: label(slot) })
