@@ -305,8 +305,15 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  Version 93 (la 92 est celle d’US-223e) : signal « paiement hors plateforme » des textes publics
  de l’hôte (US-222d, ADR-176, comme Turo) : `common.listing.offPlatformPayment` (zone ou ville
  qui proposent un paiement hors de la plateforme : refus rattaché au champ).
+ Version 97 (réservée à US-310 par le pré-mortem du lot 3 ; les 94 à 96 sont celles d’US-303,
+ US-707 et US-525) : aide et urgence pendant le trip (US-310, ADR-182) : `web.shell.help` (lien
+ d’aide de l’en-tête de chaque écran), `web.help.*` (S17 : urgences et autorité de circulation
+ du pays, assistance de l’assureur partenaire, support et sa plage publiée, demande d’aide du trip
+ à motif fermé et ses issues, FAQ courte), `common.help.unavailable`,
+ `common.help.authority.<id>` (autorité de circulation de la configuration pays) et la réponse
+ automatique hors plage `ntf.helpOffHours.*` / `ntf.helpOffHoursHost.*`.
  */
-export const CATALOG_VERSION = 93;
+export const CATALOG_VERSION = 97;
 
 /** Catalogues de base par langue ; la langue d'un profil de locale choisit le sien. */
 export const CATALOGS: Readonly<Record<CatalogLanguage, VersionedCatalog<MessageKey>>> = {

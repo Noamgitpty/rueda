@@ -307,11 +307,84 @@ describe.each(COUNTRY_CASES)('numéros d’assistance de la confirmation — $co
     },
   );
 
-  it('seules les deux confirmations portent une phrase d’assistance', () => {
+  it('seules les deux confirmations et les deux réponses automatiques d’aide (US-310) portent une phrase d’assistance', () => {
     const carriers = TEMPLATE_LIST.filter((t) =>
       Object.values(t.variables).some((v) => v.from === 'assistance'),
     ).map((t) => t.key);
-    expect(carriers.sort()).toEqual(['EVT_BOOKING_CONFIRMED', 'EVT_BOOKING_CONFIRMED_HOST']);
+    expect(carriers.sort()).toEqual([
+      'EVT_BOOKING_CONFIRMED',
+      'EVT_BOOKING_CONFIRMED_HOST',
+      // US-310 (ADR-182) : la réponse automatique hors plage renvoie aux mêmes numéros
+      'EVT_HELP_REQUEST_OFF_HOURS',
+      'EVT_HELP_REQUEST_OFF_HOURS_HOST',
+    ]);
+  });
+});
+
+/**
+ * US-310 critère 2 : « Given un message hors plage, When il arrive, Then une réponse automatique
+ * part dans la langue du compte » ; 16 SUP-004 : « hors horaires, réponse automatique vers
+ * l'assistance routière de l'assureur partenaire ». Attentes tirées de 19 US-310, de 16 SUP-004 et
+ * d'ADR-174 / ADR-182 (voyageur : support et assistance ; hôte : le support ; numéros absents :
+ * aucun numéro inventé ; aucun délai de réponse promis), jamais du code testé.
+ */
+describe.each(COUNTRY_CASES)('réponse automatique hors plage — $country (US-310)', (c) => {
+  const country = COUNTRY_DATA.countryOf(c.country);
+  if (!country) throw new Error(`pays ${c.country}`);
+  const numbers = testAssistance(c.country);
+  const render = (
+    t: TemplateSpec,
+    channel: MessageChannelKind,
+    tag: string,
+    assistance: AssistanceContacts | null,
+  ): string => {
+    const m = renderTemplate(t, channel, {
+      profile: getProfile(LOCALE_CONFIG, tag),
+      timeZone: country.timeZone,
+      exponentOf: COUNTRY_DATA.exponentOf,
+      brand: TEST_BRAND,
+      assistance,
+      firstName: 'Ana',
+      variables: { booking_ref: 'ABCD1234' },
+    });
+    return `${m.subject ?? ''}
+${m.body}`;
+  };
+
+  it.each(country.locales)('%s : voyageur, les deux numéros ; hôte, le support seul', (tag) => {
+    for (const channel of ['EMAIL', 'SMS'] as const) {
+      const guest = render(TEMPLATES.EVT_HELP_REQUEST_OFF_HOURS, channel, tag, numbers);
+      expect(guest, channel).toContain(numbers.supportPhone);
+      expect(guest, channel).toContain(numbers.insurerAssistancePhone);
+      expect(guest, channel).toContain('ABCD1234');
+      const host = render(TEMPLATES.EVT_HELP_REQUEST_OFF_HOURS_HOST, channel, tag, numbers);
+      expect(host, channel).toContain(numbers.supportPhone);
+      expect(host, channel).not.toContain(numbers.insurerAssistancePhone);
+    }
+  });
+
+  it.each(country.locales)('%s : numéros absents ⇒ aucun numéro, aucun délai chiffré', (tag) => {
+    for (const t of [
+      TEMPLATES.EVT_HELP_REQUEST_OFF_HOURS,
+      TEMPLATES.EVT_HELP_REQUEST_OFF_HOURS_HOST,
+    ]) {
+      for (const channel of ['EMAIL', 'SMS'] as const) {
+        const text = render(t, channel, tag, null);
+        expect(text, `${t.key} ${channel}`).not.toMatch(/\+[0-9]/);
+        // SUP-020 : aucun délai de réponse promis (ni minutes, ni heures chiffrées)
+        expect(text, `${t.key} ${channel}`).not.toMatch(/[0-9]+\s*(min|h\b|hora|hour|heure)/i);
+      }
+    }
+  });
+
+  it('message critique de trip : SMS d’abord, e-mail en repli', () => {
+    for (const t of [
+      TEMPLATES.EVT_HELP_REQUEST_OFF_HOURS,
+      TEMPLATES.EVT_HELP_REQUEST_OFF_HOURS_HOST,
+    ]) {
+      expect(t.critical).toBe(true);
+      expect(t.channels).toEqual([{ channel: 'SMS', fallback: 'EMAIL' }]);
+    }
   });
 });
 

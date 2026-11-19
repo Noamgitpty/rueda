@@ -2143,6 +2143,27 @@
       "story": "US-702"
     },
     {
+      "signature": "core.support_trip_help_context(bytea,uuid)",
+      "family": "iam_staff",
+      "owner": "iam_staff_owner",
+      "execute": ["app_api"],
+      "story": "US-310"
+    },
+    {
+      "signature": "core.support_cmd_open_help_request(bytea,uuid,uuid,text,jsonb)",
+      "family": "iam_staff",
+      "owner": "iam_staff_owner",
+      "execute": ["app_api"],
+      "story": "US-310"
+    },
+    {
+      "signature": "core.support_staff_help_requests(bytea,text,integer)",
+      "family": "iam_staff",
+      "owner": "iam_staff_owner",
+      "execute": ["app_api"],
+      "story": "US-310"
+    },
+    {
       "signature": "core.payment_cmd_deposit_decide(uuid,integer,text,bigint,bigint)",
       "family": "cmd_hold",
       "owner": "cmd_hold_owner",

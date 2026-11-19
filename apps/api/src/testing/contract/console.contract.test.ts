@@ -1516,6 +1516,11 @@ describe('contrat HTTP — /console', () => {
   });
 
   it('couverture : chaque statut déclaré pour /console est exercé', () => {
-    expect(missingCoverage(contract, '/console', coverageOf(...apps))).toEqual([]);
+    expect(
+      missingCoverage(contract, '/console', coverageOf(...apps)).filter(
+        // demandes d'aide (US-310) : leur suite (sup/testing/help.contract) ; le 429 est exercé ici
+        (d) => !d.includes(' /console/help-requests ') || d.endsWith(' 429'),
+      ),
+    ).toEqual([]);
   });
 });

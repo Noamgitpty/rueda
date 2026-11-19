@@ -2858,6 +2858,77 @@ export const ES_MESSAGES = {
   'web.a08.empty': 'Aún no tienes ganancias',
   'web.a08.payoutsOff':
     'Tus ganancias quedan registradas. Los pagos a anfitriones en {country} aún no están abiertos; te avisaremos.',
+  // aide et urgence pendant le trip (US-310, ADR-182, catalogue v97)
+  'web.shell.help': 'Ayuda',
+  'web.help.title': 'Ayuda y emergencias',
+  'web.help.lead': 'Los números de emergencia y de asistencia están siempre en esta página.',
+  'web.help.emergency.title': 'En una emergencia',
+  'web.help.emergency.call': 'Emergencias: {number}',
+  'web.help.emergency.accident':
+    'Después de un accidente de tránsito, avisa también a {authority}.',
+  'web.help.emergency.safety':
+    'Si tú u otra persona están en peligro, ponte a salvo y llama primero a emergencias.',
+  'web.help.roadside.title': 'Avería o accidente',
+  'web.help.roadside.number': 'Asistencia de la aseguradora asociada: {number}',
+  'web.help.roadside.inApp':
+    'El número de la asistencia de la aseguradora asociada aparecerá aquí. Mientras tanto, pide ayuda desde tu viaje.',
+  'web.help.support.title': 'Soporte de {brand}',
+  'web.help.support.number': 'Teléfono del soporte: {number}',
+  'web.help.support.inApp':
+    'Pide ayuda desde el detalle de tu viaje: tu solicitud llega a nuestro equipo.',
+  'web.help.support.hours':
+    'Atención de personas, en español y en inglés, todos los días de {from} a {to} (hora local).',
+  'web.help.support.noHours':
+    'Si nuestro equipo no está disponible, recibes enseguida los números de asistencia y te respondemos lo antes posible.',
+  'web.help.call': 'Llamar al {number}',
+  'web.help.trips.lead': '¿Tienes un viaje? Ábrelo y elige «Pedir ayuda».',
+  'web.help.trips.link': 'Ver mis viajes',
+  'web.help.unavailable':
+    'No pudimos cargar los números. En una emergencia, llama a los servicios de emergencia locales.',
+  'web.help.faq.title': 'Preguntas frecuentes',
+  'web.help.faq.accident.q': '¿Qué hago después de un accidente?',
+  'web.help.faq.accident.a':
+    'Ponte a salvo y llama a emergencias si hay heridos. Avisa a la autoridad de tránsito y a la asistencia de la aseguradora, toma fotos y pide ayuda desde tu viaje.',
+  'web.help.faq.privacy.q': '¿El soporte comparte mi teléfono?',
+  'web.help.faq.privacy.a':
+    'No. Nunca damos tu teléfono a la otra persona del viaje: escríbanse solo por {brand}.',
+  'web.help.trip.title': 'Ayuda con este viaje',
+  'web.help.trip.back': 'Volver al viaje',
+  'web.help.trip.section': 'Ayuda y emergencias',
+  'web.help.trip.open': 'Pedir ayuda o ver los números de emergencia',
+  'web.help.request.title': 'Pedir ayuda a {brand}',
+  'web.help.request.topic': '¿Qué pasa?',
+  'web.help.topic.ACCIDENT': 'Tuve un accidente',
+  'web.help.topic.BREAKDOWN': 'El auto tiene una avería',
+  'web.help.topic.HANDOVER': 'Problema con la entrega o la devolución',
+  'web.help.topic.SAFETY': 'Tengo un problema de seguridad',
+  'web.help.topic.OTHER': 'Otra consulta sobre este viaje',
+  'web.help.request.safetyHint': 'Si hay peligro inmediato, llama primero a emergencias.',
+  'web.help.request.privacy':
+    'Tu solicitud solo indica el tema y el viaje. Nunca compartimos tu teléfono con la otra persona.',
+  'web.help.request.submit': 'Enviar solicitud',
+  'web.help.request.topicRequired': 'Elige un tema.',
+  'web.help.request.sent': 'Recibimos tu solicitud.',
+  'web.help.request.offHours':
+    'Nuestro equipo no está disponible en este momento: te enviamos los números de asistencia y te responderemos lo antes posible.',
+  'web.help.request.inHours': 'Nuestro equipo la revisará y te contactará.',
+  'web.help.request.exists':
+    'Ya tienes una solicitud abierta sobre este tema: nuestro equipo la está siguiendo.',
+  'web.help.request.error': 'No pudimos enviar tu solicitud. Usa los números de esta página.',
+  'common.help.unavailable':
+    'La ayuda en la app no está disponible ahora. En una emergencia, llama a los servicios de emergencia.',
+  'common.help.authority.attt': 'Tránsito (ATTT)',
+  'common.help.authority.caminera': 'la Policía Caminera o la Policía Municipal de Tránsito (PMT)',
+  'ntf.helpOffHours.email.subject': 'Recibimos tu solicitud de ayuda ({booking_ref})',
+  'ntf.helpOffHours.email.body':
+    'Hola, {first_name}. Recibimos tu solicitud de ayuda sobre la reserva {booking_ref}. Nuestro equipo no está disponible en este momento y te responderá lo antes posible. Si hay peligro o heridos, llama a emergencias. {assistance}',
+  'ntf.helpOffHours.sms.body':
+    '{brand}: recibimos tu solicitud ({booking_ref}). Te responderemos lo antes posible. Si hay peligro, llama a emergencias. {assistance}',
+  'ntf.helpOffHoursHost.email.subject': 'Recibimos tu solicitud de ayuda ({booking_ref})',
+  'ntf.helpOffHoursHost.email.body':
+    'Hola, {first_name}. Recibimos tu solicitud de ayuda sobre la reserva {booking_ref}. Nuestro equipo no está disponible en este momento y te responderá lo antes posible. Si hay peligro o heridos, llama a emergencias. {assistance}',
+  'ntf.helpOffHoursHost.sms.body':
+    '{brand}: recibimos tu solicitud ({booking_ref}). Te responderemos lo antes posible. Si hay peligro, llama a emergencias. {assistance}',
 } as const satisfies Catalog;
 
 export type MessageKey = keyof typeof ES_MESSAGES;
