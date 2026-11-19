@@ -208,6 +208,8 @@ describe('US-046 — destruction de la clé : C2 / C3 illisibles, registres inta
       'core.contract_signature.user_agent_enc',
       // profil fiscal de l'hôte (US-123, 0075) : numéro chiffré par la clé du compte d'hôte
       'core.kyc_host_tax_profile.tax_id_enc',
+      // compte de versement de l'hôte (US-707, 0159) : numéro chiffré par la clé du compte d'hôte
+      'core.payout_payout_account.account_number_enc',
     ]);
   });
 

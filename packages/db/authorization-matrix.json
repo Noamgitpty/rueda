@@ -3262,6 +3262,19 @@
         "app_anon": []
       }
     },
+    "core.payout_payout_account": {
+      "type": "table",
+      "droits": {
+        "app_api": {},
+        "app_worker": {},
+        "app_anon": {}
+      },
+      "politiques": {
+        "app_api": [],
+        "app_worker": [],
+        "app_anon": []
+      }
+    },
     "core.kyc_host_tax_profile": {
       "type": "table",
       "droits": {

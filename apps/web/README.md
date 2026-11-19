@@ -75,6 +75,10 @@ e2e de la recherche (US-201) : `e2e/search.spec.ts` (projets `mobile-360` et `mo
 
 Résultats S02 (US-203, ADR-131) : `app/(app)/search/page.tsx` montre les annonces en cartes `CarCard` (total TTC du devis de l'API, prix par jour, caution de la plateforme ou mention générique, note ou badge « Nuevo ») et sur une carte de marqueurs de prix (`app/(app)/_search/results-map.tsx`, positions de `account/search-map.ts`, fond schématique sans tuile tant qu'aucun fournisseur n'est retenu, Q-020) ; liste et carte viennent du même tableau. Le site ne calcule aucun montant. e2e : `e2e/search.spec.ts` (mêmes annonces et mêmes totaux en liste et sur la carte, caution, « Nuevo ») ; capture `recherche-resultats`.
 
+## Compte de versement de l'hôte — US-707
+
+`app/(app)/host/payout-account/` (lien depuis la tâche « compte de versement » d'A07) : compte bancaire ou portefeuille **au nom de l'hôte** (16 PYO-001), lu et écrit par `GET` / `POST /host/accounts/{orgId}/payout-account` (côté serveur seulement). Compte courant **masqué** (« •••• » et 4 derniers chiffres, établissement, statut, motif d'un refus) ; après un changement, bannière de retenue des versements avec sa date de fin (48 h, 10b UX-43). Type de compte choisi par liens `?kind=` (sans JavaScript) ; établissement en liste ou en code selon la configuration du pays (`rails`, jamais une constante) ; numéro fiscal absent ⇒ lien vers le profil fiscal d'A07, aucun formulaire ; pays sans rail ⇒ dit honnêtement. Ni le numéro de compte ni le numéro fiscal ne sont réaffichés, mis dans une URL ou renvoyés à l'écran après un refus ; un co-hôte reçoit `common.payoutAccount.manageForbidden`. Textes `web.a07.payout.*` et `common.payoutAccount.*` (catalogue v94, quatre langues). e2e : `e2e/host-payout-account.spec.ts` (projet `mobile-360`, quatre langues, axe-core, sans capture visuelle) contre `e2e/stub-api.mjs` (titulaire discordant : noms contenant « OTRO »).
+
 ## Interfaces d'appareil (`device/`)
 
 Le comptoir n'accède à l'appareil que par trois interfaces (17 §6.2, ADR-005). Point d'entrée unique : `device/index.ts`.

@@ -116,6 +116,10 @@ const PAY_PORT_TABLES = [
   'payment_deposit_hold',
 ] as const;
 
+// Compte de versement de l'hôte (US-707, 0159) : même socle RLS ; aucun droit applicatif,
+// commandes de cmd_money_owner, preuves par test/l0/l0-us707-payout-account.test.ts.
+const PYO_TABLES = ['payout_payout_account'] as const;
+
 // Socle de marque (US-034, 0042) : même socle RLS ; lecture publique d'app_api et commandes sous
 // iam_staff_owner vérifiées par test/l0/l0-brand.test.ts.
 const BRAND_TABLES = [
@@ -170,6 +174,7 @@ describe('schéma core (US-006)', () => {
           ...SUPPORT_TABLES,
           ...PAY_PORT_TABLES,
           ...BRAND_TABLES,
+          ...PYO_TABLES,
         ].sort(),
       );
       for (const r of rows) {

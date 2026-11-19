@@ -1124,9 +1124,89 @@ async function verificationRoute(req, res, path) {
   );
 }
 
+// ---- Compte de versement de l'hôte (US-707) ---------------------------------------------------
+// Double : deux rails NEUTRES (aucun format ni établissement propre à un pays) : compte bancaire
+// à code d'établissement saisi (`[0-9A-Z]{2,12}`), portefeuille parmi deux codes fictifs ; numéro
+// de compte : 6 à 20 chiffres (espaces et tirets retirés), sinon 422 PAYOUT_ACCOUNT_INVALID.
+// Numéro fiscal exigé : type enregistré par le profil fiscal A07 (sinon `taxKind` null et 409
+// HOST_TAX_ID_REQUIRED). Règle déterministe du titulaire discordant : noms du titulaire contenant
+// « OTRO » (casse ignorée) ⇒ 422 PAYOUT_HOLDER_MISMATCH, rien n'est enregistré. Le prestataire du
+// double vérifie tout autre compte (VERIFIED) ; un CHANGEMENT de compte retient les versements
+// 48 h (`holdUntil`). Le double ne garde que les 4 derniers chiffres, jamais le numéro.
+const PAYOUT_RAILS = [
+  { kind: 'BANK_ACCOUNT', institutions: null },
+  { kind: 'WALLET', institutions: ['WALLET_A', 'WALLET_B'] },
+];
+const PAYOUT_HOLD_MS = 48 * 3_600_000;
+const payoutView = (h, code, messageKey) => ({
+  code,
+  messageKey,
+  country: h.market.country,
+  currency: h.market.currency,
+  rails: PAYOUT_RAILS,
+  taxKind: verificationOf(h).taxKind,
+  account: h.payoutAccount ?? null,
+});
+
+async function payoutRoute(req, res, path) {
+  const m = /^\/host\/accounts\/([0-9a-f-]{36})\/payout-account$/.exec(path);
+  if (m === null) return false;
+  const owner = hostOf(req);
+  if (owner === undefined) return err(res, 401, 'AUTH_REQUIRED', 'common.auth.sessionRequired');
+  const h = owner === null ? undefined : owner.accounts.find((a) => a.orgId === m[1]);
+  if (h === undefined)
+    return err(res, 404, 'HOST_ACCOUNT_NOT_FOUND', 'common.listing.hostNotFound');
+  if (req.method === 'GET') {
+    return json(res, 200, payoutView(h, 'PAYOUT_ACCOUNT_STATE', 'common.payoutAccount.state'));
+  }
+  if (req.method !== 'POST') return err(res, 404, 'NOT_FOUND', 'common.error.notFound');
+  if (!/^application\/json/.test(req.headers['content-type'] ?? '')) {
+    return err(res, 415, 'REQUEST_INVALID', 'common.auth.requestInvalid');
+  }
+  const body = (await readBody(req)) ?? {};
+  const str = (v) => (typeof v === 'string' ? v.trim() : '');
+  const rail = PAYOUT_RAILS.find((r) => r.kind === body.kind);
+  const institution = str(body.institution).toUpperCase();
+  const given = str(body.holderGivenNames);
+  const surnames = str(body.holderSurnames);
+  const taxId = str(body.holderTaxId);
+  if (given === '' || surnames === '' || taxId === '') {
+    return err(res, 400, 'REQUEST_INVALID', 'common.auth.requestInvalid');
+  }
+  if (
+    rail === undefined ||
+    (rail.institutions === null
+      ? !/^[0-9A-Z]{2,12}$/.test(institution)
+      : !rail.institutions.includes(institution))
+  ) {
+    return err(res, 422, 'PAYOUT_RAIL_UNSUPPORTED', 'common.payoutAccount.railUnsupported');
+  }
+  const number = str(body.accountNumber).replace(/[\s-]/g, '');
+  if (!/^[0-9]{6,20}$/.test(number)) {
+    return err(res, 422, 'PAYOUT_ACCOUNT_INVALID', 'common.payoutAccount.invalid');
+  }
+  if (verificationOf(h).taxKind === null) {
+    return err(res, 409, 'HOST_TAX_ID_REQUIRED', 'common.payoutAccount.taxRequired');
+  }
+  if (/otro/i.test(`${given} ${surnames}`)) {
+    return err(res, 422, 'PAYOUT_HOLDER_MISMATCH', 'common.payoutAccount.holderMismatch');
+  }
+  const change = h.payoutAccount !== undefined && h.payoutAccount !== null;
+  h.payoutAccount = {
+    status: 'VERIFIED',
+    kind: rail.kind,
+    institution,
+    last4: number.slice(-4),
+    holdUntil: change ? new Date(Date.now() + PAYOUT_HOLD_MS).toISOString() : null,
+    rejectReason: null,
+  };
+  return json(res, 200, payoutView(h, 'PAYOUT_ACCOUNT_SAVED', 'common.payoutAccount.saved'));
+}
+
 async function hostRoute(req, res, url) {
   const path = url.pathname;
   if ((await verificationRoute(req, res, path)) !== false) return true;
+  if ((await payoutRoute(req, res, path)) !== false) return true;
   if (req.method === 'GET' && path === '/__e2e/host-verification/approve') {
     const h = hosts.get(url.searchParams.get('token') ?? '');
     if (h === undefined) return err(res, 404, 'NOT_FOUND', 'common.error.notFound');

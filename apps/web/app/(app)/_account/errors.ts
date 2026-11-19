@@ -65,6 +65,15 @@ const KEYS: Readonly<Record<string, MessageKey>> = {
   HOST_TAX_ID_INVALID: 'common.hostVerification.taxIdInvalid',
   HOST_TAX_VAULT_UNAVAILABLE: 'common.hostVerification.vaultUnavailable',
   HOST_VERIFICATION_UNAVAILABLE: 'common.hostVerification.unavailable',
+  // compte de versement de l'hôte (US-707)
+  PAYOUT_MANAGE_FORBIDDEN: 'common.payoutAccount.manageForbidden',
+  HOST_TAX_ID_REQUIRED: 'common.payoutAccount.taxRequired',
+  PAYOUT_ACCOUNT_INVALID: 'common.payoutAccount.invalid',
+  PAYOUT_RAIL_UNSUPPORTED: 'common.payoutAccount.railUnsupported',
+  PAYOUT_HOLDER_MISMATCH: 'common.payoutAccount.holderMismatch',
+  PAYOUT_VAULT_UNAVAILABLE: 'common.payoutAccount.vaultUnavailable',
+  PAYOUT_ACCOUNT_UNAVAILABLE: 'common.payoutAccount.unavailable',
+  HOST_PAYOUT_RAIL_UNAVAILABLE: 'common.payoutAccount.railUnavailable',
 };
 
 export function apiErrorKey(code: string | null, status: number | 'unavailable'): MessageKey {

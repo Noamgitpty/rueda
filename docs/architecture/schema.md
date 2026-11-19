@@ -7,7 +7,7 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 
 ## Synthèse
 
-- 159 migrations ; 136 tables ; 3 vues ; 772 politiques RLS ; 310 fonctions `SECURITY DEFINER` ; 263 autres fonctions.
+- 161 migrations ; 137 tables ; 3 vues ; 776 politiques RLS ; 316 fonctions `SECURITY DEFINER` ; 266 autres fonctions.
 - Tables sans RLS `ENABLE` + `FORCE` : aucune.
 - Rôles applicatifs avec `SUPERUSER` ou `BYPASSRLS` : aucun.
 
@@ -174,6 +174,8 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 | `0156_redteam_l2_rls_lb_fixes` | Correctifs de la red team RLS / ex-porte LB du lot 2 (US-222, partie 222d2 ; ADR-177). |
 | `0157_config_param_change` | CFG : changement revu d'une valeur de paramètre pays, par deux personnes distinctes. |
 | `0158_trip_inspection_photos` | TRP : photos guidées de l'état du véhicule, horodatage serveur et empreintes (bêta). |
+| `0159_payout_payout_account` | PYO : compte de versement vérifié de l'hôte (`payout_account`). |
+| `0160_config_payout_account_params` | graine complémentaire : paramètres « payout_account_rails* » (US-707 ; 17 §7.2). |
 
 ## Rôles
 
@@ -2767,7 +2769,7 @@ Politiques RLS :
 - `cmd_hold_risk_read` (SELECT, PERMISSIVE, cmd_hold_owner) USING `(key = ANY (ARRAY['min_driver_age'::text, 'foreign_license_review_enabled'::text]))`
 - `cmd_money_advance_cap_read` (SELECT, PERMISSIVE, cmd_money_owner) USING `(key = 'host_advance_cap_minor'::text)`
 - `cmd_money_quote_read` (SELECT, PERMISSIVE, cmd_money_owner) USING `(key = ANY (ARRAY['grace_minutes'::text, 'max_trip_days'::text, 'host_default_plan'::text, 'host_share_pct'::text, 'delivery_share_pct'::text, 'extras_share_pct'::text, 'trip_fee_schedule'::text, 'quote_validity_minutes'::text, 'quote_freezes_per_guest_hour'::text, 'protection_grid'::text, 'guest_protection_min_level'::text, 'insurer_premium_share'::text]))`
-- `cmd_money_sel` (SELECT, PERMISSIVE, cmd_money_owner) USING `(key = ANY (ARRAY['payouts_enabled'::text, 'insurer_contract_active'::text, 'funds_holding_enabled'::text]))`
+- `cmd_money_sel` (SELECT, PERMISSIVE, cmd_money_owner) USING `(key = ANY (ARRAY['payouts_enabled'::text, 'insurer_contract_active'::text, 'funds_holding_enabled'::text, 'payout_account_rails'::text, 'payout_account_change_hold_h'::text]))`
 - `cmd_param_ins` (INSERT, PERMISSIVE, cmd_param_owner) WITH CHECK `((app.actor_kind() = 'STAFF'::text) AND (scope_type = 'COUNTRY'::text) AND (approved_by IS NOT NULL) AND (decision_ref IS NOT NULL) AND (EXISTS ( SELECT 1 FROM core.config_param_change_request r WHERE ((r.status = 'APPLIED'::text) AND (r.key = config_param_value.key) AND (r.country_code = config_param_value.country_code) AND (r.value = config_param_value.value) AND (NOT (r.currency IS DISTINCT FROM config_param_value.currency)) AND (r.valid_from = config_param_value.valid_from) AND (r.approved_by = config_param_value.approved_by) AND (r.decision_ref = config_param_value.decision_ref)))))`
 - `cmd_param_sel` (SELECT, PERMISSIVE, cmd_param_owner) USING `((scope_type = 'COUNTRY'::text) AND (NOT (key IN ( SELECT d.key FROM core.config_param_definition d WHERE d.go_live_switch))))`
 - `cmd_param_upd` (UPDATE, PERMISSIVE, cmd_param_owner) USING `((app.actor_kind() = 'STAFF'::text) AND (scope_type = 'COUNTRY'::text) AND (valid_to IS NULL) AND (NOT (key IN ( SELECT d.key FROM core.config_param_definition d WHERE d.go_live_switch))))` WITH CHECK `((app.actor_kind() = 'STAFF'::text) AND (valid_to IS NOT NULL) AND (EXISTS ( SELECT 1 FROM core.config_param_change_request r WHERE ((r.status = 'APPLIED'::text) AND (r.key = config_param_value.key) AND (r.country_code = config_param_value.country_code) AND (r.valid_from = config_param_value.valid_to)))))`
@@ -4989,6 +4991,76 @@ Déclencheurs :
 
 - `webhook_inbox_proof_columns_immutable` : `CREATE TRIGGER webhook_inbox_proof_columns_immutable BEFORE UPDATE ON core.payment_webhook_inbox FOR EACH ROW EXECUTE FUNCTION core.payment_webhook_inbox_proof_columns_guard()`
 
+### `core.payout_payout_account`
+
+- RLS : ENABLE + FORCE ; propriétaire `migrator`
+- Droits : cmd_money_owner: INSERT, SELECT ; migrator: DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE
+
+| Colonne | Type | NOT NULL | Défaut |
+| ------- | ---- | -------- | ------ |
+| `id` | `uuid` | oui | `platform.uuid_v7()` |
+| `org_id` | `uuid` | oui | — |
+| `user_id` | `uuid` | oui | — |
+| `country_code` | `text` | oui | — |
+| `currency` | `text` | oui | — |
+| `rail_kind` | `text` | oui | — |
+| `institution_code` | `text` | oui | — |
+| `account_number_enc` | `bytea` | oui | — |
+| `account_key_subject_type` | `text` | oui | `'ORG'::text` |
+| `account_key_subject_id` | `uuid` | oui | — |
+| `account_last4` | `text` | oui | — |
+| `holder_name` | `text` | oui | — |
+| `holder_tax_id_kind` | `text` | oui | — |
+| `status` | `text` | oui | `'PENDING'::text` |
+| `reject_reason` | `text` | non | — |
+| `provider_ref` | `text` | non | — |
+| `verified_at` | `timestamp with time zone` | non | — |
+| `change_hold_until` | `timestamp with time zone` | non | — |
+| `replaced_at` | `timestamp with time zone` | non | — |
+| `row_version` | `integer` | oui | `0` |
+| `created_at` | `timestamp with time zone` | oui | `platform.now()` |
+| `updated_at` | `timestamp with time zone` | oui | `platform.now()` |
+
+Contraintes :
+
+- `payout_payout_account_country_format` : `CHECK (country_code ~ '^[A-Z]{2}$'::text)`
+- `payout_payout_account_currency_format` : `CHECK (currency ~ '^[A-Z]{3}$'::text)`
+- `payout_payout_account_envelope` : `CHECK (octet_length(account_number_enc) >= 30 AND octet_length(account_number_enc) <= 128 AND get_byte(account_number_enc, 0) = 1)`
+- `payout_payout_account_holder_length` : `CHECK (length(holder_name) >= 3 AND length(holder_name) <= 201)`
+- `payout_payout_account_institution_format` : `CHECK (institution_code ~ '^[A-Z0-9][A-Z0-9_]{1,31}$'::text)`
+- `payout_payout_account_key_is_org` : `CHECK (account_key_subject_id = org_id)`
+- `payout_payout_account_key_type_valid` : `CHECK (account_key_subject_type = 'ORG'::text)`
+- `payout_payout_account_last4_format` : `CHECK (account_last4 ~ '^[0-9A-Z]{4}$'::text)`
+- `payout_payout_account_org_fk` : `FOREIGN KEY (org_id, user_id) REFERENCES core.iam_organization(id, holder_user_id)`
+- `payout_payout_account_pkey` : `PRIMARY KEY (id)`
+- `payout_payout_account_rail_valid` : `CHECK (rail_kind = ANY (ARRAY['BANK_ACCOUNT'::text, 'WALLET'::text]))`
+- `payout_payout_account_reason_valid` : `CHECK (reject_reason = ANY (ARRAY['HOLDER_MISMATCH'::text, 'TAX_ID_MISMATCH'::text, 'ACCOUNT_INVALID'::text]))`
+- `payout_payout_account_ref_format` : `CHECK (provider_ref ~ '^[A-Za-z0-9_.:-]{1,128}$'::text)`
+- `payout_payout_account_rejected_reason` : `CHECK ((status = 'REJECTED'::text) = (reject_reason IS NOT NULL))`
+- `payout_payout_account_replaced_dated` : `CHECK ((status = 'REPLACED'::text) = (replaced_at IS NOT NULL))`
+- `payout_payout_account_row_version_valid` : `CHECK (row_version >= 0)`
+- `payout_payout_account_status_valid` : `CHECK (status = ANY (ARRAY['PENDING'::text, 'VERIFIED'::text, 'REJECTED'::text, 'REPLACED'::text]))`
+- `payout_payout_account_tax_kind_format` : `CHECK (holder_tax_id_kind ~ '^[A-Z][A-Z0-9_]{1,31}$'::text)`
+- `payout_payout_account_verified_dated` : `CHECK (status <> 'VERIFIED'::text OR verified_at IS NOT NULL)`
+
+Index :
+
+- `payout_payout_account_one_current` : `CREATE UNIQUE INDEX payout_payout_account_one_current ON core.payout_payout_account USING btree (org_id) WHERE (status = ANY (ARRAY['PENDING'::text, 'VERIFIED'::text]))`
+- `payout_payout_account_org_idx` : `CREATE INDEX payout_payout_account_org_idx ON core.payout_payout_account USING btree (org_id, created_at DESC)`
+
+Politiques RLS :
+
+- `cmd_money_ins` (INSERT, PERMISSIVE, cmd_money_owner) WITH CHECK `((status = 'PENDING'::text) AND (verified_at IS NULL) AND (provider_ref IS NULL))`
+- `cmd_money_sel` (SELECT, PERMISSIVE, cmd_money_owner) USING `true`
+- `cmd_money_upd` (UPDATE, PERMISSIVE, cmd_money_owner) USING `(status = ANY (ARRAY['PENDING'::text, 'VERIFIED'::text]))` WITH CHECK `(status = ANY (ARRAY['VERIFIED'::text, 'REJECTED'::text, 'REPLACED'::text]))`
+- `migrator_all` (ALL, PERMISSIVE, migrator) USING `true` WITH CHECK `true`
+
+Déclencheurs :
+
+- `payout_payout_account_guard` : `CREATE TRIGGER payout_payout_account_guard BEFORE DELETE OR UPDATE ON core.payout_payout_account FOR EACH ROW EXECUTE FUNCTION core.payout_payout_account_guard()`
+- `payout_payout_account_no_truncate` : `CREATE TRIGGER payout_payout_account_no_truncate BEFORE TRUNCATE ON core.payout_payout_account FOR EACH STATEMENT EXECUTE FUNCTION core.payout_payout_account_guard()`
+- `touch_row` : `CREATE TRIGGER touch_row BEFORE UPDATE ON core.payout_payout_account FOR EACH ROW EXECUTE FUNCTION platform.touch_row()`
+
 ### `core.pricing_quote`
 
 - RLS : ENABLE + FORCE ; propriétaire `migrator`
@@ -6964,7 +7036,7 @@ Chacune a un propriétaire `NOLOGIN` dédié (ADR-053) et un `search_path` figé
 | `core.iam_cmd_revoke_session(p_token_hash bytea, p_reason text)` | `boolean` | `iam_auth_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; iam_auth_owner: EXECUTE |
 | `core.iam_cmd_verify_email(p_token_hash bytea)` | `boolean` | `iam_auth_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; iam_auth_owner: EXECUTE |
 | `core.iam_holder_name_matches(p_user_id uuid, p_first text, p_last text)` | `boolean` | `iam_auth_owner` | search_path=pg_catalog, pg_temp | cmd_hold_owner: EXECUTE ; iam_auth_owner: EXECUTE |
-| `core.iam_host_accounts(p_token_hash bytea)` | `TABLE(org_id uuid, country_code text, role text, org_status text, display_name text)` | `iam_auth_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; catalog_cmd_owner: EXECUTE ; cmd_hold_owner: EXECUTE ; host_view_owner: EXECUTE ; iam_auth_owner: EXECUTE ; kyc_cmd_owner: EXECUTE |
+| `core.iam_host_accounts(p_token_hash bytea)` | `TABLE(org_id uuid, country_code text, role text, org_status text, display_name text)` | `iam_auth_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; catalog_cmd_owner: EXECUTE ; cmd_hold_owner: EXECUTE ; cmd_money_owner: EXECUTE ; host_view_owner: EXECUTE ; iam_auth_owner: EXECUTE ; kyc_cmd_owner: EXECUTE |
 | `core.iam_host_public_first_name(p_org uuid)` | `text` | `iam_auth_owner` | search_path=pg_catalog, pg_temp | catalog_cmd_owner: EXECUTE ; iam_auth_owner: EXECUTE |
 | `core.iam_manual_action_create_host_account(p_token_hash bytea, p_action_id uuid, p_action_code text, p_subject_id uuid, p_input jsonb, p_reason text, p_actor uuid, p_actor_role text)` | `TABLE(outcome text, ref_id uuid, emitted_event_ids uuid[])` | `iam_auth_owner` | search_path=pg_catalog, pg_temp | iam_auth_owner: EXECUTE ; iam_staff_owner: EXECUTE |
 | `core.iam_manual_action_restriction(p_token_hash bytea, p_action_id uuid, p_action_code text, p_subject_id uuid, p_input jsonb, p_reason text, p_actor uuid, p_actor_role text)` | `TABLE(outcome text, ref_id uuid, emitted_event_ids uuid[])` | `iam_auth_owner` | search_path=pg_catalog, pg_temp | iam_auth_owner: EXECUTE ; iam_staff_owner: EXECUTE |
@@ -7002,6 +7074,7 @@ Chacune a un propriétaire `NOLOGIN` dédié (ADR-053) et un `search_path` figé
 | `core.kyc_country_of_verification(p_id uuid)` | `text` | `kyc_cmd_owner` | search_path=pg_catalog, pg_temp | iam_staff_owner: EXECUTE ; kyc_cmd_owner: EXECUTE |
 | `core.kyc_driver_eligibility(p_token_hash bytea, p_trip_end timestamp with time zone, p_trip_country text)` | `TABLE(outcome text)` | `kyc_cmd_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; kyc_cmd_owner: EXECUTE |
 | `core.kyc_host_identity_duplicate(p_org uuid)` | `boolean` | `risk_limit_owner` | search_path=pg_catalog, pg_temp | kyc_cmd_owner: EXECUTE ; risk_limit_owner: EXECUTE |
+| `core.kyc_host_payout_identity(p_org uuid, p_holder_given text, p_holder_surnames text)` | `TABLE(kyc_approved boolean, name_match text, tax_id_kind text, tax_id_enc bytea)` | `kyc_cmd_owner` | search_path=pg_catalog, pg_temp | cmd_money_owner: EXECUTE ; kyc_cmd_owner: EXECUTE |
 | `core.kyc_host_state(p_token_hash bytea, p_org uuid)` | `TABLE(outcome text, country_code text, org_status text, verification_status text, missing text[], kyc_approved boolean, age_status text, residence_status text, tax_required boolean, tax_saved boolean, tax_kind text, tax_kinds text[], terms_ok boolean, screening_done boolean, blockers text[])` | `kyc_cmd_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; kyc_cmd_owner: EXECUTE |
 | `core.kyc_identity_state(p_token_hash bytea, p_country text)` | `TABLE(outcome text, status text, country_code text, reason_code text, license_expires_on date, session_live boolean, phone_verified boolean, consent_version integer, consent_accepted_version integer, consent_locale text, consent_title text, consent_body text)` | `kyc_cmd_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; kyc_cmd_owner: EXECUTE |
 | `core.kyc_manual_action_decision(p_token_hash bytea, p_action_id uuid, p_action_code text, p_subject_id uuid, p_input jsonb, p_reason text, p_actor uuid, p_actor_role text)` | `TABLE(outcome text, ref_id uuid, emitted_event_ids uuid[])` | `kyc_cmd_owner` | search_path=pg_catalog, pg_temp | iam_staff_owner: EXECUTE ; kyc_cmd_owner: EXECUTE |
@@ -7040,6 +7113,11 @@ Chacune a un propriétaire `NOLOGIN` dédié (ADR-053) et un `search_path` figé
 | `core.payment_resolve_webhook_account(p_provider text, p_public_webhook_id text)` | `TABLE(account_id uuid, webhook_secret_ref text)` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; cmd_money_owner: EXECUTE |
 | `core.payment_startup_guard()` | `TABLE(deployment_env text, fake_accounts integer)` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; app_worker: EXECUTE ; cmd_money_owner: EXECUTE |
 | `core.payment_trip_refund_view(p_trip_id uuid, p_viewer text)` | `jsonb` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | cmd_hold_owner: EXECUTE ; cmd_money_owner: EXECUTE ; iam_staff_owner: EXECUTE |
+| `core.payout_cmd_record_payout_account_verification(p_token_hash bytea, p_org uuid, p_account uuid, p_status text, p_reason text, p_provider_ref text)` | `TABLE(outcome text)` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; cmd_money_owner: EXECUTE |
+| `core.payout_cmd_register_payout_account(p_token_hash bytea, p_org uuid, p_rail_kind text, p_institution text, p_account_enc bytea, p_account_last4 text, p_holder_given text, p_holder_surnames text)` | `TABLE(outcome text, account_id uuid, change_hold_until timestamp with time zone)` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; cmd_money_owner: EXECUTE |
+| `core.payout_payout_account_context(p_token_hash bytea, p_org uuid, p_holder_given text, p_holder_surnames text)` | `TABLE(outcome text, country_code text, currency text, rails jsonb, tax_kind text, tax_id_enc bytea)` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; cmd_money_owner: EXECUTE |
+| `core.payout_payout_account_hold(p_org uuid, p_currency text, p_scheduled_for timestamp with time zone)` | `text[]` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; cmd_money_owner: EXECUTE |
+| `core.payout_payout_account_state(p_token_hash bytea, p_org uuid)` | `TABLE(outcome text, country_code text, currency text, rails jsonb, tax_kind text, account_id uuid, status text, rail_kind text, institution_code text, account_last4 text, change_hold_until timestamp with time zone, reject_reason text)` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; cmd_money_owner: EXECUTE |
 | `core.pricing_bind_checkout_trip(p_trip_id uuid)` | `integer` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; cmd_money_owner: EXECUTE |
 | `core.pricing_checkout_terms(p_token_hash bytea, p_quote_id uuid)` | `TABLE(quote_id uuid, engine_version text, inputs text, inputs_hash text, outputs text, outputs_hash text, total_minor bigint, currency text, frozen_at timestamp with time zone, mileage_mode text, included_km integer, extra_km_price_minor bigint)` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; cmd_money_owner: EXECUTE |
 | `core.pricing_cmd_freeze_quote(p_token_hash bytea, p_listing_id uuid, p_inputs text, p_inputs_hash text, p_outputs text, p_outputs_hash text)` | `TABLE(outcome text, quote_id uuid)` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; cmd_money_owner: EXECUTE |
@@ -7313,6 +7391,9 @@ Chacune a un propriétaire `NOLOGIN` dédié (ADR-053) et un `search_path` figé
 | `core.payment_text_has_pan(p_text text)` | `boolean` | `migrator` | app_worker: EXECUTE ; cmd_money_owner: EXECUTE ; migrator: EXECUTE |
 | `core.payment_trip_leg_state(p_trip uuid)` | `TABLE(leg text, rank integer, moved numeric, refunded numeric, pending_debit numeric, pending_release numeric, available numeric, released numeric, frozen boolean, variation numeric)` | `migrator` | cmd_money_owner: EXECUTE ; migrator: EXECUTE |
 | `core.payment_webhook_inbox_proof_columns_guard()` | `trigger` | `migrator` | migrator: EXECUTE |
+| `core.payout_param(p_key text, p_country text)` | `jsonb` | `cmd_money_owner` | cmd_money_owner: EXECUTE |
+| `core.payout_payout_account_guard()` | `trigger` | `migrator` | migrator: EXECUTE |
+| `core.payout_titular(p_token_hash bytea, p_org uuid)` | `TABLE(outcome text, user_id uuid, country_code text, currency text)` | `cmd_money_owner` | cmd_money_owner: EXECUTE |
 | `core.pricing_digest(p_prefix text, p_text text)` | `text` | `migrator` | cmd_money_owner: EXECUTE ; migrator: EXECUTE |
 | `core.pricing_minor(p_value jsonb)` | `numeric` | `migrator` | cmd_money_owner: EXECUTE ; migrator: EXECUTE |
 | `core.pricing_ms(p_value jsonb)` | `numeric` | `migrator` | cmd_money_owner: EXECUTE ; migrator: EXECUTE |
@@ -7380,4 +7461,4 @@ Chacune a un propriétaire `NOLOGIN` dédié (ADR-053) et un `search_path` figé
 | `platform.environment_declaration_immutable()` | `trigger` | `migrator` | migrator: EXECUTE |
 | `platform.now()` | `timestamp with time zone` | `migrator` | app_api: EXECUTE ; app_worker: EXECUTE ; audit_chain_owner: EXECUTE ; catalog_cmd_owner: EXECUTE ; catalog_probe_owner: EXECUTE ; cmd_golive_owner: EXECUTE ; cmd_hold_owner: EXECUTE ; cmd_money_owner: EXECUTE ; cmd_param_owner: EXECUTE ; guard_owner: EXECUTE ; host_view_owner: EXECUTE ; iam_auth_owner: EXECUTE ; iam_staff_owner: EXECUTE ; integrity_owner: EXECUTE ; kyc_cmd_owner: EXECUTE ; migrator: EXECUTE ; policy_fn_owner: EXECUTE ; privacy_cmd_owner: EXECUTE ; review_cmd_owner: EXECUTE ; risk_limit_owner: EXECUTE |
 | `platform.touch_row()` | `trigger` | `migrator` | migrator: EXECUTE |
-| `platform.uuid_v7()` | `uuid` | `migrator` | app_api: EXECUTE ; app_worker: EXECUTE ; catalog_cmd_owner: EXECUTE ; cmd_golive_owner: EXECUTE ; cmd_hold_owner: EXECUTE ; cmd_param_owner: EXECUTE ; iam_auth_owner: EXECUTE ; iam_staff_owner: EXECUTE ; kyc_cmd_owner: EXECUTE ; migrator: EXECUTE ; privacy_cmd_owner: EXECUTE ; review_cmd_owner: EXECUTE |
+| `platform.uuid_v7()` | `uuid` | `migrator` | app_api: EXECUTE ; app_worker: EXECUTE ; catalog_cmd_owner: EXECUTE ; cmd_golive_owner: EXECUTE ; cmd_hold_owner: EXECUTE ; cmd_money_owner: EXECUTE ; cmd_param_owner: EXECUTE ; iam_auth_owner: EXECUTE ; iam_staff_owner: EXECUTE ; kyc_cmd_owner: EXECUTE ; migrator: EXECUTE ; privacy_cmd_owner: EXECUTE ; review_cmd_owner: EXECUTE |

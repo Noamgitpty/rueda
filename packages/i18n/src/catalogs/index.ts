@@ -309,8 +309,13 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  `common.inspection.*` (refus des routes `/trips/{id}/inspections/…`), `web.inspection.*` (écran
  des photos de départ et de retour de l’hôte et du voyageur, angles du gabarit) et `web.s09c.done`
  de 10b §4.3 (texte portugais ajouté).
+ Version 95 (la 94 est celle d’US-303) : compte de versement de l’hôte (US-707) : réponses de
+ l’API `common.payoutAccount.*` (état, enregistrement, co-hôte refusé, numéro fiscal exigé,
+ numéro de compte ou rail refusés, titulaire discordant, coffre, base ou rail du pays
+ indisponibles) et écran `web.a07.payout.*` (compte masqué aux 4 derniers chiffres, statut, retenue de 48 h après un
+ changement, formulaire).
  */
-export const CATALOG_VERSION = 94;
+export const CATALOG_VERSION = 95;
 
 /** Catalogues de base par langue ; la langue d'un profil de locale choisit le sien. */
 export const CATALOGS: Readonly<Record<CatalogLanguage, VersionedCatalog<MessageKey>>> = {
