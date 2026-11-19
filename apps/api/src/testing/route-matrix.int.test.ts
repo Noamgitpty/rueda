@@ -41,7 +41,7 @@ import {
 } from '../modules/ctr/index.js';
 import { postgresIamAdapters, postgresStaffAdapters } from '../modules/iam/index.js';
 import { postgresKycAdapters } from '../modules/kyc/index.js';
-import { PgInspectionStore } from '../modules/trp/index.js';
+import { PgHandoverStore, PgInspectionStore } from '../modules/trp/index.js';
 import type { StaffOptions } from '../modules/iam/index.js';
 import { postgresPayAdapters } from '../modules/pay/index.js';
 import {
@@ -844,6 +844,32 @@ async function requestOf(
         path: `/trips/${randomUUID()}/inspections/checkin/submit`,
         body: {},
       };
+    // remise et retour (US-315) : trip inconnu de l'acteur ⇒ 404 (rien n'est écrit)
+    case 'GET /trips/{tripId}/handover/{direction}':
+      return { method: 'GET', path: `/trips/${randomUUID()}/handover/checkin` };
+    case 'POST /trips/{tripId}/handover/checkin/open':
+      return { method: 'POST', path: `/trips/${randomUUID()}/handover/checkin/open`, body: {} };
+    case 'POST /trips/{tripId}/handover/checkin/identity':
+      return {
+        method: 'POST',
+        path: `/trips/${randomUUID()}/handover/checkin/identity`,
+        body: {
+          checklist: {
+            face: true,
+            name: true,
+            birthYear: true,
+            valid: true,
+            provisional: true,
+            restrictions: true,
+          },
+        },
+      };
+    case 'POST /trips/{tripId}/handover/{direction}/validate':
+      return {
+        method: 'POST',
+        path: `/trips/${randomUUID()}/handover/checkin/validate`,
+        body: { odometerKm: 1, fuelEighths: 8, method: 'IN_PERSON' },
+      };
     // constancia d'arrendamiento (US-212) : trip inconnu de l'acteur ⇒ 404 ; recherche de l'hôte :
     // plaque dans le corps, aucun trip d'un autre compte
     case 'GET /trips/{tripId}/constancia':
@@ -1181,7 +1207,7 @@ beforeAll(async () => {
         new QuoteService(new CountryConfigService()).params(ctx),
       ),
       // photos d'état du véhicule (US-303) : commandes réelles de 0158 sous app_api
-      { store: new PgInspectionStore(client) },
+      { store: new PgInspectionStore(client), handover: new PgHandoverStore(client) },
     ),
     { rawBody: true, logger: false },
   );

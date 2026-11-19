@@ -24,3 +24,7 @@ export type {
   InspectionViewRow,
   PhotoRecord,
 } from './internal/inspection/store.js';
+// Remise et retour entre particuliers (US-315, ADR-183)
+export { HANDOVER_MESSAGES, HandoverHttpError } from './internal/handover/errors.js';
+export { PgHandoverStore, UnavailableHandoverStore } from './internal/handover/store.js';
+export type { HandoverStore, HandoverViewRow } from './internal/handover/store.js';

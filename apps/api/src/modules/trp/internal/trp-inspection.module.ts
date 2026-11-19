@@ -1,6 +1,7 @@
 /**
- * Module Nest des photos d'état du véhicule (US-303, ADR-179) : routes
- * `/trips/{tripId}/inspections/{kind}`. Module DYNAMIQUE, importé par le seul processus API
+ * Module Nest des photos d'état du véhicule (US-303, ADR-179) et de la remise et du retour entre
+ * particuliers (US-315, ADR-183) : routes `/trips/{tripId}/inspections/{kind}` et
+ * `/trips/{tripId}/handover/{direction}`. Module DYNAMIQUE, importé par le seul processus API
  * (`api.module.ts`), après `IamAuthModule` (`SessionGuard`) et `CtrLegalModule` (`TermsGuard`).
  *
  * Adaptateurs choisis par l'appelant : production `postgresTrpAdapters(pool)` (magasin PostgreSQL,
@@ -9,19 +10,25 @@
  */
 import { Module } from '@nestjs/common';
 import type { DynamicModule } from '@nestjs/common';
+import { TripHandoverController } from './handover/handover.controller.js';
+import { HandoverService } from './handover/handover.service.js';
+import { PgHandoverStore, UnavailableHandoverStore } from './handover/store.js';
+import type { HandoverStore } from './handover/store.js';
 import { TripInspectionController } from './inspection/inspection.controller.js';
 import { InspectionService } from './inspection/inspection.service.js';
 import { UNAVAILABLE_EVIDENCE } from './inspection/ports.js';
 import type { EvidencePipeline, SqlPool } from './inspection/ports.js';
 import { PgInspectionStore, UnavailableInspectionStore } from './inspection/store.js';
 import type { InspectionStore } from './inspection/store.js';
-import { TRP_EVIDENCE_PIPELINE, TRP_INSPECTION_STORE } from './tokens.js';
+import { TRP_EVIDENCE_PIPELINE, TRP_HANDOVER_STORE, TRP_INSPECTION_STORE } from './tokens.js';
 
 export interface TrpInspectionOptions {
   /** Magasin des séries ; absent : 503. */
   readonly store?: InspectionStore;
   /** Antivirus, coffre, stockage ; absent : indisponibles (envoi 503). */
   readonly evidence?: EvidencePipeline;
+  /** Remise et retour (US-315) ; absent : 503. */
+  readonly handover?: HandoverStore;
 }
 
 @Module({})
@@ -29,7 +36,7 @@ export class TrpInspectionModule {
   static register(options: TrpInspectionOptions = {}): DynamicModule {
     return {
       module: TrpInspectionModule,
-      controllers: [TripInspectionController],
+      controllers: [TripInspectionController, TripHandoverController],
       providers: [
         {
           provide: TRP_INSPECTION_STORE,
@@ -37,6 +44,11 @@ export class TrpInspectionModule {
         },
         { provide: TRP_EVIDENCE_PIPELINE, useValue: options.evidence ?? UNAVAILABLE_EVIDENCE },
         InspectionService,
+        {
+          provide: TRP_HANDOVER_STORE,
+          useValue: options.handover ?? new UnavailableHandoverStore(),
+        },
+        HandoverService,
       ],
     };
   }
@@ -48,5 +60,10 @@ export class TrpInspectionModule {
  * indisponibles (fail-closed, jamais un FAKE en production).
  */
 export function postgresTrpAdapters(pool: SqlPool): TrpInspectionOptions {
-  return { store: new PgInspectionStore(pool, pool), evidence: UNAVAILABLE_EVIDENCE };
+  return {
+    store: new PgInspectionStore(pool, pool),
+    evidence: UNAVAILABLE_EVIDENCE,
+    // US-315 : commandes core.trip_cmd_* de la remise sous app_api (aucun port externe)
+    handover: new PgHandoverStore(pool),
+  };
 }

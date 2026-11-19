@@ -3177,6 +3177,64 @@
         "device_captured_at": "C1",
         "clock_skew_flag": "C1"
       }
+    },
+    "core.trip_ops_identity_check": {
+      "lifecycle": "B",
+      "subjects": [
+        {
+          "column": "checked_by",
+          "type": "USER"
+        }
+      ],
+      "export": "controller",
+      "columns": {
+        "trip_id": "C1",
+        "country_code": "C1",
+        "status": "C1",
+        "checklist": "C1",
+        "failure_subreason": "C1",
+        "checked_by": "C1",
+        "checked_at": "C1"
+      }
+    },
+    "core.trip_ops_handover_validation": {
+      "lifecycle": "B",
+      "subjects": [
+        {
+          "column": "performed_by",
+          "type": "USER"
+        }
+      ],
+      "export": "controller",
+      "columns": {
+        "trip_id": "C1",
+        "country_code": "C1",
+        "kind": "C1",
+        "performer_role": "C1",
+        "performed_by": "C1",
+        "odometer_km": "C1",
+        "fuel_eighths": "C1",
+        "method": "C1",
+        "validated_at": "C1"
+      }
+    },
+    "core.trip_ops_key_handover": {
+      "lifecycle": "B",
+      "subjects": [
+        {
+          "column": "by_user",
+          "type": "USER"
+        }
+      ],
+      "export": "controller",
+      "columns": {
+        "id": "C1",
+        "trip_id": "C1",
+        "direction": "C1",
+        "method": "C1",
+        "at": "C1",
+        "by_user": "C1"
+      }
     }
   }
 }

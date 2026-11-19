@@ -13189,6 +13189,570 @@
           }
         }
       }
+    },
+    "/trips/{tripId}/handover/{direction}": {
+      "get": {
+        "operationId": "getTripHandover",
+        "tags": ["trp"],
+        "summary": "Remise (checkin) ou retour (checkout) vus par une partie du trip : état, conditions relues par la base, contrôle du permis, séries de photos, validations, heure de fin (heure serveur)",
+        "parameters": [
+          {
+            "name": "tripId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "direction",
+            "in": "path",
+            "required": true,
+            "description": "Sens : checkin (remise) ou checkout (retour)",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "État de la remise ou du retour ; à l'hôte, au départ seulement, prénom, initiale du nom et année de naissance du voyageur",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TripHandover"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthRequired"
+          },
+          "404": {
+            "description": "Trip inconnu, d'une autre personne, sens ou identifiant mal formé : même réponse (17 §2.3 point 5)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "HANDOVER_NOT_FOUND"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Base injoignable : rien n'est écrit, aucune file hors ligne (ADR-005, ADR-039) ; réessayer",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "HANDOVER_UNAVAILABLE"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/trips/{tripId}/handover/checkin/open": {
+      "post": {
+        "operationId": "openTripHandover",
+        "tags": ["trp"],
+        "summary": "Ouverture de la remise par une partie (BOOKED → CHECKIN_OPEN), au plus tôt 24 h avant le début ; paiement prouvé par webhook signé, contrat signé, caution, assureur et éligibilité relus par la base",
+        "parameters": [
+          {
+            "name": "tripId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HandoverOpenRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Remise ouverte (ou déjà ouverte : l'heure d'origine)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HandoverOpened"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Corps invalide (clé inconnue, dont toute heure envoyée par le client)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "REQUEST_INVALID"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthRequired"
+          },
+          "404": {
+            "description": "Trip inconnu, d'une autre personne, sens ou identifiant mal formé : même réponse (17 §2.3 point 5)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "HANDOVER_NOT_FOUND"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Trop tôt ou hors de l'état BOOKED, ou première condition non remplie",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "enum": [
+                        "CHECKIN_NOT_OPEN",
+                        "CHECKIN_PAYMENT_NOT_CONFIRMED",
+                        "CONTRACT_NOT_SIGNED",
+                        "DEPOSIT_NOT_READY",
+                        "INSURER_CONTRACT_INACTIVE",
+                        "HANDOVER_BLOCKED"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "415": {
+            "$ref": "#/components/responses/NotJson"
+          },
+          "503": {
+            "description": "Base injoignable : rien n'est écrit, aucune file hors ligne (ADR-005, ADR-039) ; réessayer",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "HANDOVER_UNAVAILABLE"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/trips/{tripId}/handover/checkin/identity": {
+      "post": {
+        "operationId": "checkTripHandoverIdentity",
+        "tags": ["trp"],
+        "summary": "Contrôle du permis présenté, par l'hôte (VER-015) : six points cochés, sans aucune donnée de la pièce ; un point non conforme ⇒ FAILED définitif",
+        "parameters": [
+          {
+            "name": "tripId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HandoverIdentityRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Contrôle enregistré (ou déjà enregistré : le contrôle d'origine)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HandoverIdentityChecked"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Corps invalide (clé inconnue, dont toute heure envoyée par le client)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "REQUEST_INVALID"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthRequired"
+          },
+          "403": {
+            "description": "Le contrôle du permis est celui de l'hôte",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "HANDOVER_HOST_ONLY"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Trip inconnu, d'une autre personne, sens ou identifiant mal formé : même réponse (17 §2.3 point 5)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "HANDOVER_NOT_FOUND"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Remise non ouverte",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "CHECKIN_NOT_OPEN"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "415": {
+            "$ref": "#/components/responses/NotJson"
+          },
+          "422": {
+            "description": "Les six points ne sont pas tous renseignés par des booléens",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "CHECKIN_LICENSE_CHECK_INCOMPLETE"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Base injoignable : rien n'est écrit, aucune file hors ligne (ADR-005, ADR-039) ; réessayer",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "HANDOVER_UNAVAILABLE"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/trips/{tripId}/handover/{direction}/validate": {
+      "post": {
+        "operationId": "validateTripHandover",
+        "tags": ["trp"],
+        "summary": "Validation de la remise ou du retour par une partie (relevés, en personne, sa série validée) ; la seconde validation fait la transition (IN_PROGRESS ou RETURNED) à l'heure serveur ; idempotente",
+        "parameters": [
+          {
+            "name": "tripId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "direction",
+            "in": "path",
+            "required": true,
+            "description": "Sens : checkin (remise) ou checkout (retour)",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HandoverValidateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Validation enregistrée ; `completed` si c'était la seconde (début ou fin effectifs = heure serveur)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HandoverValidated"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Corps invalide (clé inconnue, dont toute heure envoyée par le client)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "REQUEST_INVALID"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthRequired"
+          },
+          "404": {
+            "description": "Trip inconnu, d'une autre personne, sens ou identifiant mal formé : même réponse (17 §2.3 point 5)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "HANDOVER_NOT_FOUND"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Hors de la fenêtre, série de la partie non validée, condition non remplie, permis non conforme ou remise sans rencontre (jamais proposée)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "enum": [
+                        "CHECKIN_NOT_OPEN",
+                        "CHECKOUT_NOT_OPEN",
+                        "CHECKIN_PAYMENT_NOT_CONFIRMED",
+                        "CONTRACT_NOT_SIGNED",
+                        "DEPOSIT_NOT_READY",
+                        "INSURER_CONTRACT_INACTIVE",
+                        "HANDOVER_BLOCKED",
+                        "IDENTITY_CHECK_FAILED",
+                        "CHECKIN_STEP_INCOMPLETE",
+                        "CHECKOUT_STEP_INCOMPLETE",
+                        "CONTACTLESS_UNAVAILABLE"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "415": {
+            "$ref": "#/components/responses/NotJson"
+          },
+          "422": {
+            "description": "Relevés hors bornes, ou permis non contrôlé avant la remise des clés",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "enum": ["CHECKIN_LICENSE_CHECK_INCOMPLETE", "READING_INVALID"]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Base injoignable : rien n'est écrit, aucune file hors ligne (ADR-005, ADR-039) ; réessayer",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "HANDOVER_UNAVAILABLE"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -22359,6 +22923,332 @@
           "submittedAt": {
             "type": "string",
             "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}[.][0-9]{3}Z$"
+          }
+        }
+      },
+      "TripHandover": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "tripId",
+          "direction",
+          "viewerRole",
+          "tripStatus",
+          "timezone",
+          "opensAt",
+          "open",
+          "canOpen",
+          "blockers",
+          "identityCheck",
+          "guest",
+          "photos",
+          "validations",
+          "contactlessOffered",
+          "completedAt"
+        ],
+        "properties": {
+          "tripId": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+          },
+          "direction": {
+            "enum": ["checkin", "checkout"]
+          },
+          "viewerRole": {
+            "enum": ["HOST", "GUEST"]
+          },
+          "tripStatus": {
+            "type": "string",
+            "pattern": "^[A-Z_]{2,32}$",
+            "description": "État SM-1 du trip"
+          },
+          "timezone": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Fuseau IANA du trip (affichage de l'heure serveur)"
+          },
+          "opensAt": {
+            "oneOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}[.][0-9]{3}Z$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Remise : début − 24 h ; retour : null"
+          },
+          "open": {
+            "type": "boolean",
+            "description": "Validations acceptées (remise : CHECKIN_OPEN, START_WINDOW_EXPIRED ; retour : IN_PROGRESS, OVERDUE)"
+          },
+          "canOpen": {
+            "type": "boolean",
+            "description": "Remise : BOOKED, heure atteinte et aucune condition manquante"
+          },
+          "blockers": {
+            "type": "array",
+            "items": {
+              "enum": [
+                "CHECKIN_PAYMENT_NOT_CONFIRMED",
+                "CONTRACT_NOT_SIGNED",
+                "DEPOSIT_NOT_READY",
+                "INSURER_CONTRACT_INACTIVE",
+                "HANDOVER_BLOCKED"
+              ]
+            },
+            "description": "Conditions de la remise non remplies, relues par la base (retour : vide)"
+          },
+          "identityCheck": {
+            "oneOf": [
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["status", "checkedAt"],
+                "properties": {
+                  "status": {
+                    "enum": ["PENDING", "OK", "FAILED"]
+                  },
+                  "checkedAt": {
+                    "oneOf": [
+                      {
+                        "type": "string",
+                        "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}[.][0-9]{3}Z$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                }
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "guest": {
+            "oneOf": [
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["firstName", "lastInitial", "birthYear"],
+                "properties": {
+                  "firstName": {
+                    "type": ["string", "null"]
+                  },
+                  "lastInitial": {
+                    "type": ["string", "null"],
+                    "maxLength": 1
+                  },
+                  "birthYear": {
+                    "type": ["integer", "null"]
+                  }
+                }
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "À l'hôte, au départ seulement ; jamais un numéro, une pièce ni une image"
+          },
+          "photos": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["mine", "other"],
+            "properties": {
+              "mine": {
+                "enum": ["NONE", "DRAFT", "SUBMITTED"]
+              },
+              "other": {
+                "enum": ["NONE", "DRAFT", "SUBMITTED"]
+              }
+            }
+          },
+          "validations": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["mine", "other"],
+            "properties": {
+              "mine": {
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["validatedAt", "odometerKm", "fuelEighths"],
+                    "properties": {
+                      "validatedAt": {
+                        "type": "string",
+                        "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}[.][0-9]{3}Z$"
+                      },
+                      "odometerKm": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "fuelEighths": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 8
+                      }
+                    }
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "other": {
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["validatedAt", "odometerKm", "fuelEighths"],
+                    "properties": {
+                      "validatedAt": {
+                        "type": "string",
+                        "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}[.][0-9]{3}Z$"
+                      },
+                      "odometerKm": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "fuelEighths": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 8
+                      }
+                    }
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            }
+          },
+          "contactlessOffered": {
+            "const": false,
+            "description": "Remise sans rencontre : jamais proposée en bêta (OQ-P2P-05)"
+          },
+          "completedAt": {
+            "oneOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}[.][0-9]{3}Z$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Début effectif (remise) ou fin effective (retour) : heure serveur de la seconde validation"
+          }
+        }
+      },
+      "HandoverOpenRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {}
+      },
+      "HandoverOpened": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["tripStatus", "openedAt"],
+        "properties": {
+          "tripStatus": {
+            "const": "CHECKIN_OPEN"
+          },
+          "openedAt": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}[.][0-9]{3}Z$"
+          }
+        }
+      },
+      "HandoverIdentityRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["checklist"],
+        "properties": {
+          "checklist": {
+            "type": "object",
+            "description": "Six points de VER-015, booléens : face, name, birthYear, valid, provisional, restrictions",
+            "additionalProperties": {
+              "type": "boolean"
+            }
+          },
+          "subreason": {
+            "enum": ["INVALID_LICENSE", "IDENTITY_NOT_VERIFIED", "OTHER_DRIVER_SENT"],
+            "description": "Motif d'un point non conforme"
+          }
+        }
+      },
+      "HandoverIdentityChecked": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["status", "checkedAt", "alreadyChecked"],
+        "properties": {
+          "status": {
+            "enum": ["OK", "FAILED"]
+          },
+          "checkedAt": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}[.][0-9]{3}Z$"
+          },
+          "alreadyChecked": {
+            "type": "boolean"
+          }
+        }
+      },
+      "HandoverValidateRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["odometerKm", "fuelEighths", "method"],
+        "properties": {
+          "odometerKm": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9999999
+          },
+          "fuelEighths": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 8
+          },
+          "method": {
+            "enum": ["IN_PERSON", "CONTACTLESS"],
+            "description": "CONTACTLESS est toujours refusé en bêta (OQ-P2P-05)"
+          }
+        }
+      },
+      "HandoverValidated": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["validatedAt", "completed", "completedAt", "tripStatus", "alreadyValidated"],
+        "properties": {
+          "validatedAt": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}[.][0-9]{3}Z$"
+          },
+          "completed": {
+            "type": "boolean"
+          },
+          "completedAt": {
+            "oneOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}[.][0-9]{3}Z$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "tripStatus": {
+            "type": "string",
+            "pattern": "^[A-Z_]{2,32}$"
+          },
+          "alreadyValidated": {
+            "type": "boolean"
           }
         }
       }
