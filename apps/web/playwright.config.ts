@@ -77,6 +77,12 @@ const RECEIPT = /trip-receipt\.spec\.ts$/;
  */
 const DEPOSIT_NOTICE = /deposit-notice\.spec\.ts$/;
 /**
+ * Aide et urgence (S17, US-310) : lien d'en-tête, numéros du pays, demande d'aide du trip depuis
+ * S09 ; 360 px et espagnol seulement (durée du job e2e ; les quatre langues sont prouvées par les
+ * catalogues et les tests de rendu).
+ */
+const HELP = /help\.spec\.ts$/;
+/**
  * Parcours doré « réservation » S01 → S06 (US-221) : 360 px et espagnol seulement, un test (durée
  * du job e2e ; chaque écran est éprouvé en quatre langues par sa spec propre).
  */
@@ -172,6 +178,7 @@ export default defineConfig({
         CONSTANCIA,
         RECEIPT,
         DEPOSIT_NOTICE,
+        HELP,
         GOLDEN,
         SCREENS,
       ],

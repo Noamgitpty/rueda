@@ -39,7 +39,8 @@ const PAYMENT_KEYS = {
  * le paiement existe), lien vers le remboursement (S10) d'un
  * trip annulé ou remboursé. Lecture seule : toute modification passe par le support en bêta
  * (08 BR-MOD-01). Un trip d'une autre personne, ou inconnu, rend le même message (404 de l'API).
- * Check-in, retard, refus, urgence et messages (10b S09) : lot 3.
+ * Urgence (10b S09 « urgence (S17) ») : lien vers l'aide du trip (US-310). Check-in, retard, refus
+ * et messages : lot 3.
  */
 export default async function GuestTripPage({
   params,
@@ -206,6 +207,17 @@ export default async function GuestTripPage({
             )}
           </li>
         </ul>
+      </section>
+
+      {/* aide et urgence du trip (US-310, 10b S09 « urgence (S17) ») : numéros du pays du trip,
+          demande d'aide enregistrée côté support ; jamais le téléphone de l'hôte */}
+      <section className={styles['section']} aria-labelledby="s09-help" data-testid="s09-help">
+        <h2 id="s09-help" className={accountStyles['h2']}>
+          {t('web.help.trip.section')}
+        </h2>
+        <a className={styles['link']} href={`/trips/${trip.id}/help`} data-testid="s09-help-link">
+          {t('web.help.trip.open')}
+        </a>
       </section>
 
       <p className={styles['hint']} data-testid="s09-changes">

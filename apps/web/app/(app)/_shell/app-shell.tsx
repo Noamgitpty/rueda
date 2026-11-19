@@ -20,8 +20,9 @@ export interface AppShellProps {
 }
 
 /**
- * Coquille de l'application (US-048) : lien d'évitement, en-tête collant en verre (marque, choix
- * de la langue, UX-11), bandeau hors ligne annoncé (UX-48), puis l'écran, qui porte son propre `<main>`. Mobile d'abord (360 px,
+ * Coquille de l'application (US-048) : lien d'évitement, en-tête collant en verre (marque, lien
+ * d'aide et d'urgence S17 au même endroit sur chaque écran, US-310 ; choix de la langue, UX-11),
+ * bandeau hors ligne annoncé (UX-48), puis l'écran, qui porte son propre `<main>`. Mobile d'abord (360 px,
  * UX-01) ; aucune couche flottante en bas d'écran, réservée à la barre d'action (UX-05).
  * Aucune donnée de requête lue ici : rendu testable dans chaque locale et chaque thème.
  */
@@ -34,7 +35,14 @@ export function AppShell({ brand, i18n, locales, serviceWorker, children }: AppS
       <header className={styles['header']}>
         <div className={styles['bar']}>
           <Wordmark brand={brand} label={i18n.t('web.shell.homeLink', { brand: brand.name })} />
-          <LanguageMenu i18n={i18n} locales={locales} />
+          <div className={styles['tools']}>
+            {/* US-310 (10b S17, UX-05, WCAG 3.2.6) : l'aide et l'urgence depuis l'en-tête de chaque
+                écran, au même endroit partout */}
+            <a className={styles['help']} href="/help" data-testid="shell-help">
+              {i18n.t('web.shell.help')}
+            </a>
+            <LanguageMenu i18n={i18n} locales={locales} />
+          </div>
         </div>
         <ShellRuntime
           serviceWorker={serviceWorker}

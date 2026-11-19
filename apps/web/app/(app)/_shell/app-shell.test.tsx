@@ -88,6 +88,13 @@ describe('structure accessible (WCAG 2.2 AA)', () => {
     );
   });
 
+  it('aide et urgence (S17, US-310) : lien d’en-tête vers /help, avant le choix de langue', () => {
+    const link = /<a [^>]*data-testid="shell-help"[^>]*>([^<]*)<\/a>/.exec(html);
+    expect(link?.[0]).toContain('href="/help"');
+    expect(link?.[1]).toBe(CATALOGS[profile.language].messages['web.shell.help']);
+    expect(html.indexOf('data-testid="shell-help"')).toBeLessThan(html.indexOf('<details'));
+  });
+
   it('région live des changements de réseau présente dès le rendu (UX-48)', () => {
     expect(html).toMatch(/role="status" aria-live="polite"/);
   });
@@ -112,7 +119,7 @@ describe('styles de la coquille', () => {
   const block = (selector: string) =>
     new RegExp(`\\n\\.${selector} \\{([^}]*)\\}`).exec(css)?.[1] ?? '';
 
-  it.each(['skip', 'brand', 'languageToggle', 'languageOption'])(
+  it.each(['skip', 'brand', 'help', 'languageToggle', 'languageOption'])(
     '.%s : cible tactile du thème',
     (selector) => {
       expect(block(selector)).toContain('min-block-size: var(--size-touch-target)');
