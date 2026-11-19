@@ -176,6 +176,9 @@ async function world(
     await tx.query('SELECT test_fixture.us207_force_status($1, $2)', [trip, 'CHECKIN_OPEN']);
     const g = { hash: (await openSession(tx, guest)).hash, id: guest, side: 'GUEST' as const };
     const h = { hash: (await openSession(tx, holder)).hash, id: holder, side: 'HOST' as const };
+    // clés USER des deux parties d'abord (le fichier d'une photo est chiffré par la sienne)
+    await keyOf(tx, keys, 'GUEST', guest);
+    await keyOf(tx, keys, 'HOST', holder);
     const photos: Photo[] = [];
     photos.push(await shoot(tx, keys, store, g, trip, 'EXT_01'));
     // reprise du même angle une minute plus tard : les deux restent, la dernière compte
@@ -736,7 +739,8 @@ describe.each(COUNTRIES)('US-308 — dossier de preuve ($country, $currency)', (
                              FROM pg_catalog.unnest(p.polroles) AS r ORDER BY 1), ',')
                     FROM pg_catalog.pg_policy p WHERE p.polrelid = c.oid ORDER BY 1), ';') AS pols
            FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
-          WHERE n.nspname = 'core' AND c.relname ~ '^claim_' ORDER BY c.relname`,
+          WHERE n.nspname = 'core' AND c.relkind = 'r' AND c.relname ~ '^claim_'
+          ORDER BY c.relname`,
       );
       expect(rows).toEqual([
         {
