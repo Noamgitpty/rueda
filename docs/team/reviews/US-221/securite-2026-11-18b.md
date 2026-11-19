@@ -1,0 +1,15 @@
+# Revue securite — US-221 « parcours dorés réservation PA / USD et PY / PYG » (PR n° 245) — 2026-11-18 (delta)
+
+Relecteur : revue-securite / claude-sonnet-5-5 (famille A, modèle autre que l'auteur claude-opus-5-5; revue dégradée : famille B indisponible, TECH-007)
+Entrées : 02b5910b..e33c943a (SHA revu : e33c943a)
+
+Contexte : delta `git diff 11125c14 e33c943a` relu (`apps/api/test/int/parcours-dores-reservation.int.test.ts`, passation US-221 C-1), comparé à 02b5910b avec `git diff -w` ; revues APPROUVÉ précédentes au SHA 02b5910b (`securite-2026-11-18.md` et les quatre autres) reprises pour le reste du diff, inchangé. Aucune base ni Docker démarrés ici.
+
+| #   | Gravité | Constat                                                                                                                                                                                                                                                                                                                                                                                           |
+| --- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | INFO    | **Aucune validation de fournisseur ni interrupteur hors procédure** : le delta ne touche ni `us024_set_capability` pour un autre fournisseur (la validation de BAC et EBANX est supprimée), ni les interrupteurs, ouverts seulement par la commande à deux personnes en transaction annulée (inchangé). Aucun rôle ni `SECURITY DEFINER` ajouté ; les lectures du banc restent sous `app_worker`. |
+| 2   | INFO    | **Diagnostic** : l'erreur ne porte que fournisseur, environnement, mode et noms de capacités manquantes ; aucun identifiant de compte, référence de secret, jeton ni donnée personnelle. Borne de 60 s et `timeout` de 180 s : pas de boucle sans fin.                                                                                                                                            |
+| 3   | INFO    | Le rejeu par point de sauvegarde annule les écritures d'un essai non retenu ; un refus du produit pour FAKE en tête est retenu et fait échouer le test (aucun refus de sécurité du produit n'est avalé).                                                                                                                                                                                          |
+| 4   | MINEUR  | Dépendance à un compte FAKE validé hors transaction (échec fail-closed sinon). Non bloquant.                                                                                                                                                                                                                                                                                                      |
+
+Verdict : APPROUVÉ

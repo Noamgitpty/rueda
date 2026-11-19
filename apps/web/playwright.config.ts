@@ -71,6 +71,11 @@ const CONSTANCIA = /trip-constancia\.spec\.ts$/;
  * seulement (durée du job e2e ; les deux écrans passent à 390 px et en tablette par SCREENS).
  */
 const RECEIPT = /trip-receipt\.spec\.ts$/;
+/**
+ * Parcours doré « réservation » S01 → S06 (US-221) : 360 px et espagnol seulement, un test (durée
+ * du job e2e ; chaque écran est éprouvé en quatre langues par sa spec propre).
+ */
+const GOLDEN = /parcours-dore\.spec\.ts$/;
 /** Balayage axe + captures de chaque écran du site (US-044). */
 const SCREENS = /screens\.spec\.ts$/;
 /** Balayage des écrans de la console interne (US-044). */
@@ -161,6 +166,7 @@ export default defineConfig({
         GUEST_TRIPS,
         CONSTANCIA,
         RECEIPT,
+        GOLDEN,
         SCREENS,
       ],
       use: { ...phone, viewport: { width: 360, height: 780 } },
