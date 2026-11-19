@@ -7,7 +7,7 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 
 ## Synthèse
 
-- 153 migrations ; 129 tables ; 3 vues ; 735 politiques RLS ; 299 fonctions `SECURITY DEFINER` ; 255 autres fonctions.
+- 154 migrations ; 129 tables ; 3 vues ; 736 politiques RLS ; 300 fonctions `SECURITY DEFINER` ; 256 autres fonctions.
 - Tables sans RLS `ENABLE` + `FORCE` : aucune.
 - Rôles applicatifs avec `SUPERUSER` ou `BYPASSRLS` : aucun.
 
@@ -168,6 +168,7 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 | `0150_payment_deposit_decision` | PAY : décision de la caution à l'heure de décision (libération automatique, transitions |
 | `0151_catalog_public_deposit_basis` | CAT : base de la caution annoncée AVANT le checkout (fiche S03, cartes S01 / S02). |
 | `0152_payment_refund_lock_order_credit_collection` | PAY : durcissement argent n° 2 d'US-224 (suites des revues de #239, partie 224f : BOARD |
+| `0153_catalog_request_mode_entry` | CAT : points d'entrée du mode sur demande (recherche, zones, fiche S03, devis S05). |
 
 ## Rôles
 
@@ -2624,6 +2625,7 @@ Politiques RLS :
 - `catalog_cmd_plan_read` (SELECT, PERMISSIVE, catalog_cmd_owner) USING `(key = ANY (ARRAY['host_share_pct'::text, 'host_default_plan'::text]))`
 - `catalog_cmd_publish_read` (SELECT, PERMISSIVE, catalog_cmd_owner) USING `(key = 'listing_manual_review_required'::text)`
 - `catalog_cmd_read` (SELECT, PERMISSIVE, catalog_cmd_owner) USING `(key = ANY (ARRAY['price_display_step_minor'::text, 'listing_min_photos'::text, 'price_ceiling_daily_minor'::text, 'price_ceiling_extra_km_minor'::text, 'p2p_private_hosts_enabled'::text, 'advance_notice_minutes'::text, 'vehicle_financed_requires_lender_consent'::text, 'elig_age_years_ceiling'::text, 'elig_odometer_km_ceiling'::text, 'elig_doc_title'::text, 'elig_doc_plate_vin_photo'::text, 'elig_doc_inspection'::text, 'elig_doc_compulsory_insurance'::text, 'elig_doc_owner_authorization'::text, 'elig_doc_lender_consent'::text]))`
+- `catalog_cmd_request_mode_read` (SELECT, PERMISSIVE, catalog_cmd_owner) USING `(key = ANY (ARRAY['booking_request_mode_enabled'::text, 'booking_request_expiry_hours'::text]))`
 - `catalog_cmd_search_read` (SELECT, PERMISSIVE, catalog_cmd_owner) USING `(key = ANY (ARRAY['max_trip_days'::text, 'buffer_minutes'::text]))`
 - `catalog_cmd_terms_read` (SELECT, PERMISSIVE, catalog_cmd_owner) USING `(key = ANY (ARRAY['free_cancel_lead'::text, 'last_minute_threshold'::text, 'insurer_rc_minimum'::text, 'last_minute_free_window_minutes'::text]))`
 - `catalog_cmd_upload_read` (SELECT, PERMISSIVE, catalog_cmd_owner) USING `(key = ANY (ARRAY['upload_photo_max_kb'::text, 'upload_gallery_photos_max'::text, 'upload_documents_per_minute'::text]))`
@@ -6615,6 +6617,7 @@ Chacune a un propriétaire `NOLOGIN` dédié (ADR-053) et un `search_path` figé
 | `core.catalog_public_gallery(p_listing_id uuid)` | `TABLE(photo_id uuid, photo_order smallint, storage_key text)` | `catalog_cmd_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; catalog_cmd_owner: EXECUTE |
 | `core.catalog_public_host_name(p_listing_id uuid)` | `TABLE(host_first_name text)` | `catalog_cmd_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; catalog_cmd_owner: EXECUTE |
 | `core.catalog_public_listing(p_listing_id uuid)` | `TABLE(listing_id uuid, country_code text, daily_price_minor bigint, currency text, mileage_mode text, included_km_per_day integer, extra_km_price_minor bigint, instant_book boolean, variant_id uuid, make_name text, model_name text, year integer, transmission text, seats smallint, fuel_type text, location_kind text, city text, area_label text, geo_public_lat numeric, geo_public_lng numeric, timezone text)` | `catalog_cmd_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; catalog_cmd_owner: EXECUTE ; cmd_money_owner: EXECUTE |
+| `core.catalog_public_request_terms(p_country text)` | `TABLE(request_mode_enabled boolean, request_expiry_hours integer)` | `catalog_cmd_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; catalog_cmd_owner: EXECUTE |
 | `core.catalog_public_search(p_country text, p_city text, p_area text, p_start_local timestamp without time zone, p_end_local timestamp without time zone, p_limit integer)` | `TABLE(outcome text, listing_id uuid, daily_price_minor bigint, currency text, instant_book boolean, make_name text, model_name text, year integer, transmission text, seats smallint, fuel_type text, location_kind text, city text, area_label text, geo_public_lat numeric, geo_public_lng numeric, timezone text, start_at timestamp with time zone, end_at timestamp with time zone)` | `catalog_cmd_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; catalog_cmd_owner: EXECUTE |
 | `core.catalog_public_slot_check(p_listing_id uuid, p_start_local timestamp without time zone, p_end_local timestamp without time zone)` | `TABLE(outcome text, start_at timestamp with time zone, end_at timestamp with time zone, timezone text, notice_minutes integer)` | `catalog_cmd_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; catalog_cmd_owner: EXECUTE |
 | `core.catalog_public_terms(p_listing_id uuid, p_start timestamp with time zone)` | `TABLE(listing_id uuid, currency text, timezone text, read_at timestamp with time zone, free_cancel_lead_hours integer, last_minute_threshold_hours integer, last_minute boolean, free_until timestamp with time zone, last_minute_window_minutes integer, mileage_mode text, included_km_per_day integer, extra_km_price_minor bigint, deposit_amount_minor bigint, protection_offered boolean, insurer_name text, insurer_license_ref text, broker_name text, broker_license_ref text, contract_version integer, rc_amount_minor bigint, deductibles jsonb, exclusions jsonb)` | `catalog_cmd_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; catalog_cmd_owner: EXECUTE |
@@ -6855,7 +6858,7 @@ Chacune a un propriétaire `NOLOGIN` dédié (ADR-053) et un `search_path` figé
 | `core.booking_no_delete()` | `trigger` | `migrator` | migrator: EXECUTE |
 | `core.booking_occupied_period(p_start timestamp with time zone, p_end timestamp with time zone, p_buffer_minutes integer)` | `tstzrange` | `migrator` | app_api: EXECUTE ; app_worker: EXECUTE ; cmd_hold_owner: EXECUTE ; migrator: EXECUTE |
 | `core.booking_open_compensation(p_hold_id uuid, p_operation_id uuid, p_reason text)` | `jsonb` | `migrator` | app_worker: EXECUTE ; migrator: EXECUTE |
-| `core.booking_param_bool(p_key text, p_country text)` | `boolean` | `migrator` | cmd_hold_owner: EXECUTE ; migrator: EXECUTE |
+| `core.booking_param_bool(p_key text, p_country text)` | `boolean` | `migrator` | catalog_cmd_owner: EXECUTE ; cmd_hold_owner: EXECUTE ; migrator: EXECUTE |
 | `core.booking_param_int(p_key text, p_country text)` | `integer` | `migrator` | app_worker: EXECUTE ; cmd_hold_owner: EXECUTE ; migrator: EXECUTE |
 | `core.booking_param_text(p_key text, p_country text)` | `text` | `migrator` | app_worker: EXECUTE ; cmd_hold_owner: EXECUTE ; migrator: EXECUTE |
 | `core.booking_place_hold_kind(p_vehicle_id uuid, p_start timestamp with time zone, p_end timestamp with time zone, p_flagged boolean, p_kind text)` | `uuid` | `cmd_hold_owner` | cmd_hold_owner: EXECUTE |
@@ -6895,6 +6898,7 @@ Chacune a un propriétaire `NOLOGIN` dédié (ADR-053) et un `search_path` figé
 | `core.catalog_price_step(p_country text)` | `bigint` | `migrator` | catalog_cmd_owner: EXECUTE ; migrator: EXECUTE |
 | `core.catalog_pricing_outcome(p_country text, p_price bigint, p_mode text, p_km integer, p_extra bigint)` | `text` | `migrator` | catalog_cmd_owner: EXECUTE ; migrator: EXECUTE |
 | `core.catalog_public_text_norm(p_text text)` | `text` | `catalog_cmd_owner` | catalog_cmd_owner: EXECUTE |
+| `core.catalog_request_mode_hours(p_country text)` | `integer` | `migrator` | catalog_cmd_owner: EXECUTE ; migrator: EXECUTE |
 | `core.catalog_search_host_open(p_org uuid, p_country text)` | `boolean` | `migrator` | catalog_cmd_owner: EXECUTE ; cmd_hold_owner: EXECUTE ; migrator: EXECUTE |
 | `core.catalog_search_param_int(p_key text, p_country text)` | `integer` | `migrator` | catalog_cmd_owner: EXECUTE ; migrator: EXECUTE |
 | `core.catalog_slug(p_name text)` | `text` | `migrator` | catalog_cmd_owner: EXECUTE ; migrator: EXECUTE |
