@@ -33,6 +33,7 @@ export const OWNER_ROLES = [
   'privacy_cmd_owner',
   'review_cmd_owner',
   'cmd_param_owner',
+  'messaging_cmd_owner',
 ] as const;
 export type OwnerRole = (typeof OWNER_ROLES)[number];
 

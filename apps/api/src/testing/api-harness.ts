@@ -40,6 +40,8 @@ import { kycCountries } from '../modules/kyc/index.js';
 import type { IdentityStore, KycIdentityOptions } from '../modules/kyc/index.js';
 import { unavailablePyoOptions } from '../modules/pyo/index.js';
 import type { PyoPayoutOptions } from '../modules/pyo/index.js';
+import { unavailableMsgOptions } from '../modules/msg/index.js';
+import type { MsgTripMessagesOptions } from '../modules/msg/index.js';
 import type { PayWebhookOptions } from '../modules/pay/index.js';
 import {
   AbuseGuard,
@@ -137,6 +139,8 @@ export interface ApiHarnessOverrides {
   readonly trp?: Partial<TrpInspectionOptions>;
   /** Compte de versement (US-707) ; absent : magasin indisponible, ni coffre ni PSP (503). */
   readonly pyo?: Partial<PyoPayoutOptions>;
+  /** Messagerie par trip (US-525) ; absent : magasin indisponible (503). */
+  readonly msg?: Partial<MsgTripMessagesOptions>;
 }
 
 export async function startApiHarness(overrides: ApiHarnessOverrides = {}): Promise<ApiHarness> {
@@ -388,6 +392,7 @@ export async function startApiHarness(overrides: ApiHarnessOverrides = {}): Prom
       { ...UNAVAILABLE_AVL_CHECKOUT, ...overrides.checkout },
       { ...overrides.trp },
       { ...unavailablePyoOptions(), ...overrides.pyo },
+      { ...unavailableMsgOptions(), ...overrides.msg },
     ),
     {
       rawBody: true,

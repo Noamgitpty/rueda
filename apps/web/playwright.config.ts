@@ -67,6 +67,8 @@ const HANDOVER = /trip-handover\.spec\.ts$/;
 const REFUND = /trip-refund\.spec\.ts$/;
 /** « Mis viajes » (S08) et détail du trip (S09) du voyageur (US-214) : 360 px, une langue. */
 const GUEST_TRIPS = /guest-trips\.spec\.ts$/;
+/** Messages du trip S16 du voyageur (US-525) : 360 px, une langue. */
+const TRIP_MESSAGES = /trip-messages\.spec\.ts$/;
 /**
  * Constancia d'arrendamiento et centre juridique (US-212) : 360 px et espagnol seulement (durée
  * du job e2e, proche de sa limite ; les quatre langues sont prouvées par les catalogues et l'API).
@@ -178,6 +180,7 @@ export default defineConfig({
         HANDOVER,
         REFUND,
         GUEST_TRIPS,
+        TRIP_MESSAGES,
         CONSTANCIA,
         RECEIPT,
         DEPOSIT_NOTICE,
@@ -210,6 +213,7 @@ export default defineConfig({
         // RECEIPT (US-217b) : 360 px seulement, ses deux écrans passent à 390 px par SCREENS
         // INSPECTION (US-303) : 360 px seulement, son écran passe à 390 px par SCREENS
         // HANDOVER (US-315) : 360 px seulement, son écran A03 passe à 390 px par SCREENS
+        // TRIP_MESSAGES (US-525) : 360 px seulement, son écran passe à 390 px par SCREENS
         SCREENS,
       ],
       use: { ...phone, viewport: { width: 390, height: 844 } },

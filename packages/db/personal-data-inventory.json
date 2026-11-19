@@ -608,7 +608,8 @@
         "code": "C1",
         "lang": "C1",
         "pattern": "C1",
-        "story": "C1"
+        "story": "C1",
+        "applies_to": "C1"
       }
     },
     "core.catalog_value_class_rule": {
@@ -3224,6 +3225,64 @@
         "received_at": "C1",
         "device_captured_at": "C1",
         "clock_skew_flag": "C1"
+      }
+    },
+    "core.messaging_message_thread": {
+      "lifecycle": "B",
+      "subjects": [],
+      "export": "none",
+      "columns": {
+        "id": "C1",
+        "trip_id": "C1",
+        "created_at": "C1"
+      }
+    },
+    "core.messaging_message": {
+      "lifecycle": "D",
+      "subjects": [
+        {
+          "column": "author_user_id",
+          "type": "USER"
+        }
+      ],
+      "export": "controller",
+      "columns": {
+        "id": "C1",
+        "thread_id": "C1",
+        "author_user_id": "C1",
+        "author_role": "C1",
+        "body": {
+          "class": "C2",
+          "erasure": "purge"
+        },
+        "body_masked": {
+          "class": "C2",
+          "erasure": "purge"
+        },
+        "channel_origin": "C1",
+        "status": "C1",
+        "sent_at": "C1",
+        "hidden_at": "C1"
+      }
+    },
+    "core.messaging_message_flag": {
+      "lifecycle": "B",
+      "subjects": [
+        {
+          "column": "reviewed_by",
+          "type": "USER"
+        }
+      ],
+      "export": "controller",
+      "columns": {
+        "id": "C1",
+        "message_id": "C1",
+        "kind": "C1",
+        "matched": "C1",
+        "review_item_id": "C1",
+        "reviewed_by": "C1",
+        "outcome": "C1",
+        "created_at": "C1"
       }
     },
     "core.trip_ops_identity_check": {

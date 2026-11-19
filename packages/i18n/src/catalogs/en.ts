@@ -3024,4 +3024,43 @@ export const EN_MESSAGES = {
   'web.handover.licenseFirst': 'First check the guest’s license.',
   'web.handover.done.checkin': 'Trip underway since {date}.',
   'web.handover.done.checkout': 'Car returned on {date}.',
+  // US-525 (ADR-181) : messagerie par trip (S16) et rappels du signal hors plateforme
+  'common.messages.thread': 'Trip messages.',
+  'common.messages.sent': 'Message sent.',
+  'common.messages.threadClosed':
+    'This conversation is closed: you can read it, but you can no longer send messages.',
+  'common.messages.invalid': 'Write a message of 1 to 2,000 characters.',
+  'common.messages.unavailable':
+    'We couldn’t load or send messages right now. Your text is still here: please try again in a few minutes.',
+  'web.s16.heading': 'Messages',
+  'web.s16.back': 'Back to the trip',
+  'web.s16.with': 'Conversation with {name}',
+  'web.s16.withUnknown': 'Trip conversation',
+  'web.s16.payOnPlatform': 'Pay only through {brand}: never outside it.',
+  'web.s16.privacy':
+    'You only see first names. We hide phone numbers, emails and links to protect you both.',
+  'web.s16.empty':
+    'No messages yet. Write to {host_name} if you have a question about the handover.',
+  'web.s16.emptyHost': 'No messages yet. Write to {name} to arrange the handover.',
+  'web.s16.you': 'You',
+  'web.s16.role.GUEST': 'Guest',
+  'web.s16.role.HOST': 'Host',
+  'web.s16.role.CO_HOST': 'Co-host',
+  'web.s16.sentAt': 'Sent on {date}',
+  'web.s16.masked': 'We hid contact details in this message.',
+  'web.s16.hidden': 'The support team hid this message.',
+  'web.s16.closesAt': 'You can write until {date}.',
+  'web.s16.closed':
+    'This conversation is closed: you can read it, but you can no longer send messages.',
+  'web.s16.loadError': 'We couldn’t load the messages.',
+  'web.s16.retry': 'Try again',
+  'web.s16.form.label': 'Your message',
+  'web.s16.form.hint': 'Agree on the handover time and place here. Never share payment details.',
+  'web.s16.form.send': 'Send',
+  'web.s16.form.required': 'Write a message.',
+  'web.s16.notice.contactMasked':
+    'We hid the contact details in your message: the conversation stays on {brand}, where you’re protected.',
+  'web.s16.notice.offPlatform':
+    'Remember: every payment goes through {brand}. A payment outside it has no protection or refund, and our team reviews these messages.',
+  'web.s16.sent': 'Message sent.',
 } as const satisfies Readonly<Record<MessageKey, Message>>;

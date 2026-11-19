@@ -3167,4 +3167,43 @@ export const FR_MESSAGES = {
   'web.handover.licenseFirst': 'Vérifie d’abord le permis du voyageur.',
   'web.handover.done.checkin': 'Voyage en cours depuis le {date}.',
   'web.handover.done.checkout': 'Voiture rendue le {date}.',
+  // US-525 (ADR-181) : messagerie par trip (S16) et rappels du signal hors plateforme
+  'common.messages.thread': 'Messages du voyage.',
+  'common.messages.sent': 'Message envoyé.',
+  'common.messages.threadClosed':
+    'Cette conversation est close : tu peux la lire, mais plus y écrire.',
+  'common.messages.invalid': 'Écris un message de 1 à 2 000 caractères.',
+  'common.messages.unavailable':
+    'Nous ne pouvons ni charger ni envoyer de messages pour le moment. Ton texte est conservé : réessaie dans quelques minutes.',
+  'web.s16.heading': 'Messages',
+  'web.s16.back': 'Retour au voyage',
+  'web.s16.with': 'Conversation avec {name}',
+  'web.s16.withUnknown': 'Conversation du voyage',
+  'web.s16.payOnPlatform': 'Paie uniquement sur {brand} : jamais en dehors.',
+  'web.s16.privacy':
+    'Tu ne vois que le prénom. Nous masquons téléphones, e-mails et liens pour vous protéger tous les deux.',
+  'web.s16.empty':
+    'Pas encore de message. Écris à {host_name} si tu as une question sur la remise.',
+  'web.s16.emptyHost': 'Pas encore de message. Écris à {name} pour organiser la remise.',
+  'web.s16.you': 'Toi',
+  'web.s16.role.GUEST': 'Voyageur',
+  'web.s16.role.HOST': 'Hôte',
+  'web.s16.role.CO_HOST': 'Co-hôte',
+  'web.s16.sentAt': 'Envoyé le {date}',
+  'web.s16.masked': 'Nous avons masqué des coordonnées dans ce message.',
+  'web.s16.hidden': 'L’équipe d’assistance a masqué ce message.',
+  'web.s16.closesAt': 'Tu peux écrire jusqu’au {date}.',
+  'web.s16.closed': 'Cette conversation est close : tu peux la lire, mais plus y écrire.',
+  'web.s16.loadError': 'Nous n’avons pas pu charger la conversation.',
+  'web.s16.retry': 'Réessayer',
+  'web.s16.form.label': 'Ton message',
+  'web.s16.form.hint':
+    'Convenez ici de l’heure et du lieu de la remise. Ne partage jamais de données de paiement.',
+  'web.s16.form.send': 'Envoyer',
+  'web.s16.form.required': 'Écris un message.',
+  'web.s16.notice.contactMasked':
+    'Nous avons masqué les coordonnées de ton message : la conversation reste sur {brand}, où tu es protégé.',
+  'web.s16.notice.offPlatform':
+    'Rappel : tout paiement passe par {brand}. Un paiement en dehors n’a ni protection ni remboursement, et notre équipe relit ces échanges.',
+  'web.s16.sent': 'Message envoyé.',
 } as const satisfies Readonly<Record<MessageKey, Message>>;

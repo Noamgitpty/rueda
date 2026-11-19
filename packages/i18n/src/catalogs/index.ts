@@ -314,7 +314,12 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  numéro de compte ou rail refusés, titulaire discordant, coffre, base ou rail du pays
  indisponibles) et écran `web.a07.payout.*` (compte masqué aux 4 derniers chiffres, statut, retenue de 48 h après un
  changement, formulaire).
- Version 98 (la 95 est celle d’US-707 ; 96 et 97 réservées à US-525 et US-310) : remise et retour du véhicule entre
+ Version 96 (la 95 est celle d’US-707 ; la 94 celle d’US-303) : messagerie par trip et signal du marché gris (US-525, ADR-181) : `common.messages.*`
+ (réponses des routes `/trips/{id}/messages` : fil, message envoyé, fil fermé, texte invalide,
+ indisponible), `web.s16.*` (S16 : bandeau `web.s16.payOnPlatform` et vide `web.s16.empty` de 10b
+ §4.3, prénom de l’autre partie, coordonnées masquées, rappels à l’expéditeur après un signal,
+ fenêtre d’écriture, formulaire).
+ Version 98 (la 96 est celle d’US-525 ; 97 réservée à US-310) : remise et retour du véhicule entre
  particuliers (US-315, ADR-183) : `common.handover.*` (refus des routes `/trips/{id}/handover/…`,
  dont `common.handover.unavailable` : sans réseau, réessayer, aucune file hors ligne au lot 3),
  `web.a03.arrived`, `web.a03.refuse`, `web.a03.handover` et les 6 points `web.a03.check.*` de
