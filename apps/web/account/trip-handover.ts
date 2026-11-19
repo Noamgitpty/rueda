@@ -266,3 +266,19 @@ export function handoverFailureKey(reply: ApiResult): MessageKey {
   if (reply.status === 'unavailable') return 'common.handover.unavailable';
   return messageKeyOf(reply) ?? 'common.error.server';
 }
+
+/**
+ * Refus « No entregar el auto » (décision définitive, TRIP_ID_FAILED) : motif choisi (aucun n'est
+ * présélectionné) et confirmation explicite exigés avant tout envoi ; `null` si le refus peut partir
+ * ou s'il ne s'agit pas d'un refus.
+ */
+export function refusalGuard(
+  refuse: boolean,
+  reason: string,
+  confirmFinal: string,
+): 'web.handover.refuse.reasonRequired' | 'web.handover.refuse.confirmRequired' | null {
+  if (!refuse) return null;
+  if (reason === '') return 'web.handover.refuse.reasonRequired';
+  if (confirmFinal !== 'yes') return 'web.handover.refuse.confirmRequired';
+  return null;
+}

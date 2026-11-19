@@ -2981,7 +2981,7 @@ export const EN_MESSAGES = {
   'web.handover.blocker.CONTRACT_NOT_SIGNED': 'the guest’s signature on the contract',
   'web.handover.blocker.DEPOSIT_NOT_READY': 'the security deposit',
   'web.handover.blocker.INSURER_CONTRACT_INACTIVE': 'active protection from the insurer',
-  'web.handover.blocker.HANDOVER_BLOCKED': 'a review by support',
+  'web.handover.blocker.HANDOVER_BLOCKED': 'a review by support; contact support from Help',
   'web.handover.license.lead':
     'Compare the guest’s physical license with these details. Don’t photograph it or write down its number.',
   'web.handover.license.name': 'Name on the account',
@@ -2991,14 +2991,19 @@ export const EN_MESSAGES = {
   'web.handover.license.confirm': 'Confirm the license',
   'web.handover.license.ok': 'License verified',
   'web.handover.license.failed':
-    'Handover stopped: the license wasn’t verified. Support reviews the case and decides.',
+    'Handover stopped: the license wasn’t verified. The trip can’t start.',
   'web.handover.license.guest': 'The host will check your physical license when you meet.',
   'web.handover.refuse.reason': 'Reason if you don’t hand over the car',
   'web.handover.refuse.INVALID_LICENSE': 'The license isn’t valid',
   'web.handover.refuse.IDENTITY_NOT_VERIFIED': 'The person doesn’t match the account',
   'web.handover.refuse.OTHER_DRIVER_SENT': 'Someone else came to drive',
+  'web.handover.refuse.choose': '— Choose a reason —',
+  'web.handover.refuse.confirm':
+    'I understand that not handing over the car is final: the handover stops and can’t be undone.',
+  'web.handover.refuse.reasonRequired': 'Choose the reason before you refuse to hand over the car.',
+  'web.handover.refuse.confirmRequired': 'Confirm that you understand the decision is final.',
   'web.handover.refuse.hint':
-    'Tick only the points that are met; the others are recorded as not met.',
+    'If a point isn’t met, don’t hand over the car: choose the reason and confirm. It’s final: the handover stops and the trip can’t start.',
   'web.handover.photos.mine.NONE': 'Your photos: not started',
   'web.handover.photos.mine.DRAFT': 'Your photos: in progress',
   'web.handover.photos.mine.SUBMITTED': 'Your photos: confirmed',

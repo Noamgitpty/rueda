@@ -3123,7 +3123,8 @@ export const FR_MESSAGES = {
   'web.handover.blocker.CONTRACT_NOT_SIGNED': 'la signature du contrat par le voyageur',
   'web.handover.blocker.DEPOSIT_NOT_READY': 'la caution',
   'web.handover.blocker.INSURER_CONTRACT_INACTIVE': 'la protection active de l’assureur',
-  'web.handover.blocker.HANDOVER_BLOCKED': 'une vérification du support',
+  'web.handover.blocker.HANDOVER_BLOCKED':
+    'une vérification du support ; écris au support depuis Aide',
   'web.handover.license.lead':
     'Compare le permis physique du voyageur à ces données. Ne le photographie pas et n’en note pas le numéro.',
   'web.handover.license.name': 'Nom du compte',
@@ -3133,14 +3134,20 @@ export const FR_MESSAGES = {
   'web.handover.license.confirm': 'Confirmer le permis',
   'web.handover.license.ok': 'Permis vérifié',
   'web.handover.license.failed':
-    'Remise arrêtée : le permis n’a pas été vérifié. Le support examine le cas et décide.',
+    'Remise arrêtée : le permis n’a pas été vérifié. Le voyage ne peut pas commencer.',
   'web.handover.license.guest': 'L’hôte vérifiera ton permis physique au rendez-vous.',
   'web.handover.refuse.reason': 'Motif si tu ne remets pas la voiture',
   'web.handover.refuse.INVALID_LICENSE': 'Le permis n’est pas valide',
   'web.handover.refuse.IDENTITY_NOT_VERIFIED': 'La personne ne correspond pas au compte',
   'web.handover.refuse.OTHER_DRIVER_SENT': 'Un autre conducteur est venu',
+  'web.handover.refuse.choose': '— Choisis un motif —',
+  'web.handover.refuse.confirm':
+    'Je comprends que ne pas remettre la voiture est définitif : la remise s’arrête et ne peut pas être annulée.',
+  'web.handover.refuse.reasonRequired': 'Choisis le motif avant de ne pas remettre la voiture.',
+  'web.handover.refuse.confirmRequired':
+    'Confirme que tu comprends que la décision est définitive.',
   'web.handover.refuse.hint':
-    'Coche seulement les points conformes ; les autres sont notés non conformes.',
+    'Si un point n’est pas conforme, ne remets pas la voiture : choisis le motif et confirme. C’est définitif : la remise s’arrête et le voyage ne pourra pas commencer.',
   'web.handover.photos.mine.NONE': 'Tes photos : pas commencées',
   'web.handover.photos.mine.DRAFT': 'Tes photos : en cours',
   'web.handover.photos.mine.SUBMITTED': 'Tes photos : validées',

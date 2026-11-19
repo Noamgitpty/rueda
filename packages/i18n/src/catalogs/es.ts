@@ -3055,7 +3055,7 @@ export const ES_MESSAGES = {
   'web.handover.blocker.CONTRACT_NOT_SIGNED': 'la firma del contrato por el viajero',
   'web.handover.blocker.DEPOSIT_NOT_READY': 'el depósito de garantía',
   'web.handover.blocker.INSURER_CONTRACT_INACTIVE': 'la protección activa de la aseguradora',
-  'web.handover.blocker.HANDOVER_BLOCKED': 'una revisión de soporte',
+  'web.handover.blocker.HANDOVER_BLOCKED': 'una revisión de soporte; escribe a soporte desde Ayuda',
   'web.handover.license.lead':
     'Compara la licencia física del viajero con estos datos. No le tomes foto ni anotes su número.',
   'web.handover.license.name': 'Nombre en la cuenta',
@@ -3065,14 +3065,19 @@ export const ES_MESSAGES = {
   'web.handover.license.confirm': 'Confirmar la licencia',
   'web.handover.license.ok': 'Licencia verificada',
   'web.handover.license.failed':
-    'Entrega detenida: la licencia no se verificó. Soporte revisa el caso y decide.',
+    'Entrega detenida: la licencia no se verificó. El viaje no puede empezar.',
   'web.handover.license.guest': 'El anfitrión revisará tu licencia física al encontrarse.',
   'web.handover.refuse.reason': 'Motivo si no entregas el auto',
   'web.handover.refuse.INVALID_LICENSE': 'La licencia no es válida',
   'web.handover.refuse.IDENTITY_NOT_VERIFIED': 'La persona no coincide con la cuenta',
   'web.handover.refuse.OTHER_DRIVER_SENT': 'Vino otro conductor',
+  'web.handover.refuse.choose': '— Elige un motivo —',
+  'web.handover.refuse.confirm':
+    'Entiendo que no entregar el auto es una decisión definitiva: la entrega se detiene y no se puede deshacer.',
+  'web.handover.refuse.reasonRequired': 'Elige el motivo antes de no entregar el auto.',
+  'web.handover.refuse.confirmRequired': 'Confirma que entiendes que la decisión es definitiva.',
   'web.handover.refuse.hint':
-    'Marca solo los puntos que se cumplen; los demás quedan como no conformes.',
+    'Si un punto no se cumple, no entregues el auto: elige el motivo y confirma. Es definitivo: la entrega se detiene y el viaje no podrá empezar.',
   'web.handover.photos.mine.NONE': 'Tus fotos: sin empezar',
   'web.handover.photos.mine.DRAFT': 'Tus fotos: en curso',
   'web.handover.photos.mine.SUBMITTED': 'Tus fotos: validadas',

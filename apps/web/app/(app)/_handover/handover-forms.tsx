@@ -108,7 +108,15 @@ export function IdentityForm(p: Common) {
         <label className={styles['strong']} htmlFor="handover-subreason">
           {t('web.handover.refuse.reason')}
         </label>
-        <select id="handover-subreason" name="subreason" className={styles['select']}>
+        {/* aucun motif présélectionné : le refus exige un choix explicite (revue ux n° 1) */}
+        <select
+          id="handover-subreason"
+          name="subreason"
+          className={styles['select']}
+          defaultValue=""
+          data-testid="handover-subreason"
+        >
+          <option value="">{t('web.handover.refuse.choose')}</option>
           {SUBREASONS.map((r) => (
             <option key={r} value={r}>
               {t(`web.handover.refuse.${r}`)}
@@ -116,6 +124,13 @@ export function IdentityForm(p: Common) {
           ))}
         </select>
         <p className={styles['hint']}>{t('web.handover.refuse.hint')}</p>
+        {/* décision définitive (TRIP_ID_FAILED) : confirmation explicite avant l'envoi */}
+        <Checkbox
+          id="handover-refuse-final"
+          name="confirmFinal"
+          value="yes"
+          label={t('web.handover.refuse.confirm')}
+        />
       </div>
       <div className={styles['actions']}>
         <Button

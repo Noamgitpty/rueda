@@ -3062,7 +3062,7 @@ export const PT_MESSAGES = {
   'web.handover.blocker.CONTRACT_NOT_SIGNED': 'a assinatura do contrato pelo viajante',
   'web.handover.blocker.DEPOSIT_NOT_READY': 'o depósito caução',
   'web.handover.blocker.INSURER_CONTRACT_INACTIVE': 'a proteção ativa da seguradora',
-  'web.handover.blocker.HANDOVER_BLOCKED': 'uma análise do suporte',
+  'web.handover.blocker.HANDOVER_BLOCKED': 'uma análise do suporte; fale com o suporte pela Ajuda',
   'web.handover.license.lead':
     'Compare a carteira física do viajante com estes dados. Não tire foto nem anote o número.',
   'web.handover.license.name': 'Nome na conta',
@@ -3072,14 +3072,19 @@ export const PT_MESSAGES = {
   'web.handover.license.confirm': 'Confirmar a carteira',
   'web.handover.license.ok': 'Carteira verificada',
   'web.handover.license.failed':
-    'Entrega suspensa: a carteira não foi verificada. O suporte analisa o caso e decide.',
+    'Entrega interrompida: a carteira não foi verificada. A viagem não pode começar.',
   'web.handover.license.guest': 'O anfitrião vai conferir sua carteira física no encontro.',
   'web.handover.refuse.reason': 'Motivo se você não entregar o carro',
   'web.handover.refuse.INVALID_LICENSE': 'A carteira não é válida',
   'web.handover.refuse.IDENTITY_NOT_VERIFIED': 'A pessoa não corresponde à conta',
   'web.handover.refuse.OTHER_DRIVER_SENT': 'Veio outro motorista',
+  'web.handover.refuse.choose': '— Escolha um motivo —',
+  'web.handover.refuse.confirm':
+    'Entendo que não entregar o carro é uma decisão definitiva: a entrega é interrompida e não pode ser desfeita.',
+  'web.handover.refuse.reasonRequired': 'Escolha o motivo antes de não entregar o carro.',
+  'web.handover.refuse.confirmRequired': 'Confirme que você entende que a decisão é definitiva.',
   'web.handover.refuse.hint':
-    'Selecione só os pontos que conferem; os outros ficam como não conformes.',
+    'Se um ponto não confere, não entregue o carro: escolha o motivo e confirme. É definitivo: a entrega é interrompida e a viagem não poderá começar.',
   'web.handover.photos.mine.NONE': 'Suas fotos: não iniciadas',
   'web.handover.photos.mine.DRAFT': 'Suas fotos: em andamento',
   'web.handover.photos.mine.SUBMITTED': 'Suas fotos: confirmadas',

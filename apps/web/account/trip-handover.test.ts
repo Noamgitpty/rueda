@@ -10,6 +10,7 @@ import {
   handoverFailureKey,
   handoverHref,
   identityBody,
+  refusalGuard,
   intField,
   isFuel,
   isOdometer,
@@ -176,5 +177,15 @@ describe('gardes des saisies (US-315)', () => {
     );
     expect(handoverHref('GUEST', TRIP, 'checkin', ORG)).toBe(`/trips/${TRIP}/handover/checkin`);
     expect(photosHref('GUEST', TRIP, 'checkout', null)).toBe(`/trips/${TRIP}/inspection/checkout`);
+  });
+});
+
+describe('refus définitif « No entregar el auto » (revue ux n° 1)', () => {
+  it('exige un motif choisi puis une confirmation explicite ; « Confirmar » n’est pas concerné', () => {
+    expect(refusalGuard(true, '', 'yes')).toBe('web.handover.refuse.reasonRequired');
+    expect(refusalGuard(true, 'INVALID_LICENSE', '')).toBe('web.handover.refuse.confirmRequired');
+    expect(refusalGuard(true, 'INVALID_LICENSE', 'on')).toBe('web.handover.refuse.confirmRequired');
+    expect(refusalGuard(true, 'OTHER_DRIVER_SENT', 'yes')).toBeNull();
+    expect(refusalGuard(false, '', '')).toBeNull();
   });
 });

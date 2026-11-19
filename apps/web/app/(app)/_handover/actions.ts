@@ -25,6 +25,7 @@ import {
   intField,
   isFuel,
   isOdometer,
+  refusalGuard,
   UUID,
 } from '../../../account/trip-handover.ts';
 import type { HandoverDirection } from '../../../account/trip-handover.ts';
@@ -82,6 +83,9 @@ export async function identityCheckAction(
   const checked = new Set(form.getAll('check').filter((v): v is string => typeof v === 'string'));
   const refuse = f.field('intent') === 'refuse';
   const reason = f.field('subreason');
+  // refus définitif (TRIP_ID_FAILED) : motif choisi et confirmation explicite exigés (revue ux n° 1)
+  const guard = refusalGuard(refuse, reason, f.field('confirmFinal'));
+  if (guard !== null) return { key: guard };
   const body = identityBody(checked, refuse ? reason || null : null);
   // « Confirmar » exige les six cases ; « No entregar » exige au moins une case manquante et un motif
   if (body === null) return { key: 'common.handover.licenseCheckIncomplete' };
