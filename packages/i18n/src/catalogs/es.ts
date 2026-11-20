@@ -2954,6 +2954,9 @@ export const ES_MESSAGES = {
   'web.a08.payouts.title': 'Pagos',
   'web.a08.payouts.schedule':
     'Te pagamos {n} días hábiles después del fin del viaje, hacia las {time} (hora local). El primer pago a una cuenta nueva sale {first} días hábiles después del viaje, mientras verificamos la cuenta.',
+  'web.a08.payouts.scheduleClosed':
+    'Cuando los pagos a anfitriones abran en {country}, te pagaremos {n} días hábiles después del fin del viaje, hacia las {time} (hora local); el primer pago a una cuenta nueva, {first} días hábiles después del viaje.',
+  'web.a08.payouts.toPay': 'Monto a pagar',
   'web.a08.payouts.scheduleUnknown': 'El calendario de pagos de {country} aún no está publicado.',
   'web.a08.payouts.empty': 'Aún no tienes pagos. Preparamos uno después de cada viaje terminado.',
   'web.a08.payouts.scheduledFor': 'Previsto el {date}',

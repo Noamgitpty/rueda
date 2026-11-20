@@ -44,6 +44,7 @@ const body = {
     firstPayoutBusinessDay: 5,
     localTimeMinutes: 600,
     timeZone: 'America/Somewhere',
+    payoutsOpen: false,
   },
   payouts: [held, paid],
 };
@@ -74,6 +75,7 @@ describe('US-314 — versements de l’hôte (A08)', () => {
           firstPayoutBusinessDay: null,
           localTimeMinutes: null,
           timeZone: null,
+          payoutsOpen: false,
         },
         payouts: [],
       }),
@@ -87,6 +89,7 @@ describe('US-314 — versements de l’hôte (A08)', () => {
       { ...body, orgId: 'x' },
       { ...body, currencyExponent: 9 },
       { ...body, schedule: { ...body.schedule, localTimeMinutes: 1440 } },
+      { ...body, schedule: { ...body.schedule, payoutsOpen: 'non' } },
       { ...body, payouts: [{ ...paid, status: 'SENT' }] },
       { ...body, payouts: [{ ...paid, netMinor: '-1' }] },
       { ...body, payouts: [{ ...held, holdReasons: ['NOT_A_REASON'] }] },

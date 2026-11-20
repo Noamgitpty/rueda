@@ -190,6 +190,8 @@ describe.each(COUNTRIES)('US-314 — versements lus par l’hôte (A08) — $cou
           firstPayoutBusinessDay: paramOf('first_payout_business_day', c.country),
           localTimeMinutes: paramOf('payout_batch_local_time', c.country),
           timeZone: c.timezone,
+          // payouts_enabled du pays lu par la base : false sur le banc (17 §0.1)
+          payoutsOpen: false,
         });
         // les plus récents d'abord ; seuls les lots du compte A
         expect(r.batches).toEqual([

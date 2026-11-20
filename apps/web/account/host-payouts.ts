@@ -44,6 +44,8 @@ export interface PayoutScheduleView {
   readonly firstPayoutBusinessDay: number | null;
   readonly localTimeMinutes: number | null;
   readonly timeZone: string | null;
+  /** Versements ouverts dans le pays (`payouts_enabled`, lu par la base). */
+  readonly payoutsOpen: boolean;
 }
 
 export interface PayoutView {
@@ -100,11 +102,18 @@ function scheduleOf(raw: unknown): PayoutScheduleView | null {
     businessDayOffset === undefined ||
     firstPayoutBusinessDay === undefined ||
     localTimeMinutes === undefined ||
-    timeZone === undefined
+    timeZone === undefined ||
+    typeof raw['payoutsOpen'] !== 'boolean'
   ) {
     return null;
   }
-  return { businessDayOffset, firstPayoutBusinessDay, localTimeMinutes, timeZone };
+  return {
+    businessDayOffset,
+    firstPayoutBusinessDay,
+    localTimeMinutes,
+    timeZone,
+    payoutsOpen: raw['payoutsOpen'],
+  };
 }
 
 function payoutOf(raw: unknown): PayoutView | null {

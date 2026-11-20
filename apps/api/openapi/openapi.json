@@ -25565,7 +25565,8 @@
               "businessDayOffset",
               "firstPayoutBusinessDay",
               "localTimeMinutes",
-              "timeZone"
+              "timeZone",
+              "payoutsOpen"
             ],
             "properties": {
               "businessDayOffset": {
@@ -25585,6 +25586,10 @@
               },
               "timeZone": {
                 "type": ["string", "null"]
+              },
+              "payoutsOpen": {
+                "type": "boolean",
+                "description": "payouts_enabled[pays] lu par la base (absent ⇒ false) : calendrier annoncé au conditionnel"
               }
             }
           },

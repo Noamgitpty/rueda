@@ -375,7 +375,8 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  Version 107 (réservée à US-314 par l’orchestrateur ; les 104 à 106 sont réservées à US-703,
  US-317 et US-307 ; le numéro ne redescend jamais) : versements de l’hôte (US-314, ADR-192) :
  `common.payouts.*` (réponses de `GET /host/accounts/{orgId}/payouts`), `web.a08.payouts.*` (A08 :
- calendrier J+N ouvrés et premier versement, états SM-6, motifs de retenue lisibles, montants),
+ calendrier J+N ouvrés et premier versement, au conditionnel tant que les versements sont fermés
+ dans le pays (`scheduleClosed`), « montant à verser » avant le paiement (`toPay`), états SM-6, motifs de retenue lisibles, montants),
  lignes du host_ledger `web.a08.line.RELEASED_LEG_ADVANCE`, `CHARGEBACK_CLAWBACK`,
  `RECEIVABLE_WRITE_OFF`, `PAYOUT_NETTING` et `web.a08.line.creditHint`.
  */

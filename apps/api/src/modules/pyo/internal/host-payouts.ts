@@ -67,6 +67,8 @@ export interface PayoutSchedule {
   readonly localTimeMinutes: number | null;
   /** Fuseau du pays (IANA). */
   readonly timeZone: string | null;
+  /** `payouts_enabled[pays]` lu par la base (absent ⇒ false) : calendrier annoncé au conditionnel. */
+  readonly payoutsOpen: boolean;
 }
 
 export interface PayoutTrip {
@@ -180,6 +182,7 @@ const SCHEDULE_KEYS = [
   'firstPayoutBusinessDay',
   'localTimeMinutes',
   'timeZone',
+  'payoutsOpen',
 ];
 const BATCH_KEYS = [
   'batchId',
@@ -209,11 +212,18 @@ function scheduleOf(raw: unknown): PayoutSchedule | null {
     businessDayOffset === undefined ||
     firstPayoutBusinessDay === undefined ||
     localTimeMinutes === undefined ||
-    (tz !== null && timeZone === null)
+    (tz !== null && timeZone === null) ||
+    typeof raw['payoutsOpen'] !== 'boolean'
   ) {
     return null;
   }
-  return { businessDayOffset, firstPayoutBusinessDay, localTimeMinutes, timeZone };
+  return {
+    businessDayOffset,
+    firstPayoutBusinessDay,
+    localTimeMinutes,
+    timeZone,
+    payoutsOpen: raw['payoutsOpen'],
+  };
 }
 
 /** Motifs lisibles, sans doublon, dans l'ordre reçu ; motif inconnu ⇒ OTHER. */

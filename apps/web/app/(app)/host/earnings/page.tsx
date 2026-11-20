@@ -334,7 +334,8 @@ export default async function HostEarningsPage({
       s.firstPayoutBusinessDay === null ||
       s.localTimeMinutes === null
         ? t('web.a08.payouts.scheduleUnknown', { country: countryName(tag, p.country) })
-        : t('web.a08.payouts.schedule', {
+        : t(s.payoutsOpen ? 'web.a08.payouts.schedule' : 'web.a08.payouts.scheduleClosed', {
+            country: countryName(tag, p.country),
             n: String(s.businessDayOffset),
             first: String(s.firstPayoutBusinessDay),
             time: localTimeOf(s.localTimeMinutes),
@@ -388,7 +389,9 @@ export default async function HostEarningsPage({
                   </div>
                 )}
                 <div className={styles['between']}>
-                  <span className={styles['strong']}>{t('web.a08.payouts.net')}</span>
+                  <span className={styles['strong']}>
+                    {t(v.status === 'PAID' ? 'web.a08.payouts.net' : 'web.a08.payouts.toPay')}
+                  </span>
                   <span className={styles['strong']} data-testid="a08-payout-net">
                     {money(v.netMinor)}
                   </span>

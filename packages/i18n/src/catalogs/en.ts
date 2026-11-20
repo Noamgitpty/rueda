@@ -2883,6 +2883,9 @@ export const EN_MESSAGES = {
   'web.a08.payouts.title': 'Payouts',
   'web.a08.payouts.schedule':
     'We pay you {n} business days after your trip ends, around {time} (local time). Your first payout to a new account goes out {first} business days after the trip, while we verify the account.',
+  'web.a08.payouts.scheduleClosed':
+    'Once host payouts open in {country}, we’ll pay you {n} business days after your trip ends, around {time} (local time); your first payout to a new account, {first} business days after the trip.',
+  'web.a08.payouts.toPay': 'Amount to pay out',
   'web.a08.payouts.scheduleUnknown': 'The payout calendar for {country} isn’t published yet.',
   'web.a08.payouts.empty': 'No payouts yet. We prepare one after each completed trip.',
   'web.a08.payouts.scheduledFor': 'Scheduled for {date}',

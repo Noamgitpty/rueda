@@ -2763,6 +2763,7 @@ function payoutsRoute(req, res, url) {
       firstPayoutBusinessDay: 5,
       localTimeMinutes: 600,
       timeZone: 'UTC',
+      payoutsOpen: false,
     },
     payouts: [
       batch('31400000-0000-4000-8000-000000000002', '31400000-0000-4000-8000-0000000000b2', {

@@ -65,6 +65,7 @@ function rowFor(country: string, trip: string, batches?: unknown): HostPayoutsRo
       firstPayoutBusinessDay: valueOf('first_payout_business_day', country),
       localTimeMinutes: valueOf('payout_batch_local_time', country),
       timeZone: entry?.timeZone ?? null,
+      payoutsOpen: false,
     },
     batches: batches ?? [
       {

@@ -32,7 +32,8 @@
 --      jamais titulaire, même doté par erreur de `finance.read_org_statements`, RLS-28) et tant
 --      que la matrice accorde `finance.read_org_statements` au rôle P2P_HOST : le pays, la devise,
 --      le calendrier du pays (jours ouvrés du versement, du premier versement, heure locale du lot
---      et fuseau : paramètres de 17 §7.2, illisibles ⇒ NULL) et ses 24 derniers lots (type, état,
+--      et fuseau : paramètres de 17 §7.2, illisibles ⇒ NULL ; `payoutsOpen` : interrupteur
+--      `payouts_enabled` du pays LU, absent ⇒ false, pour annoncer le calendrier au conditionnel) et ses 24 derniers lots (type, état,
 --      date prévue, premier versement, brut, compensation, net, motifs de retenue STOCKÉS, dates
 --      d'émission et de paiement, trips et montants des items). Jamais un identifiant du personnel
 --      (RLS-26), ni un compte PSP, ni le compte de versement, ni une clé d'idempotence, ni une
@@ -51,7 +52,7 @@
 --      `leg_release_not_due` : `release_at` n'a qu'un écrivain, la préparation, qui met le trip en
 --      lot dans la même transaction (S-06, 0165) ; seules les fixtures de test (migrator) posent un
 --      `release_at` sans lot.
---   Aucun interrupteur lu pour la lecture ni écrit ; aucune constante de pays ; heure de la base
+--   Aucun interrupteur écrit (la lecture lit seulement `payouts_enabled`) ; aucune constante de pays ; heure de la base
 --   (`platform.now()`).
 --
 -- Codes : `leg_release_payout_held` (55000) → FORBIDDEN (packages/db/src/errors.ts) ; issues de la
@@ -200,7 +201,9 @@ BEGIN
                        AND (v_minutes #>> '{}') ~ '^(0|[1-9][0-9]{0,3})$'
                        AND (v_minutes #>> '{}')::integer <= 1439
                   THEN (v_minutes #>> '{}')::integer END,
-           'timeZone', v_tz),
+           'timeZone', v_tz,
+           -- interrupteur du pays (17 §0.1, absent ⇒ false), lu pour l'annonce seulement
+           'payoutsOpen', core.config_go_live('payouts_enabled', v_country)),
          COALESCE((
            SELECT pg_catalog.jsonb_agg(pg_catalog.jsonb_build_object(
                     'batchId', x.id,

@@ -3021,6 +3021,9 @@ export const FR_MESSAGES = {
   'web.a08.payouts.title': 'Versements',
   'web.a08.payouts.schedule':
     'Nous te versons tes gains {n} jours ouvrés après la fin du voyage, vers {time} (heure locale). Le premier versement vers un nouveau compte part {first} jours ouvrés après le voyage, le temps de vérifier le compte.',
+  'web.a08.payouts.scheduleClosed':
+    'Quand les versements aux hôtes ouvriront au {country}, nous te verserons tes gains {n} jours ouvrés après la fin du voyage, vers {time} (heure locale)\u00a0; le premier versement vers un nouveau compte, {first} jours ouvrés après le voyage.',
+  'web.a08.payouts.toPay': 'Montant à verser',
   'web.a08.payouts.scheduleUnknown':
     'Le calendrier des versements n’est pas encore publié au {country}.',
   'web.a08.payouts.empty':
