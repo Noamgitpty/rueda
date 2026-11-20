@@ -383,6 +383,8 @@ describe.each(COUNTRIES)('US-525 — messagerie par trip ($country, $currency)',
               masked: null,
               off_platform: null,
               sent_at: null,
+              // US-316 (0166) : colonne de la purge ajoutée à la lecture, nulle sur un refus
+              purged: null,
             },
           ]);
           expect(await post(tx, hash, tripId, 'te escribo por aquí'), label).toMatchObject({

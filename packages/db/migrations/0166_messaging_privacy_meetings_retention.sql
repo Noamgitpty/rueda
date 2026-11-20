@@ -57,7 +57,9 @@
 -- (la version N lit `body_masked` par `messaging_thread_read`, qui rend déjà NULL pour un message
 -- masqué : un message purgé est servi comme un message masqué) ; une contrainte de forme ajoutée
 -- (lignes existantes : purged_at NULL, textes présents) ; garde de 0161 remplacée à signature et
--- propriétaire identiques (définition recopiée, bloc US-316 marqué) ; une table ; droits de
+-- propriétaire identiques (définition recopiée, bloc US-316 marqué) ; lecture du fil de 0161
+-- supprimée et recréée dans la même transaction (colonne `purged` ajoutée en dernier, même signature,
+-- mêmes droits ; la version N l'ignore) ; une table ; droits de
 -- colonnes et politiques ajoutés ; une ligne de référence mise à jour (règle TRIP_MESSAGES : son
 -- travailleur) ; quatre fonctions ajoutées ; aucune fonction existante d'API remplacée.
 --
@@ -297,6 +299,124 @@ CREATE POLICY privacy_cmd_purge ON core.messaging_meeting_proposal FOR UPDATE
 -- 6. Fonctions de la messagerie (propriétaire messaging_cmd_owner, comme 0161) ------------------------
 GRANT CREATE ON SCHEMA core TO messaging_cmd_owner;
 SET LOCAL ROLE messaging_cmd_owner;
+
+-- 6.0 Lecture du fil de 0161, recopiée ; bloc US-316 : colonne `purged` (texte effacé par la
+-- rétention, à distinguer d'un message masqué par l'équipe). Supprimée puis recréée DANS LA MÊME
+-- TRANSACTION (une colonne de retour ne s'ajoute pas par CREATE OR REPLACE), même signature, même
+-- propriétaire, mêmes droits ; la version N lit les colonnes par nom et ignore `purged`.
+DROP FUNCTION core.messaging_thread_read(bytea, uuid, integer);
+CREATE FUNCTION core.messaging_thread_read(p_token_hash bytea, p_trip_id uuid, p_limit integer)
+  RETURNS TABLE (outcome text, viewer_role text, counterpart_name text, writable boolean,
+                 closes_at timestamptz, timezone text, message_id uuid, mine boolean, author_role text,
+                 author_name text, body text, masked boolean, off_platform boolean,
+                 sent_at timestamptz, purged boolean)
+  LANGUAGE plpgsql
+  STABLE
+  SECURITY DEFINER
+  SET search_path = pg_catalog, pg_temp
+AS $fn$
+#variable_conflict use_column
+DECLARE
+  v_user    uuid;
+  v_party   record;
+  v_days    jsonb;
+  v_closes  timestamptz;
+  v_name    text;
+  v_now     timestamptz := platform.now();
+BEGIN
+  IF p_trip_id IS NULL OR p_limit IS NULL OR p_limit < 1 OR p_limit > 200 THEN
+    RETURN QUERY SELECT 'REQUEST_INVALID'::text, NULL::text, NULL::text, NULL::boolean,
+                        NULL::timestamptz, NULL::text, NULL::uuid, NULL::boolean, NULL::text,
+                        NULL::text, NULL::text, NULL::boolean, NULL::boolean, NULL::timestamptz,
+                        NULL::boolean;
+    RETURN;
+  END IF;
+  -- personne de la SESSION (IDOR : jamais un identifiant de personne reçu)
+  SELECT s.user_id INTO v_user FROM core.iam_session_resolve(p_token_hash) AS s;
+  IF v_user IS NULL THEN
+    RETURN QUERY SELECT 'AUTH_REQUIRED'::text, NULL::text, NULL::text, NULL::boolean,
+                        NULL::timestamptz, NULL::text, NULL::uuid, NULL::boolean, NULL::text,
+                        NULL::text, NULL::text, NULL::boolean, NULL::boolean, NULL::timestamptz,
+                        NULL::boolean;
+    RETURN;
+  END IF;
+  SELECT * INTO v_party FROM core.messaging_party(v_user, p_trip_id);
+  IF v_party.role IS NULL THEN
+    -- trip d'une autre personne, inconnu, co-hôte hors portée ou révoqué : même issue
+    RETURN QUERY SELECT 'NOT_FOUND'::text, NULL::text, NULL::text, NULL::boolean,
+                        NULL::timestamptz, NULL::text, NULL::uuid, NULL::boolean, NULL::text,
+                        NULL::text, NULL::text, NULL::boolean, NULL::boolean, NULL::timestamptz,
+                        NULL::boolean;
+    RETURN;
+  END IF;
+  -- fenêtre d'écriture : fin prévue + review_window_days du pays ; absente ou mal formée : fermé
+  SELECT v.value INTO v_days
+    FROM core.config_param_value AS v
+   WHERE v.key = 'review_window_days' AND v.country_code::text = v_party.country_code
+     AND v.scope_type = 'COUNTRY' AND v.valid_from <= v_now
+     AND (v.valid_to IS NULL OR v.valid_to > v_now)
+   ORDER BY v.valid_from DESC
+   LIMIT 1;
+  IF v_days IS NOT NULL AND pg_catalog.jsonb_typeof(v_days) = 'number'
+     AND (v_days #>> '{}') ~ '^[0-9]{1,3}$' THEN
+    v_closes := v_party.scheduled_end
+                + pg_catalog.make_interval(days => (v_days #>> '{}')::integer);
+  END IF;
+  -- prénom de l'autre partie : le titulaire du compte d'hôte pour le voyageur, le voyageur sinon
+  SELECT NULLIF(pg_catalog.left(pg_catalog.split_part(pg_catalog.btrim(u.legal_first_name), ' ', 1),
+                                40), '')
+    INTO v_name
+    FROM core.iam_user_account AS u
+   WHERE u.pseudonymized_at IS NULL
+     AND u.id = CASE WHEN v_party.role = 'GUEST'
+                     THEN (SELECT o.holder_user_id FROM core.iam_organization AS o
+                            WHERE o.id = v_party.org_id)
+                     ELSE v_party.guest_user_id END;
+
+  RETURN QUERY
+  SELECT 'DONE'::text, v_party.role, v_name, (v_closes IS NOT NULL AND v_now <= v_closes),
+         v_closes, v_party.timezone, m.id, m.mine, m.author_role, m.author_name, m.body, m.masked,
+         m.off_platform, m.sent_at, m.purged
+    FROM (SELECT 1) AS head
+    LEFT JOIN LATERAL (
+      SELECT x.*
+        FROM (
+          SELECT msg.id, msg.author_user_id = v_user AS mine, msg.author_role,
+                 NULLIF(pg_catalog.left(pg_catalog.split_part(pg_catalog.btrim(au.legal_first_name),
+                                                              ' ', 1), 40), '') AS author_name,
+                 CASE WHEN msg.hidden_at IS NULL THEN msg.body_masked END AS body,
+                 EXISTS (SELECT 1 FROM core.messaging_message_flag AS f
+                          WHERE f.message_id = msg.id AND f.kind = 'CONTACT_MASKED') AS masked,
+                 (msg.author_user_id = v_user
+                  AND EXISTS (SELECT 1 FROM core.messaging_message_flag AS f
+                               WHERE f.message_id = msg.id
+                                 AND f.kind = 'GRAY_MARKET_KEYWORD')) AS off_platform,
+                 msg.sent_at,
+                 -- US-316 (ADR-186) : texte effacé par la rétention (TRIP_MESSAGES), à distinguer
+                 -- d'un message masqué par l'équipe (hidden_at)
+                 msg.purged_at IS NOT NULL AS purged
+            FROM core.messaging_message_thread AS th
+            JOIN core.messaging_message AS msg ON msg.thread_id = th.id
+            LEFT JOIN core.iam_user_account AS au
+              ON au.id = msg.author_user_id AND au.pseudonymized_at IS NULL
+           WHERE th.trip_id = p_trip_id
+           ORDER BY msg.sent_at DESC, msg.id DESC
+           LIMIT p_limit) AS x) AS m ON true
+   ORDER BY m.sent_at, m.id;
+END
+$fn$;
+COMMENT ON FUNCTION core.messaging_thread_read(bytea, uuid, integer) IS
+  'Fil d''un trip (S16) pour une partie du trip de la session : rôle, prénom de l''autre partie, '
+  'fenêtre d''écriture, derniers messages en texte masqué (jamais le texte reçu) ; trip d''une '
+  'autre personne ou inconnu : NOT_FOUND. SECURITY DEFINER, EXECUTE app_api. US-525 (ADR-181).';
+COMMENT ON FUNCTION core.messaging_thread_read(bytea, uuid, integer) IS
+  'Fil d''un trip (S16) pour une partie du trip de la session : rôle, prénom de l''autre partie, '
+  'fenêtre d''écriture, derniers messages en texte masqué (jamais le texte reçu), purge par la '
+  'rétention signalée (purged) ; trip d''une autre personne ou inconnu : NOT_FOUND. SECURITY '
+  'DEFINER, EXECUTE app_api. US-525 (ADR-181), US-316 (ADR-186).';
+REVOKE ALL ON FUNCTION core.messaging_thread_read(bytea, uuid, integer) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION core.messaging_thread_read(bytea, uuid, integer) TO app_api;
+
 
 -- 6.1 Rendez-vous d'un trip pour une partie du trip de la session : en-tête (rôle, proposition
 -- possible, fuseau du trip) répété sur chaque ligne ; propositions en attente, acceptées et

@@ -3232,6 +3232,7 @@ export const PT_MESSAGES = {
     'Informe um local de 3 a 160 caracteres e um horário futuro próximo às datas da viagem.',
   'common.meetings.placeContact':
     'O local não pode ter telefone, e-mail, usuário nem link. Descreva um ponto fácil de achar.',
+  'web.s16.purged': 'Esta mensagem foi apagada ao fim do prazo de guarda.',
   'web.s16.meeting.heading': 'Encontro',
   'web.s16.meeting.leadGuest':
     'Seu anfitrião propõe o local e o horário da entrega e da devolução; confirme aqui.',

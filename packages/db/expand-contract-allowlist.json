@@ -219,10 +219,16 @@
     },
     {
       "path": "packages/db/migrations/0166_messaging_privacy_meetings_retention.sql",
-      "line": 247,
+      "line": 249,
       "kind": "data-update",
       "dataTables": ["core.audit_retention_rule"],
       "justification": "US-316 (ADR-186) : la règle de référence TRIP_MESSAGES (écrite par 0161, US-525, avec enforced_by = MANUAL en attendant ce travailleur) nomme son travailleur (WORKER:privacy_request) et ajoute la table des rendez-vous (même durée) ; une ligne de référence écrite par migration seulement ; code, paramètre, ancre et action inchangés ; aucune ligne de journal n'en dépend encore (aucune purge TRIP_MESSAGES avant cette migration) ; la version N ne lit pas cette ligne"
+    },
+    {
+      "path": "packages/db/migrations/0166_messaging_privacy_meetings_retention.sql",
+      "line": 307,
+      "kind": "drop-function",
+      "justification": "US-316 (ADR-186, revues code et ux du 2026-11-20) : core.messaging_thread_read (0161) est supprimée puis recréée DANS LA MÊME TRANSACTION avec la même signature, le même propriétaire (messaging_cmd_owner) et les mêmes droits (EXECUTE app_api) ; seule une colonne de retour est ajoutée en dernier (purged, impossible par CREATE OR REPLACE). La version N appelle la fonction par SELECT * et lit ses colonnes par nom (trip-message-store.ts, threadOf) : la colonne ajoutée est ignorée, aucune colonne lue n'est retirée ni renommée (même cas que 0118, US-205b)"
     }
   ]
 }

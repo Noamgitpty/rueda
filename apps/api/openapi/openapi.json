@@ -24285,7 +24285,8 @@
           "body",
           "masked",
           "offPlatform",
-          "sentAt"
+          "sentAt",
+          "purged"
         ],
         "properties": {
           "id": {
@@ -24304,7 +24305,7 @@
           },
           "body": {
             "type": ["string", "null"],
-            "description": "texte servi : coordonnées remplacées par « ••• » ; null : message masqué par l'ops"
+            "description": "texte servi : coordonnées remplacées par « ••• » ; null : message masqué par l'ops ou purgé par la rétention (purged)"
           },
           "masked": {
             "type": "boolean",
@@ -24317,6 +24318,10 @@
           "sentAt": {
             "type": "string",
             "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}[.][0-9]{3}Z$"
+          },
+          "purged": {
+            "type": "boolean",
+            "description": "texte effacé par la rétention (TRIP_MESSAGES, US-316) : body est alors null"
           }
         }
       },

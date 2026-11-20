@@ -3225,6 +3225,7 @@ export const ES_MESSAGES = {
     'Indica un lugar de 3 a 160 caracteres y una hora futura cercana a las fechas del viaje.',
   'common.meetings.placeContact':
     'El lugar no puede llevar teléfono, correo, usuario ni enlace. Describe un sitio fácil de ubicar.',
+  'web.s16.purged': 'Este mensaje se borró al terminar el plazo de conservación.',
   'web.s16.meeting.heading': 'Encuentro',
   'web.s16.meeting.leadGuest':
     'Tu anfitrión propone el lugar y la hora de la entrega y de la devolución; confírmalos aquí.',

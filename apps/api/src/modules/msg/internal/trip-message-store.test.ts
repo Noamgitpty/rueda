@@ -25,6 +25,8 @@ const msg = (id: string) => ({
   masked: true,
   off_platform: false,
   sent_at: new Date('2035-05-02T09:00:00.000Z'),
+  // US-316 : colonne ajoutée à la lecture du fil (0166)
+  purged: false,
 });
 const A = '00000000-0000-4000-8000-00000000000a';
 const B = '00000000-0000-4000-8000-00000000000b';

@@ -658,7 +658,8 @@ describe.each(COUNTRIES)('US-316 critère 3 — rétention des messages ($countr
         // purge (par le propriétaire des tables : la garde l'admet) puis lecture servie
         await tx.query('SELECT test_fixture.us316_force_write($1, $2)', [m['message_id'], 'PURGE']);
         expect(await rows(tx, THREAD, [g.hash, t.trip, 200])).toEqual([
-          expect.objectContaining({ message_id: m['message_id'], body: null }),
+          // purgé par la rétention, distingué d'un message masqué par l'équipe (hidden_at)
+          expect.objectContaining({ message_id: m['message_id'], body: null, purged: true }),
         ]);
       });
     } finally {

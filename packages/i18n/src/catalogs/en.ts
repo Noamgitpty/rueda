@@ -3151,6 +3151,7 @@ export const EN_MESSAGES = {
     'Enter a place of 3 to 160 characters and a future time close to the trip dates.',
   'common.meetings.placeContact':
     'The place cannot include a phone number, email, username or link. Describe an easy-to-find spot.',
+  'web.s16.purged': 'This message was deleted when its retention period ended.',
   'web.s16.meeting.heading': 'Meetup',
   'web.s16.meeting.leadGuest':
     'Your host proposes the place and time for pickup and return; confirm them here.',

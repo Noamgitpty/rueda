@@ -265,7 +265,9 @@ export async function ThreadScreen({ scope, tripId, back, query }: ThreadScreenP
                 data-testid="s16-message"
               >
                 <p className={styles['author']}>{authorOf(m)}</p>
-                <p className={styles['body']}>{m.body ?? t('web.s16.hidden')}</p>
+                <p className={styles['body']}>
+                  {m.body ?? (m.purged ? t('web.s16.purged') : t('web.s16.hidden'))}
+                </p>
                 {m.body !== null && m.masked && (
                   <p className={styles['meta']}>{t('web.s16.masked')}</p>
                 )}

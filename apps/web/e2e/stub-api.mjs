@@ -2449,6 +2449,7 @@ function seedThread() {
       masked: false,
       offPlatform: false,
       sentAt: '2036-12-09T15:00:00.000Z',
+      purged: false,
     },
   ];
 }
@@ -2495,7 +2496,13 @@ async function messagesRoute(req, res, url) {
   const sentAt = new Date(Date.parse('2036-12-09T16:00:00.000Z') + messages.length * 60_000);
   const message = { id: b.id, body, masked, offPlatform, sentAt: sentAt.toISOString() };
   if (!messages.some((x) => x.id === b.id)) {
-    messages.push({ ...message, mine: true, authorRole: 'GUEST', authorName: 'Lucía' });
+    messages.push({
+      ...message,
+      mine: true,
+      authorRole: 'GUEST',
+      authorName: 'Lucía',
+      purged: false,
+    });
   }
   const notices = [
     ...(masked ? ['CONTACT_MASKED'] : []),
