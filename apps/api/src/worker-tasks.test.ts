@@ -11,6 +11,7 @@ import {
   WEBHOOK_INGEST_WORKER,
   PRIVACY_REQUEST_WORKER,
   registerWorkerTasks,
+  REVIEW_PUBLISHER_WORKER,
   REVIEW_SLA_WATCH_WORKER,
   RISK_PRUNER_WORKER,
   SECURITY_INCIDENT_WATCH_WORKER,
@@ -105,6 +106,8 @@ describe('tâches du travailleur (US-003)', () => {
       'reconciliation',
       // US-224c (ADR-150) : remboursements planifiés (aucun connecteur en production)
       'refund_scheduler',
+      // US-317 (ADR-190) : avis publiés à l'échéance de la fenêtre
+      'review_publisher',
       'review_sla_watch',
       'risk_pruner',
       'security_incident_watch',
@@ -132,6 +135,7 @@ describe('tâches du travailleur (US-003)', () => {
       ['privacy_request', 3_600, 5],
       ['reconciliation', 86_400, 5],
       ['refund_scheduler', 10, 5],
+      ['review_publisher', 60, 5],
       ['review_sla_watch', 60, 5],
       ['risk_pruner', 3_600, 5],
       ['security_incident_watch', 300, 5],
@@ -639,6 +643,30 @@ describe('tâches du travailleur (US-003)', () => {
     await expect(h.handle({}, odd.tx)).rejects.toThrow(/inconnu/);
     alerts.failing = true;
     await expect(h.handle({}, base.tx)).rejects.toThrow(/indisponible/);
+  });
+
+  it('review_publisher : scellés échus publiés par la base, par lots ; compte seul au journal ; compte mal formé ⇒ la passe échoue (rejouée)', async () => {
+    const base = recordingTx({ review_worker_publish_due: [{ n: '3' }] });
+    const logs: string[] = [];
+    const registry = new BusRegistry();
+    registerWorkerTasks(registry, {
+      transactions: transactions(base.tx, []),
+      config,
+      brandName: 'x',
+      log: (l) => logs.push(l),
+      now: () => AT,
+    });
+    const h = registry.handlerOf(REVIEW_PUBLISHER_WORKER);
+    if (h?.kind !== 'timer') throw new Error('minuterie attendue');
+    await h.handle({}, base.tx);
+    expect(base.sql).toEqual([
+      `SELECT core.review_worker_publish_due($1) AS n [${WORKER_TASK_DEFAULTS.reviewPublisherBatch}]`,
+    ]);
+    expect(logs.map((l) => JSON.parse(l) as unknown)).toEqual([
+      { level: 'info', worker: 'review_publisher', published: 3 },
+    ]);
+    const odd = recordingTx({ review_worker_publish_due: [{ n: -1 }] });
+    await expect(h.handle({}, odd.tx)).rejects.toThrow(/compte/);
   });
 
   it('période du balayeur : la plus courte des pays configurés (données CFG)', () => {

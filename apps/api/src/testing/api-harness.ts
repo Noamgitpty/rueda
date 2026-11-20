@@ -42,6 +42,8 @@ import { unavailablePyoOptions } from '../modules/pyo/index.js';
 import type { PyoPayoutOptions } from '../modules/pyo/index.js';
 import { unavailableMsgOptions } from '../modules/msg/index.js';
 import type { MsgTripMessagesOptions } from '../modules/msg/index.js';
+import { unavailableRevOptions } from '../modules/rev/index.js';
+import type { RevReviewsOptions } from '../modules/rev/index.js';
 import type { PayWebhookOptions } from '../modules/pay/index.js';
 import {
   AbuseGuard,
@@ -143,6 +145,8 @@ export interface ApiHarnessOverrides {
   readonly msg?: Partial<MsgTripMessagesOptions>;
   /** US-308 : dossier de preuve (absent : coffre et stockage indisponibles, routes 503). */
   readonly evidence?: SupEvidenceBundleOptions;
+  /** Avis réciproques (US-317) ; absent : magasin indisponible (503). */
+  readonly rev?: Partial<RevReviewsOptions>;
 }
 
 export async function startApiHarness(overrides: ApiHarnessOverrides = {}): Promise<ApiHarness> {
@@ -396,6 +400,7 @@ export async function startApiHarness(overrides: ApiHarnessOverrides = {}): Prom
       { ...unavailablePyoOptions(), ...overrides.pyo },
       { ...unavailableMsgOptions(), ...overrides.msg },
       { ...overrides.evidence },
+      { ...unavailableRevOptions(), ...overrides.rev },
     ),
     {
       rawBody: true,

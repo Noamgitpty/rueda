@@ -70,6 +70,9 @@ const SPEC_GAPS: Readonly<Partial<Record<ModuleCode, readonly ModuleCode[]>>> = 
   // US-525 (ADR-181) : TermsGuard (CTR) sur les routes de la messagerie par trip, servies par MSG ;
   // à reporter dans 17 §2.2 par une demande de fusion revue
   MSG: ['CTR'],
+  // US-317 (ADR-190) : SessionGuard (IAM) et TermsGuard (CTR) sur les routes des avis, servies par
+  // REV ; à reporter dans 17 §2.2 par une demande de fusion revue
+  REV: ['IAM', 'CTR'],
 };
 
 /** Colonne « Dépend de » de 17 §2.2, par module ; `null` pour « tous ». */

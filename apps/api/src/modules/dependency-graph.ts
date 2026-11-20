@@ -186,8 +186,11 @@ export const MODULES: Readonly<Record<ModuleCode, ModuleSpec>> = {
     code: 'REV',
     name: 'Reviews',
     responsibility: 'avis guest, avis hôte (P1), agrégats',
-    dependsOn: ['AVL'],
-    source: '17 §2.2 ; §2.1 REV --> AVL',
+    // IAM : SessionGuard des routes d'avis ; CTR : TermsGuard de /trips/{tripId}/reviews (US-317,
+    // ADR-190 ; règle « toute route de réservation porte TermsGuard » d'US-102, comme MSG,
+    // ADR-181 ; écart assumé de 17 §2.2, à reporter)
+    dependsOn: ['AVL', 'IAM', 'CTR'],
+    source: '17 §2.2 ; §2.1 REV --> AVL ; ADR-190 (REV --> IAM, CTR)',
   },
   SUP: {
     code: 'SUP',

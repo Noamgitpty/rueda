@@ -353,8 +353,19 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  `web.handover.mitReminder` (S09, validation du voyageur au départ) ; après les revues : mention
  au bouton `web.s05.mitConsentNotice` (défaut, comme Turo, DEC-FONDATEUR-22), aide
  `web.s05.mitConsentRequiredHint` de la case et code `common.payment.mitRailUnavailable`.
+ Version 105 (réservée à US-317 par l’orchestrateur ; les 102 à 104 sont celles d’US-709, US-305
+ et US-703) : avis réciproques en double aveugle (US-317, ADR-190) : `common.reviews.*` (réponses des
+ routes `/trips/{id}/reviews`, `/reviews/received` et `/listings/{id}/host-profile` : avis du trip,
+ avis enregistré, avis reçus, profil de l’hôte, déjà noté, pas encore ouvert, fenêtre close, texte
+ exigé de 1 à 3, avis invalide, indisponible), `web.review.until` et `web.review.closed` de 10b §4.3
+ (texte portugais ajouté) et `web.review.blind` (10b §4.3, échéance dite « N jours après la fin du
+ voyage », revue ux du 2026-11-20), `web.review.*` (S13 et A12 : note, sous-notes du voyageur et
+ de l’hôte, texte, avis scellé ou publié, profil du voyageur, avis publiés du trip),
+ `web.reviews.*` (avis reçus, droit d’accès Ley 81), `web.a13.title`, `web.a13.preview`,
+ `web.a13.reviews`, `web.a13.link` (A13 : aperçu du profil public) et `web.listing.hostReviews`
+ (fiche S03, LST-020).
  */
-export const CATALOG_VERSION = 104;
+export const CATALOG_VERSION = 105;
 
 /** Catalogues de base par langue ; la langue d'un profil de locale choisit le sien. */
 export const CATALOGS: Readonly<Record<CatalogLanguage, VersionedCatalog<MessageKey>>> = {
