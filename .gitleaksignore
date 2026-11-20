@@ -21,3 +21,6 @@ acc233c171f9b15ea44551008595f96763ef2a7c:apps/web/account/checkout.ts:generic-ap
 # constante au commit suivant) et citée par la revue sécurité qui justifie les lignes ci-dessus.
 f28e58c7f73ac5b0b225d988181116ebb3153d35:apps/web/app/(app)/checkout/actions.test.ts:generic-api-key:195
 020b07c09cf3eb9afa82158e01cffeb8a8acca4e:docs/team/reviews/US-226/securite-2026-11-16c.md:generic-api-key:10
+# US-703 : clé de catalogue `web.s05.mitConsent` (identifiant de texte public, aucun secret) écrite
+# après `consent_key:` dans un L0 ; colonne renommée `shown_text` dans l'assertion au commit suivant.
+cc9ec2d6eb5ec50d325f8a62095a1d8f1cbcd064:packages/db/test/l0/l0-us703-mit-charges.test.ts:generic-api-key:1053

@@ -1030,8 +1030,8 @@ describe.each(COUNTRIES)(
             ).rows[0];
           const consentOf = async (hold: string | undefined) =>
             (
-              await tx.query<{ consent_key: string; catalog_version: number; locale: string }>(
-                'SELECT consent_key, catalog_version, locale FROM test_fixture.us703_consent_of_hold($1)',
+              await tx.query<{ shown_text: string; catalog_version: number; locale: string }>(
+                'SELECT consent_key AS shown_text, catalog_version, locale FROM test_fixture.us703_consent_of_hold($1)',
                 [hold],
               )
             ).rows;
@@ -1040,7 +1040,7 @@ describe.each(COUNTRIES)(
           expect(await modeOf(notice)).toBe('NOTICE');
           expect((await accept(notice))?.outcome).toBe('ACCEPTED');
           expect(await consentOf(notice.hold)).toEqual([
-            { consent_key: 'web.s05.mitConsentNotice', catalog_version: 104, locale: 'fr' },
+            { shown_text: 'web.s05.mitConsentNotice', catalog_version: 104, locale: 'fr' },
           ]);
           // paramètre du pays à vrai : branche CHECKBOX de la base, clé de la case séparée
           await tx.query("SELECT test_fixture.us703_set_consent_param($1, 'true'::jsonb)", [
@@ -1050,10 +1050,10 @@ describe.each(COUNTRIES)(
           expect(await modeOf(checkbox)).toBe('CHECKBOX');
           expect((await accept(checkbox))?.outcome).toBe('ACCEPTED');
           expect(await consentOf(checkbox.hold)).toEqual([
-            { consent_key: 'web.s05.mitConsent', catalog_version: 104, locale: 'fr' },
+            { shown_text: 'web.s05.mitConsent', catalog_version: 104, locale: 'fr' },
           ]);
           // le consentement déjà donné garde la clé du texte affiché alors (jamais réécrit)
-          expect((await consentOf(notice.hold))[0]?.consent_key).toBe('web.s05.mitConsentNotice');
+          expect((await consentOf(notice.hold))[0]?.shown_text).toBe('web.s05.mitConsentNotice');
           // paramètre ABSENT (pays ajouté sans valeur) : fail_mode BLOCK, des deux côtés ; le site
           // lit BLOCKED et n'offre pas le paiement, la base refuse le consentement sans écrire
           await tx.query('SELECT test_fixture.us703_set_consent_param($1, NULL)', [c.country]);
