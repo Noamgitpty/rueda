@@ -581,6 +581,9 @@ describe.each(COUNTRIES)(
             // instant de la base pendant que B attend : l'heure de B doit être postérieure
             const waited = (await a.query<{ t: Date }>('SELECT pg_catalog.clock_timestamp() AS t'))
               .rows[0]!.t;
+            // 20 ms d'attente sous le verrou : les heures comparées (à la milliseconde) ne peuvent pas
+            // se confondre ; B lit la sienne après le COMMIT de A
+            await a.query('SELECT pg_catalog.pg_sleep(0.02)');
             await a.query('COMMIT');
             const second = await pending;
             expect(second).toMatchObject({ outcome: 'DONE', trip_status: 'RETURNED' });
