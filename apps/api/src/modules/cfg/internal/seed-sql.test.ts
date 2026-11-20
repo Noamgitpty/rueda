@@ -92,11 +92,16 @@ describe('migration de graines', () => {
 
   it.each(POST_SEED_PARAMS)(
     'graine complémentaire $file identique au rendu des paramètres $prefix*',
-    ({ prefix, file, extraKeys }) => {
+    ({ prefix, file, extraKeys, embedded }) => {
       const delta = renderParamSeedSql(config, prefix);
-      if (process.env['RUEDA_WRITE_CFG_SEED'] === '1')
-        writeFileSync(migrationUrl(file), delta, 'utf8');
-      expect(readFileSync(migrationUrl(file), 'utf8').replaceAll('\r\n', '\n')).toBe(delta);
+      if (embedded === true) {
+        // US-703 (ADR-189) : bloc généré dans la migration de la story, à l'identique
+        expect(readFileSync(migrationUrl(file), 'utf8').replaceAll('\r\n', '\n')).toContain(delta);
+      } else {
+        if (process.env['RUEDA_WRITE_CFG_SEED'] === '1')
+          writeFileSync(migrationUrl(file), delta, 'utf8');
+        expect(readFileSync(migrationUrl(file), 'utf8').replaceAll('\r\n', '\n')).toBe(delta);
+      }
       const keys = [...config.definitions.keys()].filter(
         (k) => k.startsWith(prefix) || (extraKeys ?? []).includes(k),
       );

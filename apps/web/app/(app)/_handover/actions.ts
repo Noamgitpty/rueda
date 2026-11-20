@@ -47,7 +47,9 @@ function fields(form: FormData) {
   };
   const tripId = field('trip');
   const direction = directionOf(field('direction'));
-  return { field, tripId, direction, role: field('role'), org: field('org') };
+  // US-703 : langue du rappel du consentement MIT affiché (S09)
+  const locale = /^[a-z]{2}(-[A-Z]{2})?$/.test(field('locale')) ? field('locale') : null;
+  return { field, tripId, direction, role: field('role'), org: field('org'), locale };
 }
 
 function back(role: string, tripId: string, direction: HandoverDirection, org: string): never {
@@ -114,8 +116,16 @@ export async function validateHandoverAction(
     'POST',
     `/trips/${f.tripId}/handover/${f.direction}/validate`,
     await clientContext(),
-    // remise en personne seulement : la remise sans rencontre n'est jamais proposée (OQ-P2P-05)
-    { odometerKm, fuelEighths, method: 'IN_PERSON' },
+    // remise en personne seulement : la remise sans rencontre n'est jamais proposée (OQ-P2P-05) ;
+    // US-703 : au départ, le voyageur valide sous le rappel du consentement MIT (langue affichée)
+    {
+      odometerKm,
+      fuelEighths,
+      method: 'IN_PERSON',
+      ...(f.role === 'GUEST' && f.direction === 'checkin' && f.locale !== null
+        ? { locale: f.locale }
+        : {}),
+    },
   );
   if (reply.status !== 200) return failure(reply);
   back(f.role, f.tripId, f.direction, f.org);

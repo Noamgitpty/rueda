@@ -25,10 +25,13 @@ import { UNAVAILABLE_EVIDENCE } from './inspection/ports.js';
 import type { EvidencePipeline, SqlPool } from './inspection/ports.js';
 import { PgInspectionStore, UnavailableInspectionStore } from './inspection/store.js';
 import type { InspectionStore } from './inspection/store.js';
+import { PgMitConsentStore, UNAVAILABLE_MIT_CONSENTS } from '../../pay/index.js';
+import type { MitConsentPort } from '../../pay/index.js';
 import {
   TRP_EVIDENCE_PIPELINE,
   TRP_HANDOVER_STORE,
   TRP_INSPECTION_STORE,
+  TRP_MIT_REMINDERS,
   TRP_NO_SHOW_STORE,
 } from './tokens.js';
 
@@ -39,6 +42,8 @@ export interface TrpInspectionOptions {
   readonly evidence?: EvidencePipeline;
   /** Remise et retour (US-315) ; absent : 503. */
   readonly handover?: HandoverStore;
+  /** Rappel du consentement MIT à la remise (US-703) ; absent : rien n'est enregistré. */
+  readonly mitReminders?: MitConsentPort;
   /** No-show déclaré par une partie (US-307) ; absent : 503. */
   readonly noShow?: NoShowStore;
 }
@@ -59,6 +64,10 @@ export class TrpInspectionModule {
         {
           provide: TRP_HANDOVER_STORE,
           useValue: options.handover ?? new UnavailableHandoverStore(),
+        },
+        {
+          provide: TRP_MIT_REMINDERS,
+          useValue: options.mitReminders ?? UNAVAILABLE_MIT_CONSENTS,
         },
         HandoverService,
         {
@@ -82,6 +91,8 @@ export function postgresTrpAdapters(pool: SqlPool): TrpInspectionOptions {
     evidence: UNAVAILABLE_EVIDENCE,
     // US-315 : commandes core.trip_cmd_* de la remise sous app_api (aucun port externe)
     handover: new PgHandoverStore(pool),
+    // US-703 : rappel du consentement MIT à la remise (commande de PAY, 0169, sous app_api)
+    mitReminders: new PgMitConsentStore(pool),
     // US-307 : core.trip_cmd_report_no_show et core.trip_no_show_view sous app_api
     noShow: new PgNoShowStore(pool),
   };

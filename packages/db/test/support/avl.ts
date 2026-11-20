@@ -62,7 +62,9 @@ export type Worker =
   // destinataires des notifications (US-213, 0133) : parties d'un trip ou d'un hold
   | 'ntf_dispatcher'
   // détection des retards (US-305, 0168) : seul écrivain du dossier et de la prolongation tacite
-  | 'trip_overdue';
+  | 'trip_overdue'
+  // publication des avis à l'échéance (US-317, 0170)
+  | 'review_publisher';
 
 export const uuid = (): string => randomUUID();
 

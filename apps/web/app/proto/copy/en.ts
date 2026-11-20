@@ -91,8 +91,6 @@ export const EN_PROTO = {
   'web.s04.result.glare':
     "There's glare on your license photo. Tilt it slightly and avoid direct light.",
   'web.s05.contract': 'I accept the rental agreement with {host_name}',
-  'web.s05.mitConsent':
-    'I authorize post-trip charges to this card only for trip costs, my deductible or damage, always with notice and proof.',
   'web.s05.review.notice':
     "We review every booking. If we can't approve it, you get a full refund.",
   'web.s06.pre.title': 'Your statement will show: {merchant_name}',
@@ -314,12 +312,6 @@ export const EN_PROTO = {
   'web.a13.promise': 'Your promise to guests',
   'web.a13.empty': 'Tell guests who you are',
   'backoffice.o01.empty': 'Queue empty',
-  'web.review.until': 'You can leave a review until {date}',
-  'web.review.blind': {
-    one: "{name} won't see your review until you've both reviewed or {count} day has passed",
-    other: "{name} won't see your review until you've both reviewed or {count} days have passed",
-  },
-  'web.review.closed': 'The review period ended on {date}.',
   'web.s14.becomeHost': 'List your car',
   'web.s14.profilePhoto': 'Add a profile photo: your host will see it when handing over the car.',
   // ---- Espace hôte, O01, S14 : PROPOSÉ (absentes de 10b §4.3), à reporter par la story de l'écran ----
@@ -512,7 +504,6 @@ export const EN_PROTO = {
   'web.a11.error.body': 'Your rules stay as they were. Please try again.',
   'web.a11.preview.body': "This is what a guest sees on your car's page before booking.",
   'web.a11.preview.back': 'Back to editing',
-  'web.a13.title': 'Your public profile',
   'web.a13.memberSince': 'on {brand} since {year}',
   'web.a13.languages': 'Languages you speak',
   'web.a13.about': 'About you',
@@ -523,7 +514,6 @@ export const EN_PROTO = {
     other: 'You reply in {count} hours on average · {rate}% response rate',
   },
   'web.a13.response.body': "Calculated from your messages; it can't be edited.",
-  'web.a13.reviews': 'Reviews received',
   'web.a13.review.by': { one: '{name} · {count} star', other: '{name} · {count} stars' },
   'web.a13.reply': 'Reply publicly',
   'web.a13.empty.body': 'A short intro and a promise help guests choose you.',

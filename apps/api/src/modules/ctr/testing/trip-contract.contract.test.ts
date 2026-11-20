@@ -452,7 +452,9 @@ describe('US-211 partie 211b — routes du contrat de location d’un trip', () 
           // rendez-vous d'un trip (US-316) : leur propre suite (msg/testing/trip-meetings.contract)
           !d.includes(' /trips/{tripId}/meetings') &&
           // aide d'un trip et demande d'aide (US-310) : leur suite (sup/testing/help.contract)
-          !d.includes(' /trips/{tripId}/help'),
+          !d.includes(' /trips/{tripId}/help') &&
+          // avis réciproques (US-317) : leur propre suite (rev/testing/reviews.contract)
+          !d.includes(' /trips/{tripId}/reviews '),
       ),
       'statuts',
     ).toEqual([]);

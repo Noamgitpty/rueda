@@ -21,6 +21,7 @@
  * | `kyc_score_pruner`    | 1 h                                        | `core.kyc_worker_prune` (0072, US-105) : scores [C3] à `retention_until`, rejets de rappels de plus de 90 jours |
  * | `privacy_request`     | 1 h                                        | `core.privacy_worker_retention_sweep`, `core.privacy_worker_message_purge` (0166, US-316), `core.privacy_worker_dsr_overdue` puis `core.privacy_worker_stale_kyc_erasures` (0090, US-111) : trips clos sans litige pseudonymisés à l'échéance (`evidence_retention_months`), purge journalisée ; messages et lieux de rendez-vous des trips clos purgés à l'échéance `TRIP_MESSAGES`, jamais pendant un litige, une réclamation ouverte ou un gel légal ; demandes des personnes en retard signalées une fois ; demandes d'effacement KYC en attente ou en échec ; alertes `PRIVACY_DSR_OVERDUE` (P1, par pays), `PRIVACY_KYC_ERASURE_STALE` (P1) |
  * | `security_incident_watch` | 300 s                                  | `core.security_incident_worker_watch` (0092, US-112) : déclaration d'incident nouvelle signalée une fois (`SECURITY_INCIDENT_OPENED`, P1, par pays) ; échéance de notification d'une violation dépassée signalée une fois (`SECURITY_INCIDENT_NOTICE_OVERDUE`, P1, par pays et destinataire) |
+ * | `review_publisher`    | 60 s (US-317, ADR-190)                     | `core.review_worker_publish_due` (0170) : avis scellés dont la fenêtre `review_window_days` est échue publiés (BR-REVIEW-02, J+10), un trip à la fois sous son verrou consultatif, agrégats tenus ; idempotent (rejeu, deux travailleurs) ; compte seulement au journal, jamais une note |
  * | `review_sla_watch`    | 60 s                                       | `core.kyc_worker_auto_review_hosts` (0081, US-108 : dossiers d'hôte propres approuvés sans l'ops), `core.kyc_worker_enqueue_reviews` puis `core.support_worker_review_sla` (0076, US-106) : dossiers KYC en revue remis en file, éléments en retard signalés une fois ; alertes `OPS_REVIEW_SLA_BREACH` (P2), `OPS_KYC_REVIEW_UNQUEUED` (P1, une fois par dossier et par épisode de revue) |
  * | `trip_lifecycle`      | 10 s (US-215, ADR-148)                     | `TripCancellationProcessor` de STL : chaque demande d'annulation de l'ops (`core.booking_trip_cancellations_pending`) réglée dans sa propre transaction (`core.booking_trip_cancellation_begin`, moteur unique, `core.settlement_cmd_record`, `core.booking_cmd_trip_settle_cancellation`, ordres REFUND bornés de 0121) ; refus garés par `core.booking_cmd_trip_park_cancellation`, alertes `FIN_SETTLEMENT_REVIEW` ou `TRIP_CANCELLATION_FAILED` (P1) |
  * | `refund_scheduler`    | 10 s (US-224c, ADR-150)                    | `RefundScheduler` de STL sous le nom `payment_command` : file `core.payment_refunds_due` (0127), une instance par transaction ; `core.payment_cmd_submit_refund`, puis l'ordre stocké relu sous les verrous du trip et de l'ordre (`core.payment_cmd_refund_order_for_send`) et envoyé par `MoneyCommandSender` au connecteur du fournisseur ; report `core.settlement_cmd_apply_leg_movement` d'un remboursement prouvé ; alertes `FIN_REFUND_BLOCKED`, `FIN_REFUND_FAILED` (P1, une fois par état). Aucun connecteur en production avant le lot C : rien n'est autorisé ni envoyé |
@@ -29,6 +30,8 @@
  * | `trip_overdue_alert`  | événements `trip.overdue.detected`, `trip.at_risk.flagged` | alerte de l'ops, une par événement (`TRIP_OVERDUE_DETECTED` P2, `TRIP_NEXT_AT_RISK` P1), dans la transaction du reçu ; voyageur et hôte prévenus par `ntf_dispatcher` |
  *
  * | `payout_scheduler`    | 60 s (US-708, ADR-185)                     | `PayoutScheduler` de PYO sous le nom `payment_command` : trips COMPLETED préparés (`core.payout_cmd_prepare_trip`, 0165 : `payout_at` J+2 ouvrés du pays, J+5 au premier versement, écrivain unique de `release_at`, lot et motifs de retenue) ; lots échus compensés (`core.payout_cmd_net_batch`) ; motifs relus à l'envoi, `LEG_RELEASE` par item puis `payout` du lot par le connecteur du fournisseur. `payouts_enabled` = false (lots ON_HOLD) et aucun connecteur en production avant le lot C : rien n'est envoyé |
+ *
+ * | `mit_charge_scheduler` | 60 s (US-703, ADR-189)                    | `MitChargeScheduler` de PAY sous le nom `payment_command` : file `core.payment_post_trip_charges_due` (0169) ; tentative planifiée par `core.payment_cmd_plan_mit_attempt` (consentement du checkout, rappel à la remise, carte consentie, règle du réseau en données, préavis, délai, `SUPPORTS_MIT` inconnue = non, J0 / J+3 / J+7, clé `…:MIT_CHARGE:…:i1:a{n}`), ordre stocké relu sous les verrous du trip et du débit et envoyé par `MoneyCommandSender` (`chargeMIT`, montant explicite de chaque jambe), issue reportée par `core.payment_cmd_settle_mit_attempt` (relance ou dette et `UNPAID_BALANCE`). Aucun connecteur en production avant le lot C : rien n'est planifié ni envoyé |
  *
  * | `deposit_timer`       | 60 s (US-701, ADR-169)                     | `DepositReauthTimer` de PAY sous le nom `payment_command` : file `core.payment_deposit_reauth_due` (0146), ré-autorisation de la caution (rail a) par le connecteur du fournisseur, report `core.payment_cmd_deposit_transition` ; refusée ⇒ décision avancée avant l'expiration, alerte `DEPOSIT_REAUTH_FAILED` (P1), aucun débit. Puis décisions échues (US-702, ADR-172) : `DepositDecisionTimer`, file `core.payment_deposit_decision_due` (0150), VOID / capture des frais / MIT par le connecteur, transition finale `core.payment_cmd_deposit_decide` et événement `deposit.decision.executed` (avis au voyageur) ; aucune source de frais annexes en production (`NO_DEPOSIT_FEES` : caution libérée en entier). Aucun connecteur en production avant le lot C : rien n'est envoyé |
  *
@@ -59,6 +62,7 @@ import {
   PgWebhookWorkStore,
   PRODUCTION_PAYMENT_CONNECTORS,
   registerDepositTimers,
+  registerMitChargeScheduler,
   WebhookProcessor,
 } from './modules/pay/index.js';
 import type { CountryConfig } from './modules/cfg/index.js';
@@ -96,6 +100,8 @@ export const KYC_SCORE_PRUNER_WORKER = 'kyc_score_pruner';
 export const PRIVACY_REQUEST_WORKER = 'privacy_request';
 /** Alerte de délai des files de revue et remise en file des dossiers KYC (US-106, ADR-106). */
 export const REVIEW_SLA_WATCH_WORKER = 'review_sla_watch';
+/** Publication des avis à l'échéance de la fenêtre (US-317, ADR-190 ; BR-REVIEW-02). */
+export const REVIEW_PUBLISHER_WORKER = 'review_publisher';
 /**
  * Registre des incidents de sécurité (US-112, ADR-121) : déclarations nouvelles et échéances de
  * notification d'une violation dépassées, signalées une fois chacune par la base.
@@ -145,6 +151,12 @@ export const WORKER_TASK_DEFAULTS = {
    */
   securityIncidentWatchPeriodSeconds: 300,
   securityIncidentWatchBatch: 500,
+  /**
+   * Avis (US-317, PROPOSÉ ADR-190) : publication à l'échéance (J+10) au plus une minute après, par
+   * lots bornés (un trip à la fois sous son verrou consultatif).
+   */
+  reviewPublisherPeriodSeconds: 60,
+  reviewPublisherBatch: 500,
   /** Reprise d'un interblocage (SQLSTATE 40P01) : 3 essais au plus (handoff US-024). */
   deadlockAttempts: 3,
 } as const;
@@ -347,6 +359,12 @@ export function registerWorkerTasks(registry: BusRegistry, deps: WorkerTaskDeps)
   // envoyé (fail-closed) ; aucune option ne permet d'injecter un autre registre (C19)
   registerPayoutScheduler(registry, deps.transactions, deps.log, PRODUCTION_PAYMENT_CONNECTORS);
 
+  // Débits post-trip par MIT (US-703, ADR-189) : tentatives planifiées et jugées par la base
+  // (consentement, rappel, carte, règle du réseau, préavis, délai, SUPPORTS_MIT) ; envoi par le
+  // connecteur du PSP seulement : aucun connecteur en production avant le lot C, rien n'est
+  // planifié ni envoyé (fail-closed) ; aucune option ne permet d'injecter un autre registre (C19)
+  registerMitChargeScheduler(registry, deps.transactions, deps.log, PRODUCTION_PAYMENT_CONNECTORS);
+
   // US-701 (ADR-169) : ré-autorisation de la caution avant l'échéance (rail a) ; refusée ⇒ ops,
   // sans débit. Aucun connecteur en production avant le lot C : rien n'est envoyé
   registerDepositTimers(
@@ -543,6 +561,20 @@ export function registerWorkerTasks(registry: BusRegistry, deps: WorkerTaskDeps)
         }
       }
       line(SECURITY_INCIDENT_WATCH_WORKER, totals);
+    },
+  );
+
+  // Avis en double aveugle (US-317) : scellés publiés à l'échéance de la fenêtre ; compte seul au
+  // journal (jamais une note ni un texte)
+  registry.registerPeriodic(
+    REVIEW_PUBLISHER_WORKER,
+    d.reviewPublisherPeriodSeconds,
+    async (_p, tx) => {
+      const { rows } = await tx.query<{ n: unknown }>(
+        'SELECT core.review_worker_publish_due($1) AS n',
+        [d.reviewPublisherBatch],
+      );
+      line(REVIEW_PUBLISHER_WORKER, { published: count(rows[0]?.n) });
     },
   );
 

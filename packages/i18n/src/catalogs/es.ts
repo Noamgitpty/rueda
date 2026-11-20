@@ -2218,6 +2218,11 @@ export const ES_MESSAGES = {
   'web.s05.title': 'Confirma tu reserva',
   'web.s05.intro':
     'Revisa el viaje, escribe tu nombre y acepta las condiciones. Todavía no pagas nada.',
+  'web.s05.mitConsentNotice':
+    'Al pagar, autorizo cargos posteriores al viaje en la tarjeta con la que pague, solo por gastos del viaje, mi franquicia o daños, siempre con aviso y prueba.',
+  'web.s05.mitConsentRequiredHint': 'Obligatorio para reservar.',
+  'web.s05.mitConsent':
+    'Autorizo cargos posteriores al viaje en esta tarjeta solo por gastos del viaje, mi franquicia o daños, siempre con aviso y prueba.',
   'web.s05.loading': 'Cargando tu reserva…',
   'web.s05.error': 'No pudimos cargar tu reserva. Inténtalo de nuevo.',
   'web.s05.notFound': 'Presupuesto no disponible',
@@ -2298,6 +2303,10 @@ export const ES_MESSAGES = {
   'common.payment.attemptsExceeded':
     'Llegaste al máximo de intentos de pago para esta reserva. No se te cobró nada.',
   'common.payment.methodUnavailable': 'Este medio de pago no está disponible para esta reserva.',
+  'common.payment.mitRailUnavailable':
+    'Los cargos posteriores al viaje en tarjeta aún no están disponibles con nuestro proveedor de pagos.',
+  'common.payment.mitConsentRequired':
+    'Para reservar, acepta los cargos posteriores al viaje en tu tarjeta.',
   'web.s05.cta': 'Pagar {amount}',
   'web.s05.pay.title': 'Pago de tu reserva',
   'web.s06.pre.leaving':
@@ -3110,6 +3119,8 @@ export const ES_MESSAGES = {
   'web.handover.validate.HOST.checkout': 'Recibir el auto',
   'web.handover.validate.GUEST.checkin': 'Recibí el auto',
   'web.handover.validate.GUEST.checkout': 'Devolver el auto',
+  'web.handover.mitReminder':
+    'Recuerda: aceptaste que se cobren en tu tarjeta los gastos posteriores al viaje (combustible, peajes, retraso, limpieza) y tu parte de un daño, siempre con aviso y prueba. Al validar, lo confirmas.',
   'web.handover.validate.hint': 'La hora que cuenta es la del servidor cuando ambos confirman.',
   'web.handover.waiting.HOST': 'Esperando la confirmación del viajero.',
   'web.handover.waiting.GUEST': 'Esperando la confirmación del anfitrión.',
@@ -3390,6 +3401,78 @@ export const ES_MESSAGES = {
     'Hola, {first_name}. Tu reserva {booking_ref} empieza el {start_at}, pero el viaje anterior con este auto aún no terminó: la devolución está atrasada. Nuestro equipo te contactará para ver las opciones con el viajero. Puedes escribirnos desde la reserva en la app.',
   'ntf.tripAtRiskHost.sms.body':
     '{brand}: el auto de la reserva {booking_ref} ({start_at}) aún no fue devuelto por el viaje anterior. Te contactaremos.',
+  'common.reviews.trip': 'Opiniones del viaje.',
+  'common.reviews.submitted': 'Opinión enviada.',
+  'common.reviews.received': 'Opiniones recibidas.',
+  'common.reviews.hostProfile': 'Perfil del anfitrión.',
+  'common.reviews.alreadySubmitted':
+    'Ya opinaste sobre este viaje. Una opinión no se puede cambiar.',
+  'common.reviews.notOpen': 'Podrás opinar cuando se registre la devolución del auto.',
+  'common.reviews.windowClosed': 'El plazo para opinar sobre este viaje terminó.',
+  'common.reviews.textRequired':
+    'Con 3 estrellas o menos, cuenta qué pasó en al menos 25 caracteres.',
+  'common.reviews.invalid': 'Revisa la calificación y el texto (1000 caracteres como máximo).',
+  'common.reviews.unavailable':
+    'Las opiniones no están disponibles por ahora. Vuelve a intentarlo en unos minutos.',
+  'web.review.until': 'Puedes opinar hasta el {date}',
+  'web.review.blind': {
+    one: '{name} no verá tu opinión hasta que ambos opinen o hasta {count} día después del fin del viaje',
+    other:
+      '{name} no verá tu opinión hasta que ambos opinen o hasta {count} días después del fin del viaje',
+  },
+  'web.review.closed': 'El plazo para opinar terminó el {date}.',
+  'web.review.back': 'Volver al viaje',
+  'web.review.heading.guest': 'Opina sobre tu viaje',
+  'web.review.heading.host': 'Opina sobre el viajero',
+  'web.review.with': 'Viaje con {name}',
+  'web.review.withUnknown': 'Viaje',
+  'web.review.overall': 'Calificación general',
+  'web.review.stars': { one: '{count} estrella', other: '{count} estrellas' },
+  'web.review.subScores': 'Detalle (opcional)',
+  'web.review.sub.cleanliness': 'Limpieza',
+  'web.review.sub.communication': 'Comunicación',
+  'web.review.sub.convenience': 'Facilidad de la entrega',
+  'web.review.sub.accuracy': 'Exactitud del anuncio',
+  'web.review.sub.maintenance': 'Mantenimiento',
+  'web.review.sub.punctuality': 'Puntualidad',
+  'web.review.sub.returnCondition': 'Estado al devolver el auto',
+  'web.review.sub.rulesRespect': 'Respeto de las reglas',
+  'web.review.noScore': 'Sin nota',
+  'web.review.text': 'Tu opinión',
+  'web.review.textHint':
+    'Obligatoria con 3 estrellas o menos (25 caracteres como mínimo). Se publica con tu nombre de pila; no incluyas teléfonos ni correos.',
+  'web.review.final': 'Una vez enviada, tu opinión no se puede cambiar.',
+  'web.review.public.guest': 'Tu opinión será pública en el perfil del viajero, que podrá leerla.',
+  'web.review.public.host': 'Tu opinión será pública en el anuncio y en el perfil del anfitrión.',
+  'web.review.submit': 'Enviar opinión',
+  'web.review.mine': 'Tu opinión',
+  'web.review.status.SUBMITTED': 'Guardada: se publicará cuando ambos opinen o termine el plazo.',
+  'web.review.status.PUBLISHED': 'Publicada',
+  'web.review.done.SUBMITTED': 'Listo. Tu opinión quedó guardada.',
+  'web.review.done.PUBLISHED': 'Listo. Ambas opiniones ya están publicadas.',
+  'web.review.masked': 'Ocultamos datos de contacto que había en tu texto.',
+  'web.review.published': 'Opiniones publicadas',
+  'web.review.publishedEmpty': 'Aún no hay opiniones publicadas sobre este viaje.',
+  'web.review.author.GUEST': 'Viajero',
+  'web.review.author.HOST': 'Anfitrión',
+  'web.review.guestProfile': 'Opiniones de anfitriones sobre {name}',
+  'web.review.guestProfileEmpty': 'Todavía no tiene opiniones de anfitriones.',
+  'web.review.loadError': 'No pudimos cargar las opiniones.',
+  'web.review.retry': 'Reintentar',
+  'web.review.link': 'Opinar sobre el viaje',
+  'web.reviews.received.title': 'Opiniones sobre ti',
+  'web.reviews.received.intro':
+    'Aquí ves todas las opiniones publicadas sobre ti, con el nombre de pila de quien las escribió.',
+  'web.reviews.received.asGuest': 'Como viajero',
+  'web.reviews.received.asHost': 'Como anfitrión',
+  'web.reviews.received.empty': 'Todavía no hay opiniones publicadas sobre ti.',
+  'web.reviews.count': { one: '{count} opinión', other: '{count} opiniones' },
+  'web.reviews.link': 'Opiniones sobre ti',
+  'web.a13.title': 'Tu perfil público',
+  'web.a13.preview': 'Así te ven los viajeros en tus anuncios.',
+  'web.a13.reviews': 'Opiniones recibidas',
+  'web.a13.link': 'Tu perfil público',
+  'web.listing.hostReviews': 'Opiniones sobre {name}',
 } as const satisfies Catalog;
 
 export type MessageKey = keyof typeof ES_MESSAGES;

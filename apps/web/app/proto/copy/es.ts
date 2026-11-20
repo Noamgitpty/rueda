@@ -102,8 +102,6 @@ export const ES_PROTO = {
   'web.s04.result.glare':
     'La foto de tu licencia salió con reflejo. Inclínala un poco y evita la luz directa.',
   'web.s05.contract': 'Acepto el contrato de alquiler con {host_name}',
-  'web.s05.mitConsent':
-    'Autorizo cargos posteriores al viaje en esta tarjeta solo por gastos del viaje, mi franquicia o daños, siempre con aviso y prueba.',
   'web.s05.review.notice': 'Revisamos cada reserva. Si no podemos aprobarla, te devolvemos todo.',
   'web.s06.pre.title': 'En tu estado de cuenta verás: {merchant_name}',
   'web.s07.message': 'Escribir a {host_name}',
@@ -325,12 +323,6 @@ export const ES_PROTO = {
   'web.a13.promise': 'Tu promesa a los viajeros',
   'web.a13.empty': 'Cuéntales a los viajeros quién eres',
   'backoffice.o01.empty': 'Fila vacía',
-  'web.review.until': 'Puedes opinar hasta el {date}',
-  'web.review.blind': {
-    one: '{name} no verá tu opinión hasta que ambos opinen o pase {count} día',
-    other: '{name} no verá tu opinión hasta que ambos opinen o pasen {count} días',
-  },
-  'web.review.closed': 'El plazo para opinar terminó el {date}.',
   'web.s14.becomeHost': 'Publica tu auto',
   'web.s14.profilePhoto': 'Agrega una foto de perfil: tu anfitrión la verá al entregarte el auto.',
   // ---- Espace hôte, O01, S14 : PROPOSÉ (absentes de 10b §4.3), à reporter par la story de l'écran ----
@@ -523,7 +515,6 @@ export const ES_PROTO = {
   'web.a11.preview.body':
     'Esto es lo que verá un viajero en la ficha de tu auto antes de reservar.',
   'web.a11.preview.back': 'Volver a editar',
-  'web.a13.title': 'Tu perfil público',
   'web.a13.memberSince': 'en {brand} desde {year}',
   'web.a13.languages': 'Idiomas que hablas',
   'web.a13.about': 'Sobre ti',
@@ -534,7 +525,6 @@ export const ES_PROTO = {
     other: 'Respondes en {count} horas en promedio · {rate} % de respuesta',
   },
   'web.a13.response.body': 'Lo calculamos con tus mensajes; no se edita.',
-  'web.a13.reviews': 'Opiniones recibidas',
   'web.a13.review.by': { one: '{name} · {count} estrella', other: '{name} · {count} estrellas' },
   'web.a13.reply': 'Responder en público',
   'web.a13.empty.body': 'Una presentación corta y una promesa ayudan a que te elijan.',

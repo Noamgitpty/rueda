@@ -47,7 +47,7 @@ import {
   PreCheckoutDepositReader,
 } from './modules/pay/index.js';
 import { QuoteService, searchQuotePricer } from './modules/prc/index.js';
-import { PgListingRatingStore } from './modules/rev/index.js';
+import { PgListingRatingStore, postgresRevAdapters } from './modules/rev/index.js';
 import { availabilityProbeLimiter, postgresRiskAdapters } from './modules/risk/index.js';
 import {
   PgFinanceApprovalStore,
@@ -196,6 +196,8 @@ async function bootstrap(): Promise<void> {
       // US-308 : dossier de preuve (portes core.support_staff_*_evidence_bundle sous app_api) ;
       // coffre KMS et stockage à verrou objet (US-003, Q-007) indisponibles : routes 503
       postgresEvidenceBundle(pool),
+      // US-317 : avis réciproques en double aveugle (fonctions de 0170 sous app_api)
+      postgresRevAdapters(pool),
     ),
     { rawBody: true },
   );

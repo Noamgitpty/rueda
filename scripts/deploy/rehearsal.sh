@@ -76,7 +76,7 @@ say 'API saine ; route de webhook FAKE absente (404)'
 worker_logs="$(local_compose logs --no-color worker)"
 grep -q '"event":"worker.started"' <<<"$worker_logs" ||
   fail 'travailleur : démarrage non journalisé'
-grep -q '"queues":\["booking_contract","booking_conversion","booking_oracle","bordereau","deposit_timer","disposition_sweeper","hold_expiry","iam_otp_pruner","iam_otp_sender","kyc_score_pruner","ntf_dispatcher","ntf_sender","ops_monitor","payout_scheduler","privacy_request","reconciliation","refund_scheduler","review_sla_watch","risk_pruner","security_incident_watch","trip_lifecycle","trip_overdue","trip_overdue_alert","webhook_ingest"\]' <<<"$worker_logs" || {
+grep -q '"queues":\["booking_contract","booking_conversion","booking_oracle","bordereau","deposit_timer","disposition_sweeper","hold_expiry","iam_otp_pruner","iam_otp_sender","kyc_score_pruner","mit_charge_scheduler","ntf_dispatcher","ntf_sender","ops_monitor","payout_scheduler","privacy_request","reconciliation","refund_scheduler","review_publisher","review_sla_watch","risk_pruner","security_incident_watch","trip_lifecycle","trip_overdue","trip_overdue_alert","webhook_ingest"\]' <<<"$worker_logs" || {
   # diagnostic : la ligne de démarrage (version et noms des files seulement, aucun secret)
   grep -F '"event":"worker.started"' <<<"$worker_logs" | tail -n 3 >&2 || true
   fail 'travailleur : files attendues absentes'

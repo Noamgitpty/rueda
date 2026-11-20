@@ -2225,6 +2225,11 @@ export const PT_MESSAGES = {
   'web.s05.title': 'Confirme sua reserva',
   'web.s05.intro':
     'Confira a viagem, digite seu nome e aceite as condições. Você ainda não paga nada.',
+  'web.s05.mitConsentNotice':
+    'Ao pagar, autorizo cobranças depois da viagem no cartão com que eu pagar, apenas por despesas da viagem, minha franquia ou danos, sempre com aviso e comprovação.',
+  'web.s05.mitConsentRequiredHint': 'Obrigatório para reservar.',
+  'web.s05.mitConsent':
+    'Autorizo cobranças depois da viagem neste cartão apenas por despesas da viagem, minha franquia ou danos, sempre com aviso e comprovação.',
   'web.s05.loading': 'Carregando sua reserva…',
   'web.s05.error': 'Não conseguimos carregar sua reserva. Tente de novo.',
   'web.s05.notFound': 'Orçamento indisponível',
@@ -2306,6 +2311,10 @@ export const PT_MESSAGES = {
     'Você atingiu o número máximo de tentativas de pagamento desta reserva. Nada foi cobrado.',
   'common.payment.methodUnavailable':
     'Este meio de pagamento não está disponível para esta reserva.',
+  'common.payment.mitRailUnavailable':
+    'As cobranças no cartão depois da viagem ainda não estão disponíveis com nosso provedor de pagamento.',
+  'common.payment.mitConsentRequired':
+    'Para reservar, aceite as cobranças após a viagem no seu cartão.',
   'web.s05.cta': 'Pagar {amount}',
   'web.s05.pay.title': 'Pague sua reserva',
   'web.s06.pre.leaving':
@@ -3117,6 +3126,8 @@ export const PT_MESSAGES = {
   'web.handover.validate.HOST.checkout': 'Receber o carro',
   'web.handover.validate.GUEST.checkin': 'Recebi o carro',
   'web.handover.validate.GUEST.checkout': 'Devolver o carro',
+  'web.handover.mitReminder':
+    'Lembrete: você aceitou que custos após a viagem (combustível, pedágios, atraso, limpeza) e sua parte de um dano sejam cobrados no seu cartão, sempre com aviso e comprovação. Ao validar, você confirma.',
   'web.handover.validate.hint': 'O horário que vale é o do servidor quando vocês dois confirmam.',
   'web.handover.waiting.HOST': 'Aguardando a confirmação do viajante.',
   'web.handover.waiting.GUEST': 'Aguardando a confirmação do anfitrião.',
@@ -3394,4 +3405,77 @@ export const PT_MESSAGES = {
     'Olá, {first_name}. Sua reserva {booking_ref} começa em {start_at}, mas a viagem anterior com este carro ainda não terminou: a devolução está atrasada. Nossa equipe vai entrar em contato para ver as opções com o viajante. Você pode nos escrever pela reserva no app.',
   'ntf.tripAtRiskHost.sms.body':
     '{brand}: o carro da reserva {booking_ref} ({start_at}) ainda não foi devolvido pela viagem anterior. Vamos entrar em contato.',
+  'common.reviews.trip': 'Avaliações da viagem.',
+  'common.reviews.submitted': 'Avaliação enviada.',
+  'common.reviews.received': 'Avaliações recebidas.',
+  'common.reviews.hostProfile': 'Perfil do anfitrião.',
+  'common.reviews.alreadySubmitted':
+    'Você já avaliou esta viagem. Uma avaliação não pode ser alterada.',
+  'common.reviews.notOpen': 'Você poderá avaliar quando a devolução do carro for registrada.',
+  'common.reviews.windowClosed': 'O prazo para avaliar esta viagem terminou.',
+  'common.reviews.textRequired':
+    'Com 3 estrelas ou menos, conte o que aconteceu em pelo menos 25 caracteres.',
+  'common.reviews.invalid': 'Confira a nota e o texto (no máximo 1.000 caracteres).',
+  'common.reviews.unavailable':
+    'As avaliações não estão disponíveis agora. Tente de novo em alguns minutos.',
+  'web.review.until': 'Você pode avaliar até {date}',
+  'web.review.blind': {
+    one: '{name} não verá sua avaliação até que vocês dois avaliem ou até {count} dia depois do fim da viagem',
+    other:
+      '{name} não verá sua avaliação até que vocês dois avaliem ou até {count} dias depois do fim da viagem',
+  },
+  'web.review.closed': 'O prazo para avaliar terminou em {date}.',
+  'web.review.back': 'Voltar à viagem',
+  'web.review.heading.guest': 'Avalie sua viagem',
+  'web.review.heading.host': 'Avalie o viajante',
+  'web.review.with': 'Viagem com {name}',
+  'web.review.withUnknown': 'Viagem',
+  'web.review.overall': 'Nota geral',
+  'web.review.stars': { one: '{count} estrela', other: '{count} estrelas' },
+  'web.review.subScores': 'Detalhes (opcional)',
+  'web.review.sub.cleanliness': 'Limpeza',
+  'web.review.sub.communication': 'Comunicação',
+  'web.review.sub.convenience': 'Praticidade',
+  'web.review.sub.accuracy': 'Precisão do anúncio',
+  'web.review.sub.maintenance': 'Manutenção',
+  'web.review.sub.punctuality': 'Pontualidade',
+  'web.review.sub.returnCondition': 'Condição na devolução',
+  'web.review.sub.rulesRespect': 'Respeito às regras',
+  'web.review.noScore': 'Sem nota',
+  'web.review.text': 'Sua avaliação',
+  'web.review.textHint':
+    'Obrigatória com 3 estrelas ou menos (pelo menos 25 caracteres). É publicada com seu primeiro nome; não inclua telefones nem e-mails.',
+  'web.review.final': 'Depois de enviada, sua avaliação não pode ser alterada.',
+  'web.review.public.guest': 'Sua avaliação será pública no perfil do viajante, que poderá lê-la.',
+  'web.review.public.host': 'Sua avaliação será pública no anúncio e no perfil do anfitrião.',
+  'web.review.submit': 'Enviar avaliação',
+  'web.review.mine': 'Sua avaliação',
+  'web.review.status.SUBMITTED':
+    'Salva: será publicada quando vocês dois avaliarem ou o prazo terminar.',
+  'web.review.status.PUBLISHED': 'Publicada',
+  'web.review.done.SUBMITTED': 'Pronto. Sua avaliação foi salva.',
+  'web.review.done.PUBLISHED': 'Pronto. As duas avaliações já estão publicadas.',
+  'web.review.masked': 'Ocultamos dados de contato que estavam no seu texto.',
+  'web.review.published': 'Avaliações publicadas',
+  'web.review.publishedEmpty': 'Ainda não há avaliações publicadas desta viagem.',
+  'web.review.author.GUEST': 'Viajante',
+  'web.review.author.HOST': 'Anfitrião',
+  'web.review.guestProfile': 'Avaliações de anfitriões sobre {name}',
+  'web.review.guestProfileEmpty': 'Ainda não tem avaliações de anfitriões.',
+  'web.review.loadError': 'Não conseguimos carregar as avaliações.',
+  'web.review.retry': 'Tentar de novo',
+  'web.review.link': 'Avaliar a viagem',
+  'web.reviews.received.title': 'Avaliações sobre você',
+  'web.reviews.received.intro':
+    'Aqui você vê todas as avaliações publicadas sobre você, com o primeiro nome de quem as escreveu.',
+  'web.reviews.received.asGuest': 'Como viajante',
+  'web.reviews.received.asHost': 'Como anfitrião',
+  'web.reviews.received.empty': 'Ainda não há avaliações publicadas sobre você.',
+  'web.reviews.count': { one: '{count} avaliação', other: '{count} avaliações' },
+  'web.reviews.link': 'Avaliações sobre você',
+  'web.a13.title': 'Seu perfil público',
+  'web.a13.preview': 'É assim que os viajantes veem você nos seus anúncios.',
+  'web.a13.reviews': 'Avaliações recebidas',
+  'web.a13.link': 'Seu perfil público',
+  'web.listing.hostReviews': 'Avaliações sobre {name}',
 } as const satisfies Readonly<Record<MessageKey, Message>>;

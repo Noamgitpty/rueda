@@ -1,0 +1,167 @@
+/*
+ * S13, A12, A13 — avis (US-317, 10b S13 / A12 / A13) : jetons seulement (US-030), conçu à 360 px
+ * (10b UX-01). Étoiles : boutons radio de 48 px au moins (cible tactile), libellé lu par le lecteur
+ * d'écran (« 4 étoiles ») ; cartes d'avis sur la surface relevée ; contraste du texte (UX-49).
+ */
+.form {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.field {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.fieldset {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.label {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-strong);
+  color: var(--color-text);
+}
+
+.stars {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.star {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1);
+  min-inline-size: var(--size-touch-target);
+  min-block-size: var(--size-touch-target);
+  padding-inline: var(--space-3);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-raised);
+  color: var(--color-text);
+  font-weight: var(--font-weight-strong);
+  cursor: pointer;
+}
+
+/* radio natif posé sur toute l'étiquette : cible tactile de l'étiquette, clavier et lecteur d'écran
+   conservés ; seule son apparence est remplacée par celle de l'étiquette */
+.star input {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+/* état sélectionné visible sans la couleur seule : fond plein, contraste du texte, bordure */
+.star:has(input:checked) {
+  border-color: var(--color-primary);
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+}
+
+.star:has(input:focus-visible) {
+  outline: var(--size-focus-ring) solid var(--color-focus);
+  outline-offset: var(--size-focus-offset);
+}
+
+.scores {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.score {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.select {
+  inline-size: 100%;
+  min-block-size: var(--size-touch-target);
+  padding: var(--space-2) var(--space-4);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-raised);
+  color: var(--color-text);
+  font-family: inherit;
+  font-size: var(--font-size-md);
+}
+
+.textarea {
+  inline-size: 100%;
+  min-block-size: calc(var(--size-touch-target) * 3);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-raised);
+  color: var(--color-text);
+  font-family: inherit;
+  font-size: var(--font-size-md);
+  line-height: var(--font-line-height-body);
+  resize: vertical;
+}
+
+.textarea:focus-visible,
+.select:focus-visible {
+  border-color: var(--color-focus);
+}
+
+.textarea[aria-invalid='true'] {
+  border-color: var(--color-danger);
+  border-width: var(--size-focus-ring);
+}
+
+.hint {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+.error {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-danger);
+}
+
+.list {
+  display: grid;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.review {
+  display: grid;
+  gap: var(--space-1);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-raised);
+  color: var(--color-text);
+  overflow-wrap: anywhere;
+}
+
+.author {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-strong);
+}
+
+.body {
+  margin: 0;
+  white-space: pre-wrap;
+}
+
+.meta {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}

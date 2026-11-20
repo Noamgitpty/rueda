@@ -356,9 +356,10 @@
         "cmd_money_owner",
         "iam_staff_owner",
         "kyc_cmd_owner",
-        "messaging_cmd_owner"
+        "messaging_cmd_owner",
+        "review_cmd_owner"
       ],
-      "story": "US-010, US-115, US-105, US-202, US-208, US-525, US-310"
+      "story": "US-010, US-115, US-105, US-202, US-208, US-525, US-310, US-317"
     },
     {
       "signature": "core.iam_staff_audit_read(bytea,bigint,integer)",
@@ -2564,6 +2565,146 @@
       "owner": "cmd_hold_owner",
       "execute": ["app_worker"],
       "story": "US-305"
+    },
+    {
+      "signature": "core.payment_operation_mit_guard()",
+      "family": "cmd_money",
+      "owner": "cmd_money_owner",
+      "execute": [],
+      "story": "US-703"
+    },
+    {
+      "signature": "core.payment_cmd_accept_mit_consent(bytea,uuid,text,integer)",
+      "family": "cmd_money",
+      "owner": "cmd_money_owner",
+      "execute": ["app_api"],
+      "story": "US-703"
+    },
+    {
+      "signature": "core.payment_cmd_ack_mit_reminder(bytea,uuid,text,integer)",
+      "family": "cmd_money",
+      "owner": "cmd_money_owner",
+      "execute": ["app_api"],
+      "story": "US-703"
+    },
+    {
+      "signature": "core.payment_mit_consent_view(bytea,uuid)",
+      "family": "cmd_money",
+      "owner": "cmd_money_owner",
+      "execute": ["app_api"],
+      "story": "US-703"
+    },
+    {
+      "signature": "core.payment_cmd_record_instrument(uuid,uuid,uuid,text,text,text,text,integer,integer,text,text)",
+      "family": "cmd_money",
+      "owner": "cmd_money_owner",
+      "execute": ["app_worker"],
+      "story": "US-703"
+    },
+    {
+      "signature": "core.payment_cmd_notify_post_trip_charge(uuid,uuid,text,text,text,uuid,integer,uuid,bigint,jsonb,boolean)",
+      "family": "cmd_money",
+      "owner": "cmd_money_owner",
+      "execute": ["app_worker"],
+      "story": "US-703"
+    },
+    {
+      "signature": "core.payment_cmd_plan_mit_attempt(uuid,uuid)",
+      "family": "cmd_money",
+      "owner": "cmd_money_owner",
+      "execute": ["app_worker"],
+      "story": "US-703"
+    },
+    {
+      "signature": "core.payment_mit_attempt_for_send(uuid)",
+      "family": "cmd_money",
+      "owner": "cmd_money_owner",
+      "execute": ["app_worker"],
+      "story": "US-703"
+    },
+    {
+      "signature": "core.payment_cmd_settle_mit_attempt(uuid,boolean)",
+      "family": "cmd_money",
+      "owner": "cmd_money_owner",
+      "execute": ["app_worker"],
+      "story": "US-703"
+    },
+    {
+      "signature": "core.payment_post_trip_charges_due(integer)",
+      "family": "cmd_money",
+      "owner": "cmd_money_owner",
+      "execute": ["app_worker"],
+      "story": "US-703"
+    },
+    {
+      "signature": "core.payment_cmd_plan_debt_collection(uuid,uuid,uuid,bigint)",
+      "family": "cmd_money",
+      "owner": "cmd_money_owner",
+      "execute": ["app_worker"],
+      "story": "US-703"
+    },
+    {
+      "signature": "core.payment_cmd_settle_debt_collection(uuid)",
+      "family": "cmd_money",
+      "owner": "cmd_money_owner",
+      "execute": ["app_worker"],
+      "story": "US-703"
+    },
+    {
+      "signature": "core.payment_mit_consent_mode_of_hold(bytea,uuid)",
+      "family": "cmd_money",
+      "owner": "cmd_money_owner",
+      "execute": ["app_api"],
+      "story": "US-703"
+    },
+    {
+      "signature": "core.payment_cmd_defer_mit_charge(uuid,text)",
+      "family": "cmd_money",
+      "owner": "cmd_money_owner",
+      "execute": ["app_worker"],
+      "story": "US-703"
+    },
+    {
+      "signature": "core.messaging_mask_text(text)",
+      "family": "messaging_cmd",
+      "owner": "messaging_cmd_owner",
+      "execute": ["review_cmd_owner"],
+      "story": "US-317"
+    },
+    {
+      "signature": "core.review_cmd_submit(bytea,uuid,integer,jsonb,text)",
+      "family": "review_cmd",
+      "owner": "review_cmd_owner",
+      "execute": ["app_api"],
+      "story": "US-317"
+    },
+    {
+      "signature": "core.review_trip_read(bytea,uuid)",
+      "family": "review_cmd",
+      "owner": "review_cmd_owner",
+      "execute": ["app_api"],
+      "story": "US-317"
+    },
+    {
+      "signature": "core.review_my_received(bytea)",
+      "family": "review_cmd",
+      "owner": "review_cmd_owner",
+      "execute": ["app_api"],
+      "story": "US-317"
+    },
+    {
+      "signature": "core.review_listing_host_profile(uuid)",
+      "family": "review_cmd",
+      "owner": "review_cmd_owner",
+      "execute": ["app_api"],
+      "story": "US-317"
+    },
+    {
+      "signature": "core.review_worker_publish_due(integer)",
+      "family": "review_cmd",
+      "owner": "review_cmd_owner",
+      "execute": ["app_worker"],
+      "story": "US-317"
     }
   ]
 }

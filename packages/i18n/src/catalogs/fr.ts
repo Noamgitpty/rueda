@@ -2276,6 +2276,11 @@ export const FR_MESSAGES = {
   'web.s05.title': 'Confirme ta réservation',
   'web.s05.intro':
     'Vérifie le voyage, saisis ton nom et accepte les conditions. Tu ne paies rien pour l’instant.',
+  'web.s05.mitConsentNotice':
+    'En payant, j’autorise des débits après le voyage sur la carte avec laquelle je paie, uniquement pour des frais du voyage, ma franchise ou des dommages, toujours avec un avis et une preuve.',
+  'web.s05.mitConsentRequiredHint': 'Obligatoire pour réserver.',
+  'web.s05.mitConsent':
+    'J’autorise des débits après le voyage sur cette carte, uniquement pour des frais du voyage, ma franchise ou des dommages, toujours avec un avis et une preuve.',
   'web.s05.loading': 'Chargement de ta réservation…',
   'web.s05.error': 'Nous n’avons pas pu charger ta réservation. Réessaie.',
   'web.s05.notFound': 'Devis indisponible',
@@ -2357,6 +2362,10 @@ export const FR_MESSAGES = {
     'Tu as atteint le nombre maximum de tentatives de paiement pour cette réservation. Aucun débit n’a été effectué.',
   'common.payment.methodUnavailable':
     'Ce moyen de paiement n’est pas disponible pour cette réservation.',
+  'common.payment.mitRailUnavailable':
+    'Les débits de carte après le voyage ne sont pas encore disponibles chez notre prestataire de paiement.',
+  'common.payment.mitConsentRequired':
+    'Pour réserver, accepte les débits après le voyage sur ta carte.',
   'web.s05.cta': 'Payer {amount}',
   'web.s05.pay.title': 'Paie ta réservation',
   'web.s06.pre.leaving':
@@ -3181,6 +3190,8 @@ export const FR_MESSAGES = {
   'web.handover.validate.HOST.checkout': 'Reprendre la voiture',
   'web.handover.validate.GUEST.checkin': 'J’ai reçu la voiture',
   'web.handover.validate.GUEST.checkout': 'Rendre la voiture',
+  'web.handover.mitReminder':
+    'Rappel : tu as accepté que les frais après le voyage (carburant, péages, retard, nettoyage) et ta part d’un dommage soient débités sur ta carte, toujours avec un avis et une preuve. Valider le confirme.',
   'web.handover.validate.hint':
     'L’heure qui compte est celle du serveur quand vous confirmez tous les deux.',
   'web.handover.waiting.HOST': 'En attente de la confirmation du voyageur.',
@@ -3466,4 +3477,78 @@ export const FR_MESSAGES = {
     'Bonjour {first_name}. Ta réservation {booking_ref} commence le {start_at}, mais le voyage précédent avec cette voiture n’est pas terminé : le retour est en retard. Notre équipe te contactera pour voir les options avec le voyageur. Tu peux nous écrire depuis la réservation dans l’appli.',
   'ntf.tripAtRiskHost.sms.body':
     '{brand} : la voiture de la réservation {booking_ref} ({start_at}) n’est pas encore rendue après le voyage précédent. Nous te contacterons.',
+  'common.reviews.trip': 'Avis du voyage.',
+  'common.reviews.submitted': 'Avis envoyé.',
+  'common.reviews.received': 'Avis reçus.',
+  'common.reviews.hostProfile': 'Profil de l’hôte.',
+  'common.reviews.alreadySubmitted':
+    'Tu as déjà donné ton avis sur ce voyage. Un avis ne peut pas être modifié.',
+  'common.reviews.notOpen':
+    'Tu pourras donner ton avis une fois le retour de la voiture enregistré.',
+  'common.reviews.windowClosed': 'Le délai pour donner ton avis sur ce voyage est terminé.',
+  'common.reviews.textRequired':
+    'Avec 3 étoiles ou moins, raconte ce qui s’est passé en 25 caractères au moins.',
+  'common.reviews.invalid': 'Vérifie la note et le texte (1 000 caractères au plus).',
+  'common.reviews.unavailable':
+    'Les avis ne sont pas disponibles pour le moment. Réessaie dans quelques minutes.',
+  'web.review.until': 'Tu peux donner ton avis jusqu’au {date}',
+  'web.review.blind': {
+    one: '{name} ne verra pas ton avis avant que vous ayez tous les deux donné le vôtre, ou au plus tard {count} jour après la fin du voyage',
+    other:
+      '{name} ne verra pas ton avis avant que vous ayez tous les deux donné le vôtre, ou au plus tard {count} jours après la fin du voyage',
+  },
+  'web.review.closed': 'Le délai pour donner ton avis s’est terminé le {date}.',
+  'web.review.back': 'Retour au voyage',
+  'web.review.heading.guest': 'Donne ton avis sur ton voyage',
+  'web.review.heading.host': 'Donne ton avis sur le voyageur',
+  'web.review.with': 'Voyage avec {name}',
+  'web.review.withUnknown': 'Voyage',
+  'web.review.overall': 'Note globale',
+  'web.review.stars': { one: '{count} étoile', other: '{count} étoiles' },
+  'web.review.subScores': 'Détail (facultatif)',
+  'web.review.sub.cleanliness': 'Propreté',
+  'web.review.sub.communication': 'Communication',
+  'web.review.sub.convenience': 'Praticité',
+  'web.review.sub.accuracy': 'Exactitude de l’annonce',
+  'web.review.sub.maintenance': 'Entretien',
+  'web.review.sub.punctuality': 'Ponctualité',
+  'web.review.sub.returnCondition': 'État au retour',
+  'web.review.sub.rulesRespect': 'Respect des règles',
+  'web.review.noScore': 'Sans note',
+  'web.review.text': 'Ton avis',
+  'web.review.textHint':
+    'Obligatoire avec 3 étoiles ou moins (25 caractères au moins). Il est publié avec ton prénom ; n’y mets ni téléphone ni e-mail.',
+  'web.review.final': 'Une fois envoyé, ton avis ne peut plus être modifié.',
+  'web.review.public.guest': 'Ton avis sera public sur le profil du voyageur, qui pourra le lire.',
+  'web.review.public.host': 'Ton avis sera public sur l’annonce et sur le profil de l’hôte.',
+  'web.review.submit': 'Envoyer l’avis',
+  'web.review.mine': 'Ton avis',
+  'web.review.status.SUBMITTED':
+    'Enregistré : il sera publié quand vous aurez donné tous les deux votre avis ou à la fin du délai.',
+  'web.review.status.PUBLISHED': 'Publié',
+  'web.review.done.SUBMITTED': 'C’est fait. Ton avis est enregistré.',
+  'web.review.done.PUBLISHED': 'C’est fait. Les deux avis sont maintenant publiés.',
+  'web.review.masked': 'Nous avons masqué des coordonnées présentes dans ton texte.',
+  'web.review.published': 'Avis publiés',
+  'web.review.publishedEmpty': 'Aucun avis n’est encore publié pour ce voyage.',
+  'web.review.author.GUEST': 'Voyageur',
+  'web.review.author.HOST': 'Hôte',
+  'web.review.guestProfile': 'Avis des hôtes sur {name}',
+  'web.review.guestProfileEmpty': 'Aucun avis d’hôte pour le moment.',
+  'web.review.loadError': 'Nous n’avons pas pu charger les avis.',
+  'web.review.retry': 'Réessayer',
+  'web.review.link': 'Donner mon avis',
+  'web.reviews.received.title': 'Avis sur toi',
+  'web.reviews.received.intro':
+    'Tu vois ici tous les avis publiés sur toi, avec le prénom de leur auteur.',
+  'web.reviews.received.asGuest': 'En tant que voyageur',
+  'web.reviews.received.asHost': 'En tant qu’hôte',
+  'web.reviews.received.empty': 'Aucun avis sur toi n’est encore publié.',
+  'web.reviews.count': { one: '{count} avis', other: '{count} avis' },
+  'web.reviews.link': 'Avis sur toi',
+  'web.a13.title': 'Ton profil public',
+  'web.a13.preview': 'Voici comment les voyageurs te voient sur tes annonces.',
+  'web.a13.reviews': 'Avis reçus',
+  'web.a13.link': 'Ton profil public',
+  'web.listing.hostReviews': 'Avis sur {name}',
 } as const satisfies Readonly<Record<MessageKey, Message>>;

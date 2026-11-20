@@ -7,7 +7,9 @@
  * Journaux : aucun ; jamais un identifiant ni une donnée personnelle.
  */
 import { Inject, Injectable } from '@nestjs/common';
-import { TRP_HANDOVER_STORE } from '../tokens.js';
+import { UNAVAILABLE_MIT_CONSENTS } from '../../../pay/index.js';
+import type { MitConsentPort } from '../../../pay/index.js';
+import { TRP_HANDOVER_STORE, TRP_MIT_REMINDERS } from '../tokens.js';
 import { HandoverHttpError, handoverOutcomeCode } from './errors.js';
 import {
   handoverKindOf,
@@ -52,9 +54,25 @@ export interface HandoverView {
   readonly completedAt: string | null;
 }
 
+/** Journal d'exploitation du rappel MIT de la remise : un code borné, jamais une valeur (17 §6.3). */
+export function logMitReminder(event: 'failed' | 'refused', code: string): void {
+  console.warn(JSON.stringify({ level: 'warn', event: `handover.mit_reminder_${event}`, code }));
+}
+
+const errorClassOf = (error: unknown): string => {
+  const name =
+    typeof error === 'object' && error !== null ? (error as { name?: unknown }).name : undefined;
+  return typeof name === 'string' && /^[A-Za-z][A-Za-z0-9_]{0,63}$/.test(name) ? name : 'Unknown';
+};
+
 @Injectable()
 export class HandoverService {
-  constructor(@Inject(TRP_HANDOVER_STORE) private readonly store: HandoverStore) {}
+  constructor(
+    @Inject(TRP_HANDOVER_STORE) private readonly store: HandoverStore,
+    /** US-703 : rappel du consentement MIT confirmé par le voyageur à la remise (PAY, 0169). */
+    @Inject(TRP_MIT_REMINDERS)
+    private readonly reminders: MitConsentPort = UNAVAILABLE_MIT_CONSENTS,
+  ) {}
 
   async #call<T>(fn: () => Promise<T>): Promise<T> {
     try {
@@ -133,6 +151,25 @@ export class HandoverService {
   async validate(proof: Buffer, tripId: string, segment: string, body: Body) {
     const kind = this.#kind(segment);
     const input = parseValidateRequest(body);
+    // US-703 (16 PAY-037 « consentement écrit au check-in », ADR-189) : le voyageur valide la
+    // remise sous le rappel du consentement MIT affiché par S09 ; la base l'enregistre pour le
+    // voyageur du trip seulement, pendant la remise (avant la seconde validation), une fois. Un
+    // échec n'empêche jamais la remise : sans rappel, aucun frais après le trip n'est débité sur
+    // la carte (la dette suit le recouvrement hors carte), fail-closed pour l'argent seulement.
+    if (kind === 'CHECKIN' && input.locale !== null) {
+      const locale = input.locale;
+      const outcome = await this.reminders
+        .acknowledgeReminder(proof, tripId, locale)
+        .catch((error: unknown) => {
+          // revue sécurité n° 7 : échec journalisé (classe de l'erreur, jamais un identifiant)
+          logMitReminder('failed', errorClassOf(error));
+          return null;
+        });
+      if (outcome !== null && outcome !== 'ACKNOWLEDGED' && outcome !== 'ALREADY_ACKNOWLEDGED') {
+        // refus de la base (pas de consentement, remise non ouverte…) : code seulement
+        logMitReminder('refused', outcome);
+      }
+    }
     const r = await this.#call(() =>
       this.store.validate(
         proof,
