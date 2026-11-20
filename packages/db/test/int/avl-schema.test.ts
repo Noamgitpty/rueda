@@ -123,7 +123,12 @@ const PAY_PORT_TABLES = [
 
 // Compte de versement de l'hôte (US-707, 0159) : même socle RLS ; aucun droit applicatif,
 // commandes de cmd_money_owner, preuves par test/l0/l0-us707-payout-account.test.ts.
-const PYO_TABLES = ['payout_payout_account'] as const;
+const PYO_TABLES = [
+  'payout_payout_account',
+  'payout_payout_batch',
+  'payout_payout_item',
+  'payout_prepare_deferral',
+] as const;
 
 // Socle de marque (US-034, 0042) : même socle RLS ; lecture publique d'app_api et commandes sous
 // iam_staff_owner vérifiées par test/l0/l0-brand.test.ts.

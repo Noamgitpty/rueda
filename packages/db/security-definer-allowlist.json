@@ -2251,6 +2251,76 @@
       "story": "US-707"
     },
     {
+      "signature": "core.payout_cmd_defer_trip(uuid,text)",
+      "family": "cmd_money",
+      "owner": "cmd_money_owner",
+      "execute": ["app_worker"],
+      "story": "US-708"
+    },
+    {
+      "signature": "core.payout_trips_to_prepare(integer)",
+      "family": "cmd_money",
+      "owner": "cmd_money_owner",
+      "execute": ["app_worker"],
+      "story": "US-708"
+    },
+    {
+      "signature": "core.payout_cmd_prepare_trip(uuid)",
+      "family": "cmd_money",
+      "owner": "cmd_money_owner",
+      "execute": ["app_worker"],
+      "story": "US-708"
+    },
+    {
+      "signature": "core.payout_batches_due(integer)",
+      "family": "cmd_money",
+      "owner": "cmd_money_owner",
+      "execute": ["app_worker"],
+      "story": "US-708"
+    },
+    {
+      "signature": "core.payout_cmd_net_batch(uuid)",
+      "family": "cmd_money",
+      "owner": "cmd_money_owner",
+      "execute": ["app_worker"],
+      "story": "US-708"
+    },
+    {
+      "signature": "core.payout_cmd_recheck_batch(uuid)",
+      "family": "cmd_money",
+      "owner": "cmd_money_owner",
+      "execute": ["app_worker"],
+      "story": "US-708"
+    },
+    {
+      "signature": "core.payout_release_items(uuid)",
+      "family": "cmd_money",
+      "owner": "cmd_money_owner",
+      "execute": ["app_worker"],
+      "story": "US-708"
+    },
+    {
+      "signature": "core.payout_cmd_initiate_batch(uuid)",
+      "family": "cmd_money",
+      "owner": "cmd_money_owner",
+      "execute": ["app_worker"],
+      "story": "US-708"
+    },
+    {
+      "signature": "core.payout_cmd_record_payout_result(uuid,text,text)",
+      "family": "cmd_money",
+      "owner": "cmd_money_owner",
+      "execute": ["app_worker"],
+      "story": "US-708"
+    },
+    {
+      "signature": "core.payout_release_item_guard()",
+      "family": "cmd_money",
+      "owner": "cmd_money_owner",
+      "execute": [],
+      "story": "US-708"
+    },
+    {
       "signature": "core.messaging_thread_read(bytea,uuid,integer)",
       "family": "messaging_cmd",
       "owner": "messaging_cmd_owner",

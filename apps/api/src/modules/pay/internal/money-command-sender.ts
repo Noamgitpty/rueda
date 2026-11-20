@@ -23,8 +23,8 @@
  *   `AWAITING_PROOF`, la preuve signée (webhook) décide.
  */
 import { PaymentError } from './errors.js';
-import { assertMovingLegs, assertReallocationLegs } from './legs.js';
-import type { LegAmounts } from './legs.js';
+import { assertMovingLegs, assertReallocationLegs, LEGS } from './legs.js';
+import type { Leg, LegAmounts } from './legs.js';
 import type {
   MitReason,
   OperationResult,
@@ -42,6 +42,8 @@ export const COMMAND_KINDS = [
   'ROLLBACK',
   'LEG_REALLOCATION',
   'VOID',
+  // US-708 (ADR-185) : libération de la jambe HOST d'un trip (variante A), un seul ordre par item
+  'LEG_RELEASE',
 ] as const;
 export type CommandKind = (typeof COMMAND_KINDS)[number];
 
@@ -61,6 +63,11 @@ export interface MoneyCommand {
   /** Référence PSP de CETTE opération, si déjà connue. */
   readonly providerReference: string | null;
   readonly mit?: { readonly reason: MitReason; readonly instrumentToken: string };
+  /**
+   * US-708 : `LEG_RELEASE` seulement — trip (référence de Kmino) et bénéficiaire STOCKÉS ; la
+   * jambe libérée est la seule jambe non nulle de l'ordre, à montant explicite (17 §2.8).
+   */
+  readonly release?: { readonly tripReference: string; readonly beneficiaryReference: string };
 }
 
 export type SendOutcome =
@@ -212,6 +219,7 @@ export class MoneyCommandSender {
     if (command.legs === null) throw new PaymentError('INVALID_REQUEST', 'jambes absentes');
     if (command.kind === 'LEG_REALLOCATION') assertReallocationLegs(command.legs);
     else assertMovingLegs(command.amountMinor, command.legs);
+    if (command.kind === 'LEG_RELEASE') releasedLeg(command.amountMinor, command.legs);
   }
 
   /** Statut non terminal (`SUBMITTED`) : jamais refusé par la base pour défaut de preuve. */
@@ -261,6 +269,32 @@ export class MoneyCommandSender {
         });
       case 'VOID':
         return this.#provider.void({ idempotencyKey: key, providerReference: target() });
+      case 'LEG_RELEASE': {
+        if (command.release === undefined) {
+          throw new PaymentError('INVALID_REQUEST', 'libération sans trip ni bénéficiaire');
+        }
+        return this.#provider.releaseLeg({
+          idempotencyKey: key,
+          tripReference: command.release.tripReference,
+          leg: releasedLeg(command.amountMinor, legs()),
+          amountMinor: command.amountMinor,
+          currency: command.currency,
+          beneficiaryReference: command.release.beneficiaryReference,
+        });
+      }
     }
   }
+}
+
+/**
+ * Jambe d'un ordre `LEG_RELEASE` : exactement UNE jambe non nulle, égale au montant (une libération
+ * porte une seule jambe, jamais une ventilation ; 17 §2.8 `releaseLeg`).
+ */
+function releasedLeg(amountMinor: bigint, legs: LegAmounts): Leg {
+  const moved = LEGS.filter((leg) => legs[leg] !== 0n);
+  const leg = moved[0];
+  if (moved.length !== 1 || leg === undefined || legs[leg] !== amountMinor) {
+    throw new PaymentError('LEG_SUM_MISMATCH', 'une libération porte une seule jambe');
+  }
+  return leg;
 }
