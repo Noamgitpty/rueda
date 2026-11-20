@@ -48,7 +48,8 @@
 --   DROP VIEW core.report_handover_day_v, core.report_overdue_v, core.report_exit_kpi_v ;
 --   DROP TABLE core.finance_reconciliation_item, core.finance_reconciliation_run ;
 --   DROP FUNCTION core.finance_reconciliation_guard() ;
---   DROP POLICY rpt_staff_read ON (tables sources ci-dessous) ; REVOKE des droits par colonne
+--   DROP POLICY iam_staff_rpt_read ON (tables sources ci-dessous), iam_staff_recon_threshold_read ON
+--     core.config_param_value ; REVOKE des droits par colonne
 --     d'iam_staff_owner listés en section 4 ; REVOKE EXECUTE ON FUNCTION
 --     core.payout_business_day(text, date, integer) FROM iam_staff_owner ;
 --   DELETE FROM core.iam_role_permission WHERE change_reason LIKE 'US-311%'.
@@ -263,35 +264,35 @@ GRANT SELECT (org_id, vehicle_id, status, scheduled_start, scheduled_end, timezo
   ON core.booking_trip TO iam_staff_owner;   -- politique iam_staff_select (0033) : USING (true)
 GRANT SELECT (currency) ON core.config_country TO iam_staff_owner;   -- iam_staff_select (0034)
 GRANT SELECT (trip_id, kind, performer_role) ON core.trip_ops_handover_validation TO iam_staff_owner;
-CREATE POLICY rpt_staff_read ON core.trip_ops_handover_validation FOR SELECT TO iam_staff_owner
+CREATE POLICY iam_staff_rpt_read ON core.trip_ops_handover_validation FOR SELECT TO iam_staff_owner
   USING (true);
 GRANT SELECT (trip_id, direction, at) ON core.trip_ops_key_handover TO iam_staff_owner;
-CREATE POLICY rpt_staff_read ON core.trip_ops_key_handover FOR SELECT TO iam_staff_owner
+CREATE POLICY iam_staff_rpt_read ON core.trip_ops_key_handover FOR SELECT TO iam_staff_owner
   USING (true);
 GRANT SELECT (trip_id, country_code, stage, scheduled_end, detected_at, use_until, bounded,
               next_trip_id)
   ON core.trip_ops_overdue_case TO iam_staff_owner;
-CREATE POLICY rpt_staff_read ON core.trip_ops_overdue_case FOR SELECT TO iam_staff_owner
+CREATE POLICY iam_staff_rpt_read ON core.trip_ops_overdue_case FOR SELECT TO iam_staff_owner
   USING (true);
 GRANT SELECT (trip_id, segment_no, leg, country_code, currency, captured_minor, refunded_minor,
               reallocated_in_minor, reallocated_out_minor, released_minor, frozen)
   ON core.settlement_trip_leg_balance TO iam_staff_owner;
-CREATE POLICY rpt_staff_read ON core.settlement_trip_leg_balance FOR SELECT TO iam_staff_owner
+CREATE POLICY iam_staff_rpt_read ON core.settlement_trip_leg_balance FOR SELECT TO iam_staff_owner
   USING (true);
 GRANT SELECT (id, hold_id, trip_id, country_code, kind, purpose, status, amount_minor, currency,
               provider_reference, proof_type, created_at)
   ON core.payment_payment_operation TO iam_staff_owner;
-CREATE POLICY rpt_staff_read ON core.payment_payment_operation FOR SELECT TO iam_staff_owner
+CREATE POLICY iam_staff_rpt_read ON core.payment_payment_operation FOR SELECT TO iam_staff_owner
   USING (true);
 GRANT SELECT (org_id, country_code, status) ON core.kyc_host_verification TO iam_staff_owner;
-CREATE POLICY rpt_staff_read ON core.kyc_host_verification FOR SELECT TO iam_staff_owner
+CREATE POLICY iam_staff_rpt_read ON core.kyc_host_verification FOR SELECT TO iam_staff_owner
   USING (true);
 -- seuil J-ADM-031 du rapprochement seulement (colonnes déjà accordées par 0064)
-CREATE POLICY rpt_staff_recon_threshold ON core.config_param_value FOR SELECT TO iam_staff_owner
+CREATE POLICY iam_staff_recon_threshold_read ON core.config_param_value FOR SELECT TO iam_staff_owner
   USING (key = 'reconciliation_delta_threshold_bps');
 -- 5 jours ouvrés du pays (fonction interne de 0165, mêmes règles que les versements)
 GRANT SELECT (country_code, version, date) ON core.config_holiday_calendar TO iam_staff_owner;
-CREATE POLICY rpt_staff_read ON core.config_holiday_calendar FOR SELECT TO iam_staff_owner
+CREATE POLICY iam_staff_rpt_read ON core.config_holiday_calendar FOR SELECT TO iam_staff_owner
   USING (true);
 -- accordé par son propriétaire (cmd_money_owner, 0165) : migrator n'en a pas l'option d'octroi
 SET LOCAL ROLE cmd_money_owner;
