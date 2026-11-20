@@ -15931,6 +15931,532 @@
           }
         }
       }
+    },
+    "/console/claims": {
+      "post": {
+        "operationId": "consoleClaimRecord",
+        "tags": ["sup"],
+        "summary": "RECORD_CLAIM (16 CLM-001 / CLM-002, US-309) : l'ops enregistre la déclaration de dommage de l'hôte ou d'incident du voyageur depuis un dossier de support CLAIM ouvert du trip qui lui est assigné ; délai max(fin prévue, retour effectif) + claim_declaration_window_h jugé à l'heure de la base ; déclarant relu en base ; le versement de l'hôte du trip est retenu jusqu'à la décision exécutée",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["requestId", "tripId", "caseId", "declaredBy", "kind", "description"],
+                "properties": {
+                  "requestId": {
+                    "$ref": "#/components/schemas/Uuid"
+                  },
+                  "tripId": {
+                    "$ref": "#/components/schemas/Uuid"
+                  },
+                  "caseId": {
+                    "$ref": "#/components/schemas/Uuid"
+                  },
+                  "declaredBy": {
+                    "enum": ["HOST", "GUEST"]
+                  },
+                  "kind": {
+                    "enum": ["DAMAGE", "INCIDENT"]
+                  },
+                  "description": {
+                    "type": "string",
+                    "minLength": 10,
+                    "maxLength": 1000,
+                    "description": "Résumé de la déclaration par l'agent (aucun nom ni contact)"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Rejeu de la même requête : la déclaration d'origine",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClaimEnvelope"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Déclaration enregistrée (REPORTED)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClaimEnvelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/StaffRequestInvalid"
+          },
+          "401": {
+            "$ref": "#/components/responses/StaffAuthRequired"
+          },
+          "429": {
+            "$ref": "#/components/responses/StaffRateLimited"
+          },
+          "403": {
+            "description": "Sans rôle interne ou sans claim.declare dans le pays du dossier (FORBIDDEN, journalisé) ; session non élevée (2FA_REQUIRED) ; dossier inconnu, clos, d'une autre catégorie, d'un autre trip ou non assigné (STAFF_CASE_REQUIRED, journalisé) ; trip qui concerne l'agent (STAFF_SELF_FORBIDDEN, journalisé, ADR-122)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "enum": [
+                        "FORBIDDEN",
+                        "2FA_REQUIRED",
+                        "STAFF_CASE_REQUIRED",
+                        "STAFF_SELF_FORBIDDEN"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Trip non commencé ou annulé (CLAIM_TRIP_NOT_ELIGIBLE) ; déclaration vivante du même déclarant et de la même nature (CLAIM_ALREADY_OPEN)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "enum": ["CLAIM_TRIP_NOT_ELIGIBLE", "CLAIM_ALREADY_OPEN"]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "415": {
+            "$ref": "#/components/responses/NotJsonNoStore"
+          },
+          "422": {
+            "description": "Délai de déclaration dépassé (CLAIM_DEADLINE_PASSED, heure de la base, journalisé)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "CLAIM_DEADLINE_PASSED"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Base indisponible (CLAIMS_UNAVAILABLE) ; délai de déclaration du pays absent (CLAIM_WINDOW_UNKNOWN, fail-closed)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "enum": ["CLAIMS_UNAVAILABLE", "CLAIM_WINDOW_UNKNOWN"]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/console/claims/{claimId}": {
+      "get": {
+        "operationId": "consoleClaimView",
+        "tags": ["sup"],
+        "summary": "Vue d'une déclaration (US-309) : délai, preuves relues, franchise acceptée au contrat, décision, exécution et déclaration à l'assureur ; claim.declare, dossier assigné (ADMIN : tout dossier de son pays), garde ADR-122",
+        "parameters": [
+          {
+            "name": "claimId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Déclaration",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClaimEnvelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/StaffRequestInvalid"
+          },
+          "401": {
+            "$ref": "#/components/responses/StaffAuthRequired"
+          },
+          "429": {
+            "$ref": "#/components/responses/StaffRateLimited"
+          },
+          "403": {
+            "description": "Sans rôle interne, sans claim.declare dans le pays ou déclaration inconnue (FORBIDDEN, journalisé) ; session non élevée (2FA_REQUIRED) ; dossier d'un autre agent (STAFF_CASE_REQUIRED) ; trip qui concerne l'agent (STAFF_SELF_FORBIDDEN)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "enum": [
+                        "FORBIDDEN",
+                        "2FA_REQUIRED",
+                        "STAFF_CASE_REQUIRED",
+                        "STAFF_SELF_FORBIDDEN"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Base indisponible",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "CLAIMS_UNAVAILABLE"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/console/claims/{claimId}/decision": {
+      "post": {
+        "operationId": "consoleClaimDecision",
+        "tags": ["sup"],
+        "summary": "ISSUE_DECISION (16 CLM-006, ADM-008, LEG-024, US-309) : aperçu du gabarit (`preview`, rien n'est écrit) ou décision motivée par gabarit, jamais « définitive » ; lignes saisies par l'ops et contrôlées (jambes explicites, Σ = montant ; parking de récupération et frais non imputable exclus) ; retenue seulement avec les photos de départ et de retour ; plafond de la franchise acceptée au contrat ; tout débit réservé à ADMIN ; exécutée ensuite par Kmino (débit séparé, franchise de l'hôte au host_ledger, déclaration à l'assureur)",
+        "parameters": [
+          {
+            "name": "claimId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "requestId",
+                  "outcome",
+                  "covered",
+                  "repairCostMinor",
+                  "amountMinor",
+                  "lines",
+                  "hostDeductibleMinor"
+                ],
+                "properties": {
+                  "requestId": {
+                    "$ref": "#/components/schemas/Uuid"
+                  },
+                  "preview": {
+                    "type": "boolean"
+                  },
+                  "outcome": {
+                    "enum": ["GUEST_LIABLE", "NO_GUEST_CHARGE", "INELIGIBLE"]
+                  },
+                  "covered": {
+                    "type": "boolean"
+                  },
+                  "repairCostMinor": {
+                    "$ref": "#/components/schemas/ClaimMinor"
+                  },
+                  "amountMinor": {
+                    "$ref": "#/components/schemas/ClaimMinor"
+                  },
+                  "lines": {
+                    "type": "array",
+                    "maxItems": 20,
+                    "items": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": ["category", "amountMinor"],
+                      "properties": {
+                        "category": {
+                          "enum": [
+                            "REPAIR",
+                            "INSURER_RECOVERY",
+                            "PROCESSING_FEE",
+                            "PROCESSING_FEE_TAX",
+                            "RECOVERY_PARKING",
+                            "NOT_ATTRIBUTABLE"
+                          ]
+                        },
+                        "amountMinor": {
+                          "$ref": "#/components/schemas/ClaimMinor"
+                        }
+                      }
+                    }
+                  },
+                  "hostDeductibleMinor": {
+                    "$ref": "#/components/schemas/ClaimMinor"
+                  },
+                  "facts": {
+                    "type": "string",
+                    "maxLength": 2000,
+                    "description": "Faits du gabarit (20 caractères au moins, sinon DECISION_RATIONALE_REQUIRED ; aucun nom ni contact)"
+                  },
+                  "guestAgreementFileId": {
+                    "anyOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "$ref": "#/components/schemas/Uuid"
+                      }
+                    ],
+                    "description": "Accord écrit du voyageur postérieur au constat (REQ-PAY-DMG-05) : pièce du seau des preuves"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Aperçu du gabarit (`preview`) ou rejeu de la même requête",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/ClaimPreviewEnvelope"
+                    },
+                    {
+                      "$ref": "#/components/schemas/ClaimEnvelope"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Décision enregistrée ; exécution par le travailleur",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClaimEnvelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/StaffRequestInvalid"
+          },
+          "401": {
+            "$ref": "#/components/responses/StaffAuthRequired"
+          },
+          "429": {
+            "$ref": "#/components/responses/StaffRateLimited"
+          },
+          "403": {
+            "description": "Sans rôle interne, sans dispute.decide dans le pays ou déclaration inconnue (FORBIDDEN, journalisé) ; session non élevée (2FA_REQUIRED) ; dossier d'un autre agent (STAFF_CASE_REQUIRED) ; agent partie au trip ou lié (STAFF_SELF_FORBIDDEN, ADR-122) ; décision qui débite réservée à ADMIN (DECISION_ADMIN_REQUIRED, journalisé)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "enum": [
+                        "FORBIDDEN",
+                        "2FA_REQUIRED",
+                        "STAFF_CASE_REQUIRED",
+                        "STAFF_SELF_FORBIDDEN",
+                        "DECISION_ADMIN_REQUIRED"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Déclaration disparue entre la porte et la décision",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "CLAIM_NOT_FOUND"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Déclaration déjà décidée (CLAIM_ALREADY_DECIDED)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "CLAIM_ALREADY_DECIDED"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "415": {
+            "$ref": "#/components/responses/NotJsonNoStore"
+          },
+          "422": {
+            "description": "Gabarit refusé (journalisé) : retenue sans photos de départ et de retour, motif absent, décision « définitive », Σ des jambes ≠ montant, issue incohérente, plafond inconnu ou dépassé, coût de réparation dépassé, pièce de l'accord absente",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "enum": [
+                        "CLAIM_DECISION_WITHOUT_EVIDENCE",
+                        "DECISION_RATIONALE_REQUIRED",
+                        "DECISION_FINALITY_FORBIDDEN",
+                        "LEG_SUM_MISMATCH",
+                        "DECISION_OUTCOME_MISMATCH",
+                        "CLAIM_CAP_UNKNOWN",
+                        "DAMAGE_ABOVE_ACCEPTED_AMOUNT",
+                        "DAMAGE_ABOVE_REPAIR_COST",
+                        "AGREEMENT_FILE_INVALID"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Base indisponible",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "CLAIMS_UNAVAILABLE"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -26922,6 +27448,356 @@
             "items": {
               "$ref": "#/components/schemas/PublishedReview"
             }
+          }
+        }
+      },
+      "ClaimMinor": {
+        "type": "string",
+        "description": "Montant en unités mineures de la devise du trip (texte d'un entier ≥ 0 ; PYG sans décimale)",
+        "pattern": "^(0|[1-9][0-9]{0,14})$"
+      },
+      "ClaimLegs": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["HOST", "INSURER", "TAX_THIRD_PARTY", "PLATFORM"],
+        "properties": {
+          "HOST": {
+            "$ref": "#/components/schemas/ClaimMinor"
+          },
+          "INSURER": {
+            "$ref": "#/components/schemas/ClaimMinor"
+          },
+          "TAX_THIRD_PARTY": {
+            "$ref": "#/components/schemas/ClaimMinor"
+          },
+          "PLATFORM": {
+            "$ref": "#/components/schemas/ClaimMinor"
+          }
+        }
+      },
+      "ClaimLine": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["category", "leg", "amountMinor"],
+        "properties": {
+          "category": {
+            "enum": ["REPAIR", "INSURER_RECOVERY", "PROCESSING_FEE", "PROCESSING_FEE_TAX"]
+          },
+          "leg": {
+            "enum": ["HOST", "INSURER", "TAX_THIRD_PARTY", "PLATFORM"]
+          },
+          "amountMinor": {
+            "$ref": "#/components/schemas/ClaimMinor"
+          }
+        }
+      },
+      "ClaimExcludedLine": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["category", "amountMinor", "code", "rule"],
+        "description": "Ligne exclue par le gabarit comme non refacturable (08 BR-TT-05 : parking payé par l'hôte pour récupérer son véhicule ; BR-FUEL-03 : frais non imputable au voyageur)",
+        "properties": {
+          "category": {
+            "enum": ["RECOVERY_PARKING", "NOT_ATTRIBUTABLE"]
+          },
+          "amountMinor": {
+            "$ref": "#/components/schemas/ClaimMinor"
+          },
+          "code": {
+            "const": "NOT_RECHARGEABLE"
+          },
+          "rule": {
+            "enum": ["BR-TT-05", "BR-FUEL-03"]
+          }
+        }
+      },
+      "ClaimEvidence": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["checkinPhotos", "checkoutPhotos"],
+        "properties": {
+          "checkinPhotos": {
+            "type": "boolean"
+          },
+          "checkoutPhotos": {
+            "type": "boolean"
+          },
+          "guestAgreement": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ClaimDecision": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "decisionId",
+          "outcome",
+          "covered",
+          "repairCostMinor",
+          "amountMinor",
+          "legs",
+          "lines",
+          "excluded",
+          "hostDeductibleMinor",
+          "evidence",
+          "facts",
+          "decidedRole",
+          "decidedAt",
+          "execution",
+          "executionCode",
+          "insurerDeclaration"
+        ],
+        "properties": {
+          "decisionId": {
+            "$ref": "#/components/schemas/Uuid"
+          },
+          "outcome": {
+            "enum": ["GUEST_LIABLE", "NO_GUEST_CHARGE", "INELIGIBLE"]
+          },
+          "covered": {
+            "type": "boolean"
+          },
+          "repairCostMinor": {
+            "$ref": "#/components/schemas/ClaimMinor"
+          },
+          "amountMinor": {
+            "$ref": "#/components/schemas/ClaimMinor"
+          },
+          "legs": {
+            "$ref": "#/components/schemas/ClaimLegs"
+          },
+          "lines": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ClaimLine"
+            }
+          },
+          "excluded": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ClaimExcludedLine"
+            }
+          },
+          "hostDeductibleMinor": {
+            "$ref": "#/components/schemas/ClaimMinor"
+          },
+          "evidence": {
+            "$ref": "#/components/schemas/ClaimEvidence"
+          },
+          "facts": {
+            "type": "string"
+          },
+          "decidedRole": {
+            "enum": ["OPS_AGENT", "ADMIN"]
+          },
+          "decidedAt": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+          },
+          "execution": {
+            "enum": ["PENDING", "DONE", "BLOCKED"]
+          },
+          "executionCode": {
+            "type": ["string", "null"],
+            "pattern": "^[A-Z][A-Z0-9_]{1,63}$"
+          },
+          "insurerDeclaration": {
+            "enum": ["PENDING", "SENT", null]
+          }
+        }
+      },
+      "ClaimView": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "Déclaration de dommage ou d'incident (US-309) : délai, preuves relues par la base, franchise du voyageur acceptée au contrat, décision et son exécution ; aucune donnée nominative",
+        "required": [
+          "claimId",
+          "tripId",
+          "caseId",
+          "country",
+          "currency",
+          "declaredBy",
+          "kind",
+          "description",
+          "status",
+          "reportedAt",
+          "tripEndAt",
+          "deadlineAt",
+          "evidence",
+          "guestCapMinor",
+          "decision",
+          "exponent"
+        ],
+        "properties": {
+          "claimId": {
+            "$ref": "#/components/schemas/Uuid"
+          },
+          "tripId": {
+            "$ref": "#/components/schemas/Uuid"
+          },
+          "caseId": {
+            "$ref": "#/components/schemas/Uuid"
+          },
+          "country": {
+            "type": "string",
+            "pattern": "^[A-Z]{2}$"
+          },
+          "currency": {
+            "type": "string",
+            "pattern": "^[A-Z]{3}$"
+          },
+          "declaredBy": {
+            "enum": ["HOST", "GUEST"]
+          },
+          "kind": {
+            "enum": ["DAMAGE", "INCIDENT"]
+          },
+          "description": {
+            "type": "string"
+          },
+          "status": {
+            "enum": ["REPORTED", "DECIDED"]
+          },
+          "reportedAt": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+          },
+          "tripEndAt": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+          },
+          "deadlineAt": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+          },
+          "evidence": {
+            "$ref": "#/components/schemas/ClaimEvidence"
+          },
+          "guestCapMinor": {
+            "type": ["string", "null"],
+            "pattern": "^(0|[1-9][0-9]{0,14})$"
+          },
+          "decision": {
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ClaimDecision"
+              }
+            ]
+          },
+          "exponent": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 18,
+            "description": "Exposant de la devise (config), pour l'affichage et la saisie des montants"
+          }
+        }
+      },
+      "ClaimPreview": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "Aperçu du gabarit de décision (rien n'est écrit) : jambes explicites, lignes exclues comme non refacturables, plafond, preuves, décision réservée à ADMIN si elle débite",
+        "required": [
+          "claimId",
+          "tripId",
+          "currency",
+          "outcome",
+          "covered",
+          "repairCostMinor",
+          "amountMinor",
+          "legs",
+          "lines",
+          "excluded",
+          "hostDeductibleMinor",
+          "guestCapMinor",
+          "evidence",
+          "adminRequired",
+          "exponent",
+          "alreadyChargedMinor"
+        ],
+        "properties": {
+          "claimId": {
+            "$ref": "#/components/schemas/Uuid"
+          },
+          "tripId": {
+            "$ref": "#/components/schemas/Uuid"
+          },
+          "currency": {
+            "type": "string",
+            "pattern": "^[A-Z]{3}$"
+          },
+          "outcome": {
+            "enum": ["GUEST_LIABLE", "NO_GUEST_CHARGE", "INELIGIBLE"]
+          },
+          "covered": {
+            "type": "boolean"
+          },
+          "repairCostMinor": {
+            "$ref": "#/components/schemas/ClaimMinor"
+          },
+          "amountMinor": {
+            "$ref": "#/components/schemas/ClaimMinor"
+          },
+          "legs": {
+            "$ref": "#/components/schemas/ClaimLegs"
+          },
+          "lines": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ClaimLine"
+            }
+          },
+          "excluded": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ClaimExcludedLine"
+            }
+          },
+          "hostDeductibleMinor": {
+            "$ref": "#/components/schemas/ClaimMinor"
+          },
+          "guestCapMinor": {
+            "type": ["string", "null"],
+            "pattern": "^(0|[1-9][0-9]{0,14})$"
+          },
+          "evidence": {
+            "$ref": "#/components/schemas/ClaimEvidence"
+          },
+          "adminRequired": {
+            "type": "boolean"
+          },
+          "exponent": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 18,
+            "description": "Exposant de la devise (config), pour l'affichage et la saisie des montants"
+          },
+          "alreadyChargedMinor": {
+            "$ref": "#/components/schemas/ClaimMinor",
+            "description": "Débits déjà décidés au voyageur pour ce trip (le plafond de la franchise vaut pour le trip)"
+          }
+        }
+      },
+      "ClaimEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["claim"],
+        "properties": {
+          "claim": {
+            "$ref": "#/components/schemas/ClaimView"
+          }
+        }
+      },
+      "ClaimPreviewEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["preview"],
+        "properties": {
+          "preview": {
+            "$ref": "#/components/schemas/ClaimPreview"
           }
         }
       }

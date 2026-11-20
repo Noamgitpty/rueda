@@ -443,6 +443,149 @@ export const EN_MESSAGES = {
     'The bundle could not be delivered: a piece of evidence is missing or does not match its fingerprint. The finding was recorded.',
   'common.evidenceBundle.unavailable':
     'Evidence bundles are not available right now. Nothing was requested or delivered.',
+  'common.claim.notFound': 'We could not find this claim.',
+  'common.claim.deadlinePassed':
+    'The reporting deadline has passed: it runs from the end of the trip (the later of the scheduled end and the return). Nothing was recorded.',
+  'common.claim.windowUnknown':
+    'The reporting window for this country is not configured. Nothing was recorded.',
+  'common.claim.tripNotEligible':
+    'This trip has not started or was cancelled: it cannot take a damage claim.',
+  'common.claim.alreadyOpen':
+    'There is already an open claim from this person, of this kind, for the trip.',
+  'common.claim.alreadyDecided':
+    'This claim already has a decision. A review goes through a dispute.',
+  'common.claim.decisionWithoutEvidence':
+    'Nothing can be charged without the trip’s departure and return photos.',
+  'common.claim.rationaleRequired': 'Write the facts of the decision (at least 20 characters).',
+  'common.claim.finalityForbidden':
+    'A decision is never final: remove that wording, the ways to appeal are always stated.',
+  'common.claim.legSumMismatch':
+    'The parts do not add up to the amount charged. No order was prepared.',
+  'common.claim.outcomeMismatch':
+    'The chosen outcome does not match the amounts (guest charge, host deductible, coverage).',
+  'common.claim.capUnknown':
+    'We could not find the deductible the guest accepted in the contract: nothing can be charged.',
+  'common.claim.aboveAcceptedAmount':
+    'The amount exceeds the deductible the guest accepted in the contract.',
+  'common.claim.aboveRepairCost':
+    'The repair charged or the host deductible exceeds the repair cost on record.',
+  'common.claim.adminRequired':
+    'A decision that charges the guest or the host is taken by an administrator.',
+  'common.claim.agreementFileInvalid':
+    'The guest’s signed agreement is not among the evidence received.',
+  'common.claim.unavailable': 'Damage claims are not available right now. Nothing was recorded.',
+  'backoffice.claim.detailHeading': 'Recorded claim',
+  'backoffice.claim.adminOnly':
+    'This decision charges the guest or the host: only an administrator can record it. Hand the case over.',
+  'backoffice.claim.confirm':
+    'You are about to charge {amount} to the guest’s card and hold back {retained} from the host’s payouts. Once Kmino carries it out, the decision cannot be undone here: only a dispute can review it.',
+  'backoffice.claim.issueCharge': 'Charge {amount} and record the decision',
+  'backoffice.claim.amountHint': 'Example: 450 or 450.50',
+  'backoffice.claim.amountHintWhole': 'No decimals, example: 450000',
+  'backoffice.claim.heading': 'Damage, incidents and decisions',
+  'backoffice.claim.lead':
+    'Record the claim received in your support case, check the evidence and decide with the template. Kmino carries out the decision; never the host.',
+  'backoffice.claim.recordHeading': 'Record a claim',
+  'backoffice.claim.trip': 'Trip ID',
+  'backoffice.claim.case': 'Support case ID',
+  'backoffice.claim.caseHint': 'An open damage case for this trip, assigned to you.',
+  'backoffice.claim.declaredBy': 'Who is reporting?',
+  'backoffice.claim.declaredBy.HOST': 'The host',
+  'backoffice.claim.declaredBy.GUEST': 'The guest',
+  'backoffice.claim.kind': 'Kind',
+  'backoffice.claim.kind.DAMAGE': 'Damage to the vehicle',
+  'backoffice.claim.kind.INCIDENT': 'Incident or accident',
+  'backoffice.claim.description': 'Claim summary',
+  'backoffice.claim.descriptionHint': '10 to 1,000 characters. No names or contact details.',
+  'backoffice.claim.deadlineNote':
+    'The server judges the deadline when recording, per the local settings: it runs from the end of the trip (the later of the scheduled end and the return).',
+  'backoffice.claim.record': 'Record the claim',
+  'backoffice.claim.recorded':
+    'Claim recorded. The host’s payout for this trip is on hold until the decision.',
+  'backoffice.claim.readHeading': 'Open a claim',
+  'backoffice.claim.claimId': 'Claim ID',
+  'backoffice.claim.read': 'View the claim',
+  'backoffice.claim.error.trip': 'Enter the full trip ID.',
+  'backoffice.claim.error.case': 'Enter the full support case ID.',
+  'backoffice.claim.error.who': 'Choose who is reporting and the kind of claim.',
+  'backoffice.claim.error.description': 'The summary must be 10 to 1,000 characters long.',
+  'backoffice.claim.error.claim': 'Enter the full claim ID.',
+  'backoffice.claim.error.amount': 'An amount is not valid in the trip currency. Nothing was sent.',
+  'backoffice.claim.statusLabel': 'Status',
+  'backoffice.claim.status.REPORTED': 'Reported, under review',
+  'backoffice.claim.status.DECIDED': 'Decided',
+  'backoffice.claim.deadline': 'Deadline',
+  'backoffice.claim.deadlineValue': 'Reported on {reported} · deadline {deadline}',
+  'backoffice.claim.cap': 'Deductible accepted by the guest',
+  'backoffice.claim.capUnknown': 'No signed contract: nothing can be charged',
+  'backoffice.claim.evidenceHeading': 'Trip evidence',
+  'backoffice.claim.evidence.checkin': 'Departure photos received',
+  'backoffice.claim.evidence.checkinMissing': 'Departure photos missing',
+  'backoffice.claim.evidence.checkout': 'Return photos received',
+  'backoffice.claim.evidence.checkoutMissing': 'Return photos missing',
+  'backoffice.claim.decisionHeading': 'Prepare the decision',
+  'backoffice.claim.decisionLead':
+    'Write the facts and the amounts per line. The preview shows the template; nothing is saved before you confirm.',
+  'backoffice.claim.outcome': 'Outcome',
+  'backoffice.claim.outcome.GUEST_LIABLE': 'The guest pays their share of the damage',
+  'backoffice.claim.outcome.NO_GUEST_CHARGE': 'Nothing to charge the guest',
+  'backoffice.claim.outcome.INELIGIBLE':
+    'Claim not eligible (wear, prior damage, outside the trip)',
+  'backoffice.claim.covered':
+    'The damage falls under the protection: it is reported to the partner insurer',
+  'backoffice.claim.repairCost': 'Repair cost on record ({currency})',
+  'backoffice.claim.linesLegend': 'Lines charged to the guest',
+  'backoffice.claim.line.REPAIR': 'Repair for the host',
+  'backoffice.claim.line.INSURER_RECOVERY': 'Insurer reimbursement',
+  'backoffice.claim.line.PROCESSING_FEE': 'Processing fee',
+  'backoffice.claim.line.PROCESSING_FEE_TAX': 'Tax on the processing fee',
+  'backoffice.claim.line.RECOVERY_PARKING': 'Parking the host paid to recover the vehicle',
+  'backoffice.claim.line.NOT_ATTRIBUTABLE': 'Charge that cannot be attributed to the guest',
+  'backoffice.claim.hostDeductible': 'Host deductible under their plan ({currency})',
+  'backoffice.claim.hostDeductibleHint':
+    'It is deducted from the host’s next payouts; it is never charged to the guest.',
+  'backoffice.claim.facts': 'Facts of the decision',
+  'backoffice.claim.factsHint':
+    'What the evidence shows, in at least 20 characters. No names or contact details.',
+  'backoffice.claim.preview': 'Preview the template',
+  'backoffice.claim.templateHeading': 'Decision template',
+  'backoffice.claim.template.facts': 'Facts',
+  'backoffice.claim.template.rule': 'Rule applied',
+  'backoffice.claim.template.amount': 'Amount charged to the guest',
+  'backoffice.claim.template.amountValue':
+    '{amount} (accepted deductible: {cap}) · separate card charge, never from the deposit',
+  'backoffice.claim.template.hostDeductible': 'Host deductible',
+  'backoffice.claim.template.insurer': 'Partner insurer',
+  'backoffice.claim.template.insurerValue':
+    'Claim logged for the insurer, with no commitment to cover.',
+  'backoffice.claim.template.recourse':
+    'This decision can be challenged: each party may answer with new evidence and contact the consumer protection authority.',
+  'backoffice.claim.rule.GUEST_LIABLE':
+    'The guest is liable for damage during the trip, within the deductible they accepted.',
+  'backoffice.claim.rule.NO_GUEST_CHARGE': 'The evidence does not justify charging the guest.',
+  'backoffice.claim.rule.INELIGIBLE':
+    'Wear, documented prior damage or event outside the trip: not eligible.',
+  'backoffice.claim.legsCaption': 'Parts of the charge, one per recipient',
+  'backoffice.claim.legColumn': 'Recipient',
+  'backoffice.claim.amountColumn': 'Amount',
+  'backoffice.claim.excludedHeading': 'Excluded by the template',
+  'backoffice.claim.excludedLine': '{line}: {amount} — {why}',
+  'backoffice.claim.excluded.parking':
+    'cannot be recharged to the guest (parking to recover the vehicle)',
+  'backoffice.claim.excluded.notAttributable':
+    'cannot be recharged to the guest (not attributable to them)',
+  'backoffice.claim.issue': 'Record the decision',
+  'backoffice.claim.executionNote':
+    'Kmino carries out the decision: separate charge notified to the guest, deductible on the host’s payouts and report to the insurer.',
+  'backoffice.claim.decided':
+    'Decision recorded. Kmino carries it out; the host’s payout is released once it is carried out.',
+  'backoffice.claim.decidedHeading': 'Recorded decision',
+  'backoffice.claim.execution': 'Carried out by Kmino',
+  'backoffice.claim.execution.PENDING': 'In progress',
+  'backoffice.claim.execution.DONE': 'Carried out',
+  'backoffice.claim.execution.BLOCKED': 'Blocked: no rental card, team review',
+  'backoffice.claim.insurer.PENDING': 'Logged, waiting to be sent',
+  'backoffice.claim.insurer.SENT': 'Sent to the insurer',
   'backoffice.action.RESTRICT_ACCOUNT': 'Restrict the account',
   'backoffice.action.LIFT_RESTRICTION': 'Lift the restriction',
   'backoffice.queues.current': 'Queue shown',

@@ -59,3 +59,44 @@ export type {
 } from './internal/evidence/store.js';
 export { buildZip, isSafeZipPath, ZipInputError } from './internal/evidence/zip.js';
 export type { ZipEntry } from './internal/evidence/zip.js';
+
+// Déclarations de dommage et d'incident, décisions motivées par gabarit, exécution par Kmino
+// (US-309, ADR-195) : portes de la console (port et adaptateur PostgreSQL), travailleur
+// `claim_decision_executor` (sous `payment_command`) et port de l'assureur partenaire.
+export { CLAIM_MESSAGES, ClaimHttpError, isClaimCode } from './internal/claims/errors.js';
+export type { ClaimCode } from './internal/claims/errors.js';
+export {
+  CLAIM_KINDS,
+  ClaimStoreError,
+  DECISION_LINE_CATEGORIES,
+  DECISION_OUTCOMES,
+  DECLARED_BY,
+  PgClaimStore,
+  UNAVAILABLE_CLAIM_STORE,
+} from './internal/claims/store.js';
+export type {
+  ClaimDeclaredBy,
+  ClaimKind,
+  ClaimResult,
+  ClaimStaff,
+  ClaimStore,
+  DecisionInput,
+  DecisionLine,
+  DecisionLineCategory,
+  DecisionOutcome,
+  RecordClaimInput,
+} from './internal/claims/store.js';
+export {
+  CLAIM_DECISION_BATCH,
+  CLAIM_DECISION_PERIOD_SECONDS,
+  CLAIM_DECISION_WORKER,
+  ClaimDecisionExecutor,
+  registerClaimDecisionExecutor,
+} from './internal/claims/executor.js';
+export type {
+  ClaimDecisionExecutorDeps,
+  ClaimExecutionPass,
+  InsurerClaimRequest,
+  InsurerClaimResult,
+  InsurerClaimsPort,
+} from './internal/claims/executor.js';

@@ -25,12 +25,17 @@ import { RiskHttpModule } from './modules/risk/index.js';
 import type { RiskHttpOptions } from './modules/risk/index.js';
 import {
   SupBrandConsoleModule,
+  SupClaimsModule,
   SupConsoleModule,
   SupHelpModule,
   SupEvidenceBundleModule,
   SupSecurityConsoleModule,
 } from './modules/sup/index.js';
-import type { SupConsoleOptions, SupEvidenceBundleOptions } from './modules/sup/index.js';
+import type {
+  SupClaimsOptions,
+  SupConsoleOptions,
+  SupEvidenceBundleOptions,
+} from './modules/sup/index.js';
 import { TrpInspectionModule } from './modules/trp/index.js';
 import type { TrpInspectionOptions } from './modules/trp/index.js';
 
@@ -45,7 +50,7 @@ import type { TrpInspectionOptions } from './modules/trp/index.js';
  * fournisseur, fail-closed ; recherche publique, US-201 : sans adaptateurs, 503 ; checkout, devis
  * figé et pose du hold, US-208 : sans adaptateurs, 503 ; photos d'état du véhicule, US-303 : sans
  * adaptateurs, 503 ; dossier de preuve, US-308 : sans coffre ni stockage, 503 ; avis réciproques,
- * US-317 : sans adaptateurs, 503).
+ * US-317 : sans adaptateurs, 503 ; déclarations de dommage et décisions, US-309 : sans magasin, 503).
  */
 @Module({})
 export class ApiModule {
@@ -66,6 +71,7 @@ export class ApiModule {
     msg?: MsgTripMessagesOptions,
     evidence?: SupEvidenceBundleOptions,
     rev?: RevReviewsOptions,
+    claims?: SupClaimsOptions,
   ): DynamicModule {
     return {
       module: ApiModule,
@@ -111,6 +117,9 @@ export class ApiModule {
         // US-308 : dossier de preuve /console/evidence-bundles et
         // /console/evidence-bundles/{bundleId}… (StaffGuard) ; sans coffre ni stockage, 503
         SupEvidenceBundleModule.register(evidence),
+        // US-309 : déclarations de dommage et décisions /console/claims… (StaffGuard) ; sans
+        // magasin, 503
+        SupClaimsModule.register(claims),
       ],
     };
   }

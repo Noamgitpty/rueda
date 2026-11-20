@@ -372,8 +372,14 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  dans les messages, déclaration définitive, état de la demande, liens du détail du trip) et
  `backoffice.noShow.*` (console : `DECLARE_NO_SHOW` et `REFUSE_AT_PICKUP` à saisie fermée, refus
  expliqués).
+ Version 110 (la 106 est celle d’US-307 ; les 107 à 109 sont réservées à US-314, US-306 et US-311) : dommages,
+ incidents et décisions (US-309, ADR-195) : `common.claim.*` (réponses des routes
+ `/console/claims…` : délai de déclaration dépassé, preuves de départ et de retour absentes, motif
+ exigé, décision « définitive » refusée, somme des parts, plafonds, ADMIN pour tout débit) et
+ `backoffice.claim.*` (A09 dans la console : déclaration, preuves, gabarit de la décision avec ses
+ lignes exclues comme non refacturables, voies de recours, exécution par Kmino).
  */
-export const CATALOG_VERSION = 106;
+export const CATALOG_VERSION = 110;
 
 /** Catalogues de base par langue ; la langue d'un profil de locale choisit le sien. */
 export const CATALOGS: Readonly<Record<CatalogLanguage, VersionedCatalog<MessageKey>>> = {

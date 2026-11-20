@@ -2712,6 +2712,90 @@
       "owner": "review_cmd_owner",
       "execute": ["app_worker"],
       "story": "US-317"
+    },
+    {
+      "signature": "core.claim_trip_facts(uuid)",
+      "family": "cmd_hold",
+      "owner": "cmd_hold_owner",
+      "execute": ["cmd_money_owner"],
+      "story": "US-309"
+    },
+    {
+      "signature": "core.claim_cmd_record_claim(uuid,uuid,uuid,text,text,text,uuid,text,uuid)",
+      "family": "cmd_money",
+      "owner": "cmd_money_owner",
+      "execute": ["iam_staff_owner"],
+      "story": "US-309"
+    },
+    {
+      "signature": "core.claim_cmd_issue_decision(uuid,uuid,uuid,text,uuid,jsonb,boolean)",
+      "family": "cmd_money",
+      "owner": "cmd_money_owner",
+      "execute": ["iam_staff_owner"],
+      "story": "US-309"
+    },
+    {
+      "signature": "core.claim_claim_view(uuid)",
+      "family": "cmd_money",
+      "owner": "cmd_money_owner",
+      "execute": ["iam_staff_owner"],
+      "story": "US-309"
+    },
+    {
+      "signature": "core.claim_decisions_due(integer)",
+      "family": "cmd_money",
+      "owner": "cmd_money_owner",
+      "execute": ["app_worker"],
+      "story": "US-309"
+    },
+    {
+      "signature": "core.claim_cmd_execute_decision(uuid,uuid)",
+      "family": "cmd_money",
+      "owner": "cmd_money_owner",
+      "execute": ["app_worker"],
+      "story": "US-309"
+    },
+    {
+      "signature": "core.claim_cmd_defer_decision(uuid,text)",
+      "family": "cmd_money",
+      "owner": "cmd_money_owner",
+      "execute": ["app_worker"],
+      "story": "US-309"
+    },
+    {
+      "signature": "core.claim_insurer_declarations_due(integer)",
+      "family": "cmd_money",
+      "owner": "cmd_money_owner",
+      "execute": ["app_worker"],
+      "story": "US-309"
+    },
+    {
+      "signature": "core.claim_cmd_record_insurer_declaration(uuid,text)",
+      "family": "cmd_money",
+      "owner": "cmd_money_owner",
+      "execute": ["app_worker"],
+      "story": "US-309"
+    },
+    {
+      "signature": "core.support_staff_record_claim(bytea,uuid,uuid,uuid,text,text,text)",
+      "family": "iam_staff",
+      "owner": "iam_staff_owner",
+      "execute": ["app_api"],
+      "story": "US-309"
+    },
+    {
+      "signature": "core.support_staff_claim(bytea,uuid,uuid)",
+      "family": "iam_staff",
+      "owner": "iam_staff_owner",
+      "execute": ["app_api"],
+      "story": "US-309"
+    },
+    {
+      "signature": "core.support_staff_issue_decision(bytea,uuid,uuid,jsonb,boolean)",
+      "family": "iam_staff",
+      "owner": "iam_staff_owner",
+      "execute": ["app_api"],
+      "story": "US-309"
     }
   ]
 }

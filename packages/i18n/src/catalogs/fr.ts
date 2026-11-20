@@ -472,6 +472,152 @@ export const FR_MESSAGES = {
     'Le dossier n’a pas pu être remis : une preuve manque ou ne correspond plus à son empreinte. Le constat est enregistré.',
   'common.evidenceBundle.unavailable':
     'Le dossier de preuve n’est pas disponible pour le moment. Rien n’a été demandé ni remis.',
+  'common.claim.notFound': 'Nous ne trouvons pas cette déclaration.',
+  'common.claim.deadlinePassed':
+    'Le délai de déclaration est dépassé : il court depuis la fin du voyage (la plus tardive entre la fin prévue et le retour). Rien n’a été enregistré.',
+  'common.claim.windowUnknown':
+    'Le délai de déclaration de ce pays n’est pas configuré. Rien n’a été enregistré.',
+  'common.claim.tripNotEligible':
+    'Ce voyage n’a pas commencé ou a été annulé : il n’admet pas de déclaration de dommage.',
+  'common.claim.alreadyOpen':
+    'Une déclaration de cette personne et de cette nature est déjà ouverte pour ce voyage.',
+  'common.claim.alreadyDecided':
+    'Cette déclaration a déjà une décision. Une révision passe par une contestation.',
+  'common.claim.decisionWithoutEvidence':
+    'Aucune retenue n’est possible sans les photos de départ et de retour du voyage.',
+  'common.claim.rationaleRequired': 'Écris les faits de la décision (20 caractères au moins).',
+  'common.claim.finalityForbidden':
+    'Une décision n’est jamais définitive : retire cette mention, les voies de recours sont toujours citées.',
+  'common.claim.legSumMismatch':
+    'La somme des parts ne correspond pas au montant débité. Aucun ordre n’a été préparé.',
+  'common.claim.outcomeMismatch':
+    'L’issue choisie ne correspond pas aux montants (débit du voyageur, franchise de l’hôte, couverture).',
+  'common.claim.capUnknown':
+    'Nous ne trouvons pas la franchise acceptée par le voyageur au contrat : rien ne peut être débité.',
+  'common.claim.aboveAcceptedAmount':
+    'Le montant dépasse la franchise que le voyageur a acceptée au contrat.',
+  'common.claim.aboveRepairCost':
+    'La réparation imputée ou la franchise de l’hôte dépasse le coût de réparation constaté.',
+  'common.claim.adminRequired':
+    'Une décision qui débite le voyageur ou l’hôte est prise par un administrateur.',
+  'common.claim.agreementFileInvalid':
+    'L’accord signé du voyageur ne figure pas parmi les pièces reçues.',
+  'common.claim.unavailable':
+    'Les déclarations de dommage ne sont pas disponibles pour le moment. Rien n’a été enregistré.',
+  'backoffice.claim.detailHeading': 'Déclaration enregistrée',
+  'backoffice.claim.adminOnly':
+    'Cette décision débite le voyageur ou l’hôte : seul un administrateur peut l’enregistrer. Transmets-lui le dossier.',
+  'backoffice.claim.confirm':
+    'Tu vas débiter {amount} sur la carte du voyageur et retenir {retained} sur les versements de l’hôte. Une fois exécutée par Kmino, la décision ne s’annule pas ici : seule une contestation peut la réviser.',
+  'backoffice.claim.issueCharge': 'Débiter {amount} et enregistrer la décision',
+  'backoffice.claim.amountHint': 'Exemple : 450 ou 450,50',
+  'backoffice.claim.amountHintWhole': 'Sans décimale, exemple : 450000',
+  'backoffice.claim.heading': 'Dommages, incidents et décisions',
+  'backoffice.claim.lead':
+    'Enregistre la déclaration reçue dans ton dossier de support, vérifie les pièces et décide avec le gabarit. Kmino exécute la décision ; jamais l’hôte.',
+  'backoffice.claim.recordHeading': 'Enregistrer une déclaration',
+  'backoffice.claim.trip': 'Identifiant du voyage',
+  'backoffice.claim.case': 'Identifiant du dossier de support',
+  'backoffice.claim.caseHint':
+    'Un dossier de catégorie dommage, ouvert, de ce voyage et qui t’est assigné.',
+  'backoffice.claim.declaredBy': 'Qui déclare ?',
+  'backoffice.claim.declaredBy.HOST': 'L’hôte',
+  'backoffice.claim.declaredBy.GUEST': 'Le voyageur',
+  'backoffice.claim.kind': 'Nature',
+  'backoffice.claim.kind.DAMAGE': 'Dommage au véhicule',
+  'backoffice.claim.kind.INCIDENT': 'Incident ou accident',
+  'backoffice.claim.description': 'Résumé de la déclaration',
+  'backoffice.claim.descriptionHint': 'De 10 à 1 000 caractères. Ni nom ni coordonnées.',
+  'backoffice.claim.deadlineNote':
+    'Le serveur juge le délai à l’enregistrement, selon la configuration locale : il court depuis la fin du voyage (la plus tardive entre la fin prévue et le retour).',
+  'backoffice.claim.record': 'Enregistrer la déclaration',
+  'backoffice.claim.recorded':
+    'Déclaration enregistrée. Le versement de l’hôte pour ce voyage est retenu jusqu’à la décision.',
+  'backoffice.claim.readHeading': 'Ouvrir une déclaration',
+  'backoffice.claim.claimId': 'Identifiant de la déclaration',
+  'backoffice.claim.read': 'Voir la déclaration',
+  'backoffice.claim.error.trip': 'Saisis l’identifiant complet du voyage.',
+  'backoffice.claim.error.case': 'Saisis l’identifiant complet du dossier de support.',
+  'backoffice.claim.error.who': 'Choisis qui déclare et la nature de la déclaration.',
+  'backoffice.claim.error.description': 'Le résumé doit compter de 10 à 1 000 caractères.',
+  'backoffice.claim.error.claim': 'Saisis l’identifiant complet de la déclaration.',
+  'backoffice.claim.error.amount':
+    'Un montant n’est pas valide dans la monnaie du voyage. Rien n’a été envoyé.',
+  'backoffice.claim.statusLabel': 'État',
+  'backoffice.claim.status.REPORTED': 'Déclarée, en instruction',
+  'backoffice.claim.status.DECIDED': 'Décidée',
+  'backoffice.claim.deadline': 'Délai',
+  'backoffice.claim.deadlineValue': 'Déclarée le {reported} · délai jusqu’au {deadline}',
+  'backoffice.claim.cap': 'Franchise acceptée par le voyageur',
+  'backoffice.claim.capUnknown': 'Aucun contrat signé : rien ne peut être débité',
+  'backoffice.claim.evidenceHeading': 'Pièces du voyage',
+  'backoffice.claim.evidence.checkin': 'Photos de départ reçues',
+  'backoffice.claim.evidence.checkinMissing': 'Photos de départ manquantes',
+  'backoffice.claim.evidence.checkout': 'Photos de retour reçues',
+  'backoffice.claim.evidence.checkoutMissing': 'Photos de retour manquantes',
+  'backoffice.claim.decisionHeading': 'Préparer la décision',
+  'backoffice.claim.decisionLead':
+    'Écris les faits et les montants par ligne. L’aperçu montre le gabarit ; rien n’est enregistré avant ta confirmation.',
+  'backoffice.claim.outcome': 'Issue',
+  'backoffice.claim.outcome.GUEST_LIABLE': 'Le voyageur paie sa part du dommage',
+  'backoffice.claim.outcome.NO_GUEST_CHARGE': 'Rien à débiter au voyageur',
+  'backoffice.claim.outcome.INELIGIBLE':
+    'Déclaration non recevable (usure, dommage antérieur, hors du voyage)',
+  'backoffice.claim.covered':
+    'Le dommage relève de la protection : il est déclaré à l’assureur partenaire',
+  'backoffice.claim.repairCost': 'Coût de réparation constaté ({currency})',
+  'backoffice.claim.linesLegend': 'Lignes débitées au voyageur',
+  'backoffice.claim.line.REPAIR': 'Réparation pour l’hôte',
+  'backoffice.claim.line.INSURER_RECOVERY': 'Remboursement de l’assureur',
+  'backoffice.claim.line.PROCESSING_FEE': 'Frais de traitement',
+  'backoffice.claim.line.PROCESSING_FEE_TAX': 'Taxe des frais de traitement',
+  'backoffice.claim.line.RECOVERY_PARKING':
+    'Stationnement payé par l’hôte pour récupérer son véhicule',
+  'backoffice.claim.line.NOT_ATTRIBUTABLE': 'Frais non imputable au voyageur',
+  'backoffice.claim.hostDeductible': 'Franchise de l’hôte selon son plan ({currency})',
+  'backoffice.claim.hostDeductibleHint':
+    'Elle est retenue sur les prochains versements de l’hôte ; jamais débitée au voyageur.',
+  'backoffice.claim.facts': 'Faits de la décision',
+  'backoffice.claim.factsHint':
+    'Ce que montrent les pièces, en 20 caractères au moins. Ni nom ni coordonnées.',
+  'backoffice.claim.preview': 'Voir le gabarit',
+  'backoffice.claim.templateHeading': 'Gabarit de la décision',
+  'backoffice.claim.template.facts': 'Faits',
+  'backoffice.claim.template.rule': 'Règle appliquée',
+  'backoffice.claim.template.amount': 'Montant débité au voyageur',
+  'backoffice.claim.template.amountValue':
+    '{amount} (franchise acceptée : {cap}) · débit séparé de la carte, jamais sur la caution',
+  'backoffice.claim.template.hostDeductible': 'Franchise de l’hôte',
+  'backoffice.claim.template.insurer': 'Assureur partenaire',
+  'backoffice.claim.template.insurerValue':
+    'Déclaration journalisée pour l’assureur, sans engagement de prise en charge.',
+  'backoffice.claim.template.recourse':
+    'Cette décision peut être contestée : chaque partie peut répondre avec de nouvelles pièces et saisir l’autorité de protection des consommateurs.',
+  'backoffice.claim.rule.GUEST_LIABLE':
+    'Le voyageur répond du dommage survenu pendant le voyage, dans la limite de la franchise acceptée.',
+  'backoffice.claim.rule.NO_GUEST_CHARGE': 'Les pièces ne justifient aucun débit du voyageur.',
+  'backoffice.claim.rule.INELIGIBLE':
+    'Usure, dommage antérieur documenté ou fait hors du voyage : non recevable.',
+  'backoffice.claim.legsCaption': 'Parts du débit, une par destinataire',
+  'backoffice.claim.legColumn': 'Destinataire',
+  'backoffice.claim.amountColumn': 'Montant',
+  'backoffice.claim.excludedHeading': 'Exclu par le gabarit',
+  'backoffice.claim.excludedLine': '{line} : {amount} — {why}',
+  'backoffice.claim.excluded.parking':
+    'non refacturable au voyageur (stationnement pour récupérer le véhicule)',
+  'backoffice.claim.excluded.notAttributable': 'non refacturable au voyageur (non imputable)',
+  'backoffice.claim.issue': 'Enregistrer la décision',
+  'backoffice.claim.executionNote':
+    'Kmino exécute la décision : débit séparé notifié au voyageur, franchise sur les versements de l’hôte et déclaration à l’assureur.',
+  'backoffice.claim.decided':
+    'Décision enregistrée. Kmino l’exécute ; le versement de l’hôte est libéré une fois exécutée.',
+  'backoffice.claim.decidedHeading': 'Décision enregistrée',
+  'backoffice.claim.execution': 'Exécution par Kmino',
+  'backoffice.claim.execution.PENDING': 'En cours',
+  'backoffice.claim.execution.DONE': 'Exécutée',
+  'backoffice.claim.execution.BLOCKED': 'Bloquée : aucune carte du loyer, revue de l’équipe',
+  'backoffice.claim.insurer.PENDING': 'Journalisée, en attente d’envoi',
+  'backoffice.claim.insurer.SENT': 'Envoyée à l’assureur',
   'backoffice.action.RESTRICT_ACCOUNT': 'Restreindre le compte',
   'backoffice.action.LIFT_RESTRICTION': 'Lever la restriction',
   'backoffice.queues.current': 'File affichée',

@@ -54,6 +54,7 @@ import {
   PgHelpStore,
   PgManualActionStore,
   PgOpsConsoleStore,
+  postgresClaims,
   postgresEvidenceBundle,
   unavailableEvidence,
 } from './modules/sup/index.js';
@@ -198,6 +199,9 @@ async function bootstrap(): Promise<void> {
       postgresEvidenceBundle(pool),
       // US-317 : avis réciproques en double aveugle (fonctions de 0170 sous app_api)
       postgresRevAdapters(pool),
+      // US-309 : déclarations de dommage et décisions (portes core.support_staff_*claim* et
+      // core.support_staff_issue_decision sous app_api, 0175)
+      postgresClaims(pool),
     ),
     { rawBody: true },
   );

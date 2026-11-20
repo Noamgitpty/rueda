@@ -18,7 +18,7 @@ import {
 } from '../modules/avl/index.js';
 import { HOST_LISTING_MESSAGES, SEARCH_MESSAGES } from '../modules/cat/index.js';
 import { BRAND_MESSAGES } from '../modules/cfg/index.js';
-import { EVIDENCE_BUNDLE_MESSAGES } from '../modules/clm/index.js';
+import { CLAIM_MESSAGES, EVIDENCE_BUNDLE_MESSAGES } from '../modules/clm/index.js';
 import { CONSTANCIA_MESSAGES, CONTRACT_MESSAGES, LEGAL_MESSAGES } from '../modules/ctr/index.js';
 import { AUTH_MESSAGES } from '../modules/iam/index.js';
 import { KYC_MESSAGES } from '../modules/kyc/index.js';
@@ -262,6 +262,7 @@ const CATALOG: ReadonlyMap<string, ReadonlySet<number>> = (() => {
     NO_SHOW_MESSAGES,
     HELP_MESSAGES,
     EVIDENCE_BUNDLE_MESSAGES,
+    CLAIM_MESSAGES,
     REV_MESSAGES,
   ] as const) {
     for (const [code, { status }] of Object.entries(catalog)) add(code, status);
