@@ -718,7 +718,8 @@ async function checkoutRoute(req, res, path) {
 // (409 HOST_PAYOUT_RAIL_UNAVAILABLE) ; le 19, réservation en revue avant tout débit (409
 // BOOKING_UNDER_REVIEW tant que la revue n'est pas décidée) ; le 21, aucun compte marchand (503
 // PAYMENT_UNAVAILABLE). Aucun montant
-// reçu : un champ autre que `method` ⇒ 400. `GET …/payment` : état dérivé du hold et du trip né,
+// reçu : un champ autre que `method`, `mitConsent` et `locale` ⇒ 400 ; consentement MIT absent ⇒
+// 422 MIT_CONSENT_REQUIRED (US-703). `GET …/payment` : état dérivé du hold et du trip né,
 // comme l'API (jamais un statut d'opération). `GET /__e2e/payment/webhook?hold=&event=` joue le
 // webhook FAKE signé et la conversion : SUCCEEDED (trip né ; après échéance : compensé), FAILED
 // (refus, hold gardé), MISMATCH (montant reçu différent : rien n'est appliqué), EXPIRE (échéance) ;
@@ -807,6 +808,22 @@ const paymentStateOf = (h) => {
   if (status === 'COMPENSATED') return 'REFUND_DUE';
   return !h.op || h.op === 'FAILED' ? 'ENDED' : 'UNPROVEN';
 };
+// US-703 (ADR-189 n° 15, DEC-FONDATEUR-22) : forme du consentement MIT du pays rendue pour un hold
+// payable : mention au bouton (NOTICE, défaut comme Turo) ; le 16 décembre, case séparée
+// obligatoire (CHECKBOX : pays dont `mit_consent_checkbox_required` vaut vrai) ; le 11, paramètre
+// du pays absent (BLOCKED, fail_mode BLOCK : aucun paiement offert).
+const MIT_CHECKBOX_DAY = '-12-16T';
+const MIT_BLOCKED_DAY = '-12-11T';
+const mitModeOf = (h) =>
+  h.quote.startAt.includes(MIT_CHECKBOX_DAY)
+    ? 'CHECKBOX'
+    : h.quote.startAt.includes(MIT_BLOCKED_DAY)
+      ? 'BLOCKED'
+      : 'NOTICE';
+const mitConsentJson = (h) =>
+  ['PAYABLE', 'DECLINED', 'INTERRUPTED'].includes(paymentStateOf(h))
+    ? { mitConsent: { mode: mitModeOf(h) } }
+    : {};
 const paymentJson = (h, redirectUrl) => ({
   holdId: h.id,
   state: paymentStateOf(h),
@@ -819,6 +836,7 @@ const paymentJson = (h, redirectUrl) => ({
     ? { request: { status: requestStatusOf(h), respondBy: h.respondBy ?? null } }
     : {}),
   ...depositJson(h),
+  ...mitConsentJson(h),
 });
 
 async function paymentRoute(req, res, url) {
@@ -918,8 +936,16 @@ async function paymentRoute(req, res, url) {
   if (req.method === 'GET') return json(res, 200, { payment: paymentJson(h) });
   if (req.method !== 'POST') return err(res, 404, 'NOT_FOUND', 'common.error.notFound');
   const b = await readBody(req);
-  if (b !== null && (typeof b !== 'object' || Object.keys(b).some((k) => k !== 'method'))) {
+  // US-703 : le consentement MIT du checkout (case S05) et la langue du texte, comme l'API
+  const PAY_KEYS = ['method', 'mitConsent', 'locale'];
+  if (b !== null && (typeof b !== 'object' || Object.keys(b).some((k) => !PAY_KEYS.includes(k)))) {
     return err(res, 400, 'REQUEST_INVALID', 'common.auth.requestInvalid');
+  }
+  if (b !== null && b.mitConsent === true && typeof b.locale !== 'string') {
+    return err(res, 400, 'REQUEST_INVALID', 'common.auth.requestInvalid');
+  }
+  if (b === null || b.mitConsent !== true) {
+    return err(res, 422, 'MIT_CONSENT_REQUIRED', 'common.payment.mitConsentRequired');
   }
   const state = paymentStateOf(h);
   // INTERRUPTED : reprise sous la même clé (le PSP du double ne trouve aucun ordre : il le crée)
@@ -2969,7 +2995,8 @@ async function handoverRoute(req, res, url) {
       guest: url.searchParams.get('guest') ?? '',
       host: url.searchParams.get('host') ?? '',
       status: url.searchParams.get('status') ?? 'BOOKED',
-      identity: null,
+      // US-703 : permis déjà contrôlé par l'hôte (capture du départ du voyageur, S09)
+      identity: url.searchParams.get('identity') === 'OK' ? 'OK' : null,
       done: { checkin: null, checkout: null },
       validations: {
         checkin: { HOST: null, GUEST: null },
@@ -3061,7 +3088,8 @@ async function handoverRoute(req, res, url) {
     return json(res, 200, { status: t.identity, checkedAt: HANDOVER_AT, alreadyChecked: already });
   }
   // validation : en personne seulement ; toute clé inconnue (une heure du client) est refusée
-  if (Object.keys(b).some((k) => !['odometerKm', 'fuelEighths', 'method'].includes(k))) {
+  // US-703 : langue du rappel du consentement MIT (voyageur, au départ)
+  if (Object.keys(b).some((k) => !['odometerKm', 'fuelEighths', 'method', 'locale'].includes(k))) {
     return err(res, 400, 'REQUEST_INVALID', 'common.auth.requestInvalid');
   }
   if (b.method === 'CONTACTLESS') {

@@ -103,6 +103,8 @@ test.describe(`parcours doré « réservation » · ${LANGUAGE}`, () => {
         body: '<!doctype html><title>psp</title><main>psp</main>',
       });
     });
+    // US-703 (ADR-189 n° 15) : consentement MIT par la mention au bouton (défaut, comme Turo)
+    await expect(page.locator('[data-testid="s05-pay-mit-notice"]')).toBeVisible();
     await pay.click();
     await expect(page).toHaveURL(PSP);
     expect(offsite).toEqual([hosted]);

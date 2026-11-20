@@ -96,8 +96,6 @@ export const PT_PROTO = {
   'web.s04.result.glare':
     'A foto da sua carteira saiu com reflexo. Incline um pouco e evite luz direta.',
   'web.s05.contract': 'Aceito o contrato de aluguel com {host_name}',
-  'web.s05.mitConsent':
-    'Autorizo cobranças depois da viagem neste cartão apenas por despesas da viagem, minha franquia ou danos, sempre com aviso e comprovação.',
   'web.s05.review.notice':
     'Analisamos cada reserva. Se não pudermos aprovar, devolvemos tudo a você.',
   'web.s06.pre.title': 'Na sua fatura vai aparecer: {merchant_name}',

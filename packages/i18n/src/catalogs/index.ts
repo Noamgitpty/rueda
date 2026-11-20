@@ -346,8 +346,15 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  réservée à US-709 ; le numéro ne redescend jamais) : trip suivant à risque (US-305, ADR-188) :
  `ntf.tripAtRiskHost.*` (le véhicule du trip précédent, en retard, n’est pas rendu ; l’hôte est
  prévenu, l’ops le contacte).
+ Version 104 (réservée à US-703 par l’orchestrateur ; les 102 et 103 sont celles d’US-709 et
+ US-305) : carte enregistrée et consentement MIT (US-703, ADR-189) : case séparée du checkout
+ `web.s05.mitConsent` de 10b §4.3 (UX-30, texte portugais ajouté), refus
+ `common.payment.mitConsentRequired` (case non cochée) et rappel du consentement à la remise
+ `web.handover.mitReminder` (S09, validation du voyageur au départ) ; après les revues : mention
+ au bouton `web.s05.mitConsentNotice` (défaut, comme Turo, DEC-FONDATEUR-22), aide
+ `web.s05.mitConsentRequiredHint` de la case et code `common.payment.mitRailUnavailable`.
  */
-export const CATALOG_VERSION = 103;
+export const CATALOG_VERSION = 104;
 
 /** Catalogues de base par langue ; la langue d'un profil de locale choisit le sien. */
 export const CATALOGS: Readonly<Record<CatalogLanguage, VersionedCatalog<MessageKey>>> = {

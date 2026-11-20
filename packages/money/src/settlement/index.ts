@@ -16,6 +16,12 @@ export {
   type ChargebackLegs,
 } from './chargeback.ts';
 export { computeCaptureLegs, computeLegs, legVariation } from './legs.ts';
+export {
+  PARTIAL_COLLECTION_RULE_VERSION,
+  addLegs,
+  partialCollectionLegs,
+  remainingLegs,
+} from './partial-collection.ts';
 export { settlementOrders, type SettlementOrders } from './refunds.ts';
 export {
   refundsByTender,

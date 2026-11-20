@@ -71,6 +71,9 @@ const ISOLATED = [
   // US-709 : compensation contre passage en perte du même hôte à deux sessions ; créance et décision
   // FINANCE VALIDÉES, compte PSP ACTIVE partagé du pays (fixture 9800)
   'test/l0/l0-us709-ledger-race.test.ts',
+  // US-703 : deux travailleurs planifient la tentative MIT du même débit, à deux sessions ; débit
+  // VALIDÉ sur le compte PSP ACTIVE partagé du pays (fixture 9800), SUPPORTS_MIT remise inconnue
+  'test/l0/l0-us703-mit-race.test.ts',
 ];
 const C11 = ['test/l0/l0-c11-fuzz.test.ts'];
 // US-049 : les attaques de la red team (test/redteam/<axe>/) tournent seules, après tous les autres

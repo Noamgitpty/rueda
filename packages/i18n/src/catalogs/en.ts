@@ -2152,6 +2152,11 @@ export const EN_MESSAGES = {
   'web.s05.title': 'Confirm your booking',
   'web.s05.intro':
     'Check the trip, enter your name and accept the terms. You don’t pay anything yet.',
+  'web.s05.mitConsentNotice':
+    'By paying, I authorize post-trip charges to the card I pay with, only for trip costs, my deductible or damage, always with notice and proof.',
+  'web.s05.mitConsentRequiredHint': 'Required to book.',
+  'web.s05.mitConsent':
+    'I authorize post-trip charges to this card only for trip costs, my deductible or damage, always with notice and proof.',
   'web.s05.loading': 'Loading your booking…',
   'web.s05.error': 'We couldn’t load your booking. Try again.',
   'web.s05.notFound': 'Quote not available',
@@ -2231,6 +2236,9 @@ export const EN_MESSAGES = {
   'common.payment.attemptsExceeded':
     'You’ve reached the maximum number of payment attempts for this booking. You haven’t been charged.',
   'common.payment.methodUnavailable': 'This payment method isn’t available for this booking.',
+  'common.payment.mitRailUnavailable':
+    'Post-trip card charges aren’t available yet with our payment provider.',
+  'common.payment.mitConsentRequired': 'To book, accept post-trip charges to your card.',
   'web.s05.cta': 'Pay {amount}',
   'web.s05.pay.title': 'Pay for your booking',
   'web.s06.pre.leaving': "You'll pay {amount} on a secure page from our payment processor.",
@@ -3031,6 +3039,8 @@ export const EN_MESSAGES = {
   'web.handover.validate.HOST.checkout': 'Take the car back',
   'web.handover.validate.GUEST.checkin': 'I got the car',
   'web.handover.validate.GUEST.checkout': 'Return the car',
+  'web.handover.mitReminder':
+    'Reminder: you agreed that post-trip costs (fuel, tolls, late return, cleaning) and your share of any damage can be charged to your card, always with notice and proof. Validating confirms it.',
   'web.handover.validate.hint': 'The time that counts is the server time when you both confirm.',
   'web.handover.waiting.HOST': 'Waiting for the guest to confirm.',
   'web.handover.waiting.GUEST': 'Waiting for the host to confirm.',

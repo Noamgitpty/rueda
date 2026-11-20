@@ -94,6 +94,8 @@ describe('tâches du travailleur (US-003)', () => {
       'iam_otp_pruner',
       'iam_otp_sender',
       'kyc_score_pruner',
+      // US-703 (ADR-189) : débits post-trip par MIT (aucun connecteur en production)
+      'mit_charge_scheduler',
       'ntf_dispatcher',
       'ntf_sender',
       'ops_monitor',
@@ -124,6 +126,7 @@ describe('tâches du travailleur (US-003)', () => {
       ['hold_expiry', 60, 5],
       ['iam_otp_pruner', 3_600, 5],
       ['kyc_score_pruner', 3_600, 5],
+      ['mit_charge_scheduler', 60, 5],
       ['ops_monitor', 60, 5],
       ['payout_scheduler', 60, 5],
       ['privacy_request', 3_600, 5],
