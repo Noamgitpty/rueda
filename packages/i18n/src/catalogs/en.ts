@@ -3257,6 +3257,8 @@ export const EN_MESSAGES = {
     'Kmino is reviewing the outcome. It will appear on this page.',
   'web.noShow.againstStatus.FAILED': 'The report was not upheld: the trip goes ahead as planned.',
   'backoffice.noShow.choice.NO_SHOW_REJECT_REPORT': 'Reject the guest’s report: the host was there',
+  'backoffice.noShow.refused.NO_SHOW_REPORT_INVALIDATED':
+    'The guest’s report no longer holds (the host was present or the trip changed state). Reject it.',
   'backoffice.noShow.refused.NO_REPORT_PENDING': 'There is no guest report to review on this trip.',
   'backoffice.noShow.tripInvalid': 'Enter the full trip identifier.',
   'backoffice.noShow.confirm.title': 'Confirm before recording',

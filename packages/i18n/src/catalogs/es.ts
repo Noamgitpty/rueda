@@ -3336,6 +3336,8 @@ export const ES_MESSAGES = {
   'web.noShow.againstStatus.FAILED': 'El aviso no se mantuvo: el viaje sigue según lo previsto.',
   'backoffice.noShow.choice.NO_SHOW_REJECT_REPORT':
     'Rechazar el aviso del viajero: el anfitrión sí estuvo',
+  'backoffice.noShow.refused.NO_SHOW_REPORT_INVALIDATED':
+    'El aviso del viajero ya no se sostiene (el anfitrión estuvo presente o el viaje cambió de estado). Recházalo.',
   'backoffice.noShow.refused.NO_REPORT_PENDING':
     'No hay ningún aviso del viajero por revisar en este viaje.',
   'backoffice.noShow.tripInvalid': 'Escribe el identificador completo del viaje.',

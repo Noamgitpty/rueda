@@ -1,7 +1,8 @@
 /**
  * Console : no-show et refus du véhicule (US-307, ADR-191 ; 16 TRP-015, TRP-007 ; 19 US-307). Deux
  * actions de domaine du cadre d'US-101, chacune à saisie FERMÉE (catalogue de 0171) :
- *   - `DECLARE_NO_SHOW` : partie absente (`absentParty` GUEST ou HOST) ;
+ *   - `DECLARE_NO_SHOW` : partie absente (`absentParty` GUEST ou HOST ; NONE rejette le
+ *     signalement du voyageur en attente) ;
  *   - `REFUSE_AT_PICKUP` : motif du refus (`refusalReason` : propreté, sécurité, permis non conforme,
  *     identité non vérifiée, autre conducteur envoyé).
  * Aucun montant n'est saisi : la base dérive le motif, lit les délais en heure serveur et règle la
@@ -68,6 +69,7 @@ export const NO_SHOW_REFUSAL_KEYS: Readonly<Record<string, MessageKey>> = {
   SELF_FORBIDDEN: 'backoffice.noShow.refused.SELF_FORBIDDEN',
   NOT_FOUND: 'backoffice.noShow.refused.NOT_FOUND',
   NO_REPORT_PENDING: 'backoffice.noShow.refused.NO_REPORT_PENDING',
+  NO_SHOW_REPORT_INVALIDATED: 'backoffice.noShow.refused.NO_SHOW_REPORT_INVALIDATED',
 };
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
@@ -140,12 +142,17 @@ export function NoShowPanel({
   i18n,
   busy,
   onSubmit,
+  kept: initialKept = null,
 }: {
   readonly i18n: Translator;
   readonly busy: boolean;
   readonly onSubmit: NoShowSubmit;
+  /** Saisie à reprendre (« Corriger ») : le formulaire en est prérempli. */
+  readonly kept?: NoShowDraft | null;
 }) {
   const [draft, setDraft] = useState<NoShowDraft | null>(null);
+  // « Corriger » rend le formulaire PRÉREMPLI de la saisie relue (revues code n° 4, ux n° 4)
+  const [kept, setKept] = useState<NoShowDraft | null>(initialKept);
   const [problem, setProblem] = useState<MessageKey | null>(null);
   const groups: readonly [MessageKey, readonly NoShowChoice[]][] = [
     [
@@ -176,9 +183,13 @@ export function NoShowPanel({
           draft={draft}
           onSend={() => {
             onSubmit(draft.tripId, draft.choice, draft.reason, draft.evidence);
+            setKept(null);
             setDraft(null);
           }}
-          onBack={() => setDraft(null)}
+          onBack={() => {
+            setKept(draft);
+            setDraft(null);
+          }}
         />
       ) : (
         <form
@@ -209,6 +220,7 @@ export function NoShowPanel({
             name="tripId"
             autoComplete="off"
             spellCheck={false}
+            defaultValue={kept?.tripId}
             label={i18n.t('backoffice.noShow.subject')}
             {...(problem === null ? {} : { error: i18n.t(problem) })}
           />
@@ -222,6 +234,7 @@ export function NoShowPanel({
                     name="noShowChoice"
                     value={c}
                     required
+                    defaultChecked={kept?.choice === c}
                     className={styles['choiceInput']}
                   />
                   <span>{i18n.t(CHOICE_KEYS[c])}</span>
@@ -233,6 +246,7 @@ export function NoShowPanel({
             i18n={i18n}
             id="no-show-reason"
             name="reason"
+            defaultValue={kept?.reason}
             minLength={10}
             maxLength={1000}
             label={i18n.t('backoffice.action.reason')}
@@ -244,6 +258,7 @@ export function NoShowPanel({
             name="evidence"
             autoComplete="off"
             spellCheck={false}
+            defaultValue={kept?.evidence.join(', ')}
             optional
             label={i18n.t('backoffice.action.evidence')}
             hint={i18n.t('backoffice.noShow.evidenceHint')}

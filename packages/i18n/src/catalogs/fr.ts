@@ -3413,6 +3413,8 @@ export const FR_MESSAGES = {
     'Le signalement n’a pas été retenu : le voyage se poursuit comme prévu.',
   'backoffice.noShow.choice.NO_SHOW_REJECT_REPORT':
     'Rejeter le signalement du voyageur : l’hôte était là',
+  'backoffice.noShow.refused.NO_SHOW_REPORT_INVALIDATED':
+    'Le signalement du voyageur ne tient plus (l’hôte était présent ou le voyage a changé d’état). Rejetez-le.',
   'backoffice.noShow.refused.NO_REPORT_PENDING':
     'Aucun signalement du voyageur à examiner sur ce voyage.',
   'backoffice.noShow.tripInvalid': 'Saisissez l’identifiant complet du voyage.',

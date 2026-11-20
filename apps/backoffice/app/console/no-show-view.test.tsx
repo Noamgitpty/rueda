@@ -117,6 +117,30 @@ describe('US-307 — panneau no-show et refus du véhicule', () => {
     }
   });
 
+  it('« Corriger » garde le brouillon : trip, choix, motif et pièces préremplis', () => {
+    const profile = LOCALE_CONFIG.locales[0];
+    if (profile === undefined) throw new Error('locale');
+    const trip = '7c0f3a52-3f1e-4c1c-9a59-2f5f0f2c6b11';
+    const out = renderToStaticMarkup(
+      <NoShowPanel
+        i18n={createTranslator(profile)}
+        busy={false}
+        onSubmit={() => undefined}
+        kept={{
+          tripId: trip,
+          choice: 'NO_SHOW_REJECT_REPORT',
+          reason: 'el anfitrion estaba en el punto',
+          evidence: ['f1', 'f2'],
+        }}
+      />,
+    );
+    expect(out).toContain(`name="tripId" value="${trip}"`);
+    expect(out).toMatch(/name="noShowChoice" checked="" value="NO_SHOW_REJECT_REPORT"/);
+    expect(out.match(/checked=""/g)).toHaveLength(1);
+    expect(out).toContain('value="el anfitrion estaba en el punto"');
+    expect(out).toContain('value="f1, f2"');
+  });
+
   it('chaque refus des commandes liées a son texte', () => {
     expect(Object.keys(NO_SHOW_REFUSAL_KEYS).sort()).toEqual(
       [
@@ -125,6 +149,7 @@ describe('US-307 — panneau no-show et refus du véhicule', () => {
         'NOT_FOUND',
         'NO_REPORT_PENDING',
         'NO_SHOW_PARTY_PRESENT',
+        'NO_SHOW_REPORT_INVALIDATED',
         'NO_SHOW_PARTY_REQUIRED',
         'NO_SHOW_TOO_EARLY',
         'NO_SHOW_WINDOW_CLOSED',
