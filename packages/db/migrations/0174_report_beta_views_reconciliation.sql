@@ -293,7 +293,10 @@ CREATE POLICY rpt_staff_recon_threshold ON core.config_param_value FOR SELECT TO
 GRANT SELECT (country_code, version, date) ON core.config_holiday_calendar TO iam_staff_owner;
 CREATE POLICY rpt_staff_read ON core.config_holiday_calendar FOR SELECT TO iam_staff_owner
   USING (true);
+-- accordé par son propriétaire (cmd_money_owner, 0165) : migrator n'en a pas l'option d'octroi
+SET LOCAL ROLE cmd_money_owner;
 GRANT EXECUTE ON FUNCTION core.payout_business_day(text, date, integer) TO iam_staff_owner;
+RESET ROLE;
 
 -- 5. Vues de lecture (17 §2.2 RPT, security_invoker ; propriété d'iam_staff_owner) --------------
 GRANT CREATE ON SCHEMA core TO iam_staff_owner;
