@@ -46,7 +46,7 @@ import {
 } from '../../src/testing/index.ts';
 import { COUNTRIES } from '../support/avl.ts';
 import type { CountryCase } from '../support/avl.ts';
-import { backendPid, waitUntilBlocked } from '../support/concurrency.ts';
+import { backendPid } from '../support/concurrency.ts';
 import { newHash } from '../support/golive.ts';
 import { openSession } from '../support/iam.ts';
 import {
@@ -917,10 +917,12 @@ describe('aucune déclaration ne se rejoue (idempotence, deux connexions)', () =
         await a.query('BEGIN');
         await a.query(`SELECT pg_catalog.set_config('app.virtual_now', $1, true)`, [iso(at)]);
         expect(await report(a, ha, w.trip, idA)).toMatchObject({ outcome: 'DONE' });
+        // pid lu AVANT la déclaration de B : une requête sur b attendrait derrière elle
+        const pidB = await backendPid(b);
         await b.query('BEGIN');
         await b.query(`SELECT pg_catalog.set_config('app.virtual_now', $1, true)`, [iso(at)]);
         const pending = report(b, hb, w.trip, idB);
-        await waitUntilBlocked(worker, await backendPid(b), 'advisory');
+        await waitUntilWaiting(worker, pidB);
         await a.query('COMMIT');
         expect(await pending).toMatchObject({ outcome: 'CANCELLATION_PENDING' });
         await b.query('COMMIT');
@@ -951,4 +953,21 @@ async function parkAll(worker: Tx, ids: readonly string[], at: number): Promise<
       expect(rows[0]?.r).toBe('PARKED');
     }
   });
+}
+
+/**
+ * Attend que la session `pid` attende un verrou, quel qu'il soit (consultatif du voyageur, ou ligne
+ * tenue par la première déclaration) : preuve que la seconde déclaration s'exécute APRÈS la première.
+ */
+async function waitUntilWaiting(observer: Tx, pid: number, timeoutMs = 10_000): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  for (;;) {
+    const r = await observer.query<{ waiting: boolean }>(
+      'SELECT EXISTS (SELECT 1 FROM pg_catalog.pg_locks WHERE pid = $1 AND NOT granted) AS waiting',
+      [pid],
+    );
+    if (r.rows[0]?.waiting === true) return;
+    if (Date.now() > deadline) throw new Error(`la session ${pid} n'attend aucun verrou`);
+    await new Promise((resolve) => setTimeout(resolve, 5));
+  }
 }
