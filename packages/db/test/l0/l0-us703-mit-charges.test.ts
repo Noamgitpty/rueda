@@ -874,9 +874,32 @@ describe.each(COUNTRIES)('US-703 — débits post-trip MIT — $country ($curren
           ])
         ).rows[0]?.r,
       ).toBe('UNCHANGED');
-      // 15 min plus tard : les débits en cours reviennent
+      // 15 min plus tard : les débits en cours reviennent, et des passes successives de la file
+      // (taille réelle 50) les servent TOUS. Les 51 ont la même échéance (départagés par un UUID
+      // aléatoire) : on ne présume d'aucun ordre entre eux. Chaque passe repousse ce qu'elle sert,
+      // comme le travailleur ; `fresh`, terminé pour la file de relance (UNCHANGED), n'est pas repoussé.
       await setVirtualNow(tx, plus(T0, 4, 16 * 60_000));
-      expect(await due()).toContain(stuck[0]);
+      const seen = new Set<string>();
+      let passes = 0;
+      while (seen.size < stuck.length && passes < 3) {
+        passes += 1;
+        const rows = await due();
+        expect(rows.length).toBeLessThanOrEqual(50);
+        const fromStuck = rows.filter((id) => stuck.includes(id) && !seen.has(id));
+        // pas de famine : chaque passe sert au moins un débit encore jamais servi
+        expect(fromStuck.length).toBeGreaterThan(0);
+        for (const id of fromStuck) {
+          seen.add(id);
+          const r = await tx.query<{ r: string }>(
+            'SELECT core.payment_cmd_defer_mit_charge($1, $2) AS r',
+            [id, 'NO_INSTRUMENT'],
+          );
+          expect(r.rows[0]?.r).toBe('DEFERRED');
+        }
+      }
+      // 51 débits pour des passes de 50 : deux passes exactement, chaque débit de `stuck` servi
+      expect(passes).toBe(2);
+      expect([...seen].sort()).toEqual([...stuck].sort());
     });
   });
 
