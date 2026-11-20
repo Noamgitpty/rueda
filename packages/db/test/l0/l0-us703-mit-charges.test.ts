@@ -675,16 +675,23 @@ describe.each(COUNTRIES)('US-703 — débits post-trip MIT — $country ($curren
         instrument_id: first?.instrument_id,
         replayed: true,
       });
-      const second = (await record('tok_us703_second_card', '0005')).rows[0];
-      expect(second).toMatchObject({ bound: false, replayed: false });
-      const cards = await tx.query<{ status: string; last4: string }>(
-        'SELECT status, last4 FROM test_fixture.us703_cards($1)',
-        [guest],
-      );
-      expect(cards.rows.map((r) => `${r.last4}:${r.status}`).sort()).toEqual([
-        '0005:ACTIVE',
-        '4242:REPLACED',
-      ]);
+      // revue argent n° 4 (delta 20b) : autre jeton pour un hold DÉJÀ lié ⇒ aucun effet (aucune
+      // carte créée, la carte liée reste ACTIVE ; avant : la nouvelle carte remplaçait l'ancienne)
+      expect((await record('tok_us703_second_card', '0005')).rows[0]).toMatchObject({
+        instrument_id: null,
+        bound: false,
+        replayed: true,
+      });
+      const cardsOf = async (): Promise<string[]> =>
+        (
+          await tx.query<{ status: string; last4: string }>(
+            'SELECT status, last4 FROM test_fixture.us703_cards($1)',
+            [guest],
+          )
+        ).rows
+          .map((r) => `${r.last4}:${r.status}`)
+          .sort();
+      expect(await cardsOf()).toEqual(['4242:ACTIVE']);
       const consent = await tx.query<{ id: string; instrument_id: string }>(
         'SELECT * FROM test_fixture.us703_consent_of_hold($1)',
         [hold],
@@ -700,10 +707,8 @@ describe.each(COUNTRIES)('US-703 — débits post-trip MIT — $country ($curren
         )?.constraint,
       ).toBe('mit_consent_immutable');
 
-      // revue argent n° 5 : voyageur qui revient. Second hold payé avec la carte ACTIVE déjà
-      // enregistrée (même jeton) : son consentement est lié à cette carte
       const recordOn = (h: string | undefined, token: string, last4: string) =>
-        tx.query<{ instrument_id: string; bound: boolean; replayed: boolean }>(
+        tx.query<{ instrument_id: string | null; bound: boolean; replayed: boolean }>(
           `SELECT * FROM core.payment_cmd_record_instrument($1, $2, $3, $4, 'VISA', 'CREDIT', $5,
                                                             12, 2034, 'ntx-2', NULL)`,
           [uuid(), h, psp, token, last4],
@@ -718,31 +723,50 @@ describe.each(COUNTRIES)('US-703 — débits post-trip MIT — $country ($curren
         await tx.query('SELECT test_fixture.us703_hold_consent($1)', [id]);
         return id;
       };
+      // second hold payé avec une NOUVELLE carte : elle est créée, liée, l'ancienne est remplacée
       const hold2 = await newHold('2035-09-01T15:00:00Z', '2035-09-03T15:00:00Z');
+      const second = (await recordOn(hold2, 'tok_us703_second_card', '0005')).rows[0];
+      expect(second).toMatchObject({ bound: true, replayed: false });
+      expect(await cardsOf()).toEqual(['0005:ACTIVE', '4242:REPLACED']);
+      // revue argent n° 5 : voyageur qui revient. Hold payé avec la carte ACTIVE déjà enregistrée
+      // (même jeton) : son consentement est lié à cette carte
+      const hold3 = await newHold('2035-10-01T15:00:00Z', '2035-10-03T15:00:00Z');
+      expect((await recordOn(hold3, 'tok_us703_second_card', '0005')).rows[0]).toMatchObject({
+        instrument_id: second?.instrument_id,
+        bound: true,
+        replayed: true,
+      });
+      // hold payé avec l'ANCIENNE carte (REPLACED) : elle redevient la carte courante, l'autre est
+      // remplacée ; le consentement du hold lui est lié
+      const hold4 = await newHold('2035-11-01T15:00:00Z', '2035-11-03T15:00:00Z');
+      expect((await recordOn(hold4, 'tok_us703_first_card', '4242')).rows[0]).toMatchObject({
+        instrument_id: first?.instrument_id,
+        bound: true,
+        replayed: true,
+      });
+      expect(await cardsOf()).toEqual(['0005:REPLACED', '4242:ACTIVE']);
+      // revue argent n° 4 / qa n° 6 (delta 20b) : rejeu TARDIF d'un ancien hold (travailleur relancé,
+      // webhook rejoué) avec sa carte devenue REPLACED : aucune carte ne bascule
       expect((await recordOn(hold2, 'tok_us703_second_card', '0005')).rows[0]).toMatchObject({
         instrument_id: second?.instrument_id,
         bound: true,
         replayed: true,
       });
-      // troisième hold payé avec l'ANCIENNE carte (REPLACED) : elle redevient la carte courante,
-      // l'autre est remplacée ; le consentement du hold lui est lié
-      const hold3 = await newHold('2035-10-01T15:00:00Z', '2035-10-03T15:00:00Z');
-      expect((await recordOn(hold3, 'tok_us703_first_card', '4242')).rows[0]).toMatchObject({
-        instrument_id: first?.instrument_id,
-        bound: true,
+      expect((await recordOn(hold3, 'tok_us703_second_card', '0005')).rows[0]).toMatchObject({
         replayed: true,
       });
-      const after = await tx.query<{ status: string; last4: string }>(
-        'SELECT status, last4 FROM test_fixture.us703_cards($1)',
-        [guest],
-      );
-      expect(after.rows.map((r) => `${r.last4}:${r.status}`).sort()).toEqual([
-        '0005:REPLACED',
-        '4242:ACTIVE',
-      ]);
+      expect(await cardsOf()).toEqual(['0005:REPLACED', '4242:ACTIVE']);
+      // hold déjà lié, jeton d'une autre carte connue : aucun effet, liaison inchangée
+      expect((await recordOn(hold4, 'tok_us703_second_card', '0005')).rows[0]).toMatchObject({
+        bound: false,
+        replayed: true,
+      });
+      expect(await cardsOf()).toEqual(['0005:REPLACED', '4242:ACTIVE']);
       for (const [h, card] of [
+        [hold, first?.instrument_id],
         [hold2, second?.instrument_id],
-        [hold3, first?.instrument_id],
+        [hold3, second?.instrument_id],
+        [hold4, first?.instrument_id],
       ] as const) {
         const k = await tx.query<{ instrument_id: string }>(
           'SELECT * FROM test_fixture.us703_consent_of_hold($1)',

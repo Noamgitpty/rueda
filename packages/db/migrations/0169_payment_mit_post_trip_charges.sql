@@ -1069,6 +1069,7 @@ COMMENT ON FUNCTION core.payment_cmd_accept_mit_consent(bytea, uuid, text, integ
 -- 7.2 Carte enregistrée par le paiement prouvé (travailleur payment_command ; lot C : webhook du
 -- PSP, FAKE en tests) : jeton seul, carte précédente du voyageur sur ce compte REPLACED ; liaison
 -- UNE fois du consentement du hold (et du trip né du hold). Rejeu du même jeton : même carte.
+-- Sans consentement du hold encore à lier : aucun effet sur les cartes (revue argent n° 4).
 CREATE FUNCTION core.payment_cmd_record_instrument(p_id uuid, p_hold_id uuid,
                                                    p_psp_account_id uuid, p_token_ref text,
                                                    p_network text, p_funding text, p_last4 text,
@@ -1087,6 +1088,7 @@ DECLARE
   v_country text;
   v_status  text;
   v_existing core.payment_payment_instrument%ROWTYPE;
+  v_consent uuid;
   v_bound   boolean := false;
 BEGIN
   IF app.actor_kind() IS DISTINCT FROM 'WORKER'
@@ -1113,6 +1115,12 @@ BEGIN
   END IF;
   SELECT * INTO v_existing FROM core.payment_payment_instrument AS i
    WHERE i.psp_account_id = p_psp_account_id AND i.token_ref = p_token_ref;
+  -- revue argent n° 4 (delta 20b) : seul un consentement de CE hold encore sans carte peut changer
+  -- l'état des cartes. Rejeu tardif d'un ancien hold (travailleur relancé, webhook rejoué) ou autre
+  -- jeton pour un hold déjà lié : AUCUN effet (ni remplacement, ni réactivation, ni carte créée)
+  SELECT c.id INTO v_consent FROM core.payment_mit_consent AS c
+   WHERE c.hold_id = p_hold_id AND c.user_id = h.guest_user_id AND c.instrument_id IS NULL
+   FOR UPDATE;
   IF v_existing.id IS NOT NULL THEN
     IF v_existing.user_id <> h.guest_user_id OR v_existing.network <> p_network
        OR v_existing.last4 <> p_last4 THEN
@@ -1122,7 +1130,7 @@ BEGIN
     -- revue argent n° 5 : voyageur qui revient avec une carte déjà enregistrée. Carte retirée
     -- (REVOKED) : jamais reprise, rien n'est lié ; carte remplacée (REPLACED) redevenue celle du
     -- paiement : elle redevient la carte courante (l'autre est remplacée, ADR-189 n° 14)
-    IF v_existing.status = 'REPLACED' THEN
+    IF v_consent IS NOT NULL AND v_existing.status = 'REPLACED' THEN
       UPDATE core.payment_payment_instrument AS i
          SET status = 'REPLACED', replaced_at = platform.now()
        WHERE i.user_id = h.guest_user_id AND i.psp_account_id = p_psp_account_id
@@ -1132,19 +1140,27 @@ BEGIN
        WHERE i.id = v_existing.id;
       v_existing.status := 'ACTIVE';
     END IF;
-    IF v_existing.status = 'ACTIVE' THEN
+    IF v_consent IS NOT NULL AND v_existing.status = 'ACTIVE' THEN
       -- le consentement de CE hold, encore sans carte, est lié une fois à la carte connue
       UPDATE core.payment_mit_consent AS c
          SET instrument_id = v_existing.id, bound_at = platform.now(),
              network_tx_reference = p_network_tx_reference,
              transaction_link_id = p_transaction_link_id,
              trip_id = COALESCE(c.trip_id, h.converted_trip_id)
-       WHERE c.hold_id = p_hold_id AND c.user_id = h.guest_user_id AND c.instrument_id IS NULL;
+       WHERE c.id = v_consent AND c.instrument_id IS NULL;
     END IF;
     instrument_id := v_existing.id;
     SELECT EXISTS (SELECT 1 FROM core.payment_mit_consent AS c
                     WHERE c.hold_id = p_hold_id AND c.instrument_id = v_existing.id)
       INTO bound;
+    replayed := true;
+    RETURN NEXT;
+    RETURN;
+  END IF;
+  IF v_consent IS NULL THEN
+    -- jeton nouveau sans consentement à lier (hold déjà lié, ou sans consentement) : sans effet
+    instrument_id := NULL;
+    bound := false;
     replayed := true;
     RETURN NEXT;
     RETURN;
@@ -1162,7 +1178,7 @@ BEGIN
          network_tx_reference = p_network_tx_reference,
          transaction_link_id = p_transaction_link_id,
          trip_id = COALESCE(c.trip_id, h.converted_trip_id)
-   WHERE c.hold_id = p_hold_id AND c.user_id = h.guest_user_id AND c.instrument_id IS NULL;
+   WHERE c.id = v_consent AND c.instrument_id IS NULL;
   v_bound := FOUND;
   instrument_id := p_id;
   bound := v_bound;
