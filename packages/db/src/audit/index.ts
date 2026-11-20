@@ -51,6 +51,7 @@ export type {
 export {
   FileAssetError,
   FileStoreConflictError,
+  readFileAsset,
   receiveFile,
   sha256Stream,
   verifyFileAsset,
@@ -59,6 +60,7 @@ export type {
   Bucket,
   Classification,
   FileSource,
+  FileRead,
   FileStore,
   FileStoreGetResult,
   FileStorePutResult,

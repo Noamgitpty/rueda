@@ -168,6 +168,9 @@ describe('schéma core (US-006)', () => {
             AND c.relname !~ '^catalog_'      -- tables CAT : test/l0/l0-us113-vehicle-catalog.test.ts (US-113)
             AND c.relname !~ '^kyc_'          -- tables KYC : test/l0/l0-us105-identity-verification.test.ts (US-105)
             AND c.relname !~ '^messaging_'    -- tables MSG : test/l0/l0-us525-messaging.test.ts (US-525)
+            -- tables CLM : test/l0/l0-us308-evidence-bundle.test.ts (US-308 : RLS ENABLE + FORCE,
+            -- propriétaire migrator, politiques des seuls propriétaires NOLOGIN, aucun droit applicatif)
+            AND c.relname !~ '^claim_'
           ORDER BY c.relname`,
       );
       expect(rows.map((r) => r.relname)).toEqual(

@@ -2291,6 +2291,76 @@
       "owner": "cmd_hold_owner",
       "execute": ["app_api"],
       "story": "US-315"
+    },
+    {
+      "signature": "core.claim_evidence_record(uuid,text,uuid,text,uuid,text,uuid)",
+      "family": "cmd_hold",
+      "owner": "cmd_hold_owner",
+      "execute": ["iam_staff_owner"],
+      "story": "US-308"
+    },
+    {
+      "signature": "core.claim_evidence_export_file(uuid)",
+      "family": "cmd_hold",
+      "owner": "cmd_hold_owner",
+      "execute": ["iam_staff_owner"],
+      "story": "US-308"
+    },
+    {
+      "signature": "core.claim_worker_evidence_due(integer)",
+      "family": "cmd_hold",
+      "owner": "cmd_hold_owner",
+      "execute": ["app_worker"],
+      "story": "US-308"
+    },
+    {
+      "signature": "core.claim_worker_evidence_source(uuid)",
+      "family": "cmd_hold",
+      "owner": "cmd_hold_owner",
+      "execute": ["app_worker"],
+      "story": "US-308"
+    },
+    {
+      "signature": "core.claim_worker_complete_evidence_bundle(uuid,uuid,text,bytea,bigint)",
+      "family": "cmd_hold",
+      "owner": "cmd_hold_owner",
+      "execute": ["app_worker"],
+      "story": "US-308"
+    },
+    {
+      "signature": "core.claim_worker_fail_evidence_bundle(uuid,text,jsonb)",
+      "family": "cmd_hold",
+      "owner": "cmd_hold_owner",
+      "execute": ["app_worker"],
+      "story": "US-308"
+    },
+    {
+      "signature": "core.support_staff_request_evidence_bundle(bytea,uuid,uuid,uuid,text,text)",
+      "family": "iam_staff",
+      "owner": "iam_staff_owner",
+      "execute": ["app_api"],
+      "story": "US-308"
+    },
+    {
+      "signature": "core.support_staff_evidence_bundle(bytea,uuid,uuid)",
+      "family": "iam_staff",
+      "owner": "iam_staff_owner",
+      "execute": ["app_api"],
+      "story": "US-308"
+    },
+    {
+      "signature": "core.support_staff_open_evidence_bundle(bytea,uuid,uuid,text)",
+      "family": "iam_staff",
+      "owner": "iam_staff_owner",
+      "execute": ["app_api"],
+      "story": "US-308"
+    },
+    {
+      "signature": "core.messaging_evidence_messages(uuid,timestamp with time zone)",
+      "family": "messaging_cmd",
+      "owner": "messaging_cmd_owner",
+      "execute": ["cmd_hold_owner"],
+      "story": "US-308"
     }
   ]
 }

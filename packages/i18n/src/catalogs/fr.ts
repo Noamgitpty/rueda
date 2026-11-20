@@ -462,6 +462,16 @@ export const FR_MESSAGES = {
     'Fichier refusé : seuls les JPEG, PNG, HEIC ou PDF sains, de taille limitée.',
   'common.evidence.unavailable':
     'Impossible de recevoir des fichiers pour le moment. Rien n’a été enregistré.',
+  'common.evidenceBundle.notFound':
+    'Ce dossier de preuve ne fait pas partie des tiens. Seule la personne qui l’a demandé peut l’ouvrir.',
+  'common.evidenceBundle.notReady':
+    'Le dossier de preuve est encore en préparation. Réessaie dans quelques minutes.',
+  'common.evidenceBundle.expired':
+    'Le lien du dossier de preuve a expiré (7 jours). Demande un nouveau dossier.',
+  'common.evidenceBundle.failed':
+    'Le dossier n’a pas pu être remis : une preuve manque ou ne correspond plus à son empreinte. Le constat est enregistré.',
+  'common.evidenceBundle.unavailable':
+    'Le dossier de preuve n’est pas disponible pour le moment. Rien n’a été demandé ni remis.',
   'backoffice.action.RESTRICT_ACCOUNT': 'Restreindre le compte',
   'backoffice.action.LIFT_RESTRICTION': 'Lever la restriction',
   'backoffice.queues.current': 'File affichée',

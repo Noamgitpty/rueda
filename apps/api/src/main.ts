@@ -54,6 +54,7 @@ import {
   PgHelpStore,
   PgManualActionStore,
   PgOpsConsoleStore,
+  postgresEvidenceBundle,
   unavailableEvidence,
 } from './modules/sup/index.js';
 import { postgresTrpAdapters } from './modules/trp/index.js';
@@ -192,6 +193,9 @@ async function bootstrap(): Promise<void> {
       postgresPyoAdapters(pool),
       // US-525 : messagerie par trip (fonctions de 0161 sous app_api)
       postgresMsgAdapters(pool),
+      // US-308 : dossier de preuve (portes core.support_staff_*_evidence_bundle sous app_api) ;
+      // coffre KMS et stockage à verrou objet (US-003, Q-007) indisponibles : routes 503
+      postgresEvidenceBundle(pool),
     ),
     { rawBody: true },
   );

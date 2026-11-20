@@ -59,6 +59,7 @@ import {
   PgHelpStore,
   PgManualActionStore,
   PgOpsConsoleStore,
+  postgresEvidenceBundle,
   unavailableEvidence,
 } from '../modules/sup/index.js';
 import type { SqlPool } from '../modules/sup/index.js';
@@ -120,6 +121,15 @@ async function caseOf(country: string): Promise<string> {
   );
   if (rows[0]?.outcome !== 'OPENED') throw new Error(`dossier de test : ${rows[0]?.outcome}`);
   return caseId;
+}
+
+/** Dossier de preuve du trip du pays, demandé par la personne du pays (fixture 9922, US-308). */
+async function bundleOf(country: string): Promise<string> {
+  const { rows } = await client.query<{ id: string }>(
+    'SELECT test_fixture.us308_seed_bundle($1, $2, $3) AS id',
+    [tripOf.get(country), country, personOf.get(country)?.id],
+  );
+  return rows[0]?.id ?? randomUUID();
 }
 
 /** Élément de file KYC neuf du pays (vraie mise en file, fixture 9990). */
@@ -502,6 +512,30 @@ async function requestOf(
     // US-215b : état de la demande d'annulation du trip du pays (aucune demande ⇒ 200, null)
     case 'GET /console/cancellations/{id}':
       return { method: 'GET', path: `/console/cancellations/${tripOf.get(country) ?? id}` };
+    // US-308 : dossier de preuve du trip du pays ; dossier de support du pays (sans trip) ⇒ OPS et
+    // ADMIN du pays : 403 STAFF_CASE_REQUIRED, jamais un dossier scellé ; autre pays : FORBIDDEN
+    case 'POST /console/evidence-bundles':
+      return {
+        method: 'POST',
+        path: '/console/evidence-bundles',
+        body: {
+          requestId: id,
+          tripId: tripOf.get(country) ?? id,
+          caseId: await caseOf(country),
+          purpose: 'INSURER',
+          reason: 'Matrice US-043 : dossier de test',
+        },
+      };
+    // US-308 : dossier du pays demandé par une autre personne (fixture 9922) ⇒ OPS et ADMIN du
+    // pays : 404 EVIDENCE_BUNDLE_NOT_FOUND (le lien ne se partage pas) ; autre pays : FORBIDDEN
+    case 'GET /console/evidence-bundles/{bundleId}':
+      return { method: 'GET', path: `/console/evidence-bundles/${await bundleOf(country)}` };
+    case 'POST /console/evidence-bundles/{bundleId}/download':
+      return {
+        method: 'POST',
+        path: `/console/evidence-bundles/${await bundleOf(country)}/download`,
+        body: { reason: 'Matrice US-043 : dossier de test' },
+      };
     // US-114 : file d'ajout au catalogue (élément du pays de l'acteur)
     case 'POST /console/queues/items/{id}/catalog-addition':
       return {
@@ -1257,6 +1291,9 @@ beforeAll(async () => {
       postgresPyoAdapters(client),
       // messagerie par trip (US-525) : fonctions réelles de 0161 sous app_api
       postgresMsgAdapters(client),
+      // dossier de preuve (US-308) : portes réelles de 0164 ; coffre et stockage de production
+      // (indisponibles) : la base juge d'abord, puis 503 et transaction annulée
+      postgresEvidenceBundle(singlePool as unknown as Parameters<typeof postgresEvidenceBundle>[0]),
     ),
     { rawBody: true, logger: false },
   );
