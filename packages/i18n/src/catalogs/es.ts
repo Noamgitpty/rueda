@@ -3276,6 +3276,11 @@ export const ES_MESSAGES = {
     'Hola, {first_name}. El encuentro para la devolución de la reserva {booking_ref} quedó confirmado para el {meet_at}. El lugar acordado está en los mensajes de la reserva en {brand}.',
   'ntf.meetingReturnConfirmed.sms.body':
     '{brand}: encuentro de la devolución confirmado ({booking_ref}) para el {meet_at}. Lugar en los mensajes de la app.',
+  'ntf.tripAtRiskHost.email.subject': 'Reserva {booking_ref}: el auto aún no volvió',
+  'ntf.tripAtRiskHost.email.body':
+    'Hola, {first_name}. Tu reserva {booking_ref} empieza el {start_at}, pero el viaje anterior con este auto aún no terminó: la devolución está atrasada. Nuestro equipo te contactará para ver las opciones con el viajero. Puedes escribirnos desde la reserva en la app.',
+  'ntf.tripAtRiskHost.sms.body':
+    '{brand}: el auto de la reserva {booking_ref} ({start_at}) aún no fue devuelto por el viaje anterior. Te contactaremos.',
 } as const satisfies Catalog;
 
 export type MessageKey = keyof typeof ES_MESSAGES;

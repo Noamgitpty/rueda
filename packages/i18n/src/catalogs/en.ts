@@ -3198,4 +3198,9 @@ export const EN_MESSAGES = {
     'Hi {first_name}. The return meetup for booking {booking_ref} is confirmed for {meet_at}. See the agreed place in the booking chat on {brand}.',
   'ntf.meetingReturnConfirmed.sms.body':
     '{brand}: return meetup confirmed ({booking_ref}) for {meet_at}. See the place in the app.',
+  'ntf.tripAtRiskHost.email.subject': 'Booking {booking_ref}: the car is not back yet',
+  'ntf.tripAtRiskHost.email.body':
+    'Hi {first_name}. Your booking {booking_ref} starts on {start_at}, but the previous trip with this car has not ended: the return is late. Our team will contact you about the options with the guest. You can message us from the booking in the app.',
+  'ntf.tripAtRiskHost.sms.body':
+    '{brand}: the car for booking {booking_ref} ({start_at}) has not been returned from the previous trip yet. We will contact you.',
 } as const satisfies Readonly<Record<MessageKey, Message>>;

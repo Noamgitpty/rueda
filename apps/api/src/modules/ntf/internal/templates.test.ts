@@ -381,6 +381,9 @@ ${m.body}`;
     for (const t of [
       TEMPLATES.EVT_HELP_REQUEST_OFF_HOURS,
       TEMPLATES.EVT_HELP_REQUEST_OFF_HOURS_HOST,
+      // US-305 : retard détecté (10b §3.9) et trip suivant à risque
+      TEMPLATES.EVT_TRIP_OVERDUE,
+      TEMPLATES.EVT_TRIP_AT_RISK_HOST,
     ]) {
       expect(t.critical).toBe(true);
       expect(t.channels).toEqual([{ channel: 'SMS', fallback: 'EMAIL' }]);

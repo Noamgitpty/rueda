@@ -342,8 +342,12 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  coordonnées), `web.s16.meeting.*` (S16 : bloc « rendez-vous » de la remise et du retour, statuts,
  confirmation et refus du voyageur, formulaire de l’hôte) et l’avis de rendez-vous confirmé
  `ntf.meetingPickupConfirmed.*` / `ntf.meetingReturnConfirmed.*` (heure seulement, jamais le lieu).
+ Version 103 (réservée à US-305 par l’orchestrateur ; la 101 est celle d’US-316, la 102 est
+ réservée à US-709 ; le numéro ne redescend jamais) : trip suivant à risque (US-305, ADR-188) :
+ `ntf.tripAtRiskHost.*` (le véhicule du trip précédent, en retard, n’est pas rendu ; l’hôte est
+ prévenu, l’ops le contacte).
  */
-export const CATALOG_VERSION = 101;
+export const CATALOG_VERSION = 103;
 
 /** Catalogues de base par langue ; la langue d'un profil de locale choisit le sien. */
 export const CATALOGS: Readonly<Record<CatalogLanguage, VersionedCatalog<MessageKey>>> = {
