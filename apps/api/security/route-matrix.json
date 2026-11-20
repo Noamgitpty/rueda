@@ -710,6 +710,22 @@
     "POST /trips/{tripId}/handover/{direction}/validate": {
       "acces": "session",
       "idor": "trip d'une autre personne (ni son voyageur ni le titulaire de son compte d'hôte), inconnu, sens ou identifiant mal formé : 404 HANDOVER_NOT_FOUND, même réponse (17 §2.3 point 5) ; la partie est celle de la session, jugée en base (core.trip_handover_view, core.trip_cmd_open_checkin, core.trip_cmd_identity_check, core.trip_cmd_validate_handover, 0163) ; chaque partie écrit SA validation seulement ; le contrôle du permis est celui du seul hôte (403 HANDOVER_HOST_ONLY au voyageur) ; l'hôte ne lit du voyageur que le prénom, l'initiale du nom et l'année de naissance, au départ ; aucune heure reçue du client ; preuves base : l0-us315"
+    },
+    "GET /trips/{tripId}/reviews": {
+      "acces": "session",
+      "idor": "trip dont la session n'est pas partie (autre voyageur, autre hôte, co-hôte, visiteur sans trip), inconnu ou identifiant mal formé : 404 TRIP_NOT_FOUND, même réponse (17 §2.3 point 5) ; la partie est celle de la session, jugée en base (core.review_trip_read, 0170) ; jamais l'avis scellé de l'autre partie ; prénoms seulement ; preuves base : l0-us317-reviews"
+    },
+    "POST /trips/{tripId}/reviews": {
+      "acces": "session",
+      "idor": "trip dont la session n'est pas partie (co-hôte compris) : 404 TRIP_NOT_FOUND, rien d'écrit ; seuls le voyageur et le titulaire du compte d'hôte notent, une fois, dans la fenêtre (core.review_cmd_submit, 0170) ; preuves base : l0-us317-reviews, l0-us317-review-timer"
+    },
+    "GET /reviews/received": {
+      "acces": "session",
+      "idor": "avis publiés reçus par la personne de la session seulement (empreinte du jeton, jamais un identifiant reçu ; core.review_my_received, 0170) ; prénoms des auteurs seulement ; preuves base : l0-us317-reviews"
+    },
+    "GET /listings/{listingId}/host-profile": {
+      "acces": "public",
+      "idor": "annonce non publiée, inconnue ou identifiant mal formé : 404 LISTING_NOT_FOUND ; prénom, ancienneté au mois, trips réalisés, note et avis publiés seulement, jamais un nom de famille, un contact ni un identifiant de compte (core.review_listing_host_profile, 0170 ; 16 LST-020) ; preuves base : l0-us317-reviews"
     }
   }
 }

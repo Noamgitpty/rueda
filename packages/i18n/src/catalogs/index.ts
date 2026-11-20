@@ -342,8 +342,18 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  coordonnées), `web.s16.meeting.*` (S16 : bloc « rendez-vous » de la remise et du retour, statuts,
  confirmation et refus du voyageur, formulaire de l’hôte) et l’avis de rendez-vous confirmé
  `ntf.meetingPickupConfirmed.*` / `ntf.meetingReturnConfirmed.*` (heure seulement, jamais le lieu).
+ Version 105 (réservée à US-317 par l’orchestrateur ; les 102 à 104 sont réservées à US-709, US-305
+ et US-703) : avis réciproques en double aveugle (US-317, ADR-190) : `common.reviews.*` (réponses des
+ routes `/trips/{id}/reviews`, `/reviews/received` et `/listings/{id}/host-profile` : avis du trip,
+ avis enregistré, avis reçus, profil de l’hôte, déjà noté, pas encore ouvert, fenêtre close, texte
+ exigé de 1 à 3, avis invalide, indisponible), `web.review.until`, `web.review.blind` et
+ `web.review.closed` de 10b §4.3 (texte portugais ajouté), `web.review.*` (S13 et A12 : note, sous-notes
+ du voyageur et de l’hôte, texte, avis scellé ou publié, profil du voyageur, avis publiés du trip),
+ `web.reviews.*` (avis reçus, droit d’accès Ley 81), `web.a13.title`, `web.a13.preview`,
+ `web.a13.reviews`, `web.a13.link` (A13 : aperçu du profil public) et `web.listing.hostReviews`
+ (fiche S03, LST-020).
  */
-export const CATALOG_VERSION = 101;
+export const CATALOG_VERSION = 105;
 
 /** Catalogues de base par langue ; la langue d'un profil de locale choisit le sien. */
 export const CATALOGS: Readonly<Record<CatalogLanguage, VersionedCatalog<MessageKey>>> = {
