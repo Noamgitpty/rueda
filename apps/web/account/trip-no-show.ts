@@ -13,7 +13,7 @@ export const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{1
 const ISO = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
 
 export type NoShowRole = 'HOST' | 'GUEST';
-export type DeclarationStatus = 'PENDING' | 'SETTLED' | 'FIN_REVIEW' | 'FAILED';
+export type DeclarationStatus = 'AWAITING_REVIEW' | 'PENDING' | 'SETTLED' | 'FIN_REVIEW' | 'FAILED';
 
 /** Obstacles possibles (codes de l'API, 16 TRP-015 et PROPOSÉS d'ADR-191). */
 export const BLOCKERS = [
@@ -69,7 +69,13 @@ const isObj = (v: unknown): v is Readonly<Record<string, unknown>> =>
 const isRole = (v: unknown): v is NoShowRole => v === 'HOST' || v === 'GUEST';
 const isTime = (v: unknown): v is string => typeof v === 'string' && ISO.test(v);
 const isTimeOrNull = (v: unknown): v is string | null => v === null || isTime(v);
-const STATUSES: readonly unknown[] = ['PENDING', 'SETTLED', 'FIN_REVIEW', 'FAILED'];
+const STATUSES: readonly unknown[] = [
+  'AWAITING_REVIEW',
+  'PENDING',
+  'SETTLED',
+  'FIN_REVIEW',
+  'FAILED',
+];
 
 /** Vue de l'API, lue strictement ; `null` si la forme surprend (jamais un état deviné). */
 export function tripNoShowOf(reply: ApiResult): TripNoShowView | null {

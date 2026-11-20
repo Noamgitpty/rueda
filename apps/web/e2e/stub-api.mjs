@@ -3166,7 +3166,7 @@ async function noShowRoute(req, res, url) {
           : {
               id: t.declaration.id,
               requestedReason: t.declaration.reason,
-              status: 'PENDING',
+              status: t.declaration.status,
               requestedAt: NO_SHOW_AT,
               mine: t.declaration.by === role,
             },
@@ -3182,7 +3182,7 @@ async function noShowRoute(req, res, url) {
     return json(res, 200, {
       declarationId: b.requestId,
       requestedAt: NO_SHOW_AT,
-      status: 'PENDING',
+      status: t.declaration.status,
     });
   }
   if (blocker === 'CANCELLATION_PENDING') {
@@ -3195,8 +3195,14 @@ async function noShowRoute(req, res, url) {
     id: b.requestId,
     by: role,
     reason: absent === 'GUEST' ? 'GUEST_NO_SHOW' : 'HOST_NO_SHOW',
+    // le signalement du voyageur attend la validation de l'ops (US-307, ADR-191)
+    status: role === 'GUEST' ? 'AWAITING_REVIEW' : 'PENDING',
   };
-  return json(res, 200, { declarationId: b.requestId, requestedAt: NO_SHOW_AT, status: 'PENDING' });
+  return json(res, 200, {
+    declarationId: b.requestId,
+    requestedAt: NO_SHOW_AT,
+    status: t.declaration.status,
+  });
 }
 
 createServer(async (req, res) => {

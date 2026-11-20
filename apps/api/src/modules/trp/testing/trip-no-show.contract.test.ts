@@ -155,8 +155,10 @@ describe('US-307 — routes du no-show (contrat OpenAPI)', () => {
     const id = randomUUID();
     const ok = await report(w, guest(w), { requestId: id });
     expect(ok.status).toBe(200);
+    // ADR-191 (revue sécurité n° 1) : le signalement attend la validation de l'ops
+    expect(ok.json).toMatchObject({ declarationId: id, status: 'AWAITING_REVIEW' });
     expect((await view(w, host(w))).json).toMatchObject({
-      declaration: { id, requestedReason: 'HOST_NO_SHOW', mine: false },
+      declaration: { id, requestedReason: 'HOST_NO_SHOW', status: 'AWAITING_REVIEW', mine: false },
     });
   });
 

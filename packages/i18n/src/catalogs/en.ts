@@ -1297,6 +1297,12 @@ export const EN_MESSAGES = {
     'Hi {first_name}. We are reviewing the account of the host of your booking {booking_ref}. Your booking is still on record and we will keep you posted. If the host cancels it, you get a full refund. Details in the app.',
   'ntf.tripHostRestricted.sms.body':
     '{brand}: we are reviewing the host account for your booking {booking_ref}. Full refund if the host cancels it. Details in the app.',
+  'ntf.tripNoShowReported.email.subject':
+    'Booking {booking_ref}: the guest says you did not show up',
+  'ntf.tripNoShowReported.email.body':
+    'Hi {first_name}. The guest on booking {booking_ref} reported that you did not show up for the handover. Kmino is checking before deciding. If you were there, write to us from the trip help in the app.',
+  'ntf.tripNoShowReported.sms.body':
+    '{brand}: the guest on booking {booking_ref} reported that you did not show up. We are checking. If you were there, write to us from the app.',
   'ntf.tripHostRestrictionLifted.email.subject': 'Booking {booking_ref}: news about your host',
   'ntf.tripHostRestrictionLifted.email.body':
     'Hi {first_name}. We have finished reviewing the account of the host of your booking {booking_ref}. Your booking stands, unchanged. Details in the app.',
@@ -3219,18 +3225,44 @@ export const EN_MESSAGES = {
   'web.noShow.rule.HOST':
     'First, message the guest in the trip messages and wait 15 minutes. Without that message, the guest gets the same refund, but you earn nothing for this trip.',
   'web.noShow.rule.GUEST':
-    'Message the host in the trip messages and wait 15 minutes. If they don’t come, we refund everything you paid.',
+    'Message the host in the trip messages and wait 15 minutes. Kmino checks your report and, if confirmed, refunds everything you paid.',
   'web.noShow.traced.yes': 'Your message and the 15-minute wait are on record.',
   'web.noShow.traced.no': 'There’s no message from you with a 15-minute wait yet.',
   'web.noShow.messagesLink': 'Go to the trip messages',
   'web.noShow.declare.HOST': 'Report that the guest didn’t show up',
   'web.noShow.declare.GUEST': 'Report that the host didn’t show up',
   'web.noShow.confirmRequired': 'Tick the box to confirm this is final.',
+  'web.noShow.status.AWAITING_REVIEW':
+    'Report recorded on {date}. Kmino checks it before any refund; the outcome will appear on this page.',
+  'web.noShow.title.against': 'No-show report',
+  'web.noShow.against.HOST':
+    'On {date}, the guest reported that you did not show up for the handover.',
+  'web.noShow.against.GUEST':
+    'On {date}, the host reported that you did not show up for the handover.',
+  'web.noShow.againstStatus.AWAITING_REVIEW':
+    'Kmino is checking it. If you were there, write to us from the trip help.',
+  'web.noShow.againstStatus.PENDING': 'Kmino is working out the outcome of the trip.',
+  'web.noShow.againstStatus.SETTLED': 'Resolved: the trip is cancelled.',
+  'web.noShow.againstStatus.FIN_REVIEW':
+    'Kmino is reviewing the outcome. It will appear on this page.',
+  'web.noShow.againstStatus.FAILED': 'The report was not upheld: the trip goes ahead as planned.',
+  'backoffice.noShow.choice.NO_SHOW_REJECT_REPORT': 'Reject the guest’s report: the host was there',
+  'backoffice.noShow.refused.NO_REPORT_PENDING': 'There is no guest report to review on this trip.',
+  'backoffice.noShow.tripInvalid': 'Enter the full trip identifier.',
+  'backoffice.noShow.confirm.title': 'Confirm before recording',
+  'backoffice.noShow.confirm.trip': 'Trip: {trip}',
+  'backoffice.noShow.confirm.irreversible':
+    'This is final: the trip may be cancelled, with a refund and, depending on the case, a penalty. It cannot be undone.',
+  'backoffice.noShow.confirm.send': 'Confirm and record',
+  'backoffice.noShow.confirm.back': 'Edit',
+  'backoffice.noShow.next': 'Review',
   'web.noShow.final': 'This is final: the trip is cancelled and Kmino works out the refund.',
   'web.noShow.status.PENDING': 'Report recorded on {date}. Kmino is working out the refund.',
   'web.noShow.status.SETTLED': 'Resolved: the trip is cancelled and the refund is under way.',
-  'web.noShow.status.FIN_REVIEW': 'Kmino is reviewing the refund. We’ll let you know.',
-  'web.noShow.status.FAILED': 'We couldn’t resolve it automatically. Support will contact you.',
+  'web.noShow.status.FIN_REVIEW':
+    'Kmino is reviewing the refund. The outcome will appear on this page.',
+  'web.noShow.status.FAILED':
+    'It could not be resolved this way. If you need help, write to us from the trip help.',
   'web.noShow.reason.GUEST_NO_SHOW': 'Reason: the guest didn’t show up.',
   'web.noShow.reason.HOST_NO_SHOW': 'Reason: the host didn’t show up.',
   'web.noShow.reason.other': 'Reason: another trip cancellation.',
@@ -3241,7 +3273,8 @@ export const EN_MESSAGES = {
     'Report a no-show or confirm a car refusal at pickup. Kmino works out the refund; never type an amount.',
   'backoffice.noShow.subject': 'Trip',
   'backoffice.noShow.choice.NO_SHOW_GUEST': 'The guest didn’t show up',
-  'backoffice.noShow.choice.NO_SHOW_HOST': 'The host didn’t show up (attach the proof)',
+  'backoffice.noShow.choice.NO_SHOW_HOST':
+    'The host didn’t show up: confirm the guest’s report or report it (attach the proof)',
   'backoffice.noShow.choice.REFUSE_CLEANLINESS': 'Dirty car: the guest refuses it',
   'backoffice.noShow.choice.REFUSE_SAFETY': 'Unsafe car: the guest refuses it',
   'backoffice.noShow.choice.REFUSE_INVALID_LICENSE':

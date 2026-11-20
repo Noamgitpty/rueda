@@ -9,6 +9,7 @@
  */
 import { randomUUID } from 'node:crypto';
 import type { ReactNode } from 'react';
+import type { MessageKey } from '@rueda/i18n';
 import { Banner, ButtonLink, EmptyState, ErrorState } from '@rueda/ui';
 import { callApi } from '../../../account/api-client.ts';
 import { clientContext } from '../../../account/request.ts';
@@ -27,6 +28,7 @@ import styles from '../host/host.module.css';
 import { NoShowForm } from './no-show-form.tsx';
 
 const STATUS_TONE = {
+  AWAITING_REVIEW: 'info',
   PENDING: 'info',
   SETTLED: 'success',
   FIN_REVIEW: 'warning',
@@ -55,14 +57,17 @@ export async function NoShowScreen({
         : '/trips';
   const self =
     role === 'HOST' ? `/host/trips/${tripId}/no-show${orgQuery}` : `/trips/${tripId}/no-show`;
-  const shell = (body: ReactNode) => (
+  const shell = (
+    body: ReactNode,
+    title: MessageKey = role === 'HOST' ? 'web.noShow.title.HOST' : 'web.noShow.title.GUEST',
+  ) => (
     <main id={MAIN_ID} tabIndex={-1} className={accountStyles['content']}>
       <header className={accountStyles['stackTight']}>
         <a className={styles['link']} href={back}>
           {t('web.noShow.back')}
         </a>
         <h1 className={accountStyles['h1']} data-testid="no-show-title">
-          {t(role === 'HOST' ? 'web.noShow.title.HOST' : 'web.noShow.title.GUEST')}
+          {t(title)}
         </h1>
       </header>
       {body}
@@ -101,6 +106,27 @@ export async function NoShowScreen({
   }
   const date = (iso: string) => i18n.dateTime(iso, view.timezone);
   const d = view.declaration;
+  // la personne déclarée absente lit la déclaration de SON point de vue (revue ux n° 2)
+  const against =
+    d !== null &&
+    !d.mine &&
+    ((role === 'HOST' && d.requestedReason === 'HOST_NO_SHOW') ||
+      (role === 'GUEST' && d.requestedReason === 'GUEST_NO_SHOW'));
+  if (d !== null && against) {
+    return shell(
+      <section className={styles['card']} data-testid="no-show-declaration">
+        <p className={accountStyles['text']} data-testid="no-show-against">
+          {t(role === 'HOST' ? 'web.noShow.against.HOST' : 'web.noShow.against.GUEST', {
+            date: date(d.requestedAt),
+          })}
+        </p>
+        <Banner tone={STATUS_TONE[d.status]} live="polite">
+          {t(`web.noShow.againstStatus.${d.status}`)}
+        </Banner>
+      </section>,
+      'web.noShow.title.against',
+    );
+  }
   return shell(
     <>
       {view.declarableFrom !== null && view.declarableUntil !== null && (

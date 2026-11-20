@@ -99,13 +99,15 @@ for (const language of LANGUAGES) {
       await expect(page.getByText(t('web.noShow.reason.GUEST_NO_SHOW'))).toBeVisible();
       await expect(page.locator('[data-testid="no-show-form"]')).toHaveCount(0);
 
-      // le voyageur voit la même demande, sans formulaire
+      // le voyageur déclaré absent lit la déclaration de SON point de vue, sans formulaire
       await setSession(context, guest);
       await page.goto(`/trips/${trip}/no-show`);
       await expect(page.locator('[data-testid="no-show-title"]')).toHaveText(
-        t('web.noShow.title.GUEST'),
+        t('web.noShow.title.against'),
       );
-      await expect(page.getByText(t('web.noShow.reason.GUEST_NO_SHOW'))).toBeVisible();
+      await expect(page.locator('[data-testid="no-show-against"]')).toHaveText(
+        t('web.noShow.against.GUEST', { date: i18n.dateTime(DECLARED_AT, TZ) }),
+      );
       await expect(page.locator('[data-testid="no-show-form"]')).toHaveCount(0);
       await expectAccessible(page, { include: null });
 

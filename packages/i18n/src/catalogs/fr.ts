@@ -1366,6 +1366,12 @@ export const FR_MESSAGES = {
     'Bonjour {first_name}. Nous examinons le compte de l’hôte de ta réservation {booking_ref}. Ta réservation reste enregistrée et nous te tenons informé. Si l’hôte l’annule, tu es remboursé intégralement. Détails dans l’appli.',
   'ntf.tripHostRestricted.sms.body':
     '{brand} : nous examinons le compte de l’hôte de ta réservation {booking_ref}. Remboursement intégral si l’hôte l’annule. Détails dans l’appli.',
+  'ntf.tripNoShowReported.email.subject':
+    'Réservation {booking_ref} : absence signalée par le voyageur',
+  'ntf.tripNoShowReported.email.body':
+    'Bonjour {first_name}. Le voyageur de la réservation {booking_ref} indique que tu ne t’es pas présenté à la remise. Kmino vérifie avant de décider. Si tu étais là, écris-nous depuis l’aide du voyage dans l’appli.',
+  'ntf.tripNoShowReported.sms.body':
+    '{brand} : le voyageur de la réservation {booking_ref} indique que tu n’es pas venu. Nous vérifions. Si tu étais là, écris-nous depuis l’appli.',
   'ntf.tripHostRestrictionLifted.email.subject':
     'Réservation {booking_ref} : du nouveau sur ton hôte',
   'ntf.tripHostRestrictionLifted.email.body':
@@ -3372,7 +3378,7 @@ export const FR_MESSAGES = {
   'web.noShow.rule.HOST':
     'Écrivez-lui d’abord dans les messages du voyage et attendez 15 minutes. Sans ce message, le voyageur reçoit le même remboursement, mais vous ne gagnez rien pour ce voyage.',
   'web.noShow.rule.GUEST':
-    'Écrivez-lui dans les messages du voyage et attendez 15 minutes. S’il ne vient pas, nous vous remboursons tout ce que vous avez payé.',
+    'Écrivez-lui dans les messages du voyage et attendez 15 minutes. Kmino vérifie votre signalement et, s’il est confirmé, vous rembourse tout ce que vous avez payé.',
   'web.noShow.traced.yes': 'Votre message et l’attente de 15 minutes sont enregistrés.',
   'web.noShow.traced.no':
     'Il n’y a pas encore de message de votre part suivi de 15 minutes d’attente.',
@@ -3380,13 +3386,40 @@ export const FR_MESSAGES = {
   'web.noShow.declare.HOST': 'Déclarer que le voyageur n’est pas venu',
   'web.noShow.declare.GUEST': 'Signaler que l’hôte n’est pas venu',
   'web.noShow.confirmRequired': 'Cochez la case pour confirmer que la décision est définitive.',
+  'web.noShow.status.AWAITING_REVIEW':
+    'Signalement enregistré le {date}. Kmino le vérifie avant tout remboursement ; le résultat s’affichera sur cette page.',
+  'web.noShow.title.against': 'Déclaration de non-présentation',
+  'web.noShow.against.HOST':
+    'Le {date}, le voyageur a indiqué que vous ne vous étiez pas présenté à la remise.',
+  'web.noShow.against.GUEST':
+    'Le {date}, l’hôte a déclaré que vous ne vous étiez pas présenté à la remise.',
+  'web.noShow.againstStatus.AWAITING_REVIEW':
+    'Kmino vérifie. Si vous étiez là, écrivez-nous depuis l’aide du voyage.',
+  'web.noShow.againstStatus.PENDING': 'Kmino calcule l’issue du voyage.',
+  'web.noShow.againstStatus.SETTLED': 'Réglé : le voyage est annulé.',
+  'web.noShow.againstStatus.FIN_REVIEW': 'Kmino examine l’issue. Elle s’affichera sur cette page.',
+  'web.noShow.againstStatus.FAILED':
+    'Le signalement n’a pas été retenu : le voyage se poursuit comme prévu.',
+  'backoffice.noShow.choice.NO_SHOW_REJECT_REPORT':
+    'Rejeter le signalement du voyageur : l’hôte était là',
+  'backoffice.noShow.refused.NO_REPORT_PENDING':
+    'Aucun signalement du voyageur à examiner sur ce voyage.',
+  'backoffice.noShow.tripInvalid': 'Saisissez l’identifiant complet du voyage.',
+  'backoffice.noShow.confirm.title': 'Confirmez avant d’enregistrer',
+  'backoffice.noShow.confirm.trip': 'Voyage : {trip}',
+  'backoffice.noShow.confirm.irreversible':
+    'C’est définitif : le voyage peut être annulé, avec remboursement et, selon le cas, une pénalité. Impossible d’annuler ensuite.',
+  'backoffice.noShow.confirm.send': 'Confirmer et enregistrer',
+  'backoffice.noShow.confirm.back': 'Corriger',
+  'backoffice.noShow.next': 'Vérifier',
   'web.noShow.final':
     'C’est une décision définitive : le voyage est annulé et Kmino calcule le remboursement.',
   'web.noShow.status.PENDING': 'Déclaration enregistrée le {date}. Kmino calcule le remboursement.',
   'web.noShow.status.SETTLED': 'Réglé : le voyage est annulé et le remboursement est en cours.',
-  'web.noShow.status.FIN_REVIEW': 'Kmino examine le remboursement. Nous vous tiendrons informé.',
+  'web.noShow.status.FIN_REVIEW':
+    'Kmino examine le remboursement. Le résultat s’affichera sur cette page.',
   'web.noShow.status.FAILED':
-    'Nous n’avons pas pu le régler automatiquement. Le support vous contactera.',
+    'Cela n’a pas pu être réglé ainsi. Si vous avez besoin d’aide, écrivez-nous depuis l’aide du voyage.',
   'web.noShow.reason.GUEST_NO_SHOW': 'Motif : le voyageur n’est pas venu.',
   'web.noShow.reason.HOST_NO_SHOW': 'Motif : l’hôte n’est pas venu.',
   'web.noShow.reason.other': 'Motif : une autre annulation du voyage.',
@@ -3397,7 +3430,8 @@ export const FR_MESSAGES = {
     'Déclarez une non-présentation ou validez un refus du véhicule à la remise. Kmino calcule le remboursement ; ne saisissez jamais de montant.',
   'backoffice.noShow.subject': 'Voyage',
   'backoffice.noShow.choice.NO_SHOW_GUEST': 'Le voyageur n’est pas venu',
-  'backoffice.noShow.choice.NO_SHOW_HOST': 'L’hôte n’est pas venu (joignez la preuve)',
+  'backoffice.noShow.choice.NO_SHOW_HOST':
+    'L’hôte n’est pas venu : valider le signalement du voyageur ou le déclarer (joignez la preuve)',
   'backoffice.noShow.choice.REFUSE_CLEANLINESS': 'Voiture sale : le voyageur la refuse',
   'backoffice.noShow.choice.REFUSE_SAFETY': 'Voiture dangereuse : le voyageur la refuse',
   'backoffice.noShow.choice.REFUSE_INVALID_LICENSE':

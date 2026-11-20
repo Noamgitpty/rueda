@@ -10,7 +10,7 @@
 import type { SqlExecutor } from '../inspection/ports.js';
 
 export type NoShowRole = 'HOST' | 'GUEST';
-export type DeclarationStatus = 'PENDING' | 'SETTLED' | 'FIN_REVIEW' | 'FAILED';
+export type DeclarationStatus = 'AWAITING_REVIEW' | 'PENDING' | 'SETTLED' | 'FIN_REVIEW' | 'FAILED';
 
 export interface NoShowViewRow {
   readonly viewerRole: NoShowRole;
@@ -36,6 +36,8 @@ export interface NoShowReport {
   readonly outcome: string;
   readonly declarationId: string | null;
   readonly requestedAt: Date | null;
+  /** Statut de la demande écrite : PENDING (hôte) ou AWAITING_REVIEW (voyageur, validée par l'ops). */
+  readonly status: string | null;
 }
 
 export interface NoShowStore {
@@ -74,7 +76,13 @@ const dateOf = (v: unknown): Date | null => {
 const isObj = (v: unknown): v is Readonly<Record<string, unknown>> =>
   typeof v === 'object' && v !== null && !Array.isArray(v);
 const ROLES: readonly unknown[] = ['HOST', 'GUEST'];
-const STATUSES: readonly unknown[] = ['PENDING', 'SETTLED', 'FIN_REVIEW', 'FAILED'];
+const STATUSES: readonly unknown[] = [
+  'AWAITING_REVIEW',
+  'PENDING',
+  'SETTLED',
+  'FIN_REVIEW',
+  'FAILED',
+];
 const CODE = /^[A-Z][A-Z0-9_]{1,63}$/;
 const ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
@@ -181,6 +189,7 @@ export class PgNoShowStore implements NoShowStore {
       outcome: string;
       declaration_id: string | null;
       requested_at: unknown;
+      status: string | null;
     }>(
       'déclaration du no-show',
       'SELECT * FROM core.trip_cmd_report_no_show($1, $2::uuid, $3::uuid)',
@@ -190,6 +199,7 @@ export class PgNoShowStore implements NoShowStore {
       outcome: r?.outcome ?? 'UNAVAILABLE',
       declarationId: r?.declaration_id ?? null,
       requestedAt: dateOf(r?.requested_at),
+      status: r?.status ?? null,
     };
   }
 }

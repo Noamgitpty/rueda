@@ -29,7 +29,7 @@ export interface FakeNoShowTrip {
     id: string;
     by: NoShowRole;
     reason: string;
-    status: 'PENDING' | 'SETTLED' | 'FIN_REVIEW' | 'FAILED';
+    status: 'AWAITING_REVIEW' | 'PENDING' | 'SETTLED' | 'FIN_REVIEW' | 'FAILED';
     at: Date;
   } | null;
 }
@@ -116,7 +116,7 @@ export class FakeNoShowStore implements NoShowStore {
 
   report(proof: Buffer, tripId: string, requestId: string): Promise<NoShowReport> {
     const fail = (outcome: string) =>
-      Promise.resolve({ outcome, declarationId: null, requestedAt: null });
+      Promise.resolve({ outcome, declarationId: null, requestedAt: null, status: null });
     const p = this.#party(proof, tripId);
     if (p === null) return fail('NOT_FOUND');
     const { t, role } = p;
@@ -126,6 +126,7 @@ export class FakeNoShowStore implements NoShowStore {
             outcome: 'DONE',
             declarationId: requestId,
             requestedAt: t.declaration.at,
+            status: t.declaration.status,
           })
         : fail('REQUEST_INVALID');
     }
@@ -140,9 +141,15 @@ export class FakeNoShowStore implements NoShowStore {
       id: requestId,
       by: role,
       reason: absent === 'GUEST' ? 'GUEST_NO_SHOW' : 'HOST_NO_SHOW',
-      status: 'PENDING',
+      // le signalement du voyageur attend la validation de l'ops (0171, ADR-191)
+      status: role === 'GUEST' ? 'AWAITING_REVIEW' : 'PENDING',
       at,
     };
-    return Promise.resolve({ outcome: 'DONE', declarationId: requestId, requestedAt: at });
+    return Promise.resolve({
+      outcome: 'DONE',
+      declarationId: requestId,
+      requestedAt: at,
+      status: t.declaration.status,
+    });
   }
 }

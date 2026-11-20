@@ -93,13 +93,20 @@ export class NoShowService {
   async report(proof: Buffer, tripId: string, body: Body) {
     const { requestId } = parseReportRequest(body);
     const r = await this.#call(() => this.store.report(proof, tripId, requestId));
-    if (r.outcome !== 'DONE' || r.declarationId === null || r.requestedAt === null) {
+    if (
+      r.outcome !== 'DONE' ||
+      r.declarationId === null ||
+      r.requestedAt === null ||
+      (r.status !== 'PENDING' && r.status !== 'AWAITING_REVIEW')
+    ) {
       throw new NoShowHttpError(noShowOutcomeCode(r.outcome));
     }
     return {
       declarationId: r.declarationId,
       requestedAt: r.requestedAt.toISOString(),
-      status: 'PENDING' as const,
+      // le signalement du voyageur attend la validation de l'ops (ADR-191) ; un rejeu rend le
+      // statut actuel de la demande s'il est encore l'un des deux
+      status: r.status,
     };
   }
 }

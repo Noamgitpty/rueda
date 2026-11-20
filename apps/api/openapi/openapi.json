@@ -26052,7 +26052,7 @@
                     "pattern": "^[A-Z][A-Z0-9_]{1,63}$"
                   },
                   "status": {
-                    "enum": ["PENDING", "SETTLED", "FIN_REVIEW", "FAILED"]
+                    "enum": ["AWAITING_REVIEW", "PENDING", "SETTLED", "FIN_REVIEW", "FAILED"]
                   },
                   "requestedAt": {
                     "type": "string",
@@ -26092,7 +26092,7 @@
             "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}[.][0-9]{3}Z$"
           },
           "status": {
-            "const": "PENDING"
+            "enum": ["PENDING", "AWAITING_REVIEW"]
           }
         }
       }
