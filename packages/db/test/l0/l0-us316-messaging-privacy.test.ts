@@ -412,10 +412,10 @@ describe.each(COUNTRIES)('US-316 — confidentialité et rendez-vous ($country, 
       await inTx(api, { virtualNow: T0 }, async (tx) => {
         const guest = uuid();
         const t = await trip(tx, c, guest);
-        const g = await openSession(tx, guest);
         const h = await openSession(tx, t.holder);
+        let hostHash = h.hash;
         const pick = (place: string, when = at(START, -1), kind = 'PICKUP') =>
-          propose(tx, h.hash, t.trip, kind, place, when).then((r) => r['outcome']);
+          propose(tx, hostHash, t.trip, kind, place, when).then((r) => r['outcome']);
 
         // coordonnées (L3-PM-45, L3-PM-49 : « jamais bloquer, sauf coordonnées »)
         for (const place of [
@@ -445,10 +445,14 @@ describe.each(COUNTRIES)('US-316 — confidentialité et rendez-vous ($country, 
         const late = uuid();
         await propose(tx, h.hash, t.trip, 'PICKUP', PLACE, at(START, -1), late);
         await setVirtualNow(tx, at(START, -0.5));
-        expect((await answer(tx, g.hash, t.trip, late, 'ACCEPT'))['outcome']).toBe(
+        // sessions d'une durée bornée (US-101) : rouvertes à la nouvelle heure
+        const g2 = await openSession(tx, guest);
+        const h2 = await openSession(tx, t.holder);
+        hostHash = h2.hash;
+        expect((await answer(tx, g2.hash, t.trip, late, 'ACCEPT'))['outcome']).toBe(
           'MEETING_EXPIRED',
         );
-        expect((await answer(tx, g.hash, t.trip, late, 'DECLINE'))['outcome']).toBe('DONE');
+        expect((await answer(tx, g2.hash, t.trip, late, 'DECLINE'))['outcome']).toBe('DONE');
 
         // trip commencé : plus de remise ; retour encore ; trip clos : rien
         await close(tx, t.trip, 'IN_PROGRESS');
@@ -456,7 +460,7 @@ describe.each(COUNTRIES)('US-316 — confidentialité et rendez-vous ($country, 
         expect(await pick(PLACE, at(END, 1), 'RETURN')).toBe('DONE');
         await close(tx, t.trip, 'COMPLETED');
         expect(await pick(PLACE, at(END, 1), 'RETURN')).toBe('MEETING_NOT_ALLOWED');
-        expect((await rows(tx, MEETINGS, [h.hash, t.trip]))[0]).toMatchObject({
+        expect((await rows(tx, MEETINGS, [hostHash, t.trip]))[0]).toMatchObject({
           can_propose: false,
         });
       });

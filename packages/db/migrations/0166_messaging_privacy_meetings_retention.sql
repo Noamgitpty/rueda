@@ -339,7 +339,8 @@ BEGIN
       SELECT x.*
         FROM (
           SELECT p.id, p.kind, p.place_label, p.meet_at, p.status,
-                 (p.proposed_by = v_user OR p.answered_by = v_user) AS mine, p.created_at,
+                 (p.proposed_by = v_user OR p.answered_by IS NOT DISTINCT FROM v_user) AS mine,
+                 p.created_at,
                  p.answered_at
             FROM core.messaging_meeting_proposal AS p
            WHERE p.trip_id = p_trip_id AND p.purged_at IS NULL
