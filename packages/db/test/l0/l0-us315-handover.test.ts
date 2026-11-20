@@ -324,6 +324,8 @@ describe.each(COUNTRIES)(
         const w = await world(tx, c);
         await tx.query('SELECT test_fixture.us315_birth($1, $2::date)', [w.guest, '1990-04-12']);
         await subjectKeys(tx, w);
+        // avant l'ouverture : aucune donnée du voyageur à l'hôte
+        expect((await view(tx, w.h, w.trip, 'CHECKIN'))['guest']).toBeNull();
         expect((await open(tx, w.g, w.trip))['outcome']).toBe('DONE');
 
         // critère 2 : l'hôte voit le prénom, l'initiale du nom et l'année de naissance, rien d'autre
@@ -421,6 +423,8 @@ describe.each(COUNTRIES)(
         expect(iso(second['completed_at'])).toBe(SECOND);
         const r = await records(tx, w.trip);
         expect(r).toMatchObject({ status: 'IN_PROGRESS', transitions: 1 });
+        // remise faite : l'hôte ne lit plus les données du voyageur
+        expect((await view(tx, w.h, w.trip, 'CHECKIN'))['guest']).toBeNull();
         expect(at(r['checkinValidatedAt'])).toBe(SECOND);
         expect(r['identity']).toEqual({
           status: 'TRIP_ID_OK',

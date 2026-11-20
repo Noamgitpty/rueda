@@ -420,8 +420,9 @@ COMMENT ON FUNCTION core.trip_handover_apply(uuid, text, text, text, text, uuid,
 
 -- 5.5 Lecture de la remise (`CHECKIN`) ou du retour (`CHECKOUT`) par une partie du trip : état,
 -- ouverture, conditions, contrôle du permis, séries de photos, validations, fin. Données de
--- l'autre partie : à l'hôte, au départ seulement, le prénom, l'initiale du nom et l'année de
--- naissance du voyageur ; au voyageur, rien. NOT_FOUND à toute autre personne.
+-- l'autre partie : à l'hôte, au départ et pendant la remise seulement (CHECKIN_OPEN,
+-- START_WINDOW_EXPIRED), le prénom, l'initiale du nom et l'année de naissance du voyageur ; au
+-- voyageur, rien. NOT_FOUND à toute autre personne.
 CREATE FUNCTION core.trip_handover_view(p_token_hash bytea, p_trip_id uuid, p_kind text)
   RETURNS jsonb
   LANGUAGE plpgsql
@@ -462,7 +463,9 @@ BEGIN
     v_done := t.checkin_validated_at;
     SELECT c.status, c.checked_at INTO v_ic, v_ic_at
       FROM core.trip_ops_identity_check AS c WHERE c.trip_id = p.trip_id;
-    IF p.role = 'HOST' THEN
+    -- données du voyageur : à l'hôte, pendant la remise seulement (ni avant l'ouverture, ni après le
+    -- départ, ni sur un trip annulé ou terminé)
+    IF p.role = 'HOST' AND t.status IN ('CHECKIN_OPEN', 'START_WINDOW_EXPIRED') THEN
       SELECT CASE WHEN u.pseudonymized_at IS NULL THEN u.legal_first_name END,
              CASE WHEN u.pseudonymized_at IS NULL AND u.legal_last_name IS NOT NULL
                   THEN pg_catalog.upper(pg_catalog.left(u.legal_last_name, 1)) END,
@@ -503,7 +506,9 @@ BEGIN
                                            WHEN 'TRIP_ID_FAILED' THEN 'FAILED'
                                            ELSE 'PENDING' END,
                        'checkedAt', v_ic_at) END,
-    'guest', CASE WHEN p_kind = 'CHECKIN' AND p.role = 'HOST' THEN pg_catalog.jsonb_build_object(
+    'guest', CASE WHEN p_kind = 'CHECKIN' AND p.role = 'HOST'
+                       AND t.status IN ('CHECKIN_OPEN', 'START_WINDOW_EXPIRED')
+                  THEN pg_catalog.jsonb_build_object(
                'firstName', v_first, 'lastInitial', v_initial, 'birthYear', v_year) END,
     'photos', pg_catalog.jsonb_build_object(
       'mine', COALESCE((SELECT i.status FROM core.trip_ops_inspection AS i

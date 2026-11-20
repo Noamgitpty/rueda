@@ -76,14 +76,22 @@ describe('US-315 — routes de la remise et du retour (contrat OpenAPI)', () => 
       headers: host(w),
     });
     expect(h.status).toBe(200);
+    // avant l'ouverture : aucune donnée du voyageur à l'hôte
     expect(h.json).toMatchObject({
       viewerRole: 'HOST',
       direction: 'checkin',
       tripStatus: 'BOOKED',
       canOpen: true,
       blockers: [],
-      guest: { firstName: 'Ana', lastInitial: 'P', birthYear: 1990 },
+      guest: null,
       contactlessOffered: false,
+    });
+    w.store.trips.get(w.trip)!.status = 'CHECKIN_OPEN';
+    const during = await w.app.api.request('GET', `/trips/${w.trip}/handover/checkin`, {
+      headers: host(w),
+    });
+    expect(during.json).toMatchObject({
+      guest: { firstName: 'Ana', lastInitial: 'P', birthYear: 1990 },
     });
     const g = await w.app.api.request('GET', `/trips/${w.trip}/handover/checkin`, {
       headers: guest(w),

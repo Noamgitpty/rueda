@@ -99,7 +99,9 @@ export class FakeHandoverStore implements HandoverStore {
           }
         : null,
       guest:
-        checkin && role === 'HOST' ? { firstName: 'Ana', lastInitial: 'P', birthYear: 1990 } : null,
+        checkin && role === 'HOST' && ['CHECKIN_OPEN', 'START_WINDOW_EXPIRED'].includes(t.status)
+          ? { firstName: 'Ana', lastInitial: 'P', birthYear: 1990 }
+          : null,
       photos: { mine: t.photos[kind][role], other: t.photos[kind][other] },
       validations: { mine: v(role), other: v(other) },
       contactlessOffered: false,
