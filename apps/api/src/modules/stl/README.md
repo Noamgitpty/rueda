@@ -66,7 +66,7 @@ Cible (17 §4.5) :
 
 - émis : `settlement.computed`, `settlement.superseded`, `settlement.legs.posted` / `.released` / `.reallocated`, `settlement.advance.opened` / `.recovered` / `.written_off`, `insurer.bordereau.issued`, `host_ledger.state_changed` ;
 - 17 §2.2 cite aussi `ledger.entry.posted`, absent du catalogue §4.5 ;
-- consommés : `trip.cancellation.qualified` (AVL), `payment.operation.status_changed` (PAY), `refund.instance.status_changed` (PAY), `trip.checkout.completed` (TRP), `dispute.opened` / `.decided` (CLM), `message.posted` (MSG, lecture de la preuve `hostMessageTraced`).
+- consommés : `trip.cancellation.qualified` (AVL), `payment.operation.status_changed` (PAY), `refund.instance.status_changed` (PAY), `trip.checkout.completed` (TRP) (non émis : `trip.status_changed` porte la transition, motifs `CHECKIN_VALIDATED` et `CHECKOUT_VALIDATED`, US-315, ADR-183), `dispute.opened` / `.decided` (CLM), `message.posted` (MSG, lecture de la preuve `hostMessageTraced`).
 
 ## Ports
 

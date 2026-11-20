@@ -439,6 +439,8 @@ export const CONTRACT_SUITES: Readonly<Record<string, string>> = {
   '/trips/constancias': 'modules/ctr/testing/trip-constancia.contract.test.ts',
   // photos d'état du véhicule d'un trip (US-303, module TRP)
   '/trips/{tripId}/inspections': 'modules/trp/testing/trip-inspection.contract.test.ts',
+  // remise et retour entre particuliers (US-315, module TRP)
+  '/trips/{tripId}/handover': 'modules/trp/testing/trip-handover.contract.test.ts',
   // aide et urgence (US-310, module SUP) : S17 public, aide d'un trip, demande d'aide, console
   '/help': 'modules/sup/testing/help.contract.test.ts',
   '/trips/{tripId}/help': 'modules/sup/testing/help.contract.test.ts',

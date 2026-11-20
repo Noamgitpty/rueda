@@ -1,0 +1,13 @@
+# Revue architecture (delta) — US-315 « remise et retour entre particuliers » (PR n° 270) — 2026-11-19b
+
+Relecteur : revue-architecture / claude-sonnet-5-5 (famille A, modèle autre que l'auteur claude-opus-5-5)
+Entrées : d2376472..64359305
+
+Contexte : Revue delta de `d2376472..64359305` (rapport précédent : `architecture-2026-11-19.md`). CI relue au SHA 64359305 : entièrement verte (run 44649482746) ; PostgreSQL et Docker non démarrés, les preuves L0 sont lues, non rejouées. `.github/`, `scripts/ci/`, `scripts/team/` et `review-requirements.json` non touchés ; aucun secret. Migration 0163 modifiée seulement dans `trip_handover_view`, `cmd_trip_identity_check`, `cmd_trip_handover_validate` ; ADR-183 (écart photo de profil) et README AVL / STL / NTF / CLM relus.
+
+| #   | Gravité | Constat                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| --- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 1   | INFO    | **Frontières et écarts.** Aucune modification de schéma, de signature ni d'allowlist ; les modifications restent dans les trois fonctions déjà approuvées. L'écart à 19 US-315 critère 2 / 10b UX-37 (photo de profil absente côté IAM) est déclaré dans ADR-183 et la passation avec sa suite ; les README des quatre modules disent que `trip.checkin.validated` / `trip.checkout.completed` ne sont pas émis (le motif de `trip.status_changed` porte la transition). |
+| 2   | INFO    | **Cohérence.** Le garde `t.status IN ('CHECKIN_OPEN','START_WINDOW_EXPIRED')` est le même pour la lecture des données et pour le champ `guest` ; le fake de test et le contrat l'alignent. Numéros 0163 / ADR-183 / v98 / 9924 inchangés, 0164 / v99 / 9923 rendus.                                                                                                                                                                                                      |
+
+Verdict : APPROUVÉ

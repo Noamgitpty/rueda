@@ -26,7 +26,7 @@ import { MSG_MESSAGES } from '../modules/msg/index.js';
 import { HELP_MESSAGES, OPS_MESSAGES } from '../modules/sup/index.js';
 import { QUOTE_MESSAGES } from '../modules/prc/index.js';
 import { RISK_MESSAGES } from '../modules/risk/index.js';
-import { INSPECTION_MESSAGES } from '../modules/trp/index.js';
+import { HANDOVER_MESSAGES, INSPECTION_MESSAGES } from '../modules/trp/index.js';
 import { startApiHarness } from './api-harness.js';
 import type { ApiHarness } from './api-harness.js';
 import { controllerRoutes } from './controller-routes.js';
@@ -255,6 +255,7 @@ const CATALOG: ReadonlyMap<string, ReadonlySet<number>> = (() => {
     GUEST_TRIP_MESSAGES,
     CONSTANCIA_MESSAGES,
     INSPECTION_MESSAGES,
+    HANDOVER_MESSAGES,
     HELP_MESSAGES,
   ] as const) {
     for (const [code, { status }] of Object.entries(catalog)) add(code, status);
