@@ -417,6 +417,8 @@ describe.each(COUNTRIES)('US-306 — escalade et vue des retards ($country, $cur
         };
         const ha = await open(a, first);
         const hb = await open(b, second);
+        // pid lu AVANT la requête concurrente : une fois lancée, la connexion b est occupée
+        const pidB = await backendPid(b);
         const ra = await a.query<Outcome>(
           ACT,
           ACT_ARGS(ha, uuid(), o.tripId, { escalationStep: 'CONTACT' }),
@@ -426,7 +428,7 @@ describe.each(COUNTRIES)('US-306 — escalade et vue des retards ($country, $cur
           ACT,
           ACT_ARGS(hb, uuid(), o.tripId, { escalationStep: 'CONTACT' }),
         );
-        await waitUntilBlocked(observer, await backendPid(b));
+        await waitUntilBlocked(observer, pidB);
         await a.query('COMMIT');
         expect((await pending).rows[0]).toMatchObject({
           outcome: 'REFUSED',
