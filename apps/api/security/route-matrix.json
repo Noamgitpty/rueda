@@ -661,6 +661,22 @@
     "POST /trips/{tripId}/inspections/{kind}/submit": {
       "acces": "session",
       "idor": "trip d'une autre personne (ni son voyageur ni le titulaire de son compte d'hôte), inconnu, type de série ou identifiant mal formé : 404 INSPECTION_NOT_FOUND, même réponse (17 §2.3 point 5) ; la partie est celle de la session, jugée en base (core.trip_inspection_view, core.trip_cmd_open_photo_capture, core.trip_photo_capture_check, core.trip_cmd_add_inspection_photo, core.trip_cmd_submit_inspection, 0158) ; chaque partie écrit SA série seulement (jeton de capture de la personne, de la série et de l'angle) et lit les deux séries de SON trip : métadonnées seulement (angle, empreinte, heure), jamais le contenu ; preuves base : l0-us303"
+    },
+    "GET /trips/{tripId}/handover/{direction}": {
+      "acces": "session",
+      "idor": "trip d'une autre personne (ni son voyageur ni le titulaire de son compte d'hôte), inconnu, sens ou identifiant mal formé : 404 HANDOVER_NOT_FOUND, même réponse (17 §2.3 point 5) ; la partie est celle de la session, jugée en base (core.trip_handover_view, core.trip_cmd_open_checkin, core.trip_cmd_identity_check, core.trip_cmd_validate_handover, 0163) ; chaque partie écrit SA validation seulement ; le contrôle du permis est celui du seul hôte (403 HANDOVER_HOST_ONLY au voyageur) ; l'hôte ne lit du voyageur que le prénom, l'initiale du nom et l'année de naissance, au départ ; aucune heure reçue du client ; preuves base : l0-us315"
+    },
+    "POST /trips/{tripId}/handover/checkin/open": {
+      "acces": "session",
+      "idor": "trip d'une autre personne (ni son voyageur ni le titulaire de son compte d'hôte), inconnu, sens ou identifiant mal formé : 404 HANDOVER_NOT_FOUND, même réponse (17 §2.3 point 5) ; la partie est celle de la session, jugée en base (core.trip_handover_view, core.trip_cmd_open_checkin, core.trip_cmd_identity_check, core.trip_cmd_validate_handover, 0163) ; chaque partie écrit SA validation seulement ; le contrôle du permis est celui du seul hôte (403 HANDOVER_HOST_ONLY au voyageur) ; l'hôte ne lit du voyageur que le prénom, l'initiale du nom et l'année de naissance, au départ ; aucune heure reçue du client ; preuves base : l0-us315"
+    },
+    "POST /trips/{tripId}/handover/checkin/identity": {
+      "acces": "session",
+      "idor": "trip d'une autre personne (ni son voyageur ni le titulaire de son compte d'hôte), inconnu, sens ou identifiant mal formé : 404 HANDOVER_NOT_FOUND, même réponse (17 §2.3 point 5) ; la partie est celle de la session, jugée en base (core.trip_handover_view, core.trip_cmd_open_checkin, core.trip_cmd_identity_check, core.trip_cmd_validate_handover, 0163) ; chaque partie écrit SA validation seulement ; le contrôle du permis est celui du seul hôte (403 HANDOVER_HOST_ONLY au voyageur) ; l'hôte ne lit du voyageur que le prénom, l'initiale du nom et l'année de naissance, au départ ; aucune heure reçue du client ; preuves base : l0-us315"
+    },
+    "POST /trips/{tripId}/handover/{direction}/validate": {
+      "acces": "session",
+      "idor": "trip d'une autre personne (ni son voyageur ni le titulaire de son compte d'hôte), inconnu, sens ou identifiant mal formé : 404 HANDOVER_NOT_FOUND, même réponse (17 §2.3 point 5) ; la partie est celle de la session, jugée en base (core.trip_handover_view, core.trip_cmd_open_checkin, core.trip_cmd_identity_check, core.trip_cmd_validate_handover, 0163) ; chaque partie écrit SA validation seulement ; le contrôle du permis est celui du seul hôte (403 HANDOVER_HOST_ONLY au voyageur) ; l'hôte ne lit du voyageur que le prénom, l'initiale du nom et l'année de naissance, au départ ; aucune heure reçue du client ; preuves base : l0-us315"
     }
   }
 }

@@ -127,6 +127,22 @@ export default async function HostTripPage({
           )}
         </a>
       )}
+      {/* remise et retour en personne (US-315) : A03 avant le départ, A04 pendant le trip */}
+      {(['BOOKED', 'CHECKIN_OPEN', 'START_WINDOW_EXPIRED', 'IN_PROGRESS', 'OVERDUE'] as const).some(
+        (s) => s === read.trip.status,
+      ) && (
+        <a
+          className={styles['link']}
+          href={`/host/trips/${tripId}/handover/${read.trip.status === 'IN_PROGRESS' || read.trip.status === 'OVERDUE' ? 'checkout' : 'checkin'}?org=${account.orgId}`}
+          data-testid="a05-handover"
+        >
+          {t(
+            read.trip.status === 'IN_PROGRESS' || read.trip.status === 'OVERDUE'
+              ? 'web.handover.link.checkout'
+              : 'web.handover.link.checkin',
+          )}
+        </a>
+      )}
       {(shownRefunds.length > 0 || refundsFailed) && (
         <section className={styles['section']} aria-labelledby="a05-refund-title">
           <h2 id="a05-refund-title" className={accountStyles['h2']}>

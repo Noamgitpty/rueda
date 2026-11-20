@@ -18,7 +18,7 @@ Toutes les entités de 17 §3.2.11 sont **cibles 17, pas encore créées** : `cl
 
 Émis (cible 17 §4.5) : `claim.status_changed`, `invoice.status_changed`, `dispute.opened` / `.decided`, `evidence.bundle.generated`. **Aucun n'est émis aujourd'hui.**
 
-Consommés (cible 17 §4.5) : `settlement.computed` (STL), `payment.chargeback.opened` / `.closed` et `deposit.decision.executed` (PAY), `trip.checkin.validated` (TRP, photos de départ). Aucun consommateur n'est branché.
+Consommés (cible 17 §4.5) : `settlement.computed` (STL), `payment.chargeback.opened` / `.closed` et `deposit.decision.executed` (PAY), `trip.checkin.validated` (TRP, photos de départ) (non émis : `trip.status_changed` porte la transition, motifs `CHECKIN_VALIDATED` et `CHECKOUT_VALIDATED`, US-315, ADR-183). Aucun consommateur n'est branché.
 
 ## Ports
 
