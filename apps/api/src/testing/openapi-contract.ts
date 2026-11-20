@@ -434,6 +434,8 @@ export const CONTRACT_SUITES: Readonly<Record<string, string>> = {
   '/trips/{tripId}/constancia': 'modules/ctr/testing/trip-constancia.contract.test.ts',
   // messagerie par trip et signal du marché gris (US-525, module MSG)
   '/trips/{tripId}/messages': 'modules/msg/testing/trip-messages.contract.test.ts',
+  // rendez-vous d'un trip : proposition de l'hôte, réponse du voyageur (US-316, module MSG)
+  '/trips/{tripId}/meetings': 'modules/msg/testing/trip-meetings.contract.test.ts',
   '/trips/constancias': 'modules/ctr/testing/trip-constancia.contract.test.ts',
   // photos d'état du véhicule d'un trip (US-303, module TRP)
   '/trips/{tripId}/inspections': 'modules/trp/testing/trip-inspection.contract.test.ts',

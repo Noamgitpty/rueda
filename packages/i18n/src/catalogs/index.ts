@@ -326,8 +326,15 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  à motif fermé et ses issues, FAQ courte ; `web.help.call`, inutilisée, retirée avant la fusion), `common.help.unavailable`,
  `common.help.authority.<id>` (autorité de circulation de la configuration pays) et la réponse
  automatique hors plage `ntf.helpOffHours.*` / `ntf.helpOffHoursHost.*`.
+ Version 101 (réservée à US-316 par l’orchestrateur ; les 98, 99 et 100 sont celles d’US-315, US-308
+ et US-708) : confidentialité, rendez-vous et rétention de la messagerie (US-316, ADR-186) :
+ `common.meetings.*` (réponses des routes `/trips/{id}/meetings` : liste, proposition, réponse,
+ rôle ou trip refusé, proposition inconnue, déjà répondue ou passée, lieu invalide ou avec
+ coordonnées), `web.s16.meeting.*` (S16 : bloc « rendez-vous » de la remise et du retour, statuts,
+ confirmation et refus du voyageur, formulaire de l’hôte) et l’avis de rendez-vous confirmé
+ `ntf.meetingPickupConfirmed.*` / `ntf.meetingReturnConfirmed.*` (heure seulement, jamais le lieu).
  */
-export const CATALOG_VERSION = 97;
+export const CATALOG_VERSION = 101;
 
 /** Catalogues de base par langue ; la langue d'un profil de locale choisit le sien. */
 export const CATALOGS: Readonly<Record<CatalogLanguage, VersionedCatalog<MessageKey>>> = {

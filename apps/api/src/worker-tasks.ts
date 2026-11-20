@@ -19,7 +19,7 @@
  * | `booking_contract`    | événement `booking.trip.booked`            | `core.booking_contract_source` puis `core.booking_cmd_record_contract` (0122, US-211) : contrat de location hôte–voyageur, retenue du moteur de règlement, PDF déterministe et empreinte ; idempotent par événement |
  * | `iam_otp_pruner`      | 1 h                                        | `core.iam_worker_otp_prune` (0066) : défis OTP de plus de 30 jours (17 §3.2.1) |
  * | `kyc_score_pruner`    | 1 h                                        | `core.kyc_worker_prune` (0072, US-105) : scores [C3] à `retention_until`, rejets de rappels de plus de 90 jours |
- * | `privacy_request`     | 1 h                                        | `core.privacy_worker_retention_sweep`, `core.privacy_worker_dsr_overdue` puis `core.privacy_worker_stale_kyc_erasures` (0090, US-111) : trips clos sans litige pseudonymisés à l'échéance (`evidence_retention_months`), purge journalisée ; demandes des personnes en retard signalées une fois ; demandes d'effacement KYC en attente ou en échec ; alertes `PRIVACY_DSR_OVERDUE` (P1, par pays), `PRIVACY_KYC_ERASURE_STALE` (P1) |
+ * | `privacy_request`     | 1 h                                        | `core.privacy_worker_retention_sweep`, `core.privacy_worker_message_purge` (0166, US-316), `core.privacy_worker_dsr_overdue` puis `core.privacy_worker_stale_kyc_erasures` (0090, US-111) : trips clos sans litige pseudonymisés à l'échéance (`evidence_retention_months`), purge journalisée ; messages et lieux de rendez-vous des trips clos purgés à l'échéance `TRIP_MESSAGES`, jamais pendant un litige, une réclamation ouverte ou un gel légal ; demandes des personnes en retard signalées une fois ; demandes d'effacement KYC en attente ou en échec ; alertes `PRIVACY_DSR_OVERDUE` (P1, par pays), `PRIVACY_KYC_ERASURE_STALE` (P1) |
  * | `security_incident_watch` | 300 s                                  | `core.security_incident_worker_watch` (0092, US-112) : déclaration d'incident nouvelle signalée une fois (`SECURITY_INCIDENT_OPENED`, P1, par pays) ; échéance de notification d'une violation dépassée signalée une fois (`SECURITY_INCIDENT_NOTICE_OVERDUE`, P1, par pays et destinataire) |
  * | `review_sla_watch`    | 60 s                                       | `core.kyc_worker_auto_review_hosts` (0081, US-108 : dossiers d'hôte propres approuvés sans l'ops), `core.kyc_worker_enqueue_reviews` puis `core.support_worker_review_sla` (0076, US-106) : dossiers KYC en revue remis en file, éléments en retard signalés une fois ; alertes `OPS_REVIEW_SLA_BREACH` (P2), `OPS_KYC_REVIEW_UNQUEUED` (P1, une fois par dossier et par épisode de revue) |
  * | `trip_lifecycle`      | 10 s (US-215, ADR-148)                     | `TripCancellationProcessor` de STL : chaque demande d'annulation de l'ops (`core.booking_trip_cancellations_pending`) réglée dans sa propre transaction (`core.booking_trip_cancellation_begin`, moteur unique, `core.settlement_cmd_record`, `core.booking_cmd_trip_settle_cancellation`, ordres REFUND bornés de 0121) ; refus garés par `core.booking_cmd_trip_park_cancellation`, alertes `FIN_SETTLEMENT_REVIEW` ou `TRIP_CANCELLATION_FAILED` (P1) |
@@ -444,6 +444,12 @@ export function registerWorkerTasks(registry: BusRegistry, deps: WorkerTaskDeps)
       'SELECT core.privacy_worker_retention_sweep($1) AS n',
       [d.privacyBatch],
     );
+    // US-316 (ADR-186) : messages et lieux de rendez-vous des trips clos purgés à l'échéance
+    // TRIP_MESSAGES, jamais pendant un litige, une réclamation ouverte ou un gel légal
+    const purged = await tx.query<{ n: unknown }>(
+      'SELECT core.privacy_worker_message_purge($1) AS n',
+      [d.privacyBatch],
+    );
     const late = await tx.query<{ country_code: string; overdue: unknown }>(
       'SELECT country_code, overdue FROM core.privacy_worker_dsr_overdue($1)',
       [d.privacyBatch],
@@ -473,7 +479,12 @@ export function registerWorkerTasks(registry: BusRegistry, deps: WorkerTaskDeps)
         counts: { stale },
       });
     }
-    line(PRIVACY_REQUEST_WORKER, { pseudonymised: count(swept.rows[0]?.n), overdue, stale });
+    line(PRIVACY_REQUEST_WORKER, {
+      pseudonymised: count(swept.rows[0]?.n),
+      messagesPurged: count(purged.rows[0]?.n),
+      overdue,
+      stale,
+    });
   });
 
   // Registre des incidents (US-112) : chaque déclaration nouvelle et chaque échéance de notification

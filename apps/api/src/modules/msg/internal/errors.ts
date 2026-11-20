@@ -5,7 +5,10 @@
  *
  * Code de 16 A.8 : `MESSAGE_THREAD_CLOSED`. Repris : `AUTH_REQUIRED`, `REQUEST_INVALID` (US-010),
  * `TRIP_NOT_FOUND` (US-214). PROPOSÉS (à reporter dans 16 A.8, ADR-181) : `TRIP_MESSAGES`,
- * `MESSAGE_SENT`, `MESSAGE_INVALID`, `MESSAGES_UNAVAILABLE`.
+ * `MESSAGE_SENT`, `MESSAGE_INVALID`, `MESSAGES_UNAVAILABLE` ; rendez-vous (US-316, ADR-186) :
+ * `TRIP_MEETINGS`, `MEETING_PROPOSED`, `MEETING_ANSWERED`, `MEETING_NOT_ALLOWED`,
+ * `MEETING_NOT_FOUND`, `MEETING_NOT_PENDING`, `MEETING_EXPIRED`, `MEETING_INVALID`,
+ * `MEETING_PLACE_CONTACT`.
  */
 import { HttpException } from '@nestjs/common';
 
@@ -18,6 +21,16 @@ export const MSG_MESSAGES = {
   MESSAGE_THREAD_CLOSED: { status: 409, messageKey: 'common.messages.threadClosed' },
   MESSAGE_INVALID: { status: 422, messageKey: 'common.messages.invalid' },
   MESSAGES_UNAVAILABLE: { status: 503, messageKey: 'common.messages.unavailable' },
+  // rendez-vous du trip (US-316, ADR-186 ; PROPOSÉS, à reporter dans 16 A.8)
+  TRIP_MEETINGS: { status: 200, messageKey: 'common.meetings.list' },
+  MEETING_PROPOSED: { status: 201, messageKey: 'common.meetings.proposed' },
+  MEETING_ANSWERED: { status: 200, messageKey: 'common.meetings.answered' },
+  MEETING_NOT_ALLOWED: { status: 403, messageKey: 'common.meetings.notAllowed' },
+  MEETING_NOT_FOUND: { status: 404, messageKey: 'common.meetings.notFound' },
+  MEETING_NOT_PENDING: { status: 409, messageKey: 'common.meetings.notPending' },
+  MEETING_EXPIRED: { status: 409, messageKey: 'common.meetings.expired' },
+  MEETING_INVALID: { status: 422, messageKey: 'common.meetings.invalid' },
+  MEETING_PLACE_CONTACT: { status: 422, messageKey: 'common.meetings.placeContact' },
 } as const;
 
 export type MsgCode = keyof typeof MSG_MESSAGES;

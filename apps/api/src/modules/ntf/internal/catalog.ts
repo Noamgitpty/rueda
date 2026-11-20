@@ -172,6 +172,9 @@ export const TEMPLATE_KEYS = [
   // réponse automatique à une demande d'aide reçue hors plage (US-310, ADR-182)
   'EVT_HELP_REQUEST_OFF_HOURS',
   'EVT_HELP_REQUEST_OFF_HOURS_HOST',
+  // rendez-vous de remise ou de retour accepté par le voyageur (US-316, ADR-186)
+  'EVT_TRIP_MEETING_CONFIRMED_PICKUP',
+  'EVT_TRIP_MEETING_CONFIRMED_RETURN',
 ] as const;
 export type TemplateKey = (typeof TEMPLATE_KEYS)[number];
 
@@ -182,6 +185,8 @@ const BOOKING_REF: VariableSource = { from: 'payload', type: 'ref', field: 'trip
 const REQUEST_REF: VariableSource = { from: 'payload', type: 'ref', field: 'hold_id' };
 const START_AT: VariableSource = { from: 'payload', type: 'instant', field: 'scheduled_start' };
 const END_AT: VariableSource = { from: 'payload', type: 'instant', field: 'scheduled_end' };
+/** Heure du rendez-vous accepté (US-316) ; le lieu n'est JAMAIS dans la charge utile (ADR-186). */
+const MEET_AT: VariableSource = { from: 'payload', type: 'instant', field: 'meet_at' };
 /** Support et assistance de l'assureur au voyageur ; support seul à l'hôte (US-213, ADR-174). */
 const GUEST_ASSISTANCE: VariableSource = { from: 'assistance', audience: 'GUEST' };
 const HOST_ASSISTANCE: VariableSource = { from: 'assistance', audience: 'HOST' };
@@ -427,6 +432,23 @@ export const TEMPLATES: Readonly<Record<TemplateKey, TemplateSpec>> = {
     channels: SMS_THEN_EMAIL,
     critical: true,
   },
+  // US-316 (19 US-316 critère 4 ; ADR-186, PROPOSÉ) : rendez-vous accepté, avis aux deux parties
+  // avec l'heure ; le lieu se lit dans l'appli (aperçu sans contenu, L3-PM-45 ; aucun lieu dans
+  // le journal d'envoi, L3-PM-50) ; e-mail d'abord, SMS en repli
+  EVT_TRIP_MEETING_CONFIRMED_PICKUP: {
+    key: 'EVT_TRIP_MEETING_CONFIRMED_PICKUP',
+    slug: 'meetingPickupConfirmed',
+    variables: { first_name: FIRST_NAME, brand: BRAND, booking_ref: BOOKING_REF, meet_at: MEET_AT },
+    channels: EMAIL_THEN_SMS,
+    critical: false,
+  },
+  EVT_TRIP_MEETING_CONFIRMED_RETURN: {
+    key: 'EVT_TRIP_MEETING_CONFIRMED_RETURN',
+    slug: 'meetingReturnConfirmed',
+    variables: { first_name: FIRST_NAME, brand: BRAND, booking_ref: BOOKING_REF, meet_at: MEET_AT },
+    channels: EMAIL_THEN_SMS,
+    critical: false,
+  },
 };
 
 const GUEST: RecipientSpec = { role: 'GUEST', field: 'guest_user_id' };
@@ -616,6 +638,23 @@ export const RULES: readonly RuleSpec[] = [
     template: 'EVT_HELP_REQUEST_OFF_HOURS_HOST',
     condition: fieldIs('auto_reply', 'HOST'),
     recipients: [{ role: 'HOST', field: 'requester_user_id' }],
+  },
+  // rendez-vous accepté (0166, US-316, ADR-186 ; PROPOSÉ, à reporter dans 17 §4.5) : trip_id,
+  // meeting_id, kind (PICKUP ou RETURN), meet_at ; JAMAIS le lieu ; parties du trip lues en base
+  // (voyageur et titulaire du compte d'hôte) ; kind absent ⇒ erreur de contrat
+  {
+    eventType: 'trip.meeting.confirmed',
+    template: 'EVT_TRIP_MEETING_CONFIRMED_PICKUP',
+    condition: fieldIs('kind', 'PICKUP'),
+    recipients: [GUEST, HOST],
+    parties: TRIP_PARTIES,
+  },
+  {
+    eventType: 'trip.meeting.confirmed',
+    template: 'EVT_TRIP_MEETING_CONFIRMED_RETURN',
+    condition: fieldIs('kind', 'RETURN'),
+    recipients: [GUEST, HOST],
+    parties: TRIP_PARTIES,
   },
 ];
 

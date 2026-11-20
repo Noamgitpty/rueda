@@ -55,6 +55,8 @@ describe('abonnement', () => {
       'payout.batch.status_changed',
       // US-310 : réponse automatique à une demande d'aide hors plage
       'support.help_request.received',
+      // US-316 : rendez-vous de remise ou de retour accepté (avis aux deux parties)
+      'trip.meeting.confirmed',
       'trip.overdue.detected',
       'trip.status_changed',
     ]);

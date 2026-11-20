@@ -3032,4 +3032,54 @@ export const EN_MESSAGES = {
     "Hi {first_name}. We received your help request about booking {booking_ref}. Our team isn't available right now and will reply as soon as possible. If anyone is in danger or hurt, call emergency services. {assistance}",
   'ntf.helpOffHoursHost.sms.body':
     '{brand}: we received your request ({booking_ref}). We will reply as soon as possible. If in danger, call emergency services. {assistance}',
+  // confidentialité, rendez-vous et rétention de la messagerie (US-316, ADR-186, catalogue v101)
+  'common.meetings.list': 'Trip meetups.',
+  'common.meetings.proposed': 'Proposal sent.',
+  'common.meetings.answered': 'Answer saved.',
+  'common.meetings.notAllowed':
+    'Only the host proposes a meetup and only the guest confirms it, while the trip is not over.',
+  'common.meetings.notFound': 'We could not find this meetup proposal.',
+  'common.meetings.notPending': 'This proposal was already answered or replaced by another one.',
+  'common.meetings.expired':
+    'The proposed time has passed. Ask the host for a new one in the chat.',
+  'common.meetings.invalid':
+    'Enter a place of 3 to 160 characters and a future time close to the trip dates.',
+  'common.meetings.placeContact':
+    'The place cannot include a phone number, email, username or link. Describe an easy-to-find spot.',
+  'web.s16.meeting.heading': 'Meetup',
+  'web.s16.meeting.leadGuest':
+    'Your host proposes the place and time for pickup and return; confirm them here.',
+  'web.s16.meeting.leadHost':
+    'Propose the place and time for pickup and return; the guest confirms them.',
+  'web.s16.meeting.privacy': 'Only the two of you see the place; notifications only show the time.',
+  'web.s16.meeting.none': 'No meetup proposed yet.',
+  'web.s16.meeting.kind.PICKUP': 'Pickup',
+  'web.s16.meeting.kind.RETURN': 'Return',
+  'web.s16.meeting.status.PROPOSED': 'Awaiting confirmation',
+  'web.s16.meeting.status.ACCEPTED': 'Confirmed',
+  'web.s16.meeting.status.DECLINED': 'Declined',
+  'web.s16.meeting.place': 'Place: {place}',
+  'web.s16.meeting.accept': 'Confirm',
+  'web.s16.meeting.decline': 'Decline',
+  'web.s16.meeting.done.ACCEPTED': 'Meetup confirmed. We notified you both of the time.',
+  'web.s16.meeting.done.DECLINED': 'Proposal declined. Message your host to agree on another one.',
+  'web.s16.meeting.done.PROPOSED': 'Proposal sent. The guest will confirm it here.',
+  'web.s16.meeting.form.title': 'Propose a meetup',
+  'web.s16.meeting.form.kind': 'Stage',
+  'web.s16.meeting.form.place': 'Place',
+  'web.s16.meeting.form.placeHint': 'A public, easy-to-find place. No phone number, email or link.',
+  'web.s16.meeting.form.when': 'Date and time',
+  'web.s16.meeting.form.whenHint': 'Local time of the trip.',
+  'web.s16.meeting.form.submit': 'Send proposal',
+  'web.s16.meeting.form.required': 'Enter the place, date and time.',
+  'ntf.meetingPickupConfirmed.email.subject': 'Booking {booking_ref}: pickup meetup confirmed',
+  'ntf.meetingPickupConfirmed.email.body':
+    'Hi {first_name}. The pickup meetup for booking {booking_ref} is confirmed for {meet_at}. See the agreed place in the booking chat on {brand}.',
+  'ntf.meetingPickupConfirmed.sms.body':
+    '{brand}: pickup meetup confirmed ({booking_ref}) for {meet_at}. See the place in the app.',
+  'ntf.meetingReturnConfirmed.email.subject': 'Booking {booking_ref}: return meetup confirmed',
+  'ntf.meetingReturnConfirmed.email.body':
+    'Hi {first_name}. The return meetup for booking {booking_ref} is confirmed for {meet_at}. See the agreed place in the booking chat on {brand}.',
+  'ntf.meetingReturnConfirmed.sms.body':
+    '{brand}: return meetup confirmed ({booking_ref}) for {meet_at}. See the place in the app.',
 } as const satisfies Readonly<Record<MessageKey, Message>>;
