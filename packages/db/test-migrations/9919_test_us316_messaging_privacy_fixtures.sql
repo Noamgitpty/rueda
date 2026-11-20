@@ -177,6 +177,9 @@ BEGIN
     WHEN 'MEETING_MOVE' THEN
       UPDATE core.messaging_meeting_proposal SET meet_at = meet_at + interval '1 hour'
        WHERE id = p_id;
+    WHEN 'MEETING_PURGE' THEN
+      UPDATE core.messaging_meeting_proposal SET place_label = NULL, purged_at = platform.now()
+       WHERE id = p_id;
     WHEN 'MEETING_REOPEN' THEN
       UPDATE core.messaging_meeting_proposal
          SET status = 'PROPOSED', answered_by = NULL, answered_at = NULL

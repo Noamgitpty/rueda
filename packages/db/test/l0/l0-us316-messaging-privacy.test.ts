@@ -732,6 +732,17 @@ describe('US-316 — gardes, droits et tables fermées', () => {
           ).rejects.toMatchObject({ code: '23000', constraint: 'messaging_meeting_guarded' });
           await tx.query('ROLLBACK TO SAVEPOINT w');
         }
+        // proposition purgée par la rétention (lieu effacé) : son rejeu est refusé (identifiant
+        // pris), jamais une ligne sans lieu ; elle n'est plus lue ni répondable
+        await tx.query('SELECT test_fixture.us316_force_write($1, $2)', [id, 'MEETING_PURGE']);
+        expect(await propose(tx, h.hash, t.trip, 'PICKUP', PLACE, at(START, -1), id)).toMatchObject(
+          { outcome: 'REQUEST_INVALID', meeting_id: null, place_label: null },
+        );
+        expect((await rows(tx, MEETINGS, [g.hash, t.trip]))[0]).toMatchObject({
+          outcome: 'DONE',
+          meeting_id: null,
+        });
+        expect((await answer(tx, g.hash, t.trip, id, 'DECLINE'))['outcome']).toBe('NOT_FOUND');
         const m = await one(tx, POST, [g.hash, t.trip, uuid(), 'Hola']);
         const mid = m['message_id'] as string;
         // purge partielle refusée (forme), puis purge, puis « dépurge » refusée (garde)
