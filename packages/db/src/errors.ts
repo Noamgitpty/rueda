@@ -368,6 +368,17 @@ export const CONSTRAINT_CODES: Readonly<Record<string, readonly [string, DbBusin
     SQLSTATE.integrityConstraintViolation,
     'INVARIANT_VIOLATION',
   ],
+  // grand livre de l'hôte, chargebacks, compensation et ajustement (0167, US-709, ADR-187) : un
+  // crédit jamais au-delà de la dette de (hôte, devise), formes et uniques des écritures, imputation
+  // d'un chargeback, aucune émission d'un lot compensé sans ajustement réussi
+  host_ledger_credit_exceeds_debt: [SQLSTATE.integrityConstraintViolation, 'INVARIANT_VIOLATION'],
+  host_ledger_link_shape: [SQLSTATE.checkViolation, 'INVARIANT_VIOLATION'],
+  host_ledger_clawback_unique: [SQLSTATE.uniqueViolation, 'INVARIANT_VIOLATION'],
+  host_ledger_netting_unique: [SQLSTATE.uniqueViolation, 'INVARIANT_VIOLATION'],
+  host_ledger_write_off_unique: [SQLSTATE.uniqueViolation, 'INVARIANT_VIOLATION'],
+  chargeback_imputation_shape: [SQLSTATE.checkViolation, 'INVARIANT_VIOLATION'],
+  payout_batch_adjustment_required: [SQLSTATE.objectNotInPrerequisiteState, 'INVALID_TRANSITION'],
+  payout_batch_adjustment_guard: [SQLSTATE.integrityConstraintViolation, 'INVARIANT_VIOLATION'],
   // intention de paiement, conversion gardée et compensation (0040, 0041, US-024)
   hold_not_payable: [SQLSTATE.objectNotInPrerequisiteState, 'HOLD_EXPIRED'],
   hold_payment_terminal: [SQLSTATE.objectNotInPrerequisiteState, 'INVALID_TRANSITION'],

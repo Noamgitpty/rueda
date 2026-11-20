@@ -31,7 +31,12 @@ const US108_TABLES = ['settlement_insurer', 'settlement_insurer_contract'] as co
  * host_ledger minimal d'US-709a (0129, ADR-153) : lecture FINANCE / ADMIN, écriture par la seule
  * commande de cmd_money_owner ; prouvés par l0-us709a-host-ledger.test.ts et la matrice d'US-043.
  */
-const US709_TABLES = ['settlement_host_ledger_entry'] as const;
+const US709_TABLES = [
+  'settlement_host_ledger_entry',
+  // US-709 (0167, ADR-187) : imputation des chargebacks perdus et état SM-6b du grand livre
+  'settlement_chargeback_imputation',
+  'settlement_host_ledger_state',
+] as const;
 /**
  * Registre de l'assureur d'US-227 (0143, ADR-165) : lecture FINANCE / ADMIN, écriture par les seuls
  * déclencheurs de cmd_money_owner (miroir de la source) ; prouvé par l0-us227-insurer-ledger.test.ts.
