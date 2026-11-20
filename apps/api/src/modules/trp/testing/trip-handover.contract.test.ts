@@ -17,7 +17,7 @@
  * Les règles de la base sont prouvées sur PostgreSQL (l0-us315-handover). Données fictives.
  */
 import { randomUUID } from 'node:crypto';
-import { afterAll, describe, expect, it } from 'vitest';
+import { afterAll, describe, expect, it, vi } from 'vitest';
 import {
   closeContractApps,
   contract,
@@ -34,6 +34,9 @@ import { FakeHandoverStore, fakeTrip } from './fake-handover-store.js';
 class RecordingReminders implements MitConsentPort {
   readonly reminded: { readonly tripId: string; readonly locale: string }[] = [];
   down = false;
+  mode(): Promise<null> {
+    return Promise.resolve(null);
+  }
   accept(): Promise<MitConsentOutcome> {
     return Promise.reject(new Error('non utilisé'));
   }
@@ -237,8 +240,16 @@ describe('US-315 — routes de la remise et du retour (contrat OpenAPI)', () => 
     ).toBe(400);
     expect(reminders.reminded).toEqual([]);
     reminders.down = true;
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     const first = await post(w, guest(w), 'checkin/validate', { ...READING, locale: 'fr' });
     expect(first.status).toBe(200);
+    // revue sécurité n° 7 : échec journalisé par un code, sans identifiant ni valeur
+    const lines = warn.mock.calls.map((c) => String(c[0]));
+    warn.mockRestore();
+    expect(lines).toContainEqual(
+      JSON.stringify({ level: 'warn', event: 'handover.mit_reminder_failed', code: 'Error' }),
+    );
+    expect(lines.join(' ')).not.toContain(w.trip);
     reminders.down = false;
     const replay = await post(w, guest(w), 'checkin/validate', { ...READING, locale: 'pt-BR' });
     expect(replay.status).toBe(200);

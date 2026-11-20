@@ -38,6 +38,7 @@ import {
 import type {
   DepositEnforcement,
   DepositGuestView,
+  MitConsentMode,
   MitConsentPort,
   PaymentMethod,
   PaymentProvider,
@@ -147,6 +148,12 @@ export interface CheckoutPayment {
    * décision, devis indisponible).
    */
   readonly deposit?: CheckoutDepositView;
+  /**
+   * US-703 (ADR-189 n° 15, DEC-FONDATEUR-22) : forme du consentement MIT du pays à afficher en S05
+   * et S06 (`NOTICE` mention au bouton, `CHECKBOX` case séparée) ; champ absent hors des états
+   * payables ou si la lecture échoue (le site affiche alors la case, la forme la plus explicite).
+   */
+  readonly mitConsent?: { readonly mode: MitConsentMode };
 }
 
 /**
@@ -298,7 +305,11 @@ export class CheckoutPaymentService {
     if (deposit === 'AUTH_REQUIRED' || deposit === 'HOLD_NOT_FOUND') {
       throw new PaymentHttpError(deposit);
     }
-    return deposit === null ? view : { ...view, deposit: depositViewOf(deposit) };
+    const withDeposit = deposit === null ? view : { ...view, deposit: depositViewOf(deposit) };
+    if (!evaluate) return withDeposit;
+    // US-703 : forme du consentement ; une lecture en échec n'empêche jamais l'affichage
+    const mode = await this.consents.mode(proof, view.holdId).catch(() => null);
+    return mode === null ? withDeposit : { ...withDeposit, mitConsent: { mode } };
   }
 
   /**

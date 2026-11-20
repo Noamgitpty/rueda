@@ -6,7 +6,12 @@
  * et retiennent ce que l'API leur transmet.
  */
 import { assertMovingLegs, PaymentError } from '../../pay/index.js';
-import type { MitConsentOutcome, MitConsentPort, MitReminderOutcome } from '../../pay/index.js';
+import type {
+  MitConsentMode,
+  MitConsentOutcome,
+  MitConsentPort,
+  MitReminderOutcome,
+} from '../../pay/index.js';
 import type {
   CreateHostedPaymentRequest,
   DepositEnforcement,
@@ -167,7 +172,13 @@ export class FakeMitConsents implements MitConsentPort {
   readonly accepted: { readonly holdId: string; readonly locale: string }[] = [];
   readonly reminded: { readonly tripId: string; readonly locale: string }[] = [];
   outcome: MitConsentOutcome | null = null;
+  mitMode: MitConsentMode = 'NOTICE';
   down = false;
+
+  mode(): Promise<MitConsentMode | null> {
+    if (this.down) return Promise.reject(new Error('base indisponible'));
+    return Promise.resolve(this.mitMode);
+  }
 
   accept(_proof: Buffer, holdId: string, locale: string): Promise<MitConsentOutcome> {
     if (this.down) return Promise.reject(new Error('base indisponible'));

@@ -54,6 +54,17 @@ export interface HandoverView {
   readonly completedAt: string | null;
 }
 
+/** Journal d'exploitation du rappel MIT de la remise : un code borné, jamais une valeur (17 §6.3). */
+export function logMitReminder(event: 'failed' | 'refused', code: string): void {
+  console.warn(JSON.stringify({ level: 'warn', event: `handover.mit_reminder_${event}`, code }));
+}
+
+const errorClassOf = (error: unknown): string => {
+  const name =
+    typeof error === 'object' && error !== null ? (error as { name?: unknown }).name : undefined;
+  return typeof name === 'string' && /^[A-Za-z][A-Za-z0-9_]{0,63}$/.test(name) ? name : 'Unknown';
+};
+
 @Injectable()
 export class HandoverService {
   constructor(
@@ -147,7 +158,17 @@ export class HandoverService {
     // la carte (la dette suit le recouvrement hors carte), fail-closed pour l'argent seulement.
     if (kind === 'CHECKIN' && input.locale !== null) {
       const locale = input.locale;
-      await this.reminders.acknowledgeReminder(proof, tripId, locale).catch(() => null);
+      const outcome = await this.reminders
+        .acknowledgeReminder(proof, tripId, locale)
+        .catch((error: unknown) => {
+          // revue sécurité n° 7 : échec journalisé (classe de l'erreur, jamais un identifiant)
+          logMitReminder('failed', errorClassOf(error));
+          return null;
+        });
+      if (outcome !== null && outcome !== 'ACKNOWLEDGED' && outcome !== 'ALREADY_ACKNOWLEDGED') {
+        // refus de la base (pas de consentement, remise non ouverte…) : code seulement
+        logMitReminder('refused', outcome);
+      }
     }
     const r = await this.#call(() =>
       this.store.validate(
