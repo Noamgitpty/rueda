@@ -69,7 +69,15 @@
 --      du compte PSP du trip (17 §2.8 : capacité inconnue = « non ») ; la demande est alors garée
 --      FIN_REVIEW (LEG_REALLOCATION_UNSUPPORTED), rien n'est remboursé ni réaffecté ;
 --   9. aucun montant saisi ni lu par une déclaration ; aucun interrupteur écrit ; aucune
---      constante de pays.
+--      constante de pays (hors bloc GÉNÉRÉ du paramètre, section 15) ;
+--  10. signalement du voyageur jamais sans issue (revues de la PR #283) : la validation par l'ops
+--      rejoue les obstacles d'état (`core.booking_no_show_report_obstacle` : remise pas ouverte,
+--      transition interdite, hôte présent) et refuse net (NO_SHOW_REPORT_INVALIDATED) ; le
+--      travailleur trip_lifecycle (`core.booking_worker_no_show_review_alerts`) marque UNE fois
+--      (`review_alerted_at`) un signalement en attente depuis `no_show_report_review_alert_minutes`
+--      du pays (STALE ; absent ou non positif : au premier passage, fail-closed) ou devenu
+--      inapplicable (BLOCKED : autre demande vivante, obstacle d'état) ; STL lève l'alerte
+--      TRIP_NO_SHOW_REPORT_UNRESOLVED (P2, comptes par pays et par cause, PROPOSÉ).
 --
 -- Codes (packages/db/src/errors.ts, sans DETAIL) :
 --   leg_reallocation_unsupported (55000)    → FIN_REVIEW_REQUIRED (garé FIN_REVIEW par STL) ;
@@ -79,7 +87,8 @@
 -- Issues des commandes (refus : rien n'est écrit) : DONE, NOT_FOUND, REQUEST_INVALID,
 --   CHECKIN_NOT_OPEN, TRIP_TRANSITION_FORBIDDEN, NO_SHOW_TOO_EARLY, NO_SHOW_WINDOW_CLOSED,
 --   NO_SHOW_PARTY_PRESENT, NO_SHOW_EVIDENCE_REQUIRED, CANCELLATION_PENDING ; console en plus :
---   SELF_FORBIDDEN, NO_SHOW_PARTY_REQUIRED, REFUSAL_REASON_REQUIRED, REFUSAL_AFTER_CHECKIN.
+--   SELF_FORBIDDEN, NO_SHOW_PARTY_REQUIRED, REFUSAL_REASON_REQUIRED, REFUSAL_AFTER_CHECKIN,
+--   NO_REPORT_PENDING, NO_SHOW_REPORT_INVALIDATED.
 --
 -- Expand / contract : colonne, fonctions, droits et politiques AJOUTÉS ; deux CHECK de 0124
 -- recréés sous le même nom, élargis (une demande valide de 0124 reste valide) ; corps de
@@ -90,6 +99,8 @@
 -- ligne `manual_action` n'en dépend) ; liaisons ajoutées.
 --
 -- Retour arrière :
+--   DELETE des valeurs puis de la définition de no_show_report_review_alert_minutes ;
+--   ALTER POLICY cmd_hold_cancel_read ON core.config_param_value (définition de 0124) ;
 --   DELETE FROM core.support_manual_action_handler
 --    WHERE action_code IN ('DECLARE_NO_SHOW', 'REFUSE_AT_PICKUP') ;
 --   UPDATE core.support_manual_action_catalog SET input_keys = '{}', input_values = '{}'
@@ -101,14 +112,18 @@
 --     text, uuid, jsonb, text, uuid, text), core.booking_trip_cancellation_flags(uuid),
 --     core.payment_assert_payout_adjustment(uuid, text), core.messaging_wait_traced(uuid, text,
 --     timestamptz, timestamptz, interval), core.settlement_verify_cxl_beta_2(jsonb),
---     core.booking_no_show_traced(uuid, text, timestamptz), core.booking_no_show_policy() ;
---   DROP INDEX core.trip_cancellation_review_unique ; DROP POLICY cmd_hold_cancel_review_upd ;
+--     core.booking_no_show_traced(uuid, text, timestamptz), core.booking_no_show_policy(),
+--     core.booking_worker_no_show_review_alerts(integer),
+--     core.booking_no_show_report_obstacle(uuid), core.booking_no_show_party_present(uuid, text) ;
+--   DROP INDEX core.trip_cancellation_review_unique ; DROP POLICY cmd_hold_cancel_review_upd,
+--     cmd_hold_cancel_alert_upd ON core.booking_trip_cancellation ;
 --   ALTER POLICY cmd_hold_trip_notice_ins (définition de 0132) ;
 --   ALTER POLICY cmd_hold_cancel_read ON core.support_manual_action USING (action_code IN
 --     ('CANCEL_TRIP_GUEST', 'CANCEL_TRIP_HOST', 'CANCEL_TRIP_PLATFORM')) ;
 --   DROP POLICY cmd_hold_cancel_party_ins ON core.booking_trip_cancellation ;
 --   recréer les CHECK de 0124 ; ALTER TABLE core.booking_trip_cancellation
---     DROP COLUMN host_message_traced ; révoquer les droits accordés ci-dessous.
+--     DROP COLUMN host_message_traced, DROP COLUMN review_alerted_at ; révoquer les droits
+--     accordés ci-dessous.
 
 -- 1. STL : vérificateur du moteur cxl-beta/2 (fonction pure, SECURITY INVOKER, migrator) ---------
 -- cxl-beta/2 = cxl-beta/1 + ligne n° 8 de 08 (CLEANLINESS_SAFETY_VALID). Pour les onze motifs de
@@ -542,6 +557,22 @@ ALTER TABLE core.booking_trip_cancellation
     (requested_reason = 'GUEST_NO_SHOW') = (host_message_traced IS NOT NULL));
 
 GRANT INSERT (host_message_traced, status) ON core.booking_trip_cancellation TO cmd_hold_owner;
+-- alerte d'un signalement resté sans issue, posée UNE fois par le travailleur (section 12 bis)
+ALTER TABLE core.booking_trip_cancellation ADD COLUMN review_alerted_at timestamptz;
+ALTER TABLE core.booking_trip_cancellation
+  ADD CONSTRAINT trip_cancellation_review_alert_shape CHECK (
+    review_alerted_at IS NULL OR action_code = 'GUEST_REPORT_HOST_NO_SHOW');
+GRANT UPDATE (review_alerted_at) ON core.booking_trip_cancellation TO cmd_hold_owner;
+CREATE POLICY cmd_hold_cancel_alert_upd ON core.booking_trip_cancellation FOR UPDATE
+  TO cmd_hold_owner
+  USING (status = 'AWAITING_REVIEW' AND review_alerted_at IS NULL
+         AND app.actor_kind() = 'WORKER' AND app.worker_name() = 'trip_lifecycle')
+  WITH CHECK (status = 'AWAITING_REVIEW' AND review_alerted_at IS NOT NULL
+              AND app.actor_kind() = 'WORKER' AND app.worker_name() = 'trip_lifecycle');
+-- délai de l'alerte, lu par le travailleur (0124 élargie d'une clé)
+ALTER POLICY cmd_hold_cancel_read ON core.config_param_value
+  USING (key IN ('free_cancel_lead', 'last_minute_threshold', 'host_penalty',
+                 'platform_funded_host_compensation', 'no_show_report_review_alert_minutes'));
 -- déclaration d'une partie du trip (contexte posé par la commande APRÈS la vérification de la
 -- session, comme la remise de 0163) : l'hôte déclare le voyageur absent, le voyageur l'hôte
 CREATE POLICY cmd_hold_cancel_party_ins ON core.booking_trip_cancellation FOR INSERT
@@ -644,6 +675,47 @@ COMMENT ON FUNCTION core.booking_no_show_traced(uuid, text, timestamptz) IS
   'Interne : message d''une partie et attente tracés dans la fenêtre de 08 BR-CXL-08 '
   '(début − 1 h ; déclaration − 15 min). US-307 (ADR-191).';
 
+-- Partie déclarée absente présente : contrôle du permis écrit par l'hôte (les deux parties étaient
+-- là), ou validation de la remise par la partie déclarée absente (US-315). Seule définition.
+CREATE FUNCTION core.booking_no_show_party_present(p_trip_id uuid, p_side text)
+  RETURNS boolean
+  LANGUAGE sql
+  STABLE
+  SET search_path = pg_catalog, pg_temp
+AS $fn$
+  SELECT EXISTS (SELECT 1 FROM core.trip_ops_identity_check AS ic WHERE ic.trip_id = p_trip_id)
+      OR EXISTS (SELECT 1 FROM core.trip_ops_handover_validation AS hv
+                  WHERE hv.trip_id = p_trip_id AND hv.kind = 'CHECKIN'
+                    AND hv.performer_role = p_side)
+$fn$;
+COMMENT ON FUNCTION core.booking_no_show_party_present(uuid, text) IS
+  'Interne : la partie déclarée absente était présente (contrôle du permis, validation de la '
+  'remise). US-307 (ADR-191).';
+
+-- Obstacle d'état d'un signalement du no-show de l'hôte (hors preuve et fenêtre, déjà jugées au
+-- signalement) : remise pas ouverte, transition vers NO_SHOW_HOST interdite, hôte présent. Lu par
+-- la validation de l'ops (refus net) et par l'alerte du travailleur (BLOCKED). NULL : applicable.
+CREATE FUNCTION core.booking_no_show_report_obstacle(p_trip_id uuid)
+  RETURNS text
+  LANGUAGE sql
+  STABLE
+  SET search_path = pg_catalog, pg_temp
+AS $fn$
+  SELECT CASE
+           WHEN t.status IS NULL THEN 'NOT_FOUND'
+           WHEN t.status = 'BOOKED' THEN 'CHECKIN_NOT_OPEN'
+           WHEN NOT EXISTS (SELECT 1 FROM core.booking_trip_transition AS tt
+                             WHERE tt.from_status = t.status AND tt.to_status = 'NO_SHOW_HOST'
+                               AND tt.via = 'CANCEL') THEN 'TRIP_TRANSITION_FORBIDDEN'
+           WHEN core.booking_no_show_party_present(p_trip_id, 'HOST') THEN 'NO_SHOW_PARTY_PRESENT'
+         END
+    FROM (SELECT (SELECT tr.status FROM core.booking_trip AS tr WHERE tr.id = p_trip_id) AS status)
+         AS t
+$fn$;
+COMMENT ON FUNCTION core.booking_no_show_report_obstacle(uuid) IS
+  'Interne : obstacle d''état d''un signalement du no-show de l''hôte (remise, transition, '
+  'présence), NULL s''il reste applicable. US-307 (ADR-191).';
+
 -- 8. État d'une déclaration de no-show pour une partie (SECURITY INVOKER, interne) --------------
 -- p_side = partie DÉCLARÉE ABSENTE (GUEST : l'hôte déclare ; HOST : le voyageur signale) ; à
 -- platform.now(). Rend le premier obstacle (NULL = déclarable), la preuve tracée, la fenêtre.
@@ -692,11 +764,7 @@ BEGIN
       WHEN v_now > v_until THEN 'NO_SHOW_WINDOW_CLOSED'
       -- partie déclarée absente présente : contrôle du permis écrit par l'hôte (le voyageur était
       -- là, l'hôte aussi), ou validation de la remise par la partie déclarée absente
-      WHEN EXISTS (SELECT 1 FROM core.trip_ops_identity_check AS ic WHERE ic.trip_id = p_trip_id)
-           OR EXISTS (SELECT 1 FROM core.trip_ops_handover_validation AS hv
-                       WHERE hv.trip_id = p_trip_id AND hv.kind = 'CHECKIN'
-                         AND hv.performer_role = p_side)
-        THEN 'NO_SHOW_PARTY_PRESENT'
+      WHEN core.booking_no_show_party_present(p_trip_id, p_side) THEN 'NO_SHOW_PARTY_PRESENT'
       WHEN p_side = 'HOST' AND NOT v_traced THEN 'NO_SHOW_EVIDENCE_REQUIRED'
       WHEN EXISTS (SELECT 1 FROM core.booking_trip_cancellation AS c
                     WHERE c.trip_id = p_trip_id
@@ -979,6 +1047,12 @@ BEGIN
         RETURN QUERY SELECT 'CANCELLATION_PENDING'::text, NULL::uuid, '{}'::uuid[];
         RETURN;
       END IF;
+      -- obstacles d'état rejoués (revues code n° 3, sécurité n° 4) : refus net, jamais un échec
+      -- de règlement ; le signalement reste en attente, à rejeter (NONE)
+      IF core.booking_no_show_report_obstacle(v_t.id) IS NOT NULL THEN
+        RETURN QUERY SELECT 'NO_SHOW_REPORT_INVALIDATED'::text, NULL::uuid, '{}'::uuid[];
+        RETURN;
+      END IF;
       UPDATE core.booking_trip_cancellation AS c SET status = 'PENDING'
        WHERE c.id = v_report AND c.status = 'AWAITING_REVIEW';
       RETURN QUERY SELECT 'DONE'::text, v_report, '{}'::uuid[];
@@ -1047,6 +1121,85 @@ COMMENT ON FUNCTION core.booking_manual_action_no_show(bytea, uuid, text, uuid, 
   'd''US-101 : motif demandé et initiateur dérivés de l''action et d''une énumération fermée, heure '
   'serveur, délais et présence relus ; demande PENDING réglée par trip_lifecycle ; aucun montant. '
   'EXECUTE iam_staff_owner. US-307 (ADR-191).';
+
+-- 12 bis. Signalements restés sans issue (travailleur trip_lifecycle ; revue architecture n° 3) --
+-- Chaque signalement AWAITING_REVIEW non encore alerté est marqué UNE fois (`review_alerted_at`)
+-- s'il est devenu inapplicable (BLOCKED : autre demande vivante sur le trip, obstacle d'état) ou
+-- s'il attend depuis `no_show_report_review_alert_minutes` du pays (STALE ; valeur absente ou non
+-- positive : au premier passage, fail-closed). Rend des comptes par pays et par cause (alerte
+-- TRIP_NO_SHOW_REPORT_UNRESOLVED de STL), jamais un identifiant. SKIP LOCKED : deux travailleurs
+-- ne marquent jamais le même signalement deux fois.
+CREATE FUNCTION core.booking_worker_no_show_review_alerts(p_batch integer)
+  RETURNS TABLE (country_code text, reason text, reports integer)
+  LANGUAGE plpgsql
+  VOLATILE
+  SECURITY DEFINER
+  SET search_path = pg_catalog, pg_temp
+AS $fn$
+#variable_conflict use_column
+DECLARE
+  r         record;
+  v_now     timestamptz := platform.now();
+  v_minutes jsonb;
+  v_reason  text;
+  v_c       text[] := '{}';
+  v_r       text[] := '{}';
+BEGIN
+  IF app.actor_kind() IS DISTINCT FROM 'WORKER'
+     OR app.worker_name() IS DISTINCT FROM 'trip_lifecycle' THEN
+    RAISE EXCEPTION 'trip: command forbidden'
+      USING ERRCODE = 'insufficient_privilege', CONSTRAINT = 'trip_command_forbidden';
+  END IF;
+  FOR r IN
+    SELECT c.id, c.trip_id, c.country_code, c.requested_at
+      FROM core.booking_trip_cancellation AS c
+     WHERE c.status = 'AWAITING_REVIEW' AND c.review_alerted_at IS NULL
+     ORDER BY c.requested_at, c.id
+     LIMIT LEAST(GREATEST(COALESCE(p_batch, 0), 0), 500)
+       FOR UPDATE SKIP LOCKED
+  LOOP
+    v_reason := NULL;
+    IF EXISTS (SELECT 1 FROM core.booking_trip_cancellation AS o
+                WHERE o.trip_id = r.trip_id AND o.id <> r.id
+                  AND o.status IN ('PENDING', 'SETTLED', 'FIN_REVIEW'))
+       OR core.booking_no_show_report_obstacle(r.trip_id) IS NOT NULL THEN
+      v_reason := 'BLOCKED';
+    ELSE
+      v_minutes := NULL;
+      SELECT v.value INTO v_minutes
+        FROM core.config_param_value AS v
+       WHERE v.key = 'no_show_report_review_alert_minutes'
+         AND v.country_code::text = r.country_code::text AND v.scope_type = 'COUNTRY'
+         AND v.valid_from <= v_now AND (v.valid_to IS NULL OR v.valid_to > v_now)
+       ORDER BY v.valid_from DESC
+       LIMIT 1;
+      IF pg_catalog.jsonb_typeof(v_minutes) IS DISTINCT FROM 'number'
+         OR (v_minutes #>> '{}') !~ '^[0-9]{1,6}$' THEN
+        v_reason := 'STALE';
+      ELSIF (v_minutes #>> '{}')::integer <= 0
+         OR r.requested_at + pg_catalog.make_interval(mins => (v_minutes #>> '{}')::integer)
+            <= v_now THEN
+        v_reason := 'STALE';
+      END IF;
+    END IF;
+    IF v_reason IS NOT NULL THEN
+      UPDATE core.booking_trip_cancellation AS c SET review_alerted_at = v_now
+       WHERE c.id = r.id AND c.status = 'AWAITING_REVIEW' AND c.review_alerted_at IS NULL;
+      v_c := v_c || r.country_code::text;
+      v_r := v_r || v_reason;
+    END IF;
+  END LOOP;
+  RETURN QUERY
+    SELECT x.c, x.r, pg_catalog.count(*)::integer
+      FROM pg_catalog.unnest(v_c, v_r) AS x(c, r)
+     GROUP BY x.c, x.r
+     ORDER BY x.c, x.r;
+END
+$fn$;
+COMMENT ON FUNCTION core.booking_worker_no_show_review_alerts(integer) IS
+  'Travailleur trip_lifecycle : marque une fois les signalements du no-show de l''hôte restés sans '
+  'issue (STALE : délai du pays ; BLOCKED : autre demande vivante ou obstacle d''état) et rend des '
+  'comptes par pays et par cause. EXECUTE app_worker. US-307 (ADR-191).';
 
 -- 12. Faits propres aux déclarations, lus par le travailleur (trip_lifecycle) ------------------
 CREATE FUNCTION core.booking_trip_cancellation_flags(p_cancellation_id uuid)
@@ -1231,7 +1384,8 @@ $fn$;
 REVOKE ALL ON FUNCTION core.trip_no_show_state(uuid, text),
   core.trip_cmd_report_no_show(bytea, uuid, uuid), core.trip_no_show_view(bytea, uuid),
   core.booking_manual_action_no_show(bytea, uuid, text, uuid, jsonb, text, uuid, text),
-  core.booking_trip_cancellation_flags(uuid)
+  core.booking_trip_cancellation_flags(uuid), core.booking_worker_no_show_review_alerts(integer),
+  core.booking_no_show_report_obstacle(uuid), core.booking_no_show_party_present(uuid, text)
   FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION core.trip_cmd_report_no_show(bytea, uuid, uuid),
   core.trip_no_show_view(bytea, uuid)
@@ -1239,7 +1393,8 @@ GRANT EXECUTE ON FUNCTION core.trip_cmd_report_no_show(bytea, uuid, uuid),
 GRANT EXECUTE ON FUNCTION
   core.booking_manual_action_no_show(bytea, uuid, text, uuid, jsonb, text, uuid, text)
   TO iam_staff_owner;
-GRANT EXECUTE ON FUNCTION core.booking_trip_cancellation_flags(uuid) TO app_worker;
+GRANT EXECUTE ON FUNCTION core.booking_trip_cancellation_flags(uuid),
+  core.booking_worker_no_show_review_alerts(integer) TO app_worker;
 REVOKE ALL ON FUNCTION core.booking_no_show_policy(), core.booking_no_show_traced(uuid, text,
   timestamptz) FROM PUBLIC;
 -- lecture pure des délais (test de concordance sous app_worker)
@@ -1254,3 +1409,35 @@ SELECT a.code,
        'core.booking_manual_action_no_show(bytea, uuid, text, uuid, jsonb, text, uuid, text)'::regprocedure,
        'US-307'
   FROM pg_catalog.unnest(ARRAY['DECLARE_NO_SHOW', 'REFUSE_AT_PICKUP']) AS a(code);
+
+-- 15. Paramètre `no_show_report_review_alert_minutes` (alerte d'un signalement sans issue) :
+-- bloc GÉNÉRÉ depuis apps/api/src/modules/cfg/data/params.json (`renderParamSeedSql`, groupe
+-- `embedded` de POST_SEED_PARAMS) ; seed-sql.test.ts exige ce bloc à l'identique. Ne pas
+-- l'éditer à la main.
+-- 0171 — graine complémentaire : paramètres « no_show_report_review_alert_minutes* » (US-307 ; 17 §7.2).
+-- FICHIER GÉNÉRÉ depuis apps/api/src/modules/cfg/data/params.json par seed-sql.ts
+-- (renderParamSeedSql) : ne pas l’éditer à la main (test seed-sql.test.ts). Appliquée sous
+-- `migrator`. 0009 est immuable (ADR-044) : elle reste rendue sans ces paramètres (ADR-075).
+-- Valeurs PROPOSÉES ; valid_from posé par la garde (platform.now()).
+--
+-- Retour arrière (base sans dépendance) : DELETE des valeurs puis des définitions dont la clé
+-- commence par « no_show_report_review_alert_minutes » ; jamais en production : nouvelle migration à la place.
+INSERT INTO core.config_param_definition (key, type, unit, allowed_scopes, currency_bound, fail_mode, optional, go_live_switch, not_applicable_in, allowed_values, source_ref, status) VALUES
+  ('no_show_report_review_alert_minutes', 'DURATION', 'min', ARRAY['COUNTRY']::text[], false, 'BLOCK', false, false, '{}'::text[], NULL, '16 TRP-015 ; 08 BR-CXL-13 ; ADR-191 (revue de la PR #283) : délai après lequel un signalement du no-show de l’hôte par le voyageur, encore en attente de l’ops, lève l’alerte TRIP_NO_SHOW_REPORT_UNRESOLVED (une fois par signalement) ; absent ou non positif : alerte au premier passage (fail-closed)', 'PROPOSÉ comme Turo (ADR-191) : le support vérifie le signalement dans l’heure qui suit, 2 h avant l’alerte');
+
+INSERT INTO core.config_param_value (key, country_code, scope_type, scope_id, network, value, change_reason) VALUES
+  ('no_show_report_review_alert_minutes', 'PA', 'COUNTRY', NULL, NULL, '120'::jsonb, 'graine US-307 : défauts PROPOSÉS (16 TRP-015 ; 08 BR-CXL-13 ; ADR-191)'),
+  ('no_show_report_review_alert_minutes', 'PY', 'COUNTRY', NULL, NULL, '120'::jsonb, 'graine US-307 : défauts PROPOSÉS (16 TRP-015 ; 08 BR-CXL-13 ; ADR-191)');
+
+-- Fail-closed : chaque paramètre du groupe a une valeur dans chaque pays déclaré.
+DO $check$
+BEGIN
+  IF EXISTS (SELECT 1 FROM core.config_param_definition AS d
+              CROSS JOIN core.config_country AS c
+             WHERE d.key LIKE 'no\_show\_report\_review\_alert\_minutes%'
+               AND NOT EXISTS (SELECT 1 FROM core.config_param_value AS v
+                                WHERE v.key = d.key AND v.country_code = c.code)) THEN
+    RAISE EXCEPTION 'graine : paramètre no_show_report_review_alert_minutes* sans valeur pour un pays' USING ERRCODE = 'check_violation';
+  END IF;
+END
+$check$;

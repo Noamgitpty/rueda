@@ -63,7 +63,7 @@ CREATE FUNCTION test_fixture.us307_cancellation(p_id uuid)
   RETURNS TABLE (trip_id uuid, action_code text, requested_reason text, initiator text,
                  sub_reason text, status text, host_message_traced boolean, requested_by uuid,
                  requested_at timestamptz, settlement_id uuid, cost_bearer text,
-                 outcome_code text)
+                 outcome_code text, review_alerted_at timestamptz)
   LANGUAGE sql
   STABLE
   SECURITY DEFINER
@@ -71,7 +71,7 @@ CREATE FUNCTION test_fixture.us307_cancellation(p_id uuid)
 AS $fn$
   SELECT c.trip_id, c.action_code, c.requested_reason, c.initiator, c.sub_reason, c.status,
          c.host_message_traced, c.requested_by, c.requested_at, c.settlement_id, c.cost_bearer,
-         c.outcome_code
+         c.outcome_code, c.review_alerted_at
     FROM core.booking_trip_cancellation AS c WHERE c.id = p_id
 $fn$;
 

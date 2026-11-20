@@ -987,6 +987,112 @@ describe('ops : rejet d’un signalement du voyageur ; fenêtre du message (08 B
   });
 });
 
+describe('signalement du voyageur jamais sans issue ; bornes exactes de la preuve (08 BR-CXL-08)', () => {
+  /** Signalement du voyageur (preuve tracée), COMMITÉ ; rend son identifiant. */
+  async function guestReport(api: Tx, w: World, at: number): Promise<string> {
+    const id = uuid();
+    await asParty(api, w, 'GUEST', at, true, async (tx, h) => {
+      await message(tx, w, 'GUEST', START_MS + 2 * MINUTE);
+      expect(await report(tx, h, w.trip, id)).toMatchObject({
+        outcome: 'DONE',
+        status: 'AWAITING_REVIEW',
+      });
+    });
+    return id;
+  }
+  /** Passage du travailleur à `ms` (transaction ANNULÉE) : marque de NOTRE signalement seulement. */
+  async function alertPass(worker: Tx, id: string, ms: number, twice = false): Promise<unknown> {
+    return asWorker(worker, ms, async (tx) => {
+      await setSessionContext(tx, { kind: 'WORKER', workerName: 'trip_lifecycle' });
+      await tx.query('SELECT * FROM core.booking_worker_no_show_review_alerts(500)');
+      const first = (await cancellation(tx, id))?.['review_alerted_at'] ?? null;
+      if (twice) {
+        // second passage : jamais une seconde marque (une alerte par signalement)
+        await tx.query('SELECT * FROM core.booking_worker_no_show_review_alerts(500)');
+        expect((await cancellation(tx, id))?.['review_alerted_at'] ?? null).toEqual(first);
+      }
+      expect(await cancellation(tx, id)).toMatchObject({ status: 'AWAITING_REVIEW' });
+      return first;
+    });
+  }
+
+  it.each(COUNTRY_CASES)(
+    '%s : en attente depuis 120 min (no_show_report_review_alert_minutes) ⇒ marqué une fois (STALE), pas avant',
+    async (c) => {
+      await withRole('app_api', async (api) => {
+        await withRole('app_worker', async (worker) => {
+          const w = await world(worker, c);
+          const at = START_MS + 35 * MINUTE;
+          const id = await guestReport(api, w, at);
+          expect(await alertPass(worker, id, at + 119 * MINUTE)).toBeNull();
+          expect(await alertPass(worker, id, at + 120 * MINUTE, true)).not.toBeNull();
+        });
+      });
+    },
+  );
+
+  it('hôte devenu présent : marqué au premier passage (BLOCKED) ; la validation de l’ops refuse net (NO_SHOW_REPORT_INVALIDATED), rien n’est réglé', async () => {
+    await withRole('app_api', async (api) => {
+      await withRole('app_worker', async (worker) => {
+        const w = await world(worker, PA);
+        const at = START_MS + 35 * MINUTE;
+        const id = await guestReport(api, w, at);
+        await withTestTransaction(api, { virtualNow: iso(at + MINUTE), commit: true }, (tx) =>
+          tx.query('SELECT test_fixture.us307_identity_check($1, $2)', [w.trip, 'TRIP_ID_OK']),
+        );
+        expect(await alertPass(worker, id, at + 2 * MINUTE)).not.toBeNull();
+        expect(
+          await act(api, w, 'DECLARE_NO_SHOW', at + 3 * MINUTE, { absentParty: 'HOST' }),
+        ).toMatchObject({ outcome: 'REFUSED', detail: 'NO_SHOW_REPORT_INVALIDATED' });
+        await asWorker(worker, at + 4 * MINUTE, async (tx) => {
+          expect(await cancellation(tx, id)).toMatchObject({
+            status: 'AWAITING_REVIEW',
+            settlement_id: null,
+          });
+        });
+        // l'ops le rejette ensuite (NONE) : issue tracée, rien n'est réglé
+        expect(
+          await act(api, w, 'DECLARE_NO_SHOW', at + 5 * MINUTE, { absentParty: 'NONE' }),
+        ).toMatchObject({ outcome: 'DONE', domain_ref: id });
+      });
+    });
+  });
+
+  it.each(COUNTRY_CASES)(
+    '%s : message à début − 60 min pile tracé ; déclaration à 15 min pile de l’attente tracée, 1 s avant non ; réponse à 15 min pile = réponse, 1 s après non',
+    async (c) => {
+      await withRole('app_api', async (api) => {
+        await withRole('app_worker', async (worker) => {
+          const SECOND = 1000;
+          const sent = START_MS + 10 * MINUTE;
+          const cases: readonly [string, number, number, number | null, boolean][] = [
+            // [titre, message de l'hôte, heure de la lecture, réponse du voyageur, tracé]
+            ['début − 60 min pile', START_MS - 60 * MINUTE, START_MS + 70 * MINUTE, null, true],
+            ['déclaration à + 15 min pile', sent, sent + 15 * MINUTE, null, true],
+            ['déclaration à + 15 min − 1 s', sent, sent + 15 * MINUTE - SECOND, null, false],
+            ['réponse à + 15 min pile', sent, START_MS + 70 * MINUTE, sent + 15 * MINUTE, false],
+            [
+              'réponse à + 15 min + 1 s',
+              sent,
+              START_MS + 70 * MINUTE,
+              sent + 15 * MINUTE + SECOND,
+              true,
+            ],
+          ];
+          for (const [label, hostAt, readAt, replyAt, traced] of cases) {
+            const w = await world(worker, c);
+            await asParty(api, w, 'HOST', readAt, false, async (tx, h) => {
+              await message(tx, w, 'HOST', hostAt);
+              if (replyAt !== null) await message(tx, w, 'GUEST', replyAt);
+              expect((await view(tx, h, w.trip))['messageTraced'], label).toBe(traced);
+            });
+          }
+        });
+      });
+    },
+  );
+});
+
 describe('aucune déclaration ne se rejoue (idempotence, deux connexions)', () => {
   it('même requestId ⇒ l’issue d’origine ; autre requestId ⇒ CANCELLATION_PENDING ; requestId d’un autre trip ⇒ REQUEST_INVALID', async () => {
     await withRole('app_api', async (api) => {

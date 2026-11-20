@@ -2504,6 +2504,13 @@
       "story": "US-307"
     },
     {
+      "signature": "core.booking_worker_no_show_review_alerts(integer)",
+      "family": "cmd_hold",
+      "owner": "cmd_hold_owner",
+      "execute": ["app_worker"],
+      "story": "US-307"
+    },
+    {
       "signature": "core.settlement_refresh_host_ledger_state(uuid,text)",
       "family": "cmd_money",
       "owner": "cmd_money_owner",

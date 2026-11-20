@@ -232,14 +232,14 @@
     },
     {
       "path": "packages/db/migrations/0171_trip_no_show_refusal.sql",
-      "line": 576,
+      "line": 607,
       "kind": "data-update",
       "dataTables": ["core.support_manual_action_catalog"],
       "justification": "US-307 (ADR-191) : DECLARE_NO_SHOW reçoit sa clé de saisie fermée (absentParty : GUEST, HOST ou NONE, mots seulement, jamais un montant ni un chiffre) ; une ligne de référence écrite par migration seulement ; permission, mode et sujet inchangés ; aucune ligne manual_action n'en dépend (l'action était indisponible, sans commande liée) ; la version N, qui n'envoie jamais cette action, est inchangée"
     },
     {
       "path": "packages/db/migrations/0171_trip_no_show_refusal.sql",
-      "line": 582,
+      "line": 613,
       "kind": "data-update",
       "dataTables": ["core.support_manual_action_catalog"],
       "justification": "US-307 (ADR-191) : REFUSE_AT_PICKUP reçoit sa clé de saisie fermée (refusalReason : CLEANLINESS, SAFETY, INVALID_LICENSE, IDENTITY_NOT_VERIFIED, OTHER_DRIVER_SENT ; mots seulement, jamais un montant ni un chiffre) ; une ligne de référence écrite par migration seulement ; permission, mode et sujet inchangés ; aucune ligne manual_action n'en dépend (l'action était indisponible, sans commande liée) ; la version N, qui n'envoie jamais cette action, est inchangée"
