@@ -46,7 +46,20 @@ describe('US-223b — paiement du hold (site)', () => {
       request: null,
       // US-701 : aucun champ `deposit` ⇒ `null`
       deposit: null,
+      // US-703 : aucun champ `mitConsent` ⇒ `null` (le site affiche la case)
+      mitConsentMode: null,
     });
+    // US-703 : forme du consentement lue ; valeur inconnue ⇒ `null` (fail-closed : la case)
+    for (const [mitConsent, mode] of [
+      [{ mode: 'NOTICE' }, 'NOTICE'],
+      [{ mode: 'CHECKBOX' }, 'CHECKBOX'],
+      // revues delta 20b : paramètre du pays absent ⇒ BLOCKED (aucun paiement offert)
+      [{ mode: 'BLOCKED' }, 'BLOCKED'],
+      [{ mode: 'AUTRE' }, null],
+      ['NOTICE', null],
+    ] as const) {
+      expect(checkoutPaymentOf(reply({ ...base, mitConsent }, 200))?.mitConsentMode).toBe(mode);
+    }
     for (const url of ['http://psp.test/x', 'javascript:alert(1)', 'https://a b', 42]) {
       expect(checkoutPaymentOf(reply({ ...base, redirectUrl: url }, 201))?.redirectUrl).toBeNull();
     }
@@ -127,6 +140,7 @@ describe('US-223d — demande à l’hôte (site)', () => {
     redirectUrl: null,
     request: status === null ? null : { status, respondBy: RESPOND_BY },
     deposit: null,
+    mitConsentMode: null,
   });
 
   it('champ `request` : lu tel quel ; absent ⇒ null ; état inconnu, heure illisible ou attente sans heure limite ⇒ refus', () => {

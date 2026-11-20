@@ -75,7 +75,14 @@ export interface ValidateRequest {
   readonly odometerKm: number;
   readonly fuelEighths: number;
   readonly method: HandoverMethod;
+  /**
+   * US-703 (ADR-189) : langue du rappel du consentement MIT affiché au voyageur à la remise (S09) ;
+   * `null` : absente (aucun rappel enregistré).
+   */
+  readonly locale: string | null;
 }
+
+const LOCALE = /^[a-z]{2}(-[A-Z]{2})?$/;
 
 const INT32 = 2_147_483_647;
 
@@ -84,10 +91,14 @@ const INT32 = 2_147_483_647;
  * de l'int32 de la base est rendu comme un relevé invalide (READING_INVALID), jamais tronqué.
  */
 export function parseValidateRequest(body: Body): ValidateRequest {
-  only(body, ['odometerKm', 'fuelEighths', 'method']);
+  only(body, ['odometerKm', 'fuelEighths', 'method', 'locale']);
   const odometer = body['odometerKm'];
   const fuel = body['fuelEighths'];
   const method = body['method'];
+  const locale = body['locale'];
+  if (locale !== undefined && (typeof locale !== 'string' || !LOCALE.test(locale))) {
+    throw new HandoverHttpError('REQUEST_INVALID');
+  }
   if (
     typeof odometer !== 'number' ||
     !Number.isSafeInteger(odometer) ||
@@ -100,5 +111,5 @@ export function parseValidateRequest(body: Body): ValidateRequest {
   if (Math.abs(odometer) > INT32 || Math.abs(fuel) > INT32) {
     throw new HandoverHttpError('READING_INVALID');
   }
-  return { odometerKm: odometer, fuelEighths: fuel, method };
+  return { odometerKm: odometer, fuelEighths: fuel, method, locale: locale ?? null };
 }

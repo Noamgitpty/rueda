@@ -413,6 +413,12 @@ describe.each(COUNTRIES)('US-306 — escalade et vue des retards ($country, $cur
         const open = async (client: pg.Client, s: Staff) => {
           await client.query('BEGIN');
           await client.query(`SELECT pg_catalog.set_config('app.virtual_now', $1, true)`, [due]);
+          // filet : aucune attente de verrou ni instruction au-delà de 15 s (un échec du test ne peut
+          // jamais garder les verrous du voyageur, du véhicule ni la tête de l'audit chaîné)
+          await client.query(
+            `SELECT pg_catalog.set_config('lock_timeout', '15s', true),
+                    pg_catalog.set_config('statement_timeout', '15s', true)`,
+          );
           return staffContext(client, s);
         };
         const ha = await open(a, first);

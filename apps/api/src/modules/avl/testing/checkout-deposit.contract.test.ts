@@ -23,6 +23,7 @@ import type { CheckoutPaymentRow } from '../internal/checkout/payment-store.js';
 import {
   FakeCheckoutPaymentStore,
   FakeDepositGate,
+  FakeMitConsents,
   RecordingHostedPayments,
 } from './fake-checkout-payment-store.js';
 
@@ -59,7 +60,15 @@ async function app() {
   const psp = new RecordingHostedPayments();
   const gate = new FakeDepositGate();
   const a = await startContractApp({
-    checkout: { payments: { store, providers: new Map([['FAKE', psp]]), deposits: gate } },
+    checkout: {
+      payments: {
+        store,
+        providers: new Map([['FAKE', psp]]),
+        deposits: gate,
+        // US-703 : consentement MIT du checkout (case cochée par le voyageur)
+        consents: new FakeMitConsents(),
+      },
+    },
   });
   apps.push(a);
   const hold = (row: Partial<CheckoutPaymentRow> = {}) =>
@@ -67,7 +76,7 @@ async function app() {
   const pay = () =>
     a.api.request('POST', `/checkout/holds/${HOLD}/payment`, {
       headers: a.cookie('voyageur'),
-      body: { method: 'CARD' },
+      body: { method: 'CARD', mitConsent: true, locale: 'es' },
     });
   const read = () =>
     a.api.request('GET', `/checkout/holds/${HOLD}/payment`, { headers: a.cookie('voyageur') });

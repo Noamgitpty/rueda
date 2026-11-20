@@ -2524,6 +2524,104 @@
       "story": "US-305"
     },
     {
+      "signature": "core.payment_operation_mit_guard()",
+      "family": "cmd_money",
+      "owner": "cmd_money_owner",
+      "execute": [],
+      "story": "US-703"
+    },
+    {
+      "signature": "core.payment_cmd_accept_mit_consent(bytea,uuid,text,integer)",
+      "family": "cmd_money",
+      "owner": "cmd_money_owner",
+      "execute": ["app_api"],
+      "story": "US-703"
+    },
+    {
+      "signature": "core.payment_cmd_ack_mit_reminder(bytea,uuid,text,integer)",
+      "family": "cmd_money",
+      "owner": "cmd_money_owner",
+      "execute": ["app_api"],
+      "story": "US-703"
+    },
+    {
+      "signature": "core.payment_mit_consent_view(bytea,uuid)",
+      "family": "cmd_money",
+      "owner": "cmd_money_owner",
+      "execute": ["app_api"],
+      "story": "US-703"
+    },
+    {
+      "signature": "core.payment_cmd_record_instrument(uuid,uuid,uuid,text,text,text,text,integer,integer,text,text)",
+      "family": "cmd_money",
+      "owner": "cmd_money_owner",
+      "execute": ["app_worker"],
+      "story": "US-703"
+    },
+    {
+      "signature": "core.payment_cmd_notify_post_trip_charge(uuid,uuid,text,text,text,uuid,integer,uuid,bigint,jsonb,boolean)",
+      "family": "cmd_money",
+      "owner": "cmd_money_owner",
+      "execute": ["app_worker"],
+      "story": "US-703"
+    },
+    {
+      "signature": "core.payment_cmd_plan_mit_attempt(uuid,uuid)",
+      "family": "cmd_money",
+      "owner": "cmd_money_owner",
+      "execute": ["app_worker"],
+      "story": "US-703"
+    },
+    {
+      "signature": "core.payment_mit_attempt_for_send(uuid)",
+      "family": "cmd_money",
+      "owner": "cmd_money_owner",
+      "execute": ["app_worker"],
+      "story": "US-703"
+    },
+    {
+      "signature": "core.payment_cmd_settle_mit_attempt(uuid,boolean)",
+      "family": "cmd_money",
+      "owner": "cmd_money_owner",
+      "execute": ["app_worker"],
+      "story": "US-703"
+    },
+    {
+      "signature": "core.payment_post_trip_charges_due(integer)",
+      "family": "cmd_money",
+      "owner": "cmd_money_owner",
+      "execute": ["app_worker"],
+      "story": "US-703"
+    },
+    {
+      "signature": "core.payment_cmd_plan_debt_collection(uuid,uuid,uuid,bigint)",
+      "family": "cmd_money",
+      "owner": "cmd_money_owner",
+      "execute": ["app_worker"],
+      "story": "US-703"
+    },
+    {
+      "signature": "core.payment_cmd_settle_debt_collection(uuid)",
+      "family": "cmd_money",
+      "owner": "cmd_money_owner",
+      "execute": ["app_worker"],
+      "story": "US-703"
+    },
+    {
+      "signature": "core.payment_mit_consent_mode_of_hold(bytea,uuid)",
+      "family": "cmd_money",
+      "owner": "cmd_money_owner",
+      "execute": ["app_api"],
+      "story": "US-703"
+    },
+    {
+      "signature": "core.payment_cmd_defer_mit_charge(uuid,text)",
+      "family": "cmd_money",
+      "owner": "cmd_money_owner",
+      "execute": ["app_worker"],
+      "story": "US-703"
+    },
+    {
       "signature": "core.trip_manual_action_escalate_overdue(bytea,uuid,text,uuid,jsonb,text,uuid,text)",
       "family": "cmd_hold",
       "owner": "cmd_hold_owner",

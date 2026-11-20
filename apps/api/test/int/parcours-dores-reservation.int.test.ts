@@ -74,6 +74,7 @@ import {
   type PaymentConnectorRegistry,
   type PaymentProvider,
   type RefundRequest,
+  PgMitConsentStore,
 } from '../../src/modules/pay/index.js';
 import {
   freezeQuote,
@@ -399,6 +400,8 @@ const paymentService = (
     new Map(providers.map((p) => [p, psp])),
     new NoDepositGate(),
     () => undefined,
+    // US-703 : consentement MIT du checkout enregistré par la vraie commande (0169)
+    new PgMitConsentStore(db),
   );
 
 /**
@@ -680,7 +683,7 @@ describe.each(CASES)('US-221 — parcours dorés « réservation » ($country, $
           await tx.query('SAVEPOINT us221_capability');
           await capabilities(tx, c.country, at(-2), 'SUPPORTS_PER_LEG_AMOUNTS', 'UNKNOWN');
           const refused = await onFakeAccount(tx, c.country, psp, () =>
-            pay.pay(hash, holdId, { method: 'CARD' }),
+            pay.pay(hash, holdId, { method: 'CARD', mitConsent: true, locale: 'es' }),
           );
           expect(refused.ok).toBe(false);
           if (!refused.ok) {
@@ -696,7 +699,7 @@ describe.each(CASES)('US-221 — parcours dorés « réservation » ($country, $
 
           // capacités validées : T1 (jambes du devis engagé), ordre au PSP, T2
           const paid = await onFakeAccount(tx, c.country, psp, () =>
-            pay.pay(hash, holdId, { method: 'CARD' }),
+            pay.pay(hash, holdId, { method: 'CARD', mitConsent: true, locale: 'es' }),
           );
           if (!paid.ok) throw await refusal(paid.error, tx, c.country);
           const started = paid.value;
@@ -719,7 +722,11 @@ describe.each(CASES)('US-221 — parcours dorés « réservation » ($country, $
           expect({ ...order.legs }).toEqual(want.legs);
           expect(sum({ ...order.legs } as Legs)).toBe(order.amountMinor);
           // second clic : aucun second ordre (l'état fait foi)
-          const again = await pay.pay(hash, holdId, { method: 'CARD' });
+          const again = await pay.pay(hash, holdId, {
+            method: 'CARD',
+            mitConsent: true,
+            locale: 'es',
+          });
           expect(again.created).toBe(false);
           expect(psp.orders).toHaveLength(1);
         });
@@ -851,7 +858,11 @@ describe.each(CASES)('US-221 — parcours dorés « réservation » ($country, $
         const psp = new FakeHostedPsp();
         const started = await inTx(api, { at: t(1), commit: true }, async (tx) => {
           const paid = await onFakeAccount(tx, c.country, psp, () =>
-            paymentService(tx, psp).pay(w.guestHash!, w.hold!, { method: 'CARD' }),
+            paymentService(tx, psp).pay(w.guestHash!, w.hold!, {
+              method: 'CARD',
+              mitConsent: true,
+              locale: 'es',
+            }),
           );
           if (!paid.ok) throw await refusal(paid.error, tx, c.country);
           return paid.value;
