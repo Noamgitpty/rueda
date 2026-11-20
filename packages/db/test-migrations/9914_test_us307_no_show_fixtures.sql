@@ -13,7 +13,9 @@
 --      droit sur la table) ;
 --   4. test_fixture.us307_guest_checkin : validation de la remise par le voyageur écrite DIRECTEMENT
 --      (refus du véhicule après le check-in) ;
---   5. test_fixture.us307_host_ledger : écritures du host_ledger d'un trip (app_worker ne le lit pas).
+--   5. test_fixture.us307_host_ledger : écritures du host_ledger d'un trip (app_worker ne le lit pas) ;
+--   6. test_fixture.us307_notices : événements d'outbox `trip.no_show.reported` d'un trip (l'hôte
+--      prévenu d'un signalement du voyageur).
 -- Les messages du fil viennent de test_fixture.us316_seed_message (9919). Appelées SEULEMENT dans
 -- une transaction ANNULÉE ou sur des trips neufs. AUCUN interrupteur de mise en service écrit
 -- (17 §0.1). Les attendus des tests viennent de 19 US-307, 16 TRP-015 / TRP-007, 08 et des oracles
@@ -21,7 +23,8 @@
 --
 -- Retour arrière : DROP FUNCTION test_fixture.us307_holder(uuid),
 --   test_fixture.us307_identity_check(uuid, text), test_fixture.us307_cancellation(uuid),
---   test_fixture.us307_guest_checkin(uuid), test_fixture.us307_host_ledger(uuid).
+--   test_fixture.us307_guest_checkin(uuid), test_fixture.us307_host_ledger(uuid),
+--   test_fixture.us307_notices(uuid).
 
 CREATE FUNCTION test_fixture.us307_holder(p_trip uuid)
   RETURNS uuid
@@ -97,10 +100,24 @@ AS $fn$
     FROM core.settlement_host_ledger_entry AS e WHERE e.trip_id = p_trip ORDER BY e.created_at, e.id
 $fn$;
 
+-- Événements `trip.no_show.reported` d'un trip (type, rôle de l'acteur, charge utile)
+CREATE FUNCTION test_fixture.us307_notices(p_trip uuid)
+  RETURNS TABLE (type text, actor_role text, payload jsonb)
+  LANGUAGE sql
+  STABLE
+  SECURITY DEFINER
+  SET search_path = pg_catalog, pg_temp
+AS $fn$
+  SELECT e.type, e.actor_role, e.payload
+    FROM core.outbox_outbox_event AS e
+   WHERE e.aggregate_type = 'trip' AND e.aggregate_id = p_trip AND e.type = 'trip.no_show.reported'
+   ORDER BY e.created_at, e.id
+$fn$;
+
 REVOKE ALL ON FUNCTION test_fixture.us307_holder(uuid), test_fixture.us307_identity_check(uuid, text),
   test_fixture.us307_cancellation(uuid), test_fixture.us307_guest_checkin(uuid),
-  test_fixture.us307_host_ledger(uuid) FROM PUBLIC;
+  test_fixture.us307_host_ledger(uuid), test_fixture.us307_notices(uuid) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION test_fixture.us307_holder(uuid),
   test_fixture.us307_identity_check(uuid, text), test_fixture.us307_cancellation(uuid),
-  test_fixture.us307_guest_checkin(uuid), test_fixture.us307_host_ledger(uuid)
-  TO app_api, app_worker;
+  test_fixture.us307_guest_checkin(uuid), test_fixture.us307_host_ledger(uuid),
+  test_fixture.us307_notices(uuid) TO app_api, app_worker;

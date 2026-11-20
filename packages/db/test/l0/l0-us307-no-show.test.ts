@@ -775,13 +775,14 @@ describe('critère 4 — no-show de l’hôte signalé par le voyageur (T26, BR-
             );
             expect(pending.rows.map((x) => x.id)).not.toContain(id);
             // l'hôte est prévenu (NTF : EVT_TRIP_NO_SHOW_REPORTED), sans motif ni preuve
-            const ev = await tx.query<{ type: string; payload: Record<string, unknown> }>(
-              'SELECT type, payload FROM test_fixture.us207_events($1)',
+            const ev = await tx.query<{ type: string; actor_role: string; payload: unknown }>(
+              'SELECT type, actor_role, payload FROM test_fixture.us307_notices($1)',
               [w.trip],
             );
-            expect(ev.rows.filter((e) => e.type === 'trip.no_show.reported')).toEqual([
+            expect(ev.rows).toEqual([
               {
                 type: 'trip.no_show.reported',
+                actor_role: 'GUEST',
                 payload: { trip_id: w.trip, absent_party: 'HOST', declaration_id: id },
               },
             ]);
