@@ -6297,6 +6297,7 @@ Contraintes :
 - `review_submission_host_scores` : `CHECK (author_role = 'HOST'::text OR punctuality IS NULL AND return_condition IS NULL AND rules_respect IS NULL)`
 - `review_submission_maintenance` : `CHECK (maintenance >= 1 AND maintenance <= 5)`
 - `review_submission_once` : `UNIQUE (trip_id, author_role)`
+- `review_submission_ops_no_text` : `CHECK (source <> 'OPS_RECORDED'::text OR body IS NULL)`
 - `review_submission_ops_traced` : `CHECK ((source = 'OPS_RECORDED'::text) = (manual_action_id IS NOT NULL AND recorded_by IS NOT NULL))`
 - `review_submission_overall_range` : `CHECK (overall >= 1 AND overall <= 5)`
 - `review_submission_pkey` : `PRIMARY KEY (id)`
@@ -6305,7 +6306,7 @@ Contraintes :
 - `review_submission_role_valid` : `CHECK (author_role = ANY (ARRAY['GUEST'::text, 'HOST'::text]))`
 - `review_submission_rules_respect` : `CHECK (rules_respect >= 1 AND rules_respect <= 5)`
 - `review_submission_source_valid` : `CHECK (source = ANY (ARRAY['IN_APP'::text, 'OPS_RECORDED'::text]))`
-- `review_submission_text_required` : `CHECK (overall > 3 OR body IS NOT NULL AND char_length(body) >= 25)`
+- `review_submission_text_required` : `CHECK (source <> 'IN_APP'::text OR overall > 3 OR body IS NOT NULL AND char_length(body) >= 25)`
 - `review_submission_trip_fkey` : `FOREIGN KEY (trip_id) REFERENCES core.booking_trip(id)`
 - `review_submission_window` : `CHECK (submitted_at < window_closes_at)`
 

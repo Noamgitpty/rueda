@@ -174,8 +174,12 @@ CREATE TABLE core.review_submission (
   CONSTRAINT review_submission_ops_traced CHECK (
     (source = 'OPS_RECORDED') = (manual_action_id IS NOT NULL AND recorded_by IS NOT NULL)),
   CONSTRAINT review_submission_window CHECK (submitted_at < window_closes_at),
+  -- texte exigé de 1 à 3 pour un avis de l'appli ; l'avis de l'ops n'a jamais de texte (il reste
+  -- dans l'e-mail, pièce de l'action : US-218, ADR-130)
   CONSTRAINT review_submission_text_required CHECK (
-    overall > 3 OR (body IS NOT NULL AND pg_catalog.char_length(body) >= 25)),
+    source <> 'IN_APP' OR overall > 3
+    OR (body IS NOT NULL AND pg_catalog.char_length(body) >= 25)),
+  CONSTRAINT review_submission_ops_no_text CHECK (source <> 'OPS_RECORDED' OR body IS NULL),
   CONSTRAINT review_submission_guest_scores CHECK (
     author_role = 'GUEST'
     OR (cleanliness IS NULL AND convenience IS NULL AND accuracy IS NULL AND maintenance IS NULL)),
