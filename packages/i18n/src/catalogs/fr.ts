@@ -3406,7 +3406,7 @@ export const FR_MESSAGES = {
     'Aucun signalement du voyageur à examiner sur ce voyage.',
   'backoffice.noShow.tripInvalid': 'Saisissez l’identifiant complet du voyage.',
   'backoffice.noShow.confirm.title': 'Confirmez avant d’enregistrer',
-  'backoffice.noShow.confirm.trip': 'Voyage : {trip}',
+  'backoffice.noShow.confirm.trip': 'Voyage : {d1}',
   'backoffice.noShow.confirm.irreversible':
     'C’est définitif : le voyage peut être annulé, avec remboursement et, selon le cas, une pénalité. Impossible d’annuler ensuite.',
   'backoffice.noShow.confirm.send': 'Confirmer et enregistrer',

@@ -3329,7 +3329,7 @@ export const ES_MESSAGES = {
     'No hay ningún aviso del viajero por revisar en este viaje.',
   'backoffice.noShow.tripInvalid': 'Escribe el identificador completo del viaje.',
   'backoffice.noShow.confirm.title': 'Confirma antes de registrar',
-  'backoffice.noShow.confirm.trip': 'Viaje: {trip}',
+  'backoffice.noShow.confirm.trip': 'Viaje: {d1}',
   'backoffice.noShow.confirm.irreversible':
     'Es definitivo: el viaje puede cancelarse, con reembolso y, según el caso, una penalización. No se puede deshacer.',
   'backoffice.noShow.confirm.send': 'Confirmar y registrar',

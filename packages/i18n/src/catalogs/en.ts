@@ -3250,7 +3250,7 @@ export const EN_MESSAGES = {
   'backoffice.noShow.refused.NO_REPORT_PENDING': 'There is no guest report to review on this trip.',
   'backoffice.noShow.tripInvalid': 'Enter the full trip identifier.',
   'backoffice.noShow.confirm.title': 'Confirm before recording',
-  'backoffice.noShow.confirm.trip': 'Trip: {trip}',
+  'backoffice.noShow.confirm.trip': 'Trip: {d1}',
   'backoffice.noShow.confirm.irreversible':
     'This is final: the trip may be cancelled, with a refund and, depending on the case, a penalty. It cannot be undone.',
   'backoffice.noShow.confirm.send': 'Confirm and record',

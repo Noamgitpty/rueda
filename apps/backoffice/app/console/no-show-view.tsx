@@ -100,7 +100,7 @@ export function NoShowConfirm({
         {i18n.t('backoffice.noShow.confirm.title')}
       </h3>
       <p data-testid="no-show-confirm-trip">
-        {i18n.t('backoffice.noShow.confirm.trip', { trip: draft.tripId })}
+        {i18n.t('backoffice.noShow.confirm.trip', { d1: draft.tripId })}
       </p>
       <p className={styles['label']}>{i18n.t(CHOICE_KEYS[draft.choice])}</p>
       <p className={styles['muted']}>{i18n.t('backoffice.noShow.confirm.irreversible')}</p>
