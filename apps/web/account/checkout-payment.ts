@@ -82,9 +82,10 @@ export interface CheckoutPaymentView {
   readonly deposit: DepositView | null;
   /**
    * US-703 (ADR-189 n° 15) : forme du consentement MIT du pays ; `null` : absente ou illisible (le
-   * site affiche alors la case, la forme la plus explicite).
+   * site affiche alors la case, la forme la plus explicite) ; `BLOCKED` : paramètre du pays absent
+   * (fail_mode BLOCK), aucun paiement offert, comme la base qui refuse le consentement.
    */
-  readonly mitConsentMode: 'NOTICE' | 'CHECKBOX' | null;
+  readonly mitConsentMode: 'NOTICE' | 'CHECKBOX' | 'BLOCKED' | null;
 }
 
 const isObj = (v: unknown): v is Record<string, unknown> =>
@@ -260,7 +261,8 @@ export function checkoutPaymentOf(reply: ApiResult): CheckoutPaymentView | null 
     typeof url === 'string' && HOSTED.test(url) && url.length <= HOSTED_MAX ? url : null;
   const mit = p['mitConsent'];
   const mode = isObj(mit) ? mit['mode'] : undefined;
-  const mitConsentMode = mode === 'NOTICE' || mode === 'CHECKBOX' ? mode : null;
+  const mitConsentMode =
+    mode === 'NOTICE' || mode === 'CHECKBOX' || mode === 'BLOCKED' ? mode : null;
   return {
     holdId,
     state: state as PaymentStateView,

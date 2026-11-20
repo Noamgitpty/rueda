@@ -362,6 +362,8 @@ export class CheckoutPaymentService {
     );
     if (accepted === 'NOT_FOUND') throw new PaymentHttpError('HOLD_NOT_FOUND');
     if (accepted === 'REQUEST_INVALID') throw new PaymentHttpError('REQUEST_INVALID');
+    // forme du consentement non paramétrée pour le pays (fail_mode BLOCK) : aucun paiement
+    if (accepted === 'PARAM_MISSING') throw new PaymentHttpError('PAYMENT_UNAVAILABLE');
     // hold devenu terminal entre la lecture et le consentement : l'état fait foi
     if (accepted === 'HOLD_NOT_PAYABLE') return this.#current(proof, id, null);
     const started = await this.#guard('start', () => this.store.start(proof, id, method));

@@ -412,6 +412,24 @@ for (const language of LANGUAGES) {
       await payAt(page, offsite, 's05-pay');
     });
 
+    test('US-703 (revues delta 20b) : forme du consentement non paramétrée pour le pays (le 11) ⇒ aucun bouton « Pagar », message du catalogue, aucune sortie (fail_mode BLOCK, comme la base)', async ({
+      page,
+      context,
+      offsite,
+    }) => {
+      await signInGuest(context, language);
+      await placeHold(page, 11);
+      await expect(page.locator('[data-testid="s05-pay-mit-blocked"]')).toHaveText(
+        translator(language).t('common.payment.unavailable'),
+      );
+      await expect(page.locator('[data-testid="s05-pay-submit"]')).toHaveCount(0);
+      await expect(page.locator('[data-testid="s05-pay-mit-consent"]')).toHaveCount(0);
+      await expect(page.locator('[data-testid="s05-pay-mit-notice"]')).toHaveCount(0);
+      expect(offsite).toEqual([]);
+      await expectAccessible(page);
+      await expectMobileFriendly(page);
+    });
+
     for (const [day, key] of [
       [18, 'common.payment.payoutRailUnavailable'],
       // le 19 (réservation en revue) : aucun bouton « Pagar » (US-209c, checkout-review.spec.ts)

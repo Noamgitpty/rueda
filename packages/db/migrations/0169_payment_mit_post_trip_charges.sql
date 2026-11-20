@@ -1001,7 +1001,9 @@ $fn$;
 
 -- 7.1 Consentement au checkout (S05) par le voyageur du hold : hold vivant (ACTIVE, ou paiement
 -- interrompu PAYMENT_IN_FLIGHT) ; quatre portées de 17 ; une fois par hold. Issues : ACCEPTED,
--- ALREADY_ACCEPTED, NOT_FOUND (session, hold d'un autre), HOLD_NOT_PAYABLE, REQUEST_INVALID.
+-- ALREADY_ACCEPTED, NOT_FOUND (session, hold d'un autre), HOLD_NOT_PAYABLE, REQUEST_INVALID,
+-- PARAM_MISSING (`mit_consent_checkbox_required[pays]` absent ou illisible : fail_mode BLOCK,
+-- aucun consentement enregistré, donc aucun paiement ; le site bloque de même, ADR-189 n° 15).
 CREATE FUNCTION core.payment_cmd_accept_mit_consent(p_token_hash bytea, p_hold_id uuid,
                                                     p_locale text, p_catalog_version integer)
   RETURNS TABLE (outcome text, consent_id uuid)
@@ -1015,6 +1017,7 @@ DECLARE
   v_user  uuid;
   h       record;
   v_id    uuid;
+  v_mode  text;
   v_kind  text := pg_catalog.current_setting('app.actor_kind', true);
 BEGIN
   IF p_token_hash IS NULL OR p_hold_id IS NULL THEN
@@ -1046,6 +1049,11 @@ BEGIN
     RETURN QUERY SELECT 'HOLD_NOT_PAYABLE'::text, NULL::uuid;
     RETURN;
   END IF;
+  v_mode := core.payment_mit_consent_mode(h.country_code::text);
+  IF v_mode IS NULL THEN
+    RETURN QUERY SELECT 'PARAM_MISSING'::text, NULL::uuid;
+    RETURN;
+  END IF;
   v_id := pg_catalog.gen_random_uuid();
   PERFORM pg_catalog.set_config('app.actor_kind', 'GUEST', true);
   INSERT INTO core.payment_mit_consent (id, user_id, hold_id, scopes, consent_key, catalog_version,
@@ -1053,8 +1061,7 @@ BEGIN
   VALUES (v_id, v_user, p_hold_id,
           ARRAY['DELAYED_CHARGES', 'NO_SHOW', 'DAMAGE_SEPARATE', 'REAUTHORIZATION'],
           -- texte réellement affiché : case séparée (paramètre du pays vrai) ou mention au bouton
-          CASE core.payment_mit_consent_mode(h.country_code::text)
-            WHEN 'CHECKBOX' THEN 'web.s05.mitConsent' ELSE 'web.s05.mitConsentNotice' END,
+          CASE v_mode WHEN 'CHECKBOX' THEN 'web.s05.mitConsent' ELSE 'web.s05.mitConsentNotice' END,
           p_catalog_version, p_locale)
   ON CONFLICT ON CONSTRAINT mit_consent_hold_unique DO NOTHING;
   PERFORM pg_catalog.set_config('app.actor_kind', COALESCE(v_kind, ''), true);
@@ -1979,17 +1986,20 @@ COMMENT ON FUNCTION core.payment_cmd_settle_debt_collection(uuid) IS
   'Travailleur payment_command. SECURITY DEFINER, EXECUTE app_worker. US-703 (ADR-189).';
 
 -- 7.12 Mode du consentement du pays (DEC-FONDATEUR-22, ADR-189 n° 15) : `CHECKBOX` si
--- `mit_consent_checkbox_required[pays]` vaut vrai, sinon `NOTICE` (mention explicite au bouton de
--- paiement, comme Turo ; paramètre absent ⇒ mention). Le consentement reste exigé et enregistré
--- dans les deux modes. Interne (SECURITY INVOKER, aucun EXECUTE).
+-- `mit_consent_checkbox_required[pays]` vaut vrai, `NOTICE` s'il vaut faux (mention explicite au
+-- bouton de paiement, comme Turo) ; absent ou non booléen ⇒ NULL (fail_mode BLOCK : aucun
+-- consentement, aucun paiement, des deux côtés). Le consentement reste exigé et enregistré dans
+-- les deux modes. Interne (SECURITY INVOKER, aucun EXECUTE).
 CREATE FUNCTION core.payment_mit_consent_mode(p_country text)
   RETURNS text
   LANGUAGE sql
   STABLE
   SET search_path = pg_catalog, pg_temp
 AS $fn$
-  SELECT CASE WHEN core.payout_param('mit_consent_checkbox_required', p_country) = 'true'::jsonb
-              THEN 'CHECKBOX' ELSE 'NOTICE' END
+  SELECT CASE core.payout_param('mit_consent_checkbox_required', p_country)
+           WHEN 'true'::jsonb THEN 'CHECKBOX'
+           WHEN 'false'::jsonb THEN 'NOTICE'
+         END
 $fn$;
 
 -- 7.13 Mode du consentement vu par le voyageur du hold (S05) ; aucune ligne pour toute autre
@@ -2015,7 +2025,8 @@ BEGIN
   IF v_user IS NULL OR h.id IS NULL OR h.guest_user_id IS DISTINCT FROM v_user THEN
     RETURN;
   END IF;
-  RETURN QUERY SELECT core.payment_mit_consent_mode(h.country_code::text);
+  -- paramètre absent : BLOCKED (le site n'offre pas le paiement ; la base le refuse de même)
+  RETURN QUERY SELECT COALESCE(core.payment_mit_consent_mode(h.country_code::text), 'BLOCKED');
 END
 $fn$;
 COMMENT ON FUNCTION core.payment_mit_consent_mode_of_hold(bytea, uuid) IS
@@ -2163,7 +2174,7 @@ ALTER POLICY cmd_money_sel ON core.config_param_value
 -- Retour arrière (base sans dépendance) : DELETE des valeurs puis des définitions dont la clé
 -- commence par « mit_consent_checkbox_required » ; jamais en production : nouvelle migration à la place.
 INSERT INTO core.config_param_definition (key, type, unit, allowed_scopes, currency_bound, fail_mode, optional, go_live_switch, not_applicable_in, allowed_values, source_ref, status) VALUES
-  ('mit_consent_checkbox_required', 'BOOL', NULL, ARRAY['COUNTRY']::text[], false, 'BLOCK', false, false, '{}'::text[], NULL, '16 PAY-015, 10b UX-30 (case séparée `web.s05.mitConsent`) ; DEC-FONDATEUR-22 (« jamais plus lourd que Turo ; tout contrôle plus lourd = paramètre pays à false ») ; ADR-189 ; faux : consentement MIT par la mention explicite à côté du bouton de paiement (comme Turo), toujours enregistré ; vrai : case séparée obligatoire ; absent : mention (comme Turo), le consentement reste exigé et enregistré', 'PROPOSÉ comme Turo (ADR-189) : mention au bouton, aucune case de plus ; vrai seulement si une règle de réseau ou un avis l’exige dans le pays');
+  ('mit_consent_checkbox_required', 'BOOL', NULL, ARRAY['COUNTRY']::text[], false, 'BLOCK', false, false, '{}'::text[], NULL, '16 PAY-015, 10b UX-30 (case séparée `web.s05.mitConsent`) ; DEC-FONDATEUR-22 (« jamais plus lourd que Turo ; tout contrôle plus lourd = paramètre pays à false ») ; ADR-189 ; faux : consentement MIT par la mention explicite à côté du bouton de paiement (comme Turo), toujours enregistré ; vrai : case séparée obligatoire ; absent : fail_mode BLOCK, même sens des deux côtés (base : aucun consentement enregistré ; site : aucun paiement offert)', 'PROPOSÉ comme Turo (ADR-189) : mention au bouton, aucune case de plus ; vrai seulement si une règle de réseau ou un avis l’exige dans le pays');
 
 INSERT INTO core.config_param_value (key, country_code, scope_type, scope_id, network, value, change_reason) VALUES
   ('mit_consent_checkbox_required', 'PA', 'COUNTRY', NULL, NULL, 'false'::jsonb, 'graine US-703 : défauts PROPOSÉS (16 PAY-015 ; 10b UX-30 ; DEC-FONDATEUR-22 ; ADR-189)'),

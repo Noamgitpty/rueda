@@ -211,14 +211,37 @@ $fn$;
 
 -- Consentement d'un hold relu (liaison à la carte)
 CREATE FUNCTION test_fixture.us703_consent_of_hold(p_hold uuid)
-  RETURNS TABLE (id uuid, instrument_id uuid, bound_at timestamptz, trip_id uuid)
+  RETURNS TABLE (id uuid, instrument_id uuid, bound_at timestamptz, trip_id uuid,
+                 consent_key text, catalog_version integer, locale text)
   LANGUAGE sql
   STABLE
   SECURITY DEFINER
   SET search_path = pg_catalog, pg_temp
 AS $fn$
-  SELECT c.id, c.instrument_id, c.bound_at, c.trip_id
+  SELECT c.id, c.instrument_id, c.bound_at, c.trip_id, c.consent_key, c.catalog_version, c.locale
     FROM core.payment_mit_consent AS c WHERE c.hold_id = p_hold
+$fn$;
+
+-- Forme du consentement du pays (`mit_consent_checkbox_required`, DEC-FONDATEUR-22) : la valeur
+-- en vigueur est close à platform.now() ; une nouvelle version est posée si p_value n'est pas NULL
+-- (NULL : paramètre ABSENT, fail_mode BLOCK). Cette seule clé ; transaction de test annulée.
+CREATE FUNCTION test_fixture.us703_set_consent_param(p_country text, p_value jsonb)
+  RETURNS void
+  LANGUAGE plpgsql
+  SECURITY DEFINER
+  SET search_path = pg_catalog, pg_temp
+AS $fn$
+BEGIN
+  UPDATE core.config_param_value
+     SET valid_to = platform.now()
+   WHERE key = 'mit_consent_checkbox_required' AND country_code = p_country
+     AND scope_type = 'COUNTRY' AND valid_to IS NULL;
+  IF p_value IS NOT NULL THEN
+    INSERT INTO core.config_param_value (key, country_code, scope_type, value, change_reason)
+    VALUES ('mit_consent_checkbox_required', p_country, 'COUNTRY', p_value,
+            'test US-703 : forme du consentement');
+  END IF;
+END
 $fn$;
 
 -- Cartes d'un voyageur (statut seulement, jamais le jeton)
@@ -280,7 +303,8 @@ REVOKE ALL ON FUNCTION
   test_fixture.us703_consent_of_hold(uuid),
   test_fixture.us703_cards(uuid),
   test_fixture.us703_rule_of(text, text, text),
-  test_fixture.us703_param(text, text, text)
+  test_fixture.us703_param(text, text, text),
+  test_fixture.us703_set_consent_param(text, jsonb)
 FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION
   test_fixture.us703_card(uuid, uuid, text, text),
@@ -296,5 +320,6 @@ GRANT EXECUTE ON FUNCTION
   test_fixture.us703_consent_of_hold(uuid),
   test_fixture.us703_cards(uuid),
   test_fixture.us703_rule_of(text, text, text),
-  test_fixture.us703_param(text, text, text)
+  test_fixture.us703_param(text, text, text),
+  test_fixture.us703_set_consent_param(text, jsonb)
 TO app_worker, app_api;

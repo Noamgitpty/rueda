@@ -810,11 +810,19 @@ const paymentStateOf = (h) => {
 };
 // US-703 (ADR-189 n° 15, DEC-FONDATEUR-22) : forme du consentement MIT du pays rendue pour un hold
 // payable : mention au bouton (NOTICE, défaut comme Turo) ; le 16 décembre, case séparée
-// obligatoire (CHECKBOX : pays dont `mit_consent_checkbox_required` vaut vrai).
+// obligatoire (CHECKBOX : pays dont `mit_consent_checkbox_required` vaut vrai) ; le 11, paramètre
+// du pays absent (BLOCKED, fail_mode BLOCK : aucun paiement offert).
 const MIT_CHECKBOX_DAY = '-12-16T';
+const MIT_BLOCKED_DAY = '-12-11T';
+const mitModeOf = (h) =>
+  h.quote.startAt.includes(MIT_CHECKBOX_DAY)
+    ? 'CHECKBOX'
+    : h.quote.startAt.includes(MIT_BLOCKED_DAY)
+      ? 'BLOCKED'
+      : 'NOTICE';
 const mitConsentJson = (h) =>
   ['PAYABLE', 'DECLINED', 'INTERRUPTED'].includes(paymentStateOf(h))
-    ? { mitConsent: { mode: h.quote.startAt.includes(MIT_CHECKBOX_DAY) ? 'CHECKBOX' : 'NOTICE' } }
+    ? { mitConsent: { mode: mitModeOf(h) } }
     : {};
 const paymentJson = (h, redirectUrl) => ({
   holdId: h.id,

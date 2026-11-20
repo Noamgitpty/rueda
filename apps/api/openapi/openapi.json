@@ -22313,10 +22313,10 @@
             "type": "object",
             "additionalProperties": false,
             "required": ["mode"],
-            "description": "US-703 (ADR-189, DEC-FONDATEUR-22) : forme du consentement MIT du pays à afficher (NOTICE : mention explicite au bouton de paiement, comme Turo ; CHECKBOX : case séparée obligatoire) ; absent hors des états payables",
+            "description": "US-703 (ADR-189, DEC-FONDATEUR-22) : forme du consentement MIT du pays à afficher (NOTICE : mention explicite au bouton de paiement, comme Turo ; CHECKBOX : case séparée obligatoire ; BLOCKED : paramètre du pays absent, fail_mode BLOCK, aucun paiement offert) ; absent hors des états payables",
             "properties": {
               "mode": {
-                "enum": ["NOTICE", "CHECKBOX"]
+                "enum": ["NOTICE", "CHECKBOX", "BLOCKED"]
               }
             }
           }
@@ -22444,10 +22444,10 @@
             "type": "object",
             "additionalProperties": false,
             "required": ["mode"],
-            "description": "US-703 (ADR-189, DEC-FONDATEUR-22) : forme du consentement MIT du pays à afficher (NOTICE : mention explicite au bouton de paiement, comme Turo ; CHECKBOX : case séparée obligatoire) ; absent hors des états payables",
+            "description": "US-703 (ADR-189, DEC-FONDATEUR-22) : forme du consentement MIT du pays à afficher (NOTICE : mention explicite au bouton de paiement, comme Turo ; CHECKBOX : case séparée obligatoire ; BLOCKED : paramètre du pays absent, fail_mode BLOCK, aucun paiement offert) ; absent hors des états payables",
             "properties": {
               "mode": {
-                "enum": ["NOTICE", "CHECKBOX"]
+                "enum": ["NOTICE", "CHECKBOX", "BLOCKED"]
               }
             }
           }

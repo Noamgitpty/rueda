@@ -368,6 +368,24 @@ describe('US-223b — contrat du paiement du hold du checkout', () => {
     expect(psp.orders).toEqual([]);
   });
 
+  it('US-703 (revues delta 20b, sécurité n° 7) : forme du consentement non paramétrée pour le pays ⇒ BLOCKED à la lecture, 503 PAYMENT_UNAVAILABLE au paiement (fail_mode BLOCK, même sens que la base), aucun ordre', async () => {
+    const { store, psp, consents, hold, pay, read } = await app();
+    hold({}, { start: startOf(TJ01) });
+    consents.mitMode = 'BLOCKED';
+    const view = await read();
+    expect(view.status).toBe(200);
+    expect(view.json).toMatchObject({ payment: { mitConsent: { mode: 'BLOCKED' } } });
+    consents.outcome = 'PARAM_MISSING';
+    const r = await pay();
+    expect(r.status).toBe(503);
+    expect(r.json).toEqual({
+      code: 'PAYMENT_UNAVAILABLE',
+      messageKey: 'common.payment.unavailable',
+    });
+    expect(store.starts).toEqual([]);
+    expect(psp.orders).toEqual([]);
+  });
+
   it('IDOR : hold d’un autre voyageur ou inconnu ⇒ 404 HOLD_NOT_FOUND (même réponse), rien n’est démarré', async () => {
     const { a, store, hold } = await app();
     hold({}, { start: startOf(TJ01) });

@@ -2751,7 +2751,7 @@
       "type": "BOOL",
       "scopes": ["COUNTRY"],
       "failMode": "BLOCK",
-      "source": "16 PAY-015, 10b UX-30 (case séparée `web.s05.mitConsent`) ; DEC-FONDATEUR-22 (« jamais plus lourd que Turo ; tout contrôle plus lourd = paramètre pays à false ») ; ADR-189 ; faux : consentement MIT par la mention explicite à côté du bouton de paiement (comme Turo), toujours enregistré ; vrai : case séparée obligatoire ; absent : mention (comme Turo), le consentement reste exigé et enregistré",
+      "source": "16 PAY-015, 10b UX-30 (case séparée `web.s05.mitConsent`) ; DEC-FONDATEUR-22 (« jamais plus lourd que Turo ; tout contrôle plus lourd = paramètre pays à false ») ; ADR-189 ; faux : consentement MIT par la mention explicite à côté du bouton de paiement (comme Turo), toujours enregistré ; vrai : case séparée obligatoire ; absent : fail_mode BLOCK, même sens des deux côtés (base : aucun consentement enregistré ; site : aucun paiement offert)",
       "status": "PROPOSÉ comme Turo (ADR-189) : mention au bouton, aucune case de plus ; vrai seulement si une règle de réseau ou un avis l’exige dans le pays",
       "decision": "PROPOSED",
       "decisionRef": "ADR-189 ; COMME_TURO (US-703) ; DEC-FONDATEUR-22",

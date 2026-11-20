@@ -13,6 +13,8 @@
  * consentement, enregistré par la base avec la version du texte. `CHECKBOX` : case séparée, NON
  * pré-cochée, obligatoire et annoncée comme telle (`web.s05.mitConsentRequiredHint`). La langue du
  * texte affiché part avec le formulaire ; l'API refuse sans consentement (`MIT_CONSENT_REQUIRED`).
+ * `BLOCKED` (paramètre du pays absent, fail_mode BLOCK) : aucun bouton, le message
+ * `common.payment.unavailable`, comme la base qui refuse alors le consentement (`PARAM_MISSING`).
  */
 import { useActionState } from 'react';
 import { createTranslator, getProfile } from '@rueda/i18n';
@@ -32,12 +34,22 @@ export interface PayFormProps {
   readonly label: string;
   readonly testId: string;
   /** Forme du consentement MIT du pays (API) ; inconnue : la case, la forme la plus explicite. */
-  readonly mitConsentMode: 'NOTICE' | 'CHECKBOX' | null;
+  readonly mitConsentMode: 'NOTICE' | 'CHECKBOX' | 'BLOCKED' | null;
 }
 
 export function PayForm({ localeTag, holdId, label, testId, mitConsentMode }: PayFormProps) {
   const i18n = createTranslator(getProfile(LOCALE_CONFIG, localeTag));
   const [state, action, pending] = useActionState(payHoldAction, INITIAL);
+  if (mitConsentMode === 'BLOCKED') {
+    // même sens que la base (fail_mode BLOCK) : rien à envoyer, le paiement n'est pas offert
+    return (
+      <div className={accountStyles['stack']} data-testid={testId}>
+        <Banner tone="danger" live="polite">
+          <span data-testid={`${testId}-mit-blocked`}>{i18n.t('common.payment.unavailable')}</span>
+        </Banner>
+      </div>
+    );
+  }
   return (
     <form action={action} className={accountStyles['stack']} data-testid={testId}>
       <input type="hidden" name="holdId" value={holdId} />

@@ -53,6 +53,8 @@ describe('US-223b — paiement du hold (site)', () => {
     for (const [mitConsent, mode] of [
       [{ mode: 'NOTICE' }, 'NOTICE'],
       [{ mode: 'CHECKBOX' }, 'CHECKBOX'],
+      // revues delta 20b : paramètre du pays absent ⇒ BLOCKED (aucun paiement offert)
+      [{ mode: 'BLOCKED' }, 'BLOCKED'],
       [{ mode: 'AUTRE' }, null],
       ['NOTICE', null],
     ] as const) {

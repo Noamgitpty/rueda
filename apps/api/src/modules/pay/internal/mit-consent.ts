@@ -15,6 +15,8 @@ export const MIT_CONSENT_OUTCOMES = [
   'NOT_FOUND',
   'HOLD_NOT_PAYABLE',
   'REQUEST_INVALID',
+  // paramètre `mit_consent_checkbox_required[pays]` absent : fail_mode BLOCK, rien d'enregistré
+  'PARAM_MISSING',
 ] as const;
 export type MitConsentOutcome = (typeof MIT_CONSENT_OUTCOMES)[number];
 
@@ -32,9 +34,11 @@ export type MitReminderOutcome = (typeof MIT_REMINDER_OUTCOMES)[number];
  * Mode du consentement du pays (DEC-FONDATEUR-22, ADR-189 n° 15) : `NOTICE` (défaut, comme Turo)
  * mention explicite à côté du bouton de paiement ; `CHECKBOX` case séparée obligatoire
  * (`mit_consent_checkbox_required[pays]` vrai). Dans les deux modes, le consentement est exigé et
- * enregistré avec la clé du texte affiché.
+ * enregistré avec la clé du texte affiché. `BLOCKED` : paramètre absent (fail_mode BLOCK) ; le site
+ * n'offre pas le paiement et la base refuse le consentement (`PARAM_MISSING`), même sens des deux
+ * côtés.
  */
-export const MIT_CONSENT_MODES = ['NOTICE', 'CHECKBOX'] as const;
+export const MIT_CONSENT_MODES = ['NOTICE', 'CHECKBOX', 'BLOCKED'] as const;
 export type MitConsentMode = (typeof MIT_CONSENT_MODES)[number];
 
 /** Version du catalogue dont le texte du consentement est servi (es / en / fr / pt-BR). */
