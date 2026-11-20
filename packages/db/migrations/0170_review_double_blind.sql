@@ -55,6 +55,12 @@
 --      note et derniers avis publiés). Nombre de trips : même définition que 0104 (COMPLETED,
 --      IN_DISPUTE). Aucun événement ni notification : l'invitation et l'avis de publication
 --      (`EVT_REVIEW_INVITATION`, `EVT_REVIEW_PUBLISHED` de 16) sont une suite (ADR-190).
+--   6. Avis de l'ops (RECORD_REVIEW, US-218 ; revue du 2026-11-20) : la commande liée de 0104 est
+--      remplacée (même signature, propriétaire et droits) : l'avis reçu par e-mail est SCELLÉ comme
+--      un avis de l'appli (source OPS_RECORDED, action et agent tracés), sous le même verrou du
+--      trip, avec la même fin de fenêtre (première ligne RETURNED, au fuseau du trip ; plus la fin
+--      prévue), et publié avec l'autre avis ou à l'échéance ; un avis de l'ops et un avis de
+--      l'appli de la même partie s'excluent.
 --
 -- Issues rendues (jamais levées) :
 --   enregistrement : DONE (statut SUBMITTED ou PUBLISHED), AUTH_REQUIRED, NOT_FOUND,
@@ -68,7 +74,9 @@
 -- scellé d'origine), contrainte `review_source_valid` supprimée et recréée sous le même nom avec une
 -- valeur de plus (IN_APP ; lignes existantes : OPS_RECORDED, toujours valides), contraintes de forme
 -- ajoutées (lignes existantes : colonnes nouvelles NULL) ; une table ; politiques et droits de
--- colonnes ajoutés ; fonctions ajoutées ; aucune fonction existante remplacée, aucun droit retiré.
+-- colonnes ajoutés ; fonctions ajoutées ; commande liée de RECORD_REVIEW (0104) remplacée à
+-- signature, propriétaire et droits identiques (issues inchangées ; l'avis n'est plus publié à
+-- l'enregistrement mais scellé) ; aucun droit retiré.
 --
 -- Retour arrière (base sans dépendance) :
 --   DROP FUNCTION core.review_worker_publish_due(integer), core.review_cmd_submit(bytea, uuid,
@@ -82,6 +90,7 @@
 --     review_guest_scores_only, review_host_scores_only, DROP COLUMN submission_id, body,
 --     contact_masked, punctuality, return_condition, rules_respect ; recréer review_source_valid
 --     avec ('OPS_RECORDED') seulement (aucune ligne IN_APP) ;
+--   réappliquer core.review_manual_action_record_review de 0104 (sous review_cmd_owner) ;
 --   révoquer les droits accordés ci-dessous (review_cmd_owner).
 
 -- 1. Registre public des avis (0104) : texte masqué, sous-notes de l'hôte, scellé d'origine ------
@@ -110,6 +119,8 @@ ALTER TABLE core.review_review
     source <> 'IN_APP'
     OR (submission_id IS NOT NULL AND manual_action_id IS NULL AND recorded_by IS NULL
         AND contact_masked IS NOT NULL)),
+  ADD CONSTRAINT review_from_submission_masked CHECK (
+    submission_id IS NULL OR contact_masked IS NOT NULL),
   ADD CONSTRAINT review_body_length CHECK (
     body IS NULL OR pg_catalog.char_length(body) BETWEEN 1 AND 1000),
   -- sous-notes du voyageur (propreté, praticité, exactitude, entretien) : avis du voyageur seul
@@ -150,10 +161,18 @@ CREATE TABLE core.review_submission (
     CONSTRAINT review_submission_body_length CHECK (
       body IS NULL OR pg_catalog.char_length(body) BETWEEN 1 AND 1000),
   contact_masked   boolean     NOT NULL,
+  -- IN_APP : donné dans l'application ; OPS_RECORDED : reçu hors application et enregistré par
+  -- l'ops (RECORD_REVIEW, US-218), scellé de la même façon (ADR-190, revue du 2026-11-20)
+  source           text        NOT NULL
+    CONSTRAINT review_submission_source_valid CHECK (source IN ('IN_APP', 'OPS_RECORDED')),
+  manual_action_id uuid,
+  recorded_by      uuid,
   submitted_at     timestamptz NOT NULL,
   -- échéance de la fenêtre figée à l'enregistrement (ni prolongation, BR-REVIEW-02)
   window_closes_at timestamptz NOT NULL,
   CONSTRAINT review_submission_once UNIQUE (trip_id, author_role),
+  CONSTRAINT review_submission_ops_traced CHECK (
+    (source = 'OPS_RECORDED') = (manual_action_id IS NOT NULL AND recorded_by IS NOT NULL)),
   CONSTRAINT review_submission_window CHECK (submitted_at < window_closes_at),
   CONSTRAINT review_submission_text_required CHECK (
     overall > 3 OR (body IS NOT NULL AND pg_catalog.char_length(body) >= 25)),
@@ -187,7 +206,7 @@ CREATE POLICY review_cmd_ins ON core.review_submission FOR INSERT TO review_cmd_
   WITH CHECK (true);
 -- publication d'un scellé (la politique de 0104 reste celle des avis de l'ops)
 CREATE POLICY review_cmd_ins_app ON core.review_review FOR INSERT TO review_cmd_owner
-  WITH CHECK (status = 'PUBLISHED' AND source = 'IN_APP');
+  WITH CHECK (status = 'PUBLISHED' AND submission_id IS NOT NULL);
 -- fuseau du trip (fenêtre au fuseau du trip)
 GRANT SELECT (timezone) ON core.booking_trip TO review_cmd_owner;
 -- prénom affiché (premier mot du prénom légal ; compte pseudonymisé : rien) et ancienneté
@@ -311,12 +330,13 @@ BEGIN
            (id, trip_id, country_code, author_user_id, author_role, subject_type, subject_id,
             overall, cleanliness, communication, convenience, accuracy, maintenance, punctuality,
             return_condition, rules_respect, body, contact_masked, status, source,
-            submission_id, published_at, created_at)
+            manual_action_id, recorded_by, submission_id, published_at, created_at)
     SELECT platform.uuid_v7(), subj.trip_id, subj.country_code, subj.author_user_id,
            subj.author_role, subj.subject_type, subj.subject_id, subj.overall, subj.cleanliness,
            subj.communication, subj.convenience, subj.accuracy, subj.maintenance,
            subj.punctuality, subj.return_condition, subj.rules_respect, subj.body,
-           subj.contact_masked, 'PUBLISHED', 'IN_APP', subj.id, v_now, v_now
+           subj.contact_masked, 'PUBLISHED', subj.source, subj.manual_action_id,
+           subj.recorded_by, subj.id, v_now, v_now
       FROM subj
      ORDER BY subj.ord
     ON CONFLICT ON CONSTRAINT review_unique_per_party DO NOTHING
@@ -459,9 +479,9 @@ BEGIN
       RAISE EXCEPTION 'avis : masquage indisponible'
         USING ERRCODE = 'object_not_in_prerequisite_state';
     END IF;
-    v_text := NULLIF(pg_catalog.btrim(v_text, E' 	
-
-'), '');
+    -- blancs de bord retirés par une classe explicite (espaces, tabulations, fins de ligne)
+    v_text := NULLIF(pg_catalog.regexp_replace(v_text, '^[[:space:]]+|[[:space:]]+$', '', 'g'),
+                     '');
   END IF;
   IF v_text IS NOT NULL AND pg_catalog.char_length(v_text) > 1000 THEN
     RETURN QUERY SELECT 'REVIEW_INVALID'::text, NULL::text, NULL::timestamptz, NULL::timestamptz;
@@ -508,13 +528,14 @@ BEGIN
   INSERT INTO core.review_submission
          (id, trip_id, country_code, author_user_id, author_role, overall, cleanliness,
           communication, convenience, accuracy, maintenance, punctuality, return_condition,
-          rules_respect, body, contact_masked, submitted_at, window_closes_at)
+          rules_respect, body, contact_masked, source, submitted_at, window_closes_at)
   VALUES (v_id, p_trip_id, v_trip.country_code, v_user, v_role, p_overall::smallint,
           (v_sub ->> 'cleanliness')::smallint, (v_sub ->> 'communication')::smallint,
           (v_sub ->> 'convenience')::smallint, (v_sub ->> 'accuracy')::smallint,
           (v_sub ->> 'maintenance')::smallint, (v_sub ->> 'punctuality')::smallint,
           (v_sub ->> 'returnCondition')::smallint, (v_sub ->> 'rulesRespect')::smallint,
-          v_text, COALESCE(pg_catalog.cardinality(v_kinds) > 0, false), v_now, v_win.closes_at);
+          v_text, COALESCE(pg_catalog.cardinality(v_kinds) > 0, false), 'IN_APP', v_now,
+          v_win.closes_at);
 
   -- l'autre partie a déjà noté (scellé ou avis de l'ops) : publication simultanée, ici
   v_other := EXISTS (SELECT 1 FROM core.review_submission AS s
@@ -856,6 +877,114 @@ COMMENT ON FUNCTION core.review_worker_publish_due(integer) IS
   'un trip à la fois sous son verrou ; idempotent. SECURITY DEFINER, EXECUTE app_worker. US-317 '
   '(ADR-190).';
 REVOKE ALL ON FUNCTION core.review_worker_publish_due(integer) FROM PUBLIC;
+
+
+-- 5.9 Commande liée à RECORD_REVIEW (US-218, 0104) remplacée : même signature, même propriétaire
+-- (review_cmd_owner), mêmes droits (EXECUTE iam_staff_owner). Bloc US-317 (revue du 2026-11-20) :
+-- l'avis reçu par e-mail passe par le SCELLÉ comme un avis de l'appli (jamais lisible de l'autre
+-- partie avant publication) ; verrou consultatif du trip ; même fin de fenêtre que l'appli (première
+-- ligne RETURNED, au fuseau du trip) ; publication simultanée si l'autre partie a noté, sinon à
+-- l'échéance par le travailleur review_publisher. Issues inchangées ; `ref_id` = le scellé.
+CREATE OR REPLACE FUNCTION core.review_manual_action_record_review(p_token_hash bytea, p_action_id uuid,
+                                                                    p_action_code text,
+                                                                    p_subject_id uuid,
+                                                                    p_input jsonb, p_reason text,
+                                                                    p_actor uuid, p_actor_role text)
+  RETURNS TABLE (outcome text, ref_id uuid, emitted_event_ids uuid[])
+  LANGUAGE plpgsql
+  VOLATILE
+  SECURITY DEFINER
+  SET search_path = pg_catalog, pg_temp
+AS $fn$
+#variable_conflict use_column
+DECLARE
+  v_role    text := p_input ->> 'authorRole';
+  v_overall smallint;
+  v_trip    record;
+  v_win     record;
+  v_author  uuid;
+  v_now     timestamptz;
+  v_id      uuid := pg_catalog.gen_random_uuid();
+BEGIN
+  v_overall := CASE p_input ->> 'overall'
+                 WHEN 'ONE' THEN 1 WHEN 'TWO' THEN 2 WHEN 'THREE' THEN 3 WHEN 'FOUR' THEN 4
+                 WHEN 'FIVE' THEN 5 END;
+  IF p_action_code IS DISTINCT FROM 'RECORD_REVIEW' OR v_role IS NULL OR v_overall IS NULL
+     OR v_role NOT IN ('GUEST', 'HOST') OR p_actor IS NULL OR p_action_id IS NULL THEN
+    RETURN QUERY SELECT 'REVIEW_INPUT_REQUIRED'::text, NULL::uuid, '{}'::uuid[];
+    RETURN;
+  END IF;
+
+  -- état qui fait foi en base (US-207) : trip COMPLETED seulement
+  SELECT t.id, t.country_code, t.status, t.org_id, t.guest_user_id INTO v_trip
+    FROM core.booking_trip AS t WHERE t.id = p_subject_id;
+  IF v_trip.id IS NULL OR v_trip.status IS DISTINCT FROM 'COMPLETED' THEN
+    RETURN QUERY SELECT 'REVIEW_TRIP_NOT_COMPLETED'::text, NULL::uuid, '{}'::uuid[];
+    RETURN;
+  END IF;
+
+  -- avis du trip sérialisés avec ceux de l'appli et le travailleur (même verrou)
+  PERFORM pg_catalog.pg_advisory_xact_lock(
+    pg_catalog.hashtextextended('review_trip:' || p_subject_id::text, 0));
+  v_now := platform.now();
+
+  -- fenêtre : celle de l'appli (fin effective = première ligne RETURNED, ADR-183) ; sans fin
+  -- effective : trip non réalisé (fail-closed) ; paramètre absent ou mal formé : refus
+  SELECT * INTO v_win FROM core.review_window_of(p_subject_id);
+  IF v_win.ended_at IS NULL THEN
+    RETURN QUERY SELECT 'REVIEW_TRIP_NOT_COMPLETED'::text, NULL::uuid, '{}'::uuid[];
+    RETURN;
+  END IF;
+  IF v_win.closes_at IS NULL THEN
+    RETURN QUERY SELECT 'REVIEW_WINDOW_UNKNOWN'::text, NULL::uuid, '{}'::uuid[];
+    RETURN;
+  END IF;
+  IF v_now >= v_win.closes_at THEN
+    RETURN QUERY SELECT 'REVIEW_WINDOW_CLOSED'::text, NULL::uuid, '{}'::uuid[];
+    RETURN;
+  END IF;
+
+  -- auteur relu en base, jamais reçu
+  IF v_role = 'GUEST' THEN
+    v_author := v_trip.guest_user_id;
+  ELSE
+    SELECT o.holder_user_id INTO v_author FROM core.iam_organization AS o WHERE o.id = v_trip.org_id;
+  END IF;
+  IF v_author IS NULL THEN
+    RETURN QUERY SELECT 'REVIEW_AUTHOR_UNKNOWN'::text, NULL::uuid, '{}'::uuid[];
+    RETURN;
+  END IF;
+
+  -- une fois par partie (scellé de l'appli ou de l'ops, ou avis publié avant 0170)
+  IF EXISTS (SELECT 1 FROM core.review_submission AS s
+              WHERE s.trip_id = p_subject_id AND s.author_role = v_role)
+     OR EXISTS (SELECT 1 FROM core.review_review AS r
+                 WHERE r.trip_id = p_subject_id AND r.author_role = v_role) THEN
+    RETURN QUERY SELECT 'REVIEW_ALREADY_RECORDED'::text, NULL::uuid, '{}'::uuid[];
+    RETURN;
+  END IF;
+
+  INSERT INTO core.review_submission
+         (id, trip_id, country_code, author_user_id, author_role, overall, body, contact_masked,
+          source, manual_action_id, recorded_by, submitted_at, window_closes_at)
+  VALUES (v_id, p_subject_id, v_trip.country_code, v_author, v_role, v_overall, NULL, false,
+          'OPS_RECORDED', p_action_id, p_actor, v_now, v_win.closes_at);
+
+  -- l'autre partie a déjà noté : publication simultanée, ici
+  IF EXISTS (SELECT 1 FROM core.review_submission AS s
+              WHERE s.trip_id = p_subject_id AND s.author_role <> v_role)
+     OR EXISTS (SELECT 1 FROM core.review_review AS r
+                 WHERE r.trip_id = p_subject_id AND r.author_role <> v_role) THEN
+    PERFORM core.review_publish_trip(p_subject_id);
+  END IF;
+  RETURN QUERY SELECT 'DONE'::text, v_id, '{}'::uuid[];
+END
+$fn$;
+COMMENT ON FUNCTION core.review_manual_action_record_review(bytea, uuid, text, uuid, jsonb, text, uuid, text) IS
+  'Commande liée à RECORD_REVIEW (ADR-092) : avis reçu par e-mail pour un trip COMPLETED, dans la '
+  'fenêtre de l''appli (fin effective + review_window_days), une fois par partie, SCELLÉ comme un avis '
+  'de l''appli et publié avec l''autre ou à l''échéance. SECURITY DEFINER, EXECUTE iam_staff_owner. '
+  'US-218 (ADR-130), US-317 (ADR-190).';
 
 GRANT EXECUTE ON FUNCTION core.review_cmd_submit(bytea, uuid, integer, jsonb, text),
   core.review_trip_read(bytea, uuid), core.review_my_received(bytea),

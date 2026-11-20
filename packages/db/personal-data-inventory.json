@@ -3277,6 +3277,10 @@
         {
           "column": "author_user_id",
           "type": "USER"
+        },
+        {
+          "column": "recorded_by",
+          "type": "USER"
         }
       ],
       "export": "controller",
@@ -3302,6 +3306,9 @@
           "report": "US-536"
         },
         "contact_masked": "C1",
+        "source": "C1",
+        "manual_action_id": "C1",
+        "recorded_by": "C1",
         "submitted_at": "C1",
         "window_closes_at": "C1"
       }
