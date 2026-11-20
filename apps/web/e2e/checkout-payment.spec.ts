@@ -125,16 +125,28 @@ async function payAt(page: Page, offsite: string[], button: string): Promise<voi
       body: '<!doctype html><title>psp</title><main>psp</main>',
     });
   });
-  // US-703 : case du consentement MIT, non pré-cochée, cochée par le voyageur (10b UX-30)
-  const consent = page.locator(`[data-testid="${button}-mit-consent"]`);
-  await expect(consent).not.toBeChecked();
-  await consent.check();
+  await acceptMit(page, button);
   await page.locator(`[data-testid="${button}-submit"]`).click();
   await expect(page).toHaveURL(PSP);
   expect(hosted).toMatch(PSP);
   expect(offsite).toEqual([hosted]);
   offsite.splice(0);
   await page.unroute(/^https:\/\/psp\.fake\.invalid\//);
+}
+
+/**
+ * US-703 (ADR-189 n° 15) : consentement MIT sous la forme du pays. Mention au bouton (défaut, comme
+ * Turo) : visible, rien à cocher ; case séparée : non pré-cochée, cochée par le voyageur.
+ */
+async function acceptMit(page: Page, button: string): Promise<void> {
+  const notice = page.locator(`[data-testid="${button}-mit-notice"]`);
+  if ((await notice.count()) > 0) {
+    await expect(notice).toBeVisible();
+    return;
+  }
+  const consent = page.locator(`[data-testid="${button}-mit-consent"]`);
+  await expect(consent).not.toBeChecked();
+  await consent.check();
 }
 
 /** Webhook FAKE signé et conversion, joués par le double. */
@@ -375,6 +387,32 @@ for (const language of LANGUAGES) {
       await expectMobileFriendly(page);
     });
 
+    test('US-703 : pays à case séparée (le 16) : case non pré-cochée, obligatoire annoncée ; envoi sans la case (sans JavaScript) ⇒ message du catalogue, aucune sortie ; cochée ⇒ page du PSP', async ({
+      page,
+      context,
+      offsite,
+    }) => {
+      const t = translator(language);
+      await signInGuest(context, language);
+      await placeHold(page, 16);
+      await expect(page.locator('[data-testid="s05-pay-mit-notice"]')).toHaveCount(0);
+      const consent = page.locator('[data-testid="s05-pay-mit-consent"]');
+      await expect(consent).not.toBeChecked();
+      await expect(consent).toHaveAttribute('required', '');
+      await expect(page.locator('[data-testid="s05-pay"]')).toContainText(
+        t.t('web.s05.mitConsentRequiredHint'),
+      );
+      // envoi natif sans la case (contrôle du navigateur retiré, comme sans JavaScript)
+      await consent.evaluate((el) => el.removeAttribute('required'));
+      await submitAndSettle(page, page.locator('[data-testid="s05-pay-submit"]'));
+      await expect(page.locator('[data-testid="s05-pay"] [role="alert"]')).toHaveText(
+        t.t('common.payment.mitConsentRequired'),
+      );
+      expect(offsite).toEqual([]);
+      await expectAccessible(page);
+      await payAt(page, offsite, 's05-pay');
+    });
+
     for (const [day, key] of [
       [18, 'common.payment.payoutRailUnavailable'],
       // le 19 (réservation en revue) : aucun bouton « Pagar » (US-209c, checkout-review.spec.ts)
@@ -387,7 +425,7 @@ for (const language of LANGUAGES) {
         await signInGuest(context, language);
         const holdId = await placeHold(page, day);
         const button = page.locator('[data-testid="s05-pay-submit"]');
-        await page.locator('[data-testid="s05-pay-mit-consent"]').check();
+        await acceptMit(page, 's05-pay');
         await submitAndSettle(page, button);
         await expect(page).toHaveURL(new RegExp(`/checkout/hold/${holdId}$`));
         await expect(page.locator('[data-testid="s05-pay"] [role="alert"]')).toHaveText(

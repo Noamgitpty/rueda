@@ -2270,6 +2270,9 @@ export const FR_MESSAGES = {
   'web.s05.title': 'Confirme ta réservation',
   'web.s05.intro':
     'Vérifie le voyage, saisis ton nom et accepte les conditions. Tu ne paies rien pour l’instant.',
+  'web.s05.mitConsentNotice':
+    'En payant, j’autorise des débits après le voyage sur la carte avec laquelle je paie, uniquement pour des frais du voyage, ma franchise ou des dommages, toujours avec un avis et une preuve.',
+  'web.s05.mitConsentRequiredHint': 'Obligatoire pour réserver.',
   'web.s05.mitConsent':
     'J’autorise des débits après le voyage sur cette carte, uniquement pour des frais du voyage, ma franchise ou des dommages, toujours avec un avis et une preuve.',
   'web.s05.loading': 'Chargement de ta réservation…',
@@ -2353,6 +2356,8 @@ export const FR_MESSAGES = {
     'Tu as atteint le nombre maximum de tentatives de paiement pour cette réservation. Aucun débit n’a été effectué.',
   'common.payment.methodUnavailable':
     'Ce moyen de paiement n’est pas disponible pour cette réservation.',
+  'common.payment.mitRailUnavailable':
+    'Les débits de carte après le voyage ne sont pas encore disponibles chez notre prestataire de paiement.',
   'common.payment.mitConsentRequired':
     'Pour réserver, accepte les débits après le voyage sur ta carte.',
   'web.s05.cta': 'Payer {amount}',

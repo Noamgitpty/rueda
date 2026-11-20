@@ -2213,6 +2213,9 @@ export const ES_MESSAGES = {
   'web.s05.title': 'Confirma tu reserva',
   'web.s05.intro':
     'Revisa el viaje, escribe tu nombre y acepta las condiciones. Todavía no pagas nada.',
+  'web.s05.mitConsentNotice':
+    'Al pagar, autorizo cargos posteriores al viaje en la tarjeta con la que pague, solo por gastos del viaje, mi franquicia o daños, siempre con aviso y prueba.',
+  'web.s05.mitConsentRequiredHint': 'Obligatorio para reservar.',
   'web.s05.mitConsent':
     'Autorizo cargos posteriores al viaje en esta tarjeta solo por gastos del viaje, mi franquicia o daños, siempre con aviso y prueba.',
   'web.s05.loading': 'Cargando tu reserva…',
@@ -2295,6 +2298,8 @@ export const ES_MESSAGES = {
   'common.payment.attemptsExceeded':
     'Llegaste al máximo de intentos de pago para esta reserva. No se te cobró nada.',
   'common.payment.methodUnavailable': 'Este medio de pago no está disponible para esta reserva.',
+  'common.payment.mitRailUnavailable':
+    'Los cargos posteriores al viaje en tarjeta aún no están disponibles con nuestro proveedor de pagos.',
   'common.payment.mitConsentRequired':
     'Para reservar, acepta los cargos posteriores al viaje en tu tarjeta.',
   'web.s05.cta': 'Pagar {amount}',

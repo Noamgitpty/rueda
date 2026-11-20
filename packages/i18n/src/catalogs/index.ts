@@ -346,7 +346,9 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  US-305) : carte enregistrée et consentement MIT (US-703, ADR-189) : case séparée du checkout
  `web.s05.mitConsent` de 10b §4.3 (UX-30, texte portugais ajouté), refus
  `common.payment.mitConsentRequired` (case non cochée) et rappel du consentement à la remise
- `web.handover.mitReminder` (S09, validation du voyageur au départ).
+ `web.handover.mitReminder` (S09, validation du voyageur au départ) ; après les revues : mention
+ au bouton `web.s05.mitConsentNotice` (défaut, comme Turo, DEC-FONDATEUR-22), aide
+ `web.s05.mitConsentRequiredHint` de la case et code `common.payment.mitRailUnavailable`.
  */
 export const CATALOG_VERSION = 104;
 

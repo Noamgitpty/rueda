@@ -808,6 +808,14 @@ const paymentStateOf = (h) => {
   if (status === 'COMPENSATED') return 'REFUND_DUE';
   return !h.op || h.op === 'FAILED' ? 'ENDED' : 'UNPROVEN';
 };
+// US-703 (ADR-189 n° 15, DEC-FONDATEUR-22) : forme du consentement MIT du pays rendue pour un hold
+// payable : mention au bouton (NOTICE, défaut comme Turo) ; le 16 décembre, case séparée
+// obligatoire (CHECKBOX : pays dont `mit_consent_checkbox_required` vaut vrai).
+const MIT_CHECKBOX_DAY = '-12-16T';
+const mitConsentJson = (h) =>
+  ['PAYABLE', 'DECLINED', 'INTERRUPTED'].includes(paymentStateOf(h))
+    ? { mitConsent: { mode: h.quote.startAt.includes(MIT_CHECKBOX_DAY) ? 'CHECKBOX' : 'NOTICE' } }
+    : {};
 const paymentJson = (h, redirectUrl) => ({
   holdId: h.id,
   state: paymentStateOf(h),
@@ -820,6 +828,7 @@ const paymentJson = (h, redirectUrl) => ({
     ? { request: { status: requestStatusOf(h), respondBy: h.respondBy ?? null } }
     : {}),
   ...depositJson(h),
+  ...mitConsentJson(h),
 });
 
 async function paymentRoute(req, res, url) {
@@ -2978,7 +2987,8 @@ async function handoverRoute(req, res, url) {
       guest: url.searchParams.get('guest') ?? '',
       host: url.searchParams.get('host') ?? '',
       status: url.searchParams.get('status') ?? 'BOOKED',
-      identity: null,
+      // US-703 : permis déjà contrôlé par l'hôte (capture du départ du voyageur, S09)
+      identity: url.searchParams.get('identity') === 'OK' ? 'OK' : null,
       done: { checkin: null, checkout: null },
       validations: {
         checkin: { HOST: null, GUEST: null },

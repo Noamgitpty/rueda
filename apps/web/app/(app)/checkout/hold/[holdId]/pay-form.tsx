@@ -7,10 +7,12 @@
  * base). Sans JavaScript : envoi natif, même action serveur. Un refus s'affiche au-dessus du bouton
  * (`role="alert"`).
  *
- * US-703 (ADR-189 ; 10b UX-30, 16 PAY-015) : case de consentement MIT séparée, NON pré-cochée,
- * obligatoire (`web.s05.mitConsent`, débits après le trip sur la carte enregistrée, avec avis et
- * preuve) ; la langue du texte affiché part avec le formulaire, l'API refuse sans la case
- * (`MIT_CONSENT_REQUIRED`).
+ * US-703 (ADR-189 n° 15 ; 10b UX-30, 16 PAY-015 ; DEC-FONDATEUR-22) : consentement MIT sous la
+ * forme du pays rendue par l'API. `NOTICE` (défaut, comme Turo) : mention explicite et lisible
+ * juste au-dessus du bouton (`web.s05.mitConsentNotice`, « En payant, j'autorise… ») ; payer vaut
+ * consentement, enregistré par la base avec la version du texte. `CHECKBOX` : case séparée, NON
+ * pré-cochée, obligatoire et annoncée comme telle (`web.s05.mitConsentRequiredHint`). La langue du
+ * texte affiché part avec le formulaire ; l'API refuse sans consentement (`MIT_CONSENT_REQUIRED`).
  */
 import { useActionState } from 'react';
 import { createTranslator, getProfile } from '@rueda/i18n';
@@ -29,9 +31,11 @@ export interface PayFormProps {
   /** Libellé déjà traduit et formaté (montant rendu par l'API). */
   readonly label: string;
   readonly testId: string;
+  /** Forme du consentement MIT du pays (API) ; inconnue : la case, la forme la plus explicite. */
+  readonly mitConsentMode: 'NOTICE' | 'CHECKBOX' | null;
 }
 
-export function PayForm({ localeTag, holdId, label, testId }: PayFormProps) {
+export function PayForm({ localeTag, holdId, label, testId, mitConsentMode }: PayFormProps) {
   const i18n = createTranslator(getProfile(LOCALE_CONFIG, localeTag));
   const [state, action, pending] = useActionState(payHoldAction, INITIAL);
   return (
@@ -53,13 +57,24 @@ export function PayForm({ localeTag, holdId, label, testId }: PayFormProps) {
           {i18n.t('web.s05.kyc.link')}
         </ButtonLink>
       )}
-      <Checkbox
-        id={`${testId}-mit-consent`}
-        name="mitConsent"
-        required
-        label={i18n.t('web.s05.mitConsent')}
-        data-testid={`${testId}-mit-consent`}
-      />
+      {mitConsentMode === 'NOTICE' ? (
+        <>
+          <input type="hidden" name="mitConsent" value="on" />
+          <p className={accountStyles['text']} data-testid={`${testId}-mit-notice`}>
+            {i18n.t('web.s05.mitConsentNotice')}
+          </p>
+        </>
+      ) : (
+        <Checkbox
+          id={`${testId}-mit-consent`}
+          name="mitConsent"
+          required
+          aria-required="true"
+          label={i18n.t('web.s05.mitConsent')}
+          hint={i18n.t('web.s05.mitConsentRequiredHint')}
+          data-testid={`${testId}-mit-consent`}
+        />
+      )}
       <Button
         type="submit"
         block

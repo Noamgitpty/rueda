@@ -195,7 +195,7 @@ export function ValidateForm(p: Common) {
       </div>
       {/* US-703 (16 PAY-037) : rappel du consentement MIT au voyageur, au départ seulement */}
       {p.role === 'GUEST' && p.direction === 'checkin' && (
-        <p className={accountStyles['muted']} data-testid="handover-mit-reminder">
+        <p className={accountStyles['text']} data-testid="handover-mit-reminder">
           {t('web.handover.mitReminder')}
         </p>
       )}
