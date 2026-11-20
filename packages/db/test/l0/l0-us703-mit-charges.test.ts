@@ -1056,6 +1056,8 @@ describe.each(COUNTRIES)(
           expect((await consentOf(notice.hold))[0]?.shown_text).toBe('web.s05.mitConsentNotice');
           // paramètre ABSENT (pays ajouté sans valeur) : fail_mode BLOCK, des deux côtés ; le site
           // lit BLOCKED et n'offre pas le paiement, la base refuse le consentement sans écrire
+          // une heure plus tard : la version posée ci-dessus se ferme après son début (valid_to > valid_from)
+          await setVirtualNow(tx, '2035-05-01T11:00:00.000Z');
           await tx.query('SELECT test_fixture.us703_set_consent_param($1, NULL)', [c.country]);
           const missing = await payingHold();
           expect(await modeOf(missing)).toBe('BLOCKED');
