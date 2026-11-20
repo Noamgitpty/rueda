@@ -1222,6 +1222,8 @@ describe('contrat HTTP — /host/accounts/{orgId} et /listings (US-115)', () => 
           !d.includes(' /host/accounts/{orgId}/verification') &&
           // compte de versement (US-707) : pyo/testing/payout-account.contract
           !d.includes(' /host/accounts/{orgId}/payout-account') &&
+          // versements lus par le titulaire (US-314) : pyo/testing/host-payouts.contract
+          !d.includes(' /host/accounts/{orgId}/payouts') &&
           !d.includes(' /host/accounts/{orgId}/vehicle-') &&
           !/ \/host\/accounts\/\{orgId\}\/vehicles\/\{vehicleId\}\/(declaration|documents|eligibility) /.test(
             d,

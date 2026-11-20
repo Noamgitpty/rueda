@@ -279,6 +279,13 @@ Pour chaque point : ce que c'est, pourquoi ça compte, ce qu'on propose, ce qu'o
 - _Ce qu'on propose_ : passer au lot 3 (remise et retour de la voiture, versements) ; pour le paiement hors plateforme, comme Turo : refuser le texte et le signaler à l'équipe, sans rien exiger de plus de l'hôte.
 - _Ce qu'on attend de toi_ : rien de nouveau, information.
 
+**7.13 L'hôte voit ses versements ; une réclamation ouverte retient le versement** (US-314, ADR-192 ; 2026-11-20).
+
+- _Ce que c'est_ : l'écran des gains de l'hôte montre désormais ses versements (date prévue, envoyée ou payée, état, somme due retenue, montant versé) et, pour un versement retenu, la raison en clair (versements pas encore ouverts dans le pays, réclamation ou litige en cours, compte de versement à vérifier…), avec le délai du pays annoncé (2 jours ouvrés, 5 pour le premier versement), en quatre langues. Une **réclamation ouverte** par le support sur un voyage retient maintenant le versement jusqu'à la décision du support, comme chez Turo.
+- _Pourquoi ça compte_ : l'hôte sait quand il sera payé et pourquoi un versement attend ; aucun versement ne part pendant une réclamation.
+- _Ce qu'on propose_ : rien de nouveau à décider ; les autres causes de retenue (frais annexe contesté, dommages avec l'assureur) seront ajoutées par leurs stories. La notification à l'hôte à chaque changement de compte de versement reste à construire avant l'ouverture (§7.11).
+- _Ce qu'on attend de toi_ : rien maintenant (à regarder à la démo de l'écran des gains).
+
 **7.12 Chargebacks et dettes des hôtes : construits, sans décision attendue** (US-709, ADR-187 ; 2026-11-20).
 
 - _Ce que c'est_ : quand un voyageur gagne un chargeback, la plateforme ne reprend à l'hôte que ce qu'il a déjà reçu pour un voyage annulé, jamais pour un voyage réalisé, jamais sur la part de l'assureur ni sur la taxe ; la dette de l'hôte (pénalité, reprise, avance de Kmino) est retenue sur son versement suivant, dans la même monnaie ; un litige gagné libère enfin le versement gelé.
