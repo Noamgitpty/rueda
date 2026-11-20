@@ -20,15 +20,20 @@ La jambe HOST d'un trip reste chez le PSP jusqu'à `payout_at` (08 E7 règle 6).
 8. **Variante B** (`PLATFORM_MOR`) : aucun compte PSP en variante B ne peut exister aujourd'hui (CHECK `psp_account_platform_mor_closed` de 0028) ; en défense en profondeur, retenue avant tout ordre (`FUNDS_HOLDING_DISABLED` tant que l'interrupteur vaut false, RT-L3-V02) ; l'exécution depuis un compte de Kmino n'est pas construite (`VARIANT_B_UNAVAILABLE`, lot C).
 9. **Travailleur** : tâche `payout_scheduler` (60 s, PROPOSÉ) sous le nom `payment_command` (les ordres d'argent et les soldes l'exigent ; le nom `payout` de 17 §2.3 reste celui de la file). Aucun connecteur en production avant le lot C : la préparation (base seule) tourne, rien n'est envoyé.
 
+10. **Arrêt d'urgence** (revues argent, code, sécurité, MAJEUR) : un lot déjà émis (`INITIATED`, `IN_TRANSIT`) rejoué (`REPLAY`) relit ses motifs ; un motif (interrupteur refermé après l'émission, gel, compte) ⇒ **lecture seule** chez le PSP, jamais un envoi. Un lot émis n'est plus gelable (SM-6) : son état ne change pas, un versement déjà parti chez le PSP suit son cours.
+11. **Files sans famine** (revues architecture, code, MAJEUR) : un trip dont la préparation n'aboutit pas (calendrier absent, encaissement introuvable, refus de la base) est différé (`core.payout_prepare_deferral` : 15 min × tentatives, au plus 2 h) ; un lot retenu ou en attente du PSP porte `next_check_at` (15 min) ; les deux files servent d'abord ce qui n'a jamais été tenté puis la relecture la plus ancienne. Un lot retenu dont les motifs n'ont pas changé n'est relu ni verrouillé (aucune amplification d'écriture).
+12. **Compensation sérialisée par (hôte, devise)** : verrou consultatif de transaction `payout.netting:{hôte}:{devise}` pris après les trips et le lot, avant la lecture des compensations des autres lots ; deux lots du même hôte ne compensent jamais la même dette.
+13. **Borne de 24 h** : `payout_schedule` ne rend jamais un `payout_at` antérieur à fin effective + 24 h (jour ouvré suivant, même heure locale), quel que soit N.
+14. **Preuve du chemin passant** : `payouts_enabled` est ouvert, pour le seul test de bout en bout, par la procédure à deux personnes d'US-125 dans une fenêtre d'horloge virtuelle lointaine refermée à false par la même procédure (comme S-04 d'US-049) ; toutes les écritures du versement sont dans une transaction annulée ; la fermeture est vérifiée (`l0-us708-payout-open.test.ts`).
+
 ## Écarts PROPOSÉS avec 17 §3.2.9 (à reporter)
 
-Colonnes en plus `country_code`, `variant`, `psp_account_id`, `payout_account_id`, `first_payout`, `netted_at`, `attempt_no`, `initiated_at`, `paid_at` ; `segment_no` au lieu de `segment_id` ; `rail` et `payout_rail_cap` non posés (rail du PSP, lot C) ; `NETTING` transitoire (compensation et READY / ZERO_NET dans la même commande) ; nom de travailleur `payment_command`.
+Colonnes en plus `country_code`, `variant`, `next_check_at`, `psp_account_id`, `payout_account_id`, `first_payout`, `netted_at`, `attempt_no`, `initiated_at`, `paid_at` ; `segment_no` au lieu de `segment_id` ; `rail` et `payout_rail_cap` non posés (rail du PSP, lot C) ; `NETTING` transitoire (compensation et READY / ZERO_NET dans la même commande) ; nom de travailleur `payment_command` ; table technique `payout_prepare_deferral` (classe T) en plus.
 
 ## Options écartées
 
 - Écrire `release_at` à la fin effective (transition RETURNED, US-315) : deux stories écriraient la colonne, et le premier versement dépend du compte de versement lu au moment du lot ; un seul écrivain, au plus tard possible, ferme S-06.
 - Lot `ON_HOLD` quand le calendrier manque (défaut de L3-PM-37) : un lot exige une échéance ; ne rien préparer est au moins aussi strict (rien ne peut partir) et évite de réécrire `release_at`.
-- Ouvrir `payouts_enabled` dans une fenêtre d'horloge validée pour un cas passant de bout en bout : interdit pour cette story (jamais hors transaction de test annulée) ; le cas passant est prouvé par l'ordonnanceur sur le FAKE (compteurs d'appels) et les gardes par L0, interrupteur fermé.
 - Refuser en base tout `LEG_RELEASE` HOST hors lot, ou un second ordre HOST vivant d'un trip hors lot : casserait les preuves S-04 / RC-3 de 0054 (ordres sans lot dans une fenêtre ouverte) ; suite inscrite au BOARD.
 
 ## Conséquences
