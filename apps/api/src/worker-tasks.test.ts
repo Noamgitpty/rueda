@@ -95,6 +95,8 @@ describe('tâches du travailleur (US-003)', () => {
       'iam_otp_pruner',
       'iam_otp_sender',
       'kyc_score_pruner',
+      // US-703 (ADR-189) : débits post-trip par MIT (aucun connecteur en production)
+      'mit_charge_scheduler',
       'ntf_dispatcher',
       'ntf_sender',
       'ops_monitor',
@@ -111,6 +113,9 @@ describe('tâches du travailleur (US-003)', () => {
       'security_incident_watch',
       // US-215 (ADR-148) : annulations demandées par l'ops, réglées dans la transition
       'trip_lifecycle',
+      // US-305 (ADR-188) : détection des retards et alerte de l'ops, une par événement
+      'trip_overdue',
+      'trip_overdue_alert',
       'webhook_ingest',
     ]);
     expect(
@@ -124,6 +129,7 @@ describe('tâches du travailleur (US-003)', () => {
       ['hold_expiry', 60, 5],
       ['iam_otp_pruner', 3_600, 5],
       ['kyc_score_pruner', 3_600, 5],
+      ['mit_charge_scheduler', 60, 5],
       ['ops_monitor', 60, 5],
       ['payout_scheduler', 60, 5],
       ['privacy_request', 3_600, 5],
@@ -134,6 +140,7 @@ describe('tâches du travailleur (US-003)', () => {
       ['risk_pruner', 3_600, 5],
       ['security_incident_watch', 300, 5],
       ['trip_lifecycle', 10, 5],
+      ['trip_overdue', 60, 5],
       ['webhook_ingest', 10, 5],
     ]);
     // aucun travailleur qui lirait ou appellerait le PSP (lot C, US-061) ; booking_conversion ne lit

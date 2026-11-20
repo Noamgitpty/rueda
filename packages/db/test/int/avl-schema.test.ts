@@ -55,6 +55,9 @@ const TRIP_SM_TABLES = [
   'trip_ops_handover_validation',
   'trip_ops_identity_check',
   'trip_ops_key_handover',
+  // US-305 (0168) : dossier de retard, écrit et lu par les commandes de cmd_hold_owner seulement
+  // (travailleur trip_overdue) ; preuves : test/l0/l0-us305-overdue
+  'trip_ops_overdue_case',
 ] as const;
 
 // Tables de configuration pays (US-013, 0008) : même socle RLS (ENABLE + FORCE, migrator_all),
@@ -121,6 +124,16 @@ const PAY_PORT_TABLES = [
   'payment_refund_instance',
   // caution figée au checkout (US-701, 0146) : preuves dans test/l0/l0-us701-deposit-hold.test.ts
   'payment_deposit_hold',
+  // carte enregistrée, consentement MIT, débits post-trip et dette (US-703, 0169) : aucun droit
+  // applicatif, commandes de cmd_money_owner ; preuves dans test/l0/l0-us703-mit-charges.test.ts
+  'payment_payment_instrument',
+  'payment_mit_consent',
+  'payment_mit_consent_reminder',
+  'payment_mit_network_rule',
+  'payment_post_trip_charge',
+  'payment_post_trip_charge_attempt',
+  'payment_debt_balance',
+  'payment_debt_collection',
 ] as const;
 
 // Compte de versement de l'hôte (US-707, 0159) : même socle RLS ; aucun droit applicatif,

@@ -58,8 +58,10 @@ const IAM_POLICIES: Record<(typeof IAM_TABLES)[number], string> = {
   // par la pose d'un hold (cmd_hold_owner) et par la fiche 360° (iam_staff_owner)
   // US-108 (0081) : signaux du compte lus par l'approbation automatique (kyc_cmd_owner)
   // US-201 (0103) : restriction active du titulaire lue par la recherche publique (catalog_cmd_owner)
+  // US-703 (0169) : restriction UNPAID_BALANCE d'une dette posée et levée par les commandes
+  // d'argent du travailleur payment_command (cmd_money_owner ; kind UNPAID_BALANCE seulement)
   iam_restriction:
-    'catalog_cmd_search_read:catalog_cmd_owner;cmd_hold_read:cmd_hold_owner;iam_auth_insert:iam_auth_owner;iam_auth_select:iam_auth_owner;iam_auth_update:iam_auth_owner;iam_staff_select:iam_staff_owner;kyc_cmd_host_signal_read:kyc_cmd_owner;migrator_all:migrator',
+    'catalog_cmd_search_read:catalog_cmd_owner;cmd_hold_read:cmd_hold_owner;cmd_money_debt_restriction_ins:cmd_money_owner;cmd_money_debt_restriction_sel:cmd_money_owner;cmd_money_debt_restriction_upd:cmd_money_owner;iam_auth_insert:iam_auth_owner;iam_auth_select:iam_auth_owner;iam_auth_update:iam_auth_owner;iam_staff_select:iam_staff_owner;kyc_cmd_host_signal_read:kyc_cmd_owner;migrator_all:migrator',
   // US-125 (0073) : session, rôles et matrice lus par les commandes des interrupteurs
   // US-535a (0157) : mêmes lectures par les commandes de changement de paramètre (cmd_param_owner)
   // US-525 (0161) : permission message.trip_thread seulement, lue par la messagerie

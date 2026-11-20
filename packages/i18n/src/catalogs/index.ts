@@ -342,13 +342,25 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  coordonnées), `web.s16.meeting.*` (S16 : bloc « rendez-vous » de la remise et du retour, statuts,
  confirmation et refus du voyageur, formulaire de l’hôte) et l’avis de rendez-vous confirmé
  `ntf.meetingPickupConfirmed.*` / `ntf.meetingReturnConfirmed.*` (heure seulement, jamais le lieu).
- Version 105 (réservée à US-317 par l’orchestrateur ; les 102 à 104 sont réservées à US-709, US-305
+ Version 103 (réservée à US-305 par l’orchestrateur ; la 101 est celle d’US-316, la 102 est
+ réservée à US-709 ; le numéro ne redescend jamais) : trip suivant à risque (US-305, ADR-188) :
+ `ntf.tripAtRiskHost.*` (le véhicule du trip précédent, en retard, n’est pas rendu ; l’hôte est
+ prévenu, l’ops le contacte).
+ Version 104 (réservée à US-703 par l’orchestrateur ; les 102 et 103 sont celles d’US-709 et
+ US-305) : carte enregistrée et consentement MIT (US-703, ADR-189) : case séparée du checkout
+ `web.s05.mitConsent` de 10b §4.3 (UX-30, texte portugais ajouté), refus
+ `common.payment.mitConsentRequired` (case non cochée) et rappel du consentement à la remise
+ `web.handover.mitReminder` (S09, validation du voyageur au départ) ; après les revues : mention
+ au bouton `web.s05.mitConsentNotice` (défaut, comme Turo, DEC-FONDATEUR-22), aide
+ `web.s05.mitConsentRequiredHint` de la case et code `common.payment.mitRailUnavailable`.
+ Version 105 (réservée à US-317 par l’orchestrateur ; les 102 à 104 sont celles d’US-709, US-305
  et US-703) : avis réciproques en double aveugle (US-317, ADR-190) : `common.reviews.*` (réponses des
  routes `/trips/{id}/reviews`, `/reviews/received` et `/listings/{id}/host-profile` : avis du trip,
  avis enregistré, avis reçus, profil de l’hôte, déjà noté, pas encore ouvert, fenêtre close, texte
- exigé de 1 à 3, avis invalide, indisponible), `web.review.until`, `web.review.blind` et
- `web.review.closed` de 10b §4.3 (texte portugais ajouté), `web.review.*` (S13 et A12 : note, sous-notes
- du voyageur et de l’hôte, texte, avis scellé ou publié, profil du voyageur, avis publiés du trip),
+ exigé de 1 à 3, avis invalide, indisponible), `web.review.until` et `web.review.closed` de 10b §4.3
+ (texte portugais ajouté) et `web.review.blind` (10b §4.3, échéance dite « N jours après la fin du
+ voyage », revue ux du 2026-11-20), `web.review.*` (S13 et A12 : note, sous-notes du voyageur et
+ de l’hôte, texte, avis scellé ou publié, profil du voyageur, avis publiés du trip),
  `web.reviews.*` (avis reçus, droit d’accès Ley 81), `web.a13.title`, `web.a13.preview`,
  `web.a13.reviews`, `web.a13.link` (A13 : aperçu du profil public) et `web.listing.hostReviews`
  (fiche S03, LST-020).

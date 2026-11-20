@@ -302,6 +302,7 @@ export default async function HoldPage({
             holdId={hold.holdId}
             label={t('web.s05.cta', { amount })}
             testId="s05-pay"
+            mitConsentMode={payment?.mitConsentMode ?? null}
           />
         </section>
       )}
@@ -327,6 +328,7 @@ export default async function HoldPage({
             holdId={hold.holdId}
             label={t('web.s05.ctaRequest')}
             testId="s05-pay"
+            mitConsentMode={payment?.mitConsentMode ?? null}
           />
         </section>
       )}

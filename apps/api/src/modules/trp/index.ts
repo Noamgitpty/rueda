@@ -28,3 +28,22 @@ export type {
 export { HANDOVER_MESSAGES, HandoverHttpError } from './internal/handover/errors.js';
 export { PgHandoverStore, UnavailableHandoverStore } from './internal/handover/store.js';
 export type { HandoverStore, HandoverViewRow } from './internal/handover/store.js';
+// Détection automatique des retards (US-305, ADR-188)
+export {
+  alertOps,
+  DETECTION_OUTCOMES,
+  OverdueDetector,
+  parseDetection,
+  registerOverdueDetection,
+  TRIP_AT_RISK_FLAGGED_EVENT,
+  TRIP_OVERDUE_ALERT_WORKER,
+  TRIP_OVERDUE_DEFAULTS,
+  TRIP_OVERDUE_DETECTED_EVENT,
+  TRIP_OVERDUE_WORKER,
+} from './internal/overdue/overdue-detection.js';
+export type {
+  DetectionOutcome,
+  DetectionResult,
+  OverdueDetectorOptions,
+  OverduePassCounts,
+} from './internal/overdue/overdue-detection.js';

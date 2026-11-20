@@ -42,7 +42,8 @@ Déjà consommés par le code (travailleur `ntf_dispatcher`, `RULES` de `interna
 - `kyc.verification.status_changed` (`to` = `APPROVED`) ;
 - `booking.trip.booked` (voyageur : `EVT_BOOKING_CONFIRMED` ; hôte : `EVT_BOOKING_CONFIRMED_HOST` ; parties lues en base, US-213) ;
 - `trip.status_changed` (`to` commençant par `CANCELLED_` ; parties lues en base après la condition, US-213) ;
-- `trip.overdue.detected` ;
+- `trip.overdue.detected` (producteur : travailleur `trip_overdue`, 0168, US-305 ; une fois par trip, voyageur et hôte, `EVT_TRIP_OVERDUE`) ;
+- `trip.at_risk.flagged` (0168, US-305 : trip suivant du véhicule à risque, hôte, `EVT_TRIP_AT_RISK_HOST`, textes `ntf.tripAtRiskHost.*`) ;
 - `payout.batch.status_changed` (`status` = `INITIATED` ou `ON_HOLD`) ;
 - `catalog.addition_request.resolved` (`status` = `APPROVED` ou `MERGED` : ajout ; `REJECTED` : refus ; hôte demandeur `host_user_id`, US-114).
 - `booking.trip.host_restricted` (voyageur `guest_user_id` d'un trip à venir dont l'hôte est restreint, gabarit `EVT_TRIP_HOST_RESTRICTED` ; US-122, ADR-124).

@@ -11,6 +11,9 @@
  *   dont l'état fait foi (UX-27 : jamais un second ordre pendant qu'un ordre est actif) ;
  * - autre refus ⇒ message du code, sur l'écran qui a envoyé.
  * Session absente ⇒ connexion ; CGU à réaccepter ⇒ réacceptation.
+ *
+ * US-703 (ADR-189) : la case du consentement MIT (S05, non pré-cochée) part telle quelle
+ * (`mitConsent`) avec la langue du texte affiché ; non cochée ⇒ message, aucun appel.
  */
 import { redirect } from 'next/navigation';
 import { callApi, codeOf } from '../../../account/api-client.ts';
@@ -35,10 +38,15 @@ export async function payHoldAction(
   const raw = form.get('holdId');
   const holdId = typeof raw === 'string' ? raw.slice(0, 40) : '';
   if (!isUuid(holdId)) return { error: 'common.checkout.holdNotFound' };
+  if (form.get('mitConsent') !== 'on') return { error: 'common.payment.mitConsentRequired' };
+  const rawLocale = form.get('locale');
+  const locale = typeof rawLocale === 'string' ? rawLocale.slice(0, 8) : '';
   const ctx = await clientContext();
   if (ctx.sessionToken === null) redirect('/login');
   const reply = await callApi('POST', `/checkout/holds/${holdId}/payment`, ctx, {
     method: 'CARD',
+    mitConsent: true,
+    locale,
   });
   if (reply.status === 401) redirect('/login');
   const code = codeOf(reply);

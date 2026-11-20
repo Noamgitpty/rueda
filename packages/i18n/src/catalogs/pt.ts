@@ -2220,6 +2220,11 @@ export const PT_MESSAGES = {
   'web.s05.title': 'Confirme sua reserva',
   'web.s05.intro':
     'Confira a viagem, digite seu nome e aceite as condições. Você ainda não paga nada.',
+  'web.s05.mitConsentNotice':
+    'Ao pagar, autorizo cobranças depois da viagem no cartão com que eu pagar, apenas por despesas da viagem, minha franquia ou danos, sempre com aviso e comprovação.',
+  'web.s05.mitConsentRequiredHint': 'Obrigatório para reservar.',
+  'web.s05.mitConsent':
+    'Autorizo cobranças depois da viagem neste cartão apenas por despesas da viagem, minha franquia ou danos, sempre com aviso e comprovação.',
   'web.s05.loading': 'Carregando sua reserva…',
   'web.s05.error': 'Não conseguimos carregar sua reserva. Tente de novo.',
   'web.s05.notFound': 'Orçamento indisponível',
@@ -2301,6 +2306,10 @@ export const PT_MESSAGES = {
     'Você atingiu o número máximo de tentativas de pagamento desta reserva. Nada foi cobrado.',
   'common.payment.methodUnavailable':
     'Este meio de pagamento não está disponível para esta reserva.',
+  'common.payment.mitRailUnavailable':
+    'As cobranças no cartão depois da viagem ainda não estão disponíveis com nosso provedor de pagamento.',
+  'common.payment.mitConsentRequired':
+    'Para reservar, aceite as cobranças após a viagem no seu cartão.',
   'web.s05.cta': 'Pagar {amount}',
   'web.s05.pay.title': 'Pague sua reserva',
   'web.s06.pre.leaving':
@@ -3112,6 +3121,8 @@ export const PT_MESSAGES = {
   'web.handover.validate.HOST.checkout': 'Receber o carro',
   'web.handover.validate.GUEST.checkin': 'Recebi o carro',
   'web.handover.validate.GUEST.checkout': 'Devolver o carro',
+  'web.handover.mitReminder':
+    'Lembrete: você aceitou que custos após a viagem (combustível, pedágios, atraso, limpeza) e sua parte de um dano sejam cobrados no seu cartão, sempre com aviso e comprovação. Ao validar, você confirma.',
   'web.handover.validate.hint': 'O horário que vale é o do servidor quando vocês dois confirmam.',
   'web.handover.waiting.HOST': 'Aguardando a confirmação do viajante.',
   'web.handover.waiting.GUEST': 'Aguardando a confirmação do anfitrião.',
@@ -3281,6 +3292,11 @@ export const PT_MESSAGES = {
     'Olá, {first_name}. O encontro para a devolução da reserva {booking_ref} está confirmado para {meet_at}. O local combinado está nas mensagens da reserva no {brand}.',
   'ntf.meetingReturnConfirmed.sms.body':
     '{brand}: encontro para a devolução confirmado ({booking_ref}) em {meet_at}. Local nas mensagens do app.',
+  'ntf.tripAtRiskHost.email.subject': 'Reserva {booking_ref}: o carro ainda não voltou',
+  'ntf.tripAtRiskHost.email.body':
+    'Olá, {first_name}. Sua reserva {booking_ref} começa em {start_at}, mas a viagem anterior com este carro ainda não terminou: a devolução está atrasada. Nossa equipe vai entrar em contato para ver as opções com o viajante. Você pode nos escrever pela reserva no app.',
+  'ntf.tripAtRiskHost.sms.body':
+    '{brand}: o carro da reserva {booking_ref} ({start_at}) ainda não foi devolvido pela viagem anterior. Vamos entrar em contato.',
   'common.reviews.trip': 'Avaliações da viagem.',
   'common.reviews.submitted': 'Avaliação enviada.',
   'common.reviews.received': 'Avaliações recebidas.',
@@ -3296,8 +3312,9 @@ export const PT_MESSAGES = {
     'As avaliações não estão disponíveis agora. Tente de novo em alguns minutos.',
   'web.review.until': 'Você pode avaliar até {date}',
   'web.review.blind': {
-    one: '{name} só verá sua avaliação quando vocês dois avaliarem ou depois de {count} dia',
-    other: '{name} só verá sua avaliação quando vocês dois avaliarem ou depois de {count} dias',
+    one: '{name} não verá sua avaliação até que vocês dois avaliem ou até {count} dia depois do fim da viagem',
+    other:
+      '{name} não verá sua avaliação até que vocês dois avaliem ou até {count} dias depois do fim da viagem',
   },
   'web.review.closed': 'O prazo para avaliar terminou em {date}.',
   'web.review.back': 'Voltar à viagem',

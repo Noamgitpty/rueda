@@ -513,6 +513,14 @@ export class PgRefundOrders {
   }
 }
 
+/** Statut appliqué par `core.payment_cmd_apply_operation_status` (US-703 : débits MIT aussi). */
+export function applyOperationStatus(
+  db: SqlExecutor,
+  input: ApplyStatusInput,
+): Promise<ApplyOutcome> {
+  return applyStatus(db, input);
+}
+
 async function applyStatus(db: SqlExecutor, input: ApplyStatusInput): Promise<ApplyOutcome> {
   const { rows } = await db.query<{ outcome: ApplyOutcome }>(
     `SELECT core.payment_cmd_apply_operation_status($1, $2, $3, $4, $5) AS outcome`,

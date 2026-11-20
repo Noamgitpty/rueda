@@ -2270,6 +2270,11 @@ export const FR_MESSAGES = {
   'web.s05.title': 'Confirme ta réservation',
   'web.s05.intro':
     'Vérifie le voyage, saisis ton nom et accepte les conditions. Tu ne paies rien pour l’instant.',
+  'web.s05.mitConsentNotice':
+    'En payant, j’autorise des débits après le voyage sur la carte avec laquelle je paie, uniquement pour des frais du voyage, ma franchise ou des dommages, toujours avec un avis et une preuve.',
+  'web.s05.mitConsentRequiredHint': 'Obligatoire pour réserver.',
+  'web.s05.mitConsent':
+    'J’autorise des débits après le voyage sur cette carte, uniquement pour des frais du voyage, ma franchise ou des dommages, toujours avec un avis et une preuve.',
   'web.s05.loading': 'Chargement de ta réservation…',
   'web.s05.error': 'Nous n’avons pas pu charger ta réservation. Réessaie.',
   'web.s05.notFound': 'Devis indisponible',
@@ -2351,6 +2356,10 @@ export const FR_MESSAGES = {
     'Tu as atteint le nombre maximum de tentatives de paiement pour cette réservation. Aucun débit n’a été effectué.',
   'common.payment.methodUnavailable':
     'Ce moyen de paiement n’est pas disponible pour cette réservation.',
+  'common.payment.mitRailUnavailable':
+    'Les débits de carte après le voyage ne sont pas encore disponibles chez notre prestataire de paiement.',
+  'common.payment.mitConsentRequired':
+    'Pour réserver, accepte les débits après le voyage sur ta carte.',
   'web.s05.cta': 'Payer {amount}',
   'web.s05.pay.title': 'Paie ta réservation',
   'web.s06.pre.leaving':
@@ -3175,6 +3184,8 @@ export const FR_MESSAGES = {
   'web.handover.validate.HOST.checkout': 'Reprendre la voiture',
   'web.handover.validate.GUEST.checkin': 'J’ai reçu la voiture',
   'web.handover.validate.GUEST.checkout': 'Rendre la voiture',
+  'web.handover.mitReminder':
+    'Rappel : tu as accepté que les frais après le voyage (carburant, péages, retard, nettoyage) et ta part d’un dommage soient débités sur ta carte, toujours avec un avis et une preuve. Valider le confirme.',
   'web.handover.validate.hint':
     'L’heure qui compte est celle du serveur quand vous confirmez tous les deux.',
   'web.handover.waiting.HOST': 'En attente de la confirmation du voyageur.',
@@ -3348,6 +3359,11 @@ export const FR_MESSAGES = {
     'Bonjour {first_name}. Le rendez-vous pour le retour de la réservation {booking_ref} est confirmé pour le {meet_at}. Le lieu convenu est dans les messages de la réservation sur {brand}.',
   'ntf.meetingReturnConfirmed.sms.body':
     '{brand} : rendez-vous pour le retour confirmé ({booking_ref}) le {meet_at}. Lieu dans les messages de l’appli.',
+  'ntf.tripAtRiskHost.email.subject': 'Réservation {booking_ref} : la voiture n’est pas rentrée',
+  'ntf.tripAtRiskHost.email.body':
+    'Bonjour {first_name}. Ta réservation {booking_ref} commence le {start_at}, mais le voyage précédent avec cette voiture n’est pas terminé : le retour est en retard. Notre équipe te contactera pour voir les options avec le voyageur. Tu peux nous écrire depuis la réservation dans l’appli.',
+  'ntf.tripAtRiskHost.sms.body':
+    '{brand} : la voiture de la réservation {booking_ref} ({start_at}) n’est pas encore rendue après le voyage précédent. Nous te contacterons.',
   'common.reviews.trip': 'Avis du voyage.',
   'common.reviews.submitted': 'Avis envoyé.',
   'common.reviews.received': 'Avis reçus.',
@@ -3364,9 +3380,9 @@ export const FR_MESSAGES = {
     'Les avis ne sont pas disponibles pour le moment. Réessaie dans quelques minutes.',
   'web.review.until': 'Tu peux donner ton avis jusqu’au {date}',
   'web.review.blind': {
-    one: '{name} ne verra pas ton avis avant que vous ayez tous les deux donné le vôtre ou que {count} jour soit passé',
+    one: '{name} ne verra pas ton avis avant que vous ayez tous les deux donné le vôtre, ou au plus tard {count} jour après la fin du voyage',
     other:
-      '{name} ne verra pas ton avis avant que vous ayez tous les deux donné le vôtre ou que {count} jours soient passés',
+      '{name} ne verra pas ton avis avant que vous ayez tous les deux donné le vôtre, ou au plus tard {count} jours après la fin du voyage',
   },
   'web.review.closed': 'Le délai pour donner ton avis s’est terminé le {date}.',
   'web.review.back': 'Retour au voyage',

@@ -415,7 +415,8 @@
         "no_show_at": "C1",
         "checkin_validated_at": "C1",
         "cancel_initiator": "C1",
-        "cancel_requested_at": "C1"
+        "cancel_requested_at": "C1",
+        "at_risk_reason": "C1"
       }
     },
     "core.booking_vehicle_occupancy": {
@@ -1694,6 +1695,212 @@
         "captured_minor": "C1",
         "released_minor": "C1",
         "decision_executed_at": "C1"
+      }
+    },
+    "core.payment_payment_instrument": {
+      "lifecycle": "B",
+      "subjects": [
+        {
+          "column": "user_id",
+          "type": "USER"
+        }
+      ],
+      "export": "controller",
+      "columns": {
+        "id": "C1",
+        "user_id": "C1",
+        "psp_account_id": "C1",
+        "country_code": "C1",
+        "token_ref": {
+          "class": "C4"
+        },
+        "network": "C1",
+        "funding": "C1",
+        "last4": {
+          "class": "C2",
+          "erasure": "pseudonymisation"
+        },
+        "exp_month": {
+          "class": "C2",
+          "erasure": "pseudonymisation"
+        },
+        "exp_year": {
+          "class": "C2",
+          "erasure": "pseudonymisation"
+        },
+        "status": "C1",
+        "replaced_at": "C1",
+        "created_at": "C1",
+        "updated_at": "C1"
+      }
+    },
+    "core.payment_mit_consent": {
+      "lifecycle": "A",
+      "subjects": [
+        {
+          "column": "user_id",
+          "type": "USER"
+        }
+      ],
+      "export": "controller",
+      "columns": {
+        "id": "C1",
+        "user_id": "C1",
+        "hold_id": "C1",
+        "trip_id": "C1",
+        "instrument_id": "C1",
+        "scopes": "C1",
+        "consent_key": "C1",
+        "catalog_version": "C1",
+        "locale": "C1",
+        "accepted_at": "C1",
+        "bound_at": "C1",
+        "network_tx_reference": "C1",
+        "transaction_link_id": "C1"
+      }
+    },
+    "core.payment_mit_consent_reminder": {
+      "lifecycle": "A",
+      "subjects": [
+        {
+          "column": "user_id",
+          "type": "USER"
+        }
+      ],
+      "export": "controller",
+      "columns": {
+        "trip_id": "C1",
+        "consent_id": "C1",
+        "user_id": "C1",
+        "catalog_version": "C1",
+        "locale": "C1",
+        "acknowledged_at": "C1"
+      }
+    },
+    "core.payment_mit_network_rule": {
+      "lifecycle": "C",
+      "export": "none",
+      "columns": {
+        "country_code": "C1",
+        "network": "C1",
+        "reason": "C1",
+        "version": "C1",
+        "notice_hours": "C1",
+        "deadline_days": "C1",
+        "deadline_from": "C1",
+        "retry_offsets_days": "C1",
+        "source_ref": "C1",
+        "created_at": "C1"
+      }
+    },
+    "core.payment_post_trip_charge": {
+      "lifecycle": "B",
+      "subjects": [
+        {
+          "column": "user_id",
+          "type": "USER"
+        }
+      ],
+      "export": "controller",
+      "columns": {
+        "id": "C1",
+        "trip_id": "C1",
+        "user_id": "C1",
+        "country_code": "C1",
+        "currency": "C1",
+        "purpose": "C1",
+        "reason": "C1",
+        "origin_type": "C1",
+        "origin_id": "C1",
+        "settlement_version": "C1",
+        "tender_operation_id": "C1",
+        "psp_account_id": "C1",
+        "amount_minor": "C1",
+        "leg_host_minor": "C1",
+        "leg_insurer_minor": "C1",
+        "leg_tax_third_party_minor": "C1",
+        "leg_platform_minor": "C1",
+        "notified_at": "C1",
+        "guest_agreed_at": "C1",
+        "status": "C1",
+        "next_check_at": "C1",
+        "network": "C1",
+        "first_attempt_at": "C1",
+        "attempt_no": "C1",
+        "outcome_code": "C1",
+        "leg_reported": "C1",
+        "created_at": "C1",
+        "updated_at": "C1"
+      }
+    },
+    "core.payment_post_trip_charge_attempt": {
+      "lifecycle": "A",
+      "export": "none",
+      "columns": {
+        "charge_id": "C1",
+        "attempt_no": "C1",
+        "idem_plain": "C1",
+        "idem_sent": "C1",
+        "amount_minor": "C1",
+        "operation_id": "C1",
+        "planned_at": "C1",
+        "settled": "C1",
+        "do_not_retry": "C1"
+      }
+    },
+    "core.payment_debt_balance": {
+      "lifecycle": "B",
+      "subjects": [
+        {
+          "column": "user_id",
+          "type": "USER"
+        }
+      ],
+      "export": "controller",
+      "columns": {
+        "id": "C1",
+        "user_id": "C1",
+        "trip_id": "C1",
+        "charge_id": "C1",
+        "country_code": "C1",
+        "currency": "C1",
+        "origin_type": "C1",
+        "opened_reason": "C1",
+        "amount_minor": "C1",
+        "due_host_minor": "C1",
+        "due_insurer_minor": "C1",
+        "due_tax_third_party_minor": "C1",
+        "due_platform_minor": "C1",
+        "paid_host_minor": "C1",
+        "paid_insurer_minor": "C1",
+        "paid_tax_third_party_minor": "C1",
+        "paid_platform_minor": "C1",
+        "collection_seq": "C1",
+        "rule_version": "C1",
+        "status": "C1",
+        "created_at": "C1",
+        "updated_at": "C1"
+      }
+    },
+    "core.payment_debt_collection": {
+      "lifecycle": "A",
+      "export": "none",
+      "columns": {
+        "id": "C1",
+        "debt_id": "C1",
+        "seq": "C1",
+        "amount_minor": "C1",
+        "leg_host_minor": "C1",
+        "leg_insurer_minor": "C1",
+        "leg_tax_third_party_minor": "C1",
+        "leg_platform_minor": "C1",
+        "rule_version": "C1",
+        "idem_plain": "C1",
+        "idem_sent": "C1",
+        "operation_id": "C1",
+        "status": "C1",
+        "created_at": "C1",
+        "settled_at": "C1"
       }
     },
     "core.payment_payment_command": {
@@ -3597,6 +3804,25 @@
         "purged_at": "C1",
         "offplatform_codes": "C1",
         "review_item_id": "C1"
+      }
+    },
+    "core.trip_ops_overdue_case": {
+      "lifecycle": "B",
+      "subjects": [],
+      "export": "none",
+      "columns": {
+        "id": "C1",
+        "trip_id": "C1",
+        "country_code": "C1",
+        "stage": "C1",
+        "scheduled_end": "C1",
+        "detection_minutes": "C1",
+        "detected_at": "C1",
+        "use_until": "C1",
+        "occupancy_until": "C1",
+        "bounded": "C1",
+        "next_trip_id": "C1",
+        "updated_at": "C1"
       }
     }
   }

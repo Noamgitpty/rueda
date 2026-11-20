@@ -478,6 +478,26 @@ async function openHandover(page: Page, context: BrowserContext): Promise<void> 
   await expect(page.locator('[data-testid="handover-identity"]')).toBeVisible();
 }
 
+/**
+ * S09 · check-in du voyageur (US-315), validation du départ sous le rappel du consentement MIT
+ * (US-703, 16 PAY-037) : permis contrôlé par l'hôte, trip créé par le double.
+ */
+async function openGuestHandover(
+  page: Page,
+  context: BrowserContext,
+  language: Language,
+): Promise<void> {
+  await signInGuest(context, language);
+  const token = (await context.cookies()).find((c) => c.name === '__Host-session')?.value ?? '';
+  const r = await fetch(
+    `${API}/__e2e/handover/new?guest=${token}&host=&status=CHECKIN_OPEN&identity=OK`,
+  );
+  expect(r.status).toBe(200);
+  const { tripId } = (await r.json()) as { tripId: string };
+  await page.goto(`/trips/${tripId}/handover/checkin`);
+  await expect(page.locator('[data-testid="handover-mit-reminder"]')).toBeVisible();
+}
+
 interface Screen {
   /** Nom stable de la capture (dossier de références). */
   readonly name: string;
@@ -860,6 +880,12 @@ export const SCREENS: readonly Screen[] = [
     name: 'remise-hote',
     source: 'A03, US-315',
     open: (page, context) => openHandover(page, context),
+  },
+  // US-703 : départ du voyageur (S09) sous le rappel du consentement MIT
+  {
+    name: 'remise-voyageur',
+    source: 'S09 · check-in, US-315, US-703',
+    open: (page, context, language) => openGuestHandover(page, context, language),
   },
   // US-525 : messages du trip (S16), fil du voyageur
   {

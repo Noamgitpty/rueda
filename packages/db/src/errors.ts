@@ -355,6 +355,27 @@ export const CONSTRAINT_CODES: Readonly<Record<string, readonly [string, DbBusin
   // ordre LEG_RELEASE d'un item (lot READY, clé, rang, montant ; un seul ordre HOST vivant),
   // interrupteurs à l'émission, écrivain unique de release_at, registres immuables
   payout_command_forbidden: [SQLSTATE.insufficientPrivilege, 'FORBIDDEN'],
+  // carte enregistrée, consentement MIT et débits post-trip (0169, US-703, ADR-189) : commandes
+  // réservées au travailleur, ordre MIT_CHARGE / DEBT_COLLECTION hors tentative planifiée, jeton
+  // sans PAN, registres immuables, transitions, jambes explicites
+  mit_command_forbidden: [SQLSTATE.insufficientPrivilege, 'FORBIDDEN'],
+  mit_operation_unplanned: [SQLSTATE.integrityConstraintViolation, 'INVARIANT_VIOLATION'],
+  mit_charge_mismatch: [SQLSTATE.integrityConstraintViolation, 'INVARIANT_VIOLATION'],
+  mit_charge_conflict: [SQLSTATE.integrityConstraintViolation, 'IDEMPOTENCY_CONFLICT'],
+  mit_instrument_conflict: [SQLSTATE.integrityConstraintViolation, 'IDEMPOTENCY_CONFLICT'],
+  mit_charge_legs_sum: [SQLSTATE.integrityConstraintViolation, 'LEG_SUM_MISMATCH'],
+  mit_charge_transition: [SQLSTATE.integrityConstraintViolation, 'INVALID_TRANSITION'],
+  debt_transition: [SQLSTATE.integrityConstraintViolation, 'INVALID_TRANSITION'],
+  mit_record_immutable: [SQLSTATE.integrityConstraintViolation, 'IMMUTABLE_RECORD'],
+  mit_instrument_immutable: [SQLSTATE.integrityConstraintViolation, 'IMMUTABLE_RECORD'],
+  mit_consent_immutable: [SQLSTATE.integrityConstraintViolation, 'IMMUTABLE_RECORD'],
+  mit_charge_immutable: [SQLSTATE.integrityConstraintViolation, 'IMMUTABLE_RECORD'],
+  mit_attempt_immutable: [SQLSTATE.integrityConstraintViolation, 'IMMUTABLE_RECORD'],
+  mit_debt_immutable: [SQLSTATE.integrityConstraintViolation, 'IMMUTABLE_RECORD'],
+  mit_collection_immutable: [SQLSTATE.integrityConstraintViolation, 'IMMUTABLE_RECORD'],
+  payment_instrument_token_no_pan: [SQLSTATE.checkViolation, 'INVARIANT_VIOLATION'],
+  payment_instrument_token_format: [SQLSTATE.checkViolation, 'INVARIANT_VIOLATION'],
+  debt_balance_paid_bounds: [SQLSTATE.checkViolation, 'LEG_AMOUNT_NEGATIVE'],
   payout_release_batch_not_ready: [SQLSTATE.objectNotInPrerequisiteState, 'INVALID_TRANSITION'],
   payout_release_item_mismatch: [SQLSTATE.objectNotInPrerequisiteState, 'INVARIANT_VIOLATION'],
   payout_release_duplicate: [SQLSTATE.objectNotInPrerequisiteState, 'INVARIANT_VIOLATION'],
@@ -410,6 +431,9 @@ export const CONSTRAINT_CODES: Readonly<Record<string, readonly [string, DbBusin
   // remise et retour entre particuliers (0163, US-315 ; 16 TRP-002, VER-015, TRP-033)
   trip_handover_immutable: [SQLSTATE.integrityConstraintViolation, 'IMMUTABLE_RECORD'],
   trip_handover_incoherent: [SQLSTATE.integrityConstraintViolation, 'INVARIANT_VIOLATION'],
+  // détection des retards (0168, US-305 ; 16 TRP-035, 17 §2.5 « prolongation tacite »)
+  trip_overdue_case_immutable: [SQLSTATE.integrityConstraintViolation, 'IMMUTABLE_RECORD'],
+  trip_overdue_batch_invalid: [SQLSTATE.checkViolation, 'INVARIANT_VIOLATION'],
   // contrat de location et signature (0122, US-211 ; 16 BKG-018, BKG-019)
   trip_contract_not_signed: [SQLSTATE.objectNotInPrerequisiteState, 'CONTRACT_NOT_SIGNED'],
   contract_record_immutable: [SQLSTATE.integrityConstraintViolation, 'IMMUTABLE_RECORD'],

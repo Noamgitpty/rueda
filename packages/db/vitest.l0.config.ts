@@ -71,6 +71,9 @@ const ISOLATED = [
   // US-709 : compensation contre passage en perte du même hôte à deux sessions ; créance et décision
   // FINANCE VALIDÉES, compte PSP ACTIVE partagé du pays (fixture 9800)
   'test/l0/l0-us709-ledger-race.test.ts',
+  // US-703 : deux travailleurs planifient la tentative MIT du même débit, à deux sessions ; débit
+  // VALIDÉ sur le compte PSP ACTIVE partagé du pays (fixture 9800), SUPPORTS_MIT remise inconnue
+  'test/l0/l0-us703-mit-race.test.ts',
   // US-317 : publication des avis à l'échéance par le travailleur et courses à deux sessions
   // (travailleurs, enregistrements simultanés) ; trips, sessions et avis commités ; le travailleur
   // publie tous les scellés échus de la base

@@ -80,6 +80,12 @@ export interface CheckoutPaymentView {
   readonly request: PaymentRequestView | null;
   /** Caution (US-701) ; `null` : ni figée ni évaluable (champ absent). */
   readonly deposit: DepositView | null;
+  /**
+   * US-703 (ADR-189 n° 15) : forme du consentement MIT du pays ; `null` : absente ou illisible (le
+   * site affiche alors la case, la forme la plus explicite) ; `BLOCKED` : paramètre du pays absent
+   * (fail_mode BLOCK), aucun paiement offert, comme la base qui refuse le consentement.
+   */
+  readonly mitConsentMode: 'NOTICE' | 'CHECKBOX' | 'BLOCKED' | null;
 }
 
 const isObj = (v: unknown): v is Record<string, unknown> =>
@@ -253,6 +259,10 @@ export function checkoutPaymentOf(reply: ApiResult): CheckoutPaymentView | null 
   if (deposit === undefined) return null;
   const redirectUrl =
     typeof url === 'string' && HOSTED.test(url) && url.length <= HOSTED_MAX ? url : null;
+  const mit = p['mitConsent'];
+  const mode = isObj(mit) ? mit['mode'] : undefined;
+  const mitConsentMode =
+    mode === 'NOTICE' || mode === 'CHECKBOX' || mode === 'BLOCKED' ? mode : null;
   return {
     holdId,
     state: state as PaymentStateView,
@@ -262,6 +272,7 @@ export function checkoutPaymentOf(reply: ApiResult): CheckoutPaymentView | null 
     redirectUrl,
     request,
     deposit,
+    mitConsentMode,
   };
 }
 
@@ -273,6 +284,8 @@ const PAYMENT_KEYS: Readonly<Record<string, MessageKey>> = {
   REQUEST_INVALID: 'common.auth.requestInvalid',
   HOLD_NOT_FOUND: 'common.checkout.holdNotFound',
   HOLD_EXPIRED: 'common.payment.holdExpired',
+  // US-703 : consentement MIT absent (case non cochée)
+  MIT_CONSENT_REQUIRED: 'common.payment.mitConsentRequired',
   HOLD_NOT_PAYABLE: 'common.payment.holdNotPayable',
   BOOKING_UNDER_REVIEW: 'common.payment.underReview',
   // US-701 (ADR-169) : caution impossible pour ces dates, ou montant non fixé
