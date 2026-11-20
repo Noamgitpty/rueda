@@ -200,6 +200,35 @@ AS $fn$
   UPDATE core.payment_psp_account SET collection_mode = p_mode WHERE id = p_psp_account_id
 $fn$;
 
+-- Lot de variante B (PLATFORM_MOR) FORGÉ, READY, avec l'item d'un trip non préparé : aucun compte
+-- PSP en variante B ne peut exister (CHECK de 0028) ; prouve la défense en profondeur des gardes
+CREATE FUNCTION test_fixture.us708_variant_b_batch(p_trip_id uuid, p_psp_account_id uuid)
+  RETURNS uuid
+  LANGUAGE plpgsql
+  SECURITY DEFINER
+  SET search_path = pg_catalog, pg_temp
+AS $fn$
+DECLARE
+  v_id     uuid := pg_catalog.gen_random_uuid();
+  v_amount bigint;
+BEGIN
+  SELECT b.captured_minor - b.refunded_minor - b.released_minor INTO v_amount
+    FROM core.settlement_trip_leg_balance AS b
+   WHERE b.trip_id = p_trip_id AND b.segment_no = 1 AND b.leg = 'HOST';
+  INSERT INTO core.payout_payout_batch
+         (id, org_id, country_code, currency, kind, variant, psp_account_id, first_payout, status,
+          scheduled_for, gross_minor, netted_minor, net_minor, netted_at)
+  SELECT v_id, t.org_id, t.country_code, t.currency, 'FINAL', 'PLATFORM_MOR', p_psp_account_id,
+         false, 'READY', platform.now(), v_amount, 0, v_amount, platform.now()
+    FROM core.booking_trip AS t WHERE t.id = p_trip_id;
+  INSERT INTO core.payout_payout_item
+         (batch_id, trip_id, segment_no, leg, org_id, country_code, currency, amount_minor)
+  SELECT v_id, t.id, 1, 'HOST', t.org_id, t.country_code, t.currency, v_amount
+    FROM core.booking_trip AS t WHERE t.id = p_trip_id;
+  RETURN v_id;
+END
+$fn$;
+
 -- État forcé d'un lot (preuve des gardes de l'envoi) : READY (compensé, net = brut, aucun motif)
 -- ou INITIATED (refusé par la garde de 0165 tant que payouts_enabled vaut false)
 CREATE FUNCTION test_fixture.us708_force_batch(p_batch_id uuid, p_status text)
@@ -235,6 +264,7 @@ REVOKE ALL ON FUNCTION
   test_fixture.us708_batches(uuid),
   test_fixture.us708_items(uuid),
   test_fixture.us708_set_collection_mode(uuid, text),
+  test_fixture.us708_variant_b_batch(uuid, uuid),
   test_fixture.us708_force_batch(uuid, text)
 FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION
@@ -247,5 +277,6 @@ GRANT EXECUTE ON FUNCTION
   test_fixture.us708_batches(uuid),
   test_fixture.us708_items(uuid),
   test_fixture.us708_set_collection_mode(uuid, text),
+  test_fixture.us708_variant_b_batch(uuid, uuid),
   test_fixture.us708_force_batch(uuid, text)
 TO app_worker;

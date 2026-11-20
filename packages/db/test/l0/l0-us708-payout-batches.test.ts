@@ -80,7 +80,6 @@ interface WorldOptions {
   readonly paid?: boolean;
   /** Dette de l'hôte au host_ledger (unités mineures). */
   readonly debit?: bigint;
-  readonly variantB?: boolean;
 }
 
 /**
@@ -105,11 +104,6 @@ async function world(tx: Tx, c: CountryCase, psp: string, o: WorldOptions): Prom
     [op],
   );
   expect(moved.rows[0]?.r).toBe('APPLIED');
-  // variante B posée APRÈS l'encaissement (le report d'un encaissement en variante B exige déjà
-  // funds_holding_enabled, 0054) : seul le versement est éprouvé
-  if (o.variantB === true) {
-    await tx.query(`SELECT test_fixture.us708_set_collection_mode($1, 'PLATFORM_MOR')`, [psp]);
-  }
   for (const d of o.holidays) {
     await tx.query('SELECT test_fixture.us708_holiday($1, $2::date)', [c.country, d]);
   }
@@ -377,7 +371,8 @@ describe.each(COUNTRIES)('US-708 — lots de versement à l’hôte — $country
       );
       expect(net.rows[0]?.outcome).toBe('ON_HOLD');
       expect(net.rows[0]?.hold_reasons).toContain('PAYOUTS_DISABLED');
-      const [held] = await batchesOf(tx, w.trip);
+      const held = (await batchesOf(tx, w.trip)).find((b) => b.id === p.batch_id);
+      expect(held?.status).toBe('ON_HOLD');
       expect(held?.netted_at).toBeNull();
 
       // l'envoi direct par la commande du travailleur, sur un lot forcé READY
@@ -446,7 +441,7 @@ describe.each(COUNTRIES)('US-708 — lots de versement à l’hôte — $country
     });
   });
 
-  it('RT-L3-V02 : variante B (PLATFORM_MOR) avec funds_holding_enabled = false ⇒ FUNDS_HOLDING_DISABLED, refus avant tout ordre', async () => {
+  it('RT-L3-V02 : variante B (PLATFORM_MOR) — compte refusé par la base ; lot B forgé : funds_holding_enabled = false ⇒ FUNDS_HOLDING_DISABLED, refus avant tout ordre', async () => {
     await asPayments(async (tx) => {
       const psp = await insertAccount(tx, { country: c.country });
       const { rows } = await tx.query<{ on: boolean }>(
@@ -454,25 +449,32 @@ describe.each(COUNTRIES)('US-708 — lots de versement à l’hôte — $country
         [c.country],
       );
       expect(rows[0]?.on).toBe(false);
-      const w = await world(tx, c, psp, {
-        endLocal: FRIDAY,
-        holidays: CALENDAR,
-        paid: true,
-        variantB: true,
-      });
-      const p = await prepare(tx, w.trip);
-      expect(p.hold_reasons).toEqual(
-        expect.arrayContaining(['FUNDS_HOLDING_DISABLED', 'VARIANT_B_UNAVAILABLE']),
+      // aucun compte PSP en variante B n'existe (CHECK de 0028) : aucun lot B ne naît d'une préparation
+      const mor = await caught(tx, () =>
+        tx.query(`SELECT test_fixture.us708_set_collection_mode($1, 'PLATFORM_MOR')`, [psp]),
       );
-      const [b] = await batchesOf(tx, w.trip);
-      expect(b?.variant).toBe('PLATFORM_MOR');
+      expect(mor).toMatchObject({ constraint: 'psp_account_platform_mor_closed' });
+      // défense en profondeur : un lot B forgé (READY) reste refusé avant tout ordre
+      const w = await world(tx, c, psp, { endLocal: FRIDAY, holidays: CALENDAR, paid: true });
       await setNow(tx, await localInstant(tx, c.timezone, '2032-01-20 11:00'));
-      await tx.query(`SELECT test_fixture.us708_force_batch($1, 'READY')`, [p.batch_id]);
+      const forged = await tx.query<{ id: string }>(
+        'SELECT test_fixture.us708_variant_b_batch($1, $2) AS id',
+        [w.trip, psp],
+      );
+      const batch = forged.rows[0]?.id ?? '';
       expect(await recordRelease(tx, w, c, `release:${w.trip}:1:HOST:i1`, w.host)).toMatchObject({
         code: '55000',
         constraint: 'payout_batch_funds_holding_disabled',
       });
       expect(await releaseOps(tx, w.trip)).toBe(0);
+      const re = await tx.query<{ outcome: string; hold_reasons: string[] }>(
+        'SELECT outcome, hold_reasons FROM core.payout_cmd_recheck_batch($1)',
+        [batch],
+      );
+      expect(re.rows[0]?.outcome).toBe('ON_HOLD');
+      expect(re.rows[0]?.hold_reasons).toEqual(
+        expect.arrayContaining(['FUNDS_HOLDING_DISABLED', 'VARIANT_B_UNAVAILABLE']),
+      );
     });
   });
 
