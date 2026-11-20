@@ -2468,7 +2468,7 @@
       "story": "US-307"
     },
     {
-      "signature": "core.messaging_wait_traced(uuid,text,timestamp with time zone,timestamp with time zone)",
+      "signature": "core.messaging_wait_traced(uuid,text,timestamp with time zone,timestamp with time zone,interval)",
       "family": "messaging_cmd",
       "owner": "messaging_cmd_owner",
       "execute": ["cmd_hold_owner"],

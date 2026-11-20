@@ -352,7 +352,7 @@ const MATRIX: Readonly<Record<string, Expected>> = {
     mode: 'DOMAIN_COMMAND',
     // US-307 : partie absente (GUEST ⇒ GUEST_NO_SHOW, HOST ⇒ HOST_NO_SHOW), mots seulement
     keys: ['absentParty'],
-    values: { absentParty: ['GUEST', 'HOST'] },
+    values: { absentParty: ['GUEST', 'HOST', 'NONE'] },
     approval: false,
     handler: NO_SHOW_HANDLER,
     source: '17 §2.3 « trip.declare_no_show » ; 19 US-307, ADR-191',

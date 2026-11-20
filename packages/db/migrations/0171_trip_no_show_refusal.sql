@@ -25,8 +25,11 @@
 --      host_ledger par le déclencheur de 0129) ; aucun nouveau chemin d'argent ;
 --   2. quatre auteurs, motif DEMANDÉ et initiateur DÉRIVÉS de l'auteur (jamais reçus, N-131) :
 --        - l'hôte titulaire déclare le voyageur absent (`HOST_DECLARE_NO_SHOW` ⇒ GUEST_NO_SHOW) ;
---        - le voyageur signale l'hôte absent (`GUEST_REPORT_HOST_NO_SHOW` ⇒ HOST_NO_SHOW) ;
---        - l'ops, par la console (cadre d'US-101) : `DECLARE_NO_SHOW` (absentParty GUEST ou HOST)
+--        - le voyageur signale l'hôte absent (`GUEST_REPORT_HOST_NO_SHOW` ⇒ HOST_NO_SHOW) : la
+--          demande attend la validation de l'ops (AWAITING_REVIEW ; comme Turo, le support vérifie),
+--          l'hôte est prévenu (`trip.no_show.reported`) ;
+--        - l'ops, par la console (cadre d'US-101) : `DECLARE_NO_SHOW` (absentParty GUEST ; HOST :
+--          valide le signalement en attente, sinon déclare ; NONE : rejette le signalement)
 --          et `REFUSE_AT_PICKUP` (refusalReason : CLEANLINESS ou SAFETY ⇒ CLEANLINESS_SAFETY_VALID ;
 --          INVALID_LICENSE, IDENTITY_NOT_VERIFIED ou OTHER_DRIVER_SENT ⇒
 --          HOST_CANCELLED_DUE_TO_GUEST, requalifié HOST_CANCELLED sans preuve validée : T07 / T08) ;
@@ -34,16 +37,16 @@
 --      voyageur à partir de `no_show_at` (début + no_show_grace_minutes du pays, figé, OQ-BR-33) ;
 --      no-show de l'hôte à partir du début + 30 min (BR-CXL-13) ; fin de la fenêtre de déclaration
 --      au début + 72 h (BR-CXL-08, POLICY du moteur) ; avant ⇒ NO_SHOW_TOO_EARLY, après ⇒
---      NO_SHOW_WINDOW_CLOSED. Ces trois délais sont des règles de la politique d'annulation de 08,
---      communes aux deux pays (comme la POLICY du moteur), pas des constantes de pays ;
+--      NO_SHOW_WINDOW_CLOSED. Ces délais (et ceux du message) sont des règles de 08, communes aux
+--      deux pays, lus d'une seule source : `core.booking_no_show_policy()` ;
 --   4. preuves (L3-PM-20 : « preuve = photo à l'heure serveur ou message tracé ») :
 --        - `host_message_traced` (BR-CXL-08) : un message de l'hôte (titulaire ou co-hôte) dans le
---          fil du trip, envoyé au plus tôt au début prévu, suivi de 15 min sans réponse du
---          voyageur, toutes deux écoulées à l'heure de la déclaration (lu par la messagerie,
---          `core.messaging_wait_traced`, jamais reçu) ; faux ⇒ la déclaration est ACCEPTÉE et
+--          fil du trip, envoyé dans [début − 1 h ; déclaration − 15 min] et suivi de 15 min sans
+--          réponse du voyageur (08 BR-CXL-08 ; `core.booking_no_show_traced`, lu par la messagerie,
+--          jamais reçu) ; faux ⇒ la déclaration est ACCEPTÉE et
 --          l'hôte est inéligible (T39 : toute la retenue à PLATFORM, OQ-BR-45) ;
 --        - no-show de l'hôte signalé par le voyageur : le même fait, côté voyageur (message du
---          voyageur au plus tôt au début, 15 min sans réponse de l'hôte) ; absent ⇒
+--          voyageur dans la même fenêtre, 15 min sans réponse de l'hôte) ; absent ⇒
 --          NO_SHOW_EVIDENCE_REQUIRED, rien n'est écrit ; par la console : une pièce jointe par
 --          l'agent ou ce même message, relus au règlement (sinon la demande est garée FAILED,
 --          TRIP_NO_SHOW_EVIDENCE_MISSING) ;
@@ -97,7 +100,10 @@
 --     uuid), core.trip_no_show_state(uuid, text), core.booking_manual_action_no_show(bytea, uuid,
 --     text, uuid, jsonb, text, uuid, text), core.booking_trip_cancellation_flags(uuid),
 --     core.payment_assert_payout_adjustment(uuid, text), core.messaging_wait_traced(uuid, text,
---     timestamptz, timestamptz), core.settlement_verify_cxl_beta_2(jsonb) ;
+--     timestamptz, timestamptz, interval), core.settlement_verify_cxl_beta_2(jsonb),
+--     core.booking_no_show_traced(uuid, text, timestamptz), core.booking_no_show_policy() ;
+--   DROP INDEX core.trip_cancellation_review_unique ; DROP POLICY cmd_hold_cancel_review_upd ;
+--   ALTER POLICY cmd_hold_trip_notice_ins (définition de 0132) ;
 --   ALTER POLICY cmd_hold_cancel_read ON core.support_manual_action USING (action_code IN
 --     ('CANCEL_TRIP_GUEST', 'CANCEL_TRIP_HOST', 'CANCEL_TRIP_PLATFORM')) ;
 --   DROP POLICY cmd_hold_cancel_party_ins ON core.booking_trip_cancellation ;
@@ -429,22 +435,24 @@ REVOKE CREATE ON SCHEMA core FROM cmd_money_owner;
 
 -- 4. MSG : attente tracée dans le fil du trip (preuve hostMessageTraced de 08 BR-CXL-08) ----------
 -- Vrai si un message de `p_side` (HOST : titulaire ou co-hôte ; GUEST : le voyageur) a été envoyé
--- dans le fil du trip à partir de `p_from`, puis suivi de 15 min sans message de l'autre partie, ces
--- 15 min étant écoulées à `p_at`. Heure serveur des messages (`sent_at`) ; un message masqué ou
--- purgé reste une trace (la ligne n'est jamais supprimée, 0161). Les 15 min sont la règle de 08
--- BR-CXL-08 (« message + 15 min sans réponse »), commune aux deux pays. Aucun texte lu.
+-- dans le fil du trip à partir de `p_from`, puis suivi de `p_wait` sans message de l'autre partie,
+-- cette attente étant écoulée à `p_at` (`p_from <= sent_at <= p_at − p_wait`). Heure serveur des
+-- messages (`sent_at`) ; un message masqué ou purgé reste une trace (la ligne n'est jamais
+-- supprimée, 0161). Bornes et attente : `core.booking_no_show_policy()` (section 7 bis), jamais en
+-- dur ici. Aucun texte lu.
 GRANT CREATE ON SCHEMA core TO messaging_cmd_owner;
 SET LOCAL ROLE messaging_cmd_owner;
 
 CREATE FUNCTION core.messaging_wait_traced(p_trip_id uuid, p_side text, p_from timestamptz,
-                                           p_at timestamptz)
+                                           p_at timestamptz, p_wait interval)
   RETURNS boolean
   LANGUAGE sql
   STABLE
   SECURITY DEFINER
   SET search_path = pg_catalog, pg_temp
 AS $fn$
-  SELECT COALESCE(p_side IN ('HOST', 'GUEST') AND p_from IS NOT NULL AND p_at IS NOT NULL, false)
+  SELECT COALESCE(p_side IN ('HOST', 'GUEST') AND p_from IS NOT NULL AND p_at IS NOT NULL
+                  AND p_wait IS NOT NULL AND p_wait > interval '0', false)
      AND EXISTS (
            SELECT 1
              FROM core.messaging_message_thread AS th
@@ -453,21 +461,21 @@ AS $fn$
               AND (CASE WHEN p_side = 'HOST' THEN m.author_role IN ('HOST', 'CO_HOST')
                         ELSE m.author_role = 'GUEST' END)
               AND m.sent_at >= p_from
-              AND m.sent_at + interval '15 minutes' <= p_at
+              AND m.sent_at + p_wait <= p_at
               AND NOT EXISTS (
                     SELECT 1 FROM core.messaging_message AS r
                      WHERE r.thread_id = th.id
                        AND (CASE WHEN p_side = 'HOST' THEN r.author_role = 'GUEST'
                                  ELSE r.author_role IN ('HOST', 'CO_HOST') END)
                        AND r.sent_at > m.sent_at
-                       AND r.sent_at <= m.sent_at + interval '15 minutes'))
+                       AND r.sent_at <= m.sent_at + p_wait))
 $fn$;
-COMMENT ON FUNCTION core.messaging_wait_traced(uuid, text, timestamptz, timestamptz) IS
-  'Preuve hostMessageTraced (08 BR-CXL-08) : message d''une partie dans le fil du trip suivi de '
-  '15 min sans réponse de l''autre, à l''heure serveur ; aucun texte lu. EXECUTE cmd_hold_owner. '
+COMMENT ON FUNCTION core.messaging_wait_traced(uuid, text, timestamptz, timestamptz, interval) IS
+  'Preuve hostMessageTraced (08 BR-CXL-08) : message d''une partie dans le fil du trip suivi d''une '
+  'attente sans réponse de l''autre, à l''heure serveur ; aucun texte lu. EXECUTE cmd_hold_owner. '
   'US-307 (ADR-191).';
-REVOKE ALL ON FUNCTION core.messaging_wait_traced(uuid, text, timestamptz, timestamptz) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION core.messaging_wait_traced(uuid, text, timestamptz, timestamptz)
+REVOKE ALL ON FUNCTION core.messaging_wait_traced(uuid, text, timestamptz, timestamptz, interval) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION core.messaging_wait_traced(uuid, text, timestamptz, timestamptz, interval)
   TO cmd_hold_owner;
 
 RESET ROLE;
@@ -476,6 +484,25 @@ REVOKE CREATE ON SCHEMA core FROM messaging_cmd_owner;
 -- 5. AVL : demande d'annulation étendue aux déclarations (17 §3.2.4 ; 0124) ---------------------
 -- hostMessageTraced figé à la déclaration (no-show du voyageur seulement) : l'entrée du moteur
 ALTER TABLE core.booking_trip_cancellation ADD COLUMN host_message_traced boolean;
+-- signalement du no-show de l'hôte par le voyageur : en attente de la validation de l'ops
+-- (AWAITING_REVIEW, comme Turo : le voyageur signale, le support vérifie ; revue sécurité n° 1 de la
+-- PR #283) ; validé ⇒ PENDING (réglé par le travailleur), rejeté ⇒ FAILED
+-- (HOST_NO_SHOW_REPORT_REJECTED). Un seul signalement en attente par trip ; une demande en attente
+-- n'est pas « vivante » au sens de 0124 (aucun écrivain existant n'en tient compte : 0140, 0148).
+ALTER TABLE core.booking_trip_cancellation
+  DROP CONSTRAINT trip_cancellation_status_valid,
+  ADD CONSTRAINT trip_cancellation_status_valid CHECK (
+    status IN ('AWAITING_REVIEW', 'PENDING', 'SETTLED', 'FIN_REVIEW', 'FAILED')),
+  DROP CONSTRAINT trip_cancellation_status_shape,
+  ADD CONSTRAINT trip_cancellation_status_shape CHECK (
+    ((status = 'SETTLED') = (settlement_id IS NOT NULL))
+    AND ((status = 'SETTLED') = (cost_bearer IS NOT NULL))
+    AND ((status IN ('FIN_REVIEW', 'FAILED')) = (outcome_code IS NOT NULL))
+    AND ((status IN ('AWAITING_REVIEW', 'PENDING')) = (decided_at IS NULL))),
+  ADD CONSTRAINT trip_cancellation_review_shape CHECK (
+    status <> 'AWAITING_REVIEW' OR action_code = 'GUEST_REPORT_HOST_NO_SHOW');
+CREATE UNIQUE INDEX trip_cancellation_review_unique ON core.booking_trip_cancellation (trip_id)
+  WHERE status = 'AWAITING_REVIEW';
 COMMENT ON COLUMN core.booking_trip_cancellation.host_message_traced IS
   'No-show du voyageur : message de l''hôte et 15 min sans réponse tracés dans le fil du trip à '
   'l''heure de la déclaration (08 BR-CXL-08, hostMessageTraced), lu par la base, jamais reçu ; '
@@ -514,25 +541,41 @@ ALTER TABLE core.booking_trip_cancellation
   ADD CONSTRAINT trip_cancellation_traced_shape CHECK (
     (requested_reason = 'GUEST_NO_SHOW') = (host_message_traced IS NOT NULL));
 
-GRANT INSERT (host_message_traced) ON core.booking_trip_cancellation TO cmd_hold_owner;
+GRANT INSERT (host_message_traced, status) ON core.booking_trip_cancellation TO cmd_hold_owner;
 -- déclaration d'une partie du trip (contexte posé par la commande APRÈS la vérification de la
 -- session, comme la remise de 0163) : l'hôte déclare le voyageur absent, le voyageur l'hôte
 CREATE POLICY cmd_hold_cancel_party_ins ON core.booking_trip_cancellation FOR INSERT
   TO cmd_hold_owner
   WITH CHECK (requested_by = app.actor_id()
-              AND ((app.actor_kind() = 'HOST' AND action_code = 'HOST_DECLARE_NO_SHOW')
+              AND ((app.actor_kind() = 'HOST' AND action_code = 'HOST_DECLARE_NO_SHOW'
+                    AND status = 'PENDING')
                    OR (app.actor_kind() = 'GUEST'
-                       AND action_code = 'GUEST_REPORT_HOST_NO_SHOW')));
+                       AND action_code = 'GUEST_REPORT_HOST_NO_SHOW'
+                       AND status = 'AWAITING_REVIEW')));
+-- la console (contexte STAFF de la commande liée) valide ou rejette un signalement en attente ; le
+-- règlement reste au seul travailleur trip_lifecycle (cmd_hold_cancel_upd de 0124)
+CREATE POLICY cmd_hold_cancel_review_upd ON core.booking_trip_cancellation FOR UPDATE
+  TO cmd_hold_owner
+  USING (status = 'AWAITING_REVIEW' AND action_code = 'GUEST_REPORT_HOST_NO_SHOW'
+         AND app.actor_kind() = 'STAFF')
+  WITH CHECK (status IN ('PENDING', 'FAILED') AND action_code = 'GUEST_REPORT_HOST_NO_SHOW'
+              AND app.actor_kind() = 'STAFF');
+-- l'hôte est prévenu d'un signalement (NTF : trip.no_show.reported ; 0132 élargie)
+ALTER POLICY cmd_hold_trip_notice_ins ON core.outbox_outbox_event
+  WITH CHECK (type IN ('booking.trip.host_restricted', 'booking.trip.host_restriction_lifted',
+                       'trip.no_show.reported')
+              AND aggregate_type = 'trip' AND actor_user_id IS NOT NULL);
 -- pièces de l'action de console qui a créé la demande (preuve validée, N-131) : + deux actions
 ALTER POLICY cmd_hold_cancel_read ON core.support_manual_action
   USING (action_code IN ('CANCEL_TRIP_GUEST', 'CANCEL_TRIP_HOST', 'CANCEL_TRIP_PLATFORM',
                          'DECLARE_NO_SHOW', 'REFUSE_AT_PICKUP'));
 
 -- 6. Catalogue : saisies fermées des deux actions (jamais un montant) --------------------------
--- DECLARE_NO_SHOW : partie absente (GUEST ⇒ GUEST_NO_SHOW, HOST ⇒ HOST_NO_SHOW), obligatoire.
+-- DECLARE_NO_SHOW : partie absente (GUEST ⇒ GUEST_NO_SHOW ; HOST ⇒ valide le signalement du voyageur
+-- en attente, sinon HOST_NO_SHOW ; NONE ⇒ rejette le signalement en attente), obligatoire.
 UPDATE core.support_manual_action_catalog
    SET input_keys = '{absentParty}',
-       input_values = '{"absentParty": ["GUEST", "HOST"]}'::jsonb
+       input_values = '{"absentParty": ["GUEST", "HOST", "NONE"]}'::jsonb
  WHERE action_code = 'DECLARE_NO_SHOW';
 -- REFUSE_AT_PICKUP : motif du refus, obligatoire (propreté ou sécurité : refus du voyageur, BR-CXL-04 ;
 -- permis non conforme : refus de l'hôte « à cause du voyageur », BR-CXL-12).
@@ -561,6 +604,46 @@ AS $fn$
          END
 $fn$;
 
+-- 7 bis. Politique du no-show : UNE seule source des délais (08, communs aux deux pays ; revues
+-- architecture n° 3, argent n° 1) ; le test de concordance les compare aux textes de 08 et à la
+-- POLICY du moteur (72 h). SECURITY INVOKER, EXECUTE app_worker (lecture pure, aucune donnée).
+--   host_absent_after : hôte absent 30 min après le début (BR-CXL-13) ;
+--   reply_wait        : 15 min sans réponse après le message (BR-CXL-08) ;
+--   message_lead      : le message compte à partir du début − 1 h (BR-CXL-08 `hostEligible`,
+--                       « trip.start − 1 h {param} » ; défaut de 08) ;
+--   declaration_window: déclaration close au début + 72 h (BR-CXL-08, POLICY du moteur).
+CREATE FUNCTION core.booking_no_show_policy()
+  RETURNS TABLE (host_absent_after interval, reply_wait interval, message_lead interval,
+                 declaration_window interval)
+  LANGUAGE sql
+  IMMUTABLE
+  SET search_path = pg_catalog, pg_temp
+AS $fn$
+  SELECT interval '30 minutes', interval '15 minutes', interval '1 hour', interval '72 hours'
+$fn$;
+COMMENT ON FUNCTION core.booking_no_show_policy() IS
+  'Délais du no-show (08 BR-CXL-08, BR-CXL-13), une seule source : hôte absent après 30 min, '
+  'attente de 15 min, message au plus tôt 1 h avant le début, fenêtre de 72 h. US-307 (ADR-191).';
+
+-- Preuve tracée d'une partie pour une déclaration à `p_at` : message de `p_side` envoyé dans
+-- [début − message_lead ; p_at − reply_wait], sans réponse de l'autre pendant reply_wait (08
+-- BR-CXL-08). Seule définition de la fenêtre, lue par l'état, la commande et le règlement.
+CREATE FUNCTION core.booking_no_show_traced(p_trip_id uuid, p_side text, p_at timestamptz)
+  RETURNS boolean
+  LANGUAGE sql
+  STABLE
+  SET search_path = pg_catalog, pg_temp
+AS $fn$
+  SELECT COALESCE((SELECT core.messaging_wait_traced(t.id, p_side,
+                                                     t.scheduled_start - pol.message_lead, p_at,
+                                                     pol.reply_wait)
+                     FROM core.booking_trip AS t CROSS JOIN core.booking_no_show_policy() AS pol
+                    WHERE t.id = p_trip_id), false)
+$fn$;
+COMMENT ON FUNCTION core.booking_no_show_traced(uuid, text, timestamptz) IS
+  'Interne : message d''une partie et attente tracés dans la fenêtre de 08 BR-CXL-08 '
+  '(début − 1 h ; déclaration − 15 min). US-307 (ADR-191).';
+
 -- 8. État d'une déclaration de no-show pour une partie (SECURITY INVOKER, interne) --------------
 -- p_side = partie DÉCLARÉE ABSENTE (GUEST : l'hôte déclare ; HOST : le voyageur signale) ; à
 -- platform.now(). Rend le premier obstacle (NULL = déclarable), la preuve tracée, la fenêtre.
@@ -579,7 +662,9 @@ DECLARE
   v_until  timestamptz;
   v_traced boolean;
   v_target text;
+  pol      record;
 BEGIN
+  SELECT * INTO pol FROM core.booking_no_show_policy();
   SELECT tr.status, tr.scheduled_start, tr.no_show_at, tr.checkin_validated_at INTO t
     FROM core.booking_trip AS tr WHERE tr.id = p_trip_id;
   IF t.status IS NULL OR p_side IS NULL OR p_side NOT IN ('GUEST', 'HOST') THEN
@@ -589,13 +674,13 @@ BEGIN
   -- délais depuis le début PRÉVU : grâce du pays figée (no_show_at) ; 30 min pour l'hôte
   -- (BR-CXL-13) ; fenêtre de déclaration fermée à début + 72 h (BR-CXL-08)
   v_from := CASE WHEN p_side = 'GUEST' THEN t.no_show_at
-                 ELSE t.scheduled_start + interval '30 minutes' END;
-  v_until := t.scheduled_start + interval '72 hours';
+                 ELSE t.scheduled_start + pol.host_absent_after END;
+  v_until := t.scheduled_start + pol.declaration_window;
   v_target := CASE WHEN p_side = 'GUEST' THEN 'NO_SHOW_GUEST' ELSE 'NO_SHOW_HOST' END;
-  -- preuve : message de la partie PRÉSENTE (celle qui déclare), au plus tôt au début prévu
-  v_traced := core.messaging_wait_traced(p_trip_id,
-                                         CASE WHEN p_side = 'GUEST' THEN 'HOST' ELSE 'GUEST' END,
-                                         t.scheduled_start, v_now);
+  -- preuve : message de la partie PRÉSENTE (celle qui déclare), fenêtre de 08 BR-CXL-08
+  v_traced := core.booking_no_show_traced(p_trip_id,
+                                          CASE WHEN p_side = 'GUEST' THEN 'HOST' ELSE 'GUEST' END,
+                                          v_now);
   RETURN QUERY SELECT
     CASE
       WHEN t.status = 'BOOKED' THEN 'CHECKIN_NOT_OPEN'
@@ -614,7 +699,8 @@ BEGIN
         THEN 'NO_SHOW_PARTY_PRESENT'
       WHEN p_side = 'HOST' AND NOT v_traced THEN 'NO_SHOW_EVIDENCE_REQUIRED'
       WHEN EXISTS (SELECT 1 FROM core.booking_trip_cancellation AS c
-                    WHERE c.trip_id = p_trip_id AND c.status IN ('PENDING', 'SETTLED', 'FIN_REVIEW'))
+                    WHERE c.trip_id = p_trip_id
+                      AND c.status IN ('AWAITING_REVIEW', 'PENDING', 'SETTLED', 'FIN_REVIEW'))
         THEN 'CANCELLATION_PENDING'
     END,
     v_traced, v_from, v_until;
@@ -627,11 +713,13 @@ COMMENT ON FUNCTION core.trip_no_show_state(uuid, text) IS
 -- 9. Commande d'une partie : déclarer l'autre partie absente (16 TRP-015) ----------------------
 -- La partie est celle de la SESSION (0163 : titulaire du compte d'hôte ou voyageur du trip) ; toute
 -- autre personne, trip inconnu : NOT_FOUND. L'hôte déclare le voyageur absent (GUEST_NO_SHOW,
--- hostMessageTraced lu par la base) ; le voyageur signale l'hôte absent (HOST_NO_SHOW, preuve
--- exigée). Verrous du voyageur puis du véhicule (17 §2.5), puis l'état relu. Aucun montant ;
--- la demande PENDING est réglée par le travailleur trip_lifecycle (0124).
+-- hostMessageTraced lu par la base : demande PENDING réglée par le travailleur trip_lifecycle) ; le
+-- voyageur signale l'hôte absent (HOST_NO_SHOW, preuve exigée : demande AWAITING_REVIEW, validée ou
+-- rejetée par l'ops à la console, l'hôte prévenu par trip.no_show.reported). Verrous du voyageur puis
+-- du véhicule (17 §2.5), puis l'état relu. Aucun montant. Course résiduelle (index unique) ⇒
+-- CANCELLATION_PENDING, rien d'écrit (revue code n° 2).
 CREATE FUNCTION core.trip_cmd_report_no_show(p_token_hash bytea, p_trip_id uuid, p_request_id uuid)
-  RETURNS TABLE (outcome text, declaration_id uuid, requested_at timestamptz)
+  RETURNS TABLE (outcome text, declaration_id uuid, requested_at timestamptz, status text)
   LANGUAGE plpgsql
   VOLATILE
   SECURITY DEFINER
@@ -649,14 +737,15 @@ DECLARE
   v_actor  text := pg_catalog.current_setting('app.actor_id', true);
   v_org    text := pg_catalog.current_setting('app.org_id', true);
   v_now    timestamptz := platform.now();
+  v_status text;
 BEGIN
   IF p_request_id IS NULL THEN
-    RETURN QUERY SELECT 'REQUEST_INVALID'::text, NULL::uuid, NULL::timestamptz;
+    RETURN QUERY SELECT 'REQUEST_INVALID'::text, NULL::uuid, NULL::timestamptz, NULL::text;
     RETURN;
   END IF;
   SELECT x.* INTO v_party FROM core.trip_handover_party(p_token_hash, p_trip_id) AS x;
   IF v_party.user_id IS NULL THEN
-    RETURN QUERY SELECT 'NOT_FOUND'::text, NULL::uuid, NULL::timestamptz;
+    RETURN QUERY SELECT 'NOT_FOUND'::text, NULL::uuid, NULL::timestamptz, NULL::text;
     RETURN;
   END IF;
   -- l'hôte déclare le voyageur absent ; le voyageur signale l'hôte absent
@@ -672,23 +761,24 @@ BEGIN
   PERFORM core.trip_handover_lock(p_trip_id);
 
   -- rejeu : même identifiant ⇒ l'issue d'origine (même trip, même auteur) ; sinon refus
-  SELECT c.id, c.trip_id, c.requested_by, c.action_code, c.requested_at INTO v_prev
+  SELECT c.id, c.trip_id, c.requested_by, c.action_code, c.requested_at, c.status INTO v_prev
     FROM core.booking_trip_cancellation AS c WHERE c.id = p_request_id;
   IF v_prev.id IS NOT NULL THEN
     IF v_prev.trip_id = p_trip_id AND v_prev.requested_by = v_party.user_id
        AND v_prev.action_code = v_action THEN
-      RETURN QUERY SELECT 'DONE'::text, v_prev.id, v_prev.requested_at;
+      RETURN QUERY SELECT 'DONE'::text, v_prev.id, v_prev.requested_at, v_prev.status;
     ELSE
-      RETURN QUERY SELECT 'REQUEST_INVALID'::text, NULL::uuid, NULL::timestamptz;
+      RETURN QUERY SELECT 'REQUEST_INVALID'::text, NULL::uuid, NULL::timestamptz, NULL::text;
     END IF;
     RETURN;
   END IF;
 
   SELECT x.* INTO v_state FROM core.trip_no_show_state(p_trip_id, v_side) AS x;
   IF v_state.blocker IS NOT NULL THEN
-    RETURN QUERY SELECT v_state.blocker, NULL::uuid, NULL::timestamptz;
+    RETURN QUERY SELECT v_state.blocker, NULL::uuid, NULL::timestamptz, NULL::text;
     RETURN;
   END IF;
+  v_status := CASE WHEN v_reason = 'HOST_NO_SHOW' THEN 'AWAITING_REVIEW' ELSE 'PENDING' END;
 
   -- contexte de la partie pour l'insertion (politique cmd_hold_cancel_party_ins), rétabli ensuite
   PERFORM pg_catalog.set_config('app.actor_kind', v_party.role, true);
@@ -696,23 +786,44 @@ BEGIN
   PERFORM pg_catalog.set_config('app.org_id',
                                 CASE WHEN v_party.role = 'HOST' THEN v_party.org_id::text ELSE '' END,
                                 true);
-  INSERT INTO core.booking_trip_cancellation
-         (id, trip_id, country_code, action_code, requested_reason, initiator, sub_reason,
-          requested_at, requested_by, host_message_traced)
-  VALUES (p_request_id, p_trip_id, v_party.country_code, v_action, v_reason, v_party.role, NULL,
-          v_now, v_party.user_id,
-          CASE WHEN v_reason = 'GUEST_NO_SHOW' THEN v_state.message_traced END);
+  BEGIN
+    INSERT INTO core.booking_trip_cancellation
+           (id, trip_id, country_code, action_code, requested_reason, initiator, sub_reason,
+            requested_at, requested_by, host_message_traced, status)
+    VALUES (p_request_id, p_trip_id, v_party.country_code, v_action, v_reason, v_party.role, NULL,
+            v_now, v_party.user_id,
+            CASE WHEN v_reason = 'GUEST_NO_SHOW' THEN v_state.message_traced END, v_status);
+  EXCEPTION WHEN unique_violation THEN
+    -- une demande vivante écrite par un chemin qui ne prend pas ces verrous : rien d'écrit
+    PERFORM pg_catalog.set_config('app.actor_kind', COALESCE(v_kind, ''), true);
+    PERFORM pg_catalog.set_config('app.actor_id', COALESCE(v_actor, ''), true);
+    PERFORM pg_catalog.set_config('app.org_id', COALESCE(v_org, ''), true);
+    RETURN QUERY SELECT 'CANCELLATION_PENDING'::text, NULL::uuid, NULL::timestamptz, NULL::text;
+    RETURN;
+  END;
+  -- l'hôte est prévenu du signalement (gabarit EVT_TRIP_NO_SHOW_REPORTED) ; aucun motif ni preuve
+  IF v_reason = 'HOST_NO_SHOW' THEN
+    INSERT INTO core.outbox_outbox_event
+           (type, schema_version, aggregate_type, aggregate_id, aggregate_version, country_code,
+            actor_user_id, actor_role, correlation_id, payload, partition_key)
+    VALUES ('trip.no_show.reported', 1, 'trip', p_trip_id, 0, v_party.country_code,
+            v_party.user_id, 'GUEST', pg_catalog.gen_random_uuid(),
+            pg_catalog.jsonb_build_object('trip_id', p_trip_id, 'absent_party', 'HOST',
+                                          'declaration_id', p_request_id),
+            p_trip_id::text);
+  END IF;
   PERFORM pg_catalog.set_config('app.actor_kind', COALESCE(v_kind, ''), true);
   PERFORM pg_catalog.set_config('app.actor_id', COALESCE(v_actor, ''), true);
   PERFORM pg_catalog.set_config('app.org_id', COALESCE(v_org, ''), true);
-  RETURN QUERY SELECT 'DONE'::text, p_request_id, v_now;
+  RETURN QUERY SELECT 'DONE'::text, p_request_id, v_now, v_status;
 END
 $fn$;
 COMMENT ON FUNCTION core.trip_cmd_report_no_show(bytea, uuid, uuid) IS
   'Commande d''une partie du trip : l''hôte déclare le voyageur absent (GUEST_NO_SHOW, '
-  'hostMessageTraced lu en base), le voyageur signale l''hôte absent (HOST_NO_SHOW, preuve '
-  'exigée) ; délais en heure serveur depuis le début prévu ; demande PENDING réglée par '
-  'trip_lifecycle ; rejeu idempotent. SECURITY DEFINER, EXECUTE app_api. US-307 (ADR-191).';
+  'hostMessageTraced lu en base, demande PENDING), le voyageur signale l''hôte absent '
+  '(HOST_NO_SHOW, preuve exigée, demande AWAITING_REVIEW validée par l''ops, hôte prévenu) ; '
+  'délais en heure serveur depuis le début prévu ; rejeu idempotent. SECURITY DEFINER, EXECUTE '
+  'app_api. US-307 (ADR-191).';
 
 -- 10. Lecture d'une partie : peut-elle déclarer l'autre absente, et où en est la demande ? ------
 CREATE FUNCTION core.trip_no_show_view(p_token_hash bytea, p_trip_id uuid)
@@ -737,8 +848,9 @@ BEGIN
   SELECT tr.status, tr.timezone, tr.scheduled_start INTO t
     FROM core.booking_trip AS tr WHERE tr.id = p_trip_id;
   SELECT x.* INTO v_state FROM core.trip_no_show_state(p_trip_id, v_side) AS x;
-  -- dernière demande du trip (toute action) : motif demandé, statut, heure ; jamais un montant ni
-  -- l'auteur d'une autre partie (seulement « la mienne »)
+  -- dernière demande du trip : statut et heure ; motif rendu pour un no-show seulement, sinon
+  -- OTHER (jamais GUEST_FRAUD_PROVEN, PLATFORM_TRUST_SAFETY… d'une autre partie : revue sécurité
+  -- n° 2) ; jamais un montant ni l'auteur d'une autre partie (seulement « la mienne »)
   SELECT x.id, x.requested_reason, x.status, x.requested_at, x.requested_by INTO c
     FROM core.booking_trip_cancellation AS x
    WHERE x.trip_id = p_trip_id
@@ -755,7 +867,10 @@ BEGIN
     'blocker', v_state.blocker,
     'messageTraced', v_state.message_traced,
     'declaration', CASE WHEN c.id IS NULL THEN NULL ELSE pg_catalog.jsonb_build_object(
-      'id', c.id, 'requestedReason', c.requested_reason, 'status', c.status,
+      'id', c.id,
+      'requestedReason', CASE WHEN c.requested_reason IN ('GUEST_NO_SHOW', 'HOST_NO_SHOW')
+                              THEN c.requested_reason ELSE 'OTHER' END,
+      'status', c.status,
       'requestedAt', c.requested_at, 'mine', c.requested_by = v_party.user_id) END);
 END
 $fn$;
@@ -790,6 +905,7 @@ DECLARE
   v_traced    boolean;
   v_state     record;
   v_t         record;
+  v_report    uuid;
 BEGIN
   IF p_action_code IS NULL OR p_action_code NOT IN ('DECLARE_NO_SHOW', 'REFUSE_AT_PICKUP')
      OR p_action_id IS NULL OR p_subject_id IS NULL OR p_actor IS NULL OR p_actor_role IS NULL
@@ -805,7 +921,9 @@ BEGIN
     END IF;
     v_initiator := 'PLATFORM';
     v_side := v_input;
-    v_reason := CASE v_input WHEN 'GUEST' THEN 'GUEST_NO_SHOW' WHEN 'HOST' THEN 'HOST_NO_SHOW' END;
+    -- NONE : rejet d'un signalement du voyageur en attente (aucun motif demandé)
+    v_reason := CASE v_input WHEN 'GUEST' THEN 'GUEST_NO_SHOW' WHEN 'HOST' THEN 'HOST_NO_SHOW'
+                             WHEN 'NONE' THEN 'NONE' END;
   ELSE
     v_input := p_input ->> 'refusalReason';
     IF v_input IS NULL THEN
@@ -841,6 +959,36 @@ BEGIN
   SELECT tr.id, tr.status, tr.country_code, tr.checkin_validated_at INTO v_t
     FROM core.booking_trip AS tr WHERE tr.id = p_subject_id;
 
+  -- signalement du no-show de l'hôte par le voyageur, en attente : validé (HOST) ou rejeté (NONE)
+  -- par l'ops (revue sécurité n° 1 de la PR #283 : comme Turo, le support vérifie avant tout
+  -- remboursement ou pénalité). La validation remet la demande au travailleur (PENDING) ; sa preuve
+  -- (message du voyageur + attente) est relue au règlement.
+  IF p_action_code = 'DECLARE_NO_SHOW' AND v_input IN ('HOST', 'NONE') THEN
+    SELECT c.id INTO v_report FROM core.booking_trip_cancellation AS c
+     WHERE c.trip_id = v_t.id AND c.status = 'AWAITING_REVIEW';
+    IF v_report IS NOT NULL AND v_input = 'NONE' THEN
+      UPDATE core.booking_trip_cancellation AS c
+         SET status = 'FAILED', outcome_code = 'HOST_NO_SHOW_REPORT_REJECTED',
+             decided_at = platform.now()
+       WHERE c.id = v_report AND c.status = 'AWAITING_REVIEW';
+      RETURN QUERY SELECT 'DONE'::text, v_report, '{}'::uuid[];
+      RETURN;
+    ELSIF v_report IS NOT NULL THEN
+      IF EXISTS (SELECT 1 FROM core.booking_trip_cancellation AS c
+                  WHERE c.trip_id = v_t.id AND c.status IN ('PENDING', 'SETTLED', 'FIN_REVIEW')) THEN
+        RETURN QUERY SELECT 'CANCELLATION_PENDING'::text, NULL::uuid, '{}'::uuid[];
+        RETURN;
+      END IF;
+      UPDATE core.booking_trip_cancellation AS c SET status = 'PENDING'
+       WHERE c.id = v_report AND c.status = 'AWAITING_REVIEW';
+      RETURN QUERY SELECT 'DONE'::text, v_report, '{}'::uuid[];
+      RETURN;
+    ELSIF v_input = 'NONE' THEN
+      RETURN QUERY SELECT 'NO_REPORT_PENDING'::text, NULL::uuid, '{}'::uuid[];
+      RETURN;
+    END IF;
+  END IF;
+
   IF p_action_code = 'DECLARE_NO_SHOW' THEN
     SELECT x.* INTO v_state FROM core.trip_no_show_state(p_subject_id, v_side) AS x;
     -- l'ops ne porte pas la preuve d'un no-show de l'hôte à la déclaration : pièce jointe à
@@ -851,7 +999,7 @@ BEGIN
     END IF;
     IF v_side = 'HOST' AND EXISTS (SELECT 1 FROM core.booking_trip_cancellation AS c
                                     WHERE c.trip_id = v_t.id
-                                      AND c.status IN ('PENDING', 'SETTLED', 'FIN_REVIEW')) THEN
+                                      AND c.status IN ('AWAITING_REVIEW', 'PENDING', 'SETTLED', 'FIN_REVIEW')) THEN
       RETURN QUERY SELECT 'CANCELLATION_PENDING'::text, NULL::uuid, '{}'::uuid[];
       RETURN;
     END IF;
@@ -879,7 +1027,8 @@ BEGIN
       RETURN;
     END IF;
     IF EXISTS (SELECT 1 FROM core.booking_trip_cancellation AS c
-                WHERE c.trip_id = v_t.id AND c.status IN ('PENDING', 'SETTLED', 'FIN_REVIEW')) THEN
+                WHERE c.trip_id = v_t.id AND c.status IN ('AWAITING_REVIEW', 'PENDING', 'SETTLED',
+                                                         'FIN_REVIEW')) THEN
       RETURN QUERY SELECT 'CANCELLATION_PENDING'::text, NULL::uuid, '{}'::uuid[];
       RETURN;
     END IF;
@@ -1013,8 +1162,7 @@ BEGIN
   -- réponse de l'hôte, au plus tôt au début prévu, à l'heure de la demande ; ou, pour la console,
   -- au moins une pièce jointe par l'agent. Sans preuve : refus, jamais un règlement.
   IF c.requested_reason = 'HOST_NO_SHOW' THEN
-    SELECT r0.scheduled_start INTO r FROM core.booking_trip AS r0 WHERE r0.id = v_trip;
-    v_proof := core.messaging_wait_traced(v_trip, 'GUEST', r.scheduled_start, c.requested_at)
+    v_proof := core.booking_no_show_traced(v_trip, 'GUEST', c.requested_at)
                OR (c.action_code = 'DECLARE_NO_SHOW' AND v_evidence);
     IF NOT v_proof THEN
       RAISE EXCEPTION 'trip: host no-show without evidence'
@@ -1092,6 +1240,10 @@ GRANT EXECUTE ON FUNCTION
   core.booking_manual_action_no_show(bytea, uuid, text, uuid, jsonb, text, uuid, text)
   TO iam_staff_owner;
 GRANT EXECUTE ON FUNCTION core.booking_trip_cancellation_flags(uuid) TO app_worker;
+REVOKE ALL ON FUNCTION core.booking_no_show_policy(), core.booking_no_show_traced(uuid, text,
+  timestamptz) FROM PUBLIC;
+-- lecture pure des délais (test de concordance sous app_worker)
+GRANT EXECUTE ON FUNCTION core.booking_no_show_policy() TO app_worker;
 
 RESET ROLE;
 REVOKE CREATE ON SCHEMA core FROM cmd_hold_owner;

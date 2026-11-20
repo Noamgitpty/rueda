@@ -742,7 +742,7 @@ describe('critère 3 — refus du véhicule validé par l’ops (REFUSE_AT_PICKU
 
 describe('critère 4 — no-show de l’hôte signalé par le voyageur (T26, BR-CXL-13)', () => {
   it.each(COUNTRY_CASES)(
-    '%s : 30 min sans présentation, message du voyageur + 15 min sans réponse ⇒ NO_SHOW_HOST, remboursement intégral, pénalité hostNoShow au host_ledger',
+    '%s : 30 min sans présentation, message du voyageur + 15 min sans réponse ⇒ signalement en attente, hôte prévenu ; validé par l’ops ⇒ NO_SHOW_HOST, remboursement intégral, pénalité hostNoShow au host_ledger',
     async (c) => {
       await withRole('app_api', async (api) => {
         await withRole('app_worker', async (worker) => {
@@ -753,7 +753,12 @@ describe('critère 4 — no-show de l’hôte signalé par le voyageur (T26, BR-
             await message(tx, w, 'GUEST', START_MS + 5 * MINUTE);
             return report(tx, h, w.trip, id);
           });
-          expect(r).toMatchObject({ outcome: 'DONE', declaration_id: id });
+          // ADR-191 (revue sécurité n° 1) : rien n'est réglé sur la seule preuve du voyageur
+          expect(r).toMatchObject({
+            outcome: 'DONE',
+            declaration_id: id,
+            status: 'AWAITING_REVIEW',
+          });
           await asWorker(worker, at + MINUTE, async (tx) => {
             expect(await cancellation(tx, id)).toMatchObject({
               action_code: 'GUEST_REPORT_HOST_NO_SHOW',
@@ -761,7 +766,31 @@ describe('critère 4 — no-show de l’hôte signalé par le voyageur (T26, BR-
               initiator: 'GUEST',
               requested_by: w.guest,
               host_message_traced: null,
+              status: 'AWAITING_REVIEW',
             });
+            // le travailleur ne voit pas un signalement en attente
+            await setSessionContext(tx, { kind: 'WORKER', workerName: 'trip_lifecycle' });
+            const pending = await tx.query<{ id: string }>(
+              'SELECT id FROM core.booking_trip_cancellations_pending(500)',
+            );
+            expect(pending.rows.map((x) => x.id)).not.toContain(id);
+            // l'hôte est prévenu (NTF : EVT_TRIP_NO_SHOW_REPORTED), sans motif ni preuve
+            const ev = await tx.query<{ type: string; payload: Record<string, unknown> }>(
+              'SELECT type, payload FROM test_fixture.us207_events($1)',
+              [w.trip],
+            );
+            expect(ev.rows.filter((e) => e.type === 'trip.no_show.reported')).toEqual([
+              {
+                type: 'trip.no_show.reported',
+                payload: { trip_id: w.trip, absent_party: 'HOST', declaration_id: id },
+              },
+            ]);
+          });
+          // validation par l'ops : DECLARE_NO_SHOW (absentParty HOST) reprend le signalement
+          const v = await act(api, w, 'DECLARE_NO_SHOW', at + 5 * MINUTE, { absentParty: 'HOST' });
+          expect(v).toMatchObject({ outcome: 'DONE', domain_ref: id });
+          await asWorker(worker, at + 6 * MINUTE, async (tx) => {
+            expect(await cancellation(tx, id)).toMatchObject({ status: 'PENDING' });
             const { settlement, result, record } = await settleFully(tx, w, id, at, {
               refund: neg(w.e.full),
             });
@@ -796,8 +825,8 @@ describe('critère 4 — no-show de l’hôte signalé par le voyageur (T26, BR-
           expect(await report(tx, h, w.trip, uuid())).toMatchObject({
             outcome: 'NO_SHOW_EVIDENCE_REQUIRED',
           });
-          // un message envoyé AVANT le début prévu n'est pas une attente au lieu de remise
-          await message(tx, w, 'GUEST', START_MS - 30 * MINUTE);
+          // 08 BR-CXL-08 : un message plus d'1 h avant le début prévu ne compte pas
+          await message(tx, w, 'GUEST', START_MS - 61 * MINUTE);
           expect(await report(tx, h, w.trip, uuid())).toMatchObject({
             outcome: 'NO_SHOW_EVIDENCE_REQUIRED',
           });
@@ -852,6 +881,106 @@ describe('critère 4 — no-show de l’hôte signalé par le voyageur (T26, BR-
         expect(await act(api, proved, 'DECLARE_NO_SHOW', at, {})).toMatchObject({
           outcome: 'REFUSED',
         });
+      });
+    });
+  });
+});
+
+describe('ops : rejet d’un signalement du voyageur ; fenêtre du message (08 BR-CXL-08) ; bornes', () => {
+  it('NONE rejette le signalement en attente (FAILED, rien n’est réglé) ; sans signalement ⇒ NO_REPORT_PENDING', async () => {
+    await withRole('app_api', async (api) => {
+      await withRole('app_worker', async (worker) => {
+        const w = await world(worker, PA);
+        const id = uuid();
+        const at = START_MS + 35 * MINUTE;
+        await asParty(api, w, 'GUEST', at, true, async (tx, h) => {
+          await message(tx, w, 'GUEST', START_MS + 2 * MINUTE);
+          expect(await report(tx, h, w.trip, id)).toMatchObject({ outcome: 'DONE' });
+        });
+        const r = await act(api, w, 'DECLARE_NO_SHOW', at + MINUTE, { absentParty: 'NONE' });
+        expect(r).toMatchObject({ outcome: 'DONE', domain_ref: id });
+        await asWorker(worker, at + 2 * MINUTE, async (tx) => {
+          expect(await cancellation(tx, id)).toMatchObject({
+            status: 'FAILED',
+            outcome_code: 'HOST_NO_SHOW_REPORT_REJECTED',
+            settlement_id: null,
+          });
+        });
+        expect(
+          await act(api, w, 'DECLARE_NO_SHOW', at + 3 * MINUTE, { absentParty: 'NONE' }),
+        ).toMatchObject({
+          outcome: 'REFUSED',
+          detail: 'NO_REPORT_PENDING',
+        });
+      });
+    });
+  });
+
+  it.each(COUNTRY_CASES)(
+    '%s : message de l’hôte à début − 30 min tracé, à début − 61 min non tracé ; même borne pour le voyageur',
+    async (c) => {
+      await withRole('app_api', async (api) => {
+        await withRole('app_worker', async (worker) => {
+          for (const [minutes, traced] of [
+            [-30, true],
+            [-61, false],
+          ] as const) {
+            const w = await world(worker, c);
+            const at = START_MS + 70 * MINUTE;
+            await asParty(api, w, 'HOST', at, false, async (tx, h) => {
+              await message(tx, w, 'HOST', START_MS + minutes * MINUTE);
+              const v = await view(tx, h, w.trip);
+              expect(v['messageTraced'], `hôte ${minutes}`).toBe(traced);
+              const id = uuid();
+              expect(await report(tx, h, w.trip, id)).toMatchObject({ outcome: 'DONE' });
+              const row = await cancellation(tx, id);
+              expect(row?.['host_message_traced'], `hôte ${minutes}`).toBe(traced);
+            });
+            const g = await world(worker, c);
+            await asParty(api, g, 'GUEST', START_MS + 31 * MINUTE, false, async (tx, h) => {
+              await message(tx, g, 'GUEST', START_MS + minutes * MINUTE);
+              expect(await report(tx, h, g.trip, uuid()), `voyageur ${minutes}`).toMatchObject({
+                outcome: traced ? 'DONE' : 'NO_SHOW_EVIDENCE_REQUIRED',
+              });
+            });
+          }
+        });
+      });
+    },
+  );
+
+  it('bornes exactes : T+60 (grâce 60) et T+72 h acceptés par l’hôte ; politique = 08 et moteur', async () => {
+    await withRole('app_api', async (api) => {
+      await withRole('app_worker', async (worker) => {
+        for (const ms of [START_MS + 60 * MINUTE, START_MS + 72 * HOUR]) {
+          const w = await world(worker, PY);
+          await asParty(api, w, 'HOST', ms, false, async (tx, h) => {
+            expect(await report(tx, h, w.trip, uuid()), iso(ms)).toMatchObject({ outcome: 'DONE' });
+          });
+        }
+        await withTestTransaction(worker, {}, async (tx) => {
+          const { rows } = await tx.query<Record<string, string>>(
+            `SELECT host_absent_after::text AS a, reply_wait::text AS r, message_lead::text AS m,
+                    declaration_window::text AS d FROM core.booking_no_show_policy()`,
+          );
+          // 08 BR-CXL-13 (30 min), BR-CXL-08 (15 min, début − 1 h, 72 h)
+          expect(rows[0]).toEqual({ a: '00:30:00', r: '00:15:00', m: '01:00:00', d: '72:00:00' });
+        });
+        // concordance avec la POLICY du moteur : éligible jusqu'à + 72 h incluses, plus après
+        const trip = tripOfVector('T05');
+        const at = (ms: number) =>
+          buildSettlementRecord(
+            trip,
+            {
+              reason: 'GUEST_NO_SHOW',
+              requestedAtMs: ms,
+              hostMessageTraced: true,
+              checkinValidated: false,
+            },
+            testParams(trip.currency),
+          ).hostEligible;
+        expect(at(trip.startAtMs + 72 * HOUR)).toBe(true);
+        expect(at(trip.startAtMs + 72 * HOUR + MINUTE)).toBe(false);
       });
     });
   });
