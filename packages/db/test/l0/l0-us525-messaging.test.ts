@@ -383,6 +383,8 @@ describe.each(COUNTRIES)('US-525 — messagerie par trip ($country, $currency)',
               masked: null,
               off_platform: null,
               sent_at: null,
+              // US-316 (0166) : colonne de la purge ajoutée à la lecture, nulle sur un refus
+              purged: null,
             },
           ]);
           expect(await post(tx, hash, tripId, 'te escribo por aquí'), label).toMatchObject({
@@ -637,7 +639,19 @@ describe('US-525 — preuve jamais supprimée, tables fermées aux rôles applic
           WHERE n.nspname = 'core' AND c.relname LIKE 'messaging\\_%' AND c.relkind = 'r'
           ORDER BY 1`,
       );
-      expect(rows).toEqual(
+      // US-316 (0166, ADR-186) : politiques AJOUTÉES de la purge à l'échéance TRIP_MESSAGES
+      // (privacy_cmd_owner, travailleur privacy_request) sur le fil (lecture) et le message
+      // (lecture, purge) ; table des rendez-vous ajoutée, prouvée par l0-us316 ; le signal garde
+      // exactement les politiques de 0161
+      const purge: Readonly<Record<string, readonly string[]>> = {
+        messaging_message: [
+          'privacy_cmd_purge:privacy_cmd_owner',
+          'privacy_cmd_read:privacy_cmd_owner',
+        ],
+        messaging_message_flag: [],
+        messaging_message_thread: ['privacy_cmd_read:privacy_cmd_owner'],
+      };
+      expect(rows.filter((r) => r['relname'] !== 'messaging_meeting_proposal')).toEqual(
         ['messaging_message', 'messaging_message_flag', 'messaging_message_thread'].map(
           (relname) => ({
             relname,
@@ -648,6 +662,7 @@ describe('US-525 — preuve jamais supprimée, tables fermées aux rôles applic
               'messaging_cmd_ins:messaging_cmd_owner',
               'messaging_cmd_sel:messaging_cmd_owner',
               'migrator_all:migrator',
+              ...(purge[relname] ?? []),
             ],
           }),
         ),

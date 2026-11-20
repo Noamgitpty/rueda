@@ -647,6 +647,18 @@
       "acces": "session",
       "idor": "trip dont la session n'est pas partie (autre voyageur, autre hôte, co-hôte hors de sa portée ou révoqué, visiteur sans trip), inconnu ou identifiant mal formé : 404 TRIP_NOT_FOUND, même réponse (17 §2.3 point 5, RLS-9) ; la partie est celle de la session, jugée en base (core.messaging_thread_read, 0161) ; texte masqué et prénoms seulement ; preuves base : l0-us525-messaging"
     },
+    "GET /trips/{tripId}/meetings": {
+      "acces": "session",
+      "idor": "trip dont la session n'est pas partie (autre voyageur, autre hôte, co-hôte hors de sa portée ou révoqué, visiteur sans trip), inconnu ou identifiant mal formé : 404 TRIP_NOT_FOUND, même réponse (17 §2.3 point 5, RLS-9) ; la partie est celle de la session, jugée en base (core.messaging_meeting_read, 0166) ; lieu sans coordonnées et heures seulement, aucun nom ni contact ; preuves base : l0-us316-messaging-privacy"
+    },
+    "POST /trips/{tripId}/meetings": {
+      "acces": "session",
+      "idor": "trip dont la session n'est pas partie : 404 TRIP_NOT_FOUND, rien d'écrit ; seul l'hôte du trip (titulaire, co-hôte de portée) propose, le voyageur reçoit 403 MEETING_NOT_ALLOWED (core.messaging_cmd_propose_meeting, 0166) ; preuves base : l0-us316-messaging-privacy"
+    },
+    "POST /trips/{tripId}/meetings/{meetingId}/answer": {
+      "acces": "session",
+      "idor": "proposition inconnue, d'un autre trip ou d'un trip dont la session n'est pas partie, identifiant mal formé : 404 MEETING_NOT_FOUND, même réponse, rien d'écrit ; seul le voyageur du trip répond (core.messaging_cmd_answer_meeting, 0166) ; preuves base : l0-us316-messaging-privacy"
+    },
     "POST /trips/{tripId}/messages": {
       "acces": "session",
       "idor": "trip dont la session n'est pas partie : 404 TRIP_NOT_FOUND, aucun message ni fil écrit (19 US-525 : un visiteur sans trip ne peut pas écrire ; core.messaging_cmd_post_message, 0161) ; preuves base : l0-us525-messaging"

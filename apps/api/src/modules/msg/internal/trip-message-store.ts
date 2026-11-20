@@ -21,6 +21,8 @@ export interface StoredMessage {
   /** Proposition de paiement hors plateforme dans un message de la session (rappel). */
   readonly offPlatform: boolean;
   readonly sentAt: Date;
+  /** Texte effacé par la rétention (US-316, `TRIP_MESSAGES`) : `body` est alors `null`. */
+  readonly purged: boolean;
 }
 
 export type ThreadReadResult =
@@ -174,6 +176,7 @@ export function threadOf(rows: readonly Record<string, unknown>[]): ThreadReadRe
       masked: bool(r['masked'], 'read'),
       offPlatform: bool(r['off_platform'], 'read'),
       sentAt: date(r['sent_at'], 'read'),
+      purged: bool(r['purged'], 'read'),
     });
   }
   return { outcome: 'DONE', viewerRole, counterpartName, writable, closesAt, timezone, messages };

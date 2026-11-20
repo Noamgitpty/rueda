@@ -1,0 +1,15 @@
+# Revue securite (delta) — US-316 « Messagerie : confidentialité, rendez-vous, rétention » (PR n° 274) — 2026-11-20
+
+Relecteur : revue-securite / claude-sonnet-5-5 (famille A, modèle autre que l'auteur claude-opus-5-5 ; revue dégradée : famille B indisponible, TECH-007)
+Entrées : a762ac80..feef5090
+
+Revue delta : rapport précédent `securite-2026-11-20.md` (APPROUVÉ à a762ac80) ; relu `git diff a762ac80 feef5090` (migration 0166, allowlist, fixture 9919, L0, API, OpenAPI, site, catalogue, passation, ADR-186). CI 44663989625 verte sauf `numbering.test.ts` (0164 / 0165 pas encore sur main : pas un défaut). PostgreSQL non démarré ici.
+
+| #   | Gravité | Constat                                                                                                                                                                                                                                                                                                                                                                                                 |
+| --- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | INFO    | Le DROP / CREATE ne change ni propriétaire (NOLOGIN), ni `search_path` figé, ni droits (REVOKE PUBLIC, EXECUTE app_api seul), ni la liste blanche : aucune exposition transitoire (même transaction).                                                                                                                                                                                                   |
+| 2   | INFO    | Signal du lieu (clôt le constat 5 précédent) : jamais un refus, donc aucun oracle ; seuls les CODES du catalogue sont gardés (contrainte de forme `^[A-Z][A-Z0-9_]+`), jamais un extrait du texte ; le lieu n'est stocké que dans `place_label` (purgé par la rétention) ; `support_enqueue_review` ne reçoit que fil, pays, acteur ; file indisponible ⇒ exception, transaction annulée, rien d'écrit. |
+| 3   | INFO    | `purged` est un booléen dérivé de `purged_at` : aucun contenu, aucun auteur de plus que l'existant (`mine`, `author_role`, prénom déjà servis) ; un message masqué par l'équipe puis purgé est servi purgé, sans fuite. Rejeu d'une proposition purgée : REQUEST_INVALID, sans distinguer les cas existant / autre trip.                                                                                |
+| 4   | MINEUR  | Constat 6 précédent (gel légal des litiges d'US-309 / US-318) inchangé, déjà inscrit en suite dans ADR-186.                                                                                                                                                                                                                                                                                             |
+
+Verdict : APPROUVÉ

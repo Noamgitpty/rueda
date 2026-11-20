@@ -3340,7 +3340,8 @@
         "channel_origin": "C1",
         "status": "C1",
         "sent_at": "C1",
-        "hidden_at": "C1"
+        "hidden_at": "C1",
+        "purged_at": "C1"
       }
     },
     "core.messaging_message_flag": {
@@ -3450,6 +3451,39 @@
         "export_bytes": "C1",
         "failure_code": "C1",
         "findings": "C1"
+      }
+    },
+    "core.messaging_meeting_proposal": {
+      "lifecycle": "D",
+      "subjects": [
+        {
+          "column": "proposed_by",
+          "type": "USER"
+        },
+        {
+          "column": "answered_by",
+          "type": "USER"
+        }
+      ],
+      "export": "controller",
+      "columns": {
+        "id": "C1",
+        "trip_id": "C1",
+        "kind": "C1",
+        "proposed_by": "C1",
+        "proposer_role": "C1",
+        "place_label": {
+          "class": "C2",
+          "erasure": "purge"
+        },
+        "meet_at": "C1",
+        "status": "C1",
+        "answered_by": "C1",
+        "answered_at": "C1",
+        "created_at": "C1",
+        "purged_at": "C1",
+        "offplatform_codes": "C1",
+        "review_item_id": "C1"
       }
     }
   }

@@ -335,8 +335,15 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  Version 99 (la 98 est celle d’US-315) : dossier de preuve d’un trip (US-308, ADR-184) : réponses de la console
  `common.evidenceBundle.*` (dossier d’un autre agent, archive en préparation, lien échu après 7 j,
  constat d’empreinte ou pièce absente : rien n’est remis, coffre ou stockage indisponibles).
+ Version 101 (réservée à US-316 par l’orchestrateur ; les 98 et 99 sont celles d’US-315 et US-308 ;
+ la 100, réservée, n’a pas été prise) : confidentialité, rendez-vous et rétention de la messagerie (US-316, ADR-186) :
+ `common.meetings.*` (réponses des routes `/trips/{id}/meetings` : liste, proposition, réponse,
+ rôle ou trip refusé, proposition inconnue, déjà répondue ou passée, lieu invalide ou avec
+ coordonnées), `web.s16.meeting.*` (S16 : bloc « rendez-vous » de la remise et du retour, statuts,
+ confirmation et refus du voyageur, formulaire de l’hôte) et l’avis de rendez-vous confirmé
+ `ntf.meetingPickupConfirmed.*` / `ntf.meetingReturnConfirmed.*` (heure seulement, jamais le lieu).
  */
-export const CATALOG_VERSION = 99;
+export const CATALOG_VERSION = 101;
 
 /** Catalogues de base par langue ; la langue d'un profil de locale choisit le sien. */
 export const CATALOGS: Readonly<Record<CatalogLanguage, VersionedCatalog<MessageKey>>> = {

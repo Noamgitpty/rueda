@@ -11,5 +11,8 @@ export {
 export type { MsgTripMessagesOptions } from './internal/msg-trip-messages.module.js';
 export { postgresMsgAdapters } from './internal/production.js';
 export { PgTripMessageStore, UnavailableTripMessageStore } from './internal/trip-message-store.js';
+// Rendez-vous du trip (US-316, ADR-186)
+export { PgTripMeetingStore, UnavailableTripMeetingStore } from './internal/trip-meeting-store.js';
+export type { TripMeetingStore } from './internal/trip-meeting-store.js';
 export type { MsgSqlExecutor, TripMessageStore } from './internal/trip-message-store.js';
 export { MSG_MESSAGES, MsgHttpError } from './internal/errors.js';

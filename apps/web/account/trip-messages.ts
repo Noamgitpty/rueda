@@ -29,6 +29,8 @@ export interface TripMessage {
   readonly masked: boolean;
   readonly offPlatform: boolean;
   readonly sentAt: string;
+  /** Texte effacé par la rétention (US-316) ; `body` est alors `null`. */
+  readonly purged: boolean;
 }
 
 export interface TripThread {
@@ -53,7 +55,7 @@ const textOrNull = (v: unknown): v is string | null => v === null || typeof v ==
 
 function messageOf(v: unknown): TripMessage | null {
   if (!isRecord(v)) return null;
-  const { id, mine, authorRole, authorName, body, masked, offPlatform, sentAt } = v;
+  const { id, mine, authorRole, authorName, body, masked, offPlatform, sentAt, purged } = v;
   if (
     typeof id !== 'string' ||
     !UUID.test(id) ||
@@ -64,11 +66,12 @@ function messageOf(v: unknown): TripMessage | null {
     typeof masked !== 'boolean' ||
     typeof offPlatform !== 'boolean' ||
     typeof sentAt !== 'string' ||
-    !ISO.test(sentAt)
+    !ISO.test(sentAt) ||
+    typeof purged !== 'boolean'
   ) {
     return null;
   }
-  return { id, mine, authorRole, authorName, body, masked, offPlatform, sentAt };
+  return { id, mine, authorRole, authorName, body, masked, offPlatform, sentAt, purged };
 }
 
 /** Fil de la réponse 200 ; `null` si la réponse n'a pas la forme attendue ou un autre trip. */

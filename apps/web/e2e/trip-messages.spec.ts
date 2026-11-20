@@ -9,6 +9,8 @@
  * - critère 2 : « efectivo » ⇒ message gardé tel quel (jamais refusé) et rappel du paiement ;
  * - texte vide : erreur liée au champ ; fil fermé : lecture seule, aucun formulaire ;
  * - trip dont la session n'est pas partie : même message qu'un trip inconnu ;
+ * - rendez-vous (US-316, critère 4) : remise proposée par l'hôte (lieu, heure), confirmée par le
+ *   voyageur ⇒ statut « confirmé » et bannière ; jamais de lieu dans l'URL ;
  * - accessibilité : axe-core (WCAG 2.2 A / AA) sans violation ; mobile d'abord.
  * Attendus : 19 US-525, 16 MSG-001 / MSG-007, 10b S16 ; textes : catalogue officiel
  * (`@rueda/i18n`), jamais le code testé. Le masquage du double n'est qu'une imitation : les vraies
@@ -96,6 +98,37 @@ test.describe(`Messages du trip S16 · ${LANGUAGE}`, () => {
     await page.locator('[data-testid="s16-send"]').click();
     await expect(page.locator('#s16-body-error')).toHaveText(t('web.s16.form.required'));
     await expect(page.locator('[data-testid="s16-message"]')).toHaveCount(4);
+  });
+
+  test('rendez-vous : remise proposée par l’hôte, confirmée par le voyageur (US-316)', async ({
+    page,
+    context,
+  }) => {
+    await signIn(context, 'G0st');
+    await page.goto(`/trips/${OPEN_TRIP}/messages`);
+    const block = page.locator('[data-testid="s16-meetings"]');
+    await expect(block).toContainText(t('web.s16.meeting.heading'));
+    const card = page.locator('[data-testid="s16-meeting"]');
+    await expect(card).toHaveCount(1);
+    await expect(card).toContainText(t('web.s16.meeting.kind.PICKUP'));
+    await expect(card).toContainText(t('web.s16.meeting.status.PROPOSED'));
+    await expect(card).toContainText('Estacionamiento del centro comercial');
+    // le voyageur ne propose pas : aucun formulaire de proposition
+    await expect(page.locator('[data-testid="s16-meeting-form"]')).toHaveCount(0);
+    await expectAccessible(page, { include: null });
+
+    await submitAndSettle(
+      page,
+      page.locator('[data-testid="s16-meeting-accept"]'),
+      /\/trips\/[0-9a-f-]{36}\/messages[?]mt=ACCEPTED$/,
+    );
+    await expect(page.locator('[data-testid="s16-meeting-done"]')).toHaveText(
+      t('web.s16.meeting.done.ACCEPTED'),
+    );
+    await expect(card).toContainText(t('web.s16.meeting.status.ACCEPTED'));
+    await expect(page.locator('[data-testid="s16-meeting-accept"]')).toHaveCount(0);
+    expect(page.url()).not.toContain('Estacionamiento');
+    await expectAccessible(page, { include: null });
   });
 
   test('fil fermé : lecture seule ; trip dont la session n’est pas partie : introuvable', async ({

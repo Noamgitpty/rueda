@@ -3293,4 +3293,59 @@ export const FR_MESSAGES = {
     'Bonjour {first_name}. Nous avons reçu ta demande d’aide pour la réservation {booking_ref}. Notre équipe n’est pas disponible pour le moment et te répondra dès que possible. En cas de danger ou de blessés, appelle les urgences. {assistance}',
   'ntf.helpOffHoursHost.sms.body':
     '{brand} : demande reçue ({booking_ref}). Nous te répondrons dès que possible. En cas de danger, appelle les urgences. {assistance}',
+  // confidentialité, rendez-vous et rétention de la messagerie (US-316, ADR-186, catalogue v101)
+  'common.meetings.list': 'Rendez-vous du voyage.',
+  'common.meetings.proposed': 'Proposition envoyée.',
+  'common.meetings.answered': 'Réponse enregistrée.',
+  'common.meetings.notAllowed':
+    'Seul l’hôte propose un rendez-vous et seul le voyageur le confirme, tant que le voyage n’est pas terminé.',
+  'common.meetings.notFound': 'Nous n’avons pas trouvé cette proposition de rendez-vous.',
+  'common.meetings.notPending': 'Cette proposition a déjà reçu une réponse ou a été remplacée.',
+  'common.meetings.expired':
+    'L’heure proposée est passée. Demande à ton hôte une nouvelle proposition dans la conversation.',
+  'common.meetings.invalid':
+    'Indique un lieu de 3 à 160 caractères et une heure à venir proche des dates du voyage.',
+  'common.meetings.placeContact':
+    'Le lieu ne peut contenir ni téléphone, ni e-mail, ni identifiant, ni lien. Décris un endroit facile à trouver.',
+  'web.s16.purged': 'Ce message a été effacé à la fin de sa durée de conservation.',
+  'web.s16.meeting.heading': 'Rendez-vous',
+  'web.s16.meeting.leadGuest':
+    'Ton hôte propose le lieu et l’heure de la remise et du retour ; confirme-les ici.',
+  'web.s16.meeting.leadHost':
+    'Propose le lieu et l’heure de la remise et du retour ; le voyageur les confirme.',
+  'web.s16.meeting.privacy':
+    'Le lieu n’est visible que par vous deux ; les avis n’en donnent que l’heure.',
+  'web.s16.meeting.none': 'Aucun rendez-vous proposé pour l’instant.',
+  'web.s16.meeting.kind.PICKUP': 'Remise',
+  'web.s16.meeting.kind.RETURN': 'Retour',
+  'web.s16.meeting.status.PROPOSED': 'À confirmer',
+  'web.s16.meeting.status.ACCEPTED': 'Confirmé',
+  'web.s16.meeting.status.DECLINED': 'Refusé',
+  'web.s16.meeting.place': 'Lieu : {place}',
+  'web.s16.meeting.accept': 'Confirmer',
+  'web.s16.meeting.decline': 'Refuser',
+  'web.s16.meeting.done.ACCEPTED':
+    'Rendez-vous confirmé. Nous vous avons avisés tous les deux de l’heure.',
+  'web.s16.meeting.done.DECLINED':
+    'Proposition refusée. Écris à ton hôte pour en convenir d’une autre.',
+  'web.s16.meeting.done.PROPOSED': 'Proposition envoyée. Le voyageur la confirmera ici.',
+  'web.s16.meeting.form.title': 'Proposer un rendez-vous',
+  'web.s16.meeting.form.kind': 'Étape',
+  'web.s16.meeting.form.place': 'Lieu',
+  'web.s16.meeting.form.placeHint':
+    'Un lieu public et facile à trouver. Sans téléphone, e-mail ni lien.',
+  'web.s16.meeting.form.when': 'Date et heure',
+  'web.s16.meeting.form.whenHint': 'Heure locale du voyage.',
+  'web.s16.meeting.form.submit': 'Proposer',
+  'web.s16.meeting.form.required': 'Indique le lieu, la date et l’heure.',
+  'ntf.meetingPickupConfirmed.email.subject': 'Réservation {booking_ref} : rendez-vous confirmé',
+  'ntf.meetingPickupConfirmed.email.body':
+    'Bonjour {first_name}. Le rendez-vous pour la remise de la réservation {booking_ref} est confirmé pour le {meet_at}. Le lieu convenu est dans les messages de la réservation sur {brand}.',
+  'ntf.meetingPickupConfirmed.sms.body':
+    '{brand} : rendez-vous pour la remise confirmé ({booking_ref}) le {meet_at}. Lieu dans les messages de l’appli.',
+  'ntf.meetingReturnConfirmed.email.subject': 'Réservation {booking_ref} : rendez-vous confirmé',
+  'ntf.meetingReturnConfirmed.email.body':
+    'Bonjour {first_name}. Le rendez-vous pour le retour de la réservation {booking_ref} est confirmé pour le {meet_at}. Le lieu convenu est dans les messages de la réservation sur {brand}.',
+  'ntf.meetingReturnConfirmed.sms.body':
+    '{brand} : rendez-vous pour le retour confirmé ({booking_ref}) le {meet_at}. Lieu dans les messages de l’appli.',
 } as const satisfies Readonly<Record<MessageKey, Message>>;
