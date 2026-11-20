@@ -9,6 +9,7 @@ import { findForeignStrings } from '@rueda/i18n/testing';
 import { describe, expect, it } from 'vitest';
 import { LOCALE_CONFIG } from '../../locale-config.ts';
 import {
+  NoShowConfirm,
   NO_SHOW_CHOICE_LIST,
   NO_SHOW_CHOICES,
   NO_SHOW_REFUSAL_KEYS,
@@ -37,7 +38,7 @@ describe('US-307 — panneau no-show et refus du véhicule', () => {
         'backoffice.action.REFUSE_AT_PICKUP',
         'backoffice.noShow.evidenceHint',
         'backoffice.noShow.settleNote',
-        'backoffice.noShow.record',
+        'backoffice.noShow.next',
       ] as const) {
         expect(out, key).toContain(escape(messages[key] as string));
       }
@@ -51,11 +52,51 @@ describe('US-307 — panneau no-show et refus du véhicule', () => {
     },
   );
 
+  it.each(LOCALE_CONFIG.locales.map((p) => [p.tag, p] as const))(
+    '%s : confirmation explicite avant l’envoi (trip, choix, conséquence irréversible, corriger)',
+    (_tag, profile) => {
+      const messages = CATALOGS[profile.language].messages;
+      const trip = '7c0f3a52-3f1e-4c1c-9a59-2f5f0f2c6b11';
+      const out = renderToStaticMarkup(
+        <NoShowConfirm
+          i18n={createTranslator(profile)}
+          busy={false}
+          draft={{
+            tripId: trip,
+            choice: 'NO_SHOW_HOST',
+            reason: 'Motivo suficiente',
+            evidence: [],
+          }}
+          onSend={() => undefined}
+          onBack={() => undefined}
+        />,
+      );
+      expect(findForeignStrings(out.replace(/<[^>]+>/g, ' '), profile.language)).toEqual([]);
+      for (const key of [
+        'backoffice.noShow.confirm.title',
+        'backoffice.noShow.confirm.irreversible',
+        'backoffice.noShow.confirm.send',
+        'backoffice.noShow.confirm.back',
+        'backoffice.noShow.choice.NO_SHOW_HOST',
+      ] as const) {
+        expect(out, key).toContain(escape(messages[key] as string));
+      }
+      expect(out).toContain(trip);
+      // le formulaire initial ne fait que relire : aucun envoi sans confirmation
+      const form = renderToStaticMarkup(
+        <NoShowPanel i18n={createTranslator(profile)} busy={false} onSubmit={() => undefined} />,
+      );
+      expect(form).toContain(escape(messages['backoffice.noShow.next'] as string));
+      expect(form).not.toContain(escape(messages['backoffice.noShow.confirm.send'] as string));
+    },
+  );
+
   it('choix → action et saisie du catalogue de 0171 (jamais un nombre)', () => {
     const inputs = NO_SHOW_CHOICE_LIST.map((c) => NO_SHOW_CHOICES[c]);
     expect(inputs.filter((x) => x.action === 'DECLARE_NO_SHOW').map((x) => x.input)).toEqual([
       { absentParty: 'GUEST' },
       { absentParty: 'HOST' },
+      { absentParty: 'NONE' },
     ]);
     expect(
       inputs
@@ -82,6 +123,7 @@ describe('US-307 — panneau no-show et refus du véhicule', () => {
         'CANCELLATION_PENDING',
         'CHECKIN_NOT_OPEN',
         'NOT_FOUND',
+        'NO_REPORT_PENDING',
         'NO_SHOW_PARTY_PRESENT',
         'NO_SHOW_PARTY_REQUIRED',
         'NO_SHOW_TOO_EARLY',
