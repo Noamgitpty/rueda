@@ -514,12 +514,9 @@ for (const language of LANGUAGES) {
       await expect(page.locator('#overdue-confirm-heading')).toBeFocused();
       await expect(panel).toContainText(t.t('backoffice.overdue.effect.CONTACT'));
       await expect(panel).toContainText(t.t('backoffice.overdue.never'));
-      // motif trop court : expliqué, rien n'est envoyé
-      await page.locator('#overdue-reason').fill('court');
-      await page
-        .getByRole('button', { name: t.t('backoffice.overdue.confirm', { step }), exact: true })
-        .click();
-      await expect(panel).toContainText(t.t('backoffice.overdue.reasonTooShort'));
+      // motif trop court : refusé par le champ (minLength 10, 10b UX-50) et par le client, rien
+      // n'est envoyé ; l'explication est prouvée par overdue-view.test.tsx
+      await expect(page.locator('#overdue-reason')).toHaveAttribute('minlength', '10');
       expect(sent).toEqual([]);
       await page.locator('#overdue-reason').fill('Appel et WhatsApp sans réponse, hôte prévenu');
       const done = panel.getByText(t.t('backoffice.overdue.done'), { exact: true });

@@ -3234,7 +3234,7 @@ export const EN_MESSAGES = {
   'backoffice.overdue.step.POLICE_REPORT': 'Pre-filled police report',
   'backoffice.overdue.from': 'Possible from {at}',
   'backoffice.overdue.prepare': 'Set up step',
-  'backoffice.overdue.prepareFor': 'Prepare the “{step}” step of trip {tripId}',
+  'backoffice.overdue.prepareFor': 'Set up step “{step}” for trip {tripId}',
   'backoffice.overdue.paramMissing':
     'The country’s escalation hours are missing: no step is possible. Tell the administration.',
   'backoffice.overdue.allDone': 'All steps are done: follow up with the host.',

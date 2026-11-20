@@ -3317,7 +3317,7 @@ export const PT_MESSAGES = {
   'backoffice.overdue.step.POLICE_REPORT': 'Boletim de ocorrência pré-preenchido',
   'backoffice.overdue.from': 'Possível a partir de {at}',
   'backoffice.overdue.prepare': 'Preparar etapa',
-  'backoffice.overdue.prepareFor': 'Preparar a etapa “{step}” da viagem {tripId}',
+  'backoffice.overdue.prepareFor': 'Preparar etapa “{step}” da viagem {tripId}',
   'backoffice.overdue.paramMissing':
     'Faltam os horários de escalada configurados: nenhuma etapa é possível. Avise a administração.',
   'backoffice.overdue.allDone': 'Todas as etapas foram feitas: acompanhamento com o anfitrião.',
