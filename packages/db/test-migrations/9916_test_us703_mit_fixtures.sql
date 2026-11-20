@@ -168,7 +168,8 @@ END
 $fn$;
 
 -- Hold de demande dont le paiement est en vol (PAYMENT_IN_FLIGHT, fixture 9948) d'un voyageur
--- EXISTANT : consentement et carte du paiement prouvé. PL/pgSQL : 9948 est appliquée APRÈS ce
+-- EXISTANT (échéance du hold : heure de la base + 1 jour, garde hold_has_ttl) : consentement et
+-- carte du paiement prouvé. PL/pgSQL : 9948 est appliquée APRÈS ce
 -- fichier (ordre des numéros), le corps n'est résolu qu'à l'appel
 CREATE FUNCTION test_fixture.us703_paying_hold(p_country text, p_guest uuid, p_start timestamptz,
                                                p_end timestamptz, p_total bigint)
@@ -182,7 +183,8 @@ DECLARE
 BEGIN
   SELECT r.hold_id INTO v_hold
     FROM test_fixture.us214_request(p_country, p_guest, 'Luis', 'Benítez', 'Ciudad de prueba',
-                                    p_start, p_end, p_total, NULL, 'IN_FLIGHT') AS r;
+                                    p_start, p_end, p_total,
+                                    platform.now() + interval '1 day', 'IN_FLIGHT') AS r;
   RETURN v_hold;
 END
 $fn$;

@@ -736,8 +736,15 @@ describe.each(COUNTRIES)(
           const w = await guestTrip(tx);
           const { rows } = await tx.query<{ hold_id: string }>(
             `SELECT * FROM test_fixture.us214_request($1, $2, 'Luis', 'Benítez', 'Ciudad de prueba',
-                                                    $3, $4, $5::bigint, NULL, 'IN_FLIGHT')`,
-            [c.country, w.guest, '2035-08-01T15:00:00Z', '2035-08-03T15:00:00Z', c.rentMinor],
+                                                    $3, $4, $5::bigint, $6, 'IN_FLIGHT')`,
+            [
+              c.country,
+              w.guest,
+              '2035-08-01T15:00:00Z',
+              '2035-08-03T15:00:00Z',
+              c.rentMinor,
+              '2035-05-02T10:00:00Z',
+            ],
           );
           const hold = rows[0]?.hold_id;
           const g = await openSession(tx, w.guest);
