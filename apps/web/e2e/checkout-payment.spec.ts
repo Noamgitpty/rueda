@@ -140,11 +140,10 @@ async function payAt(page: Page, offsite: string[], button: string): Promise<voi
  */
 async function acceptMit(page: Page, button: string): Promise<void> {
   const notice = page.locator(`[data-testid="${button}-mit-notice"]`);
-  if ((await notice.count()) > 0) {
-    await expect(notice).toBeVisible();
-    return;
-  }
   const consent = page.locator(`[data-testid="${button}-mit-consent"]`);
+  // attendre le formulaire rendu : `count()` n'attend pas, il décidait avant l'affichage
+  await expect(notice.or(consent).first()).toBeAttached();
+  if ((await notice.count()) > 0) return;
   await expect(consent).not.toBeChecked();
   await consent.check();
 }
