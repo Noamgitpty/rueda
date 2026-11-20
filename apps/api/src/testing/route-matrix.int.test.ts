@@ -41,7 +41,7 @@ import {
 } from '../modules/ctr/index.js';
 import { postgresIamAdapters, postgresStaffAdapters } from '../modules/iam/index.js';
 import { postgresKycAdapters } from '../modules/kyc/index.js';
-import { PgHandoverStore, PgInspectionStore } from '../modules/trp/index.js';
+import { PgHandoverStore, PgInspectionStore, PgNoShowStore } from '../modules/trp/index.js';
 import { postgresPyoAdapters } from '../modules/pyo/index.js';
 import { postgresMsgAdapters } from '../modules/msg/index.js';
 import { postgresRevAdapters } from '../modules/rev/index.js';
@@ -1023,6 +1023,15 @@ async function requestOf(
         path: `/trips/${randomUUID()}/handover/checkin/validate`,
         body: { odometerKm: 1, fuelEighths: 8, method: 'IN_PERSON' },
       };
+    // no-show déclaré par une partie (US-307) : trip inconnu de l'acteur ⇒ 404 (rien n'est écrit)
+    case 'GET /trips/{tripId}/no-show':
+      return { method: 'GET', path: `/trips/${randomUUID()}/no-show` };
+    case 'POST /trips/{tripId}/no-show':
+      return {
+        method: 'POST',
+        path: `/trips/${randomUUID()}/no-show`,
+        body: { requestId: randomUUID() },
+      };
     // constancia d'arrendamiento (US-212) : trip inconnu de l'acteur ⇒ 404 ; recherche de l'hôte :
     // plaque dans le corps, aucun trip d'un autre compte
     case 'GET /trips/{tripId}/constancia':
@@ -1379,7 +1388,12 @@ beforeAll(async () => {
         new QuoteService(new CountryConfigService()).params(ctx),
       ),
       // photos d'état du véhicule (US-303) : commandes réelles de 0158 sous app_api
-      { store: new PgInspectionStore(client), handover: new PgHandoverStore(client) },
+      {
+        store: new PgInspectionStore(client),
+        handover: new PgHandoverStore(client),
+        // no-show (US-307) : commandes réelles de 0171 sous app_api
+        noShow: new PgNoShowStore(client),
+      },
       // compte de versement (US-707) : commandes réelles de 0159 sous app_api ; aucun coffre (503)
       postgresPyoAdapters(client),
       // messagerie par trip (US-525) : fonctions réelles de 0161 sous app_api

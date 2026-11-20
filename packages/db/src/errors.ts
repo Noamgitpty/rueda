@@ -456,6 +456,11 @@ export const CONSTRAINT_CODES: Readonly<Record<string, readonly [string, DbBusin
   ],
   trip_cancellation_uncaptured: [SQLSTATE.integrityConstraintViolation, 'INVARIANT_VIOLATION'],
   trip_cancellation_unrefunded: [SQLSTATE.integrityConstraintViolation, 'INVARIANT_VIOLATION'],
+  // no-show et refus du véhicule déclarés (0171, US-307, ADR-191)
+  trip_cancellation_traced_shape: [SQLSTATE.checkViolation, 'INVARIANT_VIOLATION'],
+  trip_no_show_evidence_missing: [SQLSTATE.objectNotInPrerequisiteState, 'INVARIANT_VIOLATION'],
+  leg_reallocation_unsupported: [SQLSTATE.objectNotInPrerequisiteState, 'FIN_REVIEW_REQUIRED'],
+  payment_command_forbidden: [SQLSTATE.insufficientPrivilege, 'FORBIDDEN'],
   // host_ledger minimal : pénalité d'annulation de l'hôte (0129, US-709a, ADR-153)
   host_ledger_command_forbidden: [SQLSTATE.insufficientPrivilege, 'FORBIDDEN'],
   host_ledger_settlement_unknown: [SQLSTATE.integrityConstraintViolation, 'INVARIANT_VIOLATION'],

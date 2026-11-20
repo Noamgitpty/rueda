@@ -364,7 +364,15 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  `web.reviews.*` (avis reçus, droit d’accès Ley 81), `web.a13.title`, `web.a13.preview`,
  `web.a13.reviews`, `web.a13.link` (A13 : aperçu du profil public) et `web.listing.hostReviews`
  (fiche S03, LST-020).
- Version 110 (les 106 à 109 sont réservées à US-307, US-314, US-306 et US-311) : dommages,
+ Version 106 (réservée à US-307 par l’orchestrateur ; les 102 à 105 sont celles d’US-709, US-305, US-703
+ et US-317) : no-show et refus du véhicule (US-307, ADR-191) :
+ `common.noShow.*` (réponses des routes `/trips/{id}/no-show` : trop tôt, fenêtre close, partie
+ présente, preuve manquante, demande en cours, base injoignable), `web.noShow.*` (écran de l’hôte
+ « le voyageur n’est pas venu » et du voyageur « l’hôte n’est pas venu » : fenêtre, preuve tracée
+ dans les messages, déclaration définitive, état de la demande, liens du détail du trip) et
+ `backoffice.noShow.*` (console : `DECLARE_NO_SHOW` et `REFUSE_AT_PICKUP` à saisie fermée, refus
+ expliqués).
+ Version 110 (la 106 est celle d’US-307 ; les 107 à 109 sont réservées à US-314, US-306 et US-311) : dommages,
  incidents et décisions (US-309, ADR-195) : `common.claim.*` (réponses des routes
  `/console/claims…` : délai de déclaration dépassé, preuves de départ et de retour absentes, motif
  exigé, décision « définitive » refusée, somme des parts, plafonds, ADMIN pour tout débit) et

@@ -182,6 +182,13 @@ export const POST_SEED_PARAMS: readonly {
     refs: '16 PAY-015 ; 10b UX-30 ; DEC-FONDATEUR-22 ; ADR-189',
     embedded: true,
   },
+  {
+    prefix: 'no_show_report_review_alert_minutes',
+    file: '0171_trip_no_show_refusal.sql',
+    story: 'US-307',
+    refs: '16 TRP-015 ; 08 BR-CXL-13 ; ADR-191',
+    embedded: true,
+  },
 ];
 
 /** La clé appartient au groupe : préfixe ou clé nouvelle nommée (`extraKeys`). */

@@ -3513,7 +3513,9 @@
         "cost_bearer": "C1",
         "outcome_code": "C1",
         "decided_at": "C1",
-        "created_at": "C1"
+        "created_at": "C1",
+        "host_message_traced": "C1",
+        "review_alerted_at": "C1"
       }
     },
     "core.booking_trip_state_log": {

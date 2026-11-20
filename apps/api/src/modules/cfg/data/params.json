@@ -2759,6 +2759,21 @@
         "PA": false,
         "PY": false
       }
+    },
+    {
+      "key": "no_show_report_review_alert_minutes",
+      "type": "DURATION",
+      "unit": "min",
+      "scopes": ["COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "16 TRP-015 ; 08 BR-CXL-13 ; ADR-191 (revue de la PR #283) : délai après lequel un signalement du no-show de l’hôte par le voyageur, encore en attente de l’ops, lève l’alerte TRIP_NO_SHOW_REPORT_UNRESOLVED (une fois par signalement) ; absent ou non positif : alerte au premier passage (fail-closed)",
+      "status": "PROPOSÉ comme Turo (ADR-191) : le support vérifie le signalement dans l’heure qui suit, 2 h avant l’alerte",
+      "decision": "PROPOSED",
+      "decisionRef": "ADR-191 ; COMME_TURO (US-307)",
+      "values": {
+        "PA": 120,
+        "PY": 120
+      }
     }
   ]
 }
