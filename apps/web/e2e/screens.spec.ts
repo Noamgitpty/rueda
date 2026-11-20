@@ -375,7 +375,8 @@ async function openTripMessages(
 
 /**
  * A10 → A08 de l'hôte (US-217 partie 217b) : mois du double qui porte des gains (acquis, à
- * liquider, pénalité en ligne séparée), compte au marché à deux décimales.
+ * liquider, pénalité en ligne séparée), compte au marché à deux décimales ; US-314 : versements
+ * (premier versement payé avec compensation, lot retenu pour réclamation et versements fermés).
  */
 async function openHostEarnings(page: Page, context: BrowserContext): Promise<void> {
   await signInHost(context);
@@ -385,6 +386,8 @@ async function openHostEarnings(page: Page, context: BrowserContext): Promise<vo
   const org = new URL(page.url()).searchParams.get('org') ?? '';
   await page.goto(`/host/earnings?org=${org}&month=2036-12`);
   await expect(page.locator('[data-testid="a08-earned"]')).toBeVisible();
+  // US-314 : section « Versements » (lot payé, lot retenu et ses motifs)
+  await expect(page.locator('[data-testid="a08-hold-CLAIM"]')).toBeVisible();
 }
 
 /**

@@ -73,12 +73,22 @@ Le versement passe par le port `PaymentProvider` de PAY (`apps/api/src/modules/p
 | `GET /host/accounts/{orgId}/payout-account`  | session | 200 `PAYOUT_ACCOUNT_STATE` (rails du pays, type du numéro fiscal, compte masqué) ; 401 ; 403 `PAYOUT_MANAGE_FORBIDDEN` ; 404 ; 503                                                                                                                   |
 | `POST /host/accounts/{orgId}/payout-account` | session | 200 `PAYOUT_ACCOUNT_SAVED` ; 400 ; 401 ; 403 `PAYOUT_MANAGE_FORBIDDEN`, `HOST_KYC_REQUIRED` ; 404 ; 409 `HOST_TAX_ID_REQUIRED` ; 415 ; 422 `PAYOUT_ACCOUNT_INVALID`, `PAYOUT_RAIL_UNSUPPORTED`, `PAYOUT_HOLDER_MISMATCH` ; 503 (coffre, base, rails) |
 
-API publique (`index.ts`) : `PyoModule`, `PyoPayoutModule`, `unavailablePyoOptions`, `postgresPyoAdapters`, `PgPayoutAccountStore`, `UnavailablePayoutAccountStore`, `PayoutAccountService`, `PYO_MESSAGES`, `PyoHttpError`, `PayoutScheduler`, `registerPayoutScheduler`, `PgPayoutBatchStore`, les constantes `PAYOUT_SCHEDULER_*` et les types des ports et des magasins.
+### Routes (US-314)
+
+| Route                                | Accès   | Réponse                                                                                                                                                                                                              |
+| ------------------------------------ | ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /host/accounts/{orgId}/payouts` | session | 200 calendrier du pays et 24 derniers lots (état SM-6, dates, montants, motifs de retenue ; motif inconnu ⇒ `OTHER`) ; 401 ; 403 `PAYOUTS_READ_FORBIDDEN` ; 404 `HOST_ACCOUNT_NOT_FOUND` ; 503 `PAYOUTS_UNAVAILABLE` |
+
+Lecture seule par le TITULAIRE du compte d'hôte (`core.payout_host_payouts`, 0172 ; magasin `HostPayoutsStore`, adaptateur `PgHostPayoutsStore`, FAKE `testing/fake-host-payouts-store.ts`) : un co-hôte, même doté de `finance.read_org_statements`, reçoit 404 (RLS-28) ; aucun identifiant du personnel, compte PSP, compte de versement, clé ou référence du PSP (RLS-26). Écran : A08 (`apps/web/app/(app)/host/earnings/page.tsx`, section « Versements »). ADR-192.
+
+Motifs de retenue d'un lot (`core.payout_batch_hold_reasons`, 0165 → 0167 → 0172) : `PAYOUTS_DISABLED`, `FUNDS_HOLDING_DISABLED`, `VARIANT_B_UNAVAILABLE`, `HOST_PAYOUT_RAIL_UNAVAILABLE`, `SUBMERCHANT_INACTIVE`, `PAYOUT_ACCOUNT_*`, `CHARGEBACK` (gel de jambe ou chargeback ouvert), `DISPUTE` (trip `IN_DISPUTE`), `TRIP_NOT_COMPLETED`, `CLAIM` (réclamation ouverte, US-314). Une story qui ajoute une source de litige (frais contesté US-706, dommages US-309) l'ajoute à cette fonction.
+
+API publique (`index.ts`) : `PyoModule`, `PyoPayoutModule`, `unavailablePyoOptions`, `postgresPyoAdapters`, `PgPayoutAccountStore`, `UnavailablePayoutAccountStore`, `PayoutAccountService`, `PYO_MESSAGES`, `PyoHttpError`, `PayoutScheduler`, `registerPayoutScheduler`, `PgPayoutBatchStore`, `HostPayoutsService`, `PgHostPayoutsStore`, `UnavailableHostPayoutsStore`, `HOLD_REASONS`, les constantes `PAYOUT_SCHEDULER_*` et les types des ports et des magasins.
 
 ## Commandes de test
 
 - Unitaires et contrat HTTP (sans base) : `pnpm --filter @rueda/api exec vitest run src/modules/pyo` (application réelle, FAKE du magasin, du coffre et du PSP, réponses confrontées à `apps/api/openapi/openapi.json`, PA et PY).
-- L0 (PostgreSQL, rôles de production `app_api` et `app_worker`, PA / USD et PY / PYG) : `packages/db/test/l0/l0-us707-payout-account.test.ts` (fixtures 9927) ; `l0-us708-payout-batches.test.ts` et `l0-us708-payout-race.test.ts` (fixtures 9921, deux connexions).
+- L0 (PostgreSQL, rôles de production `app_api` et `app_worker`, PA / USD et PY / PYG) : `packages/db/test/l0/l0-us707-payout-account.test.ts` (fixtures 9927) ; `l0-us708-payout-batches.test.ts` et `l0-us708-payout-race.test.ts` (fixtures 9921, deux connexions) ; `l0-us314-payout-holds.test.ts` (réclamation et litige, interrupteur fermé puis ouvert à deux personnes dans une fenêtre refermée) et `l0-us314-host-payouts.test.ts` (lecture du titulaire, RLS-26, RLS-28 ; fixtures 9913).
 - Ordonnanceur des versements sur le PSP FAKE (compteurs d'appels) : `src/modules/pyo/testing/payout-scheduler.test.ts`.
 - e2e (écran du compte de versement, 360 px, 4 langues) : `apps/web/e2e/host-payout-account.spec.ts`.
 

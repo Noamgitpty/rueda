@@ -346,8 +346,14 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  réservée à US-709 ; le numéro ne redescend jamais) : trip suivant à risque (US-305, ADR-188) :
  `ntf.tripAtRiskHost.*` (le véhicule du trip précédent, en retard, n’est pas rendu ; l’hôte est
  prévenu, l’ops le contacte).
+ Version 107 (réservée à US-314 par l’orchestrateur ; les 104 à 106 sont réservées à US-703,
+ US-317 et US-307 ; le numéro ne redescend jamais) : versements de l’hôte (US-314, ADR-192) :
+ `common.payouts.*` (réponses de `GET /host/accounts/{orgId}/payouts`), `web.a08.payouts.*` (A08 :
+ calendrier J+N ouvrés et premier versement, états SM-6, motifs de retenue lisibles, montants),
+ lignes du host_ledger `web.a08.line.RELEASED_LEG_ADVANCE`, `CHARGEBACK_CLAWBACK`,
+ `RECEIVABLE_WRITE_OFF`, `PAYOUT_NETTING` et `web.a08.line.creditHint`.
  */
-export const CATALOG_VERSION = 103;
+export const CATALOG_VERSION = 107;
 
 /** Catalogues de base par langue ; la langue d'un profil de locale choisit le sien. */
 export const CATALOGS: Readonly<Record<CatalogLanguage, VersionedCatalog<MessageKey>>> = {

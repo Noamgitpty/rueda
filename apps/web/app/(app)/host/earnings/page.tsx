@@ -4,7 +4,9 @@ import { Badge, Banner, ButtonLink, EmptyState, ErrorState } from '@rueda/ui';
 import { callApi } from '../../../../account/api-client.ts';
 import { percentLabel, planName, sharePercentOf } from '../../../../account/earnings-plans.ts';
 import { hostEarningsOf, monthOf, shiftMonth } from '../../../../account/host-earnings.ts';
-import type { EarningLineView } from '../../../../account/host-earnings.ts';
+import type { AdjustmentReason, EarningLineView } from '../../../../account/host-earnings.ts';
+import { hostPayoutsOf, localTimeOf } from '../../../../account/host-payouts.ts';
+import type { HostPayoutsView, PayoutView } from '../../../../account/host-payouts.ts';
 import { hostAccountsOf } from '../../../../account/host-listings.ts';
 import { clientContext } from '../../../../account/request.ts';
 import { getRequestBrand } from '../../../../brand-source.ts';
@@ -45,6 +47,26 @@ function monthLabel(tag: string, month: string): string {
   }
 }
 
+/** « 8 de junio de 2033 » : date d'un versement dans le fuseau du pays (affichage seulement). */
+function dayLabel(tag: string, iso: string, timeZone: string | null): string {
+  try {
+    return new Intl.DateTimeFormat(tag, { dateStyle: 'long', timeZone: timeZone ?? 'UTC' }).format(
+      new Date(iso),
+    );
+  } catch {
+    return iso.slice(0, 10);
+  }
+}
+
+/** Titre d'une ligne du host_ledger (08 E7 règle 7 ; motifs de 0129, 0139, 0167). */
+const ADJUSTMENT_TITLE = {
+  HOST_CANCELLATION_PENALTY: 'web.a08.line.HOST_CANCELLATION_PENALTY',
+  RELEASED_LEG_ADVANCE: 'web.a08.line.RELEASED_LEG_ADVANCE',
+  CHARGEBACK_CLAWBACK: 'web.a08.line.CHARGEBACK_CLAWBACK',
+  PAYOUT_NETTING: 'web.a08.line.PAYOUT_NETTING',
+  RECEIVABLE_WRITE_OFF: 'web.a08.line.RECEIVABLE_WRITE_OFF',
+} as const satisfies Record<AdjustmentReason, string>;
+
 /**
  * A08 — gains de l'hôte (US-217 partie 217b, ADR-161 / ADR-167 ; 19 US-217 critères 1 et 2 ; 10b
  * A08, UX-45 ; 16 PYO-013 ; 08 E7, BR-PROT-06). Relevé d'un mois lu de
@@ -57,6 +79,14 @@ function monthLabel(tag: string, month: string): string {
  * aucune date de versement n'existe encore (`web.a08.payoutsOff`, 10b ; PROPOSÉ). Navigation par
  * mois (`?month=YYYY-MM`, mois courant UTC par défaut). Un compte d'un autre hôte n'est jamais lisible
  * (404 de l'API). Relevé annuel : lot 5 (US-541) ; PDF : HTML accessible équivalent (10b UX-51).
+ *
+ * US-314 (ADR-192 ; 19 US-314 critère 5) : section « Versements » lue de
+ * `GET /host/accounts/{orgId}/payouts` — calendrier du pays (N jours ouvrés après la fin du trip,
+ * premier versement à N' jours, heure locale du lot : paramètres rendus par l'API, jamais une
+ * constante), puis chaque lot (état SM-6, date prévue, envoyé ou versé le, premier versement,
+ * gains, retenue d'une somme due, montant versé, nombre de trips) et, pour un lot retenu, chaque
+ * motif en clair (`web.a08.payouts.hold.*`). Une erreur de cette lecture n'efface pas le relevé :
+ * la section dit l'erreur. Dates dans le fuseau du pays.
  */
 export default async function HostEarningsPage({
   searchParams,
@@ -120,12 +150,12 @@ export default async function HostEarningsPage({
   }
   const account = accounts.find((a) => a.orgId === org) ?? accounts[0];
   if (account === undefined) return error(undefined);
-  const reply = await callApi(
-    'GET',
-    `/host/accounts/${account.orgId}/earnings/${encodeURIComponent(month)}`,
-    ctx,
-  );
+  const [reply, payoutsReply] = await Promise.all([
+    callApi('GET', `/host/accounts/${account.orgId}/earnings/${encodeURIComponent(month)}`, ctx),
+    callApi('GET', `/host/accounts/${account.orgId}/payouts`, ctx),
+  ]);
   const view = hostEarningsOf(reply);
+  const payoutsView = hostPayoutsOf(payoutsReply);
   if (view === null || view.month !== month) return error(account.orgId);
 
   const label = monthLabel(tag, month);
@@ -155,6 +185,7 @@ export default async function HostEarningsPage({
   const intermediary = (
     <p className={styles['hint']}>{t('web.a08.intermediary', { brand: brand.name })}</p>
   );
+  const payouts = payoutsSection(payoutsView, account.orgId);
   if (view.statements.length === 0) {
     return shell(
       <>
@@ -164,13 +195,14 @@ export default async function HostEarningsPage({
         {nav}
         <EmptyState icon="car" headingLevel={2} title={t('web.a08.empty')} />
         {payoutsOff}
+        {payouts}
         {intermediary}
       </>,
     );
   }
   const lineTitle = (l: EarningLineView): string =>
     l.kind === 'ADJUSTMENT'
-      ? t('web.a08.line.HOST_CANCELLATION_PENALTY')
+      ? t(ADJUSTMENT_TITLE[l.reason ?? 'HOST_CANCELLATION_PENALTY'])
       : t(l.kind === 'EARNING' ? 'web.a08.line.EARNING' : 'web.a08.line.CXL_EARNING');
   const shareLabel = (l: EarningLineView): string => {
     const percent = sharePercentOf(l.hostSharePct);
@@ -246,7 +278,13 @@ export default async function HostEarningsPage({
                   )}
                   <div className={styles['between']}>
                     <span>
-                      {l.kind === 'ADJUSTMENT' ? t('web.a08.line.penaltyHint') : shareLabel(l)}
+                      {l.kind === 'ADJUSTMENT'
+                        ? t(
+                            l.amountMinor < 0n
+                              ? 'web.a08.line.penaltyHint'
+                              : 'web.a08.line.creditHint',
+                          )
+                        : shareLabel(l)}
                     </span>
                     <span className={styles['strong']} data-testid="a08-amount">
                       {money(l.amountMinor)}
@@ -266,7 +304,115 @@ export default async function HostEarningsPage({
           </section>
         );
       })}
+      {payouts}
       {intermediary}
     </>,
   );
+
+  /** Section « Versements » (US-314) : calendrier, lots, motifs de retenue. */
+  function payoutsSection(p: HostPayoutsView | null, orgId: string): ReactNode {
+    const heading = (
+      <h2 id="a08-payouts" className={accountStyles['h2']}>
+        {t('web.a08.payouts.title')}
+      </h2>
+    );
+    if (p === null || p.orgId !== orgId) {
+      return (
+        <section
+          className={styles['section']}
+          aria-labelledby="a08-payouts"
+          data-testid="a08-payouts"
+        >
+          {heading}
+          <Banner tone="warning">{t('web.a08.payouts.loadError')}</Banner>
+        </section>
+      );
+    }
+    const s = p.schedule;
+    const schedule =
+      s.businessDayOffset === null ||
+      s.firstPayoutBusinessDay === null ||
+      s.localTimeMinutes === null
+        ? t('web.a08.payouts.scheduleUnknown', { country: countryName(tag, p.country) })
+        : t('web.a08.payouts.schedule', {
+            n: String(s.businessDayOffset),
+            first: String(s.firstPayoutBusinessDay),
+            time: localTimeOf(s.localTimeMinutes),
+          });
+    const money = (amountMinor: bigint) =>
+      i18n.money({ amountMinor, currency: p.currency, exponent: p.currencyExponent });
+    const day = (iso: string) => dayLabel(tag, iso, s.timeZone);
+    const tone = (v: PayoutView) =>
+      v.status === 'PAID'
+        ? 'success'
+        : v.status === 'ON_HOLD' || v.status === 'FAILED'
+          ? 'warning'
+          : 'neutral';
+    return (
+      <section
+        className={styles['section']}
+        aria-labelledby="a08-payouts"
+        data-testid="a08-payouts"
+      >
+        {heading}
+        <p className={styles['hint']} data-testid="a08-payouts-schedule">
+          {schedule}
+        </p>
+        {p.payouts.length === 0 ? (
+          <p className={accountStyles['muted']} data-testid="a08-payouts-empty">
+            {t('web.a08.payouts.empty')}
+          </p>
+        ) : (
+          <ul className={styles['rows']} data-testid="a08-payouts-list">
+            {p.payouts.map((v) => (
+              <li key={v.batchId} className={styles['card']} data-testid={`a08-payout-${v.status}`}>
+                <div className={styles['between']}>
+                  <span className={styles['strong']}>
+                    {v.paidAt !== null
+                      ? t('web.a08.payouts.paidOn', { date: day(v.paidAt) })
+                      : v.initiatedAt !== null
+                        ? t('web.a08.payouts.sentOn', { date: day(v.initiatedAt) })
+                        : t('web.a08.payouts.scheduledFor', { date: day(v.scheduledFor) })}
+                  </span>
+                  <Badge tone={tone(v)}>{t(`web.a08.payouts.status.${v.status}`)}</Badge>
+                </div>
+                {v.firstPayout && <p className={styles['hint']}>{t('web.a08.payouts.first')}</p>}
+                <div className={styles['between']}>
+                  <span>{t('web.a08.payouts.gross')}</span>
+                  <span>{money(v.grossMinor)}</span>
+                </div>
+                {v.nettedMinor > 0n && (
+                  <div className={styles['between']}>
+                    <span>{t('web.a08.payouts.netted')}</span>
+                    <span data-testid="a08-payout-netted">{money(-v.nettedMinor)}</span>
+                  </div>
+                )}
+                <div className={styles['between']}>
+                  <span className={styles['strong']}>{t('web.a08.payouts.net')}</span>
+                  <span className={styles['strong']} data-testid="a08-payout-net">
+                    {money(v.netMinor)}
+                  </span>
+                </div>
+                <p className={styles['hint']}>
+                  {t('web.a08.payouts.trips', { count: v.tripIds.length })}
+                </p>
+                {v.holdReasons.length > 0 && (
+                  <div data-testid="a08-payout-holds">
+                    <p className={styles['strong']}>{t('web.a08.payouts.heldTitle')}</p>
+                    <ul className={styles['rows']}>
+                      {v.holdReasons.map((r) => (
+                        <li key={r} data-testid={`a08-hold-${r}`}>
+                          {t(`web.a08.payouts.hold.${r}`, { country: countryName(tag, p.country) })}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+    );
+  }
 }

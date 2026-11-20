@@ -2858,6 +2858,58 @@ export const EN_MESSAGES = {
   'web.a08.empty': 'No earnings yet',
   'web.a08.payoutsOff':
     "Your earnings are recorded. Host payouts in {country} aren't open yet; we'll let you know.",
+  // US-314 : versements de l’hôte (A08), motifs de retenue, lignes du host_ledger (ADR-192)
+  'common.payouts.readForbidden': 'You can’t see this account’s payouts.',
+  'common.payouts.unavailable': 'We couldn’t load your payouts. Try again later.',
+  'web.a08.line.RELEASED_LEG_ADVANCE': 'Guest refund advanced by the platform',
+  'web.a08.line.CHARGEBACK_CLAWBACK': 'Guest chargeback',
+  'web.a08.line.RECEIVABLE_WRITE_OFF': 'Debt cancelled',
+  'web.a08.line.PAYOUT_NETTING': 'Deducted from a payout',
+  'web.a08.line.creditHint': 'This amount reduces what you owe.',
+  'web.a08.payouts.title': 'Payouts',
+  'web.a08.payouts.schedule':
+    'We pay you {n} business days after your trip ends, around {time} (local time). Your first payout to a new account goes out {first} business days after the trip, while we verify the account.',
+  'web.a08.payouts.scheduleUnknown': 'The payout calendar for {country} isn’t published yet.',
+  'web.a08.payouts.empty': 'No payouts yet. We prepare one after each completed trip.',
+  'web.a08.payouts.scheduledFor': 'Scheduled for {date}',
+  'web.a08.payouts.sentOn': 'Sent on {date}',
+  'web.a08.payouts.paidOn': 'Paid on {date}',
+  'web.a08.payouts.first': 'First payout',
+  'web.a08.payouts.gross': 'Earnings in this payout',
+  'web.a08.payouts.netted': 'Deducted for amounts you owe',
+  'web.a08.payouts.net': 'Payout amount',
+  'web.a08.payouts.heldTitle': 'Payout on hold',
+  'web.a08.payouts.loadError': 'We couldn’t load your payouts.',
+  'web.a08.payouts.trips': { one: '{count} trip', other: '{count} trips' },
+  'web.a08.payouts.status.SCHEDULED': 'Scheduled',
+  'web.a08.payouts.status.ON_HOLD': 'On hold',
+  'web.a08.payouts.status.NETTING': 'Being prepared',
+  'web.a08.payouts.status.READY': 'Ready to send',
+  'web.a08.payouts.status.ZERO_NET': 'Nothing to pay',
+  'web.a08.payouts.status.INITIATED': 'Sent',
+  'web.a08.payouts.status.IN_TRANSIT': 'On its way',
+  'web.a08.payouts.status.PAID': 'Paid',
+  'web.a08.payouts.status.FAILED': 'Rejected by the bank',
+  'web.a08.payouts.hold.PAYOUTS_DISABLED': 'Host payouts in {country} aren’t open yet.',
+  'web.a08.payouts.hold.FUNDS_HOLDING_DISABLED':
+    'This payout method isn’t available in {country} yet.',
+  'web.a08.payouts.hold.VARIANT_B_UNAVAILABLE': 'This payout method isn’t available yet.',
+  'web.a08.payouts.hold.HOST_PAYOUT_RAIL_UNAVAILABLE':
+    'Our payment provider can’t pay private hosts in {country} yet.',
+  'web.a08.payouts.hold.SUBMERCHANT_INACTIVE':
+    'Our payment provider is still verifying your account.',
+  'web.a08.payouts.hold.PAYOUT_ACCOUNT_MISSING': 'Add a payout account to receive your payouts.',
+  'web.a08.payouts.hold.PAYOUT_ACCOUNT_UNVERIFIED': 'Your payout account is still being verified.',
+  'web.a08.payouts.hold.PAYOUT_ACCOUNT_CHANGE_HOLD':
+    'You changed your payout account recently: for your security, the payout waits a little.',
+  'web.a08.payouts.hold.CHARGEBACK':
+    'The guest disputed the charge with their bank; the payout waits for the decision.',
+  'web.a08.payouts.hold.DISPUTE':
+    'A disagreement about this trip is open; the payout waits for the decision.',
+  'web.a08.payouts.hold.CLAIM':
+    'A claim about this trip is open; the payout waits for our support team’s decision.',
+  'web.a08.payouts.hold.TRIP_NOT_COMPLETED': 'The trip isn’t closed yet.',
+  'web.a08.payouts.hold.OTHER': 'The payout is on hold; our team is reviewing it.',
   // US-303 : photos guidées de l’état du véhicule (ADR-179)
   'common.inspection.notFound': "We couldn't find the photos for this trip.",
   'common.inspection.notOpen': "Photos aren't open for this trip right now.",

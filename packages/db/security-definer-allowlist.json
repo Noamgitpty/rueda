@@ -2522,6 +2522,13 @@
       "owner": "cmd_hold_owner",
       "execute": ["app_worker"],
       "story": "US-305"
+    },
+    {
+      "signature": "core.payout_host_payouts(bytea,uuid)",
+      "family": "cmd_money",
+      "owner": "cmd_money_owner",
+      "execute": ["app_api"],
+      "story": "US-314"
     }
   ]
 }

@@ -2995,6 +2995,63 @@ export const FR_MESSAGES = {
   'web.a08.empty': 'Pas encore de gains',
   'web.a08.payoutsOff':
     'Tes gains sont enregistrés. Les versements aux hôtes ne sont pas encore ouverts au {country} ; nous te préviendrons.',
+  // US-314 : versements de l’hôte (A08), motifs de retenue, lignes du host_ledger (ADR-192)
+  'common.payouts.readForbidden': 'Tu ne peux pas voir les versements de ce compte.',
+  'common.payouts.unavailable': 'Nous n’avons pas pu charger tes versements. Réessaie plus tard.',
+  'web.a08.line.RELEASED_LEG_ADVANCE': 'Remboursement du voyageur avancé par la plateforme',
+  'web.a08.line.CHARGEBACK_CLAWBACK': 'Contestation de paiement du voyageur',
+  'web.a08.line.RECEIVABLE_WRITE_OFF': 'Dette annulée',
+  'web.a08.line.PAYOUT_NETTING': 'Déduit d’un versement',
+  'web.a08.line.creditHint': 'Ce montant réduit ce que tu dois.',
+  'web.a08.payouts.title': 'Versements',
+  'web.a08.payouts.schedule':
+    'Nous te versons tes gains {n} jours ouvrés après la fin du voyage, vers {time} (heure locale). Le premier versement vers un nouveau compte part {first} jours ouvrés après le voyage, le temps de vérifier le compte.',
+  'web.a08.payouts.scheduleUnknown':
+    'Le calendrier des versements n’est pas encore publié au {country}.',
+  'web.a08.payouts.empty':
+    'Pas encore de versement. Nous en préparons un après chaque voyage terminé.',
+  'web.a08.payouts.scheduledFor': 'Prévu le {date}',
+  'web.a08.payouts.sentOn': 'Envoyé le {date}',
+  'web.a08.payouts.paidOn': 'Versé le {date}',
+  'web.a08.payouts.first': 'Premier versement',
+  'web.a08.payouts.gross': 'Gains de ce versement',
+  'web.a08.payouts.netted': 'Déduit pour des sommes que tu dois',
+  'web.a08.payouts.net': 'Montant versé',
+  'web.a08.payouts.heldTitle': 'Versement retenu',
+  'web.a08.payouts.loadError': 'Nous n’avons pas pu charger tes versements.',
+  'web.a08.payouts.trips': { one: '{count} voyage', other: '{count} voyages' },
+  'web.a08.payouts.status.SCHEDULED': 'Prévu',
+  'web.a08.payouts.status.ON_HOLD': 'Retenu',
+  'web.a08.payouts.status.NETTING': 'En préparation',
+  'web.a08.payouts.status.READY': 'Prêt à partir',
+  'web.a08.payouts.status.ZERO_NET': 'Rien à verser',
+  'web.a08.payouts.status.INITIATED': 'Envoyé',
+  'web.a08.payouts.status.IN_TRANSIT': 'En route',
+  'web.a08.payouts.status.PAID': 'Versé',
+  'web.a08.payouts.status.FAILED': 'Refusé par la banque',
+  'web.a08.payouts.hold.PAYOUTS_DISABLED':
+    'Les versements aux hôtes ne sont pas encore ouverts au {country}.',
+  'web.a08.payouts.hold.FUNDS_HOLDING_DISABLED':
+    'Ce mode de versement n’est pas encore disponible au {country}.',
+  'web.a08.payouts.hold.VARIANT_B_UNAVAILABLE': 'Ce mode de versement n’est pas encore disponible.',
+  'web.a08.payouts.hold.HOST_PAYOUT_RAIL_UNAVAILABLE':
+    'Notre prestataire de paiement ne peut pas encore verser aux particuliers au {country}.',
+  'web.a08.payouts.hold.SUBMERCHANT_INACTIVE':
+    'Notre prestataire de paiement vérifie encore ton compte.',
+  'web.a08.payouts.hold.PAYOUT_ACCOUNT_MISSING':
+    'Ajoute un compte de versement pour recevoir tes versements.',
+  'web.a08.payouts.hold.PAYOUT_ACCOUNT_UNVERIFIED':
+    'Ton compte de versement est encore en cours de vérification.',
+  'web.a08.payouts.hold.PAYOUT_ACCOUNT_CHANGE_HOLD':
+    'Tu as changé ton compte de versement récemment\u00a0: pour ta sécurité, le versement attend un peu.',
+  'web.a08.payouts.hold.CHARGEBACK':
+    'Le voyageur a contesté le paiement auprès de sa banque\u00a0; le versement attend la décision.',
+  'web.a08.payouts.hold.DISPUTE':
+    'Un désaccord est ouvert sur ce voyage\u00a0; le versement attend la décision.',
+  'web.a08.payouts.hold.CLAIM':
+    'Une réclamation est ouverte sur ce voyage\u00a0; le versement attend la décision de notre équipe d’assistance.',
+  'web.a08.payouts.hold.TRIP_NOT_COMPLETED': 'Le voyage n’est pas encore clos.',
+  'web.a08.payouts.hold.OTHER': 'Le versement est retenu\u00a0; notre équipe l’examine.',
   // US-303 : photos guidées de l’état du véhicule (ADR-179)
   'common.inspection.notFound': 'Nous ne trouvons pas les photos de ce voyage.',
   'common.inspection.notOpen': 'Les photos de ce voyage ne sont pas ouvertes en ce moment.',
