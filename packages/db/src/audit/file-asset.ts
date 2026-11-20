@@ -190,13 +190,21 @@ interface FileAssetRow {
   enc_subject_id: string | null;
 }
 
-/** Recalcule l'empreinte d'un fichier et la compare à `file_asset.sha256`. */
-export async function verifyFileAsset(
+/**
+ * Lecture vérifiée d'un fichier (US-308, dossier de preuve) : mêmes pas que `verifyFileAsset`, et
+ * le contenu en clair rendu SEULEMENT si l'empreinte recalculée égale `file_asset.sha256` (jamais un
+ * contenu dont l'empreinte diffère). Réservée au travailleur `evidence_verifier` (RLS de 0021).
+ */
+export type FileRead =
+  | { readonly status: 'MATCH'; readonly sha256: Buffer; readonly content: Buffer }
+  | Exclude<FileVerification, { readonly status: 'MATCH' }>;
+
+export async function readFileAsset(
   db: Queryable,
   store: FileStore,
   keys: SubjectKeyStore,
   fileId: string,
-): Promise<FileVerification> {
+): Promise<FileRead> {
   const { rows } = await db.query<FileAssetRow>(
     `SELECT bucket, storage_key, sha256, enc_subject_type, enc_subject_id::text AS enc_subject_id
        FROM core.audit_file_asset WHERE id = $1`,
@@ -226,6 +234,17 @@ export async function verifyFileAsset(
   }
   const actual = createHash('sha256').update(content).digest();
   return actual.equals(row.sha256)
-    ? { status: 'MATCH', sha256: actual }
+    ? { status: 'MATCH', sha256: actual, content }
     : { status: 'MISMATCH', expected: row.sha256, actual };
+}
+
+/** Recalcule l'empreinte d'un fichier et la compare à `file_asset.sha256`. */
+export async function verifyFileAsset(
+  db: Queryable,
+  store: FileStore,
+  keys: SubjectKeyStore,
+  fileId: string,
+): Promise<FileVerification> {
+  const read = await readFileAsset(db, store, keys, fileId);
+  return read.status === 'MATCH' ? { status: 'MATCH', sha256: read.sha256 } : read;
 }

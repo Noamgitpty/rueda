@@ -450,6 +450,16 @@ export const ES_MESSAGES = {
   'common.evidence.rejected':
     'Archivo rechazado: solo JPEG, PNG, HEIC o PDF sanos, de tamaño limitado.',
   'common.evidence.unavailable': 'No podemos recibir archivos por ahora. No se guardó nada.',
+  'common.evidenceBundle.notFound':
+    'No encontramos este expediente de pruebas entre los tuyos. Solo quien lo pidió puede abrirlo.',
+  'common.evidenceBundle.notReady':
+    'El expediente de pruebas aún se está preparando. Vuelve a intentarlo en unos minutos.',
+  'common.evidenceBundle.expired':
+    'El enlace del expediente de pruebas venció (7 días). Pide un expediente nuevo.',
+  'common.evidenceBundle.failed':
+    'No se pudo entregar el expediente: una prueba no coincide con su huella o falta. El hallazgo quedó registrado.',
+  'common.evidenceBundle.unavailable':
+    'El expediente de pruebas no está disponible por ahora. No se pidió ni se entregó nada.',
   'backoffice.action.RESTRICT_ACCOUNT': 'Restringir la cuenta',
   'backoffice.action.LIFT_RESTRICTION': 'Levantar la restricción',
   'backoffice.queues.current': 'Cola mostrada',

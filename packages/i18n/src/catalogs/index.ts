@@ -332,8 +332,11 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  `web.a03.arrived`, `web.a03.refuse`, `web.a03.handover` et les 6 points `web.a03.check.*` de
  10b §4.3 (texte portugais ajouté ; `web.a03.check.face` sans la photo de profil, absente côté IAM : écart d'ADR-183), `web.handover.*` (étapes A03, A04 et S09 · check-in /
  check-out, blocages, relevés, validation, liens du détail du trip).
+ Version 99 (la 98 est celle d’US-315) : dossier de preuve d’un trip (US-308, ADR-184) : réponses de la console
+ `common.evidenceBundle.*` (dossier d’un autre agent, archive en préparation, lien échu après 7 j,
+ constat d’empreinte ou pièce absente : rien n’est remis, coffre ou stockage indisponibles).
  */
-export const CATALOG_VERSION = 98;
+export const CATALOG_VERSION = 99;
 
 /** Catalogues de base par langue ; la langue d'un profil de locale choisit le sien. */
 export const CATALOGS: Readonly<Record<CatalogLanguage, VersionedCatalog<MessageKey>>> = {

@@ -3625,6 +3625,19 @@
         "app_worker": [],
         "app_anon": []
       }
+    },
+    "core.claim_evidence_bundle": {
+      "type": "table",
+      "droits": {
+        "app_api": {},
+        "app_worker": {},
+        "app_anon": {}
+      },
+      "politiques": {
+        "app_api": [],
+        "app_worker": [],
+        "app_anon": []
+      }
     }
   }
 }
