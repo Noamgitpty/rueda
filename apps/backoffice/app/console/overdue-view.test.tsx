@@ -63,6 +63,7 @@ const MISSING: OverdueTripView = {
 const VIEW: OverdueBoardView = {
   countries: ['XA'],
   readAt: '2026-11-03T14:31:00.000Z',
+  truncated: false,
   trips: [DETECTED, NOTICE, DONE, MISSING],
 };
 
@@ -70,6 +71,7 @@ const STATES: readonly OverdueState[] = [
   {},
   { view: VIEW },
   { view: { ...VIEW, trips: [] } },
+  { view: { ...VIEW, truncated: true } },
   { view: 'error', notice: { tone: 'warning', key: 'common.auth.forbidden' } },
   ...ESCALATION_STEPS.map((step) => ({ view: VIEW, draft: { tripId: TRIP, step } })),
   {
@@ -161,9 +163,16 @@ describe('vue des retards (US-306) : lecture et escalade', () => {
     ).toContain(es['backoffice.overdue.reasonTooShort']);
   });
 
+  it('vue tronquée à 500 trips (après le filtre de séparation des tâches) ⇒ signalée, jamais silencieuse', () => {
+    expect(text({ view: { ...VIEW, truncated: true } })).toContain(
+      es['backoffice.overdue.truncated'],
+    );
+    expect(text({ view: VIEW })).not.toContain(String(es['backoffice.overdue.truncated']));
+  });
+
   it('aucun trip en retard ⇒ dit ; lecture refusée ⇒ expliquée, jamais « rien » ; chaque refus de la base a son explication en quatre langues', () => {
     expect(text({ view: { ...VIEW, trips: [] } })).toContain(es['backoffice.overdue.none']);
-    const refused = text(STATES[3] as OverdueState);
+    const refused = text(STATES[4] as OverdueState);
     expect(refused).not.toContain(es['backoffice.overdue.none']);
     for (const code of [
       'OVERDUE_STEP_TOO_EARLY',

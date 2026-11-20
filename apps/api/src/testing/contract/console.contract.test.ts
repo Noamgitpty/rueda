@@ -203,6 +203,7 @@ const OPS_BODIES: Readonly<Record<string, Record<string, unknown>>> = {
   overdueBoard: {
     countries: [FIRST_COUNTRY],
     readAt: '2031-07-02T10:31:00.000Z',
+    truncated: false,
     trips: [
       {
         tripId: ID,

@@ -52,6 +52,8 @@ export interface OverdueTripView {
 export interface OverdueBoardView {
   readonly countries: readonly string[];
   readonly readAt: string;
+  /** Plus de 500 trips après le filtre de séparation des tâches : seuls les 500 plus anciens. */
+  readonly truncated: boolean;
   readonly trips: readonly OverdueTripView[];
 }
 
@@ -174,6 +176,11 @@ export function OverduePanel({
             countries: view.countries.join(', '),
           })}
         </p>
+      )}
+      {view !== undefined && view !== 'error' && view.truncated && (
+        <Banner tone="warning" live="polite">
+          {i18n.t('backoffice.overdue.truncated')}
+        </Banner>
       )}
       {state.notice !== undefined && (
         <Banner tone={state.notice.tone} live="polite">

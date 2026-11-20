@@ -19866,7 +19866,7 @@
       },
       "StaffOverdueBoard": {
         "type": "object",
-        "required": ["countries", "readAt", "trips"],
+        "required": ["countries", "readAt", "truncated", "trips"],
         "additionalProperties": false,
         "description": "US-306 (ADR-193) : vue des retards de la console (0173) ; identifiants techniques, codes et heures seulement, aucune donnée personnelle.",
         "properties": {
@@ -19878,6 +19878,10 @@
           },
           "readAt": {
             "$ref": "#/components/schemas/DateTime"
+          },
+          "truncated": {
+            "type": "boolean",
+            "description": "plus de 500 trips après le filtre de séparation des tâches : seuls les 500 plus anciens sont rendus"
           },
           "trips": {
             "type": "array",

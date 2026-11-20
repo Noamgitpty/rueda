@@ -3295,6 +3295,8 @@ export const ES_MESSAGES = {
   'backoffice.overdue.heading': 'Retrasos y autos no devueltos',
   'backoffice.overdue.lead':
     'Viajes con retraso en tu cobertura, leídos en directo (la detección corre cada minuto). La escalada avanza una etapa a la vez, a la hora fijada en la configuración: contacto, intimación y luego denuncia prellenada. Los contactos del viajero y del anfitrión están en la ficha 360°.',
+  'backoffice.overdue.truncated':
+    'Más de 500 viajes con retraso: solo se muestran los 500 más antiguos. Atiéndelos primero y luego actualiza.',
   'backoffice.overdue.refresh': 'Actualizar',
   'backoffice.overdue.readAt': 'Leído a las {at} · cobertura: {countries}',
   'backoffice.overdue.none': 'Ningún viaje con retraso en tu cobertura.',
@@ -3363,12 +3365,12 @@ export const ES_MESSAGES = {
   'ntf.unreturnedFormalNotice.email.subject':
     'Reserva {booking_ref}: modelo de carta de intimación',
   'ntf.unreturnedFormalNotice.email.body':
-    'Hola, {first_name}. El auto de la reserva {booking_ref} todavía no fue devuelto. Este es un modelo de carta de intimación para enviar a tu nombre al viajero, por la mensajería de la reserva o por escrito: «Yo, propietario del vehículo alquilado con la reserva {booking_ref} (marca, modelo y placa indicados en el contrato de alquiler), dejo constancia de que este vehículo debía serme devuelto el {end_at} y no lo fue. Le intimo a devolverlo en el lugar acordado a la brevedad. De lo contrario, me reservo el derecho de presentar una denuncia ante las autoridades competentes. Fecha y firma.» Si tu auto tiene GPS, anota su última ubicación y la hora, sin ir a buscarlo solo. {brand} no envía esta carta en tu lugar, no recupera el auto y no actúa sobre él a distancia.',
+    'Hola, {first_name}. El auto de la reserva {booking_ref} todavía no fue devuelto. Este es un modelo de carta de intimación para enviar a tu nombre al viajero, por la mensajería de la reserva o por escrito: «Yo, anfitrión que puso en alquiler el vehículo de la reserva {booking_ref} (marca, modelo y placa indicados en el contrato de alquiler), dejo constancia de que este vehículo debía serme devuelto el {end_at} y no lo fue. Le intimo a devolverlo en el lugar acordado a la brevedad. De lo contrario, me reservo el derecho de presentar una denuncia ante las autoridades competentes. Fecha y firma.» Si tu auto tiene GPS, anota su última ubicación y la hora, sin ir a buscarlo solo. {brand} no envía esta carta en tu lugar, no recupera el auto y no actúa sobre él a distancia.',
   'ntf.unreturnedFormalNotice.sms.body':
     '{brand}: modelo de carta de intimación de la reserva {booking_ref} enviado por correo. Anota la ubicación GPS si tu auto tiene uno.',
   'ntf.unreturnedPoliceReport.email.subject': 'Reserva {booking_ref}: denuncia prellenada',
   'ntf.unreturnedPoliceReport.email.body':
-    'Hola, {first_name}. El auto de la reserva {booking_ref} lleva más de un día sin ser devuelto. Esta es una denuncia prellenada que puedes presentar tú mismo ante la policía o el Ministerio Público, con tu contrato de alquiler y tu documento de identidad: «Yo, propietario del vehículo indicado en el contrato de alquiler adjunto (marca, modelo y placa), declaro que este vehículo, alquilado con la reserva {booking_ref} en {brand}, debía serme devuelto el {end_at} y no lo fue pese a mis reclamos. La identidad del arrendatario figura en el contrato adjunto. Presento denuncia por no devolución del vehículo.» Guarda el número de la denuncia. {brand} no presenta la denuncia en tu lugar, no recupera el auto y no actúa sobre él a distancia; tu pago no queda bloqueado por este procedimiento.',
+    'Hola, {first_name}. El auto de la reserva {booking_ref} lleva más de un día sin ser devuelto. Esta es una denuncia prellenada que puedes presentar tú mismo ante la policía o el Ministerio Público, con tu contrato de alquiler y tu documento de identidad: «Yo, anfitrión que puso en alquiler el vehículo indicado en el contrato de alquiler adjunto (marca, modelo y placa), declaro que este vehículo, alquilado con la reserva {booking_ref} en {brand}, debía serme devuelto el {end_at} y no lo fue pese a mis reclamos. La identidad del arrendatario figura en el contrato adjunto. Presento denuncia por no devolución del vehículo.» Guarda el número de la denuncia. {brand} no presenta la denuncia en tu lugar, no recupera el auto y no actúa sobre él a distancia; tu pago no queda bloqueado por este procedimiento.',
   'ntf.unreturnedPoliceReport.sms.body':
     '{brand}: denuncia prellenada de la reserva {booking_ref} enviada por correo. Tú la presentas ante la policía.',
 } as const satisfies Catalog;

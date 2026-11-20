@@ -3216,6 +3216,8 @@ export const EN_MESSAGES = {
   'backoffice.overdue.heading': 'Late returns and unreturned cars',
   'backoffice.overdue.lead':
     'Late trips in your countries, read live (detection runs every minute). The escalation moves one step at a time, at the time set by the country: contact, formal demand, then a pre-filled police report. Guest and host contacts are in the 360° profile.',
+  'backoffice.overdue.truncated':
+    'More than 500 late trips: only the 500 oldest are shown. Handle them first, then refresh.',
   'backoffice.overdue.refresh': 'Refresh',
   'backoffice.overdue.readAt': 'Read at {at} · countries: {countries}',
   'backoffice.overdue.none': 'No late trip in your countries.',
@@ -3283,12 +3285,12 @@ export const EN_MESSAGES = {
   'ntf.unreturnedFormalNotice.email.subject':
     'Booking {booking_ref}: formal demand letter template',
   'ntf.unreturnedFormalNotice.email.body':
-    'Hi {first_name}. The car for booking {booking_ref} has still not been returned. Here is a formal demand letter template to send to the guest in your own name, through the booking messages or in writing: “I, the owner of the vehicle rented through booking {booking_ref} (make, model and plate as stated in the rental contract), note that this vehicle was due back to me on {end_at} and has not been returned. I demand that you return it to the agreed place as soon as possible. Otherwise, I reserve the right to file a complaint with the competent authorities. Date and signature.” If your car has GPS, note its last location and the time, without going to get it alone. {brand} does not send this letter for you, does not recover the car and does not act on it remotely.',
+    'Hi {first_name}. The car for booking {booking_ref} has still not been returned. Here is a formal demand letter template to send to the guest in your own name, through the booking messages or in writing: “I, the host who rented out the vehicle of booking {booking_ref} (make, model and plate as stated in the rental contract), note that this vehicle was due back to me on {end_at} and has not been returned. I demand that you return it to the agreed place as soon as possible. Otherwise, I reserve the right to file a complaint with the competent authorities. Date and signature.” If your car has GPS, note its last location and the time, without going to get it alone. {brand} does not send this letter for you, does not recover the car and does not act on it remotely.',
   'ntf.unreturnedFormalNotice.sms.body':
     '{brand}: formal demand letter template for booking {booking_ref} sent by email. Note the GPS location if your car has one.',
   'ntf.unreturnedPoliceReport.email.subject': 'Booking {booking_ref}: pre-filled police report',
   'ntf.unreturnedPoliceReport.email.body':
-    'Hi {first_name}. The car for booking {booking_ref} has not been returned for more than a day. Here is a pre-filled police report that you can file yourself with the police or the public prosecutor, with your rental contract and your ID: “I, the owner of the vehicle stated in the attached rental contract (make, model and plate), declare that this vehicle, rented through booking {booking_ref} on {brand}, was due back to me on {end_at} and has not been returned despite my reminders. The renter’s identity is in the attached contract. I am filing a complaint for failure to return the vehicle.” Keep the report number. {brand} does not file the report for you, does not recover the car and does not act on it remotely; your payout is not blocked by this procedure.',
+    'Hi {first_name}. The car for booking {booking_ref} has not been returned for more than a day. Here is a pre-filled police report that you can file yourself with the police or the public prosecutor, with your rental contract and your ID: “I, the host who rented out the vehicle stated in the attached rental contract (make, model and plate), declare that this vehicle, rented through booking {booking_ref} on {brand}, was due back to me on {end_at} and has not been returned despite my reminders. The renter’s identity is in the attached contract. I am filing a complaint for failure to return the vehicle.” Keep the report number. {brand} does not file the report for you, does not recover the car and does not act on it remotely; your payout is not blocked by this procedure.',
   'ntf.unreturnedPoliceReport.sms.body':
     '{brand}: pre-filled police report for booking {booking_ref} sent by email. You file it with the police yourself.',
 } as const satisfies Readonly<Record<MessageKey, Message>>;

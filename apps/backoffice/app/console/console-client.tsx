@@ -195,9 +195,8 @@ export function ConsoleClient({ localeTag }: { readonly localeTag: string }) {
       setOverdue((prev) => ({
         ...prev,
         view: r.ok ? r.body : 'error',
-        notice: r.ok
-          ? (notice ?? prev.notice)
-          : { tone: r.status === 0 ? 'danger' : 'warning', key: r.messageKey },
+        // une relecture réussie remplace l'avis précédent (celui qu'on lui passe, ou aucun)
+        notice: r.ok ? notice : { tone: r.status === 0 ? 'danger' : 'warning', key: r.messageKey },
       }));
     },
     [call],
@@ -491,10 +490,9 @@ export function ConsoleClient({ localeTag }: { readonly localeTag: string }) {
         return;
       }
       // un requestId par intention : un double clic ou une reprise réseau est reconnu par la base
-      intent.current = intentFor(
-        intent.current,
-        ['ESCALATE_OVERDUE', tripId, step, reason.trim()],
-        () => crypto.randomUUID(),
+      const motive = reason.trim();
+      intent.current = intentFor(intent.current, ['ESCALATE_OVERDUE', tripId, step, motive], () =>
+        crypto.randomUUID(),
       );
       const { requestId } = intent.current;
       once(async () => {
@@ -503,7 +501,8 @@ export function ConsoleClient({ localeTag }: { readonly localeTag: string }) {
           requestId,
           action: 'ESCALATE_OVERDUE',
           subjectId: tripId,
-          reason,
+          // le motif envoyé est celui de l'intention (nettoyé) : même requestId, même motif
+          reason: motive,
           input: { escalationStep: step },
         });
         const why = r.ok ? undefined : r.values?.['reason'];
@@ -511,7 +510,9 @@ export function ConsoleClient({ localeTag }: { readonly localeTag: string }) {
           !r.ok && r.code === 'STAFF_ACTION_REFUSED' && typeof why === 'string'
             ? OVERDUE_REFUSAL_KEYS[why]
             : undefined;
-        setOverdue((prev) => ({ ...prev, draft: r.ok ? undefined : prev.draft }));
+        // étape faite par un autre agent ou trip plus en retard : la confirmation n'a plus d'objet
+        const stale = why === 'OVERDUE_STEP_OUT_OF_ORDER' || why === 'TRIP_NOT_OVERDUE';
+        setOverdue((prev) => ({ ...prev, draft: r.ok || stale ? undefined : prev.draft }));
         await readOverdue(
           r.ok
             ? { tone: 'success', key: 'backoffice.overdue.done' }

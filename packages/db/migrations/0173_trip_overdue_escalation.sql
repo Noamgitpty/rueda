@@ -46,7 +46,7 @@
 --   - vue des retards (16 ADM-022, « vue overdue_board ») : `core.support_staff_overdue_board`
 --     (iam_staff_owner, EXECUTE app_api) : session élevée, pays où l'agent détient
 --     ops.force_terminate_trip seulement (aucune fuite entre pays), trips dont il est partie ou lié
---     écartés (ADR-122) ; lignes lues EN DIRECT (aucun cache) : un trip passé OVERDUE par le
+--     écartés (ADR-122) AVANT la limite de 500 lignes, troncature signalée (`truncated`) ; lignes lues EN DIRECT (aucun cache) : un trip passé OVERDUE par le
 --     travailleur (60 s) y figure à la lecture suivante, avec son étape. Aucune donnée personnelle
 --     rendue (identifiants techniques, étapes, heures) : les contacts passent par la fiche 360°,
 --     journalisée (minimisation) ;
@@ -87,7 +87,7 @@
 --     ON core.trip_ops_overdue_case ;
 --   DROP POLICY cmd_trip_escalation_event_ins ON core.outbox_outbox_event ;
 --   REVOKE UPDATE (stage) ON core.trip_ops_overdue_case FROM cmd_hold_owner ;
---   REVOKE SELECT (public_ref) ON core.booking_trip FROM cmd_hold_owner (si accordé ici seulement).
+--   REVOKE SELECT, INSERT ON core.trip_ops_overdue_escalation FROM cmd_hold_owner (table supprimée).
 
 -- 1. Dossier de retard : l'étape avance d'UN cran, par la console seulement -----------------------
 -- Définition de 0168 recopiée ; seul le bloc de l'étape change (US-306) : T30M → T2H → T6H → T24H,
@@ -455,7 +455,8 @@ BEGIN
          WHERE t.status IN ('OVERDUE', 'UNRETURNED')
            AND t.country_code = ANY (p_countries)
          ORDER BY t.scheduled_end, t.id
-         LIMIT 500) AS r), '[]'::jsonb);
+         -- plafond technique (la vue filtre puis limite à 500 et signale la troncature)
+         LIMIT 5000) AS r), '[]'::jsonb);
 END
 $fn$;
 COMMENT ON FUNCTION core.trip_overdue_board(text[]) IS
@@ -501,6 +502,8 @@ DECLARE
   v_s         record;
   v_countries text[];
   v_rows      jsonb;
+  v_all       jsonb;
+  v_kept      integer;
 BEGIN
   IF p_request_id IS NULL THEN
     RAISE EXCEPTION 'vue des retards : entrée invalide' USING ERRCODE = 'invalid_parameter_value';
@@ -533,13 +536,23 @@ BEGIN
     RETURN QUERY SELECT 'FORBIDDEN'::text, NULL::jsonb;
     RETURN;
   END IF;
-  SELECT COALESCE(pg_catalog.jsonb_agg(x.item ORDER BY x.n), '[]'::jsonb) INTO v_rows
-    FROM pg_catalog.jsonb_array_elements(core.trip_overdue_board(v_countries))
-         WITH ORDINALITY AS x(item, n)
-   WHERE NOT core.support_actor_conflict(v_s.user_id, 'TRIP', (x.item ->> 'tripId')::uuid);
+  -- séparation des tâches D'ABORD (ADR-122), puis la limite de 500 : un trip écarté ne prend
+  -- jamais la place d'un autre ; la troncature est signalée (`truncated`), jamais silencieuse
+  v_all := core.trip_overdue_board(v_countries);
+  SELECT COALESCE(pg_catalog.jsonb_agg(k.item ORDER BY k.n) FILTER (WHERE k.rn <= 500),
+                  '[]'::jsonb),
+         pg_catalog.count(*)
+    INTO v_rows, v_kept
+    FROM (SELECT x.item, x.n, pg_catalog.row_number() OVER (ORDER BY x.n) AS rn
+            FROM pg_catalog.jsonb_array_elements(v_all) WITH ORDINALITY AS x(item, n)
+           WHERE NOT core.support_actor_conflict(v_s.user_id, 'TRIP',
+                                                 (x.item ->> 'tripId')::uuid)) AS k;
   RETURN QUERY SELECT 'OK'::text,
                       pg_catalog.jsonb_build_object('countries', pg_catalog.to_jsonb(v_countries),
                                                     'readAt', platform.now(),
+                                                    'truncated',
+                                                      v_kept > 500
+                                                      OR pg_catalog.jsonb_array_length(v_all) >= 5000,
                                                     'trips', v_rows);
 END
 $fn$;

@@ -88,7 +88,7 @@ const CONSOLE: Api = {
   // US-306 : vue des retards (OPS_AGENT, ADMIN) : aucun voyage en retard dans ce jeu
   '/console/overdue': {
     status: 200,
-    body: { countries: [COUNTRY], readAt: AT, trips: [] },
+    body: { countries: [COUNTRY], readAt: AT, truncated: false, trips: [] },
   },
   '/console/finance/approvals': {
     status: 200,
@@ -425,6 +425,7 @@ const OVERDUE: Api = {
     body: {
       countries: [COUNTRY],
       readAt: '2026-11-03T14:31:00.000Z',
+      truncated: false,
       trips: [
         {
           tripId: LATE_TRIP,
