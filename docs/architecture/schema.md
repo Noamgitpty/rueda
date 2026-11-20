@@ -4152,12 +4152,16 @@ Politiques RLS :
 | `answered_at` | `timestamp with time zone` | non | — |
 | `created_at` | `timestamp with time zone` | oui | `platform.now()` |
 | `purged_at` | `timestamp with time zone` | non | — |
+| `offplatform_codes` | `text[]` | non | — |
+| `review_item_id` | `uuid` | non | — |
 
 Contraintes :
 
 - `messaging_meeting_answer_after` : `CHECK (answered_at IS NULL OR answered_at >= created_at)`
 - `messaging_meeting_answer_shape` : `CHECK ((answered_by IS NULL) = (answered_at IS NULL) AND (status <> 'PROPOSED'::text OR answered_by IS NULL) AND ((status <> ALL (ARRAY['ACCEPTED'::text, 'DECLINED'::text])) OR answered_by IS NOT NULL))`
+- `messaging_meeting_flag_shape` : `CHECK ((offplatform_codes IS NULL) = (review_item_id IS NULL))`
 - `messaging_meeting_kind_valid` : `CHECK (kind = ANY (ARRAY['PICKUP'::text, 'RETURN'::text]))`
+- `messaging_meeting_offplatform_codes` : `CHECK (offplatform_codes IS NULL OR cardinality(offplatform_codes) >= 1 AND cardinality(offplatform_codes) <= 32 AND array_to_string(offplatform_codes, ','::text) ~ '^[A-Z][A-Z0-9_]{1,63}(,[A-Z][A-Z0-9_]{1,63})*$'::text)`
 - `messaging_meeting_place_length` : `CHECK (char_length(place_label) >= 3 AND char_length(place_label) <= 160)`
 - `messaging_meeting_proposal_answered_by_fkey` : `FOREIGN KEY (answered_by) REFERENCES core.iam_user_account(id)`
 - `messaging_meeting_proposal_pkey` : `PRIMARY KEY (id)`
@@ -7407,7 +7411,7 @@ Chacune a un propriétaire `NOLOGIN` dédié (ADR-053) et un `search_path` figé
 | `core.messaging_cmd_post_message(p_token_hash bytea, p_trip_id uuid, p_message_id uuid, p_body text)` | `TABLE(outcome text, message_id uuid, body text, masked boolean, off_platform boolean, sent_at timestamp with time zone)` | `messaging_cmd_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; messaging_cmd_owner: EXECUTE |
 | `core.messaging_cmd_propose_meeting(p_token_hash bytea, p_trip_id uuid, p_meeting_id uuid, p_kind text, p_place text, p_meet_at timestamp with time zone)` | `TABLE(outcome text, meeting_id uuid, kind text, place_label text, meet_at timestamp with time zone, status text)` | `messaging_cmd_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; messaging_cmd_owner: EXECUTE |
 | `core.messaging_meeting_read(p_token_hash bytea, p_trip_id uuid)` | `TABLE(outcome text, viewer_role text, can_propose boolean, timezone text, meeting_id uuid, kind text, place_label text, meet_at timestamp with time zone, status text, mine boolean, created_at timestamp with time zone, answered_at timestamp with time zone)` | `messaging_cmd_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; messaging_cmd_owner: EXECUTE |
-| `core.messaging_thread_read(p_token_hash bytea, p_trip_id uuid, p_limit integer)` | `TABLE(outcome text, viewer_role text, counterpart_name text, writable boolean, closes_at timestamp with time zone, timezone text, message_id uuid, mine boolean, author_role text, author_name text, body text, masked boolean, off_platform boolean, sent_at timestamp with time zone)` | `messaging_cmd_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; messaging_cmd_owner: EXECUTE |
+| `core.messaging_thread_read(p_token_hash bytea, p_trip_id uuid, p_limit integer)` | `TABLE(outcome text, viewer_role text, counterpart_name text, writable boolean, closes_at timestamp with time zone, timezone text, message_id uuid, mine boolean, author_role text, author_name text, body text, masked boolean, off_platform boolean, sent_at timestamp with time zone, purged boolean)` | `messaging_cmd_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; messaging_cmd_owner: EXECUTE |
 | `core.payment_assert_operation_legs()` | `trigger` | `integrity_owner` | search_path=pg_catalog, pg_temp | integrity_owner: EXECUTE |
 | `core.payment_cmd_apply_operation_status(p_operation_id uuid, p_status text, p_source text, p_raw_ref uuid, p_provider_reference text)` | `text` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; cmd_money_owner: EXECUTE |
 | `core.payment_cmd_deposit_decide(p_deposit_id uuid, p_expected_seq integer, p_status text, p_captured_minor bigint, p_released_minor bigint)` | `text` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; cmd_hold_owner: EXECUTE |
