@@ -76,7 +76,7 @@ describe('US-018 — version 1 : jambes retenues et variation signée, jambe par
   it('T03 (USD, PA) : basis = TJ01, kept = TJ02a, variation = TJ02b ; montants de T03', () => {
     const r = recordOf('T03');
     const v = settlementVector(set, 'T03');
-    expect(r.engineVersion).toBe('cxl-beta/1');
+    expect(r.engineVersion).toBe('cxl-beta/2');
     expect(legsOf(r, 'basisMinor')).toEqual(tj('TJ01').legsMinor);
     expect(legsOf(r, 'keptMinor')).toEqual(tj('TJ02a').legsMinor);
     expect(legsOf(r, 'variationMinor')).toEqual(tj('TJ02b').legsMinor);
@@ -308,21 +308,21 @@ describe('US-018 — inputs_hash (08 E4) et charge utile', () => {
   const params = testParams(trip.currency);
 
   it('même entrée ⇒ même hachage, quel que soit l’ordre des clés ; une unité change le hachage', () => {
-    const h = settlementInputsHash('cxl-beta/1', trip, event, params);
+    const h = settlementInputsHash('cxl-beta/2', trip, event, params);
     expect(h).toMatch(/^[0-9a-f]{64}$/);
     const reordered = Object.fromEntries(Object.entries(event).reverse()) as CancellationEvent;
-    expect(settlementInputsHash('cxl-beta/1', trip, reordered, params)).toBe(h);
+    expect(settlementInputsHash('cxl-beta/2', trip, reordered, params)).toBe(h);
     expect(
       settlementInputsHash(
-        'cxl-beta/1',
+        'cxl-beta/2',
         trip,
         { ...event, requestedAtMs: event.requestedAtMs + 1 },
         params,
       ),
     ).not.toBe(h);
-    expect(settlementInputsHash('cxl-beta/2', trip, event, params)).not.toBe(h);
+    expect(settlementInputsHash('cxl-beta/1', trip, event, params)).not.toBe(h);
     expect(
-      settlementInputsHash('cxl-beta/1', trip, event, { ...params, freeCancelLeadHours: 25 }),
+      settlementInputsHash('cxl-beta/2', trip, event, { ...params, freeCancelLeadHours: 25 }),
     ).not.toBe(h);
     expect(settlementParamsHash(params)).not.toBe(
       settlementParamsHash({ ...params, noShowGraceMinutes: 61 }),

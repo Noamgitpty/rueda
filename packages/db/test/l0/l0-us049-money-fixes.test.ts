@@ -115,8 +115,11 @@ describe.each(['USD', 'PYG'])(
         let recorded = 0;
         for (const [i, v] of vectors.entries()) {
           const rec = recordOfVector(v.id);
+          // US-307 (0171, ADR-191) : le moteur écrit cxl-beta/2 ; son vérificateur rejoue
+          // cxl-beta/1 pour ces motifs (mêmes montants), la version d'une entrée est vérifiée
+          expect(rec.engineVersion).toBe('cxl-beta/2');
           const { rows } = await tx.query<{ r: Record<string, unknown> }>(
-            'SELECT core.settlement_verify_cxl_beta_1($1::jsonb) AS r',
+            'SELECT core.settlement_verify_cxl_beta_2($1::jsonb) AS r',
             [rec.inputs],
           );
           const r = rows[0]?.r ?? {};

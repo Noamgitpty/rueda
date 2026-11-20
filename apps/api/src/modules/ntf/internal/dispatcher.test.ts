@@ -59,6 +59,8 @@ describe('abonnement', () => {
       'trip.at_risk.flagged',
       // US-316 : rendez-vous de remise ou de retour accepté (avis aux deux parties)
       'trip.meeting.confirmed',
+      // US-307 : signalement du no-show de l'hôte par le voyageur (l'hôte prévenu)
+      'trip.no_show.reported',
       'trip.overdue.detected',
       'trip.status_changed',
     ]);

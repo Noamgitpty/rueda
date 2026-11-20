@@ -1,0 +1,12 @@
+# Revue architecture (delta) — US-307 « No-show et refus du véhicule » (PR n° 283) — 2026-11-20
+
+Relecteur : revue-architecture / claude-sonnet-5-5 (famille A, modèle autre que l'auteur claude-opus-5-5)
+Entrées : 2b19b774..1fa93730
+
+Contexte : Revue delta de 20b (2b19b774) à la tête 1fa93730 (PR n° 283). Relu `git diff 2b19b774..1fa93730` : 0171 (obstacle, alerte du travailleur, paramètre généré), service STL, L0, tests, allowlists, catalogues, documents. Merge 089ccc59 de main : résolution vérifiée. CI run 44779754506 entièrement verte (numbering compris). PostgreSQL non démarré ici.
+
+| #   | Gravité | Constat                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | Preuve                       | Décision      |
+| --- | ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------- | ------------- |
+| 1   | INFO    | Travailleur trip_lifecycle isolé, sans écriture hors `review_alerted_at` ; définition unique de `party_present` (SQL STABLE, SECURITY INVOKER) réutilisée par `trip_no_show_state` et l'obstacle : même expression que l'ancienne, comportement inchangé. Merge 089ccc59 : 0169 et 0170 ne redéfinissent ni `booking_trip_cancellation`, ni `cmd_hold_cancel_read`, ni les fonctions de 0171 (grep) ; openapi.json en insertions pures pour les lignes de US-307, registres cohérents. Réserve architecture n° 3 de 20b (signalement sans issue) : levée. | 0171 §12 bis, §15 ; L0 us307 | Réserve levée |
+
+Verdict : APPROUVÉ

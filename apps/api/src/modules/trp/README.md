@@ -75,3 +75,9 @@ pnpm --filter @rueda/api exec vitest run src/modules/trp
 ```
 
 Preuves L0 sous les rôles de production, PA / USD et PY / PYG : `packages/db/test/l0/l0-us303-inspection-photos.test.ts`, `packages/db/test/l0/l0-us315-handover.test.ts` (conditions une à une avec témoin, permis, deux séries, heures serveur, retour, deux connexions), `packages/db/test/l0/l0-us305-overdue.test.ts` (bornes 10:29 / 10:30 au fuseau du pays, une alerte, deux travailleurs, retour avant 10:30, C10 dans les deux ordres, EC-19, seuil figé à la réservation, droits) (`pnpm --filter @rueda/db test:l0`, PostgreSQL requis : `docs/ops/INSTALL.md` ou `RUEDA_PG_TESTCONTAINERS=1`).
+
+### No-show déclaré par une partie (US-307)
+
+- Routes (`SessionGuard`, `TermsGuard`) : `GET /trips/{tripId}/no-show` (fenêtre en heure serveur, premier obstacle, preuve tracée, dernière demande) et `POST /trips/{tripId}/no-show` (`{ requestId }` seulement : clé d'idempotence ; la partie absente est l'autre partie de la session, jugée en base). Codes : `NO_SHOW_NOT_FOUND` (404, même réponse pour toute autre personne), `CHECKIN_NOT_OPEN`, `NO_SHOW_NOT_ALLOWED`, `NO_SHOW_TOO_EARLY`, `NO_SHOW_WINDOW_CLOSED`, `NO_SHOW_PARTY_PRESENT`, `NO_SHOW_EVIDENCE_REQUIRED`, `CANCELLATION_PENDING` (409), `REQUEST_INVALID` (400), `NO_SHOW_UNAVAILABLE` (503).
+- Port `NoShowStore`, adaptateur `PgNoShowStore` (`core.trip_no_show_view`, `core.trip_cmd_report_no_show`, 0171) ; FAKE de test `testing/fake-no-show-store.ts` ; contrat `testing/trip-no-show.contract.test.ts`.
+- La demande est réglée par le travailleur `trip_lifecycle` (STL, `TripCancellationProcessor`) : aucun montant ici.
