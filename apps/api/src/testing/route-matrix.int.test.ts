@@ -44,6 +44,7 @@ import { postgresKycAdapters } from '../modules/kyc/index.js';
 import { PgHandoverStore, PgInspectionStore } from '../modules/trp/index.js';
 import { postgresPyoAdapters } from '../modules/pyo/index.js';
 import { postgresMsgAdapters } from '../modules/msg/index.js';
+import { postgresRevAdapters } from '../modules/rev/index.js';
 import type { StaffOptions } from '../modules/iam/index.js';
 import { postgresPayAdapters } from '../modules/pay/index.js';
 import {
@@ -894,6 +895,20 @@ async function requestOf(
         path: `/trips/${randomUUID()}/meetings/${randomUUID()}/answer`,
         body: { decision: 'ACCEPT' },
       };
+    // avis réciproques (US-317) : trip dont l'acteur n'est pas partie ⇒ 404, rien d'écrit ;
+    // avis reçus : ceux de l'acteur ; profil public d'une annonce inconnue ⇒ 404
+    case 'GET /trips/{tripId}/reviews':
+      return { method: 'GET', path: `/trips/${randomUUID()}/reviews` };
+    case 'POST /trips/{tripId}/reviews':
+      return {
+        method: 'POST',
+        path: `/trips/${randomUUID()}/reviews`,
+        body: { overall: 5 },
+      };
+    case 'GET /reviews/received':
+      return { method: 'GET', path: '/reviews/received' };
+    case 'GET /listings/{listingId}/host-profile':
+      return { method: 'GET', path: `/listings/${randomUUID()}/host-profile` };
     case 'POST /trips/{tripId}/contract/sign':
       return {
         method: 'POST',
@@ -1317,6 +1332,8 @@ beforeAll(async () => {
       // dossier de preuve (US-308) : portes réelles de 0164 ; coffre et stockage de production
       // (indisponibles) : la base juge d'abord, puis 503 et transaction annulée
       postgresEvidenceBundle(singlePool as unknown as Parameters<typeof postgresEvidenceBundle>[0]),
+      // avis réciproques (US-317) : fonctions réelles de 0170 sous app_api
+      postgresRevAdapters(client),
     ),
     { rawBody: true, logger: false },
   );
