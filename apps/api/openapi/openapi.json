@@ -16153,6 +16153,356 @@
           }
         }
       }
+    },
+    "/trips/{tripId}/reviews": {
+      "get": {
+        "operationId": "tripReviews",
+        "tags": ["rev"],
+        "summary": "Avis d’un trip pour une partie du trip de la session (S13, A12 ; US-317) : fenêtre, mon avis (scellé ou publié), avis publiés du trip et, pour l’hôte, profil du voyageur ; jamais l’avis non publié de l’autre partie, ni un signe qu’il existe",
+        "parameters": [
+          {
+            "name": "tripId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Avis du trip",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TripReviews"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthRequired"
+          },
+          "404": {
+            "description": "Trip dont la session n’est pas partie (autre voyageur, autre hôte, co-hôte, visiteur sans trip), inconnu ou identifiant mal formé : même réponse (17 §2.3 point 5)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "TRIP_NOT_FOUND"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Base indisponible, paramètre de fenêtre absent ou réponse inattendue : rien n’est servi ni écrit (fail-closed)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "REVIEWS_UNAVAILABLE"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "submitTripReview",
+        "tags": ["rev"],
+        "summary": "Avis de la partie du trip de la session (voyageur ou titulaire du compte d’hôte ; US-317) : une fois, dans la fenêtre review_window_days depuis la fin effective ; texte exigé de 1 à 3 ; coordonnées masquées ; scellé jusqu’à la publication simultanée (second avis) ou l’échéance",
+        "parameters": [
+          {
+            "name": "tripId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReviewRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Avis enregistré : scellé (SUBMITTED) ou publié avec celui de l’autre partie (PUBLISHED)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewSubmitted"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Corps invalide (note absente ou non entière, sous-note inconnue, texte non chaîne, champ inconnu)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "REQUEST_INVALID"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthRequired"
+          },
+          "404": {
+            "description": "Trip dont la session n’est pas partie (autre voyageur, autre hôte, co-hôte, visiteur sans trip), inconnu ou identifiant mal formé : même réponse (17 §2.3 point 5)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "TRIP_NOT_FOUND"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Déjà noté par cette partie (REVIEW_ALREADY_SUBMITTED, ni modification) ; voiture pas encore rendue ou trip annulé (REVIEW_NOT_OPEN) ; fenêtre close (REVIEW_WINDOW_CLOSED, ni prolongation)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "enum": [
+                        "REVIEW_ALREADY_SUBMITTED",
+                        "REVIEW_NOT_OPEN",
+                        "REVIEW_WINDOW_CLOSED"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "415": {
+            "$ref": "#/components/responses/NotJson"
+          },
+          "422": {
+            "description": "Note hors de 1 à 5, sous-note hors bornes ou d’un autre rôle, texte de plus de 1000 caractères (REVIEW_INVALID) ; note de 1 à 3 sans texte d’au moins 25 caractères (REVIEW_TEXT_REQUIRED)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "enum": ["REVIEW_INVALID", "REVIEW_TEXT_REQUIRED"]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Base indisponible, paramètre de fenêtre absent ou réponse inattendue : rien n’est servi ni écrit (fail-closed)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "REVIEWS_UNAVAILABLE"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/reviews/received": {
+      "get": {
+        "operationId": "reviewsReceived",
+        "tags": ["rev"],
+        "summary": "Avis publiés reçus par la personne de la session, comme voyageur et comme hôte (droit d’accès, Ley 81 ; A13 ; US-317) : nombre, moyenne, 50 derniers, prénom des auteurs",
+        "responses": {
+          "200": {
+            "description": "Avis reçus",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewsReceived"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthRequired"
+          },
+          "503": {
+            "description": "Base indisponible, paramètre de fenêtre absent ou réponse inattendue : rien n’est servi ni écrit (fail-closed)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "REVIEWS_UNAVAILABLE"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/listings/{listingId}/host-profile": {
+      "get": {
+        "operationId": "listingHostProfile",
+        "tags": ["rev"],
+        "summary": "Profil public de l’hôte d’une annonce LISTED (LST-020 ; US-317) : prénom, ancienneté au mois, trips réalisés, note et 5 derniers avis publiés ; ni nom de famille, ni contact, ni identifiant de compte",
+        "parameters": [
+          {
+            "name": "listingId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Profil public de l’hôte",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListingHostProfile"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Annonce non publiée, inconnue ou identifiant mal formé, titulaire du compte pseudonymisé",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "LISTING_NOT_FOUND"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Base indisponible, paramètre de fenêtre absent ou réponse inattendue : rien n’est servi ni écrit (fail-closed)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "REVIEWS_UNAVAILABLE"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -26554,6 +26904,445 @@
           "fileCount": {
             "type": "integer",
             "minimum": 0
+          }
+        }
+      },
+      "ReviewSubScores": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "sous-notes facultatives de 1 à 5 (08 BR-REVIEW-03) ; voyageur : cleanliness, communication, convenience, accuracy, maintenance ; hôte : punctuality, returnCondition, communication, rulesRespect",
+        "properties": {
+          "cleanliness": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 5
+          },
+          "communication": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 5
+          },
+          "convenience": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 5
+          },
+          "accuracy": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 5
+          },
+          "maintenance": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 5
+          },
+          "punctuality": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 5
+          },
+          "returnCondition": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 5
+          },
+          "rulesRespect": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 5
+          }
+        }
+      },
+      "PublishedReview": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["authorRole", "authorName", "overall", "subScores", "text", "publishedAt"],
+        "properties": {
+          "authorRole": {
+            "enum": ["GUEST", "HOST"]
+          },
+          "authorName": {
+            "type": ["string", "null"],
+            "maxLength": 40,
+            "description": "prénom de l’auteur seulement (premier mot du prénom légal) ; null pour un compte pseudonymisé"
+          },
+          "overall": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 5
+          },
+          "subScores": {
+            "$ref": "#/components/schemas/ReviewSubScores"
+          },
+          "text": {
+            "type": ["string", "null"],
+            "maxLength": 1000,
+            "description": "texte publié, coordonnées masquées avant l’écriture (BR-REVIEW-07)"
+          },
+          "publishedAt": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}[.][0-9]{3}Z$"
+          }
+        }
+      },
+      "ReviewSummary": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["reviewCount", "averageX100", "reviews"],
+        "properties": {
+          "reviewCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "averageX100": {
+            "type": ["integer", "null"],
+            "minimum": 100,
+            "maximum": 500,
+            "description": "moyenne des notes globales ×100, arrondie au demi supérieur ; null sans avis (badge « Nuevo »)"
+          },
+          "reviews": {
+            "type": "array",
+            "maxItems": 50,
+            "items": {
+              "$ref": "#/components/schemas/PublishedReview"
+            }
+          }
+        }
+      },
+      "HostReviewSummary": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["memberSince", "tripCount", "reviewCount", "averageX100", "reviews"],
+        "properties": {
+          "memberSince": {
+            "type": ["string", "null"],
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])$",
+            "description": "mois d’inscription (AAAA-MM)"
+          },
+          "tripCount": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "trips réalisés (COMPLETED ou IN_DISPUTE)"
+          },
+          "reviewCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "averageX100": {
+            "type": ["integer", "null"],
+            "minimum": 100,
+            "maximum": 500
+          },
+          "reviews": {
+            "type": "array",
+            "maxItems": 50,
+            "items": {
+              "$ref": "#/components/schemas/PublishedReview"
+            }
+          }
+        }
+      },
+      "TripReviews": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "code",
+          "messageKey",
+          "tripId",
+          "viewerRole",
+          "counterpartName",
+          "timezone",
+          "windowDays",
+          "endedAt",
+          "closesAt",
+          "canSubmit",
+          "mine",
+          "published",
+          "guestProfile"
+        ],
+        "properties": {
+          "code": {
+            "const": "TRIP_REVIEWS"
+          },
+          "messageKey": {
+            "$ref": "#/components/schemas/MessageKey"
+          },
+          "tripId": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+          },
+          "viewerRole": {
+            "enum": ["GUEST", "HOST"],
+            "description": "voyageur du trip ou titulaire du compte d’hôte (un co-hôte ne note pas)"
+          },
+          "counterpartName": {
+            "type": ["string", "null"],
+            "maxLength": 40,
+            "description": "prénom de l’autre partie"
+          },
+          "timezone": {
+            "type": "string",
+            "description": "fuseau IANA du trip"
+          },
+          "windowDays": {
+            "type": ["integer", "null"],
+            "minimum": 1,
+            "description": "review_window_days du pays ; null si absent (fail-closed)"
+          },
+          "endedAt": {
+            "type": ["string", "null"],
+            "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}[.][0-9]{3}Z$",
+            "description": "fin effective (première ligne RETURNED, ADR-183)"
+          },
+          "closesAt": {
+            "type": ["string", "null"],
+            "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}[.][0-9]{3}Z$",
+            "description": "échéance de la fenêtre, au fuseau du trip"
+          },
+          "canSubmit": {
+            "type": "boolean"
+          },
+          "mine": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "status",
+                  "overall",
+                  "subScores",
+                  "text",
+                  "contactMasked",
+                  "submittedAt"
+                ],
+                "properties": {
+                  "status": {
+                    "enum": ["SUBMITTED", "PUBLISHED"],
+                    "description": "SUBMITTED : scellé, invisible de l’autre partie jusqu’à la publication"
+                  },
+                  "overall": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 5
+                  },
+                  "subScores": {
+                    "$ref": "#/components/schemas/ReviewSubScores"
+                  },
+                  "text": {
+                    "type": ["string", "null"],
+                    "maxLength": 1000
+                  },
+                  "contactMasked": {
+                    "type": "boolean"
+                  },
+                  "submittedAt": {
+                    "type": "string",
+                    "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}[.][0-9]{3}Z$"
+                  }
+                }
+              }
+            ]
+          },
+          "published": {
+            "type": "array",
+            "maxItems": 2,
+            "items": {
+              "$ref": "#/components/schemas/PublishedReview"
+            },
+            "description": "avis PUBLIÉS du trip ; jamais l’avis scellé de l’autre partie"
+          },
+          "guestProfile": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ReviewSummary"
+              }
+            ],
+            "description": "profil du voyageur (avis publiés des hôtes sur lui, 5 derniers), servi à l’hôte seul"
+          }
+        }
+      },
+      "ReviewRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["overall"],
+        "properties": {
+          "overall": {
+            "type": "integer",
+            "description": "note globale de 1 à 5"
+          },
+          "subScores": {
+            "$ref": "#/components/schemas/ReviewSubScores"
+          },
+          "text": {
+            "type": ["string", "null"],
+            "description": "1000 caractères au plus ; obligatoire (25 caractères au moins) pour une note de 1 à 3"
+          }
+        }
+      },
+      "ReviewSubmitted": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["code", "messageKey", "review"],
+        "properties": {
+          "code": {
+            "const": "REVIEW_SUBMITTED"
+          },
+          "messageKey": {
+            "$ref": "#/components/schemas/MessageKey"
+          },
+          "review": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["status", "submittedAt", "publishedAt"],
+            "properties": {
+              "status": {
+                "enum": ["SUBMITTED", "PUBLISHED"],
+                "description": "PUBLISHED : l’autre partie avait noté, les deux avis sont publiés au même instant"
+              },
+              "submittedAt": {
+                "type": "string",
+                "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}[.][0-9]{3}Z$"
+              },
+              "publishedAt": {
+                "type": ["string", "null"],
+                "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}[.][0-9]{3}Z$"
+              }
+            }
+          }
+        }
+      },
+      "ReviewsReceived": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["code", "messageKey", "asGuest", "asHost"],
+        "properties": {
+          "code": {
+            "const": "REVIEWS_RECEIVED"
+          },
+          "messageKey": {
+            "$ref": "#/components/schemas/MessageKey"
+          },
+          "asGuest": {
+            "$ref": "#/components/schemas/ReviewSummary"
+          },
+          "asHost": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ReceivedHostSummary"
+              }
+            ]
+          }
+        }
+      },
+      "ListingHostProfile": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "code",
+          "messageKey",
+          "listingId",
+          "firstName",
+          "memberSince",
+          "tripCount",
+          "reviewCount",
+          "averageX100",
+          "reviews"
+        ],
+        "properties": {
+          "code": {
+            "const": "HOST_PROFILE"
+          },
+          "messageKey": {
+            "$ref": "#/components/schemas/MessageKey"
+          },
+          "listingId": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+          },
+          "firstName": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 40,
+            "description": "prénom de l’hôte seulement, jamais le nom de famille"
+          },
+          "memberSince": {
+            "type": ["string", "null"],
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])$"
+          },
+          "tripCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "reviewCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "averageX100": {
+            "type": ["integer", "null"],
+            "minimum": 100,
+            "maximum": 500
+          },
+          "reviews": {
+            "type": "array",
+            "maxItems": 5,
+            "items": {
+              "$ref": "#/components/schemas/PublishedReview"
+            }
+          }
+        }
+      },
+      "ReceivedHostSummary": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "firstName",
+          "memberSince",
+          "tripCount",
+          "reviewCount",
+          "averageX100",
+          "reviews"
+        ],
+        "properties": {
+          "firstName": {
+            "type": ["string", "null"],
+            "maxLength": 40,
+            "description": "prénom de la personne de la session tel que le voient les voyageurs (aperçu A13)"
+          },
+          "memberSince": {
+            "type": ["string", "null"],
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])$",
+            "description": "mois d’inscription (AAAA-MM)"
+          },
+          "tripCount": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "trips réalisés (COMPLETED ou IN_DISPUTE)"
+          },
+          "reviewCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "averageX100": {
+            "type": ["integer", "null"],
+            "minimum": 100,
+            "maximum": 500
+          },
+          "reviews": {
+            "type": "array",
+            "maxItems": 50,
+            "items": {
+              "$ref": "#/components/schemas/PublishedReview"
+            }
           }
         }
       }

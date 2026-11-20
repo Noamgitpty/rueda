@@ -10,6 +10,7 @@ import type { HostRefundView, RefundPhase } from '../../../../../account/trip-re
 import { getRequestI18n } from '../../../../../i18n.ts';
 import accountStyles from '../../../_account/account.module.css';
 import { RefundPhaseLines } from '../../../_refund/refund-phase.tsx';
+import { REVIEWABLE_TRIP_STATUSES } from '../../../../../account/trip-reviews.ts';
 import { MAIN_ID } from '../../../_shell/main-id.ts';
 import styles from '../../host.module.css';
 import { TripCard } from '../trip-card.tsx';
@@ -141,6 +142,16 @@ export default async function HostTripPage({
               ? 'web.handover.link.checkout'
               : 'web.handover.link.checkin',
           )}
+        </a>
+      )}
+      {/* avis sur le voyageur (US-317, A12) : une fois la voiture rendue (fin effective) */}
+      {REVIEWABLE_TRIP_STATUSES.some((s) => s === read.trip.status) && (
+        <a
+          className={styles['link']}
+          href={`/host/trips/${tripId}/review?org=${account.orgId}`}
+          data-testid="a05-review"
+        >
+          {t('web.review.link')}
         </a>
       )}
       {(shownRefunds.length > 0 || refundsFailed) && (

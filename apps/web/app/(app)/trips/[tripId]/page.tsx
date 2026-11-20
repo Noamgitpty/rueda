@@ -9,6 +9,7 @@ import { clientContext } from '../../../../account/request.ts';
 import { UUID } from '../../../../account/trip-contract.ts';
 import { getRequestI18n } from '../../../../i18n.ts';
 import accountStyles from '../../_account/account.module.css';
+import { REVIEWABLE_TRIP_STATUSES } from '../../../../account/trip-reviews.ts';
 import { MAIN_ID } from '../../_shell/main-id.ts';
 import styles from '../../host/host.module.css';
 import { GuestTripCard } from '../guest-trip-card.tsx';
@@ -172,6 +173,12 @@ export default async function GuestTripPage({
               ? 'web.handover.link.checkout'
               : 'web.handover.link.checkin',
           )}
+        </a>
+      )}
+      {/* avis en double aveugle (US-317, S13) : une fois la voiture rendue (fin effective) */}
+      {REVIEWABLE_TRIP_STATUSES.some((s) => s === trip.status) && (
+        <a className={styles['link']} href={`/trips/${trip.id}/review`} data-testid="s09-review">
+          {t('web.review.link')}
         </a>
       )}
       <section

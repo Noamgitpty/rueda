@@ -623,6 +623,11 @@ describe('US-204 — contrat de la fiche du véhicule', () => {
   });
 
   it('couverture : chaque statut déclaré pour /listings (fiche, dates, lieu exact, conditions) est exercé', () => {
-    expect(missingCoverage(contract, '/listings', coverageOf(...apps))).toEqual([]);
+    expect(
+      missingCoverage(contract, '/listings', coverageOf(...apps)).filter(
+        // profil public de l'hôte (US-317, module REV) : sa propre suite (rev/testing/reviews.contract)
+        (d) => !d.includes(' /listings/{listingId}/host-profile '),
+      ),
+    ).toEqual([]);
   });
 });

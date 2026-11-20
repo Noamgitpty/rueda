@@ -256,6 +256,17 @@ const hostTripAt = (client: pg.ClientBase, when: string, h: Host, tripId: string
     );
     return rows[0];
   });
+/**
+ * US-317 (0170, ADR-190) : l'avis de l'ops est SCELLÉ et publié avec l'autre avis ou à l'échéance
+ * de la fenêtre ; le travailleur review_publisher le publie (transaction validée) à `when`.
+ */
+const publishAt = (cl: Clients, when: string) =>
+  inTx(cl.worker, { worker: 'review_publisher', virtualNow: when, commit: true }, (tx) =>
+    tx.query('SELECT core.review_worker_publish_due(10000) AS n'),
+  );
+/** Après la fin de toutes les fenêtres des trips de `world` (fins ≤ rec − 1 j, fenêtre 10 j). */
+const afterWindows = (w: { readonly rec: string }, minutes = 0) =>
+  at(w.rec, WINDOW_DAYS * DAY_MIN + minutes);
 const byGuest = (overall: Stars) => ({ authorRole: 'GUEST', overall });
 const byHost = (overall: Stars) => ({ authorRole: 'HOST', overall });
 
@@ -299,26 +310,17 @@ describe.each(COUNTRIES)('US-218 — avis enregistrés et agrégats ($country, $
       const requestId = uuid();
       const r = await recordAt(cl.api, w.rec, w.ops, t.tripId, byGuest('FOUR'), requestId);
       expect(r).toMatchObject({ outcome: 'DONE', action_id: requestId, detail: null });
-      const rows = await reviewsOf(cl.api, t.tripId);
-      // voyageur : avis sur l'hôte et sur le véhicule (même note), auteur = voyageur DU TRIP
-      expect(rows.map((x) => [x.subject_type, x.subject_id])).toEqual([
-        ['HOST', w.h.org],
-        ['VEHICLE', w.car],
-      ]);
-      for (const x of rows) {
-        expect(x).toMatchObject({
-          country_code: c.country,
-          author_user_id: t.guestId,
-          author_role: 'GUEST',
-          overall: 4,
-          status: 'PUBLISHED',
-          source: 'OPS_RECORDED',
-          manual_action_id: requestId,
-          recorded_by: w.ops.userId,
-        });
-        expect(x.published_at).not.toBeNull();
-      }
-      expect(rows.map((x) => x.id)).toContain(r.domain_ref);
+      // US-317 : scellé (double aveugle) : rien de publié ni d'agrégé tant que l'hôte n'a pas noté ;
+      // la référence rendue est le scellé
+      expect(await reviewsOf(cl.api, t.tripId)).toEqual([]);
+      expect(await aggregateOf(cl.api, 'HOST', w.h.org)).toBeNull();
+      const sealed = (
+        await cl.api.query<{ id: string; source: string }>(
+          'SELECT id, source FROM test_fixture.us317_submissions($1)',
+          [t.tripId],
+        )
+      ).rows;
+      expect(sealed).toEqual([{ id: r.domain_ref, source: 'OPS_RECORDED' }]);
       // journalisé : action de console et audit (cadre d'US-101)
       expect((await auditOf(cl.api, w.ops.userId)).at(-1)).toMatchObject({
         action_code: 'MANUAL_ACTION_DONE',
@@ -345,12 +347,7 @@ describe.each(COUNTRIES)('US-218 — avis enregistrés et agrégats ($country, $
         outcome: 'REFUSED',
         detail: 'REVIEW_ALREADY_RECORDED',
       });
-      expect(await reviewsOf(cl.api, t.tripId)).toHaveLength(2);
-      expect(await aggregateOf(cl.api, 'HOST', w.h.org)).toEqual({
-        review_count: 1,
-        overall_sum: 4,
-        avg_overall_x100: 400,
-      });
+      expect(await reviewsOf(cl.api, t.tripId)).toEqual([]);
       expect((await auditOf(cl.api, w.ops.userId)).at(-1)).toMatchObject({
         action_code: 'MANUAL_ACTION_REFUSED',
         after: { domainOutcome: 'REVIEW_ALREADY_RECORDED' },
@@ -358,9 +355,37 @@ describe.each(COUNTRIES)('US-218 — avis enregistrés et agrégats ($country, $
 
       // l'hôte du trip note le voyageur : auteur = titulaire du compte, sujet = voyageur ; la note
       // apparaît dans ce que l'hôte voit du voyageur (host_guest_v, ADR-128), deux décimales
+      // US-317 : les deux parties ont noté ⇒ les deux avis publiés au même instant
       expect((await recordAt(cl.api, w.rec, w.ops, t.tripId, byHost('THREE'))).outcome).toBe(
         'DONE',
       );
+      const all = await reviewsOf(cl.api, t.tripId);
+      expect(new Set(all.map((x) => x.published_at?.toISOString())).size).toBe(1);
+      const rows = all.filter((x) => x.subject_type !== 'GUEST');
+      // voyageur : avis sur l'hôte et sur le véhicule (même note), auteur = voyageur DU TRIP
+      expect(rows.map((x) => [x.subject_type, x.subject_id])).toEqual([
+        ['HOST', w.h.org],
+        ['VEHICLE', w.car],
+      ]);
+      for (const x of rows) {
+        expect(x).toMatchObject({
+          country_code: c.country,
+          author_user_id: t.guestId,
+          author_role: 'GUEST',
+          overall: 4,
+          status: 'PUBLISHED',
+          source: 'OPS_RECORDED',
+          manual_action_id: requestId,
+          recorded_by: w.ops.userId,
+        });
+        expect(x.published_at).not.toBeNull();
+      }
+      for (const x of rows) expect(x.published_at).not.toBeNull();
+      expect(await aggregateOf(cl.api, 'HOST', w.h.org)).toEqual({
+        review_count: 1,
+        overall_sum: 4,
+        avg_overall_x100: 400,
+      });
       const guestRow = (await reviewsOf(cl.api, t.tripId)).find((x) => x.subject_type === 'GUEST');
       expect(guestRow).toMatchObject({
         author_user_id: w.h.userId,
@@ -404,6 +429,9 @@ describe.each(COUNTRIES)('US-218 — avis enregistrés et agrégats ($country, $
           'DONE',
         );
       }
+      // US-317 : scellés jusqu'à l'échéance (l'hôte n'a pas noté) : rien de lisible avant
+      expect((await ratings(cl.api, [w.listing]))[0]).toMatchObject({ host_review_count: 0 });
+      await publishAt(cl, afterWindows(w));
       // exemple de 19 US-218 : 3 avis (5, 4, 3) et 2 trips non notés ⇒ moyenne 4,0 et 5 trips
       const [row] = await ratings(cl.api, [w.listing]);
       expect(row).toEqual({
@@ -437,6 +465,7 @@ describe.each(COUNTRIES)('US-218 — avis enregistrés et agrégats ($country, $
       expect((await recordAt(cl.api, w.rec, w.ops, t5.tripId, byGuest('FIVE'))).outcome).toBe(
         'DONE',
       );
+      await publishAt(cl, afterWindows(w, 1));
       expect((await ratings(cl.api, [w.listing]))[0]).toMatchObject({
         host_review_count: 5,
         host_avg_x100: 420,
@@ -527,6 +556,10 @@ describe.each(COUNTRIES)('US-218 — avis enregistrés et agrégats ($country, $
       } finally {
         await releaseClient(second);
       }
+      // US-317 : scellé, publié à l'échéance par le travailleur ; rejoué, rien de plus
+      expect(await reviewsOf(cl.api, t.tripId)).toEqual([]);
+      await publishAt(cl, afterWindows(w));
+      await publishAt(cl, afterWindows(w, 1));
       const rows = await reviewsOf(cl.api, t.tripId);
       expect(rows).toHaveLength(2);
       expect((await aggregateOf(cl.api, 'HOST', w.h.org))?.review_count).toBe(1);
@@ -555,6 +588,69 @@ describe.each(COUNTRIES)('US-218 — avis enregistrés et agrégats ($country, $
           [w.ops.hash, uuid(), t.tripId, w.ops.userId],
         ),
       ).rejects.toMatchObject({ code: '42501' });
+    });
+  });
+
+  it('US-317 : avis de l’ops (hôte) puis avis du voyageur dans l’appli ⇒ rien de lisible avant, une seule publication des deux au même instant ; une partie notée par l’ops ne note plus dans l’appli', async () => {
+    await withClients(async (cl) => {
+      const w = await world(cl, c, false);
+      const [t] = w.done;
+      if (!t) throw new Error('trip absent');
+      expect((await recordAt(cl.api, w.rec, w.ops, t.tripId, byHost('TWO'))).outcome).toBe('DONE');
+      const seen = await inTx(cl.api, { virtualNow: w.rec }, async (tx) => {
+        const guest = await login(tx, t.guestId);
+        const host = await login(tx, w.h.userId);
+        const before = (
+          await tx.query<{ outcome: string; view: Record<string, unknown> }>(
+            'SELECT * FROM core.review_trip_read($1, $2::uuid)',
+            [guest, t.tripId],
+          )
+        ).rows[0];
+        const again = (
+          await tx.query<{ outcome: string }>(
+            'SELECT outcome FROM core.review_cmd_submit($1, $2::uuid, 5, NULL, NULL)',
+            [host, t.tripId],
+          )
+        ).rows[0];
+        return { before, again: again?.outcome };
+      });
+      // le voyageur ne lit rien de l'avis scellé de l'hôte ; l'hôte, noté par l'ops, ne note plus
+      expect(seen.before).toMatchObject({
+        outcome: 'DONE',
+        view: { viewerRole: 'GUEST', mine: null, published: [], canSubmit: true },
+      });
+      expect(JSON.stringify(seen.before)).not.toContain('"overall"');
+      expect(seen.again).toBe('REVIEW_ALREADY_SUBMITTED');
+      expect(await reviewsOf(cl.api, t.tripId)).toEqual([]);
+      expect(await aggregateOf(cl.api, 'GUEST', t.guestId)).toBeNull();
+      // le voyageur note dans l'appli : les deux avis publiés au même instant, une fois
+      const done = await inTx(cl.api, { virtualNow: at(w.rec, 1), commit: true }, async (tx) => {
+        const guest = await login(tx, t.guestId);
+        return (
+          await tx.query<{ outcome: string; status: string; published_at: Date | null }>(
+            'SELECT * FROM core.review_cmd_submit($1, $2::uuid, 4, NULL, NULL)',
+            [guest, t.tripId],
+          )
+        ).rows[0];
+      });
+      expect(done).toMatchObject({ outcome: 'DONE', status: 'PUBLISHED' });
+      const rows = await reviewsOf(cl.api, t.tripId);
+      expect(rows.map((x) => [x.author_role, x.subject_type, x.source])).toEqual([
+        ['HOST', 'GUEST', 'OPS_RECORDED'],
+        ['GUEST', 'HOST', 'IN_APP'],
+        ['GUEST', 'VEHICLE', 'IN_APP'],
+      ]);
+      expect(new Set(rows.map((x) => x.published_at?.toISOString()))).toEqual(
+        new Set([done?.published_at?.toISOString()]),
+      );
+      // le travailleur à l'échéance ne publie rien de plus ; agrégat tenu une fois
+      await publishAt(cl, afterWindows(w));
+      expect(await reviewsOf(cl.api, t.tripId)).toHaveLength(3);
+      expect(await aggregateOf(cl.api, 'GUEST', t.guestId)).toEqual({
+        review_count: 1,
+        overall_sum: 2,
+        avg_overall_x100: 200,
+      });
     });
   });
 });

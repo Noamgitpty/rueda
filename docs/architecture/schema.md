@@ -7,7 +7,7 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 
 ## Synthèse
 
-- 171 migrations ; 161 tables ; 6 vues ; 908 politiques RLS ; 379 fonctions `SECURITY DEFINER` ; 309 autres fonctions.
+- 171 migrations ; 160 tables ; 3 vues ; 897 politiques RLS ; 378 fonctions `SECURITY DEFINER` ; 307 autres fonctions.
 - Tables sans RLS `ENABLE` + `FORCE` : aucune.
 - Rôles applicatifs avec `SUPERUSER` ou `BYPASSRLS` : aucun.
 
@@ -185,7 +185,7 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 | `0167_settlement_host_ledger_chargebacks` | STL / PYO : grand livre de l'hôte complet (SM-6b), imputation des chargebacks perdus, |
 | `0168_trip_overdue_detection` | TRP / AVL : détection automatique des retards, prolongation tacite de l'occupation et |
 | `0169_payment_mit_post_trip_charges` | PAY : carte enregistrée (jeton du PSP), consentement MIT, débits post-trip conformes aux |
-| `0174_report_beta_views_reconciliation` | RPT / FIN : vues de la bêta (remises du jour, retards, KPI de sortie) et rapprochement |
+| `0170_review_double_blind` | REV : avis réciproques en double aveugle, publication simultanée, avis reçus. |
 
 ## Rôles
 
@@ -2650,7 +2650,6 @@ Politiques RLS :
 
 - `app_read` (SELECT, PERMISSIVE, app_api, app_worker) USING `true`
 - `cmd_money_payout_sel` (SELECT, PERMISSIVE, cmd_money_owner) USING `true`
-- `iam_staff_rpt_read` (SELECT, PERMISSIVE, iam_staff_owner) USING `true`
 - `migrator_all` (ALL, PERMISSIVE, migrator) USING `true` WITH CHECK `true`
 
 Déclencheurs :
@@ -2873,7 +2872,6 @@ Politiques RLS :
 - `iam_auth_host_read` (SELECT, PERMISSIVE, iam_auth_owner) USING `(key = 'host_min_age_years'::text)`
 - `iam_auth_otp_read` (SELECT, PERMISSIVE, iam_auth_owner) USING `(key = ANY (ARRAY['otp_ttl_min'::text, 'otp_max_attempts'::text, 'otp_lock_min'::text, 'otp_sms_fallback_s'::text]))`
 - `iam_staff_incident_read` (SELECT, PERMISSIVE, iam_staff_owner) USING `(key = ANY (ARRAY['security_incident_authority_notice_hours'::text, 'security_incident_subjects_notice_hours'::text]))`
-- `iam_staff_recon_threshold_read` (SELECT, PERMISSIVE, iam_staff_owner) USING `(key = 'reconciliation_delta_threshold_bps'::text)`
 - `iam_staff_sla_read` (SELECT, PERMISSIVE, iam_staff_owner) USING `(key = ANY (ARRAY['kyc_review_sla_business_h'::text, 'listing_review_sla_h'::text, 'catalog_addition_sla_business_h'::text, 'review_hold_minutes'::text]))`
 - `kyc_cmd_host_read` (SELECT, PERMISSIVE, kyc_cmd_owner) USING `(key = ANY (ARRAY['host_min_age_years'::text, 'p2p_host_requires_tax_id'::text, 'p2p_private_hosts_enabled'::text, 'insurer_contract_active'::text, 'host_tax_id_required_for_activation'::text]))`
 - `kyc_cmd_host_review_read` (SELECT, PERMISSIVE, kyc_cmd_owner) USING `(key = ANY (ARRAY['host_review_manual_required'::text, 'host_review_auto_delay_minutes'::text]))`
@@ -3189,144 +3187,6 @@ Déclencheurs :
 
 - `finance_legal_entity_guard` : `CREATE TRIGGER finance_legal_entity_guard BEFORE DELETE OR UPDATE ON core.finance_legal_entity FOR EACH ROW EXECUTE FUNCTION core.config_versioned_row_guard()`
 - `finance_legal_entity_no_truncate` : `CREATE TRIGGER finance_legal_entity_no_truncate BEFORE TRUNCATE ON core.finance_legal_entity FOR EACH STATEMENT EXECUTE FUNCTION core.config_no_truncate()`
-
-### `core.finance_reconciliation_item`
-
-- RLS : ENABLE + FORCE ; propriétaire `migrator`
-- Droits : iam_staff_owner: INSERT, SELECT ; migrator: DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE
-
-| Colonne | Type | NOT NULL | Défaut |
-| ------- | ---- | -------- | ------ |
-| `id` | `uuid` | oui | `platform.uuid_v7()` |
-| `run_id` | `uuid` | oui | — |
-| `side` | `text` | oui | — |
-| `ref` | `text` | oui | — |
-| `leg` | `text` | non | — |
-| `component` | `text` | non | — |
-| `expected_minor` | `bigint` | non | — |
-| `observed_minor` | `bigint` | non | — |
-| `delta_minor` | `bigint` | oui | — |
-| `status` | `text` | oui | — |
-| `finding` | `text` | non | — |
-| `resolution` | `text` | non | — |
-| `resolution_note` | `text` | non | — |
-| `resolved_by` | `uuid` | non | — |
-| `resolved_at` | `timestamp with time zone` | non | — |
-
-Contraintes :
-
-- `finance_recon_item_component_valid` : `CHECK (component = ANY (ARRAY['AMOUNT'::text, 'CAPTURED'::text, 'REFUNDED'::text, 'REALLOCATED_IN'::text, 'REALLOCATED_OUT'::text, 'RELEASED'::text]))`
-- `finance_recon_item_delta_nonneg` : `CHECK (delta_minor >= 0)`
-- `finance_recon_item_finding_valid` : `CHECK (finding = ANY (ARRAY['OPERATION_WITHOUT_TRIP'::text, 'OPERATION_NOT_IN_PSP'::text, 'LEG_WITHOUT_TRIP'::text, 'LEG_NOT_IN_PSP'::text, 'AMOUNT'::text]))`
-- `finance_recon_item_leg_valid` : `CHECK (leg = ANY (ARRAY['HOST'::text, 'INSURER'::text, 'TAX_THIRD_PARTY'::text, 'PLATFORM'::text]))`
-- `finance_recon_item_matched_shape` : `CHECK ((status = 'MATCHED'::text) = (finding IS NULL) AND (status = 'MATCHED'::text) = (delta_minor = 0))`
-- `finance_recon_item_note_length` : `CHECK (char_length(resolution_note) >= 10 AND char_length(resolution_note) <= 500)`
-- `finance_recon_item_ref_format` : `CHECK (ref ~ '^[A-Za-z0-9_.:-]{1,128}$'::text)`
-- `finance_recon_item_resolution_shape` : `CHECK ((resolution IS NULL) = (resolved_at IS NULL) AND (resolution IS NULL) = (resolved_by IS NULL) AND (resolution IS NULL) = (resolution_note IS NULL) AND (resolution IS NULL OR status <> 'MATCHED'::text))`
-- `finance_recon_item_resolution_valid` : `CHECK (resolution = ANY (ARRAY['TIMING'::text, 'PSP_FEE'::text, 'PSP_ERROR'::text, 'PLATFORM_ERROR'::text, 'DUPLICATE'::text, 'OTHER'::text]))`
-- `finance_recon_item_run_fk` : `FOREIGN KEY (run_id) REFERENCES core.finance_reconciliation_run(id)`
-- `finance_recon_item_side_valid` : `CHECK (side = ANY (ARRAY['PSP'::text, 'PLATFORM'::text]))`
-- `finance_recon_item_status_valid` : `CHECK (status = ANY (ARRAY['MATCHED'::text, 'MISSING_PLATFORM'::text, 'MISSING_PSP'::text, 'AMOUNT_MISMATCH'::text]))`
-- `finance_reconciliation_item_pkey` : `PRIMARY KEY (id)`
-- `finance_reconciliation_item_resolved_by_fkey` : `FOREIGN KEY (resolved_by) REFERENCES core.iam_user_account(id)`
-
-Index :
-
-- `finance_reconciliation_item_run_idx` : `CREATE INDEX finance_reconciliation_item_run_idx ON core.finance_reconciliation_item USING btree (run_id)`
-
-Politiques RLS :
-
-- `iam_staff_recon_ins` (INSERT, PERMISSIVE, iam_staff_owner) WITH CHECK `(resolution IS NULL)`
-- `iam_staff_recon_resolve` (UPDATE, PERMISSIVE, iam_staff_owner) USING `((resolution IS NULL) AND (status <> 'MATCHED'::text))` WITH CHECK `(resolution IS NOT NULL)`
-- `iam_staff_recon_sel` (SELECT, PERMISSIVE, iam_staff_owner) USING `true`
-- `migrator_all` (ALL, PERMISSIVE, migrator) USING `true` WITH CHECK `true`
-
-Déclencheurs :
-
-- `finance_reconciliation_guard` : `CREATE TRIGGER finance_reconciliation_guard BEFORE DELETE OR UPDATE ON core.finance_reconciliation_item FOR EACH ROW EXECUTE FUNCTION core.finance_reconciliation_guard()`
-- `finance_reconciliation_no_truncate` : `CREATE TRIGGER finance_reconciliation_no_truncate BEFORE TRUNCATE ON core.finance_reconciliation_item FOR EACH STATEMENT EXECUTE FUNCTION core.audit_append_only('finance_reconciliation_guard')`
-
-### `core.finance_reconciliation_run`
-
-- RLS : ENABLE + FORCE ; propriétaire `migrator`
-- Droits : iam_staff_owner: INSERT, SELECT ; migrator: DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE
-
-| Colonne | Type | NOT NULL | Défaut |
-| ------- | ---- | -------- | ------ |
-| `id` | `uuid` | oui | `platform.uuid_v7()` |
-| `country_code` | `text` | oui | — |
-| `currency` | `text` | oui | — |
-| `kind` | `text` | oui | — |
-| `scope` | `text` | oui | `'PSP_MONTHLY_MANUAL'::text` |
-| `source` | `text` | oui | `'CSV_IMPORT'::text` |
-| `period_month` | `date` | oui | — |
-| `psp_lines` | `integer` | oui | — |
-| `matched` | `integer` | oui | — |
-| `unmatched_platform` | `integer` | oui | — |
-| `unmatched_psp` | `integer` | oui | — |
-| `amount_mismatches` | `integer` | oui | — |
-| `platform_total_minor` | `bigint` | oui | — |
-| `delta_minor` | `bigint` | oui | — |
-| `delta_pct_bps` | `integer` | oui | — |
-| `threshold_bps` | `integer` | oui | — |
-| `threshold_source` | `text` | oui | — |
-| `exceeds_threshold` | `boolean` | oui | — |
-| `treat_by` | `date` | non | — |
-| `status` | `text` | oui | — |
-| `created_by` | `uuid` | oui | — |
-| `created_role` | `text` | oui | — |
-| `request_id` | `uuid` | oui | — |
-| `created_at` | `timestamp with time zone` | oui | `platform.now()` |
-| `closed_by` | `uuid` | non | — |
-| `closed_role` | `text` | non | — |
-| `closed_at` | `timestamp with time zone` | non | — |
-| `checklist` | `jsonb` | non | — |
-| `unexplained_at_close` | `integer` | non | — |
-
-Contraintes :
-
-- `finance_recon_run_bps_nonneg` : `CHECK (delta_pct_bps >= 0)`
-- `finance_recon_run_closed_role_valid` : `CHECK (closed_role = ANY (ARRAY['FINANCE'::text, 'ADMIN'::text]))`
-- `finance_recon_run_closed_shape` : `CHECK ((status = 'CLOSED'::text) = (closed_at IS NOT NULL) AND (closed_at IS NULL) = (closed_by IS NULL) AND (closed_at IS NULL) = (closed_role IS NULL) AND (closed_at IS NULL) = (checklist IS NULL) AND (closed_at IS NULL) = (unexplained_at_close IS NULL))`
-- `finance_recon_run_country_format` : `CHECK (country_code ~ '^[A-Z]{2}$'::text)`
-- `finance_recon_run_currency_format` : `CHECK (currency ~ '^[A-Z]{3}$'::text)`
-- `finance_recon_run_delta_nonneg` : `CHECK (delta_minor >= 0)`
-- `finance_recon_run_kind_valid` : `CHECK (kind = ANY (ARRAY['OPERATIONS'::text, 'LEGS'::text]))`
-- `finance_recon_run_lines_nonneg` : `CHECK (psp_lines >= 0)`
-- `finance_recon_run_matched_nonneg` : `CHECK (matched >= 0)`
-- `finance_recon_run_mm_nonneg` : `CHECK (amount_mismatches >= 0)`
-- `finance_recon_run_month_first` : `CHECK (period_month = date_trunc('month'::text, period_month::timestamp with time zone)::date)`
-- `finance_recon_run_request_unique` : `UNIQUE (request_id)`
-- `finance_recon_run_role_valid` : `CHECK (created_role = ANY (ARRAY['FINANCE'::text, 'ADMIN'::text]))`
-- `finance_recon_run_scope_valid` : `CHECK (scope = 'PSP_MONTHLY_MANUAL'::text)`
-- `finance_recon_run_source_valid` : `CHECK (source = 'CSV_IMPORT'::text)`
-- `finance_recon_run_status_valid` : `CHECK (status = ANY (ARRAY['MATCHED'::text, 'DISCREPANCIES'::text, 'CLOSED'::text]))`
-- `finance_recon_run_threshold_nonneg` : `CHECK (threshold_bps >= 0)`
-- `finance_recon_run_threshold_source` : `CHECK (threshold_source = ANY (ARRAY['PARAM'::text, 'ABSENT_ZERO'::text]))`
-- `finance_recon_run_total_nonneg` : `CHECK (platform_total_minor >= 0)`
-- `finance_recon_run_treat_shape` : `CHECK (exceeds_threshold OR treat_by IS NULL)`
-- `finance_recon_run_unexplained_nonneg` : `CHECK (unexplained_at_close >= 0)`
-- `finance_recon_run_up_nonneg` : `CHECK (unmatched_platform >= 0)`
-- `finance_recon_run_upsp_nonneg` : `CHECK (unmatched_psp >= 0)`
-- `finance_reconciliation_run_closed_by_fkey` : `FOREIGN KEY (closed_by) REFERENCES core.iam_user_account(id)`
-- `finance_reconciliation_run_created_by_fkey` : `FOREIGN KEY (created_by) REFERENCES core.iam_user_account(id)`
-- `finance_reconciliation_run_pkey` : `PRIMARY KEY (id)`
-
-Index :
-
-- `finance_reconciliation_run_month_idx` : `CREATE INDEX finance_reconciliation_run_month_idx ON core.finance_reconciliation_run USING btree (country_code, period_month, kind)`
-
-Politiques RLS :
-
-- `iam_staff_recon_close` (UPDATE, PERMISSIVE, iam_staff_owner) USING `(status = ANY (ARRAY['MATCHED'::text, 'DISCREPANCIES'::text]))` WITH CHECK `(status = 'CLOSED'::text)`
-- `iam_staff_recon_ins` (INSERT, PERMISSIVE, iam_staff_owner) WITH CHECK `(status = ANY (ARRAY['MATCHED'::text, 'DISCREPANCIES'::text]))`
-- `iam_staff_recon_sel` (SELECT, PERMISSIVE, iam_staff_owner) USING `true`
-- `migrator_all` (ALL, PERMISSIVE, migrator) USING `true` WITH CHECK `true`
-
-Déclencheurs :
-
-- `finance_reconciliation_guard` : `CREATE TRIGGER finance_reconciliation_guard BEFORE DELETE OR UPDATE ON core.finance_reconciliation_run FOR EACH ROW EXECUTE FUNCTION core.finance_reconciliation_guard()`
-- `finance_reconciliation_no_truncate` : `CREATE TRIGGER finance_reconciliation_no_truncate BEFORE TRUNCATE ON core.finance_reconciliation_run FOR EACH STATEMENT EXECUTE FUNCTION core.audit_append_only('finance_reconciliation_guard')`
 
 ### `core.iam_auth_factor`
 
@@ -3865,6 +3725,7 @@ Politiques RLS :
 - `messaging_cmd_read` (SELECT, PERMISSIVE, messaging_cmd_owner) USING `true`
 - `migrator_all` (ALL, PERMISSIVE, migrator) USING `true` WITH CHECK `true`
 - `policy_fn_read` (SELECT, PERMISSIVE, policy_fn_owner) USING `true`
+- `review_cmd_read` (SELECT, PERMISSIVE, review_cmd_owner) USING `true`
 - `risk_link_read` (SELECT, PERMISSIVE, risk_limit_owner) USING `true`
 - `user_account_self_read` (SELECT, PERMISSIVE, app_api) USING `((app.actor_kind() = ANY (ARRAY['GUEST'::text, 'HOST'::text, 'STAFF'::text])) AND (id = app.actor_id()))`
 
@@ -4044,7 +3905,6 @@ Index :
 
 Politiques RLS :
 
-- `iam_staff_rpt_read` (SELECT, PERMISSIVE, iam_staff_owner) USING `true`
 - `kyc_cmd_insert` (INSERT, PERMISSIVE, kyc_cmd_owner) WITH CHECK `((status = ANY (ARRAY['OPEN'::text, 'DOCS_PENDING'::text, 'IN_REVIEW'::text])) AND (decided_at IS NULL) AND (activated_at IS NULL))`
 - `kyc_cmd_select` (SELECT, PERMISSIVE, kyc_cmd_owner) USING `true`
 - `kyc_cmd_update` (UPDATE, PERMISSIVE, kyc_cmd_owner) USING `(status <> ALL (ARRAY['REJECTED'::text, 'REVOKED'::text]))` WITH CHECK `true`
@@ -5305,7 +5165,6 @@ Politiques RLS :
 - `cmd_money_ins` (INSERT, PERMISSIVE, cmd_money_owner) WITH CHECK `((app.actor_kind() = 'WORKER'::text) AND (app.worker_name() = 'payment_command'::text) AND (status = 'PENDING'::text) AND (psp_account_id IS NOT NULL))`
 - `cmd_money_sel` (SELECT, PERMISSIVE, cmd_money_owner) USING `true`
 - `cmd_money_upd` (UPDATE, PERMISSIVE, cmd_money_owner) USING `((app.actor_kind() = 'WORKER'::text) AND (app.worker_name() = ANY (ARRAY['payment_command'::text, 'webhook_ingest'::text])) AND (psp_account_id IS NOT NULL))` WITH CHECK `((app.actor_kind() = 'WORKER'::text) AND (psp_account_id IS NOT NULL))`
-- `iam_staff_rpt_read` (SELECT, PERMISSIVE, iam_staff_owner) USING `true`
 - `integrity_read` (SELECT, PERMISSIVE, integrity_owner) USING `true`
 - `migrator_all` (ALL, PERMISSIVE, migrator) USING `true` WITH CHECK `true`
 - `operation_guest_read` (SELECT, PERMISSIVE, app_api) USING `((app.actor_kind() = 'GUEST'::text) AND ((EXISTS ( SELECT 1 FROM core.booking_checkout_hold h WHERE ((h.id = payment_payment_operation.hold_id) AND (h.guest_user_id = app.actor_id())))) OR (EXISTS ( SELECT 1 FROM core.booking_trip t WHERE (t.id = payment_payment_operation.trip_id)))))`
@@ -6342,23 +6201,37 @@ Déclencheurs :
 | `recorded_by` | `uuid` | non | — |
 | `published_at` | `timestamp with time zone` | non | — |
 | `created_at` | `timestamp with time zone` | oui | `platform.now()` |
+| `submission_id` | `uuid` | non | — |
+| `body` | `text` | non | — |
+| `contact_masked` | `boolean` | non | — |
+| `punctuality` | `smallint` | non | — |
+| `return_condition` | `smallint` | non | — |
+| `rules_respect` | `smallint` | non | — |
 
 Contraintes :
 
 - `review_accuracy_range` : `CHECK (accuracy >= 1 AND accuracy <= 5)`
 - `review_author_role_valid` : `CHECK (author_role = ANY (ARRAY['GUEST'::text, 'HOST'::text]))`
+- `review_body_length` : `CHECK (body IS NULL OR char_length(body) >= 1 AND char_length(body) <= 1000)`
 - `review_cleanliness_range` : `CHECK (cleanliness >= 1 AND cleanliness <= 5)`
 - `review_communication_range` : `CHECK (communication >= 1 AND communication <= 5)`
 - `review_convenience_range` : `CHECK (convenience >= 1 AND convenience <= 5)`
 - `review_country_code_format` : `CHECK (country_code ~ '^[A-Z]{2}$'::text)`
+- `review_from_submission_masked` : `CHECK (submission_id IS NULL OR contact_masked IS NOT NULL)`
+- `review_guest_scores_only` : `CHECK (author_role = 'GUEST'::text OR cleanliness IS NULL AND convenience IS NULL AND accuracy IS NULL AND maintenance IS NULL)`
+- `review_host_scores_only` : `CHECK (author_role = 'HOST'::text OR punctuality IS NULL AND return_condition IS NULL AND rules_respect IS NULL)`
+- `review_in_app_traced` : `CHECK (source <> 'IN_APP'::text OR submission_id IS NOT NULL AND manual_action_id IS NULL AND recorded_by IS NULL AND contact_masked IS NOT NULL)`
 - `review_maintenance_range` : `CHECK (maintenance >= 1 AND maintenance <= 5)`
 - `review_ops_recorded_traced` : `CHECK (source <> 'OPS_RECORDED'::text OR manual_action_id IS NOT NULL AND recorded_by IS NOT NULL)`
 - `review_overall_range` : `CHECK (overall >= 1 AND overall <= 5)`
 - `review_published_dated` : `CHECK ((status = 'PUBLISHED'::text) = (published_at IS NOT NULL) OR (status = ANY (ARRAY['HIDDEN'::text, 'REMOVED'::text])))`
+- `review_punctuality_range` : `CHECK (punctuality >= 1 AND punctuality <= 5)`
+- `review_return_condition_range` : `CHECK (return_condition >= 1 AND return_condition <= 5)`
 - `review_review_author_fkey` : `FOREIGN KEY (author_user_id) REFERENCES core.iam_user_account(id)`
 - `review_review_pkey` : `PRIMARY KEY (id)`
 - `review_review_trip_fkey` : `FOREIGN KEY (trip_id) REFERENCES core.booking_trip(id)`
-- `review_source_valid` : `CHECK (source = 'OPS_RECORDED'::text)`
+- `review_rules_respect_range` : `CHECK (rules_respect >= 1 AND rules_respect <= 5)`
+- `review_source_valid` : `CHECK (source = ANY (ARRAY['OPS_RECORDED'::text, 'IN_APP'::text]))`
 - `review_status_valid` : `CHECK (status = ANY (ARRAY['PENDING'::text, 'PUBLISHED'::text, 'HIDDEN'::text, 'REMOVED'::text]))`
 - `review_subject_matches_author` : `CHECK (author_role = 'GUEST'::text AND (subject_type = ANY (ARRAY['VEHICLE'::text, 'HOST'::text])) OR author_role = 'HOST'::text AND subject_type = 'GUEST'::text)`
 - `review_subject_type_valid` : `CHECK (subject_type = ANY (ARRAY['VEHICLE'::text, 'HOST'::text, 'GUEST'::text]))`
@@ -6367,17 +6240,90 @@ Contraintes :
 Index :
 
 - `review_review_subject_idx` : `CREATE INDEX review_review_subject_idx ON core.review_review USING btree (subject_type, subject_id)`
+- `review_review_submission_idx` : `CREATE INDEX review_review_submission_idx ON core.review_review USING btree (submission_id) WHERE (submission_id IS NOT NULL)`
+- `review_review_trip_idx` : `CREATE INDEX review_review_trip_idx ON core.review_review USING btree (trip_id)`
 
 Politiques RLS :
 
 - `migrator_all` (ALL, PERMISSIVE, migrator) USING `true` WITH CHECK `true`
 - `review_cmd_ins` (INSERT, PERMISSIVE, review_cmd_owner) WITH CHECK `((status = 'PUBLISHED'::text) AND (source = 'OPS_RECORDED'::text))`
+- `review_cmd_ins_app` (INSERT, PERMISSIVE, review_cmd_owner) WITH CHECK `((status = 'PUBLISHED'::text) AND (submission_id IS NOT NULL))`
 - `review_cmd_sel` (SELECT, PERMISSIVE, review_cmd_owner) USING `true`
 
 Déclencheurs :
 
 - `review_review_guard` : `CREATE TRIGGER review_review_guard BEFORE DELETE OR UPDATE ON core.review_review FOR EACH ROW EXECUTE FUNCTION core.review_record_guard()`
 - `review_review_no_truncate` : `CREATE TRIGGER review_review_no_truncate BEFORE TRUNCATE ON core.review_review FOR EACH STATEMENT EXECUTE FUNCTION core.review_record_guard()`
+
+### `core.review_submission`
+
+- RLS : ENABLE + FORCE ; propriétaire `migrator`
+- Droits : migrator: DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ; review_cmd_owner: INSERT, SELECT
+
+| Colonne | Type | NOT NULL | Défaut |
+| ------- | ---- | -------- | ------ |
+| `id` | `uuid` | oui | — |
+| `trip_id` | `uuid` | oui | — |
+| `country_code` | `text` | oui | — |
+| `author_user_id` | `uuid` | oui | — |
+| `author_role` | `text` | oui | — |
+| `overall` | `smallint` | oui | — |
+| `cleanliness` | `smallint` | non | — |
+| `communication` | `smallint` | non | — |
+| `convenience` | `smallint` | non | — |
+| `accuracy` | `smallint` | non | — |
+| `maintenance` | `smallint` | non | — |
+| `punctuality` | `smallint` | non | — |
+| `return_condition` | `smallint` | non | — |
+| `rules_respect` | `smallint` | non | — |
+| `body` | `text` | non | — |
+| `contact_masked` | `boolean` | oui | — |
+| `source` | `text` | oui | — |
+| `manual_action_id` | `uuid` | non | — |
+| `recorded_by` | `uuid` | non | — |
+| `submitted_at` | `timestamp with time zone` | oui | — |
+| `window_closes_at` | `timestamp with time zone` | oui | — |
+
+Contraintes :
+
+- `review_submission_accuracy` : `CHECK (accuracy >= 1 AND accuracy <= 5)`
+- `review_submission_author_fkey` : `FOREIGN KEY (author_user_id) REFERENCES core.iam_user_account(id)`
+- `review_submission_body_length` : `CHECK (body IS NULL OR char_length(body) >= 1 AND char_length(body) <= 1000)`
+- `review_submission_cleanliness` : `CHECK (cleanliness >= 1 AND cleanliness <= 5)`
+- `review_submission_communication` : `CHECK (communication >= 1 AND communication <= 5)`
+- `review_submission_convenience` : `CHECK (convenience >= 1 AND convenience <= 5)`
+- `review_submission_country_format` : `CHECK (country_code ~ '^[A-Z]{2}$'::text)`
+- `review_submission_guest_scores` : `CHECK (author_role = 'GUEST'::text OR cleanliness IS NULL AND convenience IS NULL AND accuracy IS NULL AND maintenance IS NULL)`
+- `review_submission_host_scores` : `CHECK (author_role = 'HOST'::text OR punctuality IS NULL AND return_condition IS NULL AND rules_respect IS NULL)`
+- `review_submission_maintenance` : `CHECK (maintenance >= 1 AND maintenance <= 5)`
+- `review_submission_once` : `UNIQUE (trip_id, author_role)`
+- `review_submission_ops_no_text` : `CHECK (source <> 'OPS_RECORDED'::text OR body IS NULL)`
+- `review_submission_ops_traced` : `CHECK ((source = 'OPS_RECORDED'::text) = (manual_action_id IS NOT NULL AND recorded_by IS NOT NULL))`
+- `review_submission_overall_range` : `CHECK (overall >= 1 AND overall <= 5)`
+- `review_submission_pkey` : `PRIMARY KEY (id)`
+- `review_submission_punctuality` : `CHECK (punctuality >= 1 AND punctuality <= 5)`
+- `review_submission_return_condition` : `CHECK (return_condition >= 1 AND return_condition <= 5)`
+- `review_submission_role_valid` : `CHECK (author_role = ANY (ARRAY['GUEST'::text, 'HOST'::text]))`
+- `review_submission_rules_respect` : `CHECK (rules_respect >= 1 AND rules_respect <= 5)`
+- `review_submission_source_valid` : `CHECK (source = ANY (ARRAY['IN_APP'::text, 'OPS_RECORDED'::text]))`
+- `review_submission_text_required` : `CHECK (source <> 'IN_APP'::text OR overall > 3 OR body IS NOT NULL AND char_length(body) >= 25)`
+- `review_submission_trip_fkey` : `FOREIGN KEY (trip_id) REFERENCES core.booking_trip(id)`
+- `review_submission_window` : `CHECK (submitted_at < window_closes_at)`
+
+Index :
+
+- `review_submission_due_idx` : `CREATE INDEX review_submission_due_idx ON core.review_submission USING btree (window_closes_at)`
+
+Politiques RLS :
+
+- `migrator_all` (ALL, PERMISSIVE, migrator) USING `true` WITH CHECK `true`
+- `review_cmd_ins` (INSERT, PERMISSIVE, review_cmd_owner) WITH CHECK `true`
+- `review_cmd_sel` (SELECT, PERMISSIVE, review_cmd_owner) USING `true`
+
+Déclencheurs :
+
+- `review_submission_guard` : `CREATE TRIGGER review_submission_guard BEFORE DELETE OR UPDATE ON core.review_submission FOR EACH ROW EXECUTE FUNCTION core.review_record_guard()`
+- `review_submission_no_truncate` : `CREATE TRIGGER review_submission_no_truncate BEFORE TRUNCATE ON core.review_submission FOR EACH STATEMENT EXECUTE FUNCTION core.review_record_guard()`
 
 ### `core.risk_abuse_event`
 
@@ -7467,7 +7413,6 @@ Politiques RLS :
 - `cmd_money_ins` (INSERT, PERMISSIVE, cmd_money_owner) WITH CHECK `((app.actor_kind() = 'WORKER'::text) AND (app.worker_name() = 'payment_command'::text) AND (captured_minor = 0) AND (refunded_minor = 0) AND (reallocated_in_minor = 0) AND (reallocated_out_minor = 0) AND (released_minor = 0) AND (NOT frozen))`
 - `cmd_money_sel` (SELECT, PERMISSIVE, cmd_money_owner) USING `true`
 - `cmd_money_upd` (UPDATE, PERMISSIVE, cmd_money_owner) USING `((app.actor_kind() = 'WORKER'::text) AND (app.worker_name() = 'payment_command'::text))` WITH CHECK `((app.actor_kind() = 'WORKER'::text) AND (app.worker_name() = 'payment_command'::text))`
-- `iam_staff_rpt_read` (SELECT, PERMISSIVE, iam_staff_owner) USING `true`
 - `leg_host_read` (SELECT, PERMISSIVE, app_api) USING `((app.actor_kind() = 'HOST'::text) AND (org_id = app.org_id()) AND (leg = 'HOST'::text) AND app.is_org_holder() AND (app.vehicle_scope() IS NULL) AND app.has_permission('finance.read_org_statements'::text))`
 - `leg_staff_read` (SELECT, PERMISSIVE, app_api) USING `((app.actor_kind() = 'STAFF'::text) AND (country_code = ANY (app.country_scope())) AND (app.has_staff_role('ADMIN'::text, country_code) OR app.has_staff_role('FINANCE'::text, country_code) OR app.staff_case_covers('TRIP'::text, trip_id)))`
 - `migrator_all` (ALL, PERMISSIVE, migrator) USING `true` WITH CHECK `true`
@@ -7843,7 +7788,6 @@ Politiques RLS :
 
 - `cmd_hold_handover_ins` (INSERT, PERMISSIVE, cmd_hold_owner) WITH CHECK `((app.actor_kind() = performer_role) AND (performed_by = app.actor_id()))`
 - `cmd_hold_handover_sel` (SELECT, PERMISSIVE, cmd_hold_owner) USING `true`
-- `iam_staff_rpt_read` (SELECT, PERMISSIVE, iam_staff_owner) USING `true`
 - `migrator_all` (ALL, PERMISSIVE, migrator) USING `true` WITH CHECK `true`
 
 Déclencheurs :
@@ -7998,7 +7942,6 @@ Politiques RLS :
 
 - `cmd_hold_handover_ins` (INSERT, PERMISSIVE, cmd_hold_owner) WITH CHECK `(app.actor_kind() = ANY (ARRAY['HOST'::text, 'GUEST'::text]))`
 - `cmd_hold_handover_sel` (SELECT, PERMISSIVE, cmd_hold_owner) USING `true`
-- `iam_staff_rpt_read` (SELECT, PERMISSIVE, iam_staff_owner) USING `true`
 - `migrator_all` (ALL, PERMISSIVE, migrator) USING `true` WITH CHECK `true`
 
 Déclencheurs :
@@ -8043,7 +7986,6 @@ Politiques RLS :
 - `cmd_hold_overdue_ins` (INSERT, PERMISSIVE, cmd_hold_owner) WITH CHECK `((stage = 'T30M'::text) AND (app.actor_kind() = 'WORKER'::text) AND (app.worker_name() = 'trip_overdue'::text))`
 - `cmd_hold_overdue_sel` (SELECT, PERMISSIVE, cmd_hold_owner) USING `((app.actor_kind() = 'WORKER'::text) AND (app.worker_name() = 'trip_overdue'::text))`
 - `cmd_hold_overdue_upd` (UPDATE, PERMISSIVE, cmd_hold_owner) USING `((app.actor_kind() = 'WORKER'::text) AND (app.worker_name() = 'trip_overdue'::text))` WITH CHECK `((app.actor_kind() = 'WORKER'::text) AND (app.worker_name() = 'trip_overdue'::text))`
-- `iam_staff_rpt_read` (SELECT, PERMISSIVE, iam_staff_owner) USING `true`
 - `migrator_all` (ALL, PERMISSIVE, migrator) USING `true` WITH CHECK `true`
 
 Déclencheurs :
@@ -8182,21 +8124,6 @@ Politiques RLS :
 
 - view ; propriétaire `migrator` ; droits : app_api: SELECT ; migrator: DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE
 - Colonnes : `trip_id` uuid, `first_name` text, `age_years` integer, `rating` numeric, `verification_status` text
-
-### `core.report_exit_kpi_v`
-
-- view ; propriétaire `migrator` ; droits : iam_staff_owner: SELECT ; migrator: DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE
-- Colonnes : `country_code` text, `s1_active_hosts` bigint, `s2_completed_trips` bigint, `s2_double_bookings` bigint, `s2_keys_unpaid` bigint, `s4_unexplained_items` bigint, `s4_months_closed` bigint
-
-### `core.report_handover_day_v`
-
-- view ; propriétaire `migrator` ; droits : iam_staff_owner: SELECT ; migrator: DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE
-- Colonnes : `trip_id` uuid, `public_ref` text, `country_code` text, `org_id` uuid, `vehicle_id` uuid, `status` text, `kind` text, `planned_at` timestamp with time zone, `host_validated` boolean, `guest_validated` boolean, `keys_at` timestamp with time zone
-
-### `core.report_overdue_v`
-
-- view ; propriétaire `migrator` ; droits : iam_staff_owner: SELECT ; migrator: DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE
-- Colonnes : `trip_id` uuid, `public_ref` text, `country_code` text, `org_id` uuid, `vehicle_id` uuid, `status` text, `stage` text, `scheduled_end` timestamp with time zone, `detected_at` timestamp with time zone, `minutes_late` bigint, `use_until` timestamp with time zone, `bounded` boolean, `next_trip_id` uuid
 
 ### `core.settlement_host_advance_v`
 
@@ -8368,12 +8295,6 @@ Chacune a un propriétaire `NOLOGIN` dédié (ADR-053) et un `search_path` figé
 | `core.finance_earning_lines(p_org uuid)` | `TABLE(line_kind text, trip_id uuid, country_code text, currency text, period_month text, event_at timestamp with time zone, trip_status text, source text, settlement_version integer, reason text, amount_minor bigint, share_base_minor bigint, host_plan_code text, host_share_pct text)` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | cmd_money_owner: EXECUTE |
 | `core.finance_host_statement(p_org uuid, p_month text)` | `jsonb` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | cmd_hold_owner: EXECUTE ; cmd_money_owner: EXECUTE |
 | `core.finance_insurer_ledger_facts()` | `TABLE(country_code text, currency text, collected_entries_minor bigint, collected_legs_minor bigint, settled_entries_minor bigint, settled_variations_minor bigint, billed_minor bigint, due_minor bigint, unattributed boolean)` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; cmd_money_owner: EXECUTE |
-| `core.finance_staff_reconciliation_export(p_token_hash bytea, p_request_id uuid, p_country text, p_month date, p_kind text, p_reason text)` | `TABLE(outcome text, body jsonb)` | `iam_staff_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; iam_staff_owner: EXECUTE |
-| `core.finance_staff_reconciliation_run(p_token_hash bytea, p_request_id uuid, p_run_id uuid, p_export boolean, p_reason text)` | `TABLE(outcome text, body jsonb)` | `iam_staff_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; iam_staff_owner: EXECUTE |
-| `core.finance_staff_reconciliation_runs(p_token_hash bytea, p_country text)` | `TABLE(outcome text, body jsonb)` | `iam_staff_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; iam_staff_owner: EXECUTE |
-| `core.finance_staff_record_reconciliation(p_token_hash bytea, p_request_id uuid, p_country text, p_month date, p_kind text, p_lines jsonb, p_reason text)` | `TABLE(outcome text, run_id uuid)` | `iam_staff_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; iam_staff_owner: EXECUTE |
-| `core.finance_staff_resolve_reconciliation_item(p_token_hash bytea, p_request_id uuid, p_item_id uuid, p_resolution text, p_note text)` | `TABLE(outcome text)` | `iam_staff_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; iam_staff_owner: EXECUTE |
-| `core.finance_staff_sign_reconciliation(p_token_hash bytea, p_request_id uuid, p_run_id uuid, p_checklist jsonb)` | `TABLE(outcome text, unexplained integer)` | `iam_staff_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; iam_staff_owner: EXECUTE |
 | `core.finance_trip_leg_facts()` | `TABLE(trip_id uuid, country_code text, currency text, captured_minor bigint, collected_minor bigint, collected_legs_minor bigint, head_total_paid_minor bigint, expected_host_minor bigint, statement_host_minor bigint)` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; cmd_money_owner: EXECUTE |
 | `core.finance_trip_receipt_view(p_trip_id uuid, p_viewer text)` | `jsonb` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | cmd_hold_owner: EXECUTE ; cmd_money_owner: EXECUTE |
 | `core.iam_auth_lookup(p_email text)` | `TABLE(user_id uuid, password_hash text, status text)` | `iam_auth_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; iam_auth_owner: EXECUTE |
@@ -8393,7 +8314,7 @@ Chacune a un propriétaire `NOLOGIN` dédié (ADR-053) et un `search_path` figé
 | `core.iam_manual_action_restriction(p_token_hash bytea, p_action_id uuid, p_action_code text, p_subject_id uuid, p_input jsonb, p_reason text, p_actor uuid, p_actor_role text)` | `TABLE(outcome text, ref_id uuid, emitted_event_ids uuid[])` | `iam_auth_owner` | search_path=pg_catalog, pg_temp | iam_auth_owner: EXECUTE ; iam_staff_owner: EXECUTE |
 | `core.iam_notification_contact(p_user_id uuid)` | `TABLE(email text, phone_e164 text, preferred_locale text, first_name text)` | `iam_auth_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; iam_auth_owner: EXECUTE |
 | `core.iam_phone_otp_state(p_token_hash bytea)` | `TABLE(outcome text, verified_phone text, pending_phone text, resend_after_s integer, expires_in_s integer, locked_for_s integer, attempts_left integer)` | `iam_auth_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; iam_auth_owner: EXECUTE |
-| `core.iam_session_resolve(p_token_hash bytea)` | `TABLE(session_id uuid, user_id uuid, mfa_level text, expires_at timestamp with time zone, email_verified boolean)` | `iam_auth_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; catalog_cmd_owner: EXECUTE ; cmd_hold_owner: EXECUTE ; cmd_money_owner: EXECUTE ; iam_auth_owner: EXECUTE ; iam_staff_owner: EXECUTE ; kyc_cmd_owner: EXECUTE ; messaging_cmd_owner: EXECUTE |
+| `core.iam_session_resolve(p_token_hash bytea)` | `TABLE(session_id uuid, user_id uuid, mfa_level text, expires_at timestamp with time zone, email_verified boolean)` | `iam_auth_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; catalog_cmd_owner: EXECUTE ; cmd_hold_owner: EXECUTE ; cmd_money_owner: EXECUTE ; iam_auth_owner: EXECUTE ; iam_staff_owner: EXECUTE ; kyc_cmd_owner: EXECUTE ; messaging_cmd_owner: EXECUTE ; review_cmd_owner: EXECUTE |
 | `core.iam_staff_audit_read(p_token_hash bytea, p_before_id bigint, p_limit integer)` | `TABLE(id bigint, at timestamp with time zone, actor_user_id uuid, actor_role text, action_code text, subject_type text, subject_id uuid, reason text, before jsonb, after jsonb)` | `iam_staff_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; iam_staff_owner: EXECUTE |
 | `core.iam_staff_cmd_begin(p_token_hash bytea)` | `TABLE(outcome text, user_id uuid, factor_id uuid, roles jsonb)` | `iam_staff_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; iam_staff_owner: EXECUTE |
 | `core.iam_staff_cmd_data_access(p_token_hash bytea, p_request_id uuid, p_case_id uuid, p_subject_type text, p_subject_id uuid, p_field_or_file text, p_access_kind text, p_purpose text)` | `TABLE(outcome text, access_id uuid)` | `iam_staff_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; iam_staff_owner: EXECUTE |
@@ -8445,6 +8366,7 @@ Chacune a un propriétaire `NOLOGIN` dédié (ADR-053) et un `search_path` figé
 | `core.messaging_cmd_post_message(p_token_hash bytea, p_trip_id uuid, p_message_id uuid, p_body text)` | `TABLE(outcome text, message_id uuid, body text, masked boolean, off_platform boolean, sent_at timestamp with time zone)` | `messaging_cmd_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; messaging_cmd_owner: EXECUTE |
 | `core.messaging_cmd_propose_meeting(p_token_hash bytea, p_trip_id uuid, p_meeting_id uuid, p_kind text, p_place text, p_meet_at timestamp with time zone)` | `TABLE(outcome text, meeting_id uuid, kind text, place_label text, meet_at timestamp with time zone, status text)` | `messaging_cmd_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; messaging_cmd_owner: EXECUTE |
 | `core.messaging_evidence_messages(p_trip_id uuid, p_until timestamp with time zone)` | `TABLE(thread_id uuid, document text, message_count integer, flagged_count integer)` | `messaging_cmd_owner` | search_path=pg_catalog, pg_temp | cmd_hold_owner: EXECUTE ; messaging_cmd_owner: EXECUTE |
+| `core.messaging_mask_text(p_text text, OUT masked text, OUT kinds text[])` | `record` | `messaging_cmd_owner` | search_path=pg_catalog, pg_temp | messaging_cmd_owner: EXECUTE ; review_cmd_owner: EXECUTE |
 | `core.messaging_meeting_read(p_token_hash bytea, p_trip_id uuid)` | `TABLE(outcome text, viewer_role text, can_propose boolean, timezone text, meeting_id uuid, kind text, place_label text, meet_at timestamp with time zone, status text, mine boolean, created_at timestamp with time zone, answered_at timestamp with time zone)` | `messaging_cmd_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; messaging_cmd_owner: EXECUTE |
 | `core.messaging_thread_read(p_token_hash bytea, p_trip_id uuid, p_limit integer)` | `TABLE(outcome text, viewer_role text, counterpart_name text, writable boolean, closes_at timestamp with time zone, timezone text, message_id uuid, mine boolean, author_role text, author_name text, body text, masked boolean, off_platform boolean, sent_at timestamp with time zone, purged boolean)` | `messaging_cmd_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; messaging_cmd_owner: EXECUTE |
 | `core.payment_assert_operation_legs()` | `trigger` | `integrity_owner` | search_path=pg_catalog, pg_temp | integrity_owner: EXECUTE |
@@ -8511,9 +8433,13 @@ Chacune a un propriétaire `NOLOGIN` dédié (ADR-053) et un `search_path` figé
 | `core.privacy_worker_message_purge(p_batch integer)` | `integer` | `privacy_cmd_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; privacy_cmd_owner: EXECUTE |
 | `core.privacy_worker_retention_sweep(p_batch integer)` | `integer` | `privacy_cmd_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; privacy_cmd_owner: EXECUTE |
 | `core.privacy_worker_stale_kyc_erasures(p_after_minutes integer)` | `integer` | `privacy_cmd_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; privacy_cmd_owner: EXECUTE |
-| `core.report_staff_beta_view(p_token_hash bytea, p_request_id uuid, p_view text, p_country text, p_export boolean, p_reason text)` | `TABLE(outcome text, body jsonb)` | `iam_staff_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; iam_staff_owner: EXECUTE |
+| `core.review_cmd_submit(p_token_hash bytea, p_trip_id uuid, p_overall integer, p_sub_scores jsonb, p_text text)` | `TABLE(outcome text, status text, submitted_at timestamp with time zone, published_at timestamp with time zone)` | `review_cmd_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; review_cmd_owner: EXECUTE |
+| `core.review_listing_host_profile(p_listing_id uuid)` | `TABLE(outcome text, view jsonb)` | `review_cmd_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; review_cmd_owner: EXECUTE |
 | `core.review_listing_ratings(p_listing_ids uuid[])` | `TABLE(listing_id uuid, vehicle_trip_count integer, vehicle_review_count integer, vehicle_avg_x100 integer, host_trip_count integer, host_review_count integer, host_avg_x100 integer)` | `review_cmd_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; review_cmd_owner: EXECUTE |
 | `core.review_manual_action_record_review(p_token_hash bytea, p_action_id uuid, p_action_code text, p_subject_id uuid, p_input jsonb, p_reason text, p_actor uuid, p_actor_role text)` | `TABLE(outcome text, ref_id uuid, emitted_event_ids uuid[])` | `review_cmd_owner` | search_path=pg_catalog, pg_temp | iam_staff_owner: EXECUTE ; review_cmd_owner: EXECUTE |
+| `core.review_my_received(p_token_hash bytea)` | `TABLE(outcome text, view jsonb)` | `review_cmd_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; review_cmd_owner: EXECUTE |
+| `core.review_trip_read(p_token_hash bytea, p_trip_id uuid)` | `TABLE(outcome text, view jsonb)` | `review_cmd_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; review_cmd_owner: EXECUTE |
+| `core.review_worker_publish_due(p_batch integer)` | `integer` | `review_cmd_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; review_cmd_owner: EXECUTE |
 | `core.risk_cmd_hit(p_scope text, p_key_hash bytea, p_country text, p_limit integer, p_window_s integer, p_weight integer)` | `TABLE(allowed boolean, hits integer, retry_after_s integer)` | `risk_limit_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; risk_limit_owner: EXECUTE |
 | `core.risk_cmd_prune(p_batch integer, p_event_retention_days integer)` | `integer` | `risk_limit_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; risk_limit_owner: EXECUTE |
 | `core.risk_cmd_record_abuse(p_kind text, p_scope text, p_key_hash bytea, p_country text, p_signals text[])` | `void` | `risk_limit_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; risk_limit_owner: EXECUTE |
@@ -8728,9 +8654,6 @@ Chacune a un propriétaire `NOLOGIN` dédié (ADR-053) et un `search_path` figé
 | `core.ctr_record_consent(p_user_id uuid, p_template_id uuid, p_accepted boolean, p_context text, p_country text)` | `void` | `migrator` | iam_auth_owner: EXECUTE ; migrator: EXECUTE |
 | `core.ctr_template_guard()` | `trigger` | `migrator` | migrator: EXECUTE |
 | `core.ctr_writer_exempt()` | `boolean` | `migrator` | iam_auth_owner: EXECUTE ; migrator: EXECUTE |
-| `core.finance_recon_month_state(p_country text)` | `jsonb` | `iam_staff_owner` | iam_staff_owner: EXECUTE |
-| `core.finance_recon_threshold_bps(p_country text)` | `integer` | `iam_staff_owner` | iam_staff_owner: EXECUTE |
-| `core.finance_reconciliation_guard()` | `trigger` | `migrator` | migrator: EXECUTE |
 | `core.iam_hmac_sha256(p_key bytea, p_msg bytea)` | `bytea` | `migrator` | iam_staff_owner: EXECUTE ; migrator: EXECUTE |
 | `core.iam_host_open_account(p_user uuid, p_country text, p_holder_kind text, p_actor uuid, p_actor_role text, p_source text, p_request_id uuid, p_reason text)` | `TABLE(outcome text, org_id uuid)` | `migrator` | iam_auth_owner: EXECUTE ; migrator: EXECUTE |
 | `core.iam_mfa_proof(p_key bytea, p_token_hash bytea, p_factor_id uuid, p_step bigint)` | `bytea` | `migrator` | iam_staff_owner: EXECUTE ; migrator: EXECUTE |
@@ -8817,7 +8740,7 @@ Chacune a un propriétaire `NOLOGIN` dédié (ADR-053) et un `search_path` figé
 | `core.payment_trip_mit_consent(p_trip_id uuid)` | `SETOF core.payment_mit_consent` | `cmd_money_owner` | cmd_money_owner: EXECUTE |
 | `core.payment_webhook_inbox_proof_columns_guard()` | `trigger` | `migrator` | migrator: EXECUTE |
 | `core.payout_batch_hold_reasons(p_batch_id uuid)` | `text[]` | `cmd_money_owner` | cmd_money_owner: EXECUTE |
-| `core.payout_business_day(p_country text, p_from date, p_n integer)` | `date` | `cmd_money_owner` | cmd_money_owner: EXECUTE ; iam_staff_owner: EXECUTE |
+| `core.payout_business_day(p_country text, p_from date, p_n integer)` | `date` | `cmd_money_owner` | cmd_money_owner: EXECUTE |
 | `core.payout_effective_end(p_trip_id uuid)` | `timestamp with time zone` | `cmd_money_owner` | cmd_money_owner: EXECUTE |
 | `core.payout_item_amount(p_trip_id uuid)` | `bigint` | `cmd_money_owner` | cmd_money_owner: EXECUTE |
 | `core.payout_param(p_key text, p_country text)` | `jsonb` | `cmd_money_owner` | cmd_money_owner: EXECUTE |
@@ -8838,9 +8761,10 @@ Chacune a un propriétaire `NOLOGIN` dédié (ADR-053) et un `search_path` figé
 | `core.privacy_append_only()` | `trigger` | `migrator` | migrator: EXECUTE |
 | `core.privacy_param(p_key text, p_country text)` | `jsonb` | `migrator` | migrator: EXECUTE ; privacy_cmd_owner: EXECUTE |
 | `core.privacy_worker_guard()` | `void` | `migrator` | migrator: EXECUTE ; privacy_cmd_owner: EXECUTE |
-| `core.report_staff_gate(p_token_hash bytea, p_permission text, p_country text, p_attempted text, p_request_id uuid)` | `TABLE(outcome text, user_id uuid, role text)` | `iam_staff_owner` | iam_staff_owner: EXECUTE |
-| `core.report_staff_not_found(p_token_hash bytea, p_attempted text, p_subject_id uuid, p_request_id uuid)` | `text` | `iam_staff_owner` | iam_staff_owner: EXECUTE |
+| `core.review_public_view(p_review_id uuid)` | `jsonb` | `review_cmd_owner` | review_cmd_owner: EXECUTE |
+| `core.review_publish_trip(p_trip_id uuid)` | `integer` | `review_cmd_owner` | review_cmd_owner: EXECUTE |
 | `core.review_record_guard()` | `trigger` | `migrator` | migrator: EXECUTE |
+| `core.review_window_of(p_trip_id uuid)` | `TABLE(ended_at timestamp with time zone, closes_at timestamp with time zone, window_days integer)` | `review_cmd_owner` | review_cmd_owner: EXECUTE |
 | `core.risk_log_abuse(p_kind text, p_scope text, p_key_hash bytea, p_country text, p_signals text[])` | `void` | `migrator` | migrator: EXECUTE ; risk_limit_owner: EXECUTE |
 | `core.security_incident_guard()` | `trigger` | `migrator` | migrator: EXECUTE |
 | `core.security_incident_notice_hours(p_key text, p_country text)` | `integer` | `migrator` | iam_staff_owner: EXECUTE ; migrator: EXECUTE |

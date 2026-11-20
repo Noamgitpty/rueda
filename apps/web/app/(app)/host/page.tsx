@@ -220,6 +220,12 @@ export default async function HostPage({
           {t('web.host.earningsLink')}
         </a>
       </p>
+      {/* A13 (US-317) : profil public de l'hôte tel que le voient les voyageurs, avis reçus */}
+      <p className={accountStyles['text']}>
+        <a className={styles['link']} href="/host/profile" data-testid="a10-profile">
+          {t('web.a13.link')}
+        </a>
+      </p>
       {accounts.length > 1 && (
         <nav aria-labelledby="a10-accounts">
           <h2 id="a10-accounts" className={accountStyles['h2']}>

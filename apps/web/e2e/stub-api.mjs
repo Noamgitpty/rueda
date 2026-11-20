@@ -3136,6 +3136,133 @@ async function handoverRoute(req, res, url) {
   });
 }
 
+// ---- Avis réciproques (US-317) : S13 du voyageur, avis reçus, profil public de l'hôte ------------
+// Un trip FIXE rendu (REVIEW_TRIP, captures stables) : le voyageur (session « G0st… ») note une fois ;
+// l'hôte n'a pas encore noté, l'avis reste donc SCELLÉ (en attente). Avis reçus : un avis publié de
+// l'hôte sur le voyageur ; l'hôte (« H0st… ») a un avis publié d'une voyageuse. Profil public de
+// l'hôte des annonces du double : ancienneté seulement, aucun avis (captures de la fiche stables).
+// Les vraies règles (fenêtre, scellé, publication simultanée, masquage) sont prouvées sur
+// PostgreSQL (l0-us317-*). Jamais une note ni un texte dans un journal.
+const REVIEW_TRIP = '00000000-0000-4000-8000-000000317e2e';
+const reviewsByToken = new Map();
+const HOST_REVIEW = {
+  authorRole: 'HOST',
+  authorName: 'María',
+  overall: 5,
+  subScores: { punctuality: 5 },
+  text: 'Devolvió el auto limpio y a la hora acordada. ¡Gracias!',
+  publishedAt: '2036-12-14T15:00:00.000Z',
+};
+
+async function reviewsRoute(req, res, url) {
+  const profile = /^\/listings\/([0-9a-f-]{36})\/host-profile$/.exec(url.pathname)?.[1];
+  if (profile !== undefined && req.method === 'GET') {
+    if (
+      ![PUBLIC_ID, MANUAL_ID, NO_COVER_ID, DEPOSIT_UNAVAILABLE_ID, REQUEST_ID].includes(profile)
+    ) {
+      return err(res, 404, 'LISTING_NOT_FOUND', 'common.listing.notFound');
+    }
+    return json(res, 200, {
+      code: 'HOST_PROFILE',
+      messageKey: 'common.reviews.hostProfile',
+      listingId: profile,
+      firstName: 'Ana',
+      memberSince: '2024-03',
+      tripCount: 0,
+      reviewCount: 0,
+      averageX100: null,
+      reviews: [],
+    });
+  }
+  if (url.pathname === '/reviews/received' && req.method === 'GET') {
+    const token = tokenOf(req);
+    if (token === undefined) return err(res, 401, 'AUTH_REQUIRED', 'common.auth.sessionRequired');
+    const host = HOST_TOKEN.test(token);
+    return json(res, 200, {
+      code: 'REVIEWS_RECEIVED',
+      messageKey: 'common.reviews.received',
+      asGuest: host
+        ? { reviewCount: 0, averageX100: null, reviews: [] }
+        : { reviewCount: 1, averageX100: 500, reviews: [HOST_REVIEW] },
+      asHost: host
+        ? {
+            firstName: 'Ana',
+            memberSince: '2024-03',
+            tripCount: 1,
+            reviewCount: 1,
+            averageX100: 400,
+            reviews: [
+              {
+                authorRole: 'GUEST',
+                authorName: 'Lucía',
+                overall: 4,
+                subScores: {},
+                text: 'Auto cómodo y entrega puntual en el lugar acordado.',
+                publishedAt: '2036-12-15T15:00:00.000Z',
+              },
+            ],
+          }
+        : null,
+    });
+  }
+  const m = /^\/trips\/([^/]+)\/reviews$/.exec(url.pathname);
+  if (m === null) return false;
+  const token = tokenOf(req);
+  if (token === undefined) return err(res, 401, 'AUTH_REQUIRED', 'common.auth.sessionRequired');
+  const tripId = m[1].toLowerCase();
+  if (!GUEST_TOKEN.test(token) || tripId !== REVIEW_TRIP) {
+    return err(res, 404, 'TRIP_NOT_FOUND', 'common.trips.notFound');
+  }
+  const key = `${token}:${tripId}`;
+  const mine = reviewsByToken.get(key) ?? null;
+  if (req.method === 'GET') {
+    return json(res, 200, {
+      code: 'TRIP_REVIEWS',
+      messageKey: 'common.reviews.trip',
+      tripId,
+      viewerRole: 'GUEST',
+      counterpartName: 'María',
+      timezone: 'UTC',
+      windowDays: 10,
+      endedAt: '2036-12-13T15:00:00.000Z',
+      closesAt: '2099-12-23T15:00:00.000Z',
+      canSubmit: mine === null,
+      mine,
+      published: [],
+      guestProfile: null,
+    });
+  }
+  if (req.method !== 'POST') return err(res, 404, 'TRIP_NOT_FOUND', 'common.trips.notFound');
+  const b = await readBody(req);
+  if (b === null || !Number.isInteger(b.overall)) {
+    return err(res, 400, 'REQUEST_INVALID', 'common.auth.requestInvalid');
+  }
+  if (mine !== null) {
+    return err(res, 409, 'REVIEW_ALREADY_SUBMITTED', 'common.reviews.alreadySubmitted');
+  }
+  const text = typeof b.text === 'string' ? b.text.trim() : '';
+  if (b.overall < 1 || b.overall > 5)
+    return err(res, 422, 'REVIEW_INVALID', 'common.reviews.invalid');
+  if (b.overall <= 3 && [...text].length < 25) {
+    return err(res, 422, 'REVIEW_TEXT_REQUIRED', 'common.reviews.textRequired');
+  }
+  const body = text.replace(/\+?\d[\d\s().-]{5,}\d/g, '•••');
+  const submittedAt = '2036-12-14T16:00:00.000Z';
+  reviewsByToken.set(key, {
+    status: 'SUBMITTED',
+    overall: b.overall,
+    subScores: b.subScores ?? {},
+    text: body === '' ? null : body,
+    contactMasked: body !== text,
+    submittedAt,
+  });
+  return json(res, 201, {
+    code: 'REVIEW_SUBMITTED',
+    messageKey: 'common.reviews.submitted',
+    review: { status: 'SUBMITTED', submittedAt, publishedAt: null },
+  });
+}
+
 createServer(async (req, res) => {
   const url = new URL(req.url ?? '/', 'http://127.0.0.1');
   const path = url.pathname;
@@ -3150,6 +3277,7 @@ createServer(async (req, res) => {
   if (earningsRoute(req, res, url) !== false) return;
   if ((await messagesRoute(req, res, url)) !== false) return;
   if ((await meetingsRoute(req, res, url)) !== false) return;
+  if ((await reviewsRoute(req, res, url)) !== false) return;
   if ((await helpRoute(req, res, url)) !== false) return;
   if (guestTripsRoute(req, res, url) !== false) return;
   if ((await checkoutRoute(req, res, path)) !== false) return;
