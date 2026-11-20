@@ -3,8 +3,9 @@
  * OpenAPI de la route (ADR-192) ; montants des formes de 08 (jambe HOST de TJ01 131,25, pénalité de
  * T14 25,00 compensée) ; jamais le code testé.
  */
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { hostPayoutsOf, localTimeOf } from './host-payouts.ts';
+import { HOLD_REASONS, PAYOUT_STATUSES, hostPayoutsOf, localTimeOf } from './host-payouts.ts';
 
 const ORG = '00000000-0000-4000-8000-000000000314';
 const TRIP = '00000000-0000-4000-8000-0000000003a1';
@@ -96,6 +97,21 @@ describe('US-314 — versements de l’hôte (A08)', () => {
     }
     expect(hostPayoutsOf({ status: 404, json: {}, session: null })).toBeNull();
     expect(hostPayoutsOf({ status: 'unavailable' })).toBeNull();
+  });
+
+  it('parité : motifs de retenue et états du site = contrat OpenAPI (schéma HostPayouts)', () => {
+    const doc = JSON.parse(
+      readFileSync(new URL('../../api/openapi/openapi.json', import.meta.url), 'utf8'),
+    ) as {
+      components: { schemas: Record<string, { properties: Record<string, unknown> }> };
+    };
+    const item = (
+      doc.components.schemas['HostPayouts']?.properties['payouts'] as {
+        items: { properties: Record<string, { enum?: string[]; items?: { enum: string[] } }> };
+      }
+    ).items.properties;
+    expect(item['holdReasons']?.items?.enum).toEqual([...HOLD_REASONS]);
+    expect(item['status']?.enum).toEqual([...PAYOUT_STATUSES]);
   });
 
   it('heure locale du lot (minutes après minuit)', () => {
