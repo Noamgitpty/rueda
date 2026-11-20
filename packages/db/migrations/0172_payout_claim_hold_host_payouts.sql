@@ -42,8 +42,8 @@
 --      réponse) ; permission retirée de la matrice ⇒ PERMISSION_DENIED.
 --   3. GARDES DE LIBÉRATION (revue de #284) : `core.settlement_release_blocker` (0054, corps recopié,
 --      un bloc marqué) relit en dernier les motifs de retenue du lot du trip
---      (`core.payout_release_hold_reasons`, SECURITY DEFINER, cmd_money_owner) pour un ordre qui
---      verse la jambe HOST : un motif ⇒ `leg_release_payout_held`. La garde s'applique à
+--      (`core.payout_release_hold_reasons`, SECURITY DEFINER, cmd_money_owner, aucun EXECUTE)
+--      pour un ordre qui verse la jambe HOST d'un trip mis en lot : un motif ⇒ `leg_release_payout_held`. La garde s'applique à
 --      l'enregistrement de l'ordre (déclencheur de 0054 : l'ordre n'est jamais créé, donc jamais
 --      transmis) ET au report sur les soldes : une réclamation ouverte entre la relecture du lot
 --      (`payout_cmd_recheck_batch`) et l'ordre `LEG_RELEASE` ne laisse plus partir la jambe HOST.
@@ -263,9 +263,9 @@ COMMENT ON FUNCTION core.payout_release_hold_reasons(uuid) IS
   'Motifs de retenue du lot du trip (NULL hors lot), relus par la garde de libération '
   'settlement_release_blocker à l''ordre et au report. SECURITY DEFINER. US-314 (ADR-192).';
 REVOKE ALL ON FUNCTION core.payout_release_hold_reasons(uuid) FROM PUBLIC;
--- la garde (SECURITY INVOKER) s'exécute sous l'écrivain de l'ordre : cmd_money_owner (commandes)
--- ou migrator (fixtures de test) ; aucun rôle applicatif
-GRANT EXECUTE ON FUNCTION core.payout_release_hold_reasons(uuid) TO migrator;
+-- la garde (SECURITY INVOKER) s'exécute sous l'écrivain de l'ordre, cmd_money_owner (commandes),
+-- propriétaire de cette fonction : aucun EXECUTE accordé (un autre écrivain d'un ordre HOST d'un
+-- trip mis en lot est refusé, fail-closed)
 
 RESET ROLE;
 REVOKE CREATE ON SCHEMA core FROM cmd_money_owner;
@@ -326,7 +326,9 @@ BEGIN
   -- US-314 (ADR-192) : motifs de retenue du lot du trip (réclamation, litige, gel, compte…) relus
   -- à l'ordre et au report de la jambe HOST
   IF EXISTS (SELECT 1 FROM core.payment_payment_operation_leg AS l
-              WHERE l.operation_id = p_operation_id AND l.leg = 'HOST' AND l.amount_minor > 0) THEN
+              WHERE l.operation_id = p_operation_id AND l.leg = 'HOST' AND l.amount_minor > 0)
+     AND EXISTS (SELECT 1 FROM core.payout_payout_item AS i
+                  WHERE i.trip_id = v_trip AND i.segment_no = 1 AND i.leg = 'HOST') THEN
     v_reasons := core.payout_release_hold_reasons(v_trip);
     IF pg_catalog.cardinality(v_reasons) > 0 THEN
       RETURN 'leg_release_payout_held';

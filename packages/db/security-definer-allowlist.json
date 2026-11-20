@@ -2724,7 +2724,7 @@
       "signature": "core.payout_release_hold_reasons(uuid)",
       "family": "cmd_money",
       "owner": "cmd_money_owner",
-      "execute": ["migrator"],
+      "execute": [],
       "story": "US-314"
     }
   ]
