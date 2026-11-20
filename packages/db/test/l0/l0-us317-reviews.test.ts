@@ -84,6 +84,8 @@ async function trip(
   c: CountryCase,
   guest: string,
   org: string | null = null,
+  start = START,
+  end = END,
 ): Promise<Trip> {
   const r = (
     await tx.query<{
@@ -96,8 +98,8 @@ async function trip(
       c.country,
       org,
       guest,
-      START,
-      END,
+      start,
+      end,
     ])
   ).rows[0]!;
   return {
@@ -384,7 +386,8 @@ describe.each(COUNTRIES)('US-317 — avis en double aveugle ($country, $currency
           asHost: null,
         });
         // profil du voyageur, servi à l'hôte d'un AUTRE trip du même voyageur
-        const t2 = await trip(tx, c, guest);
+        // autre trip du même voyageur, plus tard (une seule occupation par voyageur à la fois)
+        const t2 = await trip(tx, c, guest, null, plusDays(START, 30), plusDays(END, 30));
         const h2 = await openSession(tx, t2.holder);
         const v2 = await read(tx, h2.hash, t2.trip);
         expect(v2['guestProfile']).toMatchObject({
@@ -428,8 +431,8 @@ describe.each(COUNTRIES)('US-317 — avis en double aveugle ($country, $currency
         const t = await trip(tx, c, guest);
         const other = await trip(tx, c, uuid());
         const co = await tx.query<{ id: string }>(
-          `SELECT test_fixture.us525_member($1, 'CO_HOST', NULL, 'ACTIVE', 'Leo', '{}') AS id`,
-          [t.org],
+          `SELECT test_fixture.us525_member($1, 'CO_HOST', ARRAY[$2::uuid], 'ACTIVE', 'Leo', '{}') AS id`,
+          [t.org, t.vehicle],
         );
         // sessions ouvertes la veille du retour (durée de vie d'une session : 14 jours)
         await setVirtualNow(tx, plusDays(RETURNED_AT, -1));

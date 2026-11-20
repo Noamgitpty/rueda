@@ -1,5 +1,5 @@
--- 0170 — REV : avis réciproques dans l'application, en double aveugle (fenêtre de 10 jours,
--- publication simultanée), profil public de l'hôte et avis reçus.
+-- 0170 — REV : avis réciproques en double aveugle, publication simultanée, avis reçus.
+-- Fenêtre de 10 jours (review_window_days), profil public de l'hôte.
 -- US-317 ; 19 US-317 (critère 1 : « Given un trip terminé et `review_window_days` = 10, When un seul
 -- des deux a noté à J+9, Then aucun avis n'est publié ; à J+10, l'avis donné est publié » ;
 -- critère 2 : « Given les deux avis donnés à J+3, When le second est enregistré, Then les deux sont
