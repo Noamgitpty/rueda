@@ -13,6 +13,13 @@
  *   - l'oracle C12 (`core.booking_production_oracle`, travailleur `booking_oracle`) : 0 écart.
  * Un autre travailleur ne lit rien : le contrôle refuse de rendre des zéros trompeurs.
  *
+ * Isolement entre fichiers de tests (vitest exécute les fichiers en parallèle sur la même base, et
+ * d'autres fichiers VALIDENT des trips, captures et règlements) : les comptes avant / après sont
+ * limités aux trips du parcours ; les comparaisons qui restent globales (lignes examinées par le
+ * contrôle = lignes de la base ; rapport de départ + 1) se font dans une transaction
+ * `REPEATABLE READ` (`inSnapshot`), donc sur un seul instantané où aucune écriture validée en
+ * parallèle n'entre.
+ *
  * Écart injecté : une version en écart, par contrôle, est ajoutée aux SOURCES des requêtes
  * d'agrégat (la base refuserait de l'écrire) ; chacune doit être détectée par son contrôle.
  *
@@ -95,6 +102,33 @@ async function asWorker(tx: pg.ClientBase, workerName: string): Promise<void> {
   await setSessionContext(tx, { kind: 'WORKER', workerName });
 }
 
+/**
+ * Transaction de test (`withTestTransaction`, annulée) en `REPEATABLE READ` : un seul instantané,
+ * pris à sa première requête, pour toute la transaction. Les écritures validées en parallèle par
+ * un autre fichier de tests n'y entrent pas (en-tête du fichier). L'isolement est posé comme
+ * défaut de la session juste avant le `BEGIN`, puis effacé par le `RESET ALL` de
+ * `withTestTransaction` ; il est vérifié dans la transaction (fail-closed).
+ */
+async function inSnapshot<T>(
+  client: pg.ClientBase,
+  fn: (tx: pg.ClientBase) => Promise<T>,
+): Promise<T> {
+  await client.query(`SET default_transaction_isolation = 'repeatable read'`);
+  try {
+    return await withTestTransaction(client, {}, async (tx) => {
+      const { rows } = await tx.query<{ level: string }>(
+        `SELECT pg_catalog.current_setting('transaction_isolation') AS level`,
+      );
+      if (rows[0]?.level !== 'repeatable read') {
+        throw new Error(`isolement attendu : repeatable read, obtenu ${String(rows[0]?.level)}`);
+      }
+      return fn(tx);
+    });
+  } finally {
+    await client.query('RESET default_transaction_isolation');
+  }
+}
+
 const recordOf = (id: string, previous?: SettlementRecord): SettlementRecord => {
   const v = settlementVector(golden, id);
   const trip = toTrip(v.trip);
@@ -105,8 +139,8 @@ async function insertTrip(
   tx: pg.ClientBase,
   c: { readonly country: string; readonly currency: string },
   day: number,
+  id: string = uuid(),
 ): Promise<string> {
-  const id = uuid();
   const at = (d: number): string => new Date(Date.UTC(2033, 0, 1) + d * 86_400_000).toISOString();
   await tx.query(`SELECT test_fixture.rls_insert_trip($1, $2, $3, $4, $5, $6, $7, $8, $9)`, [
     id,
@@ -158,8 +192,11 @@ interface Sums {
   readonly variation: bigint;
 }
 
-/** Comptes et sommes par pays des lignes lues par le contrôle (mêmes requêtes que la tâche). */
-async function sumsOf(tx: pg.ClientBase, country: string): Promise<Sums> {
+/**
+ * Comptes et sommes, dans le pays, des lignes des trips du parcours (`trips`) : jamais celles
+ * qu'un autre fichier de tests valide en parallèle dans le même pays.
+ */
+async function sumsOf(tx: pg.ClientBase, country: string, trips: readonly string[]): Promise<Sums> {
   await asWorker(tx, 'reconciliation');
   const { rows } = await tx.query<{
     n: string;
@@ -173,13 +210,14 @@ async function sumsOf(tx: pg.ClientBase, country: string): Promise<Sums> {
             COALESCE(pg_catalog.sum((SELECT pg_catalog.sum(l.variation_minor)
                                        FROM core.settlement_settlement_leg AS l
                                       WHERE l.settlement_id = s.id)), 0)::text AS variation
-       FROM core.settlement_settlement AS s WHERE s.country_code = $1`,
-    [country],
+       FROM core.settlement_settlement AS s
+      WHERE s.country_code = $1 AND s.trip_id = ANY ($2::uuid[])`,
+    [country, trips],
   );
   const b = await tx.query<{ n: string }>(
     `SELECT pg_catalog.count(*)::text AS n FROM core.settlement_trip_leg_balance
-      WHERE country_code = $1`,
-    [country],
+      WHERE country_code = $1 AND trip_id = ANY ($2::uuid[])`,
+    [country, trips],
   );
   const r = rows[0];
   if (r === undefined) throw new Error('aucune ligne');
@@ -190,6 +228,27 @@ async function sumsOf(tx: pg.ClientBase, country: string): Promise<Sums> {
     guestRefund: BigInt(r.refund),
     variation: BigInt(r.variation),
   };
+}
+
+/**
+ * Lignes du pays dans toute la base (mêmes tables que la tâche) : ce que le contrôle doit avoir
+ * examiné. Lu dans l'instantané du rapport (`inSnapshot`), jamais entre deux instantanés.
+ */
+async function countryRowsOf(
+  tx: pg.ClientBase,
+  country: string,
+): Promise<{ readonly settlements: number; readonly balances: number }> {
+  await asWorker(tx, 'reconciliation');
+  const { rows } = await tx.query<{ settlements: string; balances: string }>(
+    `SELECT (SELECT pg_catalog.count(*) FROM core.settlement_settlement
+              WHERE country_code = $1)::text AS settlements,
+            (SELECT pg_catalog.count(*) FROM core.settlement_trip_leg_balance
+              WHERE country_code = $1)::text AS balances`,
+    [country],
+  );
+  const r = rows[0];
+  if (r === undefined) throw new Error('aucune ligne');
+  return { settlements: Number(r.settlements), balances: Number(r.balances) };
 }
 
 const qaReport: Record<string, unknown> = {};
@@ -224,14 +283,15 @@ describe('US-047 — parcours doré de règlement puis rapprochement, dans chaqu
       const v2Variation = legVector(golden, j.v2).totalMinor;
 
       await withRole('app_worker', (client) =>
-        withTestTransaction(client, {}, async (tx) => {
-          const before = await sumsOf(tx, c.country);
+        inSnapshot(client, async (tx) => {
+          const trips = [uuid(), uuid()] as const;
+          const before = await sumsOf(tx, c.country, trips);
 
-          const tripA = await insertTrip(tx, c, 0);
+          const tripA = await insertTrip(tx, c, 0, trips[0]);
           await captureLegs(tx, tripA, j.capture);
           await record(tx, tripA, recordOf(j.a), 1);
 
-          const tripB = await insertTrip(tx, c, 3);
+          const tripB = await insertTrip(tx, c, 3, trips[1]);
           await captureLegs(tx, tripB, j.capture);
           const rb1 = recordOf(j.b);
           const vb1 = await record(tx, tripB, rb1, 1);
@@ -253,11 +313,12 @@ describe('US-047 — parcours doré de règlement puis rapprochement, dans chaqu
           expect(Object.keys(report.checks)).toEqual([...MONEY_RECONCILIATION_CHECKS]);
 
           // ce que le contrôle a lu = le parcours (attendus : export des oracles, 08)
-          const after = await sumsOf(tx, c.country);
+          const after = await sumsOf(tx, c.country, trips);
+          const seen = await countryRowsOf(tx, c.country);
           expect(after.settlements - before.settlements).toBe(3);
-          expect(report.examined.settlements[c.country]).toBe(after.settlements);
+          expect(report.examined.settlements[c.country]).toBe(seen.settlements);
           expect(after.balances - before.balances).toBe(8);
-          expect(report.examined.legBalances[c.country]).toBe(after.balances);
+          expect(report.examined.legBalances[c.country]).toBe(seen.balances);
           // US-217a : les deux trips du parcours sont examinés par l'invariant par jambe (relevé)
           expect(report.examined.trips[c.country] ?? 0).toBeGreaterThanOrEqual(2);
           // US-227 : la jambe INSURER des règlements du parcours est portée au registre de
@@ -490,7 +551,8 @@ const INJECTIONS: readonly [
 describe('US-047 — un écart injecté est détecté par l’agrégat SQL (PostgreSQL réel, app_worker)', () => {
   it.each(CASES)('$country ($currency) : version de départ cohérente ⇒ 0 écart', async (c) => {
     await withRole('app_worker', (client) =>
-      withTestTransaction(client, {}, async (tx) => {
+      // un seul instantané : « départ + 1 » compare deux rapports globaux (en-tête du fichier)
+      inSnapshot(client, async (tx) => {
         await asWorker(tx, 'reconciliation');
         const baseline = await runMoneyReconciliation(sqlOf(tx));
         expect(baseline.violations).toBe(0n);
