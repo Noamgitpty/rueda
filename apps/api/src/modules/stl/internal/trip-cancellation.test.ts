@@ -30,6 +30,7 @@ import {
   TRIP_CANCELLATION_MAX_RETRIES,
   TripCancellationProcessor,
   UNEXPECTED_CODE,
+  alertUnresolvedNoShowReports,
   cancellationEvent,
   cancellationParams,
   classify,
@@ -779,6 +780,8 @@ describe('isolement des demandes, alertes et essais bornés (revue code n° 1 à
     const db = new FakeDb((sql) => {
       if (sql.includes('booking_trip_cancellations_pending'))
         return [{ id: bad }, { id: CANCELLATION_ID }];
+      // US-307 : aucun signalement du no-show de l'hôte sans issue dans ce double
+      if (sql.includes('booking_worker_no_show_review_alerts')) return [];
       return ok(facts)(sql);
     });
     const registry = new BusRegistry();
@@ -826,6 +829,38 @@ describe('isolement des demandes, alertes et essais bornés (revue code n° 1 à
 });
 
 describe('US-307 (ADR-191) — no-show déclaré : hostMessageTraced lu en base, réaffectation gardée par la capacité', () => {
+  it('signalements du voyageur sans issue : une alerte P2 par pays et par cause, comptes et codes seulement ; ligne inattendue ignorée', async () => {
+    const db = new FakeDb((sql) =>
+      sql.includes('booking_worker_no_show_review_alerts')
+        ? [
+            { country_code: 'AA', reason: 'STALE', reports: 2 },
+            { country_code: 'BB', reason: 'BLOCKED', reports: '1' },
+            { country_code: 'BB', reason: 'AUTRE', reports: 3 },
+            { country_code: 'AA', reason: 'STALE', reports: 0 },
+          ]
+        : new Error(sql),
+    );
+    const alerts = new Alerts();
+    expect(await alertUnresolvedNoShowReports(db, alerts)).toBe(3);
+    expect(alerts.sent).toEqual([
+      {
+        code: 'TRIP_NO_SHOW_REPORT_UNRESOLVED',
+        severity: 'P2',
+        counts: { reports: 2 },
+        labels: { country: 'AA', error_code: 'STALE' },
+      },
+      {
+        code: 'TRIP_NO_SHOW_REPORT_UNRESOLVED',
+        severity: 'P2',
+        counts: { reports: 1 },
+        labels: { country: 'BB', error_code: 'BLOCKED' },
+      },
+    ]);
+    expect(db.calls.map((c) => c.sql)).toEqual([
+      'SELECT country_code, reason, reports FROM core.booking_worker_no_show_review_alerts($1)',
+    ]);
+  });
+
   const captureRow = {
     id: 'cap-1',
     psp_account_id: 'acc-1',

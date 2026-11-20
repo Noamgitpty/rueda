@@ -31,7 +31,11 @@
  * (`core.booking_trip_cancellation_flags`, figé à la déclaration) ; une réaffectation de jambes
  * (TJ05b) exige `SUPPORTS_PAYOUT_ADJUSTMENT` validée (`core.payment_assert_payout_adjustment`,
  * capacité inconnue = « non ») : sinon la demande est garée FIN_REVIEW
- * (`LEG_REALLOCATION_UNSUPPORTED`), rien n'est remboursé ni réaffecté.
+ * (`LEG_REALLOCATION_UNSUPPORTED`), rien n'est remboursé ni réaffecté. Un signalement du no-show
+ * de l'hôte resté sans issue (en attente de l'ops depuis `no_show_report_review_alert_minutes`, ou
+ * devenu inapplicable) est marqué une fois par la base
+ * (`core.booking_worker_no_show_review_alerts`) et lève `TRIP_NO_SHOW_REPORT_UNRESOLVED` (P2,
+ * comptes par pays et par cause STALE / BLOCKED, ADR-191).
  *
  * Un refus déterministe (moteur, paramètre, devis, état du trip, ordre refusé) annule la
  * transaction ; la demande est alors garée dans une transaction à part (`FIN_REVIEW` ou `FAILED`,
@@ -801,6 +805,45 @@ export function classify(error: unknown): CancellationOutcome {
 export const TRIP_CANCELLATION_PERIOD_SECONDS = 10;
 /** Demandes traitées par passage, une par transaction. */
 export const TRIP_CANCELLATION_BATCH = 50;
+/** Signalements du no-show de l'hôte examinés par passage (borne de la base : 500). */
+export const NO_SHOW_REVIEW_ALERT_BATCH = 200;
+/** Causes d'un signalement sans issue (0171) : délai dépassé, ou devenu inapplicable. */
+export const NO_SHOW_REVIEW_ALERT_REASONS = ['STALE', 'BLOCKED'] as const;
+
+/**
+ * Signalements du no-show de l'hôte restés sans issue : la base les marque une fois et rend des
+ * comptes par pays et par cause ; une alerte par ligne (codes et comptes seulement, 17 §6.3).
+ * Une ligne de forme inattendue est ignorée (jamais une alerte inventée).
+ */
+export async function alertUnresolvedNoShowReports(
+  tx: SqlClient,
+  alerts: AlertChannel,
+): Promise<number> {
+  const { rows } = await tx.query<{ country_code: unknown; reason: unknown; reports: unknown }>(
+    'SELECT country_code, reason, reports FROM core.booking_worker_no_show_review_alerts($1)',
+    [NO_SHOW_REVIEW_ALERT_BATCH],
+  );
+  let total = 0;
+  for (const r of rows) {
+    const n = typeof r.reports === 'number' ? r.reports : Number(r.reports);
+    if (
+      typeof r.country_code !== 'string' ||
+      !(NO_SHOW_REVIEW_ALERT_REASONS as readonly unknown[]).includes(r.reason) ||
+      !Number.isSafeInteger(n) ||
+      n <= 0
+    ) {
+      continue;
+    }
+    total += n;
+    await alerts.send({
+      code: 'TRIP_NO_SHOW_REPORT_UNRESOLVED',
+      severity: 'P2',
+      counts: { reports: n },
+      labels: { country: r.country_code, error_code: String(r.reason) },
+    });
+  }
+  return total;
+}
 
 /**
  * Tâche périodique `trip_lifecycle` : chaque demande en attente est réglée dans sa propre
@@ -839,7 +882,16 @@ export function registerTripCancellations(
         else if (r.outcome === 'RETRY') counts.retry++;
         else counts.deferred++;
       }
-      log(JSON.stringify({ level: 'info', worker: TRIP_LIFECYCLE_WORKER, ...counts }));
+      // US-307 (ADR-191) : signalements du voyageur restés sans issue, alertés une fois
+      const unresolved = await alertUnresolvedNoShowReports(tx, alerts);
+      log(
+        JSON.stringify({
+          level: 'info',
+          worker: TRIP_LIFECYCLE_WORKER,
+          ...counts,
+          no_show_unresolved: unresolved,
+        }),
+      );
     },
   );
 }
