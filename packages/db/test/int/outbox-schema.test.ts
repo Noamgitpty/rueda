@@ -156,6 +156,12 @@ describe('schéma outbox (US-008)', () => {
           expect(r).toMatchObject({ roles: 'cmd_hold_owner', cmd: 'a' });
           continue;
         }
+        // détection des retards (0168, US-305, ADR-188) : trip.overdue.detected et
+        // trip.at_risk.flagged seulement, acteur SYSTEM, travailleur trip_overdue
+        if (r.pol === 'outbox_outbox_event.cmd_trip_overdue_event_ins') {
+          expect(r).toMatchObject({ roles: 'cmd_hold_owner', cmd: 'a' });
+          continue;
+        }
         // décision de l'ops sur une réservation signalée (0119, US-209b, ADR-141) :
         // booking.hold.review_decided seulement, acteur OPS_AGENT ou ADMIN
         if (r.pol === 'outbox_outbox_event.cmd_hold_review_event') {

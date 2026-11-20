@@ -55,6 +55,8 @@ describe('abonnement', () => {
       'payout.batch.status_changed',
       // US-310 : réponse automatique à une demande d'aide hors plage
       'support.help_request.received',
+      // US-305 : trip suivant à risque (prolongation du trip en retard bornée)
+      'trip.at_risk.flagged',
       'trip.overdue.detected',
       'trip.status_changed',
     ]);

@@ -3147,4 +3147,9 @@ export const EN_MESSAGES = {
     "Hi {first_name}. We received your help request about booking {booking_ref}. Our team isn't available right now and will reply as soon as possible. If anyone is in danger or hurt, call emergency services. {assistance}",
   'ntf.helpOffHoursHost.sms.body':
     '{brand}: we received your request ({booking_ref}). We will reply as soon as possible. If in danger, call emergency services. {assistance}',
+  'ntf.tripAtRiskHost.email.subject': 'Booking {booking_ref}: the car is not back yet',
+  'ntf.tripAtRiskHost.email.body':
+    'Hi {first_name}. Your booking {booking_ref} starts on {start_at}, but the previous trip with this car has not ended: the return is late. Our team will contact you about the options with the guest. You can message us from the booking in the app.',
+  'ntf.tripAtRiskHost.sms.body':
+    '{brand}: the car for booking {booking_ref} ({start_at}) has not been returned from the previous trip yet. We will contact you.',
 } as const satisfies Readonly<Record<MessageKey, Message>>;

@@ -415,7 +415,8 @@
         "no_show_at": "C1",
         "checkin_validated_at": "C1",
         "cancel_initiator": "C1",
-        "cancel_requested_at": "C1"
+        "cancel_requested_at": "C1",
+        "at_risk_reason": "C1"
       }
     },
     "core.booking_vehicle_occupancy": {
@@ -3450,6 +3451,25 @@
         "export_bytes": "C1",
         "failure_code": "C1",
         "findings": "C1"
+      }
+    },
+    "core.trip_ops_overdue_case": {
+      "lifecycle": "B",
+      "subjects": [],
+      "export": "none",
+      "columns": {
+        "id": "C1",
+        "trip_id": "C1",
+        "country_code": "C1",
+        "stage": "C1",
+        "scheduled_end": "C1",
+        "detection_minutes": "C1",
+        "detected_at": "C1",
+        "use_until": "C1",
+        "occupancy_until": "C1",
+        "bounded": "C1",
+        "next_trip_id": "C1",
+        "updated_at": "C1"
       }
     }
   }

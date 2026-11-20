@@ -172,6 +172,8 @@ export const TEMPLATE_KEYS = [
   // réponse automatique à une demande d'aide reçue hors plage (US-310, ADR-182)
   'EVT_HELP_REQUEST_OFF_HOURS',
   'EVT_HELP_REQUEST_OFF_HOURS_HOST',
+  // trip suivant à risque : le véhicule du trip précédent n'est pas rendu (US-305, ADR-188)
+  'EVT_TRIP_AT_RISK_HOST',
 ] as const;
 export type TemplateKey = (typeof TEMPLATE_KEYS)[number];
 
@@ -427,6 +429,24 @@ export const TEMPLATES: Readonly<Record<TemplateKey, TemplateSpec>> = {
     channels: SMS_THEN_EMAIL,
     critical: true,
   },
+  // US-305 (17 §2.5 « Retard et prolongation tacite » : « une notification à l'hôte part » ;
+  // ADR-188, PROPOSÉ) : la prolongation du trip en retard est bornée par le trip suivant du même
+  // véhicule ; l'hôte de ce trip suivant (le même compte d'hôte) apprend qu'il est à risque.
+  // Référence et début du trip SUIVANT ; aucune donnée du voyageur ni du trip en retard
+  // (minimisation) ; l'ops reloge ou annule selon BR-CXL (alerte TRIP_NEXT_AT_RISK). Urgent : SMS
+  // d'abord, message critique de trip
+  EVT_TRIP_AT_RISK_HOST: {
+    key: 'EVT_TRIP_AT_RISK_HOST',
+    slug: 'tripAtRiskHost',
+    variables: {
+      first_name: FIRST_NAME,
+      brand: BRAND,
+      booking_ref: BOOKING_REF,
+      start_at: START_AT,
+    },
+    channels: SMS_THEN_EMAIL,
+    critical: true,
+  },
 };
 
 const GUEST: RecipientSpec = { role: 'GUEST', field: 'guest_user_id' };
@@ -484,7 +504,12 @@ export const RULES: readonly RuleSpec[] = [
     recipients: [GUEST, HOST],
     parties: TRIP_PARTIES,
   },
+  // `trip.overdue.detected` (0168, US-305 : trip_id, stage, guest_user_id, host_user_id,
+  // scheduled_end, detected_at) : écrit UNE fois par trip, à l'ouverture du dossier de retard
   { eventType: 'trip.overdue.detected', template: 'EVT_TRIP_OVERDUE', recipients: [GUEST, HOST] },
+  // `trip.at_risk.flagged` (0168, US-305, PROPOSÉ, à reporter dans 17 §4.5 : trip_id du trip
+  // suivant, reason, host_user_id, scheduled_start) : écrit une fois par trip suivant marqué
+  { eventType: 'trip.at_risk.flagged', template: 'EVT_TRIP_AT_RISK_HOST', recipients: [HOST] },
   {
     eventType: 'payout.batch.status_changed',
     template: 'EVT_PAYOUT_SENT',

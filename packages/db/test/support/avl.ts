@@ -60,7 +60,9 @@ export type Worker =
   // contrat de location hôte–voyageur (US-211, 0122) : génération au passage BOOKED
   | 'booking_contract'
   // destinataires des notifications (US-213, 0133) : parties d'un trip ou d'un hold
-  | 'ntf_dispatcher';
+  | 'ntf_dispatcher'
+  // détection des retards (US-305, 0168) : seul écrivain du dossier et de la prolongation tacite
+  | 'trip_overdue';
 
 export const uuid = (): string => randomUUID();
 

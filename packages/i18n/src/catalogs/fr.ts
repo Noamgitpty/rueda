@@ -3293,4 +3293,9 @@ export const FR_MESSAGES = {
     'Bonjour {first_name}. Nous avons reçu ta demande d’aide pour la réservation {booking_ref}. Notre équipe n’est pas disponible pour le moment et te répondra dès que possible. En cas de danger ou de blessés, appelle les urgences. {assistance}',
   'ntf.helpOffHoursHost.sms.body':
     '{brand} : demande reçue ({booking_ref}). Nous te répondrons dès que possible. En cas de danger, appelle les urgences. {assistance}',
+  'ntf.tripAtRiskHost.email.subject': 'Réservation {booking_ref} : la voiture n’est pas rentrée',
+  'ntf.tripAtRiskHost.email.body':
+    'Bonjour {first_name}. Ta réservation {booking_ref} commence le {start_at}, mais le voyage précédent avec cette voiture n’est pas terminé : le retour est en retard. Notre équipe te contactera pour voir les options avec le voyageur. Tu peux nous écrire depuis la réservation dans l’appli.',
+  'ntf.tripAtRiskHost.sms.body':
+    '{brand} : la voiture de la réservation {booking_ref} ({start_at}) n’est pas encore rendue après le voyage précédent. Nous te contacterons.',
 } as const satisfies Readonly<Record<MessageKey, Message>>;

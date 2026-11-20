@@ -1087,6 +1087,7 @@ Déclencheurs :
 | `checkin_validated_at` | `timestamp with time zone` | non | — |
 | `cancel_initiator` | `text` | non | — |
 | `cancel_requested_at` | `timestamp with time zone` | non | — |
+| `at_risk_reason` | `text` | non | — |
 
 Contraintes :
 
@@ -7213,6 +7214,26 @@ Déclencheurs :
 
 - `trip_handover_immutable` : `CREATE TRIGGER trip_handover_immutable BEFORE DELETE OR UPDATE ON core.trip_ops_key_handover FOR EACH ROW EXECUTE FUNCTION core.audit_append_only('trip_handover_immutable')`
 - `trip_handover_no_truncate` : `CREATE TRIGGER trip_handover_no_truncate BEFORE TRUNCATE ON core.trip_ops_key_handover FOR EACH STATEMENT EXECUTE FUNCTION core.audit_append_only('trip_handover_immutable')`
+
+### `core.trip_ops_overdue_case`
+
+- RLS : ENABLE + FORCE ; propriétaire `migrator`
+- Droits : cmd_hold_owner: INSERT, SELECT ; migrator: DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE
+
+| Colonne | Type | NOT NULL | Défaut |
+| ------- | ---- | -------- | ------ |
+| `id` | `uuid` | oui | `gen_random_uuid()` |
+| `trip_id` | `uuid` | oui | — |
+| `country_code` | `text` | oui | — |
+| `stage` | `text` | oui | `'T30M'::text` |
+| `scheduled_end` | `timestamp with time zone` | oui | — |
+| `detection_minutes` | `integer` | oui | — |
+| `detected_at` | `timestamp with time zone` | oui | — |
+| `use_until` | `timestamp with time zone` | oui | — |
+| `occupancy_until` | `timestamp with time zone` | oui | — |
+| `bounded` | `boolean` | oui | `false` |
+| `next_trip_id` | `uuid` | non | — |
+| `updated_at` | `timestamp with time zone` | oui | `platform.now()` |
 
 ### `core.trip_ops_photo_capture`
 
