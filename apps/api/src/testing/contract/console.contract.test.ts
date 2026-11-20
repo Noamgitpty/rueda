@@ -726,6 +726,7 @@ describe('contrat HTTP — /console', () => {
     ],
     hostDeductibleMinor: '25000',
     guestCapMinor: '50000',
+    alreadyChargedMinor: '0',
     evidence: { checkinPhotos: true, checkoutPhotos: true, guestAgreement: false },
     adminRequired: true,
   };

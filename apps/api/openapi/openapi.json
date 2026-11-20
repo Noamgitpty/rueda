@@ -27715,7 +27715,8 @@
           "guestCapMinor",
           "evidence",
           "adminRequired",
-          "exponent"
+          "exponent",
+          "alreadyChargedMinor"
         ],
         "properties": {
           "claimId": {
@@ -27773,6 +27774,10 @@
             "minimum": 0,
             "maximum": 18,
             "description": "Exposant de la devise (config), pour l'affichage et la saisie des montants"
+          },
+          "alreadyChargedMinor": {
+            "$ref": "#/components/schemas/ClaimMinor",
+            "description": "Débits déjà décidés au voyageur pour ce trip (le plafond de la franchise vaut pour le trip)"
           }
         }
       },

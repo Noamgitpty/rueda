@@ -504,6 +504,14 @@ export const FR_MESSAGES = {
     'L’accord signé du voyageur ne figure pas parmi les pièces reçues.',
   'common.claim.unavailable':
     'Les déclarations de dommage ne sont pas disponibles pour le moment. Rien n’a été enregistré.',
+  'backoffice.claim.detailHeading': 'Déclaration enregistrée',
+  'backoffice.claim.adminOnly':
+    'Cette décision débite le voyageur ou l’hôte : seul un administrateur peut l’enregistrer. Transmets-lui le dossier.',
+  'backoffice.claim.confirm':
+    'Tu vas débiter {amount} sur la carte du voyageur et retenir {retained} sur les versements de l’hôte. Une fois exécutée par Kmino, la décision ne s’annule pas ici : seule une contestation peut la réviser.',
+  'backoffice.claim.issueCharge': 'Débiter {amount} et enregistrer la décision',
+  'backoffice.claim.amountHint': 'Exemple : 450 ou 450,50',
+  'backoffice.claim.amountHintWhole': 'Sans décimale, exemple : 450000',
   'backoffice.claim.heading': 'Dommages, incidents et décisions',
   'backoffice.claim.lead':
     'Enregistre la déclaration reçue dans ton dossier de support, vérifie les pièces et décide avec le gabarit. Kmino exécute la décision ; jamais l’hôte.',
@@ -521,7 +529,7 @@ export const FR_MESSAGES = {
   'backoffice.claim.description': 'Résumé de la déclaration',
   'backoffice.claim.descriptionHint': 'De 10 à 1 000 caractères. Ni nom ni coordonnées.',
   'backoffice.claim.deadlineNote':
-    'Le serveur juge le délai à l’enregistrement : 24 heures après la fin du voyage selon la configuration du pays.',
+    'Le serveur juge le délai à l’enregistrement, selon la configuration locale : il court depuis la fin du voyage (la plus tardive entre la fin prévue et le retour).',
   'backoffice.claim.record': 'Enregistrer la déclaration',
   'backoffice.claim.recorded':
     'Déclaration enregistrée. Le versement de l’hôte pour ce voyage est retenu jusqu’à la décision.',
@@ -598,11 +606,9 @@ export const FR_MESSAGES = {
   'backoffice.claim.excluded.parking':
     'non refacturable au voyageur (stationnement pour récupérer le véhicule)',
   'backoffice.claim.excluded.notAttributable': 'non refacturable au voyageur (non imputable)',
-  'backoffice.claim.adminNote':
-    'Cette décision débite le voyageur ou l’hôte : un administrateur la confirme.',
   'backoffice.claim.issue': 'Enregistrer la décision',
   'backoffice.claim.executionNote':
-    'Kmino exécute la décision du voyage {ref} : débit séparé notifié au voyageur, franchise sur les versements de l’hôte et déclaration à l’assureur.',
+    'Kmino exécute la décision : débit séparé notifié au voyageur, franchise sur les versements de l’hôte et déclaration à l’assureur.',
   'backoffice.claim.decided':
     'Décision enregistrée. Kmino l’exécute ; le versement de l’hôte est libéré une fois exécutée.',
   'backoffice.claim.decidedHeading': 'Décision enregistrée',

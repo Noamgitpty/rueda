@@ -474,6 +474,14 @@ export const EN_MESSAGES = {
   'common.claim.agreementFileInvalid':
     'The guest’s signed agreement is not among the evidence received.',
   'common.claim.unavailable': 'Damage claims are not available right now. Nothing was recorded.',
+  'backoffice.claim.detailHeading': 'Recorded claim',
+  'backoffice.claim.adminOnly':
+    'This decision charges the guest or the host: only an administrator can record it. Hand the case over.',
+  'backoffice.claim.confirm':
+    'You are about to charge {amount} to the guest’s card and hold back {retained} from the host’s payouts. Once Kmino carries it out, the decision cannot be undone here: only a dispute can review it.',
+  'backoffice.claim.issueCharge': 'Charge {amount} and record the decision',
+  'backoffice.claim.amountHint': 'Example: 450 or 450.50',
+  'backoffice.claim.amountHintWhole': 'No decimals, example: 450000',
   'backoffice.claim.heading': 'Damage, incidents and decisions',
   'backoffice.claim.lead':
     'Record the claim received in your support case, check the evidence and decide with the template. Kmino carries out the decision; never the host.',
@@ -490,7 +498,7 @@ export const EN_MESSAGES = {
   'backoffice.claim.description': 'Claim summary',
   'backoffice.claim.descriptionHint': '10 to 1,000 characters. No names or contact details.',
   'backoffice.claim.deadlineNote':
-    'The server judges the deadline when recording: 24 hours after the end of the trip per the country settings.',
+    'The server judges the deadline when recording, per the local settings: it runs from the end of the trip (the later of the scheduled end and the return).',
   'backoffice.claim.record': 'Record the claim',
   'backoffice.claim.recorded':
     'Claim recorded. The host’s payout for this trip is on hold until the decision.',
@@ -566,11 +574,9 @@ export const EN_MESSAGES = {
     'cannot be recharged to the guest (parking to recover the vehicle)',
   'backoffice.claim.excluded.notAttributable':
     'cannot be recharged to the guest (not attributable to them)',
-  'backoffice.claim.adminNote':
-    'This decision charges the guest or the host: an administrator confirms it.',
   'backoffice.claim.issue': 'Record the decision',
   'backoffice.claim.executionNote':
-    'Kmino carries out the decision for trip {ref}: separate charge notified to the guest, deductible on the host’s payouts and report to the insurer.',
+    'Kmino carries out the decision: separate charge notified to the guest, deductible on the host’s payouts and report to the insurer.',
   'backoffice.claim.decided':
     'Decision recorded. Kmino carries it out; the host’s payout is released once it is carried out.',
   'backoffice.claim.decidedHeading': 'Recorded decision',

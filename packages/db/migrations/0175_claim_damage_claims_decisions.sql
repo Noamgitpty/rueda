@@ -75,7 +75,11 @@
 --     core.claim_cmd_execute_decision(uuid, uuid), core.claim_cmd_defer_decision(uuid, text),
 --     core.claim_insurer_declarations_due(integer),
 --     core.claim_cmd_record_insurer_declaration(uuid, text), core.claim_trip_facts(uuid),
---     core.claim_record_guard() ;
+--     core.support_staff_claim_gate(uuid, uuid, text, text, uuid), core.claim_record_guard() ;
+--   DROP POLICY iam_staff_claim_sel ON core.claim_damage_claim ;
+--   révoquer les droits de colonnes accordés à cmd_hold_owner (booking_trip, booking_trip_state_log),
+--     cmd_money_owner (payment_payment_operation, booking_trip) et iam_staff_owner (booking_trip,
+--     audit_file_asset) ;
 --   DROP POLICY cmd_money_ins_claim_deductible ON core.settlement_host_ledger_entry ;
 --   remettre host_ledger_reason_valid, host_ledger_link_shape et les deux uniques de 0167 ;
 --   ALTER TABLE core.settlement_host_ledger_entry DROP COLUMN claim_decision_id ;
@@ -369,9 +373,13 @@ CREATE POLICY cmd_money_claim_upd ON core.claim_insurer_declaration FOR UPDATE T
   USING (app.actor_kind() = 'WORKER' AND app.worker_name() = 'payment_command')
   WITH CHECK (app.actor_kind() = 'WORKER' AND app.worker_name() = 'payment_command');
 
--- en-tête d'une déclaration (pays, trip, dossier, état) pour la porte du staff ; jamais le texte
-GRANT SELECT (id, trip_id, country_code, case_id, status) ON core.claim_damage_claim
+-- en-tête d'une déclaration (pays, trip, dossier, état, heure) pour la porte du staff ; jamais le
+-- texte ; voyageur du trip et rattachement d'une pièce (accord écrit, revue sécurité n° 6)
+GRANT SELECT (id, trip_id, country_code, case_id, status, reported_at) ON core.claim_damage_claim
   TO iam_staff_owner;
+GRANT SELECT (guest_user_id) ON core.booking_trip TO iam_staff_owner;
+GRANT SELECT (uploader_user_id, enc_subject_type, enc_subject_id, server_received_at)
+  ON core.audit_file_asset TO iam_staff_owner;
 CREATE POLICY iam_staff_claim_sel ON core.claim_damage_claim FOR SELECT TO iam_staff_owner
   USING (true);
 
@@ -656,6 +664,7 @@ DECLARE
   v_evidence jsonb;
   v_body     jsonb;
   v_code     text;
+  v_prior    bigint;
   v_int      constant text := '^(0|[1-9][0-9]{0,14})$';
 BEGIN
   IF app.actor_kind() IS DISTINCT FROM 'STAFF' THEN
@@ -701,6 +710,10 @@ BEGIN
     RETURN QUERY SELECT 'CLAIM_NOT_FOUND'::text, NULL::uuid, NULL::jsonb;
     RETURN;
   END IF;
+  -- revue argent n° 2 : une décision à la fois par trip (plafond du trip, toutes déclarations
+  -- comprises) ; ordre des verrous : déclaration, puis trip
+  PERFORM pg_catalog.pg_advisory_xact_lock(
+    pg_catalog.hashtextextended('claim.decide:' || c.trip_id::text, 0));
   SELECT * INTO v_old FROM core.claim_decision AS d WHERE d.claim_id = c.id;
   IF v_old.id IS NOT NULL THEN
     IF v_old.request_id = p_request_id AND NOT p_preview THEN
@@ -776,6 +789,9 @@ BEGIN
 
   -- preuves relues par la base (LEG-024 : aucune retenue sans photos de départ ET de retour)
   SELECT * INTO f FROM core.claim_trip_facts(c.trip_id);
+  -- débits déjà décidés au voyageur pour ce trip (REQ-PAY-DMG-06 : le plafond vaut pour le trip)
+  SELECT COALESCE(pg_catalog.sum(x.charge_amount_minor), 0)::bigint INTO v_prior
+    FROM core.claim_decision AS x WHERE x.trip_id = c.trip_id;
   v_evidence := pg_catalog.jsonb_build_object('checkinPhotos', COALESCE(f.checkin_photos, false),
                                                'checkoutPhotos', COALESCE(f.checkout_photos, false),
                                                'guestAgreement', v_agree IS NOT NULL);
@@ -785,7 +801,8 @@ BEGIN
       THEN 'CLAIM_DECISION_WITHOUT_EVIDENCE'
     -- plafonds avant tout débit (ADR-189 c ; REQ-PAY-DMG-06, BR-DAMAGE-06)
     WHEN v_amount > 0 AND f.accepted_deductible_minor IS NULL THEN 'CLAIM_CAP_UNKNOWN'
-    WHEN v_amount > f.accepted_deductible_minor THEN 'DAMAGE_ABOVE_ACCEPTED_AMOUNT'
+    WHEN v_amount > 0 AND v_prior + v_amount > f.accepted_deductible_minor
+      THEN 'DAMAGE_ABOVE_ACCEPTED_AMOUNT'
     WHEN v_l[1] + v_l[2] > v_repair OR v_deduct > v_repair THEN 'DAMAGE_ABOVE_REPAIR_COST'
     -- seuil de la décision ADMIN non fixé (16 CLM-006, PROPOSÉ) : tout débit ⇒ ADMIN
     WHEN (v_amount > 0 OR v_deduct > 0) AND p_role <> 'ADMIN' THEN 'DECISION_ADMIN_REQUIRED'
@@ -797,7 +814,8 @@ BEGIN
                                           'TAX_THIRD_PARTY', v_l[3]::text,
                                           'PLATFORM', v_l[4]::text),
     'lines', v_lines, 'excluded', v_excl, 'hostDeductibleMinor', v_deduct::text,
-    'guestCapMinor', f.accepted_deductible_minor::text, 'evidence', v_evidence,
+    'guestCapMinor', f.accepted_deductible_minor::text,
+    'alreadyChargedMinor', v_prior::text, 'evidence', v_evidence,
     'adminRequired', v_amount > 0 OR v_deduct > 0);
   IF v_code IS NOT NULL THEN
     RETURN QUERY SELECT v_code, NULL::uuid, v_body;
@@ -986,6 +1004,12 @@ BEGIN
 
   -- (2) franchise de l'hôte : débit du host_ledger (E7 règle 7), jamais une jambe ni un débit du
   -- voyageur ; une écriture par décision
+  IF d.host_deductible_minor > 0 THEN
+    -- revues argent n° 3 / sécurité n° 7 : un seul écrivain du grand livre de (hôte, devise),
+    -- verrou de la compensation d'US-708 / US-709 pris APRÈS le trip et la décision
+    PERFORM pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(
+              'payout.netting:' || t.org_id::text || ':' || t.currency, 0));
+  END IF;
   IF d.host_deductible_minor > 0
      AND NOT EXISTS (SELECT 1 FROM core.settlement_host_ledger_entry AS e
                       WHERE e.claim_decision_id = d.id) THEN
@@ -1445,12 +1469,20 @@ BEGIN
                                     ELSE 'CASE_REQUIRED' END::text, NULL::uuid, NULL::jsonb;
     RETURN;
   END IF;
-  -- accord écrit du voyageur (REQ-PAY-DMG-05) : pièce du seau des preuves, jamais un booléen seul
+  -- accord écrit du voyageur (REQ-PAY-DMG-05 ; revues argent n° 4, sécurité n° 6) : pièce du seau
+  -- des preuves, du VOYAGEUR de ce trip (déposée par lui ou chiffrée par sa clé), reçue après la
+  -- déclaration ; toute autre pièce, ou un identifiant inconnu : même issue (aucune existence révélée)
   IF v_agree IS NOT NULL AND (
        v_agree !~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
        OR NOT EXISTS (SELECT 1 FROM core.audit_file_asset AS f
+                        JOIN core.claim_damage_claim AS c ON c.id = p_claim_id
+                        JOIN core.booking_trip AS t ON t.id = c.trip_id
                        WHERE f.id = v_agree::uuid AND f.bucket = 'PRIVATE_EVIDENCE'
-                         AND f.deleted_at IS NULL)) THEN
+                         AND f.deleted_at IS NULL
+                         AND (f.uploader_user_id = t.guest_user_id
+                              OR (f.enc_subject_type = 'USER'
+                                  AND f.enc_subject_id = t.guest_user_id))
+                         AND f.server_received_at >= c.reported_at)) THEN
     RETURN QUERY SELECT 'AGREEMENT_FILE_INVALID'::text, NULL::uuid, NULL::jsonb;
     RETURN;
   END IF;

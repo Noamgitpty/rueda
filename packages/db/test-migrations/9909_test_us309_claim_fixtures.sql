@@ -302,6 +302,125 @@ BEGIN
 END
 $fn$;
 
+-- Caution autorisée sur le trip (DEPOSIT_AUTH prouvée, aucune jambe : 0028) : preuve que la
+-- décision n'en fait rien (revue qa n° 1)
+CREATE FUNCTION test_fixture.us309_deposit_auth(p_trip uuid, p_amount bigint)
+  RETURNS uuid
+  LANGUAGE plpgsql
+  SECURITY DEFINER
+  SET search_path = pg_catalog, pg_temp
+AS $fn$
+DECLARE
+  v_id uuid := pg_catalog.gen_random_uuid();
+  t    record;
+BEGIN
+  SELECT x.id, x.country_code, x.currency INTO t FROM core.booking_trip AS x WHERE x.id = p_trip;
+  INSERT INTO core.payment_payment_operation
+         (id, trip_id, psp_account_id, country_code, provider, kind, purpose, method, amount_minor,
+          currency, attempt_no, status, idem_plain, idem_sent, proof_type)
+  VALUES (v_id, t.id, test_fixture.fixture_psp_account(t.country_code), t.country_code, 'FAKE',
+          'DEPOSIT_AUTH', 'DEPOSIT', 'CARD', p_amount, t.currency, 1, 'SUCCEEDED',
+          pg_catalog.format('trip:%s:dep:%s', t.id, v_id), pg_catalog.format('test:%s', v_id),
+          'WEBHOOK_SIGNED');
+  RETURN v_id;
+END
+$fn$;
+
+-- Opérations de caution du trip (nature, statut, montant), plus anciennes d'abord
+CREATE FUNCTION test_fixture.us309_deposit_state(p_trip uuid)
+  RETURNS TABLE (id uuid, kind text, status text, amount_minor bigint)
+  LANGUAGE sql
+  STABLE
+  SECURITY DEFINER
+  SET search_path = pg_catalog, pg_temp
+AS $fn$
+  SELECT o.id, o.kind, o.status, o.amount_minor FROM core.payment_payment_operation AS o
+   WHERE o.trip_id = p_trip AND (o.kind LIKE 'DEPOSIT%' OR o.purpose = 'DEPOSIT')
+   ORDER BY o.created_at, o.id
+$fn$;
+
+-- Compte d'hôte d'un trip (clé du verrou de la compensation)
+CREATE FUNCTION test_fixture.us309_trip_org(p_trip uuid)
+  RETURNS uuid
+  LANGUAGE sql
+  STABLE
+  SECURITY DEFINER
+  SET search_path = pg_catalog, pg_temp
+AS $fn$
+  SELECT t.org_id FROM core.booking_trip AS t WHERE t.id = p_trip
+$fn$;
+
+-- Pièce du seau des preuves déposée par `p_user` à l'heure de la base (accord écrit signé)
+CREATE FUNCTION test_fixture.us309_evidence_file(p_user uuid)
+  RETURNS uuid
+  LANGUAGE plpgsql
+  SECURITY DEFINER
+  SET search_path = pg_catalog, pg_temp
+AS $fn$
+DECLARE
+  v_id uuid := pg_catalog.gen_random_uuid();
+BEGIN
+  INSERT INTO core.audit_file_asset (id, bucket, storage_key, mime, bytes, sha256, source,
+                                     classification, retention_class, uploader_user_id)
+  VALUES (v_id, 'PRIVATE_EVIDENCE', 'us309/' || v_id::text, 'application/pdf', 2048,
+          pg_catalog.sha256(pg_catalog.convert_to(v_id::text, 'UTF8')), 'STAFF_UPLOAD', 'C1',
+          'EVIDENCE', p_user);
+  RETURN v_id;
+END
+$fn$;
+
+-- Décision couverte, à exécuter, et sa déclaration à l'assureur PENDING (preuve de l'envoi)
+CREATE FUNCTION test_fixture.us309_insert_declaration(p_claim uuid)
+  RETURNS uuid
+  LANGUAGE plpgsql
+  SECURITY DEFINER
+  SET search_path = pg_catalog, pg_temp
+AS $fn$
+DECLARE
+  v_dec uuid := pg_catalog.gen_random_uuid();
+  v_id  uuid := pg_catalog.gen_random_uuid();
+BEGIN
+  INSERT INTO core.claim_decision
+         (id, claim_id, trip_id, country_code, currency, outcome, covered, repair_cost_minor,
+          charge_amount_minor, leg_host_minor, leg_insurer_minor, leg_tax_third_party_minor,
+          leg_platform_minor, host_deductible_minor, lines, excluded, evidence, facts, decided_by,
+          decided_role, request_id, execution_status, executed_at)
+  SELECT v_dec, c.id, c.trip_id, c.country_code, c.currency, 'NO_GUEST_CHARGE', true, 100, 0, 0,
+         0, 0, 0, 0, '[]', '[]', '{}', 'Décision de fixture couverte par la protection',
+         c.recorded_by, 'ADMIN', pg_catalog.gen_random_uuid(), 'DONE', platform.now()
+    FROM core.claim_damage_claim AS c WHERE c.id = p_claim;
+  UPDATE core.claim_damage_claim SET status = 'DECIDED', decided_at = platform.now()
+   WHERE id = p_claim;
+  INSERT INTO core.claim_insurer_declaration (id, decision_id, claim_id, trip_id, country_code)
+  SELECT v_id, v_dec, c.id, c.trip_id, c.country_code
+    FROM core.claim_damage_claim AS c WHERE c.id = p_claim;
+  RETURN v_id;
+END
+$fn$;
+
+-- Décision (état, code, prochaine vérification)
+CREATE FUNCTION test_fixture.us309_decision_check(p_decision uuid)
+  RETURNS TABLE (execution_status text, execution_code text, next_check_at timestamptz)
+  LANGUAGE sql
+  STABLE
+  SECURITY DEFINER
+  SET search_path = pg_catalog, pg_temp
+AS $fn$
+  SELECT d.execution_status, d.execution_code, d.next_check_at
+    FROM core.claim_decision AS d WHERE d.id = p_decision
+$fn$;
+
+-- Déclaration à l'assureur par son identifiant
+CREATE FUNCTION test_fixture.us309_declaration_by_id(p_id uuid)
+  RETURNS TABLE (id uuid, status text, provider_ref text)
+  LANGUAGE sql
+  STABLE
+  SECURITY DEFINER
+  SET search_path = pg_catalog, pg_temp
+AS $fn$
+  SELECT i.id, i.status, i.provider_ref FROM core.claim_insurer_declaration AS i WHERE i.id = p_id
+$fn$;
+
 REVOKE ALL ON FUNCTION
   test_fixture.us309_returned(uuid),
   test_fixture.us309_set_status(uuid, text),
@@ -317,7 +436,14 @@ REVOKE ALL ON FUNCTION
   test_fixture.us309_deposit_operations(uuid),
   test_fixture.us309_ledger(uuid),
   test_fixture.us309_declaration(uuid),
-  test_fixture.us309_try_write(text, uuid)
+  test_fixture.us309_try_write(text, uuid),
+  test_fixture.us309_deposit_auth(uuid, bigint),
+  test_fixture.us309_deposit_state(uuid),
+  test_fixture.us309_trip_org(uuid),
+  test_fixture.us309_evidence_file(uuid),
+  test_fixture.us309_insert_declaration(uuid),
+  test_fixture.us309_decision_check(uuid),
+  test_fixture.us309_declaration_by_id(uuid)
 FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION
   test_fixture.us309_returned(uuid),
@@ -334,5 +460,12 @@ GRANT EXECUTE ON FUNCTION
   test_fixture.us309_deposit_operations(uuid),
   test_fixture.us309_ledger(uuid),
   test_fixture.us309_declaration(uuid),
-  test_fixture.us309_try_write(text, uuid)
+  test_fixture.us309_try_write(text, uuid),
+  test_fixture.us309_deposit_auth(uuid, bigint),
+  test_fixture.us309_deposit_state(uuid),
+  test_fixture.us309_trip_org(uuid),
+  test_fixture.us309_evidence_file(uuid),
+  test_fixture.us309_insert_declaration(uuid),
+  test_fixture.us309_decision_check(uuid),
+  test_fixture.us309_declaration_by_id(uuid)
 TO app_worker, app_api;

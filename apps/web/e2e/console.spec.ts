@@ -463,6 +463,7 @@ const CLAIMS: Api = {
         ],
         hostDeductibleMinor: '25000',
         guestCapMinor: '50000',
+        alreadyChargedMinor: '0',
         evidence: { checkinPhotos: true, checkoutPhotos: true, guestAgreement: false },
         adminRequired: true,
       },
@@ -510,8 +511,22 @@ for (const language of LANGUAGES) {
         api: /\/api\/console\/claims\/[0-9a-f-]+\/decision$/,
         settled: page.getByTestId('claims-template'),
       });
+      // ux n° 1 : une saisie modifiée retire l'aperçu ; un nouvel aperçu est exigé
+      await decision.locator('#claims-facts').fill('EXT_01 · EXT_02 · 2026-11-03 14:05');
+      await expect(page.getByTestId('claims-template')).toHaveCount(0);
+      await expect(page.getByTestId('claims-issue')).toHaveCount(0);
+      await submitAndSettle(page, page.getByTestId('claims-preview'), undefined, {
+        api: /\/api\/console\/claims\/[0-9a-f-]+\/decision$/,
+        settled: page.getByTestId('claims-template'),
+      });
       const template = page.getByTestId('claims-template');
       await expect(template).toContainText(t.t('backoffice.claim.excluded.parking'));
+      await expect(template).toContainText(
+        t.t('backoffice.claim.confirm', {
+          amount: t.money({ amountMinor: 45350n, currency: 'XTS', exponent: 2 }),
+          retained: t.money({ amountMinor: 25000n, currency: 'XTS', exponent: 2 }),
+        }),
+      );
       await expect(template).toContainText(t.t('backoffice.claim.template.recourse'));
       await expect(template).toContainText(
         t.money({ amountMinor: 45350n, currency: 'XTS', exponent: 2 }),

@@ -11,7 +11,7 @@ import { findForeignStrings } from '@rueda/i18n/testing';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import { LOCALE_CONFIG } from '../../locale-config.ts';
-import { ClaimsPanel, minorOf, recordProblem } from './claim-view.tsx';
+import { ClaimsPanel, minorOf, recordProblem, withoutPreview } from './claim-view.tsx';
 import type { ClaimPreviewView, ClaimsState, ClaimView, DecisionDraft } from './claim-view.tsx';
 
 const ID = '0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b';
@@ -101,7 +101,7 @@ const STATES: readonly ClaimsState[] = [
   { claim: null, preview: null },
   { claim: null, preview: null, notice: { tone: 'warning', key: 'common.claim.deadlinePassed' } },
   { claim: CLAIM, preview: null },
-  { claim: CLAIM, preview: { draft: DRAFT, view: PREVIEW } },
+  { claim: CLAIM, preview: { draft: DRAFT, view: PREVIEW, requestId: ID } },
   { claim: DECIDED, preview: null, notice: { tone: 'success', key: 'backoffice.claim.decided' } },
 ];
 
@@ -113,16 +113,18 @@ const profileOf = (tag: string) => {
 const esTag = LOCALE_CONFIG.locales.find((p) => p.language === 'es')?.tag ?? '';
 const es = CATALOGS.es.messages;
 const noop = () => undefined;
-const text = (state: ClaimsState, tag = esTag): string =>
+const text = (state: ClaimsState, tag = esTag, isAdmin = true): string =>
   renderToStaticMarkup(
     <ClaimsPanel
       i18n={createTranslator(profileOf(tag))}
       state={state}
+      isAdmin={isAdmin}
       handlers={{
         onClaimRecord: noop,
         onClaimRead: noop,
         onDecisionPreview: noop,
         onDecisionIssue: noop,
+        onDecisionEdit: noop,
       }}
     />,
   )
@@ -167,7 +169,7 @@ describe('sinistres (US-309) : déclaration, preuves, gabarit', () => {
     expect(out).toContain(es['backoffice.claim.excluded.parking']);
     expect(out).toContain(es['backoffice.claim.excluded.notAttributable']);
     expect(out).toContain(es['backoffice.claim.template.recourse']);
-    expect(out).toContain(es['backoffice.claim.adminNote']);
+    expect(out).toContain(es['backoffice.claim.executionNote']);
     expect(out).toContain(es['backoffice.claim.rule.GUEST_LIABLE']);
     for (const lang of ['es', 'en', 'fr', 'pt'] as const) {
       const all = Object.entries(CATALOGS[lang].messages)
@@ -216,5 +218,31 @@ describe('sinistres (US-309) : déclaration, preuves, gabarit', () => {
     expect(recordProblem({ ...ok, description: 'court' })).toBe(
       'backoffice.claim.error.description',
     );
+  });
+
+  it('ux n° 1 : une saisie modifiée retire l’aperçu et son bouton ; un nouvel aperçu est exigé', () => {
+    const state = STATES[3] as ClaimsState;
+    const edited = withoutPreview(state);
+    expect(edited.preview).toBeNull();
+    expect(edited.claim).toBe(state.claim);
+    const out = text(edited);
+    expect(out).not.toContain(es['backoffice.claim.templateHeading']);
+    expect(out).toContain(es['backoffice.claim.preview']);
+    // sans aperçu : rien à retirer, même objet
+    expect(withoutPreview(STATES[2] as ClaimsState)).toBe(STATES[2]);
+  });
+
+  it('ux n° 3 et n° 6 : ADMIN voit l’effet (montant débité, franchise retenue, irréversible) et un bouton nommé par le débit ; OPS voit « réservé à un administrateur » sans bouton', () => {
+    const t = createTranslator(profileOf(esTag));
+    const money = (minor: bigint) => t.money({ amountMinor: minor, currency: 'XTA', exponent: 2 });
+    const admin = text(STATES[3] as ClaimsState, esTag, true);
+    expect(admin).toContain(
+      t.t('backoffice.claim.confirm', { amount: money(45350n), retained: money(25000n) }),
+    );
+    expect(admin).toContain(t.t('backoffice.claim.issueCharge', { amount: money(45350n) }));
+    expect(admin).not.toContain(ID);
+    const ops = text(STATES[3] as ClaimsState, esTag, false);
+    expect(ops).toContain(es['backoffice.claim.adminOnly']);
+    expect(ops).not.toContain(t.t('backoffice.claim.issueCharge', { amount: money(45350n) }));
   });
 });

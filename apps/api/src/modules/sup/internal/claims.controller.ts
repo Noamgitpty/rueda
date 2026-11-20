@@ -7,8 +7,8 @@
  * | POST /console/claims                    | 201 déclaration (RECORD_CLAIM) ;      | 422 CLAIM_DEADLINE_PASSED ; 409   |
  * |                                         | 200 rejeu de la même requête          | CLAIM_TRIP_NOT_ELIGIBLE,          |
  * |                                         |                                       | CLAIM_ALREADY_OPEN ; 503          |
- * | GET /console/claims/:claimId            | 200 vue (délai, preuves, plafond,     | 404 CLAIM_NOT_FOUND               |
- * |                                         | décision, exécution)                  |                                   |
+ * | GET /console/claims/:claimId            | 200 vue (délai, preuves, plafond,     | 403 FORBIDDEN (déclaration        |
+ * |                                         | décision, exécution)                  | inconnue : aucune existence)      |
  * | POST /console/claims/:claimId/decision  | 200 aperçu du gabarit (`preview`) ;   | 422 CLAIM_DECISION_WITHOUT_       |
  * |                                         | 201 décision (ISSUE_DECISION) ; 200   | EVIDENCE, DECISION_RATIONALE_     |
  * |                                         | rejeu                                 | REQUIRED, LEG_SUM_MISMATCH… ;     |
@@ -81,8 +81,8 @@ function refusal(r: ClaimResult): never {
       throw new OpsHttpError('STAFF_SELF_FORBIDDEN');
     case 'REQUEST_INVALID':
       throw new AuthHttpError('REQUEST_INVALID');
-    case 'NOT_FOUND':
-      throw new ClaimHttpError('CLAIM_NOT_FOUND');
+    // la porte rend FORBIDDEN pour une déclaration inconnue (aucune existence révélée) ;
+    // CLAIM_NOT_FOUND n'arrive que d'une déclaration disparue entre la porte et la décision
     default:
       // code métier de la base (délai, preuves, motif, jambes, plafonds) : message seulement ;
       // l'aperçu du gabarit (`preview`) montre les montants avant l'enregistrement

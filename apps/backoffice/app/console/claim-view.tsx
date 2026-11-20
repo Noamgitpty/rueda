@@ -101,6 +101,8 @@ export interface ClaimView {
 
 /** Aperçu du gabarit rendu par la base (rien n'est écrit). */
 export interface ClaimPreviewView {
+  /** Débits déjà décidés au voyageur pour ce trip (plafond du trip). */
+  readonly alreadyChargedMinor?: string;
   readonly currency: string;
   readonly exponent: number;
   readonly outcome: string;
@@ -138,7 +140,12 @@ export interface DecisionDraft {
 export interface ClaimsState {
   readonly claim: ClaimView | null;
   /** Aperçu de la base pour la saisie courante ; l'enregistrement envoie cette saisie. */
-  readonly preview: { readonly draft: DecisionDraft; readonly view: ClaimPreviewView } | null;
+  readonly preview: {
+    readonly draft: DecisionDraft;
+    readonly view: ClaimPreviewView;
+    /** Identifiant de la décision, gardé pour un rejeu exact (réponse perdue). */
+    readonly requestId: string;
+  } | null;
   readonly notice?:
     { readonly tone: 'success' | 'warning' | 'danger'; readonly key: MessageKey } | undefined;
 }
@@ -149,6 +156,8 @@ export interface ClaimsHandlers {
   /** `null` : un montant saisi n'est pas lisible dans la devise (rien n'est envoyé). */
   readonly onDecisionPreview: (draft: DecisionDraft | null) => void;
   readonly onDecisionIssue: () => void;
+  /** Toute modification du formulaire de décision : l'aperçu affiché n'est plus valable. */
+  readonly onDecisionEdit: () => void;
 }
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
@@ -254,16 +263,72 @@ function majorOf(minor: string, exponent: number): string {
   return exponent === 0 ? s : `${s.slice(0, -exponent)}.${s.slice(-exponent)}`;
 }
 
+/**
+ * Saisie modifiée après un aperçu (ux n° 1) : l'aperçu n'est plus celui de la saisie, il disparaît
+ * avec son bouton ; un nouvel aperçu est exigé avant tout enregistrement.
+ */
+export function withoutPreview(state: ClaimsState): ClaimsState {
+  return state.preview === null ? state : { ...state, preview: null };
+}
+
+/** Aide d'un champ de montant selon l'exposant de la devise (ux n° 7). */
+function amountHint(i18n: Translator, exponent: number): string {
+  return exponent === 0
+    ? i18n.t('backoffice.claim.amountHintWhole')
+    : i18n.t('backoffice.claim.amountHint');
+}
+
+/** Zone de texte multiligne libellée, avec aide (faits, résumé ; ux n° 4). */
+function TextArea({
+  id,
+  label,
+  hint,
+  ...rest
+}: {
+  readonly id: string;
+  readonly label: string;
+  readonly hint: string;
+  readonly name: string;
+  readonly maxLength: number;
+  readonly minLength?: number;
+  readonly rows?: number;
+  readonly defaultValue?: string | undefined;
+}) {
+  return (
+    <div className={styles['group']}>
+      <label className={styles['label']} htmlFor={id}>
+        {label}
+      </label>
+      <textarea
+        id={id}
+        className={styles['select']}
+        aria-describedby={`${id}-hint`}
+        rows={rest.rows ?? 4}
+        name={rest.name}
+        maxLength={rest.maxLength}
+        minLength={rest.minLength}
+        defaultValue={rest.defaultValue}
+      />
+      <p id={`${id}-hint`} className={styles['muted']}>
+        {hint}
+      </p>
+    </div>
+  );
+}
+
 export function ClaimsPanel({
   i18n,
   state,
   handlers,
   busy = false,
+  isAdmin = false,
 }: {
   readonly i18n: Translator;
   readonly state: ClaimsState;
   readonly handlers: ClaimsHandlers;
   readonly busy?: boolean;
+  /** L'agent tient ADMIN dans un pays (la base reste juge du pays). */
+  readonly isAdmin?: boolean;
 }) {
   return (
     <section className={styles['panel']} aria-labelledby="claims-heading" data-testid="claims">
@@ -315,6 +380,7 @@ export function ClaimsPanel({
           claim={state.claim}
           handlers={handlers}
           busy={busy}
+          isAdmin={isAdmin}
         />
       )}
     </section>
@@ -402,8 +468,7 @@ function RecordForm({
           ))}
         </select>
       </div>
-      <TextField
-        i18n={i18n}
+      <TextArea
         id="claims-description"
         name="description"
         minLength={10}
@@ -457,15 +522,20 @@ function ClaimDetail({
   claim,
   handlers,
   busy,
+  isAdmin,
 }: {
   readonly i18n: Translator;
   readonly state: ClaimsState;
   readonly claim: ClaimView;
   readonly handlers: ClaimsHandlers;
   readonly busy: boolean;
+  readonly isAdmin: boolean;
 }) {
   return (
     <>
+      <h3 id="claims-detail-heading" className={styles['label']} tabIndex={-1}>
+        {i18n.t('backoffice.claim.detailHeading')}
+      </h3>
       <dl className={styles['list']} data-testid="claims-detail">
         <div>
           <dt className={styles['label']}>{i18n.t('backoffice.claim.declaredBy')}</dt>
@@ -512,7 +582,13 @@ function ClaimDetail({
         <>
           <DecisionForm i18n={i18n} claim={claim} state={state} handlers={handlers} busy={busy} />
           {state.preview !== null && (
-            <PreviewBlock i18n={i18n} claim={claim} state={state} handlers={handlers} busy={busy} />
+            <PreviewBlock
+              i18n={i18n}
+              state={state}
+              handlers={handlers}
+              busy={busy}
+              isAdmin={isAdmin}
+            />
           )}
         </>
       )}
@@ -596,6 +672,8 @@ function DecisionForm({
       className={styles['form']}
       aria-labelledby="claims-decision-heading"
       data-testid="claims-decision"
+      // ux n° 1 : toute modification invalide l'aperçu ; l'enregistrement envoie ce qui est affiché
+      onChange={() => handlers.onDecisionEdit()}
       onSubmit={(e) => {
         e.preventDefault();
         const lines = LINE_CATEGORIES.map((category) => ({
@@ -673,6 +751,7 @@ function DecisionForm({
         optional
         defaultValue={majorOf(d?.repairCostMinor ?? '0', claim.exponent)}
         label={i18n.t('backoffice.claim.repairCost', { currency: claim.currency })}
+        hint={amountHint(i18n, claim.exponent)}
       />
       <fieldset className={styles['group']}>
         <legend className={styles['label']}>{i18n.t('backoffice.claim.linesLegend')}</legend>
@@ -687,6 +766,7 @@ function DecisionForm({
             optional
             defaultValue={amountOf(c)}
             label={`${i18n.t(KEYS.line[c])} (${claim.currency})`}
+            hint={amountHint(i18n, claim.exponent)}
           />
         ))}
       </fieldset>
@@ -699,13 +779,13 @@ function DecisionForm({
         optional
         defaultValue={majorOf(d?.hostDeductibleMinor ?? '0', claim.exponent)}
         label={i18n.t('backoffice.claim.hostDeductible', { currency: claim.currency })}
-        hint={i18n.t('backoffice.claim.hostDeductibleHint')}
+        hint={`${i18n.t('backoffice.claim.hostDeductibleHint')} ${amountHint(i18n, claim.exponent)}`}
       />
-      <TextField
-        i18n={i18n}
+      <TextArea
         id="claims-facts"
         name="facts"
         maxLength={2000}
+        rows={6}
         defaultValue={d?.facts}
         label={i18n.t('backoffice.claim.facts')}
         hint={i18n.t('backoffice.claim.factsHint')}
@@ -721,16 +801,16 @@ function DecisionForm({
 
 function PreviewBlock({
   i18n,
-  claim,
   state,
   handlers,
   busy,
+  isAdmin,
 }: {
   readonly i18n: Translator;
-  readonly claim: ClaimView;
   readonly state: ClaimsState;
   readonly handlers: ClaimsHandlers;
   readonly busy: boolean;
+  readonly isAdmin: boolean;
 }) {
   const p = state.preview;
   if (p === null) return null;
@@ -782,20 +862,37 @@ function PreviewBlock({
       <Banner tone="info" live="polite">
         {i18n.t('backoffice.claim.template.recourse')}
       </Banner>
-      {v.adminRequired && <p className={styles['muted']}>{i18n.t('backoffice.claim.adminNote')}</p>}
-      <div className={styles['actions']}>
-        <Button
-          variant="primary"
-          loading={busy}
-          data-testid="claims-issue"
-          onClick={() => handlers.onDecisionIssue()}
-        >
-          {i18n.t('backoffice.claim.issue')}
-        </Button>
-      </div>
-      <p className={styles['muted']}>
-        {i18n.t('backoffice.claim.executionNote', { ref: claim.tripId })}
-      </p>
+      {v.adminRequired && !isAdmin ? (
+        // ux n° 6 : un OPS voit avant l'envoi que la décision est réservée à un administrateur
+        <Banner tone="warning" live="polite">
+          {i18n.t('backoffice.claim.adminOnly')}
+        </Banner>
+      ) : (
+        <>
+          {/* ux n° 3 : confirmation explicite de l'effet, juste au-dessus du bouton */}
+          {v.adminRequired && (
+            <Banner tone="warning" live="polite">
+              {i18n.t('backoffice.claim.confirm', {
+                amount: money(i18n, v, v.amountMinor),
+                retained: money(i18n, v, v.hostDeductibleMinor),
+              })}
+            </Banner>
+          )}
+          <p className={styles['muted']}>{i18n.t('backoffice.claim.executionNote')}</p>
+          <div className={styles['actions']}>
+            <Button
+              variant="primary"
+              loading={busy}
+              data-testid="claims-issue"
+              onClick={() => handlers.onDecisionIssue()}
+            >
+              {v.amountMinor === '0'
+                ? i18n.t('backoffice.claim.issue')
+                : i18n.t('backoffice.claim.issueCharge', { amount: money(i18n, v, v.amountMinor) })}
+            </Button>
+          </div>
+        </>
+      )}
     </section>
   );
 }
@@ -815,7 +912,7 @@ function DecisionSummary({
       aria-labelledby="claims-decided-heading"
       data-testid="claims-decided"
     >
-      <h3 id="claims-decided-heading" className={styles['label']}>
+      <h3 id="claims-decided-heading" className={styles['label']} tabIndex={-1}>
         {i18n.t('backoffice.claim.decidedHeading')}
       </h3>
       <dl className={styles['list']}>

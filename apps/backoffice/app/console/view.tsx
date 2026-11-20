@@ -564,7 +564,13 @@ export function ConsoleView({
           )}
 
           {claims !== undefined && state.roles.some((r) => CLAIM_ROLES.has(r.role)) && (
-            <ClaimsPanel i18n={i18n} state={claims.state} handlers={claims.handlers} busy={busy} />
+            <ClaimsPanel
+              i18n={i18n}
+              state={claims.state}
+              handlers={claims.handlers}
+              busy={busy}
+              isAdmin={state.roles.some((r) => r.role === 'ADMIN')}
+            />
           )}
 
           {refunds !== undefined && state.roles.some((r) => REFUND_ROLES.has(r.role)) && (

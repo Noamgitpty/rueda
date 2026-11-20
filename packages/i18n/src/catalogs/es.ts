@@ -493,6 +493,14 @@ export const ES_MESSAGES = {
     'El acuerdo firmado del viajero no está entre las pruebas recibidas.',
   'common.claim.unavailable':
     'Las declaraciones de daño no están disponibles por ahora. No se registró nada.',
+  'backoffice.claim.detailHeading': 'Declaración registrada',
+  'backoffice.claim.adminOnly':
+    'Esta decisión cobra al viajero o al anfitrión: solo un administrador puede registrarla. Pásale el caso.',
+  'backoffice.claim.confirm':
+    'Vas a cobrar {amount} en la tarjeta del viajero y a retener {retained} de los pagos del anfitrión. Una vez ejecutada por Kmino, la decisión no se deshace aquí: solo una impugnación puede revisarla.',
+  'backoffice.claim.issueCharge': 'Cobrar {amount} y registrar la decisión',
+  'backoffice.claim.amountHint': 'Ejemplo: 450 o 450,50',
+  'backoffice.claim.amountHintWhole': 'Sin decimales, ejemplo: 450000',
   'backoffice.claim.heading': 'Daños, incidentes y decisiones',
   'backoffice.claim.lead':
     'Registra la declaración recibida en tu caso de soporte, revisa las pruebas y decide con la plantilla. Kmino ejecuta la decisión; nunca el anfitrión.',
@@ -509,7 +517,7 @@ export const ES_MESSAGES = {
   'backoffice.claim.description': 'Resumen de la declaración',
   'backoffice.claim.descriptionHint': 'De 10 a 1 000 caracteres. Sin nombres ni datos de contacto.',
   'backoffice.claim.deadlineNote':
-    'El plazo lo juzga el servidor al registrar: 24 horas después del fin del viaje según la configuración local.',
+    'El servidor juzga el plazo al registrar, según la configuración local: se cuenta desde el fin del viaje (el más tardío entre el fin previsto y la devolución).',
   'backoffice.claim.record': 'Registrar la declaración',
   'backoffice.claim.recorded':
     'Declaración registrada. El pago al anfitrión de este viaje queda retenido hasta la decisión.',
@@ -586,11 +594,9 @@ export const ES_MESSAGES = {
   'backoffice.claim.excluded.parking':
     'no refacturable al viajero (estacionamiento para recuperar el vehículo)',
   'backoffice.claim.excluded.notAttributable': 'no refacturable al viajero (no le es imputable)',
-  'backoffice.claim.adminNote':
-    'Esta decisión cobra al viajero o al anfitrión: la confirma un administrador.',
   'backoffice.claim.issue': 'Registrar la decisión',
   'backoffice.claim.executionNote':
-    'Kmino ejecuta la decisión del viaje {ref}: cobro separado notificado al viajero, franquicia en los pagos del anfitrión y declaración a la aseguradora.',
+    'Kmino ejecuta la decisión: cobro separado notificado al viajero, franquicia en los pagos del anfitrión y declaración a la aseguradora.',
   'backoffice.claim.decided':
     'Decisión registrada. Kmino la ejecuta; el pago al anfitrión se libera cuando está ejecutada.',
   'backoffice.claim.decidedHeading': 'Decisión registrada',

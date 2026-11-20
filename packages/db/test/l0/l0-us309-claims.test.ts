@@ -21,14 +21,15 @@
  * déclaration à l'assureur est journalisée, jamais envoyée). Aucun compte PSP ACTIVE n'est validé :
  * le moyen débité est l'opération de carte du loyer sur le compte FAKE de fixture du pays.
  */
-import { randomUUID } from 'node:crypto';
-import type pg from 'pg';
 import { describe, expect, it } from 'vitest';
 import { withRole, withTestTransaction } from '../../src/testing/index.ts';
 import { setActor } from '../support/audit.ts';
 import { COUNTRIES } from '../support/avl.ts';
 import type { CountryCase } from '../support/avl.ts';
-import { goLive, newHash } from '../support/golive.ts';
+import { goLive, newHash, openSwitchWindow } from '../support/golive.ts';
+import type { StaffActor } from '../support/golive.ts';
+import { staff as rlsStaff, staffSessionHash } from '../support/rls.ts';
+import { uniqueSerial } from '../support/unique.ts';
 import { openSession } from '../support/iam.ts';
 import {
   applySignedStatus,
@@ -39,213 +40,34 @@ import {
 } from '../support/pay.ts';
 import type { Legs } from '../support/pay.ts';
 import { golden } from '../support/settlement.ts';
-import { createStaff } from '../support/staff.ts';
+import {
+  BEFORE_END,
+  coveredDamage,
+  DAY_MS,
+  DECIDE,
+  decide,
+  DESCRIPTION,
+  DUE,
+  elevated,
+  END,
+  EXECUTE,
+  FACTS,
+  HOUR,
+  INSURER_DUE,
+  INSURER_SENT,
+  RECORD,
+  VIEW,
+  amountsOf,
+  audits,
+  claimCase,
+  plusMs,
+  record,
+  staff,
+  uuid,
+  world,
+} from '../support/claims.ts';
+import type { Row, Tx } from '../support/claims.ts';
 import { legVector } from '@rueda/money/golden-vectors';
-
-type Tx = pg.ClientBase;
-type Row = Record<string, unknown>;
-const uuid = (): string => randomUUID();
-const HOUR = 3_600_000;
-const plusMs = (iso: string, ms: number): string => new Date(Date.parse(iso) + ms).toISOString();
-
-/** Fin prévue du trip à 10:00 (heure de la base, 19 US-309 critère 1). */
-const START = '2035-06-07T10:00:00.000Z';
-const END = '2035-06-10T10:00:00.000Z';
-const BEFORE_END = plusMs(END, -HOUR);
-
-/**
- * Saisies de l'ops par devise (unités mineures) : franchise acceptée au contrat, coût de réparation
- * constaté, réparation imputée (HOST), frais de traitement (PLATFORM) et sa taxe, franchise de
- * l'hôte, parking de récupération. PYG sans décimale.
- */
-const AMOUNTS: Readonly<Record<string, Readonly<Record<string, bigint>>>> = {
-  USD: {
-    cap: 50000n,
-    repair: 120000n,
-    host: 40000n,
-    fee: 5000n,
-    feeTax: 350n,
-    deductible: 25000n,
-    parking: 1500n,
-    rent: 30000n,
-  },
-  PYG: {
-    cap: 3500000n,
-    repair: 8000000n,
-    host: 3000000n,
-    fee: 300000n,
-    feeTax: 30000n,
-    deductible: 1750000n,
-    parking: 100000n,
-    rent: 2000000n,
-  },
-};
-const amountsOf = (c: CountryCase): Readonly<Record<string, bigint>> => AMOUNTS[c.currency] ?? {};
-
-const RECORD = `SELECT outcome, claim_id::text AS claim_id, body
-  FROM core.support_staff_record_claim($1, $2::uuid, $3::uuid, $4::uuid, $5, $6, $7)`;
-const VIEW = 'SELECT outcome, body FROM core.support_staff_claim($1, $2::uuid, $3::uuid)';
-const DECIDE = `SELECT outcome, decision_id::text AS decision_id, body
-  FROM core.support_staff_issue_decision($1, $2::uuid, $3::uuid, $4::jsonb, $5)`;
-const EXECUTE = 'SELECT outcome, code FROM core.claim_cmd_execute_decision($1::uuid, $2::uuid)';
-const DUE = 'SELECT decision_id::text AS id FROM core.claim_decisions_due($1)';
-const INSURER_DUE =
-  'SELECT declaration_id::text AS id FROM core.claim_insurer_declarations_due($1)';
-const INSURER_SENT = 'SELECT core.claim_cmd_record_insurer_declaration($1::uuid, $2) AS r';
-const DESCRIPTION = 'Rayure profonde sur la portière avant gauche constatée au retour';
-const FACTS =
-  'Photos de départ sans dommage, photos de retour avec rayure ; devis du garage joint au dossier.';
-
-interface Staff {
-  readonly id: string;
-}
-
-interface World {
-  readonly trip: string;
-  readonly guest: string;
-  readonly holder: string;
-}
-
-interface WorldOptions {
-  /** Fin effective (transition RETURNED) ; `null` : trip encore en cours. */
-  readonly returnedAt?: string | null;
-  readonly checkin?: boolean;
-  readonly checkout?: boolean;
-  /** Franchise du voyageur au contrat signé (texte d'un entier) ; `null` : aucun contrat. */
-  readonly cap?: string | null;
-  readonly rent?: boolean;
-  /** Voyageur imposé (séparation des tâches : un membre du staff voyageur du trip). */
-  readonly guest?: string;
-}
-
-/** Trip (9300) terminé, séries de photos, contrat signé, loyer encaissé par carte. */
-async function world(tx: Tx, c: CountryCase, o: WorldOptions = {}): Promise<World> {
-  const trip = uuid();
-  const guest = o.guest ?? uuid();
-  await tx.query(`SELECT test_fixture.rls_insert_trip($1, $2, $3, $4, $5, $6, $7, $8, $9)`, [
-    trip,
-    guest,
-    uuid(),
-    uuid(),
-    c.country,
-    c.currency,
-    c.timezone,
-    START,
-    END,
-  ]);
-  const returnedAt = o.returnedAt === undefined ? END : o.returnedAt;
-  if (returnedAt === null) {
-    await tx.query('SELECT test_fixture.us309_set_status($1, $2)', [trip, 'IN_PROGRESS']);
-  } else {
-    await tx.query(`SELECT pg_catalog.set_config('app.virtual_now', $1, true)`, [returnedAt]);
-    await tx.query('SELECT test_fixture.us309_returned($1)', [trip]);
-  }
-  if (o.checkin !== false)
-    await tx.query('SELECT test_fixture.us309_inspection($1, $2)', [trip, 'CHECKIN']);
-  if (o.checkout !== false)
-    await tx.query('SELECT test_fixture.us309_inspection($1, $2)', [trip, 'CHECKOUT']);
-  const cap = o.cap === undefined ? amountsOf(c)['cap']!.toString() : o.cap;
-  if (cap !== null) await tx.query('SELECT test_fixture.us309_contract($1, $2, true)', [trip, cap]);
-  if (o.rent !== false) {
-    await tx.query('SELECT test_fixture.us309_card_rent($1, $2)', [
-      trip,
-      amountsOf(c)['rent']!.toString(),
-    ]);
-  }
-  const holder = (
-    await tx.query<{ h: string }>('SELECT test_fixture.us309_holder($1)::text AS h', [trip])
-  ).rows[0]!.h;
-  return { trip, guest, holder };
-}
-
-async function staff(tx: Tx, role: string, countries: readonly string[]): Promise<Staff> {
-  return { id: (await createStaff(tx, role, countries, { withFactor: false })).userId };
-}
-
-/** Session élevée (9650) à l'heure de la transaction ; contexte STAFF de la personne. */
-async function elevated(tx: Tx, who: Staff): Promise<Buffer> {
-  const hash = newHash();
-  await tx.query('SELECT test_fixture.iam_open_elevated_session($1, $2)', [who.id, hash]);
-  await setActor(tx, { kind: 'STAFF', actorId: who.id });
-  return hash;
-}
-
-async function claimCase(
-  tx: Tx,
-  c: CountryCase,
-  trip: string,
-  assignee: string | null,
-  category = 'CLAIM',
-  status = 'OPEN',
-): Promise<string> {
-  const id = uuid();
-  await tx.query('SELECT test_fixture.rls_insert_support_case($1, $2, $3, $4, $5, $6, NULL)', [
-    id,
-    c.country,
-    trip,
-    assignee,
-    status,
-    category,
-  ]);
-  return id;
-}
-
-async function record(
-  tx: Tx,
-  hash: Buffer,
-  trip: string,
-  caseId: string,
-  declaredBy = 'HOST',
-  kind = 'DAMAGE',
-  requestId = uuid(),
-): Promise<Row> {
-  return (
-    await tx.query<Row>(RECORD, [hash, requestId, trip, caseId, declaredBy, kind, DESCRIPTION])
-  ).rows[0]!;
-}
-
-async function decide(
-  tx: Tx,
-  hash: Buffer,
-  claim: string,
-  input: Row,
-  preview = false,
-  requestId = uuid(),
-): Promise<Row> {
-  return (await tx.query<Row>(DECIDE, [hash, requestId, claim, JSON.stringify(input), preview]))
-    .rows[0]!;
-}
-
-async function audits(tx: Tx, actor: string): Promise<Row[]> {
-  return (
-    await tx.query<Row>(
-      `SELECT action_code, after ->> 'reason' AS reason, after ->> 'code' AS code,
-              after ->> 'guard' AS guard
-         FROM test_fixture.audit_rows_of_actor($1)`,
-      [actor],
-    )
-  ).rows;
-}
-
-/** Dommage couvert : franchise du voyageur (réparation + frais + taxe), franchise de l'hôte. */
-function coveredDamage(c: CountryCase, extra: Row = {}): Row {
-  const a = amountsOf(c);
-  const total = a['host']! + a['fee']! + a['feeTax']!;
-  return {
-    outcome: 'GUEST_LIABLE',
-    covered: true,
-    repairCostMinor: a['repair']!.toString(),
-    amountMinor: total.toString(),
-    lines: [
-      { category: 'REPAIR', amountMinor: a['host']!.toString() },
-      { category: 'PROCESSING_FEE', amountMinor: a['fee']!.toString() },
-      { category: 'PROCESSING_FEE_TAX', amountMinor: a['feeTax']!.toString() },
-    ],
-    hostDeductibleMinor: a['deductible']!.toString(),
-    facts: FACTS,
-    ...extra,
-  };
-}
 
 describe.each(COUNTRIES)(
   'US-309 — dommages et décisions ($country, $currency)',
@@ -545,16 +367,42 @@ describe.each(COUNTRIES)(
         withTestTransaction(api, { virtualNow: BEFORE_END, commit: true }, async (tx) => {
           const ops = await staff(tx, 'OPS_AGENT', [c.country]);
           const admin = await staff(tx, 'ADMIN', [c.country]);
-          const w = await world(tx, c);
+          const w = await world(tx, c, { deposit: true });
           const noCard = await world(tx, c, { rent: false });
+          const agreed = await world(tx, c);
           const k = await claimCase(tx, c, w.trip, ops.id);
           const kNoCard = await claimCase(tx, c, noCard.trip, ops.id);
+          const kAgreed = await claimCase(tx, c, agreed.trip, ops.id);
+          // pièce du voyageur reçue AVANT la déclaration : jamais un accord postérieur au constat
+          const early = (
+            await tx.query<{ id: string }>(
+              'SELECT test_fixture.us309_evidence_file($1)::text AS id',
+              [agreed.guest],
+            )
+          ).rows[0]!.id;
           await tx.query(`SELECT pg_catalog.set_config('app.virtual_now', $1, true)`, [
             plusMs(END, HOUR),
           ]);
           let hash = await elevated(tx, ops);
           const claim = String((await record(tx, hash, w.trip, k))['claim_id']);
           const claimNoCard = String((await record(tx, hash, noCard.trip, kNoCard))['claim_id']);
+          const claimAgreed = String((await record(tx, hash, agreed.trip, kAgreed))['claim_id']);
+          // pièces reçues APRÈS la déclaration : du voyageur (valide), de l'hôte (refusée)
+          await tx.query(`SELECT pg_catalog.set_config('app.virtual_now', $1, true)`, [
+            plusMs(END, 2 * HOUR),
+          ]);
+          const signed = (
+            await tx.query<{ id: string }>(
+              'SELECT test_fixture.us309_evidence_file($1)::text AS id',
+              [agreed.guest],
+            )
+          ).rows[0]!.id;
+          const hostFile = (
+            await tx.query<{ id: string }>(
+              'SELECT test_fixture.us309_evidence_file($1)::text AS id',
+              [agreed.holder],
+            )
+          ).rows[0]!.id;
           hash = await elevated(tx, admin);
           const requestId = uuid();
           const decided = await decide(tx, hash, claim, coveredDamage(c), false, requestId);
@@ -566,10 +414,52 @@ describe.each(COUNTRIES)(
           });
           const blocked = await decide(tx, hash, claimNoCard, coveredDamage(c));
           expect(blocked['outcome']).toBe('DECIDED');
+
+          // revue argent n° 1 : le plafond vaut pour le TRIP — seconde déclaration (incident du
+          // voyageur) : au-delà du reste de la franchise refusé, dans le reste accepté
+          const first = a['host']! + a['fee']! + a['feeTax']!;
+          const rest = a['cap']! - first;
+          hash = await elevated(tx, ops);
+          const second = String(
+            (await record(tx, hash, w.trip, k, 'GUEST', 'INCIDENT'))['claim_id'],
+          );
+          hash = await elevated(tx, admin);
+          const lineOf = (n: bigint) => ({
+            ...coveredDamage(c),
+            amountMinor: n.toString(),
+            lines: [{ category: 'REPAIR', amountMinor: n.toString() }],
+            hostDeductibleMinor: '0',
+          });
+          expect((await decide(tx, hash, second, lineOf(rest + 1n), true))['outcome']).toBe(
+            'DAMAGE_ABOVE_ACCEPTED_AMOUNT',
+          );
+          const preview = await decide(tx, hash, second, lineOf(rest), true);
+          expect(preview['outcome']).toBe('PREVIEW');
+          expect((preview['body'] as Row)['alreadyChargedMinor']).toBe(first.toString());
+
+          // revues argent n° 4 / sécurité n° 6 : accord écrit = pièce du voyageur de ce trip,
+          // reçue après la déclaration ; tout autre identifiant : même refus
+          for (const bad of [early, hostFile, uuid()]) {
+            expect(
+              (
+                await decide(tx, hash, claimAgreed, coveredDamage(c, { guestAgreementFileId: bad }))
+              )['outcome'],
+            ).toBe('AGREEMENT_FILE_INVALID');
+          }
+          const withAgreement = await decide(
+            tx,
+            hash,
+            claimAgreed,
+            coveredDamage(c, { guestAgreementFileId: signed }),
+          );
+          expect(withAgreement['outcome']).toBe('DECIDED');
           return {
             trip: w.trip,
+            rent: w.rent,
+            deposit: w.deposit,
             decision: String(decided['decision_id']),
             blocked: String(blocked['decision_id']),
+            agreed: String(withAgreement['decision_id']),
           };
         }),
       );
@@ -580,8 +470,13 @@ describe.each(COUNTRIES)(
           { worker: 'payment_command', virtualNow: plusMs(END, 2 * HOUR) },
           async (tx) => {
             expect(await goLive(tx, 'insurer_contract_active', c.country)).toBe(false);
-            const due = (await tx.query<{ id: string }>(DUE, [100])).rows.map((r) => r.id);
-            expect(due).toEqual(expect.arrayContaining([ids.decision, ids.blocked]));
+            // revue qa n° 4 : les décisions du test lui-même, sans dépendre d'une file globale
+            for (const id of [ids.decision, ids.blocked, ids.agreed]) {
+              expect(
+                (await tx.query<Row>('SELECT * FROM test_fixture.us309_decision_check($1)', [id]))
+                  .rows[0],
+              ).toMatchObject({ execution_status: 'PENDING', execution_code: null });
+            }
             const chargeId = uuid();
             expect((await tx.query<Row>(EXECUTE, [ids.decision, chargeId])).rows[0]).toEqual({
               outcome: 'DONE',
@@ -606,16 +501,32 @@ describe.each(COUNTRIES)(
               leg_platform_minor: a['fee']!.toString(),
               guest_agreed: false,
               status: 'NOTIFIED',
+              tender_operation_id: ids.rent,
             });
-            // la caution n'est jamais utilisée pour un dommage (REQ-PAY-DMG-02, RT-L3-M04)
+            // la caution n'est jamais utilisée pour un dommage (REQ-PAY-DMG-02, RT-L3-M04 ; revue
+            // qa n° 1) : l'autorisation existante reste seule, intacte, ni capturée, ni annulée
             expect(
               (
-                await tx.query<{ n: number }>(
-                  'SELECT test_fixture.us309_deposit_operations($1) AS n',
-                  [ids.trip],
-                )
-              ).rows[0]!.n,
-            ).toBe(0);
+                await tx.query<Row>('SELECT * FROM test_fixture.us309_deposit_state($1)', [
+                  ids.trip,
+                ])
+              ).rows,
+            ).toEqual([
+              {
+                id: ids.deposit,
+                kind: 'DEPOSIT_AUTH',
+                status: 'SUCCEEDED',
+                amount_minor: a['cap']!.toString(),
+              },
+            ]);
+            // accord écrit rattaché : débit marqué « accord du voyageur » (barrière Mastercard / Amex)
+            expect((await tx.query<Row>(EXECUTE, [ids.agreed, uuid()])).rows[0]!['outcome']).toBe(
+              'DONE',
+            );
+            expect(
+              (await tx.query<Row>('SELECT * FROM test_fixture.us309_charges($1)', [ids.agreed]))
+                .rows[0],
+            ).toMatchObject({ guest_agreed: true });
             // franchise de l'hôte : débit du host_ledger, jamais une jambe ni un débit du voyageur
             expect(
               (await tx.query<Row>('SELECT * FROM test_fixture.us309_ledger($1)', [ids.decision]))
@@ -779,19 +690,222 @@ describe.each(COUNTRIES)(
       );
     });
 
+    it('report (revue qa n° 5) : claim_cmd_defer_decision repousse une décision PENDING de 15 min avec son code (file : plus due), NOT_DUE hors PENDING, code mal formé refusé, autre travailleur refusé ; file lue sur la décision du test seulement', async () => {
+      // instant propre à ce test, loin de toute autre décision (aucune dépendance à la file globale)
+      const at = new Date(
+        Date.UTC(2001, 0, 1) + Math.floor(Math.random() * 1e9) * 1000,
+      ).toISOString();
+      await withRole('app_worker', (client) =>
+        payTx(client, { worker: 'payment_command', virtualNow: at }, async (tx) => {
+          const trip = await insertTrip(tx, c);
+          const caseId = await claimCase(tx, c, trip, null, 'TRIP');
+          const claim = (
+            await tx.query<{ id: string }>(
+              'SELECT test_fixture.us309_insert_claim($1, $2)::text AS id',
+              [trip, caseId],
+            )
+          ).rows[0]!.id;
+          const decision = (
+            await tx.query<{ id: string }>(
+              'SELECT test_fixture.us309_insert_decision($1, $2)::text AS id',
+              [claim, 'PENDING'],
+            )
+          ).rows[0]!.id;
+          const dueNow = async (): Promise<boolean> =>
+            (
+              await tx.query<{ id: string }>(
+                `SELECT decision_id::text AS id FROM core.claim_decisions_due(100)
+                  WHERE decision_id = $1`,
+                [decision],
+              )
+            ).rows.length === 1;
+          expect(await dueNow()).toBe(true);
+          await tx.query('SAVEPOINT bad');
+          await expect(
+            tx.query('SELECT core.claim_cmd_defer_decision($1, $2)', [decision, 'bad code']),
+          ).rejects.toMatchObject({ code: '22023' });
+          await tx.query('ROLLBACK TO SAVEPOINT bad');
+          expect(
+            (
+              await tx.query<{ r: string }>('SELECT core.claim_cmd_defer_decision($1, $2) AS r', [
+                decision,
+                'EXECUTION_FAILED',
+              ])
+            ).rows[0]!.r,
+          ).toBe('DEFERRED');
+          const check = (
+            await tx.query<Row>(
+              `SELECT execution_status, execution_code, (next_check_at - $2::timestamptz)::text AS gap
+                 FROM test_fixture.us309_decision_check($1)`,
+              [decision, at],
+            )
+          ).rows[0];
+          expect(check).toEqual({
+            execution_status: 'PENDING',
+            execution_code: 'EXECUTION_FAILED',
+            gap: '00:15:00',
+          });
+          expect(await dueNow()).toBe(false);
+          // décision exécutée : rien à reporter
+          const done = (
+            await tx.query<{ id: string }>(
+              'SELECT test_fixture.us309_insert_decision($1, $2)::text AS id',
+              [
+                (
+                  await tx.query<{ id: string }>(
+                    'SELECT test_fixture.us309_insert_claim($1, $2)::text AS id',
+                    [await insertTrip(tx, c), caseId],
+                  )
+                ).rows[0]!.id,
+                'DONE',
+              ],
+            )
+          ).rows[0]!.id;
+          expect(
+            (
+              await tx.query<{ r: string }>('SELECT core.claim_cmd_defer_decision($1, $2) AS r', [
+                done,
+                'EXECUTION_FAILED',
+              ])
+            ).rows[0]!.r,
+          ).toBe('NOT_DUE');
+          // autre travailleur : refus
+          await tx.query('SAVEPOINT other');
+          await setActor(tx, { kind: 'WORKER', worker: 'payout_scheduler' });
+          await expect(
+            tx.query('SELECT core.claim_cmd_defer_decision($1, $2)', [decision, 'X_CODE']),
+          ).rejects.toMatchObject({ code: '42501' });
+          await tx.query('ROLLBACK TO SAVEPOINT other');
+        }),
+      );
+    });
+
+    it('assureur (revue qa n° 3) : interrupteur ouvert par la procédure à deux personnes dans une fenêtre lointaine refermée ⇒ déclaration due, référence reportée (SENT), rejeu ALREADY_SENT ; hors fenêtre ⇒ INSURER_CONTRACT_INACTIVE ; données du test annulées', async () => {
+      const window = await withRole('app_api', async (api) => {
+        const made = await withTestTransaction(api, { commit: true }, async (tx) => {
+          const admin = await rlsStaff(tx, 'ADMIN', [c.country]);
+          const superadmin = await rlsStaff(tx, 'SUPERADMIN', [c.country]);
+          return [admin, superadmin].map((id) => ({
+            userId: id,
+            hash: Buffer.from(staffSessionHash(id) ?? '', 'hex'),
+            scope: [c.country],
+          }));
+        });
+        const [requester, approver] = made as unknown as [StaffActor, StaffActor];
+        const n = await uniqueSerial(api);
+        // années 3100 et suivantes : au-delà des fenêtres des autres preuves (2500 à 3000)
+        const from = Date.UTC(3100, 0, 1) + Number(n) * 14 * DAY_MS;
+        const w = { from, to: from + 2 * DAY_MS };
+        await openSwitchWindow(
+          api,
+          requester,
+          approver,
+          'insurer_contract_active',
+          c.country,
+          new Date(w.from).toISOString(),
+          new Date(w.to).toISOString(),
+        );
+        return w;
+      });
+      const declarationOf = async (tx: Tx): Promise<string> => {
+        const trip = await insertTrip(tx, c);
+        const caseId = await claimCase(tx, c, trip, null, 'TRIP');
+        const claim = (
+          await tx.query<{ id: string }>(
+            'SELECT test_fixture.us309_insert_claim($1, $2)::text AS id',
+            [trip, caseId],
+          )
+        ).rows[0]!.id;
+        return (
+          await tx.query<{ id: string }>(
+            'SELECT test_fixture.us309_insert_declaration($1)::text AS id',
+            [claim],
+          )
+        ).rows[0]!.id;
+      };
+      await withRole('app_worker', async (client) => {
+        // dans la fenêtre : due, envoyée, rejouée ; transaction ANNULÉE
+        await payTx(
+          client,
+          { worker: 'payment_command', virtualNow: new Date(window.from + 60_000).toISOString() },
+          async (tx) => {
+            expect(await goLive(tx, 'insurer_contract_active', c.country)).toBe(true);
+            const id = await declarationOf(tx);
+            const due = await tx.query<{ id: string }>(
+              `SELECT declaration_id::text AS id FROM core.claim_insurer_declarations_due(100)
+                WHERE declaration_id = $1`,
+              [id],
+            );
+            expect(due.rows).toHaveLength(1);
+            expect(
+              (await tx.query<{ r: string }>(INSURER_SENT, [id, 'fake-insurer:000001'])).rows[0]!.r,
+            ).toBe('SENT');
+            expect(
+              (await tx.query<Row>('SELECT * FROM test_fixture.us309_declaration_by_id($1)', [id]))
+                .rows[0],
+            ).toMatchObject({ status: 'SENT', provider_ref: 'fake-insurer:000001' });
+            expect(
+              (await tx.query<{ r: string }>(INSURER_SENT, [id, 'fake-insurer:000002'])).rows[0]!.r,
+            ).toBe('ALREADY_SENT');
+          },
+        );
+        // après la fenêtre (refermée) : jamais envoyée
+        await payTx(
+          client,
+          { worker: 'payment_command', virtualNow: new Date(window.to + 60_000).toISOString() },
+          async (tx) => {
+            expect(await goLive(tx, 'insurer_contract_active', c.country)).toBe(false);
+            const id = await declarationOf(tx);
+            expect(
+              (await tx.query<{ r: string }>(INSURER_SENT, [id, 'fake-insurer:000003'])).rows[0]!.r,
+            ).toBe('INSURER_CONTRACT_INACTIVE');
+          },
+        );
+      });
+    }, 120_000);
+
     it('RLS : aucun rôle applicatif ne lit ni n’écrit les tables ; commandes du travailleur réservées à payment_command ; portes du staff fermées aux travailleurs ; commandes internes sans EXECUTE', async () => {
       await withRole('app_api', async (client) => {
         const { rows } = await client.query<Row>(
-          `SELECT c.relname AS t, c.relrowsecurity AS rls, c.relforcerowsecurity AS force
+          `SELECT c.relname AS t, c.relrowsecurity AS rls, c.relforcerowsecurity AS force,
+                pg_catalog.pg_get_userbyid(c.relowner) AS owner,
+                pg_catalog.array_to_string(ARRAY(
+                  SELECT p.polname || ':' || p.polcmd || ':' || pg_catalog.array_to_string(ARRAY(
+                           SELECT pg_catalog.pg_get_userbyid(r)
+                             FROM pg_catalog.unnest(p.polroles) AS r ORDER BY 1), ',')
+                    FROM pg_catalog.pg_policy p WHERE p.polrelid = c.oid ORDER BY 1), ';') AS pols
            FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
           WHERE n.nspname = 'core' AND c.relname IN ('claim_damage_claim', 'claim_decision',
                                                      'claim_insurer_declaration')
           ORDER BY 1`,
         );
+        // revue sécurité n° 8 : propriétaire, migrator_all et liste EXACTE des politiques ; aucune
+        // pour un rôle applicatif
+        const money =
+          'cmd_money_claim_ins:a:cmd_money_owner;cmd_money_claim_sel:r:cmd_money_owner;' +
+          'cmd_money_claim_upd:w:cmd_money_owner';
         expect(rows).toEqual([
-          { t: 'claim_damage_claim', rls: true, force: true },
-          { t: 'claim_decision', rls: true, force: true },
-          { t: 'claim_insurer_declaration', rls: true, force: true },
+          {
+            t: 'claim_damage_claim',
+            rls: true,
+            force: true,
+            owner: 'migrator',
+            pols: `${money};iam_staff_claim_sel:r:iam_staff_owner;migrator_all:*:migrator`,
+          },
+          {
+            t: 'claim_decision',
+            rls: true,
+            force: true,
+            owner: 'migrator',
+            pols: `${money};migrator_all:*:migrator`,
+          },
+          {
+            t: 'claim_insurer_declaration',
+            rls: true,
+            force: true,
+            owner: 'migrator',
+            pols: `${money};migrator_all:*:migrator`,
+          },
         ]);
       });
       for (const role of ['app_api', 'app_worker', 'app_anon'] as const) {

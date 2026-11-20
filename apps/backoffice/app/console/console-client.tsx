@@ -19,7 +19,7 @@ import type {
   MeBody,
 } from './api.ts';
 import { CANCEL_ACTION, CANCEL_REFUSAL_KEYS, draftProblem } from './cancel-view.tsx';
-import { recordProblem } from './claim-view.tsx';
+import { recordProblem, withoutPreview } from './claim-view.tsx';
 import type { ClaimPreviewView, ClaimsHandlers, ClaimsState, ClaimView } from './claim-view.tsx';
 import type { CancelHandlers, CancelState, CancellationView } from './cancel-view.tsx';
 import type { RefundsHandlers, RefundsState, TripRefundsView } from './refund-view.tsx';
@@ -107,6 +107,14 @@ export function ConsoleClient({ localeTag }: { readonly localeTag: string }) {
   const [refunds, setRefunds] = useState<RefundsState>({ step: 'form' });
   // US-309 : déclaration ouverte, aperçu du gabarit pour la saisie courante
   const [claims, setClaims] = useState<ClaimsState>({ claim: null, preview: null });
+  // identifiant de la déclaration en cours d'envoi ; titre à focaliser après un changement d'écran
+  const claimIntent = useRef<{ key: string; id: string } | null>(null);
+  const claimFocus = useRef<string | null>(null);
+  useEffect(() => {
+    if (claimFocus.current === null) return;
+    document.getElementById(claimFocus.current)?.focus();
+    claimFocus.current = null;
+  }, [claims]);
   const cancelStep = useRef<CancelState['step']>('form');
   useEffect(() => {
     // focus sur le titre du panneau à chaque changement d'étape (clavier, lecteur d'écran)
@@ -488,21 +496,34 @@ export function ConsoleClient({ localeTag }: { readonly localeTag: string }) {
 
   // US-309 : déclarations et décisions ; la base juge chaque droit, délai, preuve et montant
   const claimsHandlers: ClaimsHandlers = {
+    onDecisionEdit: () => {
+      if (claims.preview !== null) setClaims(withoutPreview);
+    },
     onClaimRecord: (draft) => {
       const problem = recordProblem(draft);
       if (problem !== null) {
         setClaims({ claim: null, preview: null, notice: { tone: 'danger', key: problem } });
         return;
       }
+      // revue code n° 7 : même saisie renvoyée (réponse perdue) ⇒ même identifiant, rejeu exact
+      const key = JSON.stringify(draft);
+      if (claimIntent.current?.key !== key) {
+        claimIntent.current = { key, id: crypto.randomUUID() };
+      }
+      const requestId = claimIntent.current.id;
       once(async () => {
         const r = await call<{ claim: ClaimView }>('POST', '/console/claims', {
-          requestId: crypto.randomUUID(),
+          requestId,
           tripId: draft.tripId,
           caseId: draft.caseId,
           declaredBy: draft.declaredBy,
           kind: draft.kind,
           description: draft.description.trim(),
         });
+        if (r.ok) {
+          claimIntent.current = null;
+          claimFocus.current = 'claims-detail-heading';
+        }
         setClaims(
           r.ok
             ? {
@@ -559,14 +580,18 @@ export function ConsoleClient({ localeTag }: { readonly localeTag: string }) {
         );
         setClaims((prev) =>
           r.ok
-            ? { ...prev, preview: { draft, view: r.body.preview }, notice: undefined }
+            ? {
+                ...prev,
+                preview: { draft, view: r.body.preview, requestId: crypto.randomUUID() },
+                notice: undefined,
+              }
             : {
                 ...prev,
                 preview: null,
                 notice: { tone: r.status === 0 ? 'danger' : 'warning', key: r.messageKey },
               },
         );
-        document.getElementById('claims-template-heading')?.focus();
+        if (r.ok) claimFocus.current = 'claims-template-heading';
       });
     },
     onDecisionIssue: () => {
@@ -577,8 +602,9 @@ export function ConsoleClient({ localeTag }: { readonly localeTag: string }) {
         const r = await call<{ claim: ClaimView }>(
           'POST',
           `/console/claims/${claim.claimId}/decision`,
-          { requestId: crypto.randomUUID(), ...preview.draft },
+          { requestId: preview.requestId, ...preview.draft },
         );
+        if (r.ok) claimFocus.current = 'claims-decided-heading';
         setClaims((prev) =>
           r.ok
             ? {
