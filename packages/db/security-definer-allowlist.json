@@ -2461,6 +2461,55 @@
       "story": "US-316"
     },
     {
+      "signature": "core.settlement_refresh_host_ledger_state(uuid,text)",
+      "family": "cmd_money",
+      "owner": "cmd_money_owner",
+      "execute": [],
+      "story": "US-709"
+    },
+    {
+      "signature": "core.settlement_release_chargeback_freeze(uuid)",
+      "family": "cmd_money",
+      "owner": "cmd_money_owner",
+      "execute": [],
+      "story": "US-709"
+    },
+    {
+      "signature": "core.settlement_cmd_impute_chargeback(uuid)",
+      "family": "cmd_money",
+      "owner": "cmd_money_owner",
+      "execute": [],
+      "story": "US-709"
+    },
+    {
+      "signature": "core.payout_cmd_adjustment(uuid)",
+      "family": "cmd_money",
+      "owner": "cmd_money_owner",
+      "execute": ["app_worker"],
+      "story": "US-709"
+    },
+    {
+      "signature": "core.payout_cmd_record_adjustment(uuid,text,text)",
+      "family": "cmd_money",
+      "owner": "cmd_money_owner",
+      "execute": ["app_worker"],
+      "story": "US-709"
+    },
+    {
+      "signature": "core.settlement_host_ledger_state_projected()",
+      "family": "cmd_money",
+      "owner": "cmd_money_owner",
+      "execute": [],
+      "story": "US-709"
+    },
+    {
+      "signature": "core.settlement_advance_ledger_projected()",
+      "family": "cmd_money",
+      "owner": "cmd_money_owner",
+      "execute": [],
+      "story": "US-709"
+    },
+    {
       "signature": "core.trip_overdue_due(integer)",
       "family": "cmd_hold",
       "owner": "cmd_hold_owner",

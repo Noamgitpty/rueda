@@ -1,0 +1,1 @@
+exemption: US-047 — tests d'intégration seuls : comptages du rapprochement limités aux trips du test et comparaisons globales sur un seul instantané (REPEATABLE READ), aucun comportement livré ne change

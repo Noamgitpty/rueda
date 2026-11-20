@@ -2174,7 +2174,71 @@
         "reason": "C1",
         "amount_minor": "C1",
         "created_at": "C1",
-        "advance_id": "C1"
+        "advance_id": "C1",
+        "chargeback_operation_id": "C1",
+        "payout_batch_id": "C1",
+        "write_off_approval_id": "C1"
+      }
+    },
+    "core.settlement_host_ledger_state": {
+      "lifecycle": "B",
+      "subjects": [
+        {
+          "column": "org_id",
+          "type": "ORG"
+        }
+      ],
+      "export": "controller",
+      "columns": {
+        "org_id": "C1",
+        "currency": "C1",
+        "country_code": "C1",
+        "state": "C1",
+        "balance_minor": "C1",
+        "open_advances_minor": "C1",
+        "since": "C1",
+        "next_action_at": "C1",
+        "updated_at": "C1",
+        "row_version": "C1"
+      }
+    },
+    "core.settlement_chargeback_imputation": {
+      "lifecycle": "A",
+      "subjects": [
+        {
+          "column": "org_id",
+          "type": "ORG"
+        }
+      ],
+      "export": "controller",
+      "columns": {
+        "operation_id": "C1",
+        "trip_id": "C1",
+        "segment_no": "C1",
+        "org_id": "C1",
+        "country_code": "C1",
+        "currency": "C1",
+        "settlement_id": "C1",
+        "settlement_version": "C1",
+        "earnings_kind": "C1",
+        "lost_trip_minor": "C1",
+        "collected_before_minor": "C1",
+        "refund_committed_minor": "C1",
+        "owed_minor": "C1",
+        "host_from_guest_minor": "C1",
+        "host_paid_minor": "C1",
+        "retained_before_minor": "C1",
+        "retained_after_minor": "C1",
+        "host_payable_after_minor": "C1",
+        "clawback_minor": "C1",
+        "host_unpaid_cancelled_minor": "C1",
+        "guest_receivable_minor": "C1",
+        "loss_expense_minor": "C1",
+        "host_leg_minor": "C1",
+        "insurer_leg_minor": "C1",
+        "tax_third_party_leg_minor": "C1",
+        "platform_leg_minor": "C1",
+        "imputed_at": "C1"
       }
     },
     "core.settlement_insurer_ledger_entry": {
@@ -2880,7 +2944,10 @@
         "paid_at": "C1",
         "row_version": "C1",
         "created_at": "C1",
-        "updated_at": "C1"
+        "updated_at": "C1",
+        "adjustment_status": "C1",
+        "adjustment_key": "C1",
+        "adjustment_provider_ref": "C1"
       }
     },
     "core.payout_payout_item": {

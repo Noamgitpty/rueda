@@ -24,6 +24,12 @@ PYO ne calcule pas la part de l'hôte (c'est STL) et ne déplace aucun fonds lui
 - **Arrêt d'urgence et files** : un lot déjà émis rejoué relit ses motifs ; un motif (interrupteur refermé après l'émission…) ⇒ lecture seule, jamais un envoi. Un trip non préparable est différé (`core.payout_prepare_deferral`), un lot retenu relu à `next_check_at` : aucun retenu ne bloque la file.
 - **Production** : aucun connecteur PSP avant le lot C et `payouts_enabled` = `false` : les lots sont préparés et restent `ON_HOLD`, rien n'est envoyé.
 
+### Ajustement de la part compensée (US-709, migration 0167, ADR-187)
+
+- **Compensation au grand livre** : quand un lot est compensé, la base écrit sa compensation au `host_ledger` (`PAYOUT_NETTING`) et l'impute aux avances de Kmino ouvertes de l'hôte (créances de la règle 3 bis), les plus anciennes d'abord.
+- **Ajustement avant le versement** : une fois chaque item libéré, `PayoutScheduler` envoie `adjustPayout` de la part compensée (clé `adjust:{lot}:r1`, montant STOCKÉ, motif `HOST_LEDGER_NETTING`), lecture d'abord pour un ajustement déjà envoyé ou sans en-tête d'idempotence ; refus reçu ⇒ jamais renvoyé, revue FIN ; capacité `SUPPORTS_PAYOUT_ADJUSTMENT` inconnue ⇒ aucun appel. La base refuse l'émission d'un lot compensé sans ajustement réussi.
+- **Port** : `PayoutBatchStore.adjustment` / `recordAdjustment` (`core.payout_cmd_adjustment`, `core.payout_cmd_record_adjustment`).
+
 ### Compte de versement de l'hôte (US-707, migrations 0159 et 0160, ADR-180)
 
 - **Au nom de l'hôte, personne physique** : le titulaire déclaré (prénoms, noms) est rapproché en base du nom légal vérifié par le KYC (règle tolérante d'ADR-117) ; la cédula / le RUC du titulaire est comparé par le coffre (port `PayoutAccountVault`) au numéro fiscal chiffré de l'hôte. Discordant ⇒ 422 `PAYOUT_HOLDER_MISMATCH`, rien n'est écrit. Sans numéro fiscal enregistré ⇒ 409 `HOST_TAX_ID_REQUIRED` : au Paraguay, seul le RUC est admis, un hôte sans RUC n'a pas de compte et reste non activable (OQ-P2P-07, OQ-PAY-09, fail-closed).
@@ -58,7 +64,7 @@ Cible (17 §4.5) :
 - `PayoutAccountVault` (`internal/payout-account-vault.port.ts`, US-707) : `sealAccountNumber` (enveloppe v1 de `@rueda/db/audit`, clé du sujet `ORG:<compte d'hôte>`), `matchesTaxId` (comparaison à temps constant de la pièce déclarée au numéro fiscal chiffré de l'hôte). FAKE : `testing/fake-payout-account-vault.ts`. Aucun coffre en production avant l'adaptateur KMS : 503.
 - `PayoutAccountVerifier` (`internal/payout-account-verifier.port.ts`, US-707) : vérification du compte par le PSP (clé `payout-account:{accountId}`) ; issues `VERIFIED`, `REJECTED` (`HOLDER_MISMATCH`, `TAX_ID_MISMATCH`, `ACCOUNT_INVALID`), `UNAVAILABLE`. FAKE : `testing/fake-payout-account-verifier.ts`. Au lot C, l'adaptateur du PSP réel l'implémente avec le port `PaymentProvider` de PAY.
 
-Le versement passe par le port `PaymentProvider` de PAY (`apps/api/src/modules/pay/internal/port.ts` : `releaseLeg`, `payout` depuis US-708 ; `adjustPayout` : US-314 / US-709), par le registre des connecteurs (`PRODUCTION_PAYMENT_CONNECTORS` : aucun avant le lot C). Stockage des lots : `PayoutBatchStore` (`internal/payout-batch-store.ts`), adaptateur `PgPayoutBatchStore`. Son adaptateur FAKE est le PSP simulé de `packages/fake-adapters` (sous-chemin `psp`, US-061). Voir [`packages/fake-adapters/README.md`](../../../../../packages/fake-adapters/README.md).
+Le versement passe par le port `PaymentProvider` de PAY (`apps/api/src/modules/pay/internal/port.ts` : `releaseLeg`, `payout` depuis US-708 ; `adjustPayout` de la part compensée depuis US-709), par le registre des connecteurs (`PRODUCTION_PAYMENT_CONNECTORS` : aucun avant le lot C). Stockage des lots : `PayoutBatchStore` (`internal/payout-batch-store.ts`), adaptateur `PgPayoutBatchStore`. Son adaptateur FAKE est le PSP simulé de `packages/fake-adapters` (sous-chemin `psp`, US-061). Voir [`packages/fake-adapters/README.md`](../../../../../packages/fake-adapters/README.md).
 
 ### Routes (US-707)
 
