@@ -356,9 +356,10 @@
         "cmd_money_owner",
         "iam_staff_owner",
         "kyc_cmd_owner",
-        "messaging_cmd_owner"
+        "messaging_cmd_owner",
+        "review_cmd_owner"
       ],
-      "story": "US-010, US-115, US-105, US-202, US-208, US-525, US-310"
+      "story": "US-010, US-115, US-105, US-202, US-208, US-525, US-310, US-317"
     },
     {
       "signature": "core.iam_staff_audit_read(bytea,bigint,integer)",
@@ -2459,6 +2460,48 @@
       "owner": "privacy_cmd_owner",
       "execute": ["app_worker"],
       "story": "US-316"
+    },
+    {
+      "signature": "core.messaging_mask_text(text)",
+      "family": "messaging_cmd",
+      "owner": "messaging_cmd_owner",
+      "execute": ["review_cmd_owner"],
+      "story": "US-317"
+    },
+    {
+      "signature": "core.review_cmd_submit(bytea,uuid,integer,jsonb,text)",
+      "family": "review_cmd",
+      "owner": "review_cmd_owner",
+      "execute": ["app_api"],
+      "story": "US-317"
+    },
+    {
+      "signature": "core.review_trip_read(bytea,uuid)",
+      "family": "review_cmd",
+      "owner": "review_cmd_owner",
+      "execute": ["app_api"],
+      "story": "US-317"
+    },
+    {
+      "signature": "core.review_my_received(bytea)",
+      "family": "review_cmd",
+      "owner": "review_cmd_owner",
+      "execute": ["app_api"],
+      "story": "US-317"
+    },
+    {
+      "signature": "core.review_listing_host_profile(uuid)",
+      "family": "review_cmd",
+      "owner": "review_cmd_owner",
+      "execute": ["app_api"],
+      "story": "US-317"
+    },
+    {
+      "signature": "core.review_worker_publish_due(integer)",
+      "family": "review_cmd",
+      "owner": "review_cmd_owner",
+      "execute": ["app_worker"],
+      "story": "US-317"
     }
   ]
 }

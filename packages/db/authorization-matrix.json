@@ -3340,6 +3340,19 @@
         "app_anon": []
       }
     },
+    "core.review_submission": {
+      "type": "table",
+      "droits": {
+        "app_api": {},
+        "app_worker": {},
+        "app_anon": {}
+      },
+      "politiques": {
+        "app_api": [],
+        "app_worker": [],
+        "app_anon": []
+      }
+    },
     "core.review_rating_aggregate": {
       "type": "table",
       "droits": {

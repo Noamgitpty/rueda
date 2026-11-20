@@ -86,7 +86,9 @@ const PRICING_TABLES = [
 
 // Avis et agrégats (US-218, 0104) : socle RLS commun ; aucun droit applicatif, commande liée et
 // lecture publique de review_cmd_owner, preuves par test/l0/l0-us218-reviews.test.ts.
-const REVIEW_TABLES = ['review_rating_aggregate', 'review_review'] as const;
+// Scellé des avis donnés dans l'application (US-317, 0170) : même socle ; preuves par
+// test/l0/l0-us317-reviews.test.ts.
+const REVIEW_TABLES = ['review_rating_aggregate', 'review_review', 'review_submission'] as const;
 
 // Dossier de support (US-011, 0024) : socle RLS commun ; lectures app_api vérifiées par les preuves
 // RLS (test/l0/l0-rls-*.test.ts).

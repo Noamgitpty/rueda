@@ -2983,7 +2983,53 @@
         "manual_action_id": "C1",
         "recorded_by": "C1",
         "published_at": "C1",
-        "created_at": "C1"
+        "created_at": "C1",
+        "submission_id": "C1",
+        "body": {
+          "class": "C2",
+          "erasure": "derogation",
+          "justification": "texte libre d'un avis, coordonnées masquées avant l'écriture (BR-REVIEW-07, messaging_mask_contacts), dans un registre immuable (ni UPDATE ni clé de sujet) ; prénom de l'auteur lu à la volée, jamais recopié ; retrait d'un avis par la modération (BR-REVIEW-07) et effacement à la demande de la personne à livrer",
+          "report": "US-536"
+        },
+        "contact_masked": "C1",
+        "punctuality": "C1",
+        "return_condition": "C1",
+        "rules_respect": "C1"
+      }
+    },
+    "core.review_submission": {
+      "lifecycle": "A",
+      "subjects": [
+        {
+          "column": "author_user_id",
+          "type": "USER"
+        }
+      ],
+      "export": "controller",
+      "columns": {
+        "id": "C1",
+        "trip_id": "C1",
+        "country_code": "C1",
+        "author_user_id": "C1",
+        "author_role": "C1",
+        "overall": "C1",
+        "cleanliness": "C1",
+        "communication": "C1",
+        "convenience": "C1",
+        "accuracy": "C1",
+        "maintenance": "C1",
+        "punctuality": "C1",
+        "return_condition": "C1",
+        "rules_respect": "C1",
+        "body": {
+          "class": "C2",
+          "erasure": "derogation",
+          "justification": "texte libre d'un avis, coordonnées masquées avant l'écriture (BR-REVIEW-07, messaging_mask_contacts), dans un registre immuable (ni UPDATE ni clé de sujet) ; prénom de l'auteur lu à la volée, jamais recopié ; retrait d'un avis par la modération (BR-REVIEW-07) et effacement à la demande de la personne à livrer",
+          "report": "US-536"
+        },
+        "contact_masked": "C1",
+        "submitted_at": "C1",
+        "window_closes_at": "C1"
       }
     },
     "core.review_rating_aggregate": {

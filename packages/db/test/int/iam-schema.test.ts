@@ -72,8 +72,9 @@ const IAM_POLICIES: Record<(typeof IAM_TABLES)[number], string> = {
   // US-103 (0088) : changement du nom légal par la seule commande KYC (kyc_cmd_owner)
   // US-211 (0122) : noms légaux et langue des parties lus par le contrat de location (cmd_hold_owner)
   // US-525 (0161) : prénom affiché des parties lu par la messagerie (messaging_cmd_owner)
+  // US-317 (0170) : prénom des auteurs et ancienneté de l'hôte lus par les avis (review_cmd_owner)
   iam_user_account:
-    'cmd_golive_sel:cmd_golive_owner;cmd_hold_contract_read:cmd_hold_owner;cmd_money_sel:cmd_money_owner;cmd_param_sel:cmd_param_owner;host_view_read:host_view_owner;iam_auth_insert:iam_auth_owner;iam_auth_select:iam_auth_owner;iam_auth_update:iam_auth_owner;iam_staff_select:iam_staff_owner;kyc_cmd_name_update:kyc_cmd_owner;kyc_cmd_read:kyc_cmd_owner;messaging_cmd_read:messaging_cmd_owner;migrator_all:migrator;policy_fn_read:policy_fn_owner;risk_link_read:risk_limit_owner;user_account_self_read:app_api',
+    'cmd_golive_sel:cmd_golive_owner;cmd_hold_contract_read:cmd_hold_owner;cmd_money_sel:cmd_money_owner;cmd_param_sel:cmd_param_owner;host_view_read:host_view_owner;iam_auth_insert:iam_auth_owner;iam_auth_select:iam_auth_owner;iam_auth_update:iam_auth_owner;iam_staff_select:iam_staff_owner;kyc_cmd_name_update:kyc_cmd_owner;kyc_cmd_read:kyc_cmd_owner;messaging_cmd_read:messaging_cmd_owner;migrator_all:migrator;policy_fn_read:policy_fn_owner;review_cmd_read:review_cmd_owner;risk_link_read:risk_limit_owner;user_account_self_read:app_api',
 };
 
 // Commandes SECURITY DEFINER core.iam_* et leur propriétaire (US-010 : iam_auth ; US-012 : iam_staff).
