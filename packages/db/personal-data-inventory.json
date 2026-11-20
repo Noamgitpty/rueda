@@ -2871,6 +2871,7 @@
         "net_minor": "C1",
         "hold_reasons": "C1",
         "netted_at": "C1",
+        "next_check_at": "C1",
         "attempt_no": "C1",
         "idempotency_key": "C1",
         "provider_ref": "C1",
@@ -2903,6 +2904,17 @@
         "release_attempt": "C1",
         "release_operation_id": "C1",
         "created_at": "C1",
+        "updated_at": "C1"
+      }
+    },
+    "core.payout_prepare_deferral": {
+      "lifecycle": "T",
+      "export": "none",
+      "columns": {
+        "trip_id": "C1",
+        "outcome": "C1",
+        "attempts": "C1",
+        "next_attempt_at": "C1",
         "updated_at": "C1"
       }
     },

@@ -78,7 +78,8 @@
 --     core.payout_effective_end(uuid), core.payout_release_item_guard(),
 --     core.settlement_release_at_guard(), core.payout_payout_batch_guard(),
 --     core.payout_payout_item_guard() ;
---   DROP TABLE core.payout_payout_item, core.payout_payout_batch ;
+--   DROP FUNCTION core.payout_cmd_defer_trip(uuid, text) ;
+--   DROP TABLE core.payout_prepare_deferral, core.payout_payout_item, core.payout_payout_batch ;
 --   ALTER POLICY cmd_money_sel ON core.config_param_value (liste de 0159) ;
 --   DROP POLICY cmd_money_payout_sel ON core.config_holiday_calendar ;
 --   DROP POLICY cmd_money_payout_log_sel ON core.booking_trip_state_log ;
@@ -122,6 +123,9 @@ CREATE TABLE core.payout_payout_batch (
   hold_reasons      text[]      NOT NULL DEFAULT ARRAY[]::text[],
   -- compensation faite (SCHEDULED → NETTING → READY / ZERO_NET) : le lot ne reçoit plus de trip
   netted_at         timestamptz,
+  -- prochaine relecture d'un lot retenu ou en attente du PSP (la file ne le ramène pas avant) :
+  -- un lot retenu ne bloque jamais les suivants (aucune famine entre pays ou hôtes)
+  next_check_at     timestamptz,
   -- rang du versement (`payout:{lot}:r{n}`), + 1 après un refus reçu seulement
   attempt_no        integer     NOT NULL DEFAULT 0
     CONSTRAINT payout_batch_attempt_valid CHECK (attempt_no >= 0),
@@ -198,6 +202,25 @@ CREATE TABLE core.payout_payout_item (
   CONSTRAINT payout_item_release_shape CHECK (release_operation_id IS NULL OR release_attempt >= 1)
 );
 CREATE INDEX payout_payout_item_batch_idx ON core.payout_payout_item (batch_id);
+
+-- Trips dont la préparation n'a pas abouti (calendrier absent, encaissement introuvable, refus
+-- de la base) : prochaine tentative différée, pour qu'ils ne reviennent pas en tête de la file à
+-- chaque passage (classe T : technique ; aucune donnée personnelle)
+CREATE TABLE core.payout_prepare_deferral (
+  trip_id         uuid        NOT NULL
+    CONSTRAINT payout_prepare_deferral_pkey PRIMARY KEY
+    CONSTRAINT payout_prepare_deferral_trip_fk REFERENCES core.booking_trip (id),
+  outcome         text        NOT NULL
+    CONSTRAINT payout_prepare_deferral_outcome_format CHECK (outcome ~ '^[A-Z][A-Z0-9_]{1,63}$'),
+  attempts        integer     NOT NULL DEFAULT 1
+    CONSTRAINT payout_prepare_deferral_attempts_valid CHECK (attempts >= 1),
+  next_attempt_at timestamptz NOT NULL,
+  updated_at      timestamptz NOT NULL DEFAULT platform.now()
+);
+CREATE INDEX payout_prepare_deferral_next_idx ON core.payout_prepare_deferral (next_attempt_at);
+COMMENT ON TABLE core.payout_prepare_deferral IS
+  'Préparation de versement différée d''un trip (issue, tentatives, prochaine tentative) : aucun '
+  'trip retenu ne bloque la file. US-708 (ADR-185).';
 COMMENT ON TABLE core.payout_payout_item IS
   'Item d''un lot de versement : jambe HOST d''un trip (un trip, un lot), montant explicite, '
   'ordre LEG_RELEASE de rang n. US-708 (ADR-185).';
@@ -206,8 +229,10 @@ COMMENT ON TABLE core.payout_payout_item IS
 
 -- 2.1 Lot : jamais supprimé ; identité figée ; transitions de SM-6 ; aucune émission (INITIATED)
 -- si `payouts_enabled[pays]` = false ou, en variante B, si `funds_holding_enabled[pays]` = false,
--- par AUCUN rôle (17 §3.2.9, SM-6, L3-PM-30, L3-PM-31). migrator (fixtures de test) n'est dispensé
--- que de la règle des transitions, jamais de celle des interrupteurs.
+-- par AUCUN rôle (17 §3.2.9, SM-6, L3-PM-30, L3-PM-31) ; un lot naît SCHEDULED ou ON_HOLD.
+-- migrator (fixtures de test 9921 seulement ; aucune migration n'écrit de lot) n'est dispensé que de
+-- la forme de naissance et des transitions (lot PAYÉ de test : premier versement déjà fait),
+-- jamais de l'interrupteur à l'émission.
 CREATE FUNCTION core.payout_payout_batch_guard()
   RETURNS trigger
   LANGUAGE plpgsql
@@ -217,6 +242,25 @@ BEGIN
   IF TG_OP IN ('DELETE', 'TRUNCATE') THEN
     RAISE EXCEPTION 'payout_batch: no delete'
       USING ERRCODE = 'integrity_constraint_violation', CONSTRAINT = 'payout_batch_immutable';
+  END IF;
+  -- naissance : SCHEDULED ou ON_HOLD, jamais compensé ni émis (tout rôle applicatif ; migrator,
+  -- seul autre rôle à écrire la table, pose les états de test des fixtures 9921, jamais en
+  -- production : aucune migration n'insère de lot)
+  IF TG_OP = 'INSERT' THEN
+    IF current_user <> 'migrator'
+       AND (NEW.status NOT IN ('SCHEDULED', 'ON_HOLD') OR NEW.netted_at IS NOT NULL
+            OR NEW.idempotency_key IS NOT NULL OR NEW.attempt_no <> 0) THEN
+      RAISE EXCEPTION 'payout_batch: a batch is born SCHEDULED or ON_HOLD'
+        USING ERRCODE = 'integrity_constraint_violation', CONSTRAINT = 'payout_batch_transition';
+    END IF;
+    -- l'interrupteur vaut pour TOUT rôle, migrator compris : aucun lot né émis
+    IF NEW.status IN ('INITIATED', 'IN_TRANSIT')
+       AND NOT core.config_go_live('payouts_enabled', NEW.country_code) THEN
+      RAISE EXCEPTION 'payout_batch: payouts are disabled in %', NEW.country_code
+        USING ERRCODE = 'object_not_in_prerequisite_state',
+              CONSTRAINT = 'payout_batch_payouts_disabled';
+    END IF;
+    RETURN NEW;
   END IF;
   IF NEW.id IS DISTINCT FROM OLD.id OR NEW.org_id IS DISTINCT FROM OLD.org_id
      OR NEW.country_code IS DISTINCT FROM OLD.country_code
@@ -282,7 +326,7 @@ BEGIN
 END
 $fn$;
 REVOKE ALL ON FUNCTION core.payout_payout_batch_guard() FROM PUBLIC;
-CREATE TRIGGER payout_payout_batch_guard BEFORE UPDATE OR DELETE ON core.payout_payout_batch
+CREATE TRIGGER payout_payout_batch_guard BEFORE INSERT OR UPDATE OR DELETE ON core.payout_payout_batch
   FOR EACH ROW EXECUTE FUNCTION core.payout_payout_batch_guard();
 CREATE TRIGGER payout_payout_batch_no_truncate BEFORE TRUNCATE ON core.payout_payout_batch
   FOR EACH STATEMENT EXECUTE FUNCTION core.payout_payout_batch_guard();
@@ -334,8 +378,23 @@ REVOKE ALL ON core.payout_payout_batch, core.payout_payout_item FROM PUBLIC;
 
 GRANT SELECT, INSERT ON core.payout_payout_batch TO cmd_money_owner;
 GRANT UPDATE (status, gross_minor, netted_minor, net_minor, hold_reasons, netted_at, attempt_no,
-              idempotency_key, provider_ref, initiated_at, paid_at, row_version, updated_at)
+              idempotency_key, provider_ref, initiated_at, paid_at, next_check_at, row_version,
+              updated_at)
   ON core.payout_payout_batch TO cmd_money_owner;
+ALTER TABLE core.payout_prepare_deferral ENABLE ROW LEVEL SECURITY;
+ALTER TABLE core.payout_prepare_deferral FORCE ROW LEVEL SECURITY;
+CREATE POLICY migrator_all ON core.payout_prepare_deferral TO migrator USING (true) WITH CHECK (true);
+REVOKE ALL ON core.payout_prepare_deferral FROM PUBLIC;
+GRANT SELECT, INSERT ON core.payout_prepare_deferral TO cmd_money_owner;
+GRANT UPDATE (outcome, attempts, next_attempt_at, updated_at)
+  ON core.payout_prepare_deferral TO cmd_money_owner;
+CREATE POLICY cmd_money_sel ON core.payout_prepare_deferral FOR SELECT TO cmd_money_owner
+  USING (true);
+CREATE POLICY cmd_money_ins ON core.payout_prepare_deferral FOR INSERT TO cmd_money_owner
+  WITH CHECK (app.actor_kind() = 'WORKER' AND app.worker_name() = 'payment_command');
+CREATE POLICY cmd_money_upd ON core.payout_prepare_deferral FOR UPDATE TO cmd_money_owner
+  USING (app.actor_kind() = 'WORKER' AND app.worker_name() = 'payment_command')
+  WITH CHECK (app.actor_kind() = 'WORKER' AND app.worker_name() = 'payment_command');
 GRANT SELECT, INSERT ON core.payout_payout_item TO cmd_money_owner;
 GRANT UPDATE (amount_minor, release_attempt, release_operation_id, updated_at)
   ON core.payout_payout_item TO cmd_money_owner;
@@ -557,8 +616,8 @@ $fn$;
 
 -- 6.2 `payout_at` d'un trip (08 BR-PAYOUT-02, R08) : N-ième jour ouvré du pays après la date LOCALE
 -- de la fin effective (fuseau du trip), à `payout_batch_local_time` minutes après minuit local ;
--- N = premier versement ? `first_payout_business_day` : `payout_business_day_offset`. NULL si une
--- donnée manque ou est illisible.
+-- N = premier versement ? `first_payout_business_day` : `payout_business_day_offset` ; jamais avant
+-- fin effective + 24 h (jour ouvré suivant). NULL si une donnée manque ou est illisible.
 CREATE FUNCTION core.payout_schedule(p_trip_id uuid, p_first boolean)
   RETURNS timestamptz
   LANGUAGE plpgsql
@@ -572,6 +631,7 @@ DECLARE
   v_n       jsonb;
   v_minutes jsonb;
   v_day     date;
+  v_at      timestamptz;
 BEGIN
   SELECT t.timezone, t.country_code INTO v_tz, v_country
     FROM core.booking_trip AS t WHERE t.id = p_trip_id;
@@ -592,8 +652,19 @@ BEGIN
   IF v_day IS NULL THEN
     RETURN NULL;
   END IF;
-  RETURN (v_day::timestamp + pg_catalog.make_interval(mins => (v_minutes #>> '{}')::integer))
-         AT TIME ZONE v_tz;
+  v_at := (v_day::timestamp + pg_catalog.make_interval(mins => (v_minutes #>> '{}')::integer))
+          AT TIME ZONE v_tz;
+  -- borne de la fenêtre de déclaration (19 US-315 critère 4) : jamais avant fin effective + 24 h ;
+  -- sinon jour ouvré suivant du pays, même heure locale (N = 1, fin tardive, lot matinal)
+  WHILE v_at < v_end + interval '24 hours' LOOP
+    v_day := core.payout_business_day(v_country, v_day, 1);
+    IF v_day IS NULL THEN
+      RETURN NULL;
+    END IF;
+    v_at := (v_day::timestamp + pg_catalog.make_interval(mins => (v_minutes #>> '{}')::integer))
+            AT TIME ZONE v_tz;
+  END LOOP;
+  RETURN v_at;
 END
 $fn$;
 
@@ -696,6 +767,7 @@ DECLARE
   v_other   bigint;
   v_netted  bigint;
   v_reasons text[];
+  v_status  text;
 BEGIN
   SELECT x.id, x.org_id, x.currency, x.netted_at INTO v_b
     FROM core.payout_payout_batch AS x WHERE x.id = p_batch_id;
@@ -710,6 +782,10 @@ BEGIN
   END IF;
   SELECT COALESCE(pg_catalog.sum(i.amount_minor), 0)::bigint INTO v_gross
     FROM core.payout_payout_item AS i WHERE i.batch_id = p_batch_id;
+  -- compensation sérialisée par (hôte, devise) : deux lots du même hôte ne compensent jamais la
+  -- même dette (verrou consultatif de transaction, pris APRÈS les trips et le lot)
+  PERFORM pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(
+            'payout.netting:' || v_b.org_id::text || ':' || v_b.currency, 0));
   -- dette de l'hôte dans la devise (08 E5 : jamais entre devises), solde négatif du host_ledger
   SELECT GREATEST(0, -COALESCE(pg_catalog.sum(e.amount_minor), 0))::bigint INTO v_debt
     FROM core.settlement_host_ledger_entry AS e
@@ -720,24 +796,62 @@ BEGIN
      AND x.netted_at IS NOT NULL;
   v_netted := LEAST(v_gross, GREATEST(0, v_debt - v_other));
   v_reasons := core.payout_batch_hold_reasons(p_batch_id);
+  v_status := CASE
+                WHEN pg_catalog.cardinality(v_reasons) > 0 THEN 'ON_HOLD'
+                WHEN NOT p_netting THEN 'SCHEDULED'
+                WHEN v_gross - v_netted > 0 THEN 'READY'
+                ELSE 'ZERO_NET'
+              END;
+  -- aucune écriture quand rien ne change, hors la prochaine relecture d'un lot échu retenu
   UPDATE core.payout_payout_batch AS x
      SET gross_minor = v_gross, netted_minor = v_netted, net_minor = v_gross - v_netted,
-         hold_reasons = v_reasons,
-         status = CASE
-                    WHEN pg_catalog.cardinality(v_reasons) > 0 THEN 'ON_HOLD'
-                    WHEN NOT p_netting THEN 'SCHEDULED'
-                    WHEN v_gross - v_netted > 0 THEN 'READY'
-                    ELSE 'ZERO_NET'
-                  END,
-         netted_at = CASE WHEN p_netting AND pg_catalog.cardinality(v_reasons) = 0
-                          THEN platform.now() END
-   WHERE x.id = p_batch_id;
+         hold_reasons = v_reasons, status = v_status,
+         netted_at = CASE WHEN v_status IN ('READY', 'ZERO_NET') THEN platform.now() END,
+         next_check_at = CASE WHEN p_netting AND v_status = 'ON_HOLD'
+                              THEN platform.now() + interval '15 minutes' END
+   WHERE x.id = p_batch_id
+     AND (p_netting
+          OR x.gross_minor IS DISTINCT FROM v_gross OR x.netted_minor IS DISTINCT FROM v_netted
+          OR x.hold_reasons IS DISTINCT FROM v_reasons OR x.status IS DISTINCT FROM v_status);
 END
 $fn$;
 
 -- 7. Commandes du travailleur payment_command (SECURITY DEFINER, EXECUTE app_worker) -------------
 
--- 7.1 Trips à préparer : COMPLETED, fin effective connue, jambe HOST, aucun item
+-- 7.0 Préparation différée d'un trip (issue non aboutie ou refus de la base) : prochaine tentative
+-- dans 15 min × tentatives (au plus 2 h) ; la file ne le ramène pas avant (aucune famine)
+CREATE FUNCTION core.payout_cmd_defer_trip(p_trip_id uuid, p_outcome text)
+  RETURNS timestamptz
+  LANGUAGE plpgsql
+  VOLATILE
+  SECURITY DEFINER
+  SET search_path = pg_catalog, pg_temp
+AS $fn$
+DECLARE
+  v_next timestamptz;
+BEGIN
+  IF app.actor_kind() IS DISTINCT FROM 'WORKER'
+     OR app.worker_name() IS DISTINCT FROM 'payment_command' THEN
+    RAISE EXCEPTION 'payout: commands are reserved to the payment_command worker'
+      USING ERRCODE = 'insufficient_privilege', CONSTRAINT = 'payout_command_forbidden';
+  END IF;
+  IF p_trip_id IS NULL OR p_outcome IS NULL OR p_outcome !~ '^[A-Z][A-Z0-9_]{1,63}$' THEN
+    RAISE EXCEPTION 'payout: invalid deferral' USING ERRCODE = 'invalid_parameter_value';
+  END IF;
+  INSERT INTO core.payout_prepare_deferral AS d (trip_id, outcome, attempts, next_attempt_at)
+  VALUES (p_trip_id, p_outcome, 1, platform.now() + interval '15 minutes')
+  ON CONFLICT (trip_id) DO UPDATE
+     SET outcome = EXCLUDED.outcome, attempts = d.attempts + 1,
+         next_attempt_at = platform.now()
+                           + interval '15 minutes' * LEAST(d.attempts + 1, 8),
+         updated_at = platform.now()
+  RETURNING d.next_attempt_at INTO v_next;
+  RETURN v_next;
+END
+$fn$;
+
+-- 7.1 Trips à préparer : COMPLETED, fin effective connue, jambe HOST, aucun item, aucune tentative
+-- différée à venir ; les trips jamais tentés d'abord
 CREATE FUNCTION core.payout_trips_to_prepare(p_limit integer)
   RETURNS TABLE (trip_id uuid, country_code text)
   LANGUAGE plpgsql
@@ -757,11 +871,13 @@ BEGIN
       FROM core.booking_trip AS t
       JOIN core.settlement_trip_leg_balance AS b
         ON b.trip_id = t.id AND b.segment_no = 1 AND b.leg = 'HOST'
+      LEFT JOIN core.payout_prepare_deferral AS d ON d.trip_id = t.id
      WHERE t.status = 'COMPLETED'
        AND NOT EXISTS (SELECT 1 FROM core.payout_payout_item AS i
                         WHERE i.trip_id = t.id AND i.segment_no = 1 AND i.leg = 'HOST')
+       AND (d.trip_id IS NULL OR d.next_attempt_at <= platform.now())
        AND core.payout_effective_end(t.id) IS NOT NULL
-     ORDER BY t.id
+     ORDER BY d.next_attempt_at NULLS FIRST, t.id
      LIMIT GREATEST(1, LEAST(COALESCE(p_limit, 100), 500));
 END
 $fn$;
@@ -820,6 +936,7 @@ BEGIN
   END IF;
   IF NOT EXISTS (SELECT 1 FROM core.settlement_trip_leg_balance AS lb
                   WHERE lb.trip_id = p_trip_id AND lb.segment_no = 1 AND lb.leg = 'HOST') THEN
+    PERFORM core.payout_cmd_defer_trip(p_trip_id, 'NO_HOST_LEG');
     RETURN QUERY SELECT 'NO_HOST_LEG'::text, NULL::uuid, NULL::timestamptz, NULL::text,
                         NULL::text[];
     RETURN;
@@ -831,6 +948,7 @@ BEGIN
    ORDER BY o.created_at, o.id
    LIMIT 1;
   IF v_psp IS NULL THEN
+    PERFORM core.payout_cmd_defer_trip(p_trip_id, 'NO_CAPTURE');
     RETURN QUERY SELECT 'NO_CAPTURE'::text, NULL::uuid, NULL::timestamptz, NULL::text,
                         NULL::text[];
     RETURN;
@@ -846,6 +964,7 @@ BEGIN
                                AND x.status IN ('INITIATED', 'IN_TRANSIT', 'PAID'));
   v_at := core.payout_schedule(p_trip_id, v_first);
   IF v_at IS NULL THEN
+    PERFORM core.payout_cmd_defer_trip(p_trip_id, 'CALENDAR_MISSING');
     RETURN QUERY SELECT 'CALENDAR_MISSING'::text, NULL::uuid, NULL::timestamptz, NULL::text,
                         NULL::text[];
     RETURN;
@@ -908,10 +1027,13 @@ BEGIN
            x.status, x.country_code, x.currency, a.provider
       FROM core.payout_payout_batch AS x
       JOIN core.payment_psp_account AS a ON a.id = x.psp_account_id
-     WHERE (x.netted_at IS NULL AND x.status IN ('SCHEDULED', 'ON_HOLD')
-            AND x.scheduled_for <= platform.now())
-        OR (x.netted_at IS NOT NULL AND x.status IN ('READY', 'ON_HOLD', 'INITIATED', 'IN_TRANSIT'))
-     ORDER BY x.scheduled_for, x.id
+     WHERE ((x.netted_at IS NULL AND x.status IN ('SCHEDULED', 'ON_HOLD')
+             AND x.scheduled_for <= platform.now())
+            OR (x.netted_at IS NOT NULL
+                AND x.status IN ('READY', 'ON_HOLD', 'INITIATED', 'IN_TRANSIT')))
+       -- un lot retenu ou en attente du PSP revient à sa prochaine relecture seulement
+       AND (x.next_check_at IS NULL OR x.next_check_at <= platform.now())
+     ORDER BY COALESCE(x.next_check_at, x.scheduled_for), x.id
      LIMIT GREATEST(1, LEAST(COALESCE(p_limit, 50), 500));
 END
 $fn$;
@@ -929,12 +1051,29 @@ CREATE FUNCTION core.payout_cmd_net_batch(p_batch_id uuid)
 AS $fn$
 #variable_conflict use_column
 DECLARE
-  v_b record;
+  v_b       record;
+  v_reasons text[];
 BEGIN
   IF app.actor_kind() IS DISTINCT FROM 'WORKER'
      OR app.worker_name() IS DISTINCT FROM 'payment_command' THEN
     RAISE EXCEPTION 'payout: commands are reserved to the payment_command worker'
       USING ERRCODE = 'insufficient_privilege', CONSTRAINT = 'payout_command_forbidden';
+  END IF;
+  -- lot retenu dont les motifs n'ont pas changé : prochaine relecture seulement, sans verrou des
+  -- trips ni nouvelle compensation (aucune amplification d'écriture par passage)
+  SELECT x.status, x.netted_at, x.hold_reasons, x.scheduled_for INTO v_b
+    FROM core.payout_payout_batch AS x WHERE x.id = p_batch_id;
+  IF v_b.status = 'ON_HOLD' AND v_b.netted_at IS NULL AND v_b.scheduled_for <= platform.now() THEN
+    v_reasons := core.payout_batch_hold_reasons(p_batch_id);
+    IF pg_catalog.cardinality(v_reasons) > 0 AND v_reasons = v_b.hold_reasons THEN
+      UPDATE core.payout_payout_batch AS x
+         SET next_check_at = platform.now() + interval '15 minutes'
+       WHERE x.id = p_batch_id AND x.status = 'ON_HOLD' AND x.netted_at IS NULL;
+      RETURN QUERY SELECT 'ON_HOLD'::text, x.gross_minor, x.netted_minor, x.net_minor,
+                          x.hold_reasons
+                     FROM core.payout_payout_batch AS x WHERE x.id = p_batch_id;
+      RETURN;
+    END IF;
   END IF;
   PERFORM 1 FROM core.booking_trip AS t
    WHERE t.id IN (SELECT i.trip_id FROM core.payout_payout_item AS i WHERE i.batch_id = p_batch_id)
@@ -973,11 +1112,25 @@ DECLARE
   v_status  text;
   v_netted  timestamptz;
   v_reasons text[];
+  v_stored  text[];
 BEGIN
   IF app.actor_kind() IS DISTINCT FROM 'WORKER'
      OR app.worker_name() IS DISTINCT FROM 'payment_command' THEN
     RAISE EXCEPTION 'payout: commands are reserved to the payment_command worker'
       USING ERRCODE = 'insufficient_privilege', CONSTRAINT = 'payout_command_forbidden';
+  END IF;
+  -- lot retenu dont les motifs n'ont pas changé : prochaine relecture seulement, sans verrou
+  SELECT x.status, x.netted_at, x.hold_reasons INTO v_status, v_netted, v_stored
+    FROM core.payout_payout_batch AS x WHERE x.id = p_batch_id;
+  IF v_status = 'ON_HOLD' AND v_netted IS NOT NULL THEN
+    v_reasons := core.payout_batch_hold_reasons(p_batch_id);
+    IF pg_catalog.cardinality(v_reasons) > 0 AND v_reasons = v_stored THEN
+      UPDATE core.payout_payout_batch AS x
+         SET next_check_at = platform.now() + interval '15 minutes'
+       WHERE x.id = p_batch_id AND x.status = 'ON_HOLD';
+      RETURN QUERY SELECT 'ON_HOLD'::text, v_reasons;
+      RETURN;
+    END IF;
   END IF;
   PERFORM 1 FROM core.booking_trip AS t
    WHERE t.id IN (SELECT i.trip_id FROM core.payout_payout_item AS i WHERE i.batch_id = p_batch_id)
@@ -992,7 +1145,9 @@ BEGIN
   v_reasons := core.payout_batch_hold_reasons(p_batch_id);
   UPDATE core.payout_payout_batch AS x
      SET hold_reasons = v_reasons,
-         status = CASE WHEN pg_catalog.cardinality(v_reasons) > 0 THEN 'ON_HOLD' ELSE 'READY' END
+         status = CASE WHEN pg_catalog.cardinality(v_reasons) > 0 THEN 'ON_HOLD' ELSE 'READY' END,
+         next_check_at = CASE WHEN pg_catalog.cardinality(v_reasons) > 0
+                              THEN platform.now() + interval '15 minutes' END
    WHERE x.id = p_batch_id
      AND (x.hold_reasons IS DISTINCT FROM v_reasons
           OR x.status IS DISTINCT FROM CASE WHEN pg_catalog.cardinality(v_reasons) > 0
@@ -1044,7 +1199,8 @@ $fn$;
 -- 7.7 Émission du versement du lot (`payout`, clé `payout:{lot}:r{n}`) : lot READY, chaque item à
 -- montant positif libéré (ordre SUCCEEDED reporté sur les soldes), motifs relus ; un lot déjà
 -- INITIATED ou IN_TRANSIT rend sa clé (REPLAY : lecture d'abord par l'appelant, jamais un renvoi
--- sans lecture). Issues : INITIATED, REPLAY, ON_HOLD, RELEASE_PENDING, l'état du lot sinon.
+-- sans lecture) et ses motifs RELUS : un motif (interrupteur fermé après l'émission…) ⇒ lecture
+-- seule, jamais d'envoi. Issues : INITIATED, REPLAY, ON_HOLD, RELEASE_PENDING, l'état du lot sinon.
 CREATE FUNCTION core.payout_cmd_initiate_batch(p_batch_id uuid)
   RETURNS TABLE (outcome text, idempotency_key text, amount_minor bigint, currency text,
                  submerchant_reference text, provider_ref text, hold_reasons text[])
@@ -1089,7 +1245,9 @@ BEGIN
     -- relu À L'ENVOI (L3-PM-30, L3-PM-34) : interrupteur, gel, compte, capacités
     v_reasons := core.payout_batch_hold_reasons(p_batch_id);
     IF pg_catalog.cardinality(v_reasons) > 0 THEN
-      UPDATE core.payout_payout_batch AS x SET status = 'ON_HOLD', hold_reasons = v_reasons
+      UPDATE core.payout_payout_batch AS x
+         SET status = 'ON_HOLD', hold_reasons = v_reasons,
+             next_check_at = platform.now() + interval '15 minutes'
        WHERE x.id = p_batch_id;
       RETURN QUERY SELECT 'ON_HOLD'::text, NULL::text, NULL::bigint, NULL::text, NULL::text,
                           NULL::text, v_reasons;
@@ -1105,6 +1263,15 @@ BEGIN
     RETURN QUERY SELECT v_b.status, NULL::text, NULL::bigint, NULL::text, NULL::text, NULL::text,
                         ARRAY[]::text[];
     RETURN;
+  ELSE
+    -- REPLAY (lot déjà émis, issue inconnue ou en cours) : motifs RELUS (arrêt d'urgence :
+    -- interrupteur fermé après l'émission, gel, compte) ; un motif ⇒ l'appelant LIT seulement,
+    -- jamais un envoi. Un lot émis n'est plus gelable (SM-6) : son état ne change pas ici.
+    -- Prochaine relecture différée : un lot en attente du PSP ne bloque pas la file.
+    v_reasons := core.payout_batch_hold_reasons(p_batch_id);
+    UPDATE core.payout_payout_batch AS x
+       SET next_check_at = platform.now() + interval '15 minutes'
+     WHERE x.id = p_batch_id;
   END IF;
   RETURN QUERY
     SELECT v_outcome, x.idempotency_key, x.net_minor, x.currency,
@@ -1112,7 +1279,7 @@ BEGIN
              WHERE s.psp_account_id = x.psp_account_id AND s.org_id = x.org_id
                AND s.kyc_status = 'ACTIVE'
              ORDER BY s.attempt_no DESC LIMIT 1),
-           x.provider_ref, ARRAY[]::text[]
+           x.provider_ref, COALESCE(v_reasons, ARRAY[]::text[])
       FROM core.payout_payout_batch AS x WHERE x.id = p_batch_id;
 END
 $fn$;
@@ -1150,7 +1317,9 @@ BEGIN
   IF v_next IS DISTINCT FROM v_status OR p_provider_ref IS NOT NULL THEN
     UPDATE core.payout_payout_batch AS x
        SET status = v_next, provider_ref = COALESCE(p_provider_ref, x.provider_ref),
-           paid_at = CASE WHEN v_next = 'PAID' THEN platform.now() END
+           paid_at = CASE WHEN v_next = 'PAID' THEN platform.now() END,
+           next_check_at = CASE WHEN v_next = 'IN_TRANSIT'
+                                THEN platform.now() + interval '15 minutes' END
      WHERE x.id = p_batch_id;
   END IF;
   RETURN v_next;
@@ -1179,6 +1348,9 @@ COMMENT ON FUNCTION core.payout_batch_hold_reasons(uuid) IS
   'compte, gels et litiges). US-708 (ADR-185).';
 COMMENT ON FUNCTION core.payout_refresh_batch(uuid, boolean) IS
   'Montants (brut, compensation du host_ledger, net), motifs et état d''un lot non compensé. US-708.';
+COMMENT ON FUNCTION core.payout_cmd_defer_trip(uuid, text) IS
+  'Préparation différée d''un trip (issue non aboutie, refus de la base) : prochaine tentative à '
+  '15 min × tentatives (au plus 2 h). Travailleur payment_command. US-708 (ADR-185).';
 COMMENT ON FUNCTION core.payout_trips_to_prepare(integer) IS
   'Trips COMPLETED à mettre dans un lot de versement. Travailleur payment_command. US-708.';
 COMMENT ON FUNCTION core.payout_cmd_prepare_trip(uuid) IS
@@ -1205,6 +1377,7 @@ REVOKE ALL ON FUNCTION
   core.payout_item_amount(uuid),
   core.payout_batch_hold_reasons(uuid),
   core.payout_refresh_batch(uuid, boolean),
+  core.payout_cmd_defer_trip(uuid, text),
   core.payout_trips_to_prepare(integer),
   core.payout_cmd_prepare_trip(uuid),
   core.payout_batches_due(integer),
@@ -1218,6 +1391,7 @@ FROM PUBLIC;
 -- ou migrator ; la fin effective leur est nécessaire
 GRANT EXECUTE ON FUNCTION core.payout_effective_end(uuid) TO cmd_money_owner;
 GRANT EXECUTE ON FUNCTION
+  core.payout_cmd_defer_trip(uuid, text),
   core.payout_trips_to_prepare(integer),
   core.payout_cmd_prepare_trip(uuid),
   core.payout_batches_due(integer),
@@ -1235,6 +1409,7 @@ ALTER FUNCTION core.payout_schedule(uuid, boolean) OWNER TO cmd_money_owner;
 ALTER FUNCTION core.payout_item_amount(uuid) OWNER TO cmd_money_owner;
 ALTER FUNCTION core.payout_batch_hold_reasons(uuid) OWNER TO cmd_money_owner;
 ALTER FUNCTION core.payout_refresh_batch(uuid, boolean) OWNER TO cmd_money_owner;
+ALTER FUNCTION core.payout_cmd_defer_trip(uuid, text) OWNER TO cmd_money_owner;
 ALTER FUNCTION core.payout_trips_to_prepare(integer) OWNER TO cmd_money_owner;
 ALTER FUNCTION core.payout_cmd_prepare_trip(uuid) OWNER TO cmd_money_owner;
 ALTER FUNCTION core.payout_batches_due(integer) OWNER TO cmd_money_owner;

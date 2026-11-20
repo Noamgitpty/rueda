@@ -2251,6 +2251,13 @@
       "story": "US-707"
     },
     {
+      "signature": "core.payout_cmd_defer_trip(uuid,text)",
+      "family": "cmd_money",
+      "owner": "cmd_money_owner",
+      "execute": ["app_worker"],
+      "story": "US-708"
+    },
+    {
       "signature": "core.payout_trips_to_prepare(integer)",
       "family": "cmd_money",
       "owner": "cmd_money_owner",
