@@ -28,7 +28,7 @@ import { at, bookTrip, COUNTRIES, inTx, newSlot } from '../support/avl.ts';
 import type { CountryCase, Slot } from '../support/avl.ts';
 import { backendPid, waitUntilBlocked } from '../support/concurrency.ts';
 import { newHash } from '../support/golive.ts';
-import { createStaff, uuid } from '../support/staff.ts';
+import { auditOf, createStaff, login, uuid } from '../support/staff.ts';
 
 type Row = Record<string, unknown>;
 
@@ -104,6 +104,7 @@ interface Overdue {
   readonly tripId: string;
   readonly slot: Slot;
   readonly holder: string;
+  readonly guest: string;
 }
 
 async function lifecycle(cl: Clients, now: string, trip: string, to: string, reason: string) {
@@ -127,7 +128,7 @@ async function records(cl: Clients, trip: string): Promise<Row> {
 /** Trip remis (US-207) puis IN_PROGRESS ; `detect` : passé OVERDUE à fin + 30 min (US-305). */
 async function inProgress(cl: Clients, c: CountryCase, detectIt: boolean): Promise<Overdue> {
   const slot = freshSlot(c);
-  const { tripId } = await bookTrip(cl.api, cl.worker, slot, c, T0);
+  const { tripId, hold } = await bookTrip(cl.api, cl.worker, slot, c, T0);
   // US-211 (0122) : la remise (IN_PROGRESS) exige le contrat de location signé par le voyageur
   await cl.worker.query('SELECT test_fixture.us211_sign($1)', [tripId]);
   await lifecycle(cl, at(slot.start, -60), tripId, 'CHECKIN_OPEN', 'CHECKIN_WINDOW_OPENED');
@@ -138,7 +139,7 @@ async function inProgress(cl: Clients, c: CountryCase, detectIt: boolean): Promi
     });
   }
   const holder = (await records(cl, tripId))['holderUserId'] as string;
-  return { tripId, slot, holder };
+  return { tripId, slot, holder, guest: hold.guestId };
 }
 
 interface Staff {
@@ -397,6 +398,107 @@ describe.each(COUNTRIES)('US-306 — escalade et vue des retards ($country, $cur
         status: 'OVERDUE',
       });
       expect(await records(cl, o.tripId)).toMatchObject({ stage: 'T24H', occupancyActive: true });
+    });
+  });
+
+  it('ADR-122 : le voyageur, le titulaire du compte d’hôte et un compte lié, agents OPS du pays, ne voient pas le trip dans la vue et leur ESCALATE_OVERDUE est refusé (SELF_FORBIDDEN, journalisé) sans aucune écriture ; un agent sans lien le voit', async () => {
+    await withClients(async (cl) => {
+      const o = await inProgress(cl, c, true);
+      const due = at(o.slot.end, T2H_MIN);
+      const neutral = await staffOf(cl, 'OPS_AGENT', [c.country]);
+      // le voyageur et le titulaire deviennent agents OPS du pays (rôle en cours)
+      for (const user of [o.guest, o.holder]) {
+        await cl.api.query(
+          'SELECT test_fixture.iam_grant_staff_role($1, $2, $3, $4::text[], NULL, NULL)',
+          [uuid(), user, 'OPS_AGENT', [c.country]],
+        );
+      }
+      // un agent constaté lié (LINKED) au voyageur, décidé par un tiers
+      const linked = await staffOf(cl, 'OPS_AGENT', [c.country]);
+      await cl.api.query('SELECT test_fixture.us306_link($1, $2, $3)', [
+        linked.userId,
+        o.guest,
+        neutral.userId,
+      ]);
+      const parties: readonly [string, Staff][] = [
+        ['voyageur', { userId: o.guest, countries: [c.country] }],
+        ['titulaire', { userId: o.holder, countries: [c.country] }],
+        ['lié', linked],
+      ];
+      // contrôle : l'agent sans lien voit le trip
+      expect(rowOf(await board(cl, neutral, due), o.tripId)).toMatchObject({ stage: 'T30M' });
+      for (const [who, s] of parties) {
+        const b = await board(cl, s, due);
+        expect(b.outcome, who).toBe('OK');
+        expect(rowOf(b, o.tripId), who).toBeUndefined();
+        expect(
+          await escalate(cl, s, o.tripId, due, { escalationStep: 'CONTACT' }),
+          who,
+        ).toMatchObject({ outcome: 'REFUSED', detail: 'SELF_FORBIDDEN' });
+        expect((await auditOf(cl.api, s.userId)).at(-1), who).toMatchObject({
+          action_code: 'MANUAL_ACTION_REFUSED',
+          subject_id: o.tripId,
+        });
+        // aucune écriture : ni étape, ni escalade, ni événement, ni action de console
+        expect(await records(cl, o.tripId), who).toMatchObject({
+          stage: 'T30M',
+          escalations: [],
+          events: [],
+          actions: [],
+        });
+      }
+      // l'agent sans lien escalade normalement
+      expect(
+        await escalate(cl, neutral, o.tripId, due, { escalationStep: 'CONTACT' }),
+      ).toMatchObject({ outcome: 'DONE' });
+    });
+  });
+
+  it('vue des retards : sans droit ⇒ FORBIDDEN journalisé (STAFF_FORBIDDEN) ; session sans TOTP ⇒ MFA_REQUIRED journalisé ; sans session ⇒ AUTH_REQUIRED', async () => {
+    await withClients(async (cl) => {
+      const finance = await staffOf(cl, 'FINANCE', [c.country]);
+      expect((await board(cl, finance, T0)).outcome).toBe('FORBIDDEN');
+      expect((await auditOf(cl.api, finance.userId)).at(-1)).toMatchObject({
+        action_code: 'STAFF_FORBIDDEN',
+        subject_type: 'USER',
+        subject_id: finance.userId,
+        after: {
+          reason: 'PERMISSION',
+          attempted: 'READ',
+          permission: 'ops.force_terminate_trip',
+          field_or_file: 'overdue_board',
+        },
+      });
+      // session ouverte par la vraie commande, niveau NONE (heure réelle)
+      const ops = await staffOf(cl, 'OPS_AGENT', [c.country]);
+      const hash = await login(cl.api, ops.userId);
+      const unelevated = await withTestTransaction(cl.api, {}, async (tx) => {
+        await setSessionContext(tx, {
+          kind: 'STAFF',
+          actorId: ops.userId,
+          countryScope: [c.country],
+          sessionTokenHash: hash.toString('hex'),
+        });
+        return (await tx.query<{ outcome: string }>(BOARD, [hash, uuid()])).rows[0]?.outcome;
+      });
+      expect(unelevated).toBe('MFA_REQUIRED');
+      expect((await auditOf(cl.api, ops.userId)).at(-1)).toMatchObject({
+        action_code: 'STAFF_ACCESS_DENIED',
+        after: { reason: '2FA_REQUIRED', field_or_file: 'overdue_board' },
+      });
+      const before = (await auditOf(cl.api, ops.userId)).length;
+      const anonymous = await withTestTransaction(cl.api, {}, async (tx) => {
+        const h = newHash();
+        await setSessionContext(tx, {
+          kind: 'STAFF',
+          actorId: ops.userId,
+          countryScope: [c.country],
+          sessionTokenHash: h.toString('hex'),
+        });
+        return (await tx.query<{ outcome: string }>(BOARD, [h, uuid()])).rows[0]?.outcome;
+      });
+      expect(anonymous).toBe('AUTH_REQUIRED');
+      expect(await auditOf(cl.api, ops.userId)).toHaveLength(before);
     });
   });
 

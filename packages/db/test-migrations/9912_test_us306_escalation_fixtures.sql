@@ -11,11 +11,15 @@
 --   2. `us306_stage_probe` (cmd_hold_owner, garde active) : réécriture directe de l'étape du dossier
 --      sous les seuls droits et politiques de cmd_hold_owner (contexte posé par le test) ;
 --   3. `us306_escalation_probe` (cmd_hold_owner, garde active) : réécriture ou suppression directe
---      d'une escalade.
+--      d'une escalade ;
+--   4. `us306_link` (migrator) : constat « comptes liés » (LINKED) entre deux personnes, décidé par
+--      une troisième, tel que l'écrit la commande de l'ops d'US-127 (preuve de la garde ADR-122 :
+--      un agent lié au voyageur d'un trip ne le voit ni ne l'escalade).
 -- AUCUNE fixture n'écrit un interrupteur de mise en service (17 §0.1) ni un paramètre.
 --
 -- Retour arrière : DROP FUNCTION test_fixture.us306_records(uuid),
---   test_fixture.us306_stage_probe(uuid, text), test_fixture.us306_escalation_probe(uuid, text).
+--   test_fixture.us306_stage_probe(uuid, text), test_fixture.us306_escalation_probe(uuid, text),
+--   test_fixture.us306_link(uuid, uuid, uuid).
 
 CREATE FUNCTION test_fixture.us306_records(p_trip uuid)
   RETURNS jsonb
@@ -101,6 +105,21 @@ BEGIN
   RETURN n;
 END
 $fn$;
+
+CREATE FUNCTION test_fixture.us306_link(p_a uuid, p_b uuid, p_decider uuid)
+  RETURNS void
+  LANGUAGE sql
+  SECURITY DEFINER
+  SET search_path = pg_catalog, pg_temp
+AS $fn$
+  INSERT INTO core.risk_account_link (id, user_low, user_high, decision, signal, decided_by,
+                                      decided_at)
+  VALUES (pg_catalog.gen_random_uuid(), LEAST(p_a, p_b), GREATEST(p_a, p_b), 'LINKED',
+          'SAME_PHONE', p_decider, platform.now())
+$fn$;
+
+REVOKE ALL ON FUNCTION test_fixture.us306_link(uuid, uuid, uuid) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION test_fixture.us306_link(uuid, uuid, uuid) TO app_api;
 
 REVOKE ALL ON FUNCTION test_fixture.us306_records(uuid),
   test_fixture.us306_stage_probe(uuid, text), test_fixture.us306_escalation_probe(uuid, text)
