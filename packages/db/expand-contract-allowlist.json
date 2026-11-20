@@ -219,7 +219,7 @@
     },
     {
       "path": "packages/db/migrations/0166_messaging_privacy_meetings_retention.sql",
-      "line": 235,
+      "line": 247,
       "kind": "data-update",
       "dataTables": ["core.audit_retention_rule"],
       "justification": "US-316 (ADR-186) : la règle de référence TRIP_MESSAGES (écrite par 0161, US-525, avec enforced_by = MANUAL en attendant ce travailleur) nomme son travailleur (WORKER:privacy_request) et ajoute la table des rendez-vous (même durée) ; une ligne de référence écrite par migration seulement ; code, paramètre, ancre et action inchangés ; aucune ligne de journal n'en dépend encore (aucune purge TRIP_MESSAGES avant cette migration) ; la version N ne lit pas cette ligne"
