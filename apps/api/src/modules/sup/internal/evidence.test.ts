@@ -64,6 +64,7 @@ function storeOf(trace: Trace, permitted = 'PERMITTED', recorded = 'RECORDED'): 
     bookingReview: never,
     tripCancellation: never,
     tripRefunds: never,
+    overdueBoard: never,
     catalogAddition: never,
     resolveCatalogAddition: never,
     vehicleEligibility: never,

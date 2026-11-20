@@ -506,6 +506,9 @@ async function requestOf(
         path: `/console/queues/items/${await riskItem(country)}/risk-review`,
         body: { requestId: id, purpose: 'Matrice US-043 : dossier de test' },
       };
+    // US-306 : vue des retards des pays de l'agent (aucun trip en retard ⇒ 200, liste vide)
+    case 'GET /console/overdue':
+      return { method: 'GET', path: '/console/overdue' };
     // US-224d : remboursements du trip du pays (aucun ⇒ 200, liste vide)
     case 'GET /console/refunds/{id}':
       return { method: 'GET', path: `/console/refunds/${tripOf.get(country) ?? id}` };

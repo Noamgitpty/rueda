@@ -21,6 +21,8 @@ import type {
 import { CANCEL_ACTION, CANCEL_REFUSAL_KEYS, draftProblem } from './cancel-view.tsx';
 import type { CancelHandlers, CancelState, CancellationView } from './cancel-view.tsx';
 import type { RefundsHandlers, RefundsState, TripRefundsView } from './refund-view.tsx';
+import { OVERDUE_REFUSAL_KEYS, OVERDUE_ROLES } from './overdue-view.tsx';
+import type { OverdueBoardView, OverdueHandlers, OverdueState } from './overdue-view.tsx';
 import { ConsoleView, DSR_REFUSAL_KEYS, REVIEW_REFUSAL_KEYS, SCREEN_HEADINGS } from './view.tsx';
 import type {
   ConsoleAction,
@@ -72,6 +74,12 @@ interface QueuesBody {
 const CANCEL_POLL_MS = 3_000;
 const CANCEL_POLLS = 8;
 const TRIP_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+/**
+ * US-306 : vue des retards relue toutes les 30 s tant que la console est ouverte (le travailleur
+ * trip_overdue détecte chaque minute : un trip passé OVERDUE apparaît en ≤ 1 min) ; l'agent peut
+ * aussi actualiser.
+ */
+const OVERDUE_POLL_MS = 30_000;
 
 /** Octets d'un fichier en base64 (pièce du staff, US-109). */
 async function base64Of(file: File): Promise<string> {
@@ -101,6 +109,8 @@ export function ConsoleClient({ localeTag }: { readonly localeTag: string }) {
   const cancelGen = useRef(0);
   // US-224d : remboursements d'un voyage (lecture seule)
   const [refunds, setRefunds] = useState<RefundsState>({ step: 'form' });
+  // US-306 : vue des retards et escalade de non-restitution
+  const [overdue, setOverdue] = useState<OverdueState>({});
   const cancelStep = useRef<CancelState['step']>('form');
   useEffect(() => {
     // focus sur le titre du panneau à chaque changement d'étape (clavier, lecteur d'écran)
@@ -177,6 +187,29 @@ export function ConsoleClient({ localeTag }: { readonly localeTag: string }) {
   useEffect(() => {
     void refresh();
   }, [refresh]);
+
+  // US-306 : vue des retards, lue en direct (aucun cache) ; un refus ou un échec n'est jamais « rien »
+  const readOverdue = useCallback(
+    async (notice?: OverdueState['notice']) => {
+      const r = await call<OverdueBoardView>('GET', '/console/overdue');
+      setOverdue((prev) => ({
+        ...prev,
+        view: r.ok ? r.body : 'error',
+        notice: r.ok
+          ? (notice ?? prev.notice)
+          : { tone: r.status === 0 ? 'danger' : 'warning', key: r.messageKey },
+      }));
+    },
+    [call],
+  );
+  const readsOverdue =
+    state.kind === 'console' && state.roles.some((r) => OVERDUE_ROLES.has(r.role));
+  useEffect(() => {
+    if (!readsOverdue) return undefined;
+    void readOverdue();
+    const timer = setInterval(() => void readOverdue(), OVERDUE_POLL_MS);
+    return () => clearInterval(timer);
+  }, [readsOverdue, readOverdue]);
 
   // focus sur le titre de chaque nouvel écran (clavier, lecteur d'écran : revue UX US-012)
   useEffect(() => {
@@ -436,6 +469,55 @@ export function ConsoleClient({ localeTag }: { readonly localeTag: string }) {
                 view: 'error',
                 notice: { tone: r.status === 0 ? 'danger' : 'warning', key: r.messageKey },
               },
+        );
+      });
+    },
+  };
+
+  const overdueHandlers: OverdueHandlers = {
+    onOverdueRefresh: () => once(() => readOverdue()),
+    onOverduePrepare: (tripId, step) => {
+      setOverdue((prev) => ({ ...prev, draft: { tripId, step }, notice: undefined }));
+      // focus sur le titre de la confirmation (clavier, lecteur d'écran)
+      setTimeout(() => document.getElementById('overdue-confirm-heading')?.focus(), 0);
+    },
+    onOverdueCancel: () => setOverdue((prev) => ({ ...prev, draft: undefined })),
+    onOverdueEscalate: (tripId, step, reason) => {
+      if (reason.trim().length < 10) {
+        setOverdue((prev) => ({
+          ...prev,
+          draft: { tripId, step, error: 'backoffice.overdue.reasonTooShort' },
+        }));
+        return;
+      }
+      // un requestId par intention : un double clic ou une reprise réseau est reconnu par la base
+      intent.current = intentFor(
+        intent.current,
+        ['ESCALATE_OVERDUE', tripId, step, reason.trim()],
+        () => crypto.randomUUID(),
+      );
+      const { requestId } = intent.current;
+      once(async () => {
+        // étape d'une liste fermée seulement ; jamais un montant (17 §10 NN3)
+        const r = await call('POST', '/console/actions', {
+          requestId,
+          action: 'ESCALATE_OVERDUE',
+          subjectId: tripId,
+          reason,
+          input: { escalationStep: step },
+        });
+        const why = r.ok ? undefined : r.values?.['reason'];
+        const refusal =
+          !r.ok && r.code === 'STAFF_ACTION_REFUSED' && typeof why === 'string'
+            ? OVERDUE_REFUSAL_KEYS[why]
+            : undefined;
+        setOverdue((prev) => ({ ...prev, draft: r.ok ? undefined : prev.draft }));
+        await readOverdue(
+          r.ok
+            ? { tone: 'success', key: 'backoffice.overdue.done' }
+            : refusal !== undefined
+              ? { tone: 'warning', key: refusal }
+              : { tone: r.status === 409 ? 'warning' : 'danger', key: r.messageKey },
         );
       });
     },
@@ -882,6 +964,7 @@ export function ConsoleClient({ localeTag }: { readonly localeTag: string }) {
       ops={{ state: ops, handlers: opsHandlers }}
       cancel={{ state: cancel, handlers: cancelHandlers }}
       refunds={{ state: refunds, handlers: refundsHandlers }}
+      overdue={{ state: overdue, handlers: overdueHandlers }}
     />
   );
 }

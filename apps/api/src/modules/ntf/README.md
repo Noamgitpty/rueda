@@ -44,6 +44,7 @@ Déjà consommés par le code (travailleur `ntf_dispatcher`, `RULES` de `interna
 - `trip.status_changed` (`to` commençant par `CANCELLED_` ; parties lues en base après la condition, US-213) ;
 - `trip.overdue.detected` (producteur : travailleur `trip_overdue`, 0168, US-305 ; une fois par trip, voyageur et hôte, `EVT_TRIP_OVERDUE`) ;
 - `trip.at_risk.flagged` (0168, US-305 : trip suivant du véhicule à risque, hôte, `EVT_TRIP_AT_RISK_HOST`, textes `ntf.tripAtRiskHost.*`) ;
+- `trip.overdue.escalated` (0173, US-306 : étape d'escalade lancée par l'ops, hôte seul, un gabarit par étape : `EVT_UNRETURNED_CONTACT`, `EVT_UNRETURNED_FORMAL_NOTICE`, `EVT_UNRETURNED_POLICE_REPORT`, textes `ntf.unreturnedContact.*`, `ntf.unreturnedFormalNotice.*`, `ntf.unreturnedPoliceReport.*` : message type, mise en demeure au nom de l'hôte, plainte pré-remplie que l'hôte dépose) ;
 - `payout.batch.status_changed` (`status` = `INITIATED` ou `ON_HOLD`) ;
 - `catalog.addition_request.resolved` (`status` = `APPROVED` ou `MERGED` : ajout ; `REJECTED` : refus ; hôte demandeur `host_user_id`, US-114).
 - `booking.trip.host_restricted` (voyageur `guest_user_id` d'un trip à venir dont l'hôte est restreint, gabarit `EVT_TRIP_HOST_RESTRICTED` ; US-122, ADR-124).

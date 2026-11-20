@@ -183,6 +183,12 @@ export interface OpsConsoleStore {
    * trip, garde ADR-122, refus journalisés ; aucune donnée personnelle.
    */
   tripRefunds(actor: StaffActor, requestId: string, tripId: string): Promise<OpsResult>;
+  /**
+   * US-306 (ADR-193) : vue des retards (16 ADM-022) : trips OVERDUE / UNRETURNED des pays où l'agent
+   * détient ops.force_terminate_trip, étape d'escalade, prochaine étape et son heure, escalades (OK) ;
+   * trips qui concernent l'agent écartés (ADR-122) ; refus journalisés ; aucune donnée personnelle.
+   */
+  overdueBoard(actor: StaffActor, requestId: string): Promise<OpsResult>;
 }
 
 /** Décision sur une annonce en revue (US-118 ; revue exigée par le pays seulement). */
@@ -254,6 +260,9 @@ export const TRIP_REFUNDS_SQL = `SELECT r.outcome,
             ELSE r.body END AS body
   FROM core.support_staff_trip_refunds($1, $2, $3) AS r
   LEFT JOIN core.config_currency AS c ON c.code::text = r.body #>> '{refunds,0,currency}'`;
+/** US-306 : vue des retards (lecture en direct, sans cache : ≤ 1 min après la détection). */
+export const OVERDUE_BOARD_SQL =
+  'SELECT outcome, body FROM core.support_staff_overdue_board($1, $2)';
 export const RESOLVE_CATALOG_ADDITION_SQL =
   'SELECT outcome, body FROM core.support_staff_resolve_catalog_addition($1, $2, $3, $4, $5, $6::jsonb, $7)';
 
@@ -453,5 +462,9 @@ export class PgOpsConsoleStore implements OpsConsoleStore {
 
   tripRefunds(actor: StaffActor, requestId: string, tripId: string) {
     return one(this.#db, TRIP_REFUNDS_SQL, [actor.tokenHash, requestId, tripId]);
+  }
+
+  overdueBoard(actor: StaffActor, requestId: string) {
+    return one(this.#db, OVERDUE_BOARD_SQL, [actor.tokenHash, requestId]);
   }
 }

@@ -58,6 +58,9 @@ const TRIP_SM_TABLES = [
   // US-305 (0168) : dossier de retard, écrit et lu par les commandes de cmd_hold_owner seulement
   // (travailleur trip_overdue) ; preuves : test/l0/l0-us305-overdue
   'trip_ops_overdue_case',
+  // US-306 (0173) : escalades de non-restitution, écrites et lues par les commandes de
+  // cmd_hold_owner seulement (console, contexte STAFF) ; preuves : test/l0/l0-us306-escalation
+  'trip_ops_overdue_escalation',
 ] as const;
 
 // Tables de configuration pays (US-013, 0008) : même socle RLS (ENABLE + FORCE, migrator_all),

@@ -3353,4 +3353,81 @@ export const FR_MESSAGES = {
     'Bonjour {first_name}. Ta réservation {booking_ref} commence le {start_at}, mais le voyage précédent avec cette voiture n’est pas terminé : le retour est en retard. Notre équipe te contactera pour voir les options avec le voyageur. Tu peux nous écrire depuis la réservation dans l’appli.',
   'ntf.tripAtRiskHost.sms.body':
     '{brand} : la voiture de la réservation {booking_ref} ({start_at}) n’est pas encore rendue après le voyage précédent. Nous te contacterons.',
+  'backoffice.overdue.heading': 'Retards et voitures non rendues',
+  'backoffice.overdue.lead':
+    'Voyages en retard dans tes pays, lus en direct (la détection passe chaque minute). L’escalade avance d’une étape à la fois, à l’heure fixée par le pays : contact, mise en demeure, puis plainte pré-remplie. Les contacts du voyageur et de l’hôte sont dans la fiche 360°.',
+  'backoffice.overdue.refresh': 'Actualiser',
+  'backoffice.overdue.readAt': 'Lu à {at} · pays : {countries}',
+  'backoffice.overdue.none': 'Aucun voyage en retard dans tes pays.',
+  'backoffice.overdue.caption': 'Voyages en retard',
+  'backoffice.overdue.tripColumn': 'Voyage',
+  'backoffice.overdue.stageColumn': 'Étape',
+  'backoffice.overdue.nextColumn': 'Étape suivante',
+  'backoffice.overdue.lateMinutes': '{m} min de retard',
+  'backoffice.overdue.lateHours': '{h} h {m} min de retard',
+  'backoffice.overdue.end': 'Fin prévue : {at}',
+  'backoffice.overdue.nextTripAtRisk': 'Le voyage suivant de cette voiture est à risque.',
+  'backoffice.overdue.stage.T30M': 'Retard détecté',
+  'backoffice.overdue.stage.T2H': 'Contact fait',
+  'backoffice.overdue.stage.T6H': 'Mise en demeure remise',
+  'backoffice.overdue.stage.T24H': 'Non rendue : plainte remise',
+  'backoffice.overdue.stage.RESOLVED': 'Dossier clos',
+  'backoffice.overdue.stage.none': 'Dossier en cours d’ouverture',
+  'backoffice.overdue.escalated': '{stage} le {at} : {documents}',
+  'backoffice.overdue.document.CONTACT_SCRIPT': 'message type au voyageur',
+  'backoffice.overdue.document.DEMAND_LETTER': 'modèle de mise en demeure',
+  'backoffice.overdue.document.GPS_REQUEST': 'position GPS demandée à l’hôte',
+  'backoffice.overdue.document.POLICE_REPORT_DRAFT': 'plainte pré-remplie à déposer par l’hôte',
+  'backoffice.overdue.step.CONTACT': 'Contact du voyageur et de l’hôte',
+  'backoffice.overdue.step.FORMAL_NOTICE': 'Mise en demeure',
+  'backoffice.overdue.step.POLICE_REPORT': 'Plainte pré-remplie',
+  'backoffice.overdue.from': 'Possible à partir de {at}',
+  'backoffice.overdue.prepare': 'Préparer l’étape',
+  'backoffice.overdue.prepareFor': 'Préparer l’étape « {step} » du voyage {tripId}',
+  'backoffice.overdue.paramMissing':
+    'Heures d’escalade du pays absentes : aucune étape possible. Préviens l’administration.',
+  'backoffice.overdue.allDone': 'Toutes les étapes sont faites : suivi avec l’hôte.',
+  'backoffice.overdue.confirmHeading': '{step} · voyage {tripId}',
+  'backoffice.overdue.effect.CONTACT':
+    'Appelle le voyageur et écris-lui sur WhatsApp, puis préviens l’hôte. En confirmant, l’étape est inscrite au dossier et l’hôte reçoit par e-mail un message type à envoyer au voyageur.',
+  'backoffice.overdue.effect.FORMAL_NOTICE':
+    'En confirmant, l’étape est inscrite au dossier et l’hôte reçoit par e-mail un modèle de mise en demeure à envoyer en son nom, et la demande de noter la position GPS si sa voiture en a un.',
+  'backoffice.overdue.effect.POLICE_REPORT':
+    'En confirmant, l’étape est inscrite au dossier et l’hôte reçoit par e-mail une plainte pré-remplie, qu’il dépose lui-même auprès de la police.',
+  'backoffice.overdue.never':
+    'La plateforme ne dépose aucune plainte, ne récupère aucune voiture et n’agit jamais à distance sur elle.',
+  'backoffice.overdue.reasonHint':
+    'Ce qui a été fait : appels, messages, réponses. Entre 10 et 1 000 caractères, conservé au journal.',
+  'backoffice.overdue.reasonTooShort': 'Écris un motif d’au moins 10 caractères.',
+  'backoffice.overdue.confirm': 'Confirmer : {step}',
+  'backoffice.overdue.cancel': 'Pas maintenant',
+  'backoffice.overdue.done': 'Étape inscrite au dossier. L’hôte est prévenu par e-mail.',
+  'backoffice.overdue.refused.OVERDUE_STEP_TOO_EARLY':
+    'Trop tôt : cette étape n’est possible qu’à partir de l’heure indiquée.',
+  'backoffice.overdue.refused.OVERDUE_STEP_OUT_OF_ORDER':
+    'Cette étape est déjà faite ou n’est pas la suivante. La liste est actualisée.',
+  'backoffice.overdue.refused.TRIP_NOT_OVERDUE':
+    'Ce voyage n’est plus en retard : la voiture est rendue ou le voyage est clos.',
+  'backoffice.overdue.refused.OVERDUE_CASE_MISSING':
+    'Le dossier de retard n’est pas encore ouvert. Réessaie dans une minute.',
+  'backoffice.overdue.refused.PARAM_MISSING':
+    'Heures d’escalade du pays absentes : aucune étape possible.',
+  'backoffice.overdue.refused.SELF_FORBIDDEN':
+    'Ce voyage te concerne : un autre agent doit s’en occuper.',
+  'ntf.unreturnedContact.email.subject': 'Réservation {booking_ref} : la voiture n’est pas rendue',
+  'ntf.unreturnedContact.email.body':
+    'Bonjour {first_name}. La voiture de la réservation {booking_ref} devait être rendue le {end_at} et ne l’est toujours pas. Notre équipe essaie de joindre le voyageur par appel et par WhatsApp. Tu peux aussi lui écrire depuis la réservation dans l’appli, par exemple : « Bonjour, la voiture de la réservation {booking_ref} devait être rendue le {end_at}. Merci de me dire quand et où tu la rends. » {brand} ne récupère pas la voiture et n’agit pas à distance sur elle.',
+  'ntf.unreturnedContact.sms.body':
+    '{brand} : la voiture de la réservation {booking_ref} n’est pas rendue. Nous contactons le voyageur ; détails par e-mail.',
+  'ntf.unreturnedFormalNotice.email.subject':
+    'Réservation {booking_ref} : modèle de mise en demeure',
+  'ntf.unreturnedFormalNotice.email.body':
+    'Bonjour {first_name}. La voiture de la réservation {booking_ref} n’est toujours pas rendue. Voici un modèle de mise en demeure à envoyer en ton nom au voyageur, par la messagerie de la réservation ou par écrit : « Je soussigné(e), propriétaire du véhicule loué par la réservation {booking_ref} (marque, modèle et plaque indiqués au contrat de location), constate que ce véhicule devait m’être rendu le {end_at} et ne l’a pas été. Je vous demande de me le restituer au lieu convenu dans les plus brefs délais. À défaut, je me réserve le droit de déposer plainte auprès des autorités compétentes. Date et signature. » Si ta voiture a un GPS, note sa dernière position et l’heure, sans aller la chercher seul. {brand} n’envoie pas ce courrier à ta place, ne récupère pas la voiture et n’agit pas à distance sur elle.',
+  'ntf.unreturnedFormalNotice.sms.body':
+    '{brand} : modèle de mise en demeure pour la réservation {booking_ref} envoyé par e-mail. Note la position GPS si ta voiture en a un.',
+  'ntf.unreturnedPoliceReport.email.subject': 'Réservation {booking_ref} : plainte pré-remplie',
+  'ntf.unreturnedPoliceReport.email.body':
+    'Bonjour {first_name}. La voiture de la réservation {booking_ref} n’est pas rendue depuis plus d’un jour. Voici une plainte pré-remplie que tu peux déposer toi-même auprès de la police ou du ministère public, avec ton contrat de location et ta pièce d’identité : « Je soussigné(e), propriétaire du véhicule indiqué au contrat de location joint (marque, modèle et plaque), déclare que ce véhicule, loué par la réservation {booking_ref} sur {brand}, devait m’être restitué le {end_at} et ne l’a pas été malgré mes relances. L’identité du locataire figure au contrat joint. Je dépose plainte pour non-restitution du véhicule. » Garde le numéro de la plainte. {brand} ne dépose pas de plainte à ta place, ne récupère pas la voiture et n’agit pas à distance sur elle ; ton versement n’est pas bloqué par cette procédure.',
+  'ntf.unreturnedPoliceReport.sms.body':
+    '{brand} : plainte pré-remplie pour la réservation {booking_ref} envoyée par e-mail. C’est toi qui la déposes auprès de la police.',
 } as const satisfies Readonly<Record<MessageKey, Message>>;
