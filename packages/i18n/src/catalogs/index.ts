@@ -364,8 +364,14 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  `web.reviews.*` (avis reçus, droit d’accès Ley 81), `web.a13.title`, `web.a13.preview`,
  `web.a13.reviews`, `web.a13.link` (A13 : aperçu du profil public) et `web.listing.hostReviews`
  (fiche S03, LST-020).
+ Version 110 (les 106 à 109 sont réservées à US-307, US-314, US-306 et US-311) : dommages,
+ incidents et décisions (US-309, ADR-195) : `common.claim.*` (réponses des routes
+ `/console/claims…` : délai de déclaration dépassé, preuves de départ et de retour absentes, motif
+ exigé, décision « définitive » refusée, somme des parts, plafonds, ADMIN pour tout débit) et
+ `backoffice.claim.*` (A09 dans la console : déclaration, preuves, gabarit de la décision avec ses
+ lignes exclues comme non refacturables, voies de recours, exécution par Kmino).
  */
-export const CATALOG_VERSION = 105;
+export const CATALOG_VERSION = 110;
 
 /** Catalogues de base par langue ; la langue d'un profil de locale choisit le sien. */
 export const CATALOGS: Readonly<Record<CatalogLanguage, VersionedCatalog<MessageKey>>> = {

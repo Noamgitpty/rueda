@@ -9,8 +9,12 @@
  */
 import { createHash, randomUUID } from 'node:crypto';
 import { afterAll, describe, expect, it } from 'vitest';
-import { EvidenceBundleService, EvidenceStoreError } from '../../modules/clm/index.js';
-import type { EvidenceBundleStore } from '../../modules/clm/index.js';
+import {
+  ClaimStoreError,
+  EvidenceBundleService,
+  EvidenceStoreError,
+} from '../../modules/clm/index.js';
+import type { ClaimResult, ClaimStore, EvidenceBundleStore } from '../../modules/clm/index.js';
 import { AbuseBoardAccessError } from '../../modules/risk/index.js';
 import type { BrandStore, StaffVersion } from '../../modules/cfg/index.js';
 import type { StaffOptions } from '../../modules/iam/index.js';
@@ -678,12 +682,81 @@ describe('contrat HTTP — /console', () => {
     },
     files: { get: () => Promise.resolve({ status: 'FOUND' as const, body: ZIP }) },
   });
+  // Déclarations et décisions (US-309) : magasin piloté par le test (issue de la base par porte)
+  const CLAIM_VIEW = {
+    claimId: ID,
+    tripId: ID,
+    caseId: ID,
+    country: FIRST_COUNTRY,
+    currency: 'XTA',
+    exponent: 2,
+    declaredBy: 'HOST',
+    kind: 'DAMAGE',
+    description: 'Rayure constatée au retour',
+    status: 'REPORTED',
+    reportedAt: '2031-07-02T10:00:00.000Z',
+    tripEndAt: '2031-07-01T10:00:00.000Z',
+    deadlineAt: '2031-07-02T10:00:00.000Z',
+    evidence: { checkinPhotos: true, checkoutPhotos: true },
+    guestCapMinor: '50000',
+    decision: null,
+  };
+  const CLAIM_PREVIEW = {
+    claimId: ID,
+    tripId: ID,
+    currency: 'XTA',
+    exponent: 2,
+    outcome: 'GUEST_LIABLE',
+    covered: true,
+    repairCostMinor: '120000',
+    amountMinor: '45350',
+    legs: { HOST: '40000', INSURER: '0', TAX_THIRD_PARTY: '350', PLATFORM: '5000' },
+    lines: [
+      { category: 'REPAIR', leg: 'HOST', amountMinor: '40000' },
+      { category: 'PROCESSING_FEE', leg: 'PLATFORM', amountMinor: '5000' },
+      { category: 'PROCESSING_FEE_TAX', leg: 'TAX_THIRD_PARTY', amountMinor: '350' },
+    ],
+    excluded: [
+      {
+        category: 'RECOVERY_PARKING',
+        amountMinor: '1500',
+        code: 'NOT_RECHARGEABLE',
+        rule: 'BR-TT-05',
+      },
+    ],
+    hostDeductibleMinor: '25000',
+    guestCapMinor: '50000',
+    evidence: { checkinPhotos: true, checkoutPhotos: true, guestAgreement: false },
+    adminRequired: true,
+  };
+  const claimState = { down: false, record: 'RECORDED', view: 'OK', decide: 'DECIDED' };
+  const claimResult = (outcome: string, body: Record<string, unknown> | null): ClaimResult => ({
+    outcome,
+    id: ID,
+    body,
+  });
+  const claimStore: ClaimStore = {
+    transaction: async (_staff, fn) => {
+      if (claimState.down) throw new ClaimStoreError('08006');
+      const tx = { query: () => Promise.resolve({ rows: [] }) };
+      return (await fn(tx)).value;
+    },
+    record: () => Promise.resolve(claimResult(claimState.record, CLAIM_VIEW)),
+    view: () => Promise.resolve(claimResult(claimState.view, CLAIM_VIEW)),
+    decide: (_tx, _staff, _request, _claim, _input, preview) =>
+      Promise.resolve(
+        preview && claimState.decide === 'DECIDED'
+          ? claimResult('PREVIEW', CLAIM_PREVIEW)
+          : claimResult(claimState.decide, CLAIM_VIEW),
+      ),
+  };
   afterAll(closeContractApps);
 
   async function app(limits?: StaffOptions['limits']): Promise<ContractApp> {
     const ref: { self?: ContractApp } = {};
     const a = await startContractApp({
       evidence: { service: evidenceService },
+      claims: { store: claimStore },
       staff: { store: staffStore(() => ref.self), ...(limits !== undefined ? { limits } : {}) },
       sup: {
         store: {
@@ -1175,6 +1248,128 @@ describe('contrat HTTP — /console', () => {
     ).toBe(503);
     evidenceState.down = false;
     await refusals(a, 'POST', download);
+  });
+
+  it('déclarations et décisions (US-309) : déclaration 201, 200, 400, 403, 409, 422, 503 ; vue 200, 400, 403, 503 ; décision 200 (aperçu, rejeu), 201, 400, 403, 404, 409, 422, 503', async () => {
+    const a = await app();
+    const headers = a.cookie('staff');
+    const create = '/console/claims';
+    const body = {
+      requestId: randomUUID(),
+      tripId: ID,
+      caseId: ID,
+      declaredBy: 'HOST',
+      kind: 'DAMAGE',
+      description: 'Rayure constatée au retour',
+    };
+    const created = await a.api.request('POST', create, { headers, body });
+    expect(created.status).toBe(201);
+    expect(created.json).toEqual({ claim: CLAIM_VIEW });
+    claimState.record = 'ALREADY_RECORDED';
+    expect((await a.api.request('POST', create, { headers, body })).status).toBe(200);
+    for (const bad of [
+      { ...body, declaredBy: 'COHOST' },
+      { ...body, kind: 'THEFT' },
+      { ...body, description: 'court' },
+      { ...body, caseId: 'x' },
+    ]) {
+      expect((await a.api.request('POST', create, { headers, body: bad })).status).toBe(400);
+    }
+    for (const [outcome, status, code] of [
+      ['FORBIDDEN', 403, 'FORBIDDEN'],
+      ['CASE_REQUIRED', 403, 'STAFF_CASE_REQUIRED'],
+      ['SELF_FORBIDDEN', 403, 'STAFF_SELF_FORBIDDEN'],
+      ['CLAIM_TRIP_NOT_ELIGIBLE', 409, 'CLAIM_TRIP_NOT_ELIGIBLE'],
+      ['CLAIM_ALREADY_OPEN', 409, 'CLAIM_ALREADY_OPEN'],
+      ['CLAIM_DEADLINE_PASSED', 422, 'CLAIM_DEADLINE_PASSED'],
+      ['CLAIM_WINDOW_UNKNOWN', 503, 'CLAIM_WINDOW_UNKNOWN'],
+    ] as const) {
+      claimState.record = outcome;
+      const r = await a.api.request('POST', create, { headers, body });
+      expect(r.status, outcome).toBe(status);
+      expect(r.json).toMatchObject({ code });
+    }
+    claimState.record = 'RECORDED';
+    claimState.down = true;
+    expect((await a.api.request('POST', create, { headers, body })).json).toMatchObject({
+      code: 'CLAIMS_UNAVAILABLE',
+    });
+    claimState.down = false;
+    await refusals(a, 'POST', create);
+
+    const read = `/console/claims/${ID}`;
+    expect((await a.api.request('GET', read, { headers })).json).toEqual({ claim: CLAIM_VIEW });
+    expect((await a.api.request('GET', '/console/claims/x', { headers })).status).toBe(400);
+    claimState.view = 'FORBIDDEN';
+    expect((await a.api.request('GET', read, { headers })).status).toBe(403);
+    claimState.view = 'OK';
+    claimState.down = true;
+    expect((await a.api.request('GET', read, { headers })).status).toBe(503);
+    claimState.down = false;
+    await refusals(a, 'GET', read);
+
+    const decide = `/console/claims/${ID}/decision`;
+    const decision = {
+      requestId: randomUUID(),
+      outcome: 'GUEST_LIABLE',
+      covered: true,
+      repairCostMinor: '120000',
+      amountMinor: '45350',
+      lines: [
+        { category: 'REPAIR', amountMinor: '40000' },
+        { category: 'PROCESSING_FEE', amountMinor: '5000' },
+        { category: 'PROCESSING_FEE_TAX', amountMinor: '350' },
+        { category: 'RECOVERY_PARKING', amountMinor: '1500' },
+      ],
+      hostDeductibleMinor: '25000',
+      facts: 'Photos de départ sans dommage, rayure au retour, devis joint.',
+    };
+    const preview = await a.api.request('POST', decide, {
+      headers,
+      body: { ...decision, preview: true },
+    });
+    expect(preview.status).toBe(200);
+    expect(preview.json).toEqual({ preview: CLAIM_PREVIEW });
+    expect((await a.api.request('POST', decide, { headers, body: decision })).status).toBe(201);
+    claimState.decide = 'ALREADY_DECIDED';
+    expect((await a.api.request('POST', decide, { headers, body: decision })).status).toBe(200);
+    for (const bad of [
+      { ...decision, amountMinor: 45350 },
+      { ...decision, amountMinor: '-1' },
+      { ...decision, outcome: 'FINAL' },
+      { ...decision, lines: [{ category: 'FUEL', amountMinor: '1' }] },
+      { ...decision, guestAgreementFileId: 'x' },
+      { ...decision, preview: 'yes' },
+    ]) {
+      expect((await a.api.request('POST', decide, { headers, body: bad })).status).toBe(400);
+    }
+    for (const [outcome, status, code] of [
+      ['FORBIDDEN', 403, 'FORBIDDEN'],
+      ['CASE_REQUIRED', 403, 'STAFF_CASE_REQUIRED'],
+      ['SELF_FORBIDDEN', 403, 'STAFF_SELF_FORBIDDEN'],
+      ['DECISION_ADMIN_REQUIRED', 403, 'DECISION_ADMIN_REQUIRED'],
+      ['CLAIM_NOT_FOUND', 404, 'CLAIM_NOT_FOUND'],
+      ['CLAIM_ALREADY_DECIDED', 409, 'CLAIM_ALREADY_DECIDED'],
+      ['CLAIM_DECISION_WITHOUT_EVIDENCE', 422, 'CLAIM_DECISION_WITHOUT_EVIDENCE'],
+      ['DECISION_RATIONALE_REQUIRED', 422, 'DECISION_RATIONALE_REQUIRED'],
+      ['DECISION_FINALITY_FORBIDDEN', 422, 'DECISION_FINALITY_FORBIDDEN'],
+      ['LEG_SUM_MISMATCH', 422, 'LEG_SUM_MISMATCH'],
+      ['DECISION_OUTCOME_MISMATCH', 422, 'DECISION_OUTCOME_MISMATCH'],
+      ['CLAIM_CAP_UNKNOWN', 422, 'CLAIM_CAP_UNKNOWN'],
+      ['DAMAGE_ABOVE_ACCEPTED_AMOUNT', 422, 'DAMAGE_ABOVE_ACCEPTED_AMOUNT'],
+      ['DAMAGE_ABOVE_REPAIR_COST', 422, 'DAMAGE_ABOVE_REPAIR_COST'],
+      ['AGREEMENT_FILE_INVALID', 422, 'AGREEMENT_FILE_INVALID'],
+    ] as const) {
+      claimState.decide = outcome;
+      const r = await a.api.request('POST', decide, { headers, body: decision });
+      expect(r.status, outcome).toBe(status);
+      expect(r.json).toMatchObject({ code });
+    }
+    claimState.decide = 'DECIDED';
+    claimState.down = true;
+    expect((await a.api.request('POST', decide, { headers, body: decision })).status).toBe(503);
+    claimState.down = false;
+    await refusals(a, 'POST', decide);
   });
 
   it('files de revue, fiche 360°, notes, dossiers, pièces (US-109) : chaque statut déclaré', async () => {

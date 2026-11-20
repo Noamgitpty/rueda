@@ -33,6 +33,8 @@
  *
  * | `mit_charge_scheduler` | 60 s (US-703, ADR-189)                    | `MitChargeScheduler` de PAY sous le nom `payment_command` : file `core.payment_post_trip_charges_due` (0169) ; tentative planifiée par `core.payment_cmd_plan_mit_attempt` (consentement du checkout, rappel à la remise, carte consentie, règle du réseau en données, préavis, délai, `SUPPORTS_MIT` inconnue = non, J0 / J+3 / J+7, clé `…:MIT_CHARGE:…:i1:a{n}`), ordre stocké relu sous les verrous du trip et du débit et envoyé par `MoneyCommandSender` (`chargeMIT`, montant explicite de chaque jambe), issue reportée par `core.payment_cmd_settle_mit_attempt` (relance ou dette et `UNPAID_BALANCE`). Aucun connecteur en production avant le lot C : rien n'est planifié ni envoyé |
  *
+ * | `claim_decision_executor` | 60 s (US-309, ADR-195)                | `ClaimDecisionExecutor` de CLM sous le nom `payment_command` : file `core.claim_decisions_due` (0175), une décision par transaction : `core.claim_cmd_execute_decision` notifie le débit SÉPARÉ du voyageur (`core.payment_cmd_notify_post_trip_charge`, but DAMAGE, motif DAMAGE_SEPARATE, montant explicite de chaque jambe ; débité ensuite par `mit_charge_scheduler`, jamais la caution), écrit la franchise de l'hôte au host_ledger (`CLAIM_HOST_DEDUCTIBLE`) et journalise la déclaration à l'assureur ; erreur ⇒ décision repoussée de 15 min. Déclarations envoyées par le port de l'assureur seulement si `insurer_contract_active[pays]` : aucun port en production avant le lot C, rien n'est envoyé |
+ *
  * | `deposit_timer`       | 60 s (US-701, ADR-169)                     | `DepositReauthTimer` de PAY sous le nom `payment_command` : file `core.payment_deposit_reauth_due` (0146), ré-autorisation de la caution (rail a) par le connecteur du fournisseur, report `core.payment_cmd_deposit_transition` ; refusée ⇒ décision avancée avant l'expiration, alerte `DEPOSIT_REAUTH_FAILED` (P1), aucun débit. Puis décisions échues (US-702, ADR-172) : `DepositDecisionTimer`, file `core.payment_deposit_decision_due` (0150), VOID / capture des frais / MIT par le connecteur, transition finale `core.payment_cmd_deposit_decide` et événement `deposit.decision.executed` (avis au voyageur) ; aucune source de frais annexes en production (`NO_DEPOSIT_FEES` : caution libérée en entier). Aucun connecteur en production avant le lot C : rien n'est envoyé |
  *
  * Non déclarés ici, faute de port réel (tracé dans docs/team/handoffs/US-003.md) :
@@ -76,6 +78,7 @@ import {
 } from './modules/ntf/index.js';
 import { resolveCancellationParams } from './modules/prc/index.js';
 import { ntfSmsBudget } from './modules/risk/index.js';
+import { registerClaimDecisionExecutor } from './modules/clm/index.js';
 import { registerPayoutScheduler } from './modules/pyo/index.js';
 import { registerOverdueDetection } from './modules/trp/index.js';
 import {
@@ -364,6 +367,12 @@ export function registerWorkerTasks(registry: BusRegistry, deps: WorkerTaskDeps)
   // connecteur du PSP seulement : aucun connecteur en production avant le lot C, rien n'est
   // planifié ni envoyé (fail-closed) ; aucune option ne permet d'injecter un autre registre (C19)
   registerMitChargeScheduler(registry, deps.transactions, deps.log, PRODUCTION_PAYMENT_CONNECTORS);
+
+  // Décisions de sinistre (US-309, ADR-195) : exécutées par Kmino sous `payment_command` — débit
+  // séparé du voyageur NOTIFIÉ (débité par mit_charge_scheduler, jamais la caution), franchise de
+  // l'hôte au host_ledger, déclaration à l'assureur journalisée ; AUCUN port d'assureur en
+  // production avant le lot C (`null` : rien n'est envoyé, l'ops transmet la déclaration)
+  registerClaimDecisionExecutor(registry, deps.transactions, deps.log, null);
 
   // US-701 (ADR-169) : ré-autorisation de la caution avant l'échéance (rail a) ; refusée ⇒ ops,
   // sans débit. Aucun connecteur en production avant le lot C : rien n'est envoyé

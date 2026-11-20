@@ -60,6 +60,7 @@ import {
   PgHelpStore,
   PgManualActionStore,
   PgOpsConsoleStore,
+  postgresClaims,
   postgresEvidenceBundle,
   unavailableEvidence,
 } from '../modules/sup/index.js';
@@ -131,6 +132,29 @@ async function bundleOf(country: string): Promise<string> {
     [tripOf.get(country), country, personOf.get(country)?.id],
   );
   return rows[0]?.id ?? randomUUID();
+}
+
+/**
+ * US-309 : déclaration de dommage du trip du pays (fixture 9909), rattachée à un dossier de
+ * support CLAIM non assigné ; une par pays (mise en cache) : OPS du pays ⇒ 403 STAFF_CASE_REQUIRED
+ * (dossier d'un autre), ADMIN du pays ⇒ 200 ; autre pays et rôles sans la permission ⇒ FORBIDDEN.
+ */
+const claimByCountry = new Map<string, string>();
+async function claimOf(country: string): Promise<string> {
+  const known = claimByCountry.get(country);
+  if (known !== undefined) return known;
+  const caseId = randomUUID();
+  await client.query(
+    'SELECT test_fixture.rls_insert_support_case($1, $2, $3, NULL, $4, $5, NULL)',
+    [caseId, country, tripOf.get(country), 'OPEN', 'CLAIM'],
+  );
+  const { rows } = await client.query<{ id: string }>(
+    'SELECT test_fixture.us309_insert_claim($1, $2)::text AS id',
+    [tripOf.get(country), caseId],
+  );
+  const id = rows[0]?.id ?? randomUUID();
+  claimByCountry.set(country, id);
+  return id;
 }
 
 /** Élément de file KYC neuf du pays (vraie mise en file, fixture 9990). */
@@ -536,6 +560,40 @@ async function requestOf(
         method: 'POST',
         path: `/console/evidence-bundles/${await bundleOf(country)}/download`,
         body: { reason: 'Matrice US-043 : dossier de test' },
+      };
+    // US-309 : déclaration depuis un dossier du pays sans trip (ACCOUNT) ⇒ OPS et ADMIN du pays :
+    // 403 STAFF_CASE_REQUIRED, rien n'est écrit ; autre pays : FORBIDDEN
+    case 'POST /console/claims':
+      return {
+        method: 'POST',
+        path: '/console/claims',
+        body: {
+          requestId: id,
+          tripId: tripOf.get(country) ?? id,
+          caseId: await caseOf(country),
+          declaredBy: 'HOST',
+          kind: 'DAMAGE',
+          description: 'Matrice US-043 : déclaration de test',
+        },
+      };
+    case 'GET /console/claims/{claimId}':
+      return { method: 'GET', path: `/console/claims/${await claimOf(country)}` };
+    // US-309 : APERÇU du gabarit (rien n'est écrit) ; ADMIN du pays : 200 ; OPS : CASE_REQUIRED
+    case 'POST /console/claims/{claimId}/decision':
+      return {
+        method: 'POST',
+        path: `/console/claims/${await claimOf(country)}/decision`,
+        body: {
+          requestId: id,
+          preview: true,
+          outcome: 'NO_GUEST_CHARGE',
+          covered: false,
+          repairCostMinor: '0',
+          amountMinor: '0',
+          lines: [],
+          hostDeductibleMinor: '0',
+          facts: 'Matrice US-043 : aperçu du gabarit de décision',
+        },
       };
     // US-114 : file d'ajout au catalogue (élément du pays de l'acteur)
     case 'POST /console/queues/items/{id}/catalog-addition':
@@ -1331,6 +1389,8 @@ beforeAll(async () => {
       postgresEvidenceBundle(singlePool as unknown as Parameters<typeof postgresEvidenceBundle>[0]),
       // avis réciproques (US-317) : fonctions réelles de 0170 sous app_api
       postgresRevAdapters(client),
+      // déclarations de dommage et décisions (US-309) : portes réelles de 0175 sous app_api
+      postgresClaims(singlePool as unknown as Parameters<typeof postgresClaims>[0]),
     ),
     { rawBody: true, logger: false },
   );

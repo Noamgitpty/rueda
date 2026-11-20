@@ -19,6 +19,8 @@ import type {
   MeBody,
 } from './api.ts';
 import { CANCEL_ACTION, CANCEL_REFUSAL_KEYS, draftProblem } from './cancel-view.tsx';
+import { recordProblem } from './claim-view.tsx';
+import type { ClaimPreviewView, ClaimsHandlers, ClaimsState, ClaimView } from './claim-view.tsx';
 import type { CancelHandlers, CancelState, CancellationView } from './cancel-view.tsx';
 import type { RefundsHandlers, RefundsState, TripRefundsView } from './refund-view.tsx';
 import { ConsoleView, DSR_REFUSAL_KEYS, REVIEW_REFUSAL_KEYS, SCREEN_HEADINGS } from './view.tsx';
@@ -101,6 +103,8 @@ export function ConsoleClient({ localeTag }: { readonly localeTag: string }) {
   const cancelGen = useRef(0);
   // US-224d : remboursements d'un voyage (lecture seule)
   const [refunds, setRefunds] = useState<RefundsState>({ step: 'form' });
+  // US-309 : déclaration ouverte, aperçu du gabarit pour la saisie courante
+  const [claims, setClaims] = useState<ClaimsState>({ claim: null, preview: null });
   const cancelStep = useRef<CancelState['step']>('form');
   useEffect(() => {
     // focus sur le titre du panneau à chaque changement d'étape (clavier, lecteur d'écran)
@@ -434,6 +438,115 @@ export function ConsoleClient({ localeTag }: { readonly localeTag: string }) {
                 step: 'result',
                 tripId,
                 view: 'error',
+                notice: { tone: r.status === 0 ? 'danger' : 'warning', key: r.messageKey },
+              },
+        );
+      });
+    },
+  };
+
+  // US-309 : déclarations et décisions ; la base juge chaque droit, délai, preuve et montant
+  const claimsHandlers: ClaimsHandlers = {
+    onClaimRecord: (draft) => {
+      const problem = recordProblem(draft);
+      if (problem !== null) {
+        setClaims({ claim: null, preview: null, notice: { tone: 'danger', key: problem } });
+        return;
+      }
+      once(async () => {
+        const r = await call<{ claim: ClaimView }>('POST', '/console/claims', {
+          requestId: crypto.randomUUID(),
+          tripId: draft.tripId,
+          caseId: draft.caseId,
+          declaredBy: draft.declaredBy,
+          kind: draft.kind,
+          description: draft.description.trim(),
+        });
+        setClaims(
+          r.ok
+            ? {
+                claim: r.body.claim,
+                preview: null,
+                notice: { tone: 'success', key: 'backoffice.claim.recorded' },
+              }
+            : {
+                claim: null,
+                preview: null,
+                notice: { tone: r.status === 0 ? 'danger' : 'warning', key: r.messageKey },
+              },
+        );
+      });
+    },
+    onClaimRead: (claimId) => {
+      if (!TRIP_ID.test(claimId)) {
+        setClaims({
+          claim: null,
+          preview: null,
+          notice: { tone: 'danger', key: 'backoffice.claim.error.claim' },
+        });
+        return;
+      }
+      once(async () => {
+        const r = await call<{ claim: ClaimView }>('GET', `/console/claims/${claimId}`);
+        setClaims(
+          r.ok
+            ? { claim: r.body.claim, preview: null }
+            : {
+                claim: null,
+                preview: null,
+                notice: { tone: r.status === 0 ? 'danger' : 'warning', key: r.messageKey },
+              },
+        );
+      });
+    },
+    onDecisionPreview: (draft) => {
+      const claim = claims.claim;
+      if (claim === null) return;
+      if (draft === null) {
+        setClaims((prev) => ({
+          ...prev,
+          preview: null,
+          notice: { tone: 'danger', key: 'backoffice.claim.error.amount' },
+        }));
+        return;
+      }
+      once(async () => {
+        const r = await call<{ preview: ClaimPreviewView }>(
+          'POST',
+          `/console/claims/${claim.claimId}/decision`,
+          { requestId: crypto.randomUUID(), preview: true, ...draft },
+        );
+        setClaims((prev) =>
+          r.ok
+            ? { ...prev, preview: { draft, view: r.body.preview }, notice: undefined }
+            : {
+                ...prev,
+                preview: null,
+                notice: { tone: r.status === 0 ? 'danger' : 'warning', key: r.messageKey },
+              },
+        );
+        document.getElementById('claims-template-heading')?.focus();
+      });
+    },
+    onDecisionIssue: () => {
+      const claim = claims.claim;
+      const preview = claims.preview;
+      if (claim === null || preview === null) return;
+      once(async () => {
+        const r = await call<{ claim: ClaimView }>(
+          'POST',
+          `/console/claims/${claim.claimId}/decision`,
+          { requestId: crypto.randomUUID(), ...preview.draft },
+        );
+        setClaims((prev) =>
+          r.ok
+            ? {
+                claim: r.body.claim,
+                preview: null,
+                notice: { tone: 'success', key: 'backoffice.claim.decided' },
+              }
+            : {
+                ...prev,
                 notice: { tone: r.status === 0 ? 'danger' : 'warning', key: r.messageKey },
               },
         );
@@ -882,6 +995,7 @@ export function ConsoleClient({ localeTag }: { readonly localeTag: string }) {
       ops={{ state: ops, handlers: opsHandlers }}
       cancel={{ state: cancel, handlers: cancelHandlers }}
       refunds={{ state: refunds, handlers: refundsHandlers }}
+      claims={{ state: claims, handlers: claimsHandlers }}
     />
   );
 }

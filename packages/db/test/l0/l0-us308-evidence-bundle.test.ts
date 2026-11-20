@@ -750,7 +750,7 @@ describe.each(COUNTRIES)('US-308 — dossier de preuve ($country, $currency)', (
                              FROM pg_catalog.unnest(p.polroles) AS r ORDER BY 1), ',')
                     FROM pg_catalog.pg_policy p WHERE p.polrelid = c.oid ORDER BY 1), ';') AS pols
            FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
-          WHERE n.nspname = 'core' AND c.relkind = 'r' AND c.relname ~ '^claim_'
+          WHERE n.nspname = 'core' AND c.relkind = 'r' AND c.relname ~ '^claim_evidence_'
           ORDER BY c.relname`,
       );
       expect(rows).toEqual([

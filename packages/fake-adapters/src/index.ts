@@ -23,3 +23,4 @@ export * from './signature/index.ts';
 export * from './maps/index.ts';
 export * from './psp/index.ts';
 export * from './sanctions/index.ts';
+export * from './insurer/index.ts';

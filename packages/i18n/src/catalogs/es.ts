@@ -460,6 +460,146 @@ export const ES_MESSAGES = {
     'No se pudo entregar el expediente: una prueba no coincide con su huella o falta. El hallazgo quedó registrado.',
   'common.evidenceBundle.unavailable':
     'El expediente de pruebas no está disponible por ahora. No se pidió ni se entregó nada.',
+  'common.claim.notFound': 'No encontramos esta declaración.',
+  'common.claim.deadlinePassed':
+    'El plazo para declarar venció: se cuenta desde el fin del viaje (el más tardío entre el fin previsto y la devolución). No se registró nada.',
+  'common.claim.windowUnknown':
+    'El plazo de declaración no está configurado aquí. No se registró nada.',
+  'common.claim.tripNotEligible':
+    'Este viaje no empezó o fue cancelado: no admite una declaración de daño.',
+  'common.claim.alreadyOpen':
+    'Ya hay una declaración abierta de esta persona y de esta naturaleza para el viaje.',
+  'common.claim.alreadyDecided':
+    'Esta declaración ya tiene una decisión. Una revisión pasa por una impugnación.',
+  'common.claim.decisionWithoutEvidence':
+    'No se puede retener nada sin las fotos de salida y de devolución del viaje.',
+  'common.claim.rationaleRequired':
+    'Escribe los hechos de la decisión (20 caracteres como mínimo).',
+  'common.claim.finalityForbidden':
+    'Una decisión nunca es definitiva: quita esa mención, las vías de recurso se citan siempre.',
+  'common.claim.legSumMismatch':
+    'La suma de las partes no es igual al monto cobrado. No se preparó ninguna orden.',
+  'common.claim.outcomeMismatch':
+    'El resultado elegido no coincide con los montos (cobro al viajero, franquicia del anfitrión, cobertura).',
+  'common.claim.capUnknown':
+    'No encontramos la franquicia aceptada por el viajero en su contrato: no se puede cobrar nada.',
+  'common.claim.aboveAcceptedAmount':
+    'El monto supera la franquicia que el viajero aceptó en su contrato.',
+  'common.claim.aboveRepairCost':
+    'La reparación imputada o la franquicia del anfitrión supera el costo de reparación constatado.',
+  'common.claim.adminRequired':
+    'Una decisión que cobra al viajero o al anfitrión la toma un administrador.',
+  'common.claim.agreementFileInvalid':
+    'El acuerdo firmado del viajero no está entre las pruebas recibidas.',
+  'common.claim.unavailable':
+    'Las declaraciones de daño no están disponibles por ahora. No se registró nada.',
+  'backoffice.claim.heading': 'Daños, incidentes y decisiones',
+  'backoffice.claim.lead':
+    'Registra la declaración recibida en tu caso de soporte, revisa las pruebas y decide con la plantilla. Kmino ejecuta la decisión; nunca el anfitrión.',
+  'backoffice.claim.recordHeading': 'Registrar una declaración',
+  'backoffice.claim.trip': 'Identificador del viaje',
+  'backoffice.claim.case': 'Identificador del caso de soporte',
+  'backoffice.claim.caseHint': 'Un caso de categoría daño, abierto, de este viaje y asignado a ti.',
+  'backoffice.claim.declaredBy': '¿Quién declara?',
+  'backoffice.claim.declaredBy.HOST': 'El anfitrión',
+  'backoffice.claim.declaredBy.GUEST': 'El viajero',
+  'backoffice.claim.kind': 'Naturaleza',
+  'backoffice.claim.kind.DAMAGE': 'Daño al vehículo',
+  'backoffice.claim.kind.INCIDENT': 'Incidente o accidente',
+  'backoffice.claim.description': 'Resumen de la declaración',
+  'backoffice.claim.descriptionHint': 'De 10 a 1 000 caracteres. Sin nombres ni datos de contacto.',
+  'backoffice.claim.deadlineNote':
+    'El plazo lo juzga el servidor al registrar: 24 horas después del fin del viaje según la configuración local.',
+  'backoffice.claim.record': 'Registrar la declaración',
+  'backoffice.claim.recorded':
+    'Declaración registrada. El pago al anfitrión de este viaje queda retenido hasta la decisión.',
+  'backoffice.claim.readHeading': 'Abrir una declaración',
+  'backoffice.claim.claimId': 'Identificador de la declaración',
+  'backoffice.claim.read': 'Ver la declaración',
+  'backoffice.claim.error.trip': 'Escribe el identificador completo del viaje.',
+  'backoffice.claim.error.case': 'Escribe el identificador completo del caso de soporte.',
+  'backoffice.claim.error.who': 'Elige quién declara y la naturaleza de la declaración.',
+  'backoffice.claim.error.description': 'El resumen debe tener de 10 a 1 000 caracteres.',
+  'backoffice.claim.error.claim': 'Escribe el identificador completo de la declaración.',
+  'backoffice.claim.error.amount':
+    'Un monto no es válido en la moneda del viaje. No se envió nada.',
+  'backoffice.claim.statusLabel': 'Estado',
+  'backoffice.claim.status.REPORTED': 'Declarada, en instrucción',
+  'backoffice.claim.status.DECIDED': 'Decidida',
+  'backoffice.claim.deadline': 'Plazo',
+  'backoffice.claim.deadlineValue': 'Declarada el {reported} · plazo hasta el {deadline}',
+  'backoffice.claim.cap': 'Franquicia aceptada por el viajero',
+  'backoffice.claim.capUnknown': 'Sin contrato firmado: no se puede cobrar nada',
+  'backoffice.claim.evidenceHeading': 'Pruebas del viaje',
+  'backoffice.claim.evidence.checkin': 'Fotos de salida recibidas',
+  'backoffice.claim.evidence.checkinMissing': 'Faltan las fotos de salida',
+  'backoffice.claim.evidence.checkout': 'Fotos de devolución recibidas',
+  'backoffice.claim.evidence.checkoutMissing': 'Faltan las fotos de devolución',
+  'backoffice.claim.decisionHeading': 'Preparar la decisión',
+  'backoffice.claim.decisionLead':
+    'Escribe los hechos y los montos por línea. La vista previa muestra la plantilla; nada se guarda antes de confirmar.',
+  'backoffice.claim.outcome': 'Resultado',
+  'backoffice.claim.outcome.GUEST_LIABLE': 'El viajero paga su parte del daño',
+  'backoffice.claim.outcome.NO_GUEST_CHARGE': 'Nada que cobrar al viajero',
+  'backoffice.claim.outcome.INELIGIBLE':
+    'Declaración no admisible (desgaste, daño previo, fuera del viaje)',
+  'backoffice.claim.covered':
+    'El daño entra en la protección: se declara a la aseguradora asociada',
+  'backoffice.claim.repairCost': 'Costo de reparación constatado ({currency})',
+  'backoffice.claim.linesLegend': 'Líneas cobradas al viajero',
+  'backoffice.claim.line.REPAIR': 'Reparación para el anfitrión',
+  'backoffice.claim.line.INSURER_RECOVERY': 'Reembolso de la aseguradora',
+  'backoffice.claim.line.PROCESSING_FEE': 'Cargo de gestión',
+  'backoffice.claim.line.PROCESSING_FEE_TAX': 'Impuesto del cargo de gestión',
+  'backoffice.claim.line.RECOVERY_PARKING':
+    'Estacionamiento pagado por el anfitrión para recuperar su vehículo',
+  'backoffice.claim.line.NOT_ATTRIBUTABLE': 'Cargo que no se puede imputar al viajero',
+  'backoffice.claim.hostDeductible': 'Franquicia del anfitrión según su plan ({currency})',
+  'backoffice.claim.hostDeductibleHint':
+    'Se descuenta de los próximos pagos del anfitrión; nunca se cobra al viajero.',
+  'backoffice.claim.facts': 'Hechos de la decisión',
+  'backoffice.claim.factsHint':
+    'Lo que muestran las pruebas, en 20 caracteres como mínimo. Sin nombres ni datos de contacto.',
+  'backoffice.claim.preview': 'Ver la plantilla',
+  'backoffice.claim.templateHeading': 'Plantilla de la decisión',
+  'backoffice.claim.template.facts': 'Hechos',
+  'backoffice.claim.template.rule': 'Regla aplicada',
+  'backoffice.claim.template.amount': 'Monto cobrado al viajero',
+  'backoffice.claim.template.amountValue':
+    '{amount} (franquicia aceptada: {cap}) · cobro separado de la tarjeta, nunca con el depósito',
+  'backoffice.claim.template.hostDeductible': 'Franquicia del anfitrión',
+  'backoffice.claim.template.insurer': 'Aseguradora asociada',
+  'backoffice.claim.template.insurerValue':
+    'Declaración registrada para la aseguradora, sin compromiso de cobertura.',
+  'backoffice.claim.template.recourse':
+    'Esta decisión puede impugnarse: cada parte puede responder con nuevas pruebas y acudir a la autoridad de protección del consumidor.',
+  'backoffice.claim.rule.GUEST_LIABLE':
+    'El viajero responde del daño ocurrido durante el viaje, dentro de la franquicia que aceptó.',
+  'backoffice.claim.rule.NO_GUEST_CHARGE': 'Las pruebas no justifican un cobro al viajero.',
+  'backoffice.claim.rule.INELIGIBLE':
+    'Desgaste, daño previo documentado o hecho fuera del viaje: no admisible.',
+  'backoffice.claim.legsCaption': 'Partes del cobro, una por destinatario',
+  'backoffice.claim.legColumn': 'Destinatario',
+  'backoffice.claim.amountColumn': 'Monto',
+  'backoffice.claim.excludedHeading': 'Excluido por la plantilla',
+  'backoffice.claim.excludedLine': '{line}: {amount} — {why}',
+  'backoffice.claim.excluded.parking':
+    'no refacturable al viajero (estacionamiento para recuperar el vehículo)',
+  'backoffice.claim.excluded.notAttributable': 'no refacturable al viajero (no le es imputable)',
+  'backoffice.claim.adminNote':
+    'Esta decisión cobra al viajero o al anfitrión: la confirma un administrador.',
+  'backoffice.claim.issue': 'Registrar la decisión',
+  'backoffice.claim.executionNote':
+    'Kmino ejecuta la decisión del viaje {ref}: cobro separado notificado al viajero, franquicia en los pagos del anfitrión y declaración a la aseguradora.',
+  'backoffice.claim.decided':
+    'Decisión registrada. Kmino la ejecuta; el pago al anfitrión se libera cuando está ejecutada.',
+  'backoffice.claim.decidedHeading': 'Decisión registrada',
+  'backoffice.claim.execution': 'Ejecución por Kmino',
+  'backoffice.claim.execution.PENDING': 'En curso',
+  'backoffice.claim.execution.DONE': 'Ejecutada',
+  'backoffice.claim.execution.BLOCKED': 'Bloqueada: sin tarjeta del alquiler, revisión del equipo',
+  'backoffice.claim.insurer.PENDING': 'Registrada, pendiente de envío',
+  'backoffice.claim.insurer.SENT': 'Enviada a la aseguradora',
   'backoffice.action.RESTRICT_ACCOUNT': 'Restringir la cuenta',
   'backoffice.action.LIFT_RESTRICTION': 'Levantar la restricción',
   'backoffice.queues.current': 'Cola mostrada',

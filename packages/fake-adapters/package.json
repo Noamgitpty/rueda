@@ -2,7 +2,7 @@
   "name": "@rueda/fake-adapters",
   "version": "0.0.0",
   "private": true,
-  "description": "Adaptateurs FAKE (tests et développement seulement, jamais en production, C19) : identité, facture électronique, messagerie, fichiers, antivirus, signature, tuiles de carte (US-020) ; PSP (US-019) ; filtrage des sanctions (US-123).",
+  "description": "Adaptateurs FAKE (tests et développement seulement, jamais en production, C19) : identité, facture électronique, messagerie, fichiers, antivirus, signature, tuiles de carte (US-020) ; PSP (US-019) ; filtrage des sanctions (US-123) ; déclaration à l’assureur partenaire (US-309).",
   "type": "module",
   "sideEffects": false,
   "exports": {
@@ -15,7 +15,8 @@
     "./signature": "./src/signature/index.ts",
     "./maps": "./src/maps/index.ts",
     "./psp": "./src/psp/index.ts",
-    "./sanctions": "./src/sanctions/index.ts"
+    "./sanctions": "./src/sanctions/index.ts",
+    "./insurer": "./src/insurer/index.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
