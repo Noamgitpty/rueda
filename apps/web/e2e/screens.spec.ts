@@ -373,6 +373,29 @@ async function openTripMessages(
   await expect(page.locator('[data-testid="s16-thread"]')).toBeVisible();
 }
 
+/** S13 — avis du voyageur sur un trip rendu du double (US-317) : formulaire, double aveugle. */
+const REVIEW_TRIP = '00000000-0000-4000-8000-000000317e2e';
+async function openTripReview(
+  page: Page,
+  context: BrowserContext,
+  language: Language,
+): Promise<void> {
+  await signInGuest(context, language);
+  await page.goto(`/trips/${REVIEW_TRIP}/review`);
+  await expect(page.locator('[data-testid="review-form"]')).toBeVisible();
+}
+
+/** Avis reçus par le voyageur (US-317 ; droit d'accès, Ley 81). */
+async function openReceivedReviews(
+  page: Page,
+  context: BrowserContext,
+  language: Language,
+): Promise<void> {
+  await signInGuest(context, language);
+  await page.goto('/reviews');
+  await expect(page.locator('[data-testid="reviews-as-guest-list"]')).toBeVisible();
+}
+
 /**
  * A10 → A08 de l'hôte (US-217 partie 217b) : mois du double qui porte des gains (acquis, à
  * liquider, pénalité en ligne séparée), compte au marché à deux décimales.
@@ -843,6 +866,17 @@ export const SCREENS: readonly Screen[] = [
     name: 'messages-voyage',
     source: 'S16, US-525',
     open: (page, context, language) => openTripMessages(page, context, language),
+  },
+  // US-317 : avis du voyageur (S13 : fenêtre, double aveugle, formulaire) et avis reçus
+  {
+    name: 'avis-voyage',
+    source: 'S13, US-317',
+    open: (page, context, language) => openTripReview(page, context, language),
+  },
+  {
+    name: 'avis-recus',
+    source: 'US-317 (droit d’accès)',
+    open: (page, context, language) => openReceivedReviews(page, context, language),
   },
   { name: 'vitrine-composants', source: 'US-032', open: at('/ui?width=mobile') },
 ];

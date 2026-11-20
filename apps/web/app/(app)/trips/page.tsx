@@ -35,6 +35,10 @@ export default async function GuestTripsPage() {
         <h1 className={accountStyles['h1']} data-testid="s08-title">
           {t('web.s08.heading')}
         </h1>
+        {/* avis reçus (US-317 ; droit d'accès, Ley 81) */}
+        <a className={styles['link']} href="/reviews" data-testid="s08-reviews">
+          {t('web.reviews.link')}
+        </a>
       </header>
       {body}
     </main>

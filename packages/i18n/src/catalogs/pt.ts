@@ -3296,8 +3296,8 @@ export const PT_MESSAGES = {
     'As avaliações não estão disponíveis agora. Tente de novo em alguns minutos.',
   'web.review.until': 'Você pode avaliar até {date}',
   'web.review.blind': {
-    one: '{name} não verá sua avaliação até que vocês dois avaliem ou passe {count} dia',
-    other: '{name} não verá sua avaliação até que vocês dois avaliem ou passem {count} dias',
+    one: '{name} só verá sua avaliação quando vocês dois avaliarem ou depois de {count} dia',
+    other: '{name} só verá sua avaliação quando vocês dois avaliarem ou depois de {count} dias',
   },
   'web.review.closed': 'O prazo para avaliar terminou em {date}.',
   'web.review.back': 'Voltar à viagem',
@@ -3350,7 +3350,7 @@ export const PT_MESSAGES = {
   'web.reviews.link': 'Avaliações sobre você',
   'web.a13.title': 'Seu perfil público',
   'web.a13.preview': 'É assim que os viajantes veem você nos seus anúncios.',
-  'web.a13.reviews': 'Avaliações dos viajantes',
+  'web.a13.reviews': 'Avaliações recebidas',
   'web.a13.link': 'Seu perfil público',
   'web.listing.hostReviews': 'Avaliações sobre {name}',
 } as const satisfies Readonly<Record<MessageKey, Message>>;

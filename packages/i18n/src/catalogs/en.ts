@@ -3266,7 +3266,7 @@ export const EN_MESSAGES = {
   'web.reviews.link': 'Reviews about you',
   'web.a13.title': 'Your public profile',
   'web.a13.preview': 'This is how guests see you on your listings.',
-  'web.a13.reviews': 'Reviews from guests',
+  'web.a13.reviews': 'Reviews received',
   'web.a13.link': 'Your public profile',
   'web.listing.hostReviews': 'Reviews of {name}',
 } as const satisfies Readonly<Record<MessageKey, Message>>;

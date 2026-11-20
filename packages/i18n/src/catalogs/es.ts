@@ -3344,7 +3344,7 @@ export const ES_MESSAGES = {
   'web.reviews.link': 'Opiniones sobre ti',
   'web.a13.title': 'Tu perfil público',
   'web.a13.preview': 'Así te ven los viajeros en tus anuncios.',
-  'web.a13.reviews': 'Opiniones de los viajeros',
+  'web.a13.reviews': 'Opiniones recibidas',
   'web.a13.link': 'Tu perfil público',
   'web.listing.hostReviews': 'Opiniones sobre {name}',
 } as const satisfies Catalog;

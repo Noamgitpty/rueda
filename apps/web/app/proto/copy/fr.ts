@@ -326,13 +326,6 @@ export const FR_PROTO = {
   'web.a13.promise': 'Ta promesse aux voyageurs',
   'web.a13.empty': 'Dis aux voyageurs qui tu es',
   'backoffice.o01.empty': 'File vide',
-  'web.review.until': 'Tu peux donner ton avis jusqu’au {date}',
-  'web.review.blind': {
-    one: '{name} ne verra pas ton avis avant que vous ayez tous les deux donné le vôtre ou que {count} jour soit passé',
-    other:
-      '{name} ne verra pas ton avis avant que vous ayez tous les deux donné le vôtre ou que {count} jours soient passés',
-  },
-  'web.review.closed': 'Le délai pour donner ton avis s’est terminé le {date}.',
   'web.s14.becomeHost': 'Publie ta voiture',
   'web.s14.profilePhoto':
     'Ajoute une photo de profil : ton hôte la verra au moment de te remettre la voiture.',
@@ -530,7 +523,6 @@ export const FR_PROTO = {
   'web.a11.preview.body':
     'Voici ce que verra un voyageur sur la fiche de ta voiture avant de réserver.',
   'web.a11.preview.back': 'Revenir à la modification',
-  'web.a13.title': 'Ton profil public',
   'web.a13.memberSince': 'sur {brand} depuis {year}',
   'web.a13.languages': 'Langues que tu parles',
   'web.a13.about': 'À propos de toi',
@@ -541,7 +533,6 @@ export const FR_PROTO = {
     other: 'Tu réponds en {count} heures en moyenne · {rate} % de réponses',
   },
   'web.a13.response.body': 'Calculé à partir de tes messages ; non modifiable.',
-  'web.a13.reviews': 'Avis reçus',
   'web.a13.review.by': { one: '{name} · {count} étoile', other: '{name} · {count} étoiles' },
   'web.a13.reply': 'Répondre publiquement',
   'web.a13.empty.body':

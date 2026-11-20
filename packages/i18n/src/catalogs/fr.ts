@@ -3419,7 +3419,7 @@ export const FR_MESSAGES = {
   'web.reviews.link': 'Avis sur toi',
   'web.a13.title': 'Ton profil public',
   'web.a13.preview': 'Voici comment les voyageurs te voient sur tes annonces.',
-  'web.a13.reviews': 'Avis des voyageurs',
+  'web.a13.reviews': 'Avis reçus',
   'web.a13.link': 'Ton profil public',
   'web.listing.hostReviews': 'Avis sur {name}',
 } as const satisfies Readonly<Record<MessageKey, Message>>;

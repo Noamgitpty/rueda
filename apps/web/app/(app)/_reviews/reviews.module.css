@@ -1,0 +1,140 @@
+/*
+ * S13, A12, A13 — avis (US-317, 10b S13 / A12 / A13) : jetons seulement (US-030), conçu à 360 px
+ * (10b UX-01). Étoiles : boutons radio de 48 px au moins (cible tactile), libellé lu par le lecteur
+ * d'écran (« 4 étoiles ») ; cartes d'avis sur la surface relevée ; contraste du texte (UX-49).
+ */
+.form {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.field {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.fieldset {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.label {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-strong);
+  color: var(--color-text);
+}
+
+.stars {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.star {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-block-size: var(--size-touch-target);
+  padding-inline: var(--space-3);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-raised);
+  color: var(--color-text);
+}
+
+.scores {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.score {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.select {
+  inline-size: 100%;
+  min-block-size: var(--size-touch-target);
+  padding: var(--space-2) var(--space-4);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-raised);
+  color: var(--color-text);
+  font-family: inherit;
+  font-size: var(--font-size-md);
+}
+
+.textarea {
+  inline-size: 100%;
+  min-block-size: calc(var(--size-touch-target) * 3);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-raised);
+  color: var(--color-text);
+  font-family: inherit;
+  font-size: var(--font-size-md);
+  line-height: var(--font-line-height-body);
+  resize: vertical;
+}
+
+.textarea:focus-visible,
+.select:focus-visible {
+  border-color: var(--color-focus);
+}
+
+.textarea[aria-invalid='true'] {
+  border-color: var(--color-danger);
+  border-width: var(--size-focus-ring);
+}
+
+.hint {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+.error {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-danger);
+}
+
+.list {
+  display: grid;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.review {
+  display: grid;
+  gap: var(--space-1);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-raised);
+  color: var(--color-text);
+  overflow-wrap: anywhere;
+}
+
+.author {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-strong);
+}
+
+.body {
+  margin: 0;
+  white-space: pre-wrap;
+}
+
+.meta {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
