@@ -396,6 +396,9 @@ export const CONSTRAINT_CODES: Readonly<Record<string, readonly [string, DbBusin
   trip_transition_unlogged: [SQLSTATE.integrityConstraintViolation, 'INVARIANT_VIOLATION'],
   trip_segment_missing: [SQLSTATE.integrityConstraintViolation, 'INVARIANT_VIOLATION'],
   trip_state_log_immutable: [SQLSTATE.integrityConstraintViolation, 'IMMUTABLE_RECORD'],
+  // remise et retour entre particuliers (0163, US-315 ; 16 TRP-002, VER-015, TRP-033)
+  trip_handover_immutable: [SQLSTATE.integrityConstraintViolation, 'IMMUTABLE_RECORD'],
+  trip_handover_incoherent: [SQLSTATE.integrityConstraintViolation, 'INVARIANT_VIOLATION'],
   // contrat de location et signature (0122, US-211 ; 16 BKG-018, BKG-019)
   trip_contract_not_signed: [SQLSTATE.objectNotInPrerequisiteState, 'CONTRACT_NOT_SIGNED'],
   contract_record_immutable: [SQLSTATE.integrityConstraintViolation, 'IMMUTABLE_RECORD'],

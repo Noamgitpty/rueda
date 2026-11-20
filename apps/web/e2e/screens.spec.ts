@@ -444,6 +444,17 @@ async function openInspection(
   await expect(page.locator('[data-testid="inspection-progress"]')).toBeVisible();
 }
 
+/** A03 : remise par l'hôte (US-315), étape du contrôle du permis, trip créé par le double. */
+async function openHandover(page: Page, context: BrowserContext): Promise<void> {
+  await signInHost(context);
+  const token = (await context.cookies()).find((c) => c.name === '__Host-session')?.value ?? '';
+  const r = await fetch(`${API}/__e2e/handover/new?guest=&host=${token}&status=CHECKIN_OPEN`);
+  expect(r.status).toBe(200);
+  const { tripId } = (await r.json()) as { tripId: string };
+  await page.goto(`/host/trips/${tripId}/handover/checkin`);
+  await expect(page.locator('[data-testid="handover-identity"]')).toBeVisible();
+}
+
 interface Screen {
   /** Nom stable de la capture (dossier de références). */
   readonly name: string;
@@ -820,6 +831,12 @@ export const SCREENS: readonly Screen[] = [
     name: 'photos-depart',
     source: 'S09 · check-in, US-303',
     open: (page, context, language) => openInspection(page, context, language),
+  },
+  // US-315 : remise par l'hôte (A03), étape du contrôle du permis en 6 points
+  {
+    name: 'remise-hote',
+    source: 'A03, US-315',
+    open: (page, context) => openHandover(page, context),
   },
   // US-525 : messages du trip (S16), fil du voyageur
   {

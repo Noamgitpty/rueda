@@ -50,6 +50,11 @@ const TRIP_SM_TABLES = [
   'trip_ops_inspection_photo',
   'trip_ops_photo_capture',
   'trip_ops_photo_slot',
+  // US-315 (0163) : contrôle du permis, validations de la remise et du retour, clés remises, écrits
+  // et lus par les commandes de cmd_hold_owner seulement ; preuves : test/l0/l0-us315-handover
+  'trip_ops_handover_validation',
+  'trip_ops_identity_check',
+  'trip_ops_key_handover',
 ] as const;
 
 // Tables de configuration pays (US-013, 0008) : même socle RLS (ENABLE + FORCE, migrator_all),

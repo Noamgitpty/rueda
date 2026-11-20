@@ -2333,6 +2333,34 @@
       "owner": "messaging_cmd_owner",
       "execute": ["app_api"],
       "story": "US-525"
+    },
+    {
+      "signature": "core.trip_handover_view(bytea,uuid,text)",
+      "family": "cmd_hold",
+      "owner": "cmd_hold_owner",
+      "execute": ["app_api"],
+      "story": "US-315"
+    },
+    {
+      "signature": "core.trip_cmd_open_checkin(bytea,uuid)",
+      "family": "cmd_hold",
+      "owner": "cmd_hold_owner",
+      "execute": ["app_api"],
+      "story": "US-315"
+    },
+    {
+      "signature": "core.trip_cmd_identity_check(bytea,uuid,jsonb,text)",
+      "family": "cmd_hold",
+      "owner": "cmd_hold_owner",
+      "execute": ["app_api"],
+      "story": "US-315"
+    },
+    {
+      "signature": "core.trip_cmd_validate_handover(bytea,uuid,text,integer,integer,text)",
+      "family": "cmd_hold",
+      "owner": "cmd_hold_owner",
+      "execute": ["app_api"],
+      "story": "US-315"
     }
   ]
 }
