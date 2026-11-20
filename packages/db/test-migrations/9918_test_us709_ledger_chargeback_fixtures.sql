@@ -247,6 +247,16 @@ AS $fn$
     FROM core.payout_payout_batch AS b WHERE b.id = p_batch_id
 $fn$;
 
+-- Rejeu d'une mise à jour d'un ordre (déclencheur AFTER UPDATE OF trip_id du chargeback, même valeur)
+CREATE FUNCTION test_fixture.us709_touch_operation(p_operation_id uuid)
+  RETURNS void
+  LANGUAGE sql
+  SECURITY DEFINER
+  SET search_path = pg_catalog, pg_temp
+AS $fn$
+  UPDATE core.payment_payment_operation SET trip_id = trip_id WHERE id = p_operation_id
+$fn$;
+
 -- Relectures (aucun rôle applicatif ne lit ces tables sous un contexte de travailleur)
 CREATE FUNCTION test_fixture.us709_imputation(p_operation_id uuid)
   RETURNS TABLE (earnings_kind text, lost_trip_minor text, collected_before_minor text,
@@ -331,6 +341,7 @@ REVOKE ALL ON FUNCTION
   test_fixture.us709_insert_imputation(uuid),
   test_fixture.us709_recover(uuid, bigint),
   test_fixture.us709_try_netting(uuid, bigint),
+  test_fixture.us709_touch_operation(uuid),
   test_fixture.us709_imputation(uuid),
   test_fixture.us709_ledger(uuid),
   test_fixture.us709_state(uuid),
@@ -346,6 +357,7 @@ GRANT EXECUTE ON FUNCTION
   test_fixture.us709_insert_imputation(uuid),
   test_fixture.us709_recover(uuid, bigint),
   test_fixture.us709_try_netting(uuid, bigint),
+  test_fixture.us709_touch_operation(uuid),
   test_fixture.us709_imputation(uuid),
   test_fixture.us709_ledger(uuid),
   test_fixture.us709_state(uuid),

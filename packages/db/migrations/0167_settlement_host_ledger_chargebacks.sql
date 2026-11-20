@@ -55,6 +55,14 @@
 --      les plus anciennes d'abord (`recovered_minor`, `RECOVERING` / `RECOVERED`), lues par l'hôte
 --      dans `host_advance_v` (RLS-26, sans identifiant du personnel) ; la dette compensable est le
 --      solde négatif du grand livre (les compensations passées y sont déjà) ;
+--   6 bis. ORDRE DES VERROUS (revue, MOYEN « interblocage ») : sur tous les chemins qui écrivent le
+--      grand livre ou une avance, le verrou consultatif `payout.netting:{hôte}:{devise}` est pris
+--      AVANT toute mise à jour de l'avance — compensation (0165 : trips, verrou, avances),
+--      imputation (trip, verrou), passage en perte (`core.settlement_cmd_approve_finance_action`,
+--      corps de 0156 recopié, verrou puis avance) ; le report d'un remboursement (0123, avance
+--      PLANNED → OPEN, créance au débit) ne prend pas ce verrou et n'attend donc jamais la
+--      compensation ; la garde du crédit suppose READ COMMITTED (la somme est relue après le verrou,
+--      chaque instruction voit les écritures validées avant elle) ;
 --   7. AJUSTEMENT DE VERSEMENT (`adjustPayout`, 08 E7 règle 7) : la part compensée d'un lot est
 --      reprise chez le PSP AVANT le versement (`core.payout_cmd_adjustment`, clé
 --      `adjust:{lot}:r1`, montant compensé explicite, puis `core.payout_cmd_record_adjustment`) ;
@@ -84,15 +92,15 @@
 -- Expand / contract : colonnes facultatives, tables, fonctions, déclencheurs, droits et politiques
 -- AJOUTÉS ; CHECK du motif ÉLARGI, colonnes de rattachement au règlement rendues facultatives
 -- (toute écriture existante garde ses valeurs ; la forme est fixée par `host_ledger_link_shape`) ;
--- deux uniques recréées sous leur nom ; six fonctions REMPLACÉES à signature, propriétaire et
+-- deux uniques recréées sous leur nom ; sept fonctions REMPLACÉES à signature, propriétaire et
 -- droits identiques (garde des soldes de 0155, déclencheur du gel de 0155, faits FIN de 0155,
--- motifs de retenue et compensation de 0165) ; une politique ÉLARGIE sous son nom (gel de 0155 à
--- la jambe INSURER, ADR-081).
+-- motifs de retenue et compensation de 0165, approbation FINANCE de 0156) ; une politique
+-- ÉLARGIE sous son nom (gel de 0155 à la jambe INSURER, ADR-081).
 --
 -- Retour arrière (base sans dépendance ; jamais en production : nouvelle migration à la place) :
 --   rejouer core.settlement_trip_leg_balance_guard, core.settlement_freeze_host_on_chargeback,
 --     core.finance_chargeback_facts (0155), core.payout_batch_hold_reasons,
---     core.payout_refresh_batch (0165) ;
+--     core.payout_refresh_batch (0165), core.settlement_cmd_approve_finance_action (0156) ;
 --   ALTER POLICY cmd_money_chargeback_freeze (0155) ;
 --   DROP TRIGGER host_ledger_credit_guard, host_ledger_state_projected ON core.settlement_host_ledger_entry ;
 --   DROP TRIGGER advance_ledger_projected ON core.settlement_platform_advance ;
@@ -653,6 +661,10 @@ BEGIN
   -- une imputation à la fois par trip (verrou du trip, comme les commandes d'argent de 0027)
   SELECT x.id, x.org_id, x.country_code, x.currency INTO t
     FROM core.booking_trip AS x WHERE x.id = o.trip_id FOR UPDATE;
+  -- même ordre que la compensation d'un lot (trips, puis verrou de (hôte, devise)) : un seul
+  -- écrivain du grand livre de l'hôte à la fois, aucun interblocage
+  PERFORM pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(
+            'payout.netting:' || t.org_id::text || ':' || t.currency, 0));
   IF EXISTS (SELECT 1 FROM core.settlement_chargeback_imputation AS i WHERE i.operation_id = o.id) THEN
     RETURN 'ALREADY_IMPUTED';
   END IF;
@@ -767,6 +779,10 @@ CREATE OR REPLACE FUNCTION core.settlement_freeze_host_on_chargeback()
 AS $fn$
 BEGIN
   IF NEW.kind IS DISTINCT FROM 'CHARGEBACK' OR NEW.trip_id IS NULL THEN
+    RETURN NULL;
+  END IF;
+  -- déjà décidé (perdu et imputé) : un rejeu de la mise à jour ne regèle rien
+  IF EXISTS (SELECT 1 FROM core.settlement_chargeback_imputation AS i WHERE i.operation_id = NEW.id) THEN
     RETURN NULL;
   END IF;
   IF NEW.status = 'FAILED' THEN
@@ -1084,6 +1100,187 @@ $fn$;
 COMMENT ON FUNCTION core.payout_cmd_record_adjustment(uuid, text, text) IS
   'Résultat de l''ajustement de versement reçu du PSP (SUCCEEDED, FAILED ; sinon inchangé). '
   'Travailleur payment_command. US-709 (ADR-187).';
+
+-- 8.10 Approbation FINANCE (0156, corps recopié à l'identique, signature, propriétaire et droits
+-- identiques ; un bloc marqué US-709) : le passage en perte prend le verrou consultatif
+-- `payout.netting:{hôte}:{devise}` AVANT de verrouiller l'avance. La compensation d'un lot prend ce
+-- verrou puis les avances ; sans cet ordre commun, un passage en perte (avance verrouillée, puis
+-- verrou pris par la garde du crédit) et une compensation du même hôte s'interbloquaient (40P01).
+CREATE OR REPLACE FUNCTION core.settlement_cmd_approve_finance_action(p_token_hash bytea, p_approval_id uuid)
+  RETURNS TABLE (outcome text, approval_id uuid)
+  LANGUAGE plpgsql
+  VOLATILE
+  SECURITY DEFINER
+  SET search_path = pg_catalog, pg_temp
+AS $fn$
+#variable_conflict use_column
+DECLARE
+  v_s    record;
+  v_f    record;
+  v_perm text;
+  v_type text;
+  v_role text;
+  v_now  timestamptz;
+  v_ok   boolean;
+BEGIN
+  SELECT * INTO v_s FROM core.iam_staff_session(p_token_hash);
+  IF v_s.user_id IS NULL OR app.actor_kind() IS DISTINCT FROM 'STAFF' THEN
+    RETURN QUERY SELECT 'AUTH_REQUIRED'::text, NULL::uuid;
+    RETURN;
+  END IF;
+  IF p_approval_id IS NULL THEN
+    RAISE EXCEPTION 'finance : demande absente' USING ERRCODE = 'invalid_parameter_value';
+  END IF;
+  SELECT f.id, f.action, f.subject_id, f.country_code, f.reason, f.requested_by, f.status INTO v_f
+    FROM core.settlement_finance_approval AS f WHERE f.id = p_approval_id;
+  v_type := CASE v_f.action WHEN 'ISSUE_BORDEREAU' THEN 'INSURER_BORDEREAU'
+                            WHEN 'DECIDE_ADVANCE' THEN 'PLATFORM_ADVANCE'
+                            WHEN 'WRITE_OFF_RECEIVABLE' THEN 'PLATFORM_ADVANCE'
+                            ELSE 'FINANCE_APPROVAL' END;
+  v_perm := CASE v_f.action WHEN 'ISSUE_BORDEREAU' THEN 'finance.insurer_bordereau'
+                            ELSE 'finance.platform_advance' END;
+  IF v_s.mfa_level <> 'TOTP' THEN
+    PERFORM core.iam_staff_audit(v_s.user_id, 'STAFF', 'STAFF_ACCESS_DENIED', v_type,
+                                 COALESCE(v_f.subject_id, p_approval_id), NULL,
+                                 pg_catalog.jsonb_build_object('reason', '2FA_REQUIRED',
+                                   'attempted', 'APPROVE_FINANCE_ACTION'), NULL, p_approval_id);
+    RETURN QUERY SELECT 'MFA_REQUIRED'::text, NULL::uuid;
+    RETURN;
+  END IF;
+  IF v_f.id IS NOT NULL THEN
+    v_role := core.iam_staff_permitted(v_s.user_id, v_perm, ARRAY[v_f.country_code], NULL);
+  END IF;
+  IF v_role IS NULL OR NOT (v_f.country_code = ANY (COALESCE(app.country_scope(), '{}'::text[]))) THEN
+    PERFORM core.iam_staff_audit(v_s.user_id, 'STAFF', 'STAFF_FORBIDDEN', v_type,
+                                 COALESCE(v_f.subject_id, p_approval_id), NULL,
+                                 pg_catalog.jsonb_build_object('reason',
+                                   CASE WHEN v_f.id IS NULL THEN 'SUBJECT_NOT_FOUND'
+                                        ELSE 'PERMISSION_OR_COUNTRY' END,
+                                   'attempted', 'APPROVE_FINANCE_ACTION', 'permission', v_perm),
+                                 NULL, p_approval_id);
+    RETURN QUERY SELECT 'FORBIDDEN'::text, NULL::uuid;
+    RETURN;
+  END IF;
+  IF v_f.status <> 'PENDING' THEN
+    RETURN QUERY SELECT 'NOT_PENDING'::text, v_f.id;
+    RETURN;
+  END IF;
+  -- deux personnes distinctes : l'identité est celle de la SESSION (une seconde session du
+  -- demandeur est la même personne) ; refus journalisé, aucun effet d'argent
+  IF v_f.requested_by = v_s.user_id THEN
+    PERFORM core.iam_staff_audit(v_s.user_id, v_role, 'FINANCE_SELF_APPROVAL_DENIED', v_type,
+                                 v_f.subject_id, NULL,
+                                 pg_catalog.jsonb_build_object('approvalId', v_f.id,
+                                   'action', v_f.action, 'country', v_f.country_code),
+                                 NULL, p_approval_id);
+    RETURN QUERY SELECT 'SELF_APPROVAL'::text, v_f.id;
+    RETURN;
+  END IF;
+  -- US-122 (ADR-124, F2-C-04) : l'approbateur n'est pas non plus une personne du sujet
+  -- (titulaire, co-hôte, compte lié) ; refus journalisé, aucun effet d'argent
+  IF core.support_staff_conflict(v_s.user_id, v_type, v_f.subject_id) THEN
+    PERFORM core.iam_staff_audit(v_s.user_id, v_role, 'FINANCE_SELF_APPROVAL_DENIED', v_type,
+                                 v_f.subject_id, NULL,
+                                 pg_catalog.jsonb_build_object('approvalId', v_f.id,
+                                   'action', v_f.action, 'country', v_f.country_code,
+                                   'reason', 'SELF', 'guard', 'SEPARATION_OF_DUTIES'),
+                                 NULL, p_approval_id);
+    RETURN QUERY SELECT 'SELF_FORBIDDEN'::text, v_f.id;
+    RETURN;
+  END IF;
+  -- US-222d2 (F-L2-LB-01, ADR-177) : l'approbateur n'est pas non plus une personne du DEMANDEUR
+  -- (lui-même sous un autre compte, une personne de ses comptes d'hôte, un compte lié LINKED à
+  -- l'un d'eux), jugé dans les deux sens et pour TOUTE action FINANCE : un sujet sans partie
+  -- (bordereau de l'assureur) ou sans lien avec l'approbateur ne suffit plus ; refus journalisé,
+  -- la demande reste en attente, aucun effet d'argent
+  IF core.support_staff_conflict(v_s.user_id, 'USER_ACCOUNT', v_f.requested_by)
+     OR core.support_staff_conflict(v_f.requested_by, 'USER_ACCOUNT', v_s.user_id) THEN
+    PERFORM core.iam_staff_audit(v_s.user_id, v_role, 'FINANCE_SELF_APPROVAL_DENIED', v_type,
+                                 v_f.subject_id, NULL,
+                                 pg_catalog.jsonb_build_object('approvalId', v_f.id,
+                                   'action', v_f.action, 'country', v_f.country_code,
+                                   'reason', 'REQUESTER_RELATED', 'guard', 'SEPARATION_OF_DUTIES'),
+                                 NULL, p_approval_id);
+    RETURN QUERY SELECT 'SELF_FORBIDDEN'::text, v_f.id;
+    RETURN;
+  END IF;
+  -- verrous : la demande, puis le sujet ; le sujet doit être resté éligible
+  PERFORM 1 FROM core.settlement_finance_approval AS f WHERE f.id = v_f.id AND f.status = 'PENDING'
+    FOR UPDATE;
+  IF NOT FOUND THEN
+    RETURN QUERY SELECT 'NOT_PENDING'::text, v_f.id;
+    RETURN;
+  END IF;
+  -- US-224b (N-119) : le conflit du DEMANDEUR est rejugé à l'approbation (il a pu devenir
+  -- titulaire, co-hôte du compte ou compte lié depuis sa demande) ; la demande est rejetée,
+  -- refus journalisé, aucun effet d'argent ; même issue que le conflit de l'approbateur
+  IF core.support_staff_conflict(v_f.requested_by, v_type, v_f.subject_id) THEN
+    UPDATE core.settlement_finance_approval AS f SET status = 'REJECTED' WHERE f.id = v_f.id;
+    PERFORM core.iam_staff_audit(v_s.user_id, v_role, 'FINANCE_ACTION_REJECTED', v_type,
+                                 v_f.subject_id, NULL,
+                                 pg_catalog.jsonb_build_object('approvalId', v_f.id,
+                                   'action', v_f.action, 'country', v_f.country_code,
+                                   'reason', 'REQUESTER_CONFLICT', 'guard', 'SEPARATION_OF_DUTIES'),
+                                 NULL, p_approval_id);
+    RETURN QUERY SELECT 'SELF_FORBIDDEN'::text, v_f.id;
+    RETURN;
+  END IF;
+  IF v_f.action = 'DECIDE_ADVANCE' THEN
+    PERFORM 1 FROM core.settlement_platform_advance AS a
+     WHERE a.id = v_f.subject_id AND a.status IN ('PLANNED', 'OPEN') AND a.decided_by IS NULL
+       FOR UPDATE;
+  ELSIF v_f.action = 'WRITE_OFF_RECEIVABLE' THEN
+    -- US-709 (ADR-187) : verrou de la compensation de (hôte, devise) AVANT le verrou de l'avance,
+    -- même ordre que la compensation d'un lot (verrou consultatif, puis avances) : aucun interblocage
+    PERFORM pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(
+              'payout.netting:' || a.org_id::text || ':' || a.currency, 0))
+       FROM core.settlement_platform_advance AS a
+      WHERE a.id = v_f.subject_id AND a.org_id IS NOT NULL;
+    PERFORM 1 FROM core.settlement_platform_advance AS a
+     WHERE a.id = v_f.subject_id AND a.status IN ('OPEN', 'RECOVERING')
+       AND a.receivable_minor > a.recovered_minor FOR UPDATE;
+  ELSE
+    PERFORM 1 FROM core.settlement_insurer_bordereau AS b
+     WHERE b.id = v_f.subject_id AND b.status = 'DRAFT' FOR UPDATE;
+  END IF;
+  v_ok := FOUND;
+  v_now := platform.now();
+  IF NOT v_ok THEN
+    UPDATE core.settlement_finance_approval AS f SET status = 'REJECTED' WHERE f.id = v_f.id;
+    PERFORM core.iam_staff_audit(v_s.user_id, v_role, 'FINANCE_ACTION_REJECTED', v_type,
+                                 v_f.subject_id, NULL,
+                                 pg_catalog.jsonb_build_object('approvalId', v_f.id,
+                                   'action', v_f.action, 'country', v_f.country_code,
+                                   'reason', 'SUBJECT_CHANGED'), NULL, p_approval_id);
+    RETURN QUERY SELECT 'SUBJECT_CHANGED'::text, v_f.id;
+    RETURN;
+  END IF;
+  UPDATE core.settlement_finance_approval AS f
+     SET status = 'APPROVED', approved_by = v_s.user_id, approved_at = v_now
+   WHERE f.id = v_f.id;
+  IF v_f.action = 'DECIDE_ADVANCE' THEN
+    UPDATE core.settlement_platform_advance AS a
+       SET decided_by = v_f.requested_by, decision_second_by = v_s.user_id,
+           decision_approval_id = v_f.id
+     WHERE a.id = v_f.subject_id;
+  ELSIF v_f.action = 'WRITE_OFF_RECEIVABLE' THEN
+    UPDATE core.settlement_platform_advance AS a
+       SET status = 'WRITTEN_OFF', written_off_by = v_f.requested_by, write_off_second_by = v_s.user_id,
+           write_off_approval_id = v_f.id, written_off_at = v_now
+     WHERE a.id = v_f.subject_id;
+  ELSE
+    UPDATE core.settlement_insurer_bordereau AS b
+       SET status = 'ISSUED', issued_by = v_f.requested_by, second_validated_by = v_s.user_id,
+           approval_id = v_f.id, issued_at = v_now
+     WHERE b.id = v_f.subject_id;
+  END IF;
+  PERFORM core.iam_staff_audit(v_s.user_id, v_role, 'FINANCE_ACTION_APPROVED', v_type, v_f.subject_id,
+                               NULL, pg_catalog.jsonb_build_object('approvalId', v_f.id,
+                                 'action', v_f.action, 'country', v_f.country_code,
+                                 'requestedBy', v_f.requested_by), NULL, p_approval_id);
+  RETURN QUERY SELECT 'APPROVED'::text, v_f.id;
+END
+$fn$;
 
 REVOKE ALL ON FUNCTION core.payout_cmd_adjustment(uuid),
   core.payout_cmd_record_adjustment(uuid, text, text) FROM PUBLIC;

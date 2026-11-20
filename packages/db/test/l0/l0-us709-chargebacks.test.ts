@@ -264,6 +264,10 @@ describe('US-709 — critère 1 : T53 (USD) — chargeback perdu sur la capture 
       // rejeu de la preuve (webhook rejoué, refusé ou sans effet) : aucune seconde imputation
       await caught(tx, () => applySignedStatus(tx, cb, 'SUCCEEDED'));
       expect(await ledgerOf(tx, w.trip)).toHaveLength(1);
+      // rejeu d'une mise à jour de l'ordre déjà imputé (déclencheur du chargeback) : aucun regel
+      await tx.query('SELECT test_fixture.us709_touch_operation($1)', [cb]);
+      for (const leg of ['HOST', 'INSURER']) expect(await freezeOf(tx, w.trip, leg)).toEqual(FREE);
+      expect(await ledgerOf(tx, w.trip)).toHaveLength(1);
     });
   });
 
