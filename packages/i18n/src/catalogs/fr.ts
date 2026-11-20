@@ -472,6 +472,18 @@ export const FR_MESSAGES = {
     'Le dossier n’a pas pu être remis : une preuve manque ou ne correspond plus à son empreinte. Le constat est enregistré.',
   'common.evidenceBundle.unavailable':
     'Le dossier de preuve n’est pas disponible pour le moment. Rien n’a été demandé ni remis.',
+  'common.reconciliation.statementMissing':
+    'Le relevé du PSP manque : ajoute au moins une ligne. Rien n’a été enregistré.',
+  'common.reconciliation.formatInvalid':
+    'Le relevé n’est pas valable : ligne mal formée, en double, dans une autre devise ou d’un mois à venir. Rien n’a été enregistré.',
+  'common.reconciliation.checklistIncomplete':
+    'La checklist du mois n’est pas complète : coche les cinq points pour clôturer le rapprochement.',
+  'common.reconciliation.runClosed':
+    'Ce rapprochement est déjà clôturé et signé. Il ne peut plus changer.',
+  'common.reconciliation.itemSettled':
+    'Cet écart est déjà expliqué, ou la ligne est déjà appariée. Il n’y a plus rien à résoudre.',
+  'common.reconciliation.unavailable':
+    'Les vues et le rapprochement ne sont pas disponibles pour le moment. Rien n’a été lu ni enregistré.',
   'backoffice.action.RESTRICT_ACCOUNT': 'Restreindre le compte',
   'backoffice.action.LIFT_RESTRICTION': 'Lever la restriction',
   'backoffice.queues.current': 'File affichée',

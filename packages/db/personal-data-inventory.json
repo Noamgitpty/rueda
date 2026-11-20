@@ -3572,6 +3572,83 @@
         "next_trip_id": "C1",
         "updated_at": "C1"
       }
+    },
+    "core.finance_reconciliation_run": {
+      "lifecycle": "A",
+      "subjects": [
+        {
+          "column": "created_by",
+          "type": "USER"
+        },
+        {
+          "column": "closed_by",
+          "type": "USER"
+        }
+      ],
+      "export": "controller",
+      "columns": {
+        "id": "C1",
+        "country_code": "C1",
+        "currency": "C1",
+        "kind": "C1",
+        "scope": "C1",
+        "source": "C1",
+        "period_month": "C1",
+        "psp_lines": "C1",
+        "matched": "C1",
+        "unmatched_platform": "C1",
+        "unmatched_psp": "C1",
+        "amount_mismatches": "C1",
+        "platform_total_minor": "C1",
+        "delta_minor": "C1",
+        "delta_pct_bps": "C1",
+        "threshold_bps": "C1",
+        "threshold_source": "C1",
+        "exceeds_threshold": "C1",
+        "treat_by": "C1",
+        "status": "C1",
+        "created_by": "C1",
+        "created_role": "C1",
+        "request_id": "C1",
+        "created_at": "C1",
+        "closed_by": "C1",
+        "closed_role": "C1",
+        "closed_at": "C1",
+        "checklist": "C1",
+        "unexplained_at_close": "C1"
+      }
+    },
+    "core.finance_reconciliation_item": {
+      "lifecycle": "A",
+      "subjects": [
+        {
+          "column": "resolved_by",
+          "type": "USER"
+        }
+      ],
+      "export": "controller",
+      "columns": {
+        "id": "C1",
+        "run_id": "C1",
+        "side": "C1",
+        "ref": "C1",
+        "leg": "C1",
+        "component": "C1",
+        "expected_minor": "C1",
+        "observed_minor": "C1",
+        "delta_minor": "C1",
+        "status": "C1",
+        "finding": "C1",
+        "resolution": "C1",
+        "resolution_note": {
+          "class": "C2",
+          "erasure": "derogation",
+          "justification": "note libre d'un registre en ajout seul (résolution d'un écart, une fois) : ni UPDATE (pseudonymisation) ni clé de sujet ; consigne : aucun nom, contact ni identifiant de personne dans une note",
+          "report": "US-536"
+        },
+        "resolved_by": "C1",
+        "resolved_at": "C1"
+      }
     }
   }
 }

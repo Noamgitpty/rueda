@@ -20,6 +20,8 @@ import { PyoPayoutModule } from './modules/pyo/index.js';
 import type { PyoPayoutOptions } from './modules/pyo/index.js';
 import type { PayWebhookOptions } from './modules/pay/index.js';
 import { RiskHttpModule } from './modules/risk/index.js';
+import { RptConsoleModule } from './modules/rpt/index.js';
+import type { ReportStore } from './modules/rpt/index.js';
 import type { RiskHttpOptions } from './modules/risk/index.js';
 import {
   SupBrandConsoleModule,
@@ -62,6 +64,7 @@ export class ApiModule {
     pyo?: PyoPayoutOptions,
     msg?: MsgTripMessagesOptions,
     evidence?: SupEvidenceBundleOptions,
+    report?: ReportStore,
   ): DynamicModule {
     return {
       module: ApiModule,
@@ -103,6 +106,9 @@ export class ApiModule {
         // US-308 : dossier de preuve /console/evidence-bundles et
         // /console/evidence-bundles/{bundleId}… (StaffGuard) ; sans coffre ni stockage, 503
         SupEvidenceBundleModule.register(evidence),
+        // US-311 : vues de la bêta /console/beta-views/{view}, exports CSV /console/reports/exports
+        // et rapprochement assisté /console/reconciliation/… (StaffGuard) ; sans magasin, 503
+        RptConsoleModule.register(report),
       ],
     };
   }

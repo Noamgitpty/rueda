@@ -26,6 +26,7 @@ import { PYO_MESSAGES } from '../modules/pyo/index.js';
 import { MSG_MESSAGES } from '../modules/msg/index.js';
 import { HELP_MESSAGES, OPS_MESSAGES } from '../modules/sup/index.js';
 import { QUOTE_MESSAGES } from '../modules/prc/index.js';
+import { REPORT_MESSAGES } from '../modules/rpt/index.js';
 import { RISK_MESSAGES } from '../modules/risk/index.js';
 import { HANDOVER_MESSAGES, INSPECTION_MESSAGES } from '../modules/trp/index.js';
 import { startApiHarness } from './api-harness.js';
@@ -259,6 +260,7 @@ const CATALOG: ReadonlyMap<string, ReadonlySet<number>> = (() => {
     HANDOVER_MESSAGES,
     HELP_MESSAGES,
     EVIDENCE_BUNDLE_MESSAGES,
+    REPORT_MESSAGES,
   ] as const) {
     for (const [code, { status }] of Object.entries(catalog)) add(code, status);
   }

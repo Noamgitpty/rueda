@@ -49,6 +49,7 @@ import {
 import { QuoteService, searchQuotePricer } from './modules/prc/index.js';
 import { PgListingRatingStore } from './modules/rev/index.js';
 import { availabilityProbeLimiter, postgresRiskAdapters } from './modules/risk/index.js';
+import { PgReportStore } from './modules/rpt/index.js';
 import {
   PgFinanceApprovalStore,
   PgHelpStore,
@@ -196,6 +197,9 @@ async function bootstrap(): Promise<void> {
       // US-308 : dossier de preuve (portes core.support_staff_*_evidence_bundle sous app_api) ;
       // coffre KMS et stockage à verrou objet (US-003, Q-007) indisponibles : routes 503
       postgresEvidenceBundle(pool),
+      // US-311 : vues de la bêta et rapprochement assisté (portes core.report_staff_beta_view et
+      // core.finance_staff_* de 0174 sous app_api)
+      new PgReportStore(pool),
     ),
     { rawBody: true },
   );

@@ -386,6 +386,791 @@
         }
       }
     },
+    "/console/beta-views/{view}": {
+      "get": {
+        "operationId": "consoleBetaView",
+        "tags": ["rpt"],
+        "summary": "Vue de la bêta d'un pays : remises et retours du jour par hôte, retards vivants (report.ops_views), KPI de sortie S1 à S4 calculés depuis les données (report.exit_kpi) ; aucune donnée personnelle (US-311)",
+        "parameters": [
+          {
+            "name": "view",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "enum": ["handovers-today", "overdue", "exit-kpi"]
+            }
+          },
+          {
+            "name": "country",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/CountryCode"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Lignes de la vue, lues à l'heure serveur",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["view", "country", "at", "rows"],
+                  "additionalProperties": false,
+                  "properties": {
+                    "view": {
+                      "enum": ["HANDOVERS_TODAY", "OVERDUE", "EXIT_KPI"]
+                    },
+                    "country": {
+                      "$ref": "#/components/schemas/CountryCode"
+                    },
+                    "at": {
+                      "type": ["string", "null"]
+                    },
+                    "rows": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/StaffRequestInvalid"
+          },
+          "401": {
+            "$ref": "#/components/responses/StaffAuthRequired"
+          },
+          "403": {
+            "$ref": "#/components/responses/StaffForbidden"
+          },
+          "503": {
+            "description": "Base indisponible : rien n'est lu ni enregistré",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "REPORT_UNAVAILABLE"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "$ref": "#/components/responses/StaffRateLimited"
+          }
+        }
+      }
+    },
+    "/console/reports/exports": {
+      "post": {
+        "operationId": "consoleReportExport",
+        "tags": ["rpt"],
+        "summary": "Export CSV d'une vue de la bêta, de la plateforme pour le rapprochement d'un mois (OPERATIONS, LEGS) ou des éléments d'un passage (RUN_ITEMS) ; motif obligatoire, journal d'accès BULK_EXPORT et audit chaîné ; aucune donnée personnelle (US-311)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["source", "reason"],
+                "additionalProperties": false,
+                "properties": {
+                  "source": {
+                    "enum": [
+                      "HANDOVERS_TODAY",
+                      "OVERDUE",
+                      "EXIT_KPI",
+                      "OPERATIONS",
+                      "LEGS",
+                      "RUN_ITEMS"
+                    ]
+                  },
+                  "country": {
+                    "$ref": "#/components/schemas/CountryCode"
+                  },
+                  "month": {
+                    "type": "string",
+                    "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])$"
+                  },
+                  "runId": {
+                    "$ref": "#/components/schemas/Uuid"
+                  },
+                  "reason": {
+                    "type": "string",
+                    "minLength": 10,
+                    "maxLength": 500
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Fichier CSV (RFC 4180, en-têtes = clés stables, cellules de formule neutralisées)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              },
+              "Content-Disposition": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "pattern": "^attachment; filename=\"[A-Za-z0-9-]+\\.csv\"$"
+                }
+              }
+            },
+            "content": {
+              "text/csv": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/StaffRequestInvalid"
+          },
+          "401": {
+            "$ref": "#/components/responses/StaffAuthRequired"
+          },
+          "403": {
+            "$ref": "#/components/responses/StaffForbidden"
+          },
+          "503": {
+            "description": "Base indisponible : rien n'est lu ni enregistré",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "REPORT_UNAVAILABLE"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "$ref": "#/components/responses/StaffRateLimited"
+          }
+        }
+      }
+    },
+    "/console/reconciliation/runs": {
+      "post": {
+        "operationId": "consoleReconciliationRecord",
+        "tags": ["rpt"],
+        "summary": "Passage de rapprochement mensuel assisté (16 FIN-005, bêta MANUEL) : lignes du relevé du PSP appariées par la base à l'unité mineure, sans tolérance ; seuil J-ADM-031 (absent ⇒ 0) ; idempotent par requestId (US-311)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["requestId", "country", "month", "kind", "lines", "reason"],
+                "additionalProperties": false,
+                "properties": {
+                  "requestId": {
+                    "$ref": "#/components/schemas/Uuid"
+                  },
+                  "country": {
+                    "$ref": "#/components/schemas/CountryCode"
+                  },
+                  "month": {
+                    "type": "string",
+                    "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])$"
+                  },
+                  "kind": {
+                    "enum": ["OPERATIONS", "LEGS"]
+                  },
+                  "lines": {
+                    "type": "array",
+                    "maxItems": 5000,
+                    "items": {
+                      "type": "object"
+                    }
+                  },
+                  "reason": {
+                    "type": "string",
+                    "minLength": 10,
+                    "maxLength": 500
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Passage enregistré",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["runId"],
+                  "additionalProperties": false,
+                  "properties": {
+                    "runId": {
+                      "$ref": "#/components/schemas/Uuid"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Rejeu de la même requête : même passage",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["runId"],
+                  "additionalProperties": false,
+                  "properties": {
+                    "runId": {
+                      "$ref": "#/components/schemas/Uuid"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Entrée invalide (REQUEST_INVALID) ; relevé absent (RECON_STATEMENT_MISSING) ; ligne mal formée, doublon, autre devise, mois à venir (RECON_FORMAT_INVALID) : rien n'est enregistré",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "enum": ["REQUEST_INVALID", "RECON_STATEMENT_MISSING", "RECON_FORMAT_INVALID"]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/StaffAuthRequired"
+          },
+          "403": {
+            "$ref": "#/components/responses/StaffForbidden"
+          },
+          "503": {
+            "description": "Base indisponible : rien n'est lu ni enregistré",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "REPORT_UNAVAILABLE"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "$ref": "#/components/responses/StaffRateLimited"
+          }
+        }
+      },
+      "get": {
+        "operationId": "consoleReconciliationRuns",
+        "tags": ["rpt"],
+        "summary": "Passages de rapprochement d'un pays et état des mois (clôture, écarts inexpliqués, rapprochement quotidien US-711 préalable après deux mois) (US-311)",
+        "parameters": [
+          {
+            "name": "country",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/CountryCode"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Passages et état des mois",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "country",
+                    "runs",
+                    "months",
+                    "dailyReconciliationRequired",
+                    "previousMonthsClosed"
+                  ],
+                  "properties": {
+                    "country": {
+                      "$ref": "#/components/schemas/CountryCode"
+                    },
+                    "runs": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      }
+                    },
+                    "months": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      }
+                    },
+                    "dailyReconciliationRequired": {
+                      "type": "boolean"
+                    },
+                    "previousMonthsClosed": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/StaffRequestInvalid"
+          },
+          "401": {
+            "$ref": "#/components/responses/StaffAuthRequired"
+          },
+          "403": {
+            "$ref": "#/components/responses/StaffForbidden"
+          },
+          "503": {
+            "description": "Base indisponible : rien n'est lu ni enregistré",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "REPORT_UNAVAILABLE"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "$ref": "#/components/responses/StaffRateLimited"
+          }
+        }
+      }
+    },
+    "/console/reconciliation/runs/{runId}": {
+      "get": {
+        "operationId": "consoleReconciliationRun",
+        "tags": ["rpt"],
+        "summary": "Passage de rapprochement : résumé, seuil appliqué, échéance de traitement (5 jours ouvrés), éléments en écart d'abord (US-311)",
+        "parameters": [
+          {
+            "name": "runId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Passage et éléments",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["runId", "country", "kind", "month", "status", "items"],
+                  "properties": {
+                    "runId": {
+                      "$ref": "#/components/schemas/Uuid"
+                    },
+                    "country": {
+                      "$ref": "#/components/schemas/CountryCode"
+                    },
+                    "kind": {
+                      "enum": ["OPERATIONS", "LEGS"]
+                    },
+                    "month": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "enum": ["MATCHED", "DISCREPANCIES", "CLOSED"]
+                    },
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/StaffRequestInvalid"
+          },
+          "401": {
+            "$ref": "#/components/responses/StaffAuthRequired"
+          },
+          "403": {
+            "$ref": "#/components/responses/StaffForbidden"
+          },
+          "503": {
+            "description": "Base indisponible : rien n'est lu ni enregistré",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "REPORT_UNAVAILABLE"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "$ref": "#/components/responses/StaffRateLimited"
+          }
+        }
+      }
+    },
+    "/console/reconciliation/items/{itemId}/resolution": {
+      "post": {
+        "operationId": "consoleReconciliationResolve",
+        "tags": ["rpt"],
+        "summary": "Résolution motivée, une fois, d'un élément en écart d'un passage ouvert (code fermé et note sans nom ni contact) (US-311)",
+        "parameters": [
+          {
+            "name": "itemId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["requestId", "resolution", "note"],
+                "additionalProperties": false,
+                "properties": {
+                  "requestId": {
+                    "$ref": "#/components/schemas/Uuid"
+                  },
+                  "resolution": {
+                    "enum": [
+                      "TIMING",
+                      "PSP_FEE",
+                      "PSP_ERROR",
+                      "PLATFORM_ERROR",
+                      "DUPLICATE",
+                      "OTHER"
+                    ]
+                  },
+                  "note": {
+                    "type": "string",
+                    "minLength": 10,
+                    "maxLength": 500
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Élément résolu",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["itemId", "resolution"],
+                  "additionalProperties": false,
+                  "properties": {
+                    "itemId": {
+                      "$ref": "#/components/schemas/Uuid"
+                    },
+                    "resolution": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/StaffRequestInvalid"
+          },
+          "401": {
+            "$ref": "#/components/responses/StaffAuthRequired"
+          },
+          "403": {
+            "$ref": "#/components/responses/StaffForbidden"
+          },
+          "409": {
+            "description": "Passage clôturé (RECON_RUN_CLOSED) ; élément déjà résolu ou apparié (RECON_ITEM_SETTLED)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "enum": ["RECON_RUN_CLOSED", "RECON_ITEM_SETTLED"]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Base indisponible : rien n'est lu ni enregistré",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "REPORT_UNAVAILABLE"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "$ref": "#/components/responses/StaffRateLimited"
+          }
+        }
+      }
+    },
+    "/console/reconciliation/runs/{runId}/signature": {
+      "post": {
+        "operationId": "consoleReconciliationSign",
+        "tags": ["rpt"],
+        "summary": "Clôture d'un passage par la checklist mensuelle signée (fondateur ou comptable) ; écarts encore inexpliqués comptés, jamais effacés (US-311)",
+        "parameters": [
+          {
+            "name": "runId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["requestId", "checklist"],
+                "additionalProperties": false,
+                "properties": {
+                  "requestId": {
+                    "$ref": "#/components/schemas/Uuid"
+                  },
+                  "checklist": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "PSP_STATEMENT_COMPLETE": {
+                        "type": "boolean"
+                      },
+                      "OPERATIONS_RECONCILED": {
+                        "type": "boolean"
+                      },
+                      "LEGS_RECONCILED": {
+                        "type": "boolean"
+                      },
+                      "DISCREPANCIES_EXPLAINED_OR_ESCALATED": {
+                        "type": "boolean"
+                      },
+                      "THRESHOLD_REVIEWED": {
+                        "type": "boolean"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Passage clôturé",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["runId", "status", "unexplainedAtClose"],
+                  "additionalProperties": false,
+                  "properties": {
+                    "runId": {
+                      "$ref": "#/components/schemas/Uuid"
+                    },
+                    "status": {
+                      "const": "CLOSED"
+                    },
+                    "unexplainedAtClose": {
+                      "type": ["integer", "null"]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/StaffRequestInvalid"
+          },
+          "401": {
+            "$ref": "#/components/responses/StaffAuthRequired"
+          },
+          "403": {
+            "$ref": "#/components/responses/StaffForbidden"
+          },
+          "409": {
+            "description": "Checklist incomplète (RECON_CHECKLIST_INCOMPLETE) ; passage déjà clôturé (RECON_RUN_CLOSED)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "enum": ["RECON_CHECKLIST_INCOMPLETE", "RECON_RUN_CLOSED"]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Base indisponible : rien n'est lu ni enregistré",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "REPORT_UNAVAILABLE"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "$ref": "#/components/responses/StaffRateLimited"
+          }
+        }
+      }
+    },
     "/brand": {
       "get": {
         "operationId": "getPublishedBrand",

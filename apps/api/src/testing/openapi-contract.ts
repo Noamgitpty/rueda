@@ -445,6 +445,10 @@ export const CONTRACT_SUITES: Readonly<Record<string, string>> = {
   '/help': 'modules/sup/testing/help.contract.test.ts',
   '/trips/{tripId}/help': 'modules/sup/testing/help.contract.test.ts',
   '/console/help-requests': 'modules/sup/testing/help.contract.test.ts',
+  // vues de la bêta, exports CSV et rapprochement assisté (US-311, module RPT)
+  '/console/beta-views': 'modules/rpt/testing/report.contract.test.ts',
+  '/console/reports': 'modules/rpt/testing/report.contract.test.ts',
+  '/console/reconciliation': 'modules/rpt/testing/report.contract.test.ts',
   '/staff': 'testing/contract/staff.contract.test.ts',
   '/console': 'testing/contract/console.contract.test.ts',
   '/webhooks': 'testing/contract/webhooks.contract.test.ts',

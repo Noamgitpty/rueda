@@ -51,6 +51,7 @@ import {
   UnavailableBotChallenge,
 } from '../modules/risk/index.js';
 import type { RateLimitPolicy, RiskHttpOptions } from '../modules/risk/index.js';
+import type { ReportStore } from '../modules/rpt/index.js';
 import type { SupConsoleOptions, SupEvidenceBundleOptions } from '../modules/sup/index.js';
 import type { TrpInspectionOptions } from '../modules/trp/index.js';
 import { CountryConfigService } from '../modules/cfg/index.js';
@@ -143,6 +144,8 @@ export interface ApiHarnessOverrides {
   readonly msg?: Partial<MsgTripMessagesOptions>;
   /** US-308 : dossier de preuve (absent : coffre et stockage indisponibles, routes 503). */
   readonly evidence?: SupEvidenceBundleOptions;
+  /** US-311 : vues de la bêta et rapprochement (absent : magasin indisponible, routes 503). */
+  readonly report?: ReportStore;
 }
 
 export async function startApiHarness(overrides: ApiHarnessOverrides = {}): Promise<ApiHarness> {
@@ -396,6 +399,7 @@ export async function startApiHarness(overrides: ApiHarnessOverrides = {}): Prom
       { ...unavailablePyoOptions(), ...overrides.pyo },
       { ...unavailableMsgOptions(), ...overrides.msg },
       { ...overrides.evidence },
+      overrides.report,
     ),
     {
       rawBody: true,

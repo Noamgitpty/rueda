@@ -460,6 +460,18 @@ export const ES_MESSAGES = {
     'No se pudo entregar el expediente: una prueba no coincide con su huella o falta. El hallazgo quedó registrado.',
   'common.evidenceBundle.unavailable':
     'El expediente de pruebas no está disponible por ahora. No se pidió ni se entregó nada.',
+  'common.reconciliation.statementMissing':
+    'Falta el extracto del PSP: agrega al menos una línea. No se registró nada.',
+  'common.reconciliation.formatInvalid':
+    'El extracto no es válido: línea mal formada, duplicada, en otra moneda o de un mes futuro. No se registró nada.',
+  'common.reconciliation.checklistIncomplete':
+    'La lista de control del mes no está completa: marca los cinco puntos para cerrar la conciliación.',
+  'common.reconciliation.runClosed':
+    'Esta conciliación ya está cerrada y firmada. No admite más cambios.',
+  'common.reconciliation.itemSettled':
+    'Esta diferencia ya está explicada, o la línea ya cuadra. No hay nada más que resolver.',
+  'common.reconciliation.unavailable':
+    'Las vistas y la conciliación no están disponibles por ahora. No se leyó ni se registró nada.',
   'backoffice.action.RESTRICT_ACCOUNT': 'Restringir la cuenta',
   'backoffice.action.LIFT_RESTRICTION': 'Levantar la restricción',
   'backoffice.queues.current': 'Cola mostrada',
