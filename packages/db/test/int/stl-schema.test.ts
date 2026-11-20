@@ -104,8 +104,10 @@ describe('schéma STL (US-018, 0027)', () => {
       // (0149, ADR-170), le report de la capture convertie (cmd_apply_conversion_capture) : ses
       // politiques sont réservées aux travailleurs de conversion et miroir exact de la capture ;
       // depuis US-222d (0155, ADR-176, F-L2-ARG-04), le gel de la jambe HOST au chargeback
-      // (déclencheur de cmd_money_owner) : politique de ce gel hors payment_command ; la garde
-      // interdit tout dégel (l0-us222d-chargeback-freeze)
+      // (déclencheur de cmd_money_owner) : politique de ce gel hors payment_command ; depuis US-709
+      // (0167, ADR-187, N-415), le dégel à la décision du chargeback (même déclencheur) : la garde
+      // ne laisse lever que ce gel, quand aucun chargeback du trip n'est ouvert
+      // (l0-us222d-chargeback-freeze, l0-us709-chargebacks)
       expect(
         rows
           .filter(
@@ -116,6 +118,7 @@ describe('schéma STL (US-018, 0027)', () => {
           .sort(),
       ).toEqual([
         'cmd_money_chargeback_freeze:w:cmd_money_owner',
+        'cmd_money_chargeback_unfreeze:w:cmd_money_owner',
         'cmd_money_conversion_ins:a:cmd_money_owner',
         'cmd_money_conversion_upd:w:cmd_money_owner',
         'cmd_money_ins:a:cmd_money_owner',
