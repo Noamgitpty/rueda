@@ -7,8 +7,7 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 
 ## Synthèse
 
-- 170 migrations ; 151 tables ; 3 vues ; 862 politiques RLS ; 364 fonctions `SECURITY DEFINER` ; 295 autres fonctions.
-- 171 migrations ; 160 tables ; 3 vues ; 897 politiques RLS ; 378 fonctions `SECURITY DEFINER` ; 307 autres fonctions.
+- 172 migrations ; 160 tables ; 3 vues ; 900 politiques RLS ; 385 fonctions `SECURITY DEFINER` ; 313 autres fonctions.
 - Tables sans RLS `ENABLE` + `FORCE` : aucune.
 - Rôles applicatifs avec `SUPERUSER` ou `BYPASSRLS` : aucun.
 
@@ -185,9 +184,9 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 | `0166_messaging_privacy_meetings_retention` | MSG : messagerie hôte–voyageur, confidentialité, rendez-vous et rétention. |
 | `0167_settlement_host_ledger_chargebacks` | STL / PYO : grand livre de l'hôte complet (SM-6b), imputation des chargebacks perdus, |
 | `0168_trip_overdue_detection` | TRP / AVL : détection automatique des retards, prolongation tacite de l'occupation et |
-| `0171_trip_no_show_refusal` | AVL / STL / MSG / PAY : no-show et refus du véhicule déclarés par l'hôte, le voyageur ou |
 | `0169_payment_mit_post_trip_charges` | PAY : carte enregistrée (jeton du PSP), consentement MIT, débits post-trip conformes aux |
 | `0170_review_double_blind` | REV : avis réciproques en double aveugle, publication simultanée, avis reçus. |
+| `0171_trip_no_show_refusal` | AVL / STL / MSG / PAY : no-show et refus du véhicule déclarés par l'hôte, le voyageur ou |
 
 ## Rôles
 
@@ -1193,6 +1192,7 @@ Contraintes :
 - `trip_cancellation_pkey` : `PRIMARY KEY (id)`
 - `trip_cancellation_reason_valid` : `CHECK (action_code = 'CANCEL_TRIP_GUEST'::text AND initiator = 'GUEST'::text AND requested_reason = 'GUEST_CANCELLED'::text AND sub_reason IS NULL OR action_code = 'CANCEL_TRIP_HOST'::text AND initiator = 'HOST'::text AND (requested_reason = 'HOST_CANCELLED'::text AND sub_reason IS NULL OR requested_reason = 'HOST_CANCELLED_DUE_TO_GUEST'::text AND (sub_reason = ANY (ARRAY['INVALID_LICENSE'::text, 'IDENTITY_NOT_VERIFIED'::text, 'OTHER_DRIVER_SENT'::text, 'LICENSE_NOT_UPLOADED_1H'::text]))) OR action_code = 'CANCEL_TRIP_PLATFORM'::text AND initiator = 'PLATFORM'::text AND sub_reason IS NULL AND (requested_reason = ANY (ARRAY['PLATFORM_TRUST_SAFETY'::text, 'PLATFORM_INCOMPLETE_STEPS'::text, 'GUEST_FRAUD_PROVEN'::text, 'HOST_ACCOUNT_CLOSED'::text, 'PLATFORM_REVIEW_DELAY'::text, 'PSP_FAILURE'::text])) OR action_code = 'DECLARE_NO_SHOW'::text AND initiator = 'PLATFORM'::text AND sub_reason IS NULL AND (requested_reason = ANY (ARRAY['GUEST_NO_SHOW'::text, 'HOST_NO_SHOW'::text])) OR action_code = 'REFUSE_AT_PICKUP'::text AND (initiator = 'GUEST'::text AND requested_reason = 'CLEANLINESS_SAFETY_VALID'::text AND (sub_reason = ANY (ARRAY['CLEANLINESS'::text, 'SAFETY'::text])) OR initiator = 'HOST'::text AND requested_reason = 'HOST_CANCELLED_DUE_TO_GUEST'::text AND (sub_reason = ANY (ARRAY['INVALID_LICENSE'::text, 'IDENTITY_NOT_VERIFIED'::text, 'OTHER_DRIVER_SENT'::text]))) OR action_code = 'HOST_DECLARE_NO_SHOW'::text AND initiator = 'HOST'::text AND requested_reason = 'GUEST_NO_SHOW'::text AND sub_reason IS NULL OR action_code = 'GUEST_REPORT_HOST_NO_SHOW'::text AND initiator = 'GUEST'::text AND requested_reason = 'HOST_NO_SHOW'::text AND sub_reason IS NULL)`
 - `trip_cancellation_refunded` : `TRIGGER DEFERRABLE INITIALLY DEFERRED`
+- `trip_cancellation_review_alert_shape` : `CHECK (review_alerted_at IS NULL OR action_code = 'GUEST_REPORT_HOST_NO_SHOW'::text)`
 - `trip_cancellation_review_shape` : `CHECK (status <> 'AWAITING_REVIEW'::text OR action_code = 'GUEST_REPORT_HOST_NO_SHOW'::text)`
 - `trip_cancellation_settlement_fkey` : `FOREIGN KEY (settlement_id) REFERENCES core.settlement_settlement(id)`
 - `trip_cancellation_status_shape` : `CHECK ((status = 'SETTLED'::text) = (settlement_id IS NOT NULL) AND (status = 'SETTLED'::text) = (cost_bearer IS NOT NULL) AND (status = ANY (ARRAY['FIN_REVIEW'::text, 'FAILED'::text])) = (outcome_code IS NOT NULL) AND (status = ANY (ARRAY['AWAITING_REVIEW'::text, 'PENDING'::text])) = (decided_at IS NULL))`
@@ -1209,6 +1209,7 @@ Index :
 
 Politiques RLS :
 
+- `cmd_hold_cancel_alert_upd` (UPDATE, PERMISSIVE, cmd_hold_owner) USING `((status = 'AWAITING_REVIEW'::text) AND (review_alerted_at IS NULL) AND (app.actor_kind() = 'WORKER'::text) AND (app.worker_name() = 'trip_lifecycle'::text))` WITH CHECK `((status = 'AWAITING_REVIEW'::text) AND (review_alerted_at IS NOT NULL) AND (app.actor_kind() = 'WORKER'::text) AND (app.worker_name() = 'trip_lifecycle'::text))`
 - `cmd_hold_cancel_ins` (INSERT, PERMISSIVE, cmd_hold_owner) WITH CHECK `((app.actor_kind() = 'STAFF'::text) AND (requested_by = app.actor_id()))`
 - `cmd_hold_cancel_party_ins` (INSERT, PERMISSIVE, cmd_hold_owner) WITH CHECK `((requested_by = app.actor_id()) AND (((app.actor_kind() = 'HOST'::text) AND (action_code = 'HOST_DECLARE_NO_SHOW'::text) AND (status = 'PENDING'::text)) OR ((app.actor_kind() = 'GUEST'::text) AND (action_code = 'GUEST_REPORT_HOST_NO_SHOW'::text) AND (status = 'AWAITING_REVIEW'::text))))`
 - `cmd_hold_cancel_review_upd` (UPDATE, PERMISSIVE, cmd_hold_owner) USING `((status = 'AWAITING_REVIEW'::text) AND (action_code = 'GUEST_REPORT_HOST_NO_SHOW'::text) AND (app.actor_kind() = 'STAFF'::text))` WITH CHECK `((status = ANY (ARRAY['PENDING'::text, 'FAILED'::text])) AND (action_code = 'GUEST_REPORT_HOST_NO_SHOW'::text) AND (app.actor_kind() = 'STAFF'::text))`
@@ -2863,7 +2864,7 @@ Politiques RLS :
 - `catalog_cmd_value_class_read` (SELECT, PERMISSIVE, catalog_cmd_owner) USING `(key = 'vehicle_default_value_class'::text)`
 - `cmd_golive_ins` (INSERT, PERMISSIVE, cmd_golive_owner) WITH CHECK `((app.actor_kind() = 'STAFF'::text) AND (go_live_request_id IS NOT NULL) AND (approved_by IS NOT NULL) AND (scope_type = 'COUNTRY'::text))`
 - `cmd_golive_sel` (SELECT, PERMISSIVE, cmd_golive_owner) USING `((go_live_request_id IS NOT NULL) OR (key IN ( SELECT d.key FROM core.config_param_definition d WHERE d.go_live_switch)))`
-- `cmd_hold_cancel_read` (SELECT, PERMISSIVE, cmd_hold_owner) USING `(key = ANY (ARRAY['free_cancel_lead'::text, 'last_minute_threshold'::text, 'host_penalty'::text, 'platform_funded_host_compensation'::text]))`
+- `cmd_hold_cancel_read` (SELECT, PERMISSIVE, cmd_hold_owner) USING `(key = ANY (ARRAY['free_cancel_lead'::text, 'last_minute_threshold'::text, 'host_penalty'::text, 'platform_funded_host_compensation'::text, 'no_show_report_review_alert_minutes'::text]))`
 - `cmd_hold_contract_param_read` (SELECT, PERMISSIVE, cmd_hold_owner) USING `(key = 'grace_minutes'::text)`
 - `cmd_hold_deposit_read` (SELECT, PERMISSIVE, cmd_hold_owner) USING `(key = ANY (ARRAY['deposit_always_required'::text, 'deposit_trigger_classes'::text, 'deposit_amount'::text, 'funds_holding_enabled'::text, 'auth_lead_h'::text, 'release_delay_h'::text, 'deposit_safety_h'::text, 'deposit_reauth_lead_h'::text, 'marge_h'::text]))`
 - `cmd_hold_inspection_param_read` (SELECT, PERMISSIVE, cmd_hold_owner) USING `(key = ANY (ARRAY['photo_max_kb'::text, 'photo_max_px'::text, 'clock_skew_flag_h'::text, 'p2p_contactless_handover_enabled'::text]))`
@@ -8219,6 +8220,7 @@ Chacune a un propriétaire `NOLOGIN` dédié (ADR-053) et un `search_path` figé
 | `core.booking_trip_period_sync()` | `trigger` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | cmd_hold_owner: EXECUTE |
 | `core.booking_trip_receipt(p_token_hash bytea, p_trip_id uuid)` | `TABLE(outcome text, viewer_role text, trip_status text, currency text, timezone text, receipt jsonb)` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; cmd_hold_owner: EXECUTE |
 | `core.booking_trip_refunds(p_token_hash bytea, p_trip_id uuid)` | `TABLE(outcome text, viewer_role text, trip_status text, currency text, timezone text, refunds jsonb)` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; cmd_hold_owner: EXECUTE |
+| `core.booking_worker_no_show_review_alerts(p_batch integer)` | `TABLE(country_code text, reason text, reports integer)` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; cmd_hold_owner: EXECUTE |
 | `core.catalog_addition_detail(p_addition_id uuid, p_country text)` | `jsonb` | `catalog_cmd_owner` | search_path=pg_catalog, pg_temp | catalog_cmd_owner: EXECUTE ; iam_staff_owner: EXECUTE |
 | `core.catalog_cmd_add_listing_photo(p_token_hash bytea, p_org uuid, p_listing_id uuid, p_photo_id uuid, p_file_id uuid, p_mime text, p_bytes bigint, p_sha256 bytea)` | `TABLE(outcome text, photo_id uuid, storage_key text)` | `catalog_cmd_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; catalog_cmd_owner: EXECUTE |
 | `core.catalog_cmd_add_vehicle_document(p_token_hash bytea, p_org uuid, p_vehicle uuid, p_file_id uuid, p_doc_type text, p_mime text, p_bytes bigint, p_sha256 bytea, p_valid_until date)` | `TABLE(outcome text, document_id uuid, storage_key text)` | `catalog_cmd_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; catalog_cmd_owner: EXECUTE |
@@ -8577,7 +8579,9 @@ Chacune a un propriétaire `NOLOGIN` dédié (ADR-053) et un `search_path` figé
 | `core.booking_intents_due(p_limit integer)` | `TABLE(operation_id uuid, hold_id uuid, provider text, method text, country_code text, psp_account_id uuid, idem_sent text, provider_reference text, status text)` | `migrator` | app_worker: EXECUTE ; migrator: EXECUTE |
 | `core.booking_min_driver_age(p_country text, p_class text)` | `integer` | `cmd_hold_owner` | cmd_hold_owner: EXECUTE |
 | `core.booking_no_delete()` | `trigger` | `migrator` | migrator: EXECUTE |
+| `core.booking_no_show_party_present(p_trip_id uuid, p_side text)` | `boolean` | `cmd_hold_owner` | cmd_hold_owner: EXECUTE |
 | `core.booking_no_show_policy()` | `TABLE(host_absent_after interval, reply_wait interval, message_lead interval, declaration_window interval)` | `cmd_hold_owner` | app_worker: EXECUTE ; cmd_hold_owner: EXECUTE |
+| `core.booking_no_show_report_obstacle(p_trip_id uuid)` | `text` | `cmd_hold_owner` | cmd_hold_owner: EXECUTE |
 | `core.booking_no_show_traced(p_trip_id uuid, p_side text, p_at timestamp with time zone)` | `boolean` | `cmd_hold_owner` | cmd_hold_owner: EXECUTE |
 | `core.booking_occupied_period(p_start timestamp with time zone, p_end timestamp with time zone, p_buffer_minutes integer)` | `tstzrange` | `migrator` | app_api: EXECUTE ; app_worker: EXECUTE ; cmd_hold_owner: EXECUTE ; migrator: EXECUTE |
 | `core.booking_open_compensation(p_hold_id uuid, p_operation_id uuid, p_reason text)` | `jsonb` | `migrator` | app_worker: EXECUTE ; migrator: EXECUTE |
