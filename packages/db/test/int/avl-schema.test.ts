@@ -122,6 +122,16 @@ const PAY_PORT_TABLES = [
   'payment_refund_instance',
   // caution figée au checkout (US-701, 0146) : preuves dans test/l0/l0-us701-deposit-hold.test.ts
   'payment_deposit_hold',
+  // carte enregistrée, consentement MIT, débits post-trip et dette (US-703, 0169) : aucun droit
+  // applicatif, commandes de cmd_money_owner ; preuves dans test/l0/l0-us703-mit-charges.test.ts
+  'payment_payment_instrument',
+  'payment_mit_consent',
+  'payment_mit_consent_reminder',
+  'payment_mit_network_rule',
+  'payment_post_trip_charge',
+  'payment_post_trip_charge_attempt',
+  'payment_debt_balance',
+  'payment_debt_collection',
 ] as const;
 
 // Compte de versement de l'hôte (US-707, 0159) : même socle RLS ; aucun droit applicatif,

@@ -42,6 +42,7 @@ import type {
   DepositGuestView,
   HostedPayment,
 } from '../../src/modules/pay/index.js';
+import { PgMitConsentStore } from '../../src/modules/pay/index.js';
 import {
   ALL_CLOSED,
   CASES,
@@ -471,6 +472,8 @@ describe.each(CASES)(
             new Map([['FAKE', psp]]),
             new NoDepositGate(),
             () => undefined,
+            // US-703 : consentement MIT du checkout enregistré par la vraie commande (0169)
+            new PgMitConsentStore(tx),
           );
           await capabilities(tx, c.country, iso(Date.parse(NOW) - 3 * MINUTE));
           // le client envoie un montant, des jambes ou une remise : la requête n'admet que le moyen
@@ -491,7 +494,7 @@ describe.each(CASES)(
           }
           expect(psp.orders).toEqual([]);
           const paid = await onFakeAccount(tx, c.country, psp, () =>
-            pay.pay(hash, holdId, { method: 'CARD' }),
+            pay.pay(hash, holdId, { method: 'CARD', mitConsent: true, locale: 'es' }),
           );
           if (!paid.ok) throw new Error('paiement refusé', { cause: paid.error });
           expect(psp.orders).toHaveLength(1);
@@ -500,7 +503,10 @@ describe.each(CASES)(
           expect({ ...order.legs }).toEqual(want.legs);
           expect(sum({ ...order.legs } as Legs)).toBe(order.amountMinor);
           // second clic, deux onglets : aucun second ordre (l'état fait foi, L2-PM-01)
-          expect((await pay.pay(hash, holdId, { method: 'CARD' })).created).toBe(false);
+          expect(
+            (await pay.pay(hash, holdId, { method: 'CARD', mitConsent: true, locale: 'es' }))
+              .created,
+          ).toBe(false);
           expect(psp.orders).toHaveLength(1);
         });
 

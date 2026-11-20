@@ -346,7 +346,14 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  réservée à US-709 ; le numéro ne redescend jamais) : trip suivant à risque (US-305, ADR-188) :
  `ntf.tripAtRiskHost.*` (le véhicule du trip précédent, en retard, n’est pas rendu ; l’hôte est
  prévenu, l’ops le contacte).
- Version 109 (réservée à US-311 par l’orchestrateur ; les 104 à 108 sont réservées à US-703,
+ Version 104 (réservée à US-703 par l’orchestrateur ; les 102 et 103 sont celles d’US-709 et
+ US-305) : carte enregistrée et consentement MIT (US-703, ADR-189) : case séparée du checkout
+ `web.s05.mitConsent` de 10b §4.3 (UX-30, texte portugais ajouté), refus
+ `common.payment.mitConsentRequired` (case non cochée) et rappel du consentement à la remise
+ `web.handover.mitReminder` (S09, validation du voyageur au départ) ; après les revues : mention
+ au bouton `web.s05.mitConsentNotice` (défaut, comme Turo, DEC-FONDATEUR-22), aide
+ `web.s05.mitConsentRequiredHint` de la case et code `common.payment.mitRailUnavailable`.
+ Version 109 (réservée à US-311 par l’orchestrateur ; la 104 est celle d’US-703, les 105 à 108 sont réservées à
  US-317, US-307, US-314 et US-306 ; le numéro ne redescend jamais) : vues de la bêta et
  rapprochement par jambe assisté (US-311, ADR-194) : réponses de la console
  `common.reconciliation.*` (relevé du PSP absent ou mal formé, checklist mensuelle incomplète,

@@ -28,7 +28,7 @@ Toutes : StaffGuard (session élevée par TOTP), pays du rôle seulement, refus 
 
 ## Entités
 
-RPT ne possède aucune table (17 §2.2 : « vues matérialisées uniquement »). Migration 0174 : trois vues **non matérialisées** `WITH (security_invoker = true)`, propriété d'`iam_staff_owner`, lues seulement par la porte `core.report_staff_beta_view` (aucun droit applicatif direct) : `core.report_handover_day_v` (remises et retours du jour au fuseau du trip, validations, clés), `core.report_overdue_v` (retards vivants, minutes de retard à l'heure serveur), `core.report_exit_kpi_v` (S1, S2, S4 calculés à chaque lecture ; S3 non mesurable avant US-309). Une vue matérialisée n'est pas retenue en bêta : les KPI doivent être exacts à la lecture (ADR-194).
+RPT ne possède aucune table (17 §2.2 : « vues matérialisées uniquement »). Migration 0174 : trois vues **non matérialisées** `WITH (security_invoker = true)`, propriétaire `migrator`, `SELECT` au seul `iam_staff_owner`, lues seulement par la porte `core.report_staff_beta_view` (aucun droit applicatif direct) : `core.report_handover_day_v` (remises et retours du jour au fuseau du trip, validations, clés), `core.report_overdue_v` (retards vivants, minutes de retard à l'heure serveur), `core.report_exit_kpi_v` (S1, S2, S4 calculés à chaque lecture ; S3 non mesurable avant US-309). Une vue matérialisée n'est pas retenue en bêta : les KPI doivent être exacts à la lecture (ADR-194).
 
 ## Événements
 

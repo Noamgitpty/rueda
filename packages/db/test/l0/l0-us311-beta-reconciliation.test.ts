@@ -459,10 +459,16 @@ describe.each(byCountry)('US-311 — rapprochement par jambe assisté (%s, %s)',
         ]),
       ).toEqual({ outcome: 'CHECKLIST_INCOMPLETE', unexplained: null });
       await rejects(tx, SIGN, [fin.hash, uuid(), run, JSON.stringify({ SIGNED: true })], '22023');
-      // clôture : l'écart non expliqué reste compté
+      // clôture : les écarts non expliqués restent comptés (notre second élément, plus les lignes
+      // de la plateforme du mois absentes de ce relevé : lues dans le passage, jamais un total global)
+      const open = itemsOf(await runOf(tx, fin.hash, run)).filter(
+        (i) => i['status'] !== 'MATCHED' && i['resolution'] === null,
+      );
+      expect(open.map((i) => i['ref'])).toContain(second);
+      expect(open.map((i) => i['ref'])).not.toContain(orphanRef);
       expect(await first(tx, SIGN, [fin.hash, uuid(), run, JSON.stringify(CHECKLIST)])).toEqual({
         outcome: 'CLOSED',
-        unexplained: 1,
+        unexplained: open.length,
       });
       expect(await first(tx, SIGN, [fin.hash, uuid(), run, JSON.stringify(CHECKLIST)])).toEqual({
         outcome: 'ALREADY_CLOSED',
@@ -481,7 +487,7 @@ describe.each(byCountry)('US-311 — rapprochement par jambe assisté (%s, %s)',
       const closed = await runOf(tx, fin.hash, run);
       expect(closed).toMatchObject({
         status: 'CLOSED',
-        unexplainedAtClose: 1,
+        unexplainedAtClose: open.length,
         checklist: CHECKLIST,
       });
       // liste du pays : le passage y figure, et l'état des mois est rendu

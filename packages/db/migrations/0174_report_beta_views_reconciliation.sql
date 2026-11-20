@@ -19,7 +19,7 @@
 --   - aucune donnée personnelle superflue : identifiants techniques (trip, compte d'hôte,
 --     véhicule), référence publique du trip, montants, états et heures ; jamais un nom, un
 --     contact, une pièce ni une carte ;
---   - trois vues `WITH (security_invoker = true)` propriété d'`iam_staff_owner`, lues SEULEMENT
+--   - trois vues `WITH (security_invoker = true)` (propriétaire migrator, SELECT à iam_staff_owner), lues SEULEMENT
 --     par les portes de la console (SECURITY DEFINER, iam_staff_owner, EXECUTE app_api) qui jugent
 --     la session élevée (TOTP), la permission et le pays du rôle ; aucun droit applicatif direct ;
 --   - les KPI de sortie sont calculés depuis les données à chaque lecture : aucune table, aucun
@@ -299,9 +299,9 @@ SET LOCAL ROLE cmd_money_owner;
 GRANT EXECUTE ON FUNCTION core.payout_business_day(text, date, integer) TO iam_staff_owner;
 RESET ROLE;
 
--- 5. Vues de lecture (17 §2.2 RPT, security_invoker ; propriété d'iam_staff_owner) --------------
-GRANT CREATE ON SCHEMA core TO iam_staff_owner;
-SET LOCAL ROLE iam_staff_owner;
+-- 5. Vues de lecture (17 §2.2 RPT, security_invoker ; propriétaire migrator : un propriétaire
+-- NOLOGIN ne possède aucune relation, L0-05) : SELECT au seul iam_staff_owner, qui les lit dans
+-- ses portes, avec ses propres droits (security_invoker) --------------------------------------
 
 -- 5.1 Remises (CHECKIN) et retours (CHECKOUT) prévus aujourd'hui, au fuseau du trip, par compte
 -- d'hôte ; trips annulés, refusés ou en no-show exclus
@@ -407,6 +407,12 @@ SELECT k.code::text AS country_code,
 COMMENT ON VIEW core.report_exit_kpi_v IS
   'RPT : KPI de sortie de bêta (18 §1.1 S1, S2, S4) calculés depuis les données à chaque lecture ; '
   'S3 (sinistres) sans source avant US-309 : non mesurable. Aucune saisie. US-311 (ADR-194).';
+
+GRANT SELECT ON core.report_handover_day_v, core.report_overdue_v, core.report_exit_kpi_v
+  TO iam_staff_owner;
+
+GRANT CREATE ON SCHEMA core TO iam_staff_owner;
+SET LOCAL ROLE iam_staff_owner;
 
 -- 6. Fonctions internes (SECURITY INVOKER, EXECUTE au seul propriétaire) ------------------------
 

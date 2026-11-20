@@ -39,6 +39,7 @@ function Hidden(p: Common) {
       <input type="hidden" name="direction" value={p.direction} />
       <input type="hidden" name="role" value={p.role} />
       <input type="hidden" name="org" value={p.org ?? ''} />
+      <input type="hidden" name="locale" value={p.localeTag} />
     </>
   );
 }
@@ -192,6 +193,12 @@ export function ValidateForm(p: Common) {
           ))}
         </select>
       </div>
+      {/* US-703 (16 PAY-037) : rappel du consentement MIT au voyageur, au départ seulement */}
+      {p.role === 'GUEST' && p.direction === 'checkin' && (
+        <p className={accountStyles['text']} data-testid="handover-mit-reminder">
+          {t('web.handover.mitReminder')}
+        </p>
+      )}
       <p className={accountStyles['muted']}>{t('web.handover.validate.hint')}</p>
       <div className={styles['actions']}>
         <Button type="submit" block loading={pending} data-testid="handover-validate-submit">

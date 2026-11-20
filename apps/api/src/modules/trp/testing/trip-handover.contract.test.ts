@@ -17,7 +17,7 @@
  * Les règles de la base sont prouvées sur PostgreSQL (l0-us315-handover). Données fictives.
  */
 import { randomUUID } from 'node:crypto';
-import { afterAll, describe, expect, it } from 'vitest';
+import { afterAll, describe, expect, it, vi } from 'vitest';
 import {
   closeContractApps,
   contract,
@@ -27,7 +27,25 @@ import {
 } from '../../../testing/contract/support.js';
 import type { ContractApp } from '../../../testing/contract/support.js';
 import { missingCoverage } from '../../../testing/openapi-contract.js';
+import type { MitConsentOutcome, MitConsentPort, MitReminderOutcome } from '../../pay/index.js';
 import { FakeHandoverStore, fakeTrip } from './fake-handover-store.js';
+
+/** Rappel du consentement MIT (US-703) imposé — TESTS SEULEMENT ; la règle est jugée en base. */
+class RecordingReminders implements MitConsentPort {
+  readonly reminded: { readonly tripId: string; readonly locale: string }[] = [];
+  down = false;
+  mode(): Promise<null> {
+    return Promise.resolve(null);
+  }
+  accept(): Promise<MitConsentOutcome> {
+    return Promise.reject(new Error('non utilisé'));
+  }
+  acknowledgeReminder(_p: Buffer, tripId: string, locale: string): Promise<MitReminderOutcome> {
+    if (this.down) return Promise.reject(new Error('base indisponible'));
+    this.reminded.push({ tripId, locale });
+    return Promise.resolve('ACKNOWLEDGED');
+  }
+}
 
 afterAll(closeContractApps);
 
@@ -47,9 +65,11 @@ interface World {
   readonly trip: string;
 }
 
-async function world(): Promise<World> {
+async function world(reminders?: RecordingReminders): Promise<World> {
   const store = new FakeHandoverStore();
-  const app = await startContractApp({ trp: { handover: store } });
+  const app = await startContractApp({
+    trp: { handover: store, ...(reminders === undefined ? {} : { mitReminders: reminders }) },
+  });
   const trip = randomUUID();
   // voyageur = voyageur du trip ; staff_sans_mfa = titulaire du compte d'hôte ; staff = étranger
   store.trips.set(
@@ -206,6 +226,39 @@ describe('US-315 — routes de la remise et du retour (contrat OpenAPI)', () => 
       headers: host(w),
     });
     expect((v.json as { completedAt: string }).completedAt).toBe(T3.toISOString());
+  });
+
+  it('US-703 : validation de la remise avec la langue du rappel MIT ⇒ rappel transmis à la base (départ seulement) ; langue invalide ⇒ 400 ; rappel en échec ⇒ la remise n’est jamais bloquée', async () => {
+    const reminders = new RecordingReminders();
+    const w = await world(reminders);
+    apps.push(w.app);
+    const t = w.store.trips.get(w.trip)!;
+    t.status = 'CHECKIN_OPEN';
+    t.photos.CHECKIN = { HOST: 'SUBMITTED', GUEST: 'SUBMITTED' };
+    expect(
+      (await post(w, guest(w), 'checkin/validate', { ...READING, locale: 'espagnol' })).status,
+    ).toBe(400);
+    expect(reminders.reminded).toEqual([]);
+    reminders.down = true;
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const first = await post(w, guest(w), 'checkin/validate', { ...READING, locale: 'fr' });
+    expect(first.status).toBe(200);
+    // revue sécurité n° 7 : échec journalisé par un code, sans identifiant ni valeur
+    const lines = warn.mock.calls.map((c) => String(c[0]));
+    warn.mockRestore();
+    expect(lines).toContainEqual(
+      JSON.stringify({ level: 'warn', event: 'handover.mit_reminder_failed', code: 'Error' }),
+    );
+    expect(lines.join(' ')).not.toContain(w.trip);
+    reminders.down = false;
+    const replay = await post(w, guest(w), 'checkin/validate', { ...READING, locale: 'pt-BR' });
+    expect(replay.status).toBe(200);
+    expect(reminders.reminded).toEqual([{ tripId: w.trip, locale: 'pt-BR' }]);
+    // sans langue (hôte, ancien client) : aucun rappel ; au retour : jamais
+    await post(w, host(w), 'checkin/validate', READING);
+    t.photos.CHECKOUT = { HOST: 'SUBMITTED', GUEST: 'SUBMITTED' };
+    await post(w, guest(w), 'checkout/validate', { ...READING, locale: 'es' });
+    expect(reminders.reminded).toHaveLength(1);
   });
 
   it('corps : JSON exigé (415), sans session (401), magasin injoignable ⇒ 503 « réessayer » (aucune file hors ligne)', async () => {

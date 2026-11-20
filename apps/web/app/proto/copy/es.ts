@@ -102,8 +102,6 @@ export const ES_PROTO = {
   'web.s04.result.glare':
     'La foto de tu licencia salió con reflejo. Inclínala un poco y evita la luz directa.',
   'web.s05.contract': 'Acepto el contrato de alquiler con {host_name}',
-  'web.s05.mitConsent':
-    'Autorizo cargos posteriores al viaje en esta tarjeta solo por gastos del viaje, mi franquicia o daños, siempre con aviso y prueba.',
   'web.s05.review.notice': 'Revisamos cada reserva. Si no podemos aprobarla, te devolvemos todo.',
   'web.s06.pre.title': 'En tu estado de cuenta verás: {merchant_name}',
   'web.s07.message': 'Escribir a {host_name}',

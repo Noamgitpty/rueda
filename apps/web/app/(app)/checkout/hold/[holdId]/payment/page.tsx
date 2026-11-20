@@ -202,6 +202,7 @@ export default async function PaymentPage({
           holdId={payment.holdId}
           label={t('web.s06.interrupted.retry')}
           testId="s06-retry"
+          mitConsentMode={payment?.mitConsentMode ?? null}
         />
         {reference}
       </>,
@@ -421,6 +422,7 @@ export default async function PaymentPage({
             holdId={payment.holdId}
             label={t('web.s06.payAgain')}
             testId="s06-pay-again"
+            mitConsentMode={payment?.mitConsentMode ?? null}
           />
           {reference}
         </>,
