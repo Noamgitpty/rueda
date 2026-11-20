@@ -1,14 +1,19 @@
 /**
- * US-708 (migration 0165, ADR-185) — RT-L3-V03, préparation doublée : deux travailleurs
- * `payment_command` préparent le versement du MÊME trip, chacun sur sa connexion (une connexion
- * par client, libérée). Le premier tient le verrou du trip ; le second attend (observé dans
- * `pg_locks`) puis lit le trip déjà mis dans un lot : un seul item, un seul lot, `release_at`
- * écrit une fois (19 US-708 critère 3 ; contrainte unique trip, segment, jambe ; L3-PM-33).
+ * US-708 (migration 0165, ADR-185) — courses à deux connexions (une connexion par client,
+ * libérée) :
  *
- * Sous les rôles de PRODUCTION (`withRole` : assertion L0-05 en tête). Préparation VALIDÉE sur un
- * trip neuf, encaissé (jambes TJ01 / TJ08a de l'export des oracles) sur le compte PSP FAKE ACTIVE
- * partagé du pays (fixture 9800) ; fériés de 2035 propres à ce fichier ; fichier isolé
- * (`vitest.l0.config.ts`). Aucun interrupteur n'est écrit : le lot reste ON_HOLD.
+ * - RT-L3-V03, préparation doublée : deux travailleurs `payment_command` préparent le versement
+ *   du MÊME trip. Le premier tient le verrou du trip ; le second attend (observé dans `pg_locks`)
+ *   puis lit le trip déjà mis dans un lot : un seul item, un seul lot, `release_at` écrit une fois
+ *   (19 US-708 critère 3 ; contrainte unique trip, segment, jambe ; L3-PM-33) ;
+ * - compensation sérialisée par (hôte, devise) : deux lots DIFFÉRENTS du même hôte (échéances
+ *   différentes) ne calculent jamais leur compensation en même temps : le second attend le verrou
+ *   consultatif du premier (double compensation de la même dette impossible, revue argent n° 2).
+ *
+ * Sous les rôles de PRODUCTION (`withRole` : assertion L0-05 en tête). Préparation VALIDÉE sur des
+ * trips neufs, encaissés (jambes TJ01 / TJ08a de l'export des oracles) sur le compte PSP FAKE
+ * ACTIVE partagé du pays (fixture 9800) ; fériés de 2035 propres à ce fichier ; fichier isolé
+ * (`vitest.l0.config.ts`). Aucun interrupteur n'est écrit : les lots restent ON_HOLD.
  */
 import { legVector } from '@rueda/money/golden-vectors';
 import type pg from 'pg';
@@ -16,6 +21,7 @@ import { describe, expect, it } from 'vitest';
 import { setSessionContext } from '../../src/index.ts';
 import { withRole, withTestTransaction } from '../../src/testing/index.ts';
 import { COUNTRIES } from '../support/avl.ts';
+import type { CountryCase } from '../support/avl.ts';
 import { backendPid, waitUntilBlocked } from '../support/concurrency.ts';
 import { applySignedStatus, recordOperation, uuid } from '../support/pay.ts';
 import type { Legs } from '../support/pay.ts';
@@ -45,95 +51,122 @@ async function prepare(tx: Tx, trip: string): Promise<Prepared> {
   return row;
 }
 
-describe.each(COUNTRIES)(
-  'US-708 — préparation doublée, deux connexions — $country ($currency)',
-  (c) => {
-    it('RT-L3-V03 : le second travailleur attend le verrou du trip puis lit ALREADY_PREPARED ; un seul item, release_at écrit une fois', async () => {
-      const capture: Legs = { ...legVector(golden, CAPTURE_REF[c.currency] ?? '').legsMinor };
-      const trip = uuid();
-      await withRole('app_worker', async (observer) => {
-        // préparation VALIDÉE : trip encaissé, compte de versement vérifié, terminé un vendredi
-        await withTestTransaction(observer, { commit: true }, async (tx) => {
-          await asWorker(tx);
-          await tx.query(
-            `SELECT test_fixture.rls_insert_trip($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-            [
-              trip,
-              uuid(),
-              uuid(),
-              uuid(),
-              c.country,
-              c.currency,
-              c.timezone,
-              '2034-12-01T10:00:00Z',
-              '2034-12-04T10:00:00Z',
-            ],
-          );
-          const a = await tx.query<{ id: string }>(
-            'SELECT test_fixture.us024_psp_account($1) AS id',
-            [c.country],
-          );
-          const { operation_id: op } = await recordOperation(tx, {
-            tripId: trip,
-            accountId: a.rows[0]?.id ?? '',
-            kind: 'CAPTURE',
-            amountMinor: LEGS.reduce((s, k) => s + capture[k], 0n),
-            currency: c.currency,
-            idemPlain: `trip:${trip}:CAPTURE:${uuid()}`,
-            legs: capture,
-          });
-          expect(await applySignedStatus(tx, op, 'SUCCEEDED')).toBe('APPLIED');
-          const moved = await tx.query<{ r: string }>(
-            'SELECT core.settlement_cmd_apply_leg_movement($1) AS r',
-            [op],
-          );
-          expect(moved.rows[0]?.r).toBe('APPLIED');
-          await tx.query(`SELECT test_fixture.us708_holiday($1, '2035-01-01'::date)`, [c.country]);
-          await tx.query('SELECT test_fixture.us708_verified_account($1, NULL)', [trip]);
-          const end = await tx.query<{ at: string }>(
-            `SELECT pg_catalog.to_char(('2035-01-12 15:00'::timestamp AT TIME ZONE $1)
-                                     AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"') AS at`,
-            [c.timezone],
-          );
-          await tx.query(`SELECT pg_catalog.set_config('app.virtual_now', $1, true)`, [
-            end.rows[0]?.at ?? '',
-          ]);
-          await tx.query('SELECT test_fixture.us708_complete_trip($1)', [trip]);
-        });
+/** Trip VALIDÉ : encaissé, compte de versement vérifié (une fois par hôte), terminé à `endLocal`. */
+async function committedTrip(
+  observer: Tx,
+  c: CountryCase,
+  org: string,
+  endLocal: string,
+  account: boolean,
+): Promise<string> {
+  const capture: Legs = { ...legVector(golden, CAPTURE_REF[c.currency] ?? '').legsMinor };
+  const trip = uuid();
+  await withTestTransaction(observer, { commit: true }, async (tx) => {
+    await asWorker(tx);
+    await tx.query(`SELECT test_fixture.rls_insert_trip($1, $2, $3, $4, $5, $6, $7, $8, $9)`, [
+      trip,
+      uuid(),
+      org,
+      uuid(),
+      c.country,
+      c.currency,
+      c.timezone,
+      '2034-12-01T10:00:00Z',
+      '2034-12-04T10:00:00Z',
+    ]);
+    const a = await tx.query<{ id: string }>('SELECT test_fixture.us024_psp_account($1) AS id', [
+      c.country,
+    ]);
+    const { operation_id: op } = await recordOperation(tx, {
+      tripId: trip,
+      accountId: a.rows[0]?.id ?? '',
+      kind: 'CAPTURE',
+      amountMinor: LEGS.reduce((s, k) => s + capture[k], 0n),
+      currency: c.currency,
+      idemPlain: `trip:${trip}:CAPTURE:${uuid()}`,
+      legs: capture,
+    });
+    expect(await applySignedStatus(tx, op, 'SUCCEEDED')).toBe('APPLIED');
+    const moved = await tx.query<{ r: string }>(
+      'SELECT core.settlement_cmd_apply_leg_movement($1) AS r',
+      [op],
+    );
+    expect(moved.rows[0]?.r).toBe('APPLIED');
+    await tx.query(`SELECT test_fixture.us708_holiday($1, '2035-01-01'::date)`, [c.country]);
+    if (account) await tx.query('SELECT test_fixture.us708_verified_account($1, NULL)', [trip]);
+    const end = await tx.query<{ at: string }>(
+      `SELECT pg_catalog.to_char(($1::timestamp AT TIME ZONE $2) AT TIME ZONE 'UTC',
+                                 'YYYY-MM-DD"T"HH24:MI:SS"Z"') AS at`,
+      [endLocal, c.timezone],
+    );
+    await tx.query(`SELECT pg_catalog.set_config('app.virtual_now', $1, true)`, [
+      end.rows[0]?.at ?? '',
+    ]);
+    await tx.query('SELECT test_fixture.us708_complete_trip($1)', [trip]);
+  });
+  return trip;
+}
 
-        await withRole('app_worker', (first) =>
-          withRole('app_worker', async (second) => {
-            await first.query('BEGIN');
-            await second.query('BEGIN');
-            try {
-              await asWorker(first);
-              await asWorker(second);
-              const a = await prepare(first, trip);
-              expect(a.outcome).toBe('PREPARED');
-              const pid = await backendPid(second);
-              const pending = prepare(second, trip);
-              await waitUntilBlocked(observer, pid, 'transactionid');
-              await first.query('COMMIT');
-              const b = await pending;
-              expect(b).toMatchObject({ outcome: 'ALREADY_PREPARED', batch_id: a.batch_id });
-              expect(b.payout_at).toBe(a.payout_at);
-              const items = await second.query('SELECT * FROM test_fixture.us708_items($1)', [
-                trip,
-              ]);
-              expect(items.rowCount).toBe(1);
-              const rel = await second.query<{ r: string }>(
-                `SELECT release_at::text AS r FROM core.settlement_trip_leg_balance
-                WHERE trip_id = $1 AND segment_no = 1 AND leg = 'HOST'`,
-                [trip],
-              );
-              expect(rel.rows[0]?.r).toBe(a.payout_at);
-            } finally {
-              await first.query('ROLLBACK').catch(() => undefined);
-              await second.query('ROLLBACK');
-            }
-          }),
+/** Deux transactions de travailleur ouvertes ; `first` peut être validée, `second` est annulée. */
+async function twoWorkers(fn: (first: Tx, second: Tx) => Promise<void>): Promise<void> {
+  await withRole('app_worker', (first) =>
+    withRole('app_worker', async (second) => {
+      await first.query('BEGIN');
+      await second.query('BEGIN');
+      try {
+        await asWorker(first);
+        await asWorker(second);
+        await fn(first, second);
+      } finally {
+        await first.query('ROLLBACK').catch(() => undefined);
+        await second.query('ROLLBACK');
+      }
+    }),
+  );
+}
+
+describe.each(COUNTRIES)('US-708 — courses à deux connexions — $country ($currency)', (c) => {
+  it('RT-L3-V03 : le second travailleur attend le verrou du trip puis lit ALREADY_PREPARED ; un seul item, release_at écrit une fois', async () => {
+    await withRole('app_worker', async (observer) => {
+      const trip = await committedTrip(observer, c, uuid(), '2035-01-12 15:00', true);
+      await twoWorkers(async (first, second) => {
+        const a = await prepare(first, trip);
+        expect(a.outcome).toBe('PREPARED');
+        const pid = await backendPid(second);
+        const pending = prepare(second, trip);
+        await waitUntilBlocked(observer, pid, 'transactionid');
+        await first.query('COMMIT');
+        const b = await pending;
+        expect(b).toMatchObject({ outcome: 'ALREADY_PREPARED', batch_id: a.batch_id });
+        expect(b.payout_at).toBe(a.payout_at);
+        const items = await second.query('SELECT * FROM test_fixture.us708_items($1)', [trip]);
+        expect(items.rowCount).toBe(1);
+        const rel = await second.query<{ r: string }>(
+          `SELECT release_at::text AS r FROM core.settlement_trip_leg_balance
+            WHERE trip_id = $1 AND segment_no = 1 AND leg = 'HOST'`,
+          [trip],
         );
+        expect(rel.rows[0]?.r).toBe(a.payout_at);
       });
     });
-  },
-);
+  });
+
+  it('compensation sérialisée par (hôte, devise) : deux lots du même hôte, échéances différentes ⇒ le second attend le verrou consultatif du premier', async () => {
+    await withRole('app_worker', async (observer) => {
+      const org = uuid();
+      const monday = await committedTrip(observer, c, org, '2035-01-15 15:00', true);
+      const tuesday = await committedTrip(observer, c, org, '2035-01-16 15:00', false);
+      await twoWorkers(async (first, second) => {
+        const a = await prepare(first, monday);
+        expect(a.outcome).toBe('PREPARED');
+        const pid = await backendPid(second);
+        const pending = prepare(second, tuesday);
+        await waitUntilBlocked(observer, pid, 'advisory');
+        await first.query('COMMIT');
+        const b = await pending;
+        expect(b.outcome).toBe('PREPARED');
+        expect(b.batch_id).not.toBe(a.batch_id);
+      });
+    });
+  });
+});

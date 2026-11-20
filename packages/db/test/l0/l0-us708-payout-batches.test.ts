@@ -166,12 +166,14 @@ interface BatchRow {
   readonly hold_reasons: string[];
   readonly netted_at: string | null;
   readonly variant: string;
+  readonly next_check_at: string | null;
+  readonly row_version: number;
 }
 
 async function batchesOf(tx: Tx, trip: string): Promise<BatchRow[]> {
   const { rows } = await tx.query<BatchRow>(
     `SELECT id, status, first_payout, gross_minor::text, netted_minor::text, net_minor::text,
-            hold_reasons, netted_at::text, variant
+            hold_reasons, netted_at::text, variant, next_check_at::text, row_version
        FROM test_fixture.us708_batches($1)`,
     [trip],
   );
@@ -498,6 +500,117 @@ describe.each(COUNTRIES)('US-708 — lots de versement à l’hôte — $country
         ),
       );
       expect(err?.code).toBe('42501');
+    });
+  });
+
+  it('MAJEUR 2 (file) : plus de 50 trips au calendrier absent ne bloquent pas la file ; différés, ils ne reviennent pas avant leur prochaine tentative', async () => {
+    await asPayments(async (tx) => {
+      const psp = await insertAccount(tx, { country: c.country });
+      const held: string[] = [];
+      for (let i = 0; i < 51; i += 1) {
+        held.push((await world(tx, c, psp, { endLocal: '2034-03-03 15:00', holidays: [] })).trip);
+      }
+      const good = await world(tx, c, psp, { endLocal: FRIDAY, holidays: CALENDAR });
+      const due = async (): Promise<string[]> =>
+        (
+          await tx.query<{ trip_id: string }>(
+            'SELECT trip_id FROM core.payout_trips_to_prepare(50)',
+          )
+        ).rows.map((r) => r.trip_id);
+      let prepared = false;
+      for (let pass = 0; pass < 4 && !prepared; pass += 1) {
+        for (const trip of await due()) {
+          const p = await prepare(tx, trip);
+          if (trip === good.trip) prepared = p.outcome === 'PREPARED';
+        }
+      }
+      expect(prepared).toBe(true);
+      // les trips différés ne reviennent pas avant leur prochaine tentative (15 min)
+      const again = await due();
+      expect(held.filter((t) => again.includes(t))).toEqual([]);
+      await setNow(tx, await localInstant(tx, c.timezone, '2034-03-03 15:20'));
+      const later = await due();
+      expect(held.filter((t) => later.includes(t)).length).toBeGreaterThan(0);
+    });
+  });
+
+  it('MAJEUR 2 (lots) / MOYEN : un lot échu retenu revient à sa prochaine relecture seulement ; sans changement, ni compensation ni écriture des trips', async () => {
+    await asPayments(async (tx) => {
+      const psp = await insertAccount(tx, { country: c.country });
+      const w = await world(tx, c, psp, { endLocal: FRIDAY, holidays: CALENDAR, paid: true });
+      const p = await prepare(tx, w.trip);
+      const batch = async () => (await batchesOf(tx, w.trip)).find((b) => b.id === p.batch_id);
+      const born = await batch();
+      // une seconde préparation (rejeu) n'écrit rien
+      await prepare(tx, w.trip);
+      expect((await batch())?.row_version).toBe(born?.row_version);
+      await setNow(tx, await localInstant(tx, c.timezone, '2032-01-20 11:00'));
+      const dueIds = async () =>
+        (
+          await tx.query<{ batch_id: string }>('SELECT batch_id FROM core.payout_batches_due(500)')
+        ).rows.map((r) => r.batch_id);
+      expect(await dueIds()).toContain(p.batch_id);
+      await tx.query('SELECT outcome FROM core.payout_cmd_net_batch($1)', [p.batch_id]);
+      const held = await batch();
+      expect(held?.status).toBe('ON_HOLD');
+      expect(held?.next_check_at).not.toBeNull();
+      expect(await dueIds()).not.toContain(p.batch_id);
+      await setNow(tx, await localInstant(tx, c.timezone, '2032-01-20 11:16'));
+      expect(await dueIds()).toContain(p.batch_id);
+    });
+  });
+
+  it('MOYEN : payout_at jamais avant fin effective + 24 h (N = 1, fin jeudi 23:30 ⇒ lundi, pas vendredi 10:00)', async () => {
+    await asPayments(async (tx) => {
+      const psp = await insertAccount(tx, { country: c.country });
+      await tx.query(
+        `SELECT test_fixture.us708_param_version('payout_business_day_offset', $1, '1'::jsonb)`,
+        [c.country],
+      );
+      const w = await world(tx, c, psp, {
+        endLocal: '2032-01-15 23:30',
+        holidays: CALENDAR,
+        paid: true,
+      });
+      const p = await prepare(tx, w.trip);
+      expect(p.outcome).toBe('PREPARED');
+      expect(await localOf(tx, c.timezone, p.payout_at)).toBe('2032-01-19 10:00');
+      expect(await releaseAt(tx, w.trip)).toBe(p.payout_at);
+    });
+  });
+
+  it('S-06 / RT-L3-V06 : un autre écrivain de release_at (cmd_money_owner) est refusé : seconde écriture, autre jambe, trip non terminé, avant fin + 24 h', async () => {
+    await asPayments(async (tx) => {
+      const psp = await insertAccount(tx, { country: c.country });
+      const write = (trip: string, leg: string, at: string) =>
+        caught(tx, () =>
+          tx.query('SELECT test_fixture.us708_write_release_at($1, $2, $3::timestamptz)', [
+            trip,
+            leg,
+            at,
+          ]),
+        );
+      const guarded = { code: '23000', constraint: 'trip_leg_balance_release_at_guarded' };
+      const done = await world(tx, c, psp, { endLocal: FRIDAY, holidays: CALENDAR });
+      const p = await prepare(tx, done.trip);
+      const far = await localInstant(tx, c.timezone, '2032-02-20 10:00');
+      // seconde écriture après la préparation
+      expect(await write(done.trip, 'HOST', far)).toMatchObject(guarded);
+      expect(await releaseAt(tx, done.trip)).toBe(p.payout_at);
+      // autre jambe
+      expect(await write(done.trip, 'PLATFORM', far)).toMatchObject(guarded);
+      // avant fin effective + 24 h, sur un trip terminé jamais préparé
+      const fresh = await world(tx, c, psp, { endLocal: FRIDAY, holidays: CALENDAR });
+      expect(
+        await write(fresh.trip, 'HOST', await localInstant(tx, c.timezone, '2032-01-17 10:00')),
+      ).toMatchObject(guarded);
+      // trip non terminé (litige)
+      await tx.query(`SELECT test_fixture.us708_set_trip_status($1, 'IN_DISPUTE')`, [fresh.trip]);
+      expect(await write(fresh.trip, 'HOST', far)).toMatchObject(guarded);
+      expect(await releaseAt(tx, fresh.trip)).toBeNull();
+      expect(translateDbError(await write(fresh.trip, 'HOST', far)).code).toBe(
+        'INVARIANT_VIOLATION',
+      );
     });
   });
 });

@@ -163,14 +163,16 @@ $fn$;
 CREATE FUNCTION test_fixture.us708_batches(p_trip_id uuid)
   RETURNS TABLE (id uuid, status text, scheduled_for timestamptz, first_payout boolean,
                  gross_minor bigint, netted_minor bigint, net_minor bigint, hold_reasons text[],
-                 netted_at timestamptz, idempotency_key text, variant text)
+                 netted_at timestamptz, idempotency_key text, variant text,
+                 next_check_at timestamptz, row_version integer)
   LANGUAGE sql
   STABLE
   SECURITY DEFINER
   SET search_path = pg_catalog, pg_temp
 AS $fn$
   SELECT b.id, b.status, b.scheduled_for, b.first_payout, b.gross_minor, b.netted_minor,
-         b.net_minor, b.hold_reasons, b.netted_at, b.idempotency_key, b.variant
+         b.net_minor, b.hold_reasons, b.netted_at, b.idempotency_key, b.variant,
+         b.next_check_at, b.row_version
     FROM core.payout_payout_batch AS b
    WHERE b.org_id = (SELECT t.org_id FROM core.booking_trip AS t WHERE t.id = p_trip_id)
    ORDER BY b.created_at, b.id
@@ -254,6 +256,79 @@ BEGIN
 END
 $fn$;
 
+-- Paramètre du calendrier du versement (nouvelle version ; transaction ANNULÉE) : borne de la
+-- fenêtre de déclaration avec N = 1
+CREATE FUNCTION test_fixture.us708_param_version(p_key text, p_country text, p_value jsonb)
+  RETURNS void
+  LANGUAGE plpgsql
+  SECURITY DEFINER
+  SET search_path = pg_catalog, pg_temp
+AS $fn$
+BEGIN
+  IF p_key NOT IN ('payout_business_day_offset', 'first_payout_business_day',
+                   'payout_batch_local_time') THEN
+    RAISE EXCEPTION 'clé hors liste : %', p_key USING ERRCODE = 'invalid_parameter_value';
+  END IF;
+  INSERT INTO core.config_param_value (key, country_code, scope_type, value, change_reason)
+  VALUES (p_key, p_country, 'COUNTRY', p_value, 'test US-708 (annulé)');
+END
+$fn$;
+
+-- Capacités BLOQUANTES du catalogue validées (bac à sable) pour (fournisseur, pays) : chemin
+-- passant seulement, transaction ANNULÉE ; aucune capacité n'est écrite ailleurs
+CREATE FUNCTION test_fixture.us708_validate_blocking_capabilities(p_provider text, p_country text)
+  RETURNS integer
+  LANGUAGE plpgsql
+  SECURITY DEFINER
+  SET search_path = pg_catalog, pg_temp
+AS $fn$
+DECLARE
+  n integer;
+BEGIN
+  INSERT INTO core.payment_psp_capability
+         (provider, country_code, method, network, capability, value, status, source,
+          validated_at, valid_from)
+  SELECT p_provider, p_country, '*', '*', c.capability,
+         CASE c.kind WHEN 'bool' THEN 'true'::jsonb WHEN 'int' THEN '1'::jsonb
+                     ELSE '"FIXTURE_US708"'::jsonb END,
+         'VALIDATED_SANDBOX', 'test US-708 (FAKE)', platform.now() - interval '1 day',
+         platform.now() - interval '1 day'
+    FROM core.payment_psp_capability_catalog AS c
+   WHERE c.blocking IN ('YES', 'VARIANT_A')
+  ON CONFLICT DO NOTHING;
+  GET DIAGNOSTICS n = ROW_COUNT;
+  RETURN n;
+END
+$fn$;
+
+-- Écriture de release_at par un AUTRE chemin que la préparation, sous cmd_money_owner (le seul
+-- rôle qui a le droit de colonne) : prouve les refus de la garde 5.1 (seconde écriture, autre
+-- jambe, trip non terminé, avant fin + 24 h). Cédée à cmd_money_owner (comme us049_receive_signed).
+CREATE FUNCTION test_fixture.us708_write_release_at(p_trip_id uuid, p_leg text, p_at timestamptz)
+  RETURNS integer
+  LANGUAGE plpgsql
+  SECURITY DEFINER
+  SET search_path = pg_catalog, pg_temp
+AS $fn$
+DECLARE
+  n integer;
+BEGIN
+  UPDATE core.settlement_trip_leg_balance AS b SET release_at = p_at
+   WHERE b.trip_id = p_trip_id AND b.segment_no = 1 AND b.leg = p_leg;
+  GET DIAGNOSTICS n = ROW_COUNT;
+  RETURN n;
+END
+$fn$;
+REVOKE ALL ON FUNCTION test_fixture.us708_write_release_at(uuid, text, timestamptz) FROM PUBLIC;
+GRANT CREATE ON SCHEMA test_fixture TO cmd_money_owner;
+ALTER FUNCTION test_fixture.us708_write_release_at(uuid, text, timestamptz) OWNER TO cmd_money_owner;
+REVOKE CREATE ON SCHEMA test_fixture FROM cmd_money_owner;
+GRANT USAGE ON SCHEMA test_fixture TO cmd_money_owner;
+SET LOCAL ROLE cmd_money_owner;
+GRANT EXECUTE ON FUNCTION test_fixture.us708_write_release_at(uuid, text, timestamptz) TO app_worker;
+RESET ROLE;
+REVOKE USAGE ON SCHEMA test_fixture FROM cmd_money_owner;
+
 REVOKE ALL ON FUNCTION
   test_fixture.us708_complete_trip(uuid),
   test_fixture.us708_set_trip_status(uuid, text),
@@ -265,6 +340,8 @@ REVOKE ALL ON FUNCTION
   test_fixture.us708_items(uuid),
   test_fixture.us708_set_collection_mode(uuid, text),
   test_fixture.us708_variant_b_batch(uuid, uuid),
+  test_fixture.us708_param_version(text, text, jsonb),
+  test_fixture.us708_validate_blocking_capabilities(text, text),
   test_fixture.us708_force_batch(uuid, text)
 FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION
@@ -278,5 +355,7 @@ GRANT EXECUTE ON FUNCTION
   test_fixture.us708_items(uuid),
   test_fixture.us708_set_collection_mode(uuid, text),
   test_fixture.us708_variant_b_batch(uuid, uuid),
+  test_fixture.us708_param_version(text, text, jsonb),
+  test_fixture.us708_validate_blocking_capabilities(text, text),
   test_fixture.us708_force_batch(uuid, text)
 TO app_worker;
