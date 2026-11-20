@@ -203,9 +203,10 @@ interface Board {
   readonly body: Row | null;
 }
 
-/** Vue des retards lue à l'instant `now` (transaction annulée). */
-async function board(cl: Clients, s: Staff, now: string): Promise<Board> {
-  return withTestTransaction(cl.api, { virtualNow: now }, async (tx) => {
+/** Vue des retards lue à l'instant `now` (transaction annulée, sauf `commit`). */
+async function board(cl: Clients, s: Staff, now: string, commit = false): Promise<Board> {
+  // `commit` : le refus est journalisé (audit chaîné), validé pour être relu
+  return withTestTransaction(cl.api, { virtualNow: now, commit }, async (tx) => {
     const hash = await staffContext(tx, s);
     const { rows } = await tx.query<Board>(BOARD, [hash, uuid()]);
     return rows[0] ?? { outcome: '', body: null };
@@ -457,7 +458,7 @@ describe.each(COUNTRIES)('US-306 — escalade et vue des retards ($country, $cur
   it('vue des retards : sans droit ⇒ FORBIDDEN journalisé (STAFF_FORBIDDEN) ; session sans TOTP ⇒ MFA_REQUIRED journalisé ; sans session ⇒ AUTH_REQUIRED', async () => {
     await withClients(async (cl) => {
       const finance = await staffOf(cl, 'FINANCE', [c.country]);
-      expect((await board(cl, finance, T0)).outcome).toBe('FORBIDDEN');
+      expect((await board(cl, finance, T0, true)).outcome).toBe('FORBIDDEN');
       expect((await auditOf(cl.api, finance.userId)).at(-1)).toMatchObject({
         action_code: 'STAFF_FORBIDDEN',
         subject_type: 'USER',
@@ -472,7 +473,7 @@ describe.each(COUNTRIES)('US-306 — escalade et vue des retards ($country, $cur
       // session ouverte par la vraie commande, niveau NONE (heure réelle)
       const ops = await staffOf(cl, 'OPS_AGENT', [c.country]);
       const hash = await login(cl.api, ops.userId);
-      const unelevated = await withTestTransaction(cl.api, {}, async (tx) => {
+      const unelevated = await withTestTransaction(cl.api, { commit: true }, async (tx) => {
         await setSessionContext(tx, {
           kind: 'STAFF',
           actorId: ops.userId,
@@ -487,7 +488,7 @@ describe.each(COUNTRIES)('US-306 — escalade et vue des retards ($country, $cur
         after: { reason: '2FA_REQUIRED', field_or_file: 'overdue_board' },
       });
       const before = (await auditOf(cl.api, ops.userId)).length;
-      const anonymous = await withTestTransaction(cl.api, {}, async (tx) => {
+      const anonymous = await withTestTransaction(cl.api, { commit: true }, async (tx) => {
         const h = newHash();
         await setSessionContext(tx, {
           kind: 'STAFF',
