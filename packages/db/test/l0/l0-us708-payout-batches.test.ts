@@ -518,10 +518,11 @@ describe.each(COUNTRIES)('US-708 — lots de versement à l’hôte — $country
           )
         ).rows.map((r) => r.trip_id);
       let prepared = false;
-      for (let pass = 0; pass < 4 && !prepared; pass += 1) {
+      // passes complètes : chaque trip tenté est différé, la file avance au-delà des 50 premiers
+      for (let pass = 0; pass < 3; pass += 1) {
         for (const trip of await due()) {
           const p = await prepare(tx, trip);
-          if (trip === good.trip) prepared = p.outcome === 'PREPARED';
+          if (trip === good.trip && p.outcome === 'PREPARED') prepared = true;
         }
       }
       expect(prepared).toBe(true);
