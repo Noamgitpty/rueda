@@ -39,10 +39,23 @@
 --      référence du PSP. Montants en TEXTE (bigint exact), lus et jamais recalculés. Session
 --      absente ⇒ AUTH_REQUIRED ; compte d'un autre hôte, co-hôte, compte inconnu ⇒ FORBIDDEN (même
 --      réponse) ; permission retirée de la matrice ⇒ PERMISSION_DENIED.
+--   3. GARDES DE LIBÉRATION (revue de #284) : `core.settlement_release_blocker` (0054, corps recopié,
+--      un bloc marqué) relit en dernier les motifs de retenue du lot du trip
+--      (`core.payout_release_hold_reasons`, SECURITY DEFINER, cmd_money_owner) pour un ordre qui
+--      verse la jambe HOST : un motif ⇒ `leg_release_payout_held`. La garde s'applique à
+--      l'enregistrement de l'ordre (déclencheur de 0054 : l'ordre n'est jamais créé, donc jamais
+--      transmis) ET au report sur les soldes : une réclamation ouverte entre la relecture du lot
+--      (`payout_cmd_recheck_batch`) et l'ordre `LEG_RELEASE` ne laisse plus partir la jambe HOST.
+--      Les autres gardes de 0054 gardent leur ordre (interrupteur fermé ⇒ toujours
+--      `leg_release_payouts_disabled`). Un `LEG_RELEASE` HOST hors lot reste refusé par
+--      `leg_release_not_due` : `release_at` n'a qu'un écrivain, la préparation, qui met le trip en
+--      lot dans la même transaction (S-06, 0165) ; seules les fixtures de test (migrator) posent un
+--      `release_at` sans lot.
 --   Aucun interrupteur lu pour la lecture ni écrit ; aucune constante de pays ; heure de la base
 --   (`platform.now()`).
 --
--- Codes : aucun nouveau (issues rendues en colonne, comme 0159).
+-- Codes : `leg_release_payout_held` (55000) → FORBIDDEN (packages/db/src/errors.ts) ; issues de la
+-- lecture rendues en colonne, comme 0159.
 --
 -- Expand / contract : un corps remplacé à signature, propriétaire et droits identiques ; une
 -- fonction, un droit de colonnes et une politique de lecture AJOUTÉS. L'API N n'appelle pas la
@@ -50,6 +63,8 @@
 --
 -- Retour arrière (jamais en production : nouvelle migration à la place) :
 --   réappliquer core.payout_batch_hold_reasons de 0167 (sous cmd_money_owner) ;
+--   réappliquer core.settlement_release_blocker de 0054 (sous migrator) ;
+--   DROP FUNCTION core.payout_release_hold_reasons(uuid) ;
 --   DROP FUNCTION core.payout_host_payouts(bytea, uuid) ;
 --   DROP POLICY cmd_money_claim_sel ON core.support_support_case ;
 --   REVOKE SELECT (trip_id, category, status) ON core.support_support_case FROM cmd_money_owner.
@@ -229,5 +244,95 @@ COMMENT ON FUNCTION core.payout_host_payouts(bytea, uuid) IS
 REVOKE ALL ON FUNCTION core.payout_host_payouts(bytea, uuid) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION core.payout_host_payouts(bytea, uuid) TO app_api;
 
+-- 4. Motifs de retenue du lot d'un trip, pour les gardes de libération (NULL : trip hors lot)
+CREATE FUNCTION core.payout_release_hold_reasons(p_trip_id uuid)
+  RETURNS text[]
+  LANGUAGE sql
+  STABLE
+  SECURITY DEFINER
+  SET search_path = pg_catalog, pg_temp
+AS $fn$
+  SELECT core.payout_batch_hold_reasons(i.batch_id)
+    FROM core.payout_payout_item AS i
+   WHERE i.trip_id = p_trip_id AND i.segment_no = 1 AND i.leg = 'HOST'
+$fn$;
+COMMENT ON FUNCTION core.payout_release_hold_reasons(uuid) IS
+  'Motifs de retenue du lot du trip (NULL hors lot), relus par la garde de libération '
+  'settlement_release_blocker à l''ordre et au report. SECURITY DEFINER. US-314 (ADR-192).';
+REVOKE ALL ON FUNCTION core.payout_release_hold_reasons(uuid) FROM PUBLIC;
+-- la garde (SECURITY INVOKER) s'exécute sous l'écrivain de l'ordre : cmd_money_owner (commandes)
+-- ou migrator (fixtures de test) ; aucun rôle applicatif
+GRANT EXECUTE ON FUNCTION core.payout_release_hold_reasons(uuid) TO migrator;
+
 RESET ROLE;
 REVOKE CREATE ON SCHEMA core FROM cmd_money_owner;
+
+-- 5. Garde du versement d'une jambe (0054, même signature, propriétaire migrator) : + lot retenu --
+CREATE OR REPLACE FUNCTION core.settlement_release_blocker(p_operation_id uuid)
+  RETURNS text
+  LANGUAGE plpgsql
+  STABLE
+  SET search_path = pg_catalog, pg_temp
+AS $fn$
+DECLARE
+  v_trip    uuid;
+  v_country text;
+  v_account uuid;
+  v_kind    text;
+  v_status  text;
+  v_org     uuid;
+  v_now     timestamptz := platform.now();
+  v_reasons text[];
+BEGIN
+  SELECT o.trip_id, o.country_code, o.psp_account_id, o.kind
+    INTO v_trip, v_country, v_account, v_kind
+    FROM core.payment_payment_operation AS o WHERE o.id = p_operation_id;
+  IF NOT FOUND OR v_kind IS DISTINCT FROM 'LEG_RELEASE' OR v_trip IS NULL THEN
+    RETURN 'leg_release_trip_not_completed';
+  END IF;
+  SELECT t.status, t.org_id INTO v_status, v_org FROM core.booking_trip AS t WHERE t.id = v_trip;
+  -- 08 BR-PAYOUT : la jambe HOST reste chez le PSP jusqu'à la fin du trajet
+  IF v_status IS DISTINCT FROM 'COMPLETED' THEN
+    RETURN 'leg_release_trip_not_completed';
+  END IF;
+  -- 08 E7 règle 6 : versement différé jusqu'à release_at (payout_at), posé et atteint
+  IF EXISTS (SELECT 1
+               FROM core.payment_payment_operation_leg AS l
+               LEFT JOIN core.settlement_trip_leg_balance AS b
+                 ON b.trip_id = v_trip AND b.segment_no = 1 AND b.leg = l.leg
+              WHERE l.operation_id = p_operation_id AND l.amount_minor > 0
+                AND (b.release_at IS NULL OR b.release_at > v_now)) THEN
+    RETURN 'leg_release_not_due';
+  END IF;
+  IF EXISTS (SELECT 1 FROM core.payment_payment_operation_leg AS l
+              WHERE l.operation_id = p_operation_id AND l.leg = 'HOST' AND l.amount_minor > 0)
+     AND NOT EXISTS (SELECT 1 FROM core.payment_psp_submerchant AS s
+                      WHERE s.psp_account_id = v_account AND s.org_id = v_org
+                        AND s.kyc_status = 'ACTIVE') THEN
+    RETURN 'leg_release_submerchant_inactive';
+  END IF;
+  IF EXISTS (SELECT 1 FROM core.payment_payment_operation_leg AS l
+              WHERE l.operation_id = p_operation_id AND l.leg = 'INSURER' AND l.amount_minor > 0)
+     AND NOT core.config_go_live('insurer_contract_active', v_country) THEN
+    RETURN 'leg_release_insurer_inactive';
+  END IF;
+  -- 17 §0.1 : interrupteur du pays, false en production, lu fail-closed
+  IF NOT core.config_go_live('payouts_enabled', v_country) THEN
+    RETURN 'leg_release_payouts_disabled';
+  END IF;
+  -- US-314 (ADR-192) : motifs de retenue du lot du trip (réclamation, litige, gel, compte…) relus
+  -- à l'ordre et au report de la jambe HOST
+  IF EXISTS (SELECT 1 FROM core.payment_payment_operation_leg AS l
+              WHERE l.operation_id = p_operation_id AND l.leg = 'HOST' AND l.amount_minor > 0) THEN
+    v_reasons := core.payout_release_hold_reasons(v_trip);
+    IF pg_catalog.cardinality(v_reasons) > 0 THEN
+      RETURN 'leg_release_payout_held';
+    END IF;
+  END IF;
+  RETURN NULL;
+END
+$fn$;
+COMMENT ON FUNCTION core.settlement_release_blocker(uuid) IS
+  'Garde du versement d''une jambe (LEG_RELEASE) : trip COMPLETED, release_at atteint, sous-marchand '
+  'ACTIVE, interrupteurs du pays, puis motifs de retenue du lot du trip (US-314). Rend la première '
+  'contrainte violée ou NULL. US-049 (ADR-088), US-314 (ADR-192).';

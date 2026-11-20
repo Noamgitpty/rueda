@@ -16,7 +16,10 @@
  * - Interrupteur ouvert par les DEUX personnes d'US-125 dans une fenêtre d'horloge virtuelle
  *   lointaine refermée (comme `l0-us708-payout-open`) : lot READY, jambe HOST libérée, puis
  *   réclamation ouverte AVANT l'émission ⇒ l'émission relit `CLAIM` et rend ON_HOLD (aucune clé
- *   `payout`, aucun ordre de plus) ; décision ⇒ relecture READY, puis émission.
+ *   `payout`, aucun ordre de plus) ; décision ⇒ relecture READY, puis émission. Revue de #284 :
+ *   ordre HOST hors lot refusé (`leg_release_not_due`) ; réclamation ouverte entre la relecture et
+ *   l'ordre ⇒ ordre refusé (`leg_release_payout_held`, jamais créé), entre l'ordre et le report ⇒
+ *   report refusé, jambe non libérée ; décision ⇒ ordre, puis report.
  * Attendus : 19 US-314, 08 BR-PAYOUT-02 et SM-6 ; montants : jambe HOST des vecteurs TJ01 / TJ08a
  * de l'export des oracles, jamais le code testé. Le chargeback (0155, 0167) est prouvé par
  * `l0-us708-payout-batches` (critère 2) et `l0-us709-chargebacks` (dégel à la décision).
@@ -24,6 +27,7 @@
 import { legVector } from '@rueda/money/golden-vectors';
 import type pg from 'pg';
 import { describe, expect, it } from 'vitest';
+import { translateDbError } from '../../src/index.ts';
 import { withRole, withTestTransaction } from '../../src/testing/index.ts';
 import { COUNTRIES } from '../support/avl.ts';
 import type { CountryCase } from '../support/avl.ts';
@@ -272,6 +276,22 @@ describe.each(COUNTRIES)('US-314 — versement retenu en litige — $country ($c
           await setNow(tx, iso(window.from + DAY));
           await tx.query('SELECT test_fixture.us708_complete_trip($1)', [trip]);
 
+          // hors lot (trip terminé, jamais préparé) : la jambe HOST n'a pas de release_at, dont la
+          // préparation est le seul écrivain (S-06) ⇒ ordre refusé, jamais créé
+          const outside = await caught(tx, () =>
+            recordOperation(tx, {
+              tripId: trip,
+              accountId: psp,
+              kind: 'LEG_RELEASE',
+              amountMinor: capture.HOST,
+              currency: c.currency,
+              idemPlain: `release:${trip}:1:HOST:i1`,
+              attemptNo: 1,
+              legs: { ...ZERO, HOST: capture.HOST },
+            }),
+          );
+          expect(outside).toMatchObject({ code: '55000', constraint: 'leg_release_not_due' });
+
           const p = await prepare(tx, trip);
           expect(p).toMatchObject({ status: 'SCHEDULED', hold_reasons: [] });
           const payoutAt = Date.parse(p.payout_at);
@@ -285,18 +305,56 @@ describe.each(COUNTRIES)('US-314 — versement retenu en litige — $country ($c
             [p.batch_id],
           );
           expect(items.rows).toHaveLength(1);
-          const { operation_id: rel } = await recordOperation(tx, {
-            tripId: trip,
-            accountId: psp,
-            kind: 'LEG_RELEASE',
-            amountMinor: capture.HOST,
-            currency: c.currency,
-            attemptNo: items.rows[0]?.next_attempt ?? 0,
-            idemPlain: items.rows[0]?.next_key ?? '',
-            legs: { ...ZERO, HOST: capture.HOST },
-          });
+          const order = () =>
+            recordOperation(tx, {
+              tripId: trip,
+              accountId: psp,
+              kind: 'LEG_RELEASE',
+              amountMinor: capture.HOST,
+              currency: c.currency,
+              attemptNo: items.rows[0]?.next_attempt ?? 0,
+              idemPlain: items.rows[0]?.next_key ?? '',
+              legs: { ...ZERO, HOST: capture.HOST },
+            });
+          const releaseOps = async (): Promise<number> =>
+            (
+              await tx.query<{ n: number }>(
+                `SELECT count(*)::int AS n FROM core.payment_payment_operation
+                  WHERE trip_id = $1 AND kind = 'LEG_RELEASE'`,
+                [trip],
+              )
+            ).rows[0]?.n ?? -1;
+
+          // réclamation ouverte ENTRE la relecture (READY) et l'ordre : garde de libération ⇒
+          // l'ordre n'est jamais créé (donc jamais transmis au PSP)
+          const before = await supportCase(tx, c, trip, 'CLAIM', 'OPEN');
+          const refused = await caught(tx, order);
+          expect(refused).toMatchObject({ code: '55000', constraint: 'leg_release_payout_held' });
+          expect(translateDbError(refused).code).toBe('FORBIDDEN');
+          expect(await releaseOps()).toBe(0);
+          await decide(tx, before, 'RESOLVED');
+          const { operation_id: rel } = await order();
           expect(await applySignedStatus(tx, rel, 'SUCCEEDED')).toBe('APPLIED');
-          await tx.query('SELECT core.settlement_cmd_apply_leg_movement($1)', [rel]);
+
+          // réclamation ouverte entre l'ordre et son report sur les soldes : report refusé, la
+          // jambe HOST n'est pas libérée ; décision ⇒ report
+          const between = await supportCase(tx, c, trip, 'CLAIM', 'PENDING');
+          const blocked = await caught(tx, () =>
+            tx.query('SELECT core.settlement_cmd_apply_leg_movement($1)', [rel]),
+          );
+          expect(blocked).toMatchObject({ code: '55000', constraint: 'leg_release_payout_held' });
+          const unreleased = await tx.query<{ v: string }>(
+            `SELECT released_minor::text AS v FROM core.settlement_trip_leg_balance
+              WHERE trip_id = $1 AND segment_no = 1 AND leg = 'HOST'`,
+            [trip],
+          );
+          expect(unreleased.rows[0]?.v).toBe('0');
+          await decide(tx, between, 'CLOSED');
+          const moved = await tx.query<{ r: string }>(
+            'SELECT core.settlement_cmd_apply_leg_movement($1) AS r',
+            [rel],
+          );
+          expect(moved.rows[0]?.r).toBe('APPLIED');
 
           // réclamation ouverte ENTRE la libération et l'émission : relue à l'envoi
           const claim = await supportCase(tx, c, trip, 'CLAIM', 'OPEN');
