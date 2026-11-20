@@ -1191,7 +1191,7 @@ BEGIN
   END LOOP;
   RETURN QUERY
     SELECT x.c, x.r, pg_catalog.count(*)::integer
-      FROM pg_catalog.unnest(v_c, v_r) AS x(c, r)
+      FROM ROWS FROM (pg_catalog.unnest(v_c), pg_catalog.unnest(v_r)) AS x(c, r)
      GROUP BY x.c, x.r
      ORDER BY x.c, x.r;
 END
