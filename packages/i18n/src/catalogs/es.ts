@@ -3353,6 +3353,11 @@ export const ES_MESSAGES = {
     'Ya hay una solicitud en curso para este viaje.',
   'backoffice.noShow.refused.SELF_FORBIDDEN': 'No puedes actuar sobre un viaje tuyo.',
   'backoffice.noShow.refused.NOT_FOUND': 'No encontramos este viaje.',
+  'ntf.tripAtRiskHost.email.subject': 'Reserva {booking_ref}: el auto aún no volvió',
+  'ntf.tripAtRiskHost.email.body':
+    'Hola, {first_name}. Tu reserva {booking_ref} empieza el {start_at}, pero el viaje anterior con este auto aún no terminó: la devolución está atrasada. Nuestro equipo te contactará para ver las opciones con el viajero. Puedes escribirnos desde la reserva en la app.',
+  'ntf.tripAtRiskHost.sms.body':
+    '{brand}: el auto de la reserva {booking_ref} ({start_at}) aún no fue devuelto por el viaje anterior. Te contactaremos.',
 } as const satisfies Catalog;
 
 export type MessageKey = keyof typeof ES_MESSAGES;

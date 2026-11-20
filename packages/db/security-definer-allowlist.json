@@ -2550,6 +2550,20 @@
       "owner": "cmd_money_owner",
       "execute": [],
       "story": "US-709"
+    },
+    {
+      "signature": "core.trip_overdue_due(integer)",
+      "family": "cmd_hold",
+      "owner": "cmd_hold_owner",
+      "execute": ["app_worker"],
+      "story": "US-305"
+    },
+    {
+      "signature": "core.trip_cmd_detect_overdue(uuid)",
+      "family": "cmd_hold",
+      "owner": "cmd_hold_owner",
+      "execute": ["app_worker"],
+      "story": "US-305"
     }
   ]
 }

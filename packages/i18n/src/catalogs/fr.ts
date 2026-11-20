@@ -3427,4 +3427,9 @@ export const FR_MESSAGES = {
   'backoffice.noShow.refused.CANCELLATION_PENDING': 'Une demande est déjà en cours pour ce voyage.',
   'backoffice.noShow.refused.SELF_FORBIDDEN': 'Vous ne pouvez pas agir sur votre propre voyage.',
   'backoffice.noShow.refused.NOT_FOUND': 'Nous ne trouvons pas ce voyage.',
+  'ntf.tripAtRiskHost.email.subject': 'Réservation {booking_ref} : la voiture n’est pas rentrée',
+  'ntf.tripAtRiskHost.email.body':
+    'Bonjour {first_name}. Ta réservation {booking_ref} commence le {start_at}, mais le voyage précédent avec cette voiture n’est pas terminé : le retour est en retard. Notre équipe te contactera pour voir les options avec le voyageur. Tu peux nous écrire depuis la réservation dans l’appli.',
+  'ntf.tripAtRiskHost.sms.body':
+    '{brand} : la voiture de la réservation {booking_ref} ({start_at}) n’est pas encore rendue après le voyage précédent. Nous te contacterons.',
 } as const satisfies Readonly<Record<MessageKey, Message>>;

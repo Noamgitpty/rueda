@@ -14,7 +14,7 @@ TRP gère la remise et le retour du véhicule entre particuliers (17 §2.2, §2.
 
 TRP ne change pas lui-même l'état du trip : il demande les transitions SM-1 à AVL. La table du trip (`core.booking_trip`, migration 0004) appartient à AVL.
 
-État réel du code : **photos guidées de l'état du véhicule** (US-303, ADR-179, migration 0158) et **remise et retour entre particuliers** (US-315, ADR-183, migration 0163 : ouverture, contrôle du permis, validations, passages IN_PROGRESS et RETURNED). **No-show déclaré par une partie** (US-307, ADR-191, migration 0171). Le reste arrive avec US-305 et US-306 (retards et escalade), US-706 (frais annexes) et US-524 (hors ligne).
+État réel du code : **photos guidées de l'état du véhicule** (US-303, ADR-179, migration 0158) et **remise et retour entre particuliers** (US-315, ADR-183, migration 0163 : ouverture, contrôle du permis, validations, passages IN_PROGRESS et RETURNED) et **détection automatique des retards** (US-305, ADR-188, migration 0168). Le reste arrive avec US-306 (vue des retards et escalade), US-307 (refus et no-show), US-706 (frais annexes) et US-524 (hors ligne).
 
 ### Photos d'état (US-303)
 
@@ -33,13 +33,22 @@ TRP ne change pas lui-même l'état du trip : il demande les transitions SM-1 à
 - Remise sans rencontre : jamais proposée ni acceptée (`CONTACTLESS_UNAVAILABLE`, OQ-P2P-05). Aucune file hors ligne : base injoignable ⇒ 503 `HANDOVER_UNAVAILABLE`.
 - Hors périmètre (suites) : frais de carburant et de nettoyage (US-706, critère 5 d'US-315), refus et photo-preuve (US-307), libération de la jambe HOST (US-708), co-hôte, minuterie d'ouverture, notifications EVT_CHECKIN_DONE / EVT_CHECKOUT_DONE.
 
+### Retards (US-305)
+
+- Travailleur `trip_overdue` (tâche périodique pg-boss, 60 s ; `internal/overdue/overdue-detection.ts`, déclaré par `registerOverdueDetection` dans `apps/api/src/worker-tasks.ts`) : `core.trip_overdue_due` liste les trips à traiter, puis `core.trip_cmd_detect_overdue` traite un trip par transaction (verrous du voyageur puis du véhicule, heure serveur lue après les verrous). Aucune route, aucun écran (16 TRP-035 : `SYSTEM`).
+- Seuil : `overdue_detection_minutes` du pays **en vigueur à la réservation** (défaut 30, OQ-BR-04) ; à 10:29 rien, à 10:30 `IN_PROGRESS → OVERDUE` (motif `OVERDUE_DETECTED`, transition de 0099), dossier `trip_ops_overdue_case` (étape `T30M`, fin prévue et seuil figés) et **un seul** `trip.overdue.detected` (à l'ouverture du dossier). Un trip rendu n'est jamais touché.
+- Alertes : voyageur et hôte par NTF (`EVT_TRIP_OVERDUE`) ; ops par le consommateur `trip_overdue_alert` (`TRIP_OVERDUE_DETECTED` P2, `TRIP_NEXT_AT_RISK` P1), une par événement dans la transaction du reçu ; détection en échec : `TRIP_OVERDUE_FAILED` (P1).
+- Prolongation tacite (17 §2.5) : occupation TRIP portée à `[début, now() + overdue_occupancy_step_minutes + buffer_minutes)`, renouvelée quand elle est épuisée, jamais raccourcie, bornée au début de l'occupation suivante du véhicule (aucun chevauchement) ; si c'est un trip pas encore commencé, il est marqué à risque (`at_risk_reason` = `PREVIOUS_OVERDUE`) une fois et `trip.at_risk.flagged` part (hôte : `EVT_TRIP_AT_RISK_HOST`) ; un hold qui borne est revu à chaque passage (C10).
+- Aucun montant, aucune écriture d'argent, aucun `release_at` : le frais de retard est porté par US-703 (débit séparé), qui lit le dossier et la fin effective.
+- Hors périmètre (suites) : escalade T2H / T6H / T24H et `UNRETURNED` (US-306, US-523), vue des retards (US-306), extension demandée par le voyageur, rappel H−2 (`EVT_RETURN_REMINDER`).
+
 ## Entités
 
 | Entité (17 §3.2.10)     | État                                                                                                                  |
 | ----------------------- | --------------------------------------------------------------------------------------------------------------------- |
 | `trip_inspection`       | `core.trip_ops_inspection` (0158, US-303) ; jetons `core.trip_ops_photo_capture` ; gabarit `core.trip_ops_photo_slot` |
 | `inspection_photo`      | `core.trip_ops_inspection_photo` (0158, US-303)                                                                       |
-| `overdue_case`          | cible 17, pas encore créée                                                                                            |
+| `overdue_case`          | `core.trip_ops_overdue_case` (0168, US-305 ; écart PROPOSÉ : fin prévue, seuil, prolongation tacite, trip suivant)    |
 | `key_handover`          | `core.trip_ops_key_handover` (0163, US-315)                                                                           |
 | `trip_identity_check`   | `core.trip_ops_identity_check` (0163, US-315 ; entité de KYC dans 17, portée ici par la remise)                       |
 | validation d'une partie | `core.trip_ops_handover_validation` (0163, US-315 ; écart PROPOSÉ à 17 : pas d'état VALIDATED de la série)            |
@@ -50,7 +59,7 @@ La remise et le retour (US-315) émettent `trip.status_changed` par la transitio
 
 Cible (17 §4.5) :
 
-- émis : `trip.checkin.validated`, `trip.checkout.completed`, `trip.overdue.detected` / `.escalated`, `trip.offline.clock_skew_detected`. NTF est déjà abonné à `trip.overdue.detected` (`apps/api/src/modules/ntf/internal/catalog.ts`) ; aucun producteur n'existe encore ;
+- émis : `trip.checkin.validated`, `trip.checkout.completed`, `trip.overdue.detected` / `.escalated`, `trip.offline.clock_skew_detected`. **Émis depuis US-305** (0168, travailleur `trip_overdue`) : `trip.overdue.detected` (`trip_id`, `stage`, `guest_user_id`, `host_user_id`, `scheduled_end`, `detected_at`), une fois par trip, et `trip.at_risk.flagged` (PROPOSÉ, à reporter dans 17 §4.5 : `trip_id` du trip suivant, `reason`, `host_user_id`, `scheduled_start`), une fois par trip suivant ; consommateurs : NTF et `trip_overdue_alert` ; `.escalated` : US-306 ;
 - consommés : `payment.received` (PAY, déblocage du check-in), `trip.status_changed` (AVL, minuteries).
 
 ## Ports
@@ -65,7 +74,7 @@ Contrat des routes (FAKE du magasin et des ports, sans base) :
 pnpm --filter @rueda/api exec vitest run src/modules/trp
 ```
 
-Preuves L0 sous les rôles de production, PA / USD et PY / PYG : `packages/db/test/l0/l0-us303-inspection-photos.test.ts`, `packages/db/test/l0/l0-us315-handover.test.ts` (conditions une à une avec témoin, permis, deux séries, heures serveur, retour, deux connexions) (`pnpm --filter @rueda/db test:l0`, PostgreSQL requis : `docs/ops/INSTALL.md` ou `RUEDA_PG_TESTCONTAINERS=1`).
+Preuves L0 sous les rôles de production, PA / USD et PY / PYG : `packages/db/test/l0/l0-us303-inspection-photos.test.ts`, `packages/db/test/l0/l0-us315-handover.test.ts` (conditions une à une avec témoin, permis, deux séries, heures serveur, retour, deux connexions), `packages/db/test/l0/l0-us305-overdue.test.ts` (bornes 10:29 / 10:30 au fuseau du pays, une alerte, deux travailleurs, retour avant 10:30, C10 dans les deux ordres, EC-19, seuil figé à la réservation, droits) (`pnpm --filter @rueda/db test:l0`, PostgreSQL requis : `docs/ops/INSTALL.md` ou `RUEDA_PG_TESTCONTAINERS=1`).
 
 ### No-show déclaré par une partie (US-307)
 

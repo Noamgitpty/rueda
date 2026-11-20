@@ -59,6 +59,12 @@ export const ALERT_CODES = [
   // et échéance de notification d'une violation dépassée (OQ-MK-09), une fois chacune
   'SECURITY_INCIDENT_OPENED',
   'SECURITY_INCIDENT_NOTICE_OVERDUE',
+  // retards (US-305, ADR-188) : trip détecté en retard (P2, une fois par trip) ; trip suivant du
+  // véhicule à risque, voyageur suivant à reloger (P1, une fois par trip suivant) ; détection en
+  // échec (P1, par code d'erreur : paramètre absent, invariant)
+  'TRIP_OVERDUE_DETECTED',
+  'TRIP_NEXT_AT_RISK',
+  'TRIP_OVERDUE_FAILED',
 ] as const;
 export type AlertCode = (typeof ALERT_CODES)[number];
 

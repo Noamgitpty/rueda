@@ -3714,6 +3714,19 @@
         "app_worker": [],
         "app_anon": []
       }
+    },
+    "core.trip_ops_overdue_case": {
+      "type": "table",
+      "droits": {
+        "app_api": {},
+        "app_worker": {},
+        "app_anon": {}
+      },
+      "politiques": {
+        "app_api": [],
+        "app_worker": [],
+        "app_anon": []
+      }
     }
   }
 }

@@ -342,8 +342,12 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  coordonnées), `web.s16.meeting.*` (S16 : bloc « rendez-vous » de la remise et du retour, statuts,
  confirmation et refus du voyageur, formulaire de l’hôte) et l’avis de rendez-vous confirmé
  `ntf.meetingPickupConfirmed.*` / `ntf.meetingReturnConfirmed.*` (heure seulement, jamais le lieu).
- Version 106 (réservée à US-307 par l’orchestrateur ; les 102 à 105 sont celles d’US-709, US-305,
- US-703 et US-317, non fusionnées à l’écriture) : no-show et refus du véhicule (US-307, ADR-191) :
+ Version 103 (réservée à US-305 par l’orchestrateur ; la 101 est celle d’US-316, la 102 est
+ réservée à US-709 ; le numéro ne redescend jamais) : trip suivant à risque (US-305, ADR-188) :
+ `ntf.tripAtRiskHost.*` (le véhicule du trip précédent, en retard, n’est pas rendu ; l’hôte est
+ prévenu, l’ops le contacte).
+ Version 106 (réservée à US-307 par l’orchestrateur ; la 103 est celle d’US-305, les 102, 104 et 105
+ sont réservées à US-709, US-703 et US-317) : no-show et refus du véhicule (US-307, ADR-191) :
  `common.noShow.*` (réponses des routes `/trips/{id}/no-show` : trop tôt, fenêtre close, partie
  présente, preuve manquante, demande en cours, base injoignable), `web.noShow.*` (écran de l’hôte
  « le voyageur n’est pas venu » et du voyageur « l’hôte n’est pas venu » : fenêtre, preuve tracée
