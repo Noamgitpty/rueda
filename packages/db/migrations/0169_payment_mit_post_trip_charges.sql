@@ -1234,10 +1234,9 @@ BEGIN
   END IF;
   SELECT x.id, x.accepted_at, x.instrument_id INTO c
     FROM core.payment_trip_mit_consent(p_trip_id) AS x;
-  IF c.instrument_id IS NOT NULL THEN
-    SELECT y.network, y.last4, y.status INTO i
-      FROM core.payment_payment_instrument AS y WHERE y.id = c.instrument_id;
-  END IF;
+  -- toujours exécutée (aucune ligne sans carte liée : champs NULL, jamais un record non assigné)
+  SELECT y.network, y.last4, y.status INTO i
+    FROM core.payment_payment_instrument AS y WHERE y.id = c.instrument_id;
   SELECT r.acknowledged_at INTO v_rem FROM core.payment_mit_consent_reminder AS r
    WHERE r.trip_id = p_trip_id;
   RETURN QUERY SELECT c.id IS NOT NULL, c.accepted_at, i.network::text, i.last4::text,
@@ -1676,7 +1675,7 @@ BEGIN
     RETURN QUERY SELECT 'DONE'::text, c.outcome_code;
     RETURN;
   END IF;
-  IF a.settled IS NOT NULL OR o.status NOT IN ('SUCCEEDED', 'FAILED') THEN
+  IF a.settled IS NOT NULL OR o.status IS NULL OR o.status NOT IN ('SUCCEEDED', 'FAILED') THEN
     RETURN QUERY SELECT 'IN_FLIGHT'::text, o.status::text;
     RETURN;
   END IF;

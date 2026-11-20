@@ -168,17 +168,23 @@ END
 $fn$;
 
 -- Hold de demande dont le paiement est en vol (PAYMENT_IN_FLIGHT, fixture 9948) d'un voyageur
--- EXISTANT : consentement et carte du paiement prouvé
+-- EXISTANT : consentement et carte du paiement prouvé. PL/pgSQL : 9948 est appliquée APRÈS ce
+-- fichier (ordre des numéros), le corps n'est résolu qu'à l'appel
 CREATE FUNCTION test_fixture.us703_paying_hold(p_country text, p_guest uuid, p_start timestamptz,
                                                p_end timestamptz, p_total bigint)
   RETURNS uuid
-  LANGUAGE sql
+  LANGUAGE plpgsql
   SECURITY DEFINER
   SET search_path = pg_catalog, pg_temp
 AS $fn$
-  SELECT r.hold_id
+DECLARE
+  v_hold uuid;
+BEGIN
+  SELECT r.hold_id INTO v_hold
     FROM test_fixture.us214_request(p_country, p_guest, 'Luis', 'Benítez', 'Ciudad de prueba',
-                                    p_start, p_end, p_total, NULL, 'IN_FLIGHT') AS r
+                                    p_start, p_end, p_total, NULL, 'IN_FLIGHT') AS r;
+  RETURN v_hold;
+END
 $fn$;
 
 -- Consentement donné au checkout sur un hold (aucune carte encore liée)
