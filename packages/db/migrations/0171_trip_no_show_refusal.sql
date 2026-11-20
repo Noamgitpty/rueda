@@ -390,7 +390,7 @@ REVOKE CREATE ON SCHEMA core FROM cmd_money_owner;
 -- seulement). Appelée par le travailleur avant tout ordre LEG_REALLOCATION d'un règlement
 -- d'annulation (STL, `TripCancellationProcessor`) ; refus ⇒ la transaction est annulée et la demande
 -- garée FIN_REVIEW (LEG_REALLOCATION_UNSUPPORTED) : rien n'est remboursé ni réaffecté.
-GRANT EXECUTE ON FUNCTION core.payment_capability_bool(text, text, text, text) TO cmd_money_owner;
+GRANT EXECUTE ON FUNCTION core.payment_capability_bool(text, text, text, text), core.payment_capability_value(text, text, text, text) TO cmd_money_owner;
 GRANT CREATE ON SCHEMA core TO cmd_money_owner;
 SET LOCAL ROLE cmd_money_owner;
 
