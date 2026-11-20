@@ -3370,4 +3370,83 @@ export const PT_MESSAGES = {
   'web.a13.reviews': 'Avaliações recebidas',
   'web.a13.link': 'Seu perfil público',
   'web.listing.hostReviews': 'Avaliações sobre {name}',
+  'backoffice.overdue.heading': 'Atrasos e carros não devolvidos',
+  'backoffice.overdue.lead':
+    'Viagens atrasadas na sua cobertura, lidas ao vivo (a detecção roda a cada minuto). A escalada avança uma etapa por vez, no horário definido na configuração: contato, notificação extrajudicial e depois boletim de ocorrência pré-preenchido. Os contatos do viajante e do anfitrião estão na ficha 360°.',
+  'backoffice.overdue.truncated':
+    'Mais de 500 viagens atrasadas: só as 500 mais antigas aparecem. Cuide delas primeiro e depois atualize.',
+  'backoffice.overdue.refresh': 'Atualizar',
+  'backoffice.overdue.readAt': 'Lido às {at} · cobertura: {countries}',
+  'backoffice.overdue.none': 'Nenhuma viagem atrasada na sua cobertura.',
+  'backoffice.overdue.caption': 'Viagens atrasadas',
+  'backoffice.overdue.tripColumn': 'Viagem',
+  'backoffice.overdue.stageColumn': 'Etapa atual',
+  'backoffice.overdue.nextColumn': 'Próxima etapa',
+  'backoffice.overdue.lateMinutes': '{m} min de atraso',
+  'backoffice.overdue.lateHours': '{h} h {m} min de atraso',
+  'backoffice.overdue.end': 'Término previsto: {at}',
+  'backoffice.overdue.nextTripAtRisk': 'A próxima viagem deste carro está em risco.',
+  'backoffice.overdue.stage.T30M': 'Atraso detectado',
+  'backoffice.overdue.stage.T2H': 'Contato feito',
+  'backoffice.overdue.stage.T6H': 'Notificação entregue',
+  'backoffice.overdue.stage.T24H': 'Não devolvido: boletim entregue',
+  'backoffice.overdue.stage.RESOLVED': 'Processo encerrado',
+  'backoffice.overdue.stage.none': 'Processo em abertura',
+  'backoffice.overdue.escalated': '{stage} em {at}: {documents}',
+  'backoffice.overdue.document.CONTACT_SCRIPT': 'mensagem modelo para o viajante',
+  'backoffice.overdue.document.DEMAND_LETTER': 'modelo de notificação extrajudicial',
+  'backoffice.overdue.document.GPS_REQUEST': 'localização GPS pedida ao anfitrião',
+  'backoffice.overdue.document.POLICE_REPORT_DRAFT':
+    'boletim de ocorrência pré-preenchido, registrado pelo anfitrião',
+  'backoffice.overdue.step.CONTACT': 'Contato com o viajante e o anfitrião',
+  'backoffice.overdue.step.FORMAL_NOTICE': 'Notificação extrajudicial',
+  'backoffice.overdue.step.POLICE_REPORT': 'Boletim de ocorrência pré-preenchido',
+  'backoffice.overdue.from': 'Possível a partir de {at}',
+  'backoffice.overdue.prepare': 'Preparar etapa',
+  'backoffice.overdue.prepareFor': 'Preparar etapa “{step}” da viagem {tripId}',
+  'backoffice.overdue.paramMissing':
+    'Faltam os horários de escalada configurados: nenhuma etapa é possível. Avise a administração.',
+  'backoffice.overdue.allDone': 'Todas as etapas foram feitas: acompanhamento com o anfitrião.',
+  'backoffice.overdue.confirmHeading': '{step} · viagem {tripId}',
+  'backoffice.overdue.effect.CONTACT':
+    'Ligue para o viajante e escreva para ele no WhatsApp; depois avise o anfitrião. Ao confirmar, a etapa entra no processo e o anfitrião recebe por e-mail uma mensagem modelo para enviar ao viajante.',
+  'backoffice.overdue.effect.FORMAL_NOTICE':
+    'Ao confirmar, a etapa entra no processo e o anfitrião recebe por e-mail um modelo de notificação extrajudicial para enviar em seu próprio nome, e o pedido de anotar a localização GPS se o carro tiver um.',
+  'backoffice.overdue.effect.POLICE_REPORT':
+    'Ao confirmar, a etapa entra no processo e o anfitrião recebe por e-mail um boletim de ocorrência pré-preenchido, que ele mesmo registra na polícia.',
+  'backoffice.overdue.never':
+    'A plataforma não registra nenhum boletim, não recupera nenhum carro e nunca age sobre ele a distância.',
+  'backoffice.overdue.reasonHint':
+    'O que foi feito: ligações, mensagens, respostas. De 10 a 1.000 caracteres, fica guardado no histórico.',
+  'backoffice.overdue.reasonTooShort': 'Escreva um motivo com pelo menos 10 caracteres.',
+  'backoffice.overdue.confirm': 'Confirmar: {step}',
+  'backoffice.overdue.cancel': 'Agora não',
+  'backoffice.overdue.done': 'Etapa registrada no processo. O anfitrião é avisado por e-mail.',
+  'backoffice.overdue.refused.OVERDUE_STEP_TOO_EARLY':
+    'Cedo demais: esta etapa só é possível a partir do horário indicado.',
+  'backoffice.overdue.refused.OVERDUE_STEP_OUT_OF_ORDER':
+    'Esta etapa já foi feita ou não é a próxima. A lista foi atualizada.',
+  'backoffice.overdue.refused.TRIP_NOT_OVERDUE':
+    'Esta viagem não está mais atrasada: o carro foi devolvido ou a viagem foi encerrada.',
+  'backoffice.overdue.refused.OVERDUE_CASE_MISSING':
+    'O processo de atraso ainda não foi aberto. Tente de novo em um minuto.',
+  'backoffice.overdue.refused.PARAM_MISSING':
+    'Faltam os horários de escalada configurados: nenhuma etapa é possível.',
+  'backoffice.overdue.refused.SELF_FORBIDDEN':
+    'Esta viagem envolve você: outro agente deve cuidar dela.',
+  'ntf.unreturnedContact.email.subject': 'Reserva {booking_ref}: o carro não foi devolvido',
+  'ntf.unreturnedContact.email.body':
+    'Olá, {first_name}. O carro da reserva {booking_ref} devia ser devolvido em {end_at} e ainda não foi. Nossa equipe está tentando falar com o viajante por ligação e por WhatsApp. Você também pode escrever para ele pela reserva no app, por exemplo: “Olá, o carro da reserva {booking_ref} devia ser devolvido em {end_at}. Por favor, me diga quando e onde você vai devolvê-lo.” A {brand} não recupera o carro e não age sobre ele a distância.',
+  'ntf.unreturnedContact.sms.body':
+    '{brand}: o carro da reserva {booking_ref} não foi devolvido. Estamos contatando o viajante; detalhes por e-mail.',
+  'ntf.unreturnedFormalNotice.email.subject': 'Reserva {booking_ref}: modelo de notificação',
+  'ntf.unreturnedFormalNotice.email.body':
+    'Olá, {first_name}. O carro da reserva {booking_ref} ainda não foi devolvido. Aqui está um modelo de notificação extrajudicial para enviar em seu nome ao viajante, pelas mensagens da reserva ou por escrito: “Eu, anfitrião que colocou para locação o veículo da reserva {booking_ref} (marca, modelo e placa indicados no contrato de locação), registro que este veículo devia ser devolvido a mim em {end_at} e não foi. Peço que o devolva no local combinado o quanto antes. Caso contrário, reservo-me o direito de registrar queixa junto às autoridades competentes. Data e assinatura.” Se o seu carro tiver GPS, anote a última localização e o horário, sem ir buscá-lo sozinho. A {brand} não envia esta notificação por você, não recupera o carro e não age sobre ele a distância.',
+  'ntf.unreturnedFormalNotice.sms.body':
+    '{brand}: modelo de notificação da reserva {booking_ref} enviado por e-mail. Anote a localização GPS se o carro tiver um.',
+  'ntf.unreturnedPoliceReport.email.subject': 'Reserva {booking_ref}: boletim pré-preenchido',
+  'ntf.unreturnedPoliceReport.email.body':
+    'Olá, {first_name}. O carro da reserva {booking_ref} está sem devolução há mais de um dia. Aqui está um boletim de ocorrência pré-preenchido que você mesmo pode registrar na polícia ou no Ministério Público, com o seu contrato de locação e o seu documento de identidade: “Eu, anfitrião que colocou para locação o veículo indicado no contrato de locação anexo (marca, modelo e placa), declaro que este veículo, alugado pela reserva {booking_ref} na {brand}, devia ser devolvido a mim em {end_at} e não foi, apesar das minhas cobranças. A identidade do locatário consta no contrato anexo. Registro queixa pela não devolução do veículo.” Guarde o número do boletim. A {brand} não registra o boletim por você, não recupera o carro e não age sobre ele a distância; o seu repasse não fica bloqueado por este procedimento.',
+  'ntf.unreturnedPoliceReport.sms.body':
+    '{brand}: boletim pré-preenchido da reserva {booking_ref} enviado por e-mail. Você mesmo o registra na polícia.',
 } as const satisfies Readonly<Record<MessageKey, Message>>;

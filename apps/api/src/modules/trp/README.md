@@ -42,6 +42,14 @@ TRP ne change pas lui-même l'état du trip : il demande les transitions SM-1 à
 - Aucun montant, aucune écriture d'argent, aucun `release_at` : le frais de retard est porté par US-703 (débit séparé), qui lit le dossier et la fin effective.
 - Hors périmètre (suites) : escalade T2H / T6H / T24H et `UNRETURNED` (US-306, US-523), vue des retards (US-306), extension demandée par le voyageur, rappel H−2 (`EVT_RETURN_REMINDER`).
 
+### Escalade de non-restitution par l'ops (US-306)
+
+- Action de console `ESCALATE_OVERDUE` (cadre d'US-101, `POST /console/actions`, permission `ops.force_terminate_trip` dans le pays du trip, session TOTP, garde de séparation des tâches d'ADR-122 / ADR-177) liée à `core.trip_manual_action_escalate_overdue` (0173, `cmd_hold_owner`, EXECUTE `iam_staff_owner` seulement) ; saisie fermée `escalationStep` ∈ {`CONTACT`, `FORMAL_NOTICE`, `POLICE_REPORT`} (étapes `T2H`, `T6H`, `T24H` du dossier).
+- Une étape à la fois, dans l'ordre (`OVERDUE_STEP_OUT_OF_ORDER` : une étape faite ne se rejoue jamais, même par une seconde connexion), à son heure : fin prévue + `overdue_escalation_hours` du pays (défaut [2, 6, 24], 17 §7.2 ; sinon `OVERDUE_STEP_TOO_EARLY` ; paramètre absent ⇒ `PARAM_MISSING`) ; verrous du voyageur puis du véhicule, heure serveur ensuite. Trip non OVERDUE : `TRIP_NOT_OVERDUE` ; dossier pas encore ouvert : `OVERDUE_CASE_MISSING`.
+- Effets (même transaction que `manual_action`, qui porte le motif, et l'audit) : étape du dossier avancée (garde : un cran, contexte STAFF seulement), ligne `core.trip_ops_overdue_escalation` (étape, gabarits produits, heure, heure due) et un `trip.overdue.escalated` attribué à l'agent ; l'hôte reçoit le gabarit de l'étape par NTF (`EVT_UNRETURNED_CONTACT`, `EVT_UNRETURNED_FORMAL_NOTICE`, `EVT_UNRETURNED_POLICE_REPORT`).
+- La plateforme ne dépose aucune plainte, ne récupère ni ne coupe aucun véhicule (OQ-BR-17) ; aucune écriture sur l'occupation, l'argent ou un interrupteur ; le versement de l'hôte n'est pas bloqué. Le trip reste `OVERDUE` à T24H (prolongation tacite d'US-305 inchangée) : `UNRETURNED` est renvoyé à US-318 avec le retour, l'inspection et le rendez-vous d'un trip UNRETURNED (ADR-193).
+- Vue des retards (16 ADM-022) : `core.trip_overdue_board` (interne, EXECUTE `iam_staff_owner`), lue par la console (`GET /console/overdue`, module SUP).
+
 ## Entités
 
 | Entité (17 §3.2.10)     | État                                                                                                                  |
@@ -49,6 +57,7 @@ TRP ne change pas lui-même l'état du trip : il demande les transitions SM-1 à
 | `trip_inspection`       | `core.trip_ops_inspection` (0158, US-303) ; jetons `core.trip_ops_photo_capture` ; gabarit `core.trip_ops_photo_slot` |
 | `inspection_photo`      | `core.trip_ops_inspection_photo` (0158, US-303)                                                                       |
 | `overdue_case`          | `core.trip_ops_overdue_case` (0168, US-305 ; écart PROPOSÉ : fin prévue, seuil, prolongation tacite, trip suivant)    |
+| escalade (16 TRP-038)   | `core.trip_ops_overdue_escalation` (0173, US-306 ; une ligne par étape franchie, `id` = action de console)            |
 | `key_handover`          | `core.trip_ops_key_handover` (0163, US-315)                                                                           |
 | `trip_identity_check`   | `core.trip_ops_identity_check` (0163, US-315 ; entité de KYC dans 17, portée ici par la remise)                       |
 | validation d'une partie | `core.trip_ops_handover_validation` (0163, US-315 ; écart PROPOSÉ à 17 : pas d'état VALIDATED de la série)            |
@@ -59,7 +68,7 @@ La remise et le retour (US-315) émettent `trip.status_changed` par la transitio
 
 Cible (17 §4.5) :
 
-- émis : `trip.checkin.validated`, `trip.checkout.completed`, `trip.overdue.detected` / `.escalated`, `trip.offline.clock_skew_detected`. **Émis depuis US-305** (0168, travailleur `trip_overdue`) : `trip.overdue.detected` (`trip_id`, `stage`, `guest_user_id`, `host_user_id`, `scheduled_end`, `detected_at`), une fois par trip, et `trip.at_risk.flagged` (PROPOSÉ, à reporter dans 17 §4.5 : `trip_id` du trip suivant, `reason`, `host_user_id`, `scheduled_start`), une fois par trip suivant ; consommateurs : NTF et `trip_overdue_alert` ; `.escalated` : US-306 ;
+- émis : `trip.checkin.validated`, `trip.checkout.completed`, `trip.overdue.detected` / `.escalated`, `trip.offline.clock_skew_detected`. **Émis depuis US-305** (0168, travailleur `trip_overdue`) : `trip.overdue.detected` (`trip_id`, `stage`, `guest_user_id`, `host_user_id`, `scheduled_end`, `detected_at`), une fois par trip, et `trip.at_risk.flagged` (PROPOSÉ, à reporter dans 17 §4.5 : `trip_id` du trip suivant, `reason`, `host_user_id`, `scheduled_start`), une fois par trip suivant ; consommateurs : NTF et `trip_overdue_alert` ; **depuis US-306** (0173, commande liée à `ESCALATE_OVERDUE`) : `trip.overdue.escalated` (`trip_id`, `stage`, `host_user_id`, `documents`, `scheduled_end`, `escalated_at`, acteur = l'agent), une fois par étape franchie ; consommateur : NTF (hôte) ;
 - consommés : `payment.received` (PAY, déblocage du check-in), `trip.status_changed` (AVL, minuteries).
 
 ## Ports

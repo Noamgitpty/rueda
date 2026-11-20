@@ -177,6 +177,11 @@ export const TEMPLATE_KEYS = [
   'EVT_TRIP_MEETING_CONFIRMED_RETURN',
   // trip suivant à risque : le véhicule du trip précédent n'est pas rendu (US-305, ADR-188)
   'EVT_TRIP_AT_RISK_HOST',
+  // escalade de non-restitution par l'ops, gabarits remis à l'hôte (US-306, ADR-193 ; 16 TRP-038
+  // `EVT_UNRETURNED_ESCALATION`, un gabarit par étape)
+  'EVT_UNRETURNED_CONTACT',
+  'EVT_UNRETURNED_FORMAL_NOTICE',
+  'EVT_UNRETURNED_POLICE_REPORT',
 ] as const;
 export type TemplateKey = (typeof TEMPLATE_KEYS)[number];
 
@@ -204,6 +209,14 @@ const RELEASED: VariableSource = {
 const EMAIL_THEN_SMS: readonly ChannelSpec[] = [{ channel: 'EMAIL', fallback: 'SMS' }];
 /** Urgent : SMS d'abord, e-mail en repli (10b §3.9 « Retard détecté »). */
 const SMS_THEN_EMAIL: readonly ChannelSpec[] = [{ channel: 'SMS', fallback: 'EMAIL' }];
+
+/** US-306 : gabarits de l'escalade de non-restitution (hôte) : référence du trip et fin prévue. */
+const UNRETURNED_VARIABLES: Readonly<Record<string, VariableSource>> = {
+  first_name: FIRST_NAME,
+  brand: BRAND,
+  booking_ref: BOOKING_REF,
+  end_at: { from: 'payload', type: 'instant', field: 'scheduled_end' },
+};
 
 export const TEMPLATES: Readonly<Record<TemplateKey, TemplateSpec>> = {
   EVT_KYC_APPROVED: {
@@ -469,6 +482,33 @@ export const TEMPLATES: Readonly<Record<TemplateKey, TemplateSpec>> = {
     channels: SMS_THEN_EMAIL,
     critical: true,
   },
+  // US-306 (16 TRP-038, `EVT_UNRETURNED_ESCALATION` ; 08 BR-RETURN-04 ; ADR-193, PROPOSÉ) : étape
+  // d'escalade lancée par l'ops ; l'hôte reçoit le gabarit de l'étape DANS l'e-mail (message type au
+  // voyageur, mise en demeure à envoyer en son nom, plainte pré-remplie qu'il dépose lui-même).
+  // Référence du trip et fin prévue seulement : aucune donnée du voyageur (son identité est au
+  // contrat de location que l'hôte détient) ; la plateforme ne dépose rien, ne récupère ni ne coupe
+  // rien (OQ-BR-17). E-mail d'abord (le gabarit est long), SMS en repli ; message critique de trip.
+  EVT_UNRETURNED_CONTACT: {
+    key: 'EVT_UNRETURNED_CONTACT',
+    slug: 'unreturnedContact',
+    variables: UNRETURNED_VARIABLES,
+    channels: EMAIL_THEN_SMS,
+    critical: true,
+  },
+  EVT_UNRETURNED_FORMAL_NOTICE: {
+    key: 'EVT_UNRETURNED_FORMAL_NOTICE',
+    slug: 'unreturnedFormalNotice',
+    variables: UNRETURNED_VARIABLES,
+    channels: EMAIL_THEN_SMS,
+    critical: true,
+  },
+  EVT_UNRETURNED_POLICE_REPORT: {
+    key: 'EVT_UNRETURNED_POLICE_REPORT',
+    slug: 'unreturnedPoliceReport',
+    variables: UNRETURNED_VARIABLES,
+    channels: EMAIL_THEN_SMS,
+    critical: true,
+  },
 };
 
 const GUEST: RecipientSpec = { role: 'GUEST', field: 'guest_user_id' };
@@ -532,6 +572,20 @@ export const RULES: readonly RuleSpec[] = [
   // `trip.at_risk.flagged` (0168, US-305, PROPOSÉ, à reporter dans 17 §4.5 : trip_id du trip
   // suivant, reason, host_user_id, scheduled_start) : écrit une fois par trip suivant marqué
   { eventType: 'trip.at_risk.flagged', template: 'EVT_TRIP_AT_RISK_HOST', recipients: [HOST] },
+  // `trip.overdue.escalated` (0173, US-306 : trip_id, stage, host_user_id, documents,
+  // scheduled_end, escalated_at) : écrit UNE fois par étape franchie ; un gabarit par étape
+  ...(
+    [
+      ['T2H', 'EVT_UNRETURNED_CONTACT'],
+      ['T6H', 'EVT_UNRETURNED_FORMAL_NOTICE'],
+      ['T24H', 'EVT_UNRETURNED_POLICE_REPORT'],
+    ] as const
+  ).map(([stage, template]): RuleSpec => ({
+    eventType: 'trip.overdue.escalated',
+    template,
+    condition: { field: 'stage', matches: (v) => v === stage },
+    recipients: [HOST],
+  })),
   {
     eventType: 'payout.batch.status_changed',
     template: 'EVT_PAYOUT_SENT',

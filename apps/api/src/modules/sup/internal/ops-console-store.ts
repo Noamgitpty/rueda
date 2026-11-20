@@ -15,6 +15,7 @@
  * client de cette transaction. Erreurs de la base : seul le SQLSTATE est gardé.
  */
 import type { SqlExecutor } from '../../iam/index.js';
+import { STAFF_CONTEXT_CTE, staffContextValues } from './staff-context.js';
 import type { StaffActor } from './staff-context.js';
 
 /** Issue d'une commande et son corps (références et données rendues par la base). */
@@ -183,6 +184,12 @@ export interface OpsConsoleStore {
    * trip, garde ADR-122, refus journalisés ; aucune donnée personnelle.
    */
   tripRefunds(actor: StaffActor, requestId: string, tripId: string): Promise<OpsResult>;
+  /**
+   * US-306 (ADR-193) : vue des retards (16 ADM-022) : trips OVERDUE / UNRETURNED des pays où l'agent
+   * détient ops.force_terminate_trip, étape d'escalade, prochaine étape et son heure, escalades (OK) ;
+   * trips qui concernent l'agent écartés (ADR-122) ; refus journalisés ; aucune donnée personnelle.
+   */
+  overdueBoard(actor: StaffActor, requestId: string): Promise<OpsResult>;
 }
 
 /** Décision sur une annonce en revue (US-118 ; revue exigée par le pays seulement). */
@@ -254,6 +261,16 @@ export const TRIP_REFUNDS_SQL = `SELECT r.outcome,
             ELSE r.body END AS body
   FROM core.support_staff_trip_refunds($1, $2, $3) AS r
   LEFT JOIN core.config_currency AS c ON c.code::text = r.body #>> '{refunds,0,currency}'`;
+/**
+ * US-306 : vue des retards (lecture en direct, sans cache : ≤ 1 min après la détection). Les
+ * lignes de TRP (cmd_hold_owner) ne se lisent que sous le contexte STAFF : posé dans la MÊME
+ * instruction (CTE matérialisée, comme les actions de console), paramètres $1 à $3.
+ */
+export const OVERDUE_BOARD_SQL = `WITH ${STAFF_CONTEXT_CTE}
+SELECT r.outcome, r.body
+  FROM ctx
+ CROSS JOIN LATERAL core.support_staff_overdue_board(
+         CASE WHEN ctx.kind IS NOT NULL THEN $4::bytea END, $5::uuid) AS r`;
 export const RESOLVE_CATALOG_ADDITION_SQL =
   'SELECT outcome, body FROM core.support_staff_resolve_catalog_addition($1, $2, $3, $4, $5, $6::jsonb, $7)';
 
@@ -453,5 +470,13 @@ export class PgOpsConsoleStore implements OpsConsoleStore {
 
   tripRefunds(actor: StaffActor, requestId: string, tripId: string) {
     return one(this.#db, TRIP_REFUNDS_SQL, [actor.tokenHash, requestId, tripId]);
+  }
+
+  overdueBoard(actor: StaffActor, requestId: string) {
+    return one(this.#db, OVERDUE_BOARD_SQL, [
+      ...staffContextValues(actor),
+      actor.tokenHash,
+      requestId,
+    ]);
   }
 }

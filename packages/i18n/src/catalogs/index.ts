@@ -364,8 +364,14 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  `web.reviews.*` (avis reçus, droit d’accès Ley 81), `web.a13.title`, `web.a13.preview`,
  `web.a13.reviews`, `web.a13.link` (A13 : aperçu du profil public) et `web.listing.hostReviews`
  (fiche S03, LST-020).
+ Version 108 (réservée à US-306 par l’orchestrateur ; 104 à 107 sont réservées à US-703, US-317,
+ US-307 et US-314 ; le numéro ne redescend jamais) : vue des retards et escalade de
+ non-restitution (US-306, ADR-193) : `backoffice.overdue.*` (O01 : retard, étape, étape suivante et
+ son heure, confirmation qui dit ce que la plateforme fait et ne fait pas, refus expliqués) et les
+ gabarits remis à l’hôte `ntf.unreturnedContact.*`, `ntf.unreturnedFormalNotice.*` (mise en demeure
+ au nom de l’hôte) et `ntf.unreturnedPoliceReport.*` (plainte pré-remplie que l’hôte dépose).
  */
-export const CATALOG_VERSION = 105;
+export const CATALOG_VERSION = 108;
 
 /** Catalogues de base par langue ; la langue d'un profil de locale choisit le sien. */
 export const CATALOGS: Readonly<Record<CatalogLanguage, VersionedCatalog<MessageKey>>> = {
