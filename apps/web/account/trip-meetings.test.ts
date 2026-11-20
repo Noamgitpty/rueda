@@ -4,6 +4,7 @@
  * `TripMeetingAnswered`), ADR-186 ; fuseaux IANA de la base tz, hors des marchés (ADR-024 ; jamais le code testé).
  */
 import { describe, expect, it } from 'vitest';
+import type { ApiResult } from './api-client.ts';
 import {
   answerErrorFromQuery,
   localToUtc,
@@ -24,7 +25,7 @@ const meeting = {
   createdAt: '2035-05-02T09:00:00.000Z',
   answeredAt: null,
 };
-const reply = (json: unknown, status = 200) => ({ status, json }) as const;
+const reply = (json: unknown, status = 200): ApiResult => ({ status, json, session: null });
 const list = (over: Record<string, unknown> = {}) =>
   reply({
     code: 'TRIP_MEETINGS',
