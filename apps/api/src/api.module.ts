@@ -100,7 +100,7 @@ export class ApiModule {
         // US-310 : aide et urgence (route publique /help ; routes du trip gardées par SessionGuard,
         // /console/help-requests par StaffGuard) ; sans magasin, 503 (fail-closed)
         SupHelpModule.register(sup.help),
-        // US-308 : dossier de preuve /console/trips/{tripId}/evidence-bundles et
+        // US-308 : dossier de preuve /console/evidence-bundles et
         // /console/evidence-bundles/{bundleId}… (StaffGuard) ; sans coffre ni stockage, 503
         SupEvidenceBundleModule.register(evidence),
       ],

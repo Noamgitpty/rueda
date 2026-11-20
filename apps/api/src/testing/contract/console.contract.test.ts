@@ -1076,8 +1076,14 @@ describe('contrat HTTP — /console', () => {
   it('dossier de preuve (US-308) : demande 201, 200, 400, 403, 503 ; état 200, 400, 403, 404, 503 ; archive 200, 400, 403, 404, 409, 410, 503', async () => {
     const a = await app();
     const headers = a.cookie('staff');
-    const create = `/console/trips/${ID}/evidence-bundles`;
-    const body = { requestId: randomUUID(), caseId: ID, purpose: 'INSURER', reason: REASON };
+    const create = '/console/evidence-bundles';
+    const body = {
+      requestId: randomUUID(),
+      tripId: ID,
+      caseId: ID,
+      purpose: 'INSURER',
+      reason: REASON,
+    };
     const created = await a.api.request('POST', create, { headers, body });
     expect(created.status).toBe(201);
     expect(created.json).toEqual({
@@ -1095,7 +1101,7 @@ describe('contrat HTTP — /console', () => {
       expect((await a.api.request('POST', create, { headers, body: bad })).status).toBe(400);
     }
     expect(
-      (await a.api.request('POST', '/console/trips/x/evidence-bundles', { headers, body })).status,
+      (await a.api.request('POST', create, { headers, body: { ...body, tripId: 'x' } })).status,
     ).toBe(400);
     for (const [outcome, code] of [
       ['FORBIDDEN', 'FORBIDDEN'],

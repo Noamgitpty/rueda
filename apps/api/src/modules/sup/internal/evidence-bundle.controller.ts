@@ -4,7 +4,7 @@
  *
  * | Route                                          | Réponse (succès)                 | Refus propres                  |
  * | ---------------------------------------------- | -------------------------------- | ------------------------------ |
- * | POST /console/trips/:tripId/evidence-bundles   | 201 dossier scellé (REQUESTED) ; | 403 STAFF_CASE_REQUIRED,       |
+ * | POST /console/evidence-bundles                 | 201 dossier scellé (REQUESTED) ; | 403 STAFF_CASE_REQUIRED,       |
  * |                                                | 200 rejeu de la même requête     | STAFF_SELF_FORBIDDEN ; 503     |
  * | GET /console/evidence-bundles/:bundleId        | 200 état (EXPIRED calculé),      | 404 EVIDENCE_BUNDLE_NOT_FOUND  |
  * |                                                | empreintes, pièces absentes      |                                |
@@ -114,19 +114,20 @@ export class EvidenceBundleController {
     return staffActorOf(principal);
   }
 
-  @Post('trips/:tripId/evidence-bundles')
+  @Post('evidence-bundles')
   @UseGuards(StaffGuard)
   async request(
     @Req() request: object,
-    @Param('tripId') tripId: string,
     @Body() body: unknown,
     @Res({ passthrough: true }) reply: Reply,
   ) {
     const staff = this.#staff(request);
-    if (!UUID.test(tripId) || !isObject(body)) throw new AuthHttpError('REQUEST_INVALID');
-    const { requestId, caseId, purpose } = body;
+    if (!isObject(body)) throw new AuthHttpError('REQUEST_INVALID');
+    const { requestId, tripId, caseId, purpose } = body;
     const reason = reasonOf(body['reason']);
     if (
+      typeof tripId !== 'string' ||
+      !UUID.test(tripId) ||
       typeof requestId !== 'string' ||
       !UUID.test(requestId) ||
       typeof caseId !== 'string' ||

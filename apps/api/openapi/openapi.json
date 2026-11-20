@@ -14560,140 +14560,6 @@
         }
       }
     },
-    "/console/trips/{tripId}/evidence-bundles": {
-      "post": {
-        "operationId": "consoleEvidenceBundleRequest",
-        "tags": ["sup"],
-        "summary": "Dossier de preuve d'un trip (16 CLM-034, US-308) : manifeste scellé par la base (photos et empreintes, contrat et signature, CGU acceptées, journal d'état, pièces absentes), archive générée ensuite par le travailleur ; permission evidence.export dans le pays du dossier de support OUVERT de ce trip assigné à l'agent, motif journalisé (BULK_EXPORT), refus journalisés",
-        "parameters": [
-          {
-            "name": "tripId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "$ref": "#/components/schemas/Uuid"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "required": ["requestId", "caseId", "purpose", "reason"],
-                "additionalProperties": false,
-                "properties": {
-                  "requestId": {
-                    "$ref": "#/components/schemas/Uuid"
-                  },
-                  "caseId": {
-                    "$ref": "#/components/schemas/Uuid"
-                  },
-                  "purpose": {
-                    "enum": ["ACODECO", "CHARGEBACK", "INSURER", "DISPUTE"]
-                  },
-                  "reason": {
-                    "type": "string",
-                    "minLength": 10,
-                    "maxLength": 500
-                  }
-                }
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Rejeu de la même requête : le dossier d'origine",
-            "headers": {
-              "Cache-Control": {
-                "$ref": "#/components/headers/NoStore"
-              }
-            },
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/EvidenceBundleRequested"
-                }
-              }
-            }
-          },
-          "201": {
-            "description": "Dossier scellé (REQUESTED)",
-            "headers": {
-              "Cache-Control": {
-                "$ref": "#/components/headers/NoStore"
-              }
-            },
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/EvidenceBundleRequested"
-                }
-              }
-            }
-          },
-          "400": {
-            "$ref": "#/components/responses/StaffRequestInvalid"
-          },
-          "401": {
-            "$ref": "#/components/responses/StaffAuthRequired"
-          },
-          "403": {
-            "description": "Sans rôle interne ou sans `evidence.export` dans le pays du dossier (FORBIDDEN, journalisé) ; session non élevée (2FA_REQUIRED) ; dossier de support inconnu, clos, d'un autre trip ou non assigné à l'agent (STAFF_CASE_REQUIRED, journalisé) ; trip qui concerne l'agent (STAFF_SELF_FORBIDDEN, journalisé, ADR-122)",
-            "headers": {
-              "Cache-Control": {
-                "$ref": "#/components/headers/NoStore"
-              }
-            },
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AuthBody",
-                  "properties": {
-                    "code": {
-                      "enum": [
-                        "FORBIDDEN",
-                        "2FA_REQUIRED",
-                        "STAFF_CASE_REQUIRED",
-                        "STAFF_SELF_FORBIDDEN"
-                      ]
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "415": {
-            "$ref": "#/components/responses/NotJsonNoStore"
-          },
-          "429": {
-            "$ref": "#/components/responses/StaffRateLimited"
-          },
-          "503": {
-            "description": "Coffre ou stockage du dossier de preuve indisponibles (production bêta) : rien n'est demandé ni servi",
-            "headers": {
-              "Cache-Control": {
-                "$ref": "#/components/headers/NoStore"
-              }
-            },
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AuthBody",
-                  "properties": {
-                    "code": {
-                      "const": "EVIDENCE_EXPORT_UNAVAILABLE"
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/console/evidence-bundles/{bundleId}": {
       "get": {
         "operationId": "consoleEvidenceBundleStatus",
@@ -14954,6 +14820,133 @@
                   "properties": {
                     "code": {
                       "const": "EVIDENCE_EXPORT_EXPIRED"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "415": {
+            "$ref": "#/components/responses/NotJsonNoStore"
+          },
+          "429": {
+            "$ref": "#/components/responses/StaffRateLimited"
+          },
+          "503": {
+            "description": "Coffre ou stockage du dossier de preuve indisponibles (production bêta) : rien n'est demandé ni servi",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "EVIDENCE_EXPORT_UNAVAILABLE"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/console/evidence-bundles": {
+      "post": {
+        "operationId": "consoleEvidenceBundleRequest",
+        "tags": ["sup"],
+        "summary": "Dossier de preuve d'un trip (16 CLM-034, US-308) : manifeste scellé par la base (photos et empreintes, contrat et signature, CGU acceptées, journal d'état, pièces absentes), archive générée ensuite par le travailleur ; permission evidence.export dans le pays du dossier de support OUVERT de ce trip assigné à l'agent, motif journalisé (BULK_EXPORT), refus journalisés",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["requestId", "tripId", "caseId", "purpose", "reason"],
+                "additionalProperties": false,
+                "properties": {
+                  "requestId": {
+                    "$ref": "#/components/schemas/Uuid"
+                  },
+                  "tripId": {
+                    "$ref": "#/components/schemas/Uuid"
+                  },
+                  "caseId": {
+                    "$ref": "#/components/schemas/Uuid"
+                  },
+                  "purpose": {
+                    "enum": ["ACODECO", "CHARGEBACK", "INSURER", "DISPUTE"]
+                  },
+                  "reason": {
+                    "type": "string",
+                    "minLength": 10,
+                    "maxLength": 500
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Rejeu de la même requête : le dossier d'origine",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EvidenceBundleRequested"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Dossier scellé (REQUESTED)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EvidenceBundleRequested"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/StaffRequestInvalid"
+          },
+          "401": {
+            "$ref": "#/components/responses/StaffAuthRequired"
+          },
+          "403": {
+            "description": "Sans rôle interne ou sans `evidence.export` dans le pays du dossier (FORBIDDEN, journalisé) ; session non élevée (2FA_REQUIRED) ; dossier de support inconnu, clos, d'un autre trip ou non assigné à l'agent (STAFF_CASE_REQUIRED, journalisé) ; trip qui concerne l'agent (STAFF_SELF_FORBIDDEN, journalisé, ADR-122)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "enum": [
+                        "FORBIDDEN",
+                        "2FA_REQUIRED",
+                        "STAFF_CASE_REQUIRED",
+                        "STAFF_SELF_FORBIDDEN"
+                      ]
                     }
                   }
                 }

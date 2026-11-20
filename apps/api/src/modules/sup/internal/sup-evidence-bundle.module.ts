@@ -1,6 +1,6 @@
 /**
  * Module Nest du dossier de preuve dans la console (US-308, ADR-184) : routes
- * `/console/trips/{tripId}/evidence-bundles` et `/console/evidence-bundles/{bundleId}…`. Module
+ * `/console/evidence-bundles` et `/console/evidence-bundles/{bundleId}…`. Module
  * DYNAMIQUE, importé par le seul processus API après `StaffConsoleModule` (StaffGuard, global).
  *
  * Adaptateurs choisis par l'appelant : production `postgresEvidenceBundle(pool)` (portes

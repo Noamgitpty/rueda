@@ -514,12 +514,13 @@ async function requestOf(
       return { method: 'GET', path: `/console/cancellations/${tripOf.get(country) ?? id}` };
     // US-308 : dossier de preuve du trip du pays ; dossier de support du pays (sans trip) ⇒ OPS et
     // ADMIN du pays : 403 STAFF_CASE_REQUIRED, jamais un dossier scellé ; autre pays : FORBIDDEN
-    case 'POST /console/trips/{tripId}/evidence-bundles':
+    case 'POST /console/evidence-bundles':
       return {
         method: 'POST',
-        path: `/console/trips/${tripOf.get(country) ?? id}/evidence-bundles`,
+        path: '/console/evidence-bundles',
         body: {
           requestId: id,
+          tripId: tripOf.get(country) ?? id,
           caseId: await caseOf(country),
           purpose: 'INSURER',
           reason: 'Matrice US-043 : dossier de test',
