@@ -60,6 +60,7 @@ import {
   type Case,
   type Legs,
 } from '../support/redteam-l2.js';
+import { onFakeAccount as onFakeAccountSafely } from '../support/fake-account.js';
 
 /**
  * Devis du checkout par exposant de la devise (configuration du dépôt : BASICA 1/4 du prix
@@ -163,19 +164,10 @@ class NoDepositGate {
   }
 }
 
-/** Fournisseur du compte que T1 retiendrait À CET INSTANT (ordre de `booking_cmd_checkout_pay`). */
-async function firstProvider(worker: pg.ClientBase, country: string): Promise<string | null> {
-  const { rows } = await worker.query<{ provider: string }>(
-    `SELECT provider FROM core.payment_psp_account WHERE country_code = $1 AND status = 'ACTIVE'
-      ORDER BY (environment = 'LIVE') DESC, provider, id LIMIT 1`,
-    [country],
-  );
-  return rows[0]?.provider ?? null;
-}
 /**
- * Essai de T1 sur le compte FAKE du pays (constat C-1 d'US-221 : les scènes de
- * concurrence-webhook ouvrent un temps un compte EBANX ACTIVE, retenu avant FAKE) : retenu
- * seulement si FAKE est en tête avant et après lui, sinon annulé par son point de sauvegarde.
+ * Essai de T1 sur le compte FAKE du pays (constat C-1 d'US-221) : retenu seulement si aucun compte
+ * non FAKE du pays n'a bougé pendant lui (`../support/fake-account.ts`), sinon annulé par son point
+ * de sauvegarde et rejoué.
  */
 async function onFakeAccount<T>(
   tx: pg.ClientBase,
@@ -184,28 +176,14 @@ async function onFakeAccount<T>(
   attempt: () => Promise<T>,
 ): Promise<{ ok: true; value: T } | { ok: false; error: unknown }> {
   const worker = await open('app_worker');
-  for (let i = 0; i < 240; i++) {
-    if ((await firstProvider(worker, country)) === 'FAKE') {
-      await tx.query('SAVEPOINT rt_l2_fake');
-      const sent = psp.orders.length;
-      let out: { ok: true; value: T } | { ok: false; error: unknown };
-      try {
-        out = { ok: true, value: await attempt() };
-      } catch (error) {
-        out = { ok: false, error };
-      }
-      if ((await firstProvider(worker, country)) === 'FAKE') {
-        await tx.query(
-          out.ok ? 'RELEASE SAVEPOINT rt_l2_fake' : 'ROLLBACK TO SAVEPOINT rt_l2_fake',
-        );
-        return out;
-      }
-      await tx.query('ROLLBACK TO SAVEPOINT rt_l2_fake');
-      psp.orders.splice(sent);
-    }
-    await new Promise((resolve) => setTimeout(resolve, 250));
-  }
-  throw new Error('le compte FAKE n’est jamais resté en tête');
+  return onFakeAccountSafely({
+    tx,
+    worker,
+    country,
+    orders: psp.orders,
+    savepoint: 'rt_l2_fake',
+    attempt,
+  });
 }
 
 interface Observed {

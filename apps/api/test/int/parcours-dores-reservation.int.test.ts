@@ -87,6 +87,7 @@ import {
   type CancellationFacts,
 } from '../../src/modules/stl/index.js';
 import { countryCases } from '../support/countries.js';
+import { onFakeAccount as onFakeAccountSafely } from '../support/fake-account.js';
 
 const golden = loadGoldenVectors();
 const LEGS = ['HOST', 'INSURER', 'TAX_THIRD_PARTY', 'PLATFORM'] as const;
@@ -451,48 +452,10 @@ async function refusal(error: unknown, tx: pg.ClientBase, country: string): Prom
 }
 
 /**
- * Empreinte des comptes marchands du pays, lue sous app_worker (autre connexion, données validées) :
- * `null` si aucun compte FAKE n'est ACTIVE ou si un compte ACTIVE d'un autre fournisseur est ouvert ;
- * sinon identifiant, statut et `xmin` de chaque compte NON FAKE du pays. Les comptes ne sont jamais
- * supprimés (aucun DELETE accordé aux rôles applicatifs) : toute création ou mise à jour validée d'un
- * compte non FAKE change cette empreinte (nouvel identifiant ou nouveau `xmin`), même si son statut
- * revient ensuite à SUSPENDED.
- */
-async function onlyFakeActive(worker: pg.ClientBase, country: string): Promise<string | null> {
-  const { rows } = await worker.query<{ id: string; provider: string; status: string; v: string }>(
-    `SELECT id, provider, status, xmin::text AS v FROM core.payment_psp_account
-      WHERE country_code = $1 ORDER BY id`,
-    [country],
-  );
-  const active = rows.filter((r) => r.status === 'ACTIVE');
-  if (!active.some((r) => r.provider === 'FAKE')) return null;
-  if (active.some((r) => r.provider !== 'FAKE')) return null;
-  return rows
-    .filter((r) => r.provider !== 'FAKE')
-    .map((r) => `${r.id}:${r.status}:${r.v}`)
-    .join(',');
-}
-
-/**
- * Essai de T1 sur le compte FAKE du pays (constat C-1 de la passation US-221) : T1
- * (`booking_cmd_checkout_pay`) retient le premier compte marchand ACTIVE du pays (fournisseur, puis
- * identifiant), et les scènes de `concurrence-webhook.int.test.ts` VALIDENT, le temps d'un test, un
- * compte ACTIVE BAC ou EBANX du même pays (avant FAKE dans l'ordre, sans capacité validée : T1 y
- * rendrait HOST_PAYOUT_RAIL_UNAVAILABLE), puis le suspendent. Course entre fichiers de test, pas un
- * défaut du produit.
- *
- * Un essai n'est retenu (réussite OU refus) que si, lue JUSTE AVANT lui, l'empreinte
- * `onlyFakeActive` n'est pas nulle et que, lue JUSTE APRÈS lui, elle est IDENTIQUE : aucun compte
- * non FAKE n'a alors été créé, ouvert ni modifié pendant l'essai, donc la lecture des comptes de T1
- * (faite entre les deux) n'a vu que FAKE comme compte ACTIVE. Une simple vérification « avant »
- * (ancienne `soleFakeAccount` du segment B) laissait passer un compte ouvert entre elle et T1 ; une
- * comparaison du seul fournisseur en tête (ancienne `firstProvider`) laissait passer un compte ouvert
- * PUIS suspendu pendant l'essai. Sinon l'essai est annulé par son point de sauvegarde et rejoué
- * (au plus 60 s). Un essai annulé retire aussi du PSP FAKE les ordres qu'il lui a envoyés : rejoué
- * depuis le point de sauvegarde, il renvoie le MÊME ordre (même clé d'idempotence
- * `hold:…:CAPTURE:a1`), qu'un PSP réel dédoublonne. Le résultat retenu est affirmé tel quel par
- * l'appelant ; la transaction de l'appelant (annulée au segment A, validée au segment B) n'est
- * validée qu'après l'essai retenu.
+ * Essai de T1 sur le compte FAKE du pays (constat C-1) : retenu seulement si aucun compte non FAKE
+ * du pays n'a bougé pendant lui (`../support/fake-account.ts`), sinon annulé par son point de
+ * sauvegarde et rejoué. La transaction de l'appelant (annulée au segment A, validée au segment B)
+ * n'est validée qu'après l'essai retenu.
  */
 async function onFakeAccount<T>(
   tx: pg.ClientBase,
@@ -502,31 +465,15 @@ async function onFakeAccount<T>(
 ): Promise<{ ok: true; value: T } | { ok: false; error: unknown }> {
   // UNE connexion app_worker pour toute l'attente (libérée par afterEach), jamais une par lecture
   const worker = await open('app_worker');
-  for (let i = 0; i < 240; i++) {
-    const before = await onlyFakeActive(worker, country);
-    if (before !== null) {
-      await tx.query('SAVEPOINT us221_fake');
-      const sent = psp.orders.length;
-      let out: { ok: true; value: T } | { ok: false; error: unknown };
-      try {
-        out = { ok: true, value: await attempt() };
-      } catch (error) {
-        out = { ok: false, error };
-      }
-      if ((await onlyFakeActive(worker, country)) === before) {
-        await tx.query(
-          out.ok ? 'RELEASE SAVEPOINT us221_fake' : 'ROLLBACK TO SAVEPOINT us221_fake',
-        );
-        return out;
-      }
-      await tx.query('ROLLBACK TO SAVEPOINT us221_fake');
-      psp.orders.splice(sent);
-    }
-    await new Promise((resolve) => setTimeout(resolve, 250));
-  }
-  throw new Error(
-    `le compte FAKE n'est jamais resté seul actif : ${await accountsDiagnostic(tx, country)}`,
-  );
+  return onFakeAccountSafely({
+    tx,
+    worker,
+    country,
+    orders: psp.orders,
+    savepoint: 'us221_fake',
+    attempt,
+    diagnostic: () => accountsDiagnostic(tx, country),
+  });
 }
 
 // --- état partagé des segments (par pays) --------------------------------------------------------
