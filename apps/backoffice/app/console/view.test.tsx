@@ -140,11 +140,15 @@ describe('console : ce que chaque état montre', () => {
     expect(out).toContain('AA, BB');
     for (const key of [
       'backoffice.action.RECORD_CLAIM',
-      'backoffice.action.REFUSE_AT_PICKUP',
-      'backoffice.action.DECLARE_NO_SHOW',
+      'backoffice.action.ISSUE_DECISION',
+      'backoffice.action.OPEN_INCIDENT',
     ] as const) {
       expect(out).toContain(es[key]);
     }
+    // US-307 : no-show et refus du véhicule ont quitté le formulaire générique (saisie fermée de
+    // no-show-view.tsx, prouvée par no-show-view.test.tsx)
+    expect(out).not.toContain('value="DECLARE_NO_SHOW"');
+    expect(out).not.toContain('value="REFUSE_AT_PICKUP"');
     expect(out).toMatch(/name="reason"[^>]*minLength="10"|minLength="10"[^>]*name="reason"/i);
     expect(out).toContain('STAFF_FORBIDDEN');
     expect(out).toContain(es['common.auth.forbidden']);

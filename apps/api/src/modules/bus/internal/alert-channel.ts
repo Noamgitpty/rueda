@@ -65,6 +65,9 @@ export const ALERT_CODES = [
   'TRIP_OVERDUE_DETECTED',
   'TRIP_NEXT_AT_RISK',
   'TRIP_OVERDUE_FAILED',
+  // no-show (US-307, ADR-191) : signalement du voyageur sans issue, en attente de l'ops au-delà
+  // du délai du pays (STALE) ou devenu inapplicable (BLOCKED) ; P2, une fois par signalement
+  'TRIP_NO_SHOW_REPORT_UNRESOLVED',
 ] as const;
 export type AlertCode = (typeof ALERT_CODES)[number];
 

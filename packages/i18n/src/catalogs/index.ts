@@ -346,6 +346,32 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  réservée à US-709 ; le numéro ne redescend jamais) : trip suivant à risque (US-305, ADR-188) :
  `ntf.tripAtRiskHost.*` (le véhicule du trip précédent, en retard, n’est pas rendu ; l’hôte est
  prévenu, l’ops le contacte).
+ Version 104 (réservée à US-703 par l’orchestrateur ; les 102 et 103 sont celles d’US-709 et
+ US-305) : carte enregistrée et consentement MIT (US-703, ADR-189) : case séparée du checkout
+ `web.s05.mitConsent` de 10b §4.3 (UX-30, texte portugais ajouté), refus
+ `common.payment.mitConsentRequired` (case non cochée) et rappel du consentement à la remise
+ `web.handover.mitReminder` (S09, validation du voyageur au départ) ; après les revues : mention
+ au bouton `web.s05.mitConsentNotice` (défaut, comme Turo, DEC-FONDATEUR-22), aide
+ `web.s05.mitConsentRequiredHint` de la case et code `common.payment.mitRailUnavailable`.
+ Version 105 (réservée à US-317 par l’orchestrateur ; les 102 à 104 sont celles d’US-709, US-305
+ et US-703) : avis réciproques en double aveugle (US-317, ADR-190) : `common.reviews.*` (réponses des
+ routes `/trips/{id}/reviews`, `/reviews/received` et `/listings/{id}/host-profile` : avis du trip,
+ avis enregistré, avis reçus, profil de l’hôte, déjà noté, pas encore ouvert, fenêtre close, texte
+ exigé de 1 à 3, avis invalide, indisponible), `web.review.until` et `web.review.closed` de 10b §4.3
+ (texte portugais ajouté) et `web.review.blind` (10b §4.3, échéance dite « N jours après la fin du
+ voyage », revue ux du 2026-11-20), `web.review.*` (S13 et A12 : note, sous-notes du voyageur et
+ de l’hôte, texte, avis scellé ou publié, profil du voyageur, avis publiés du trip),
+ `web.reviews.*` (avis reçus, droit d’accès Ley 81), `web.a13.title`, `web.a13.preview`,
+ `web.a13.reviews`, `web.a13.link` (A13 : aperçu du profil public) et `web.listing.hostReviews`
+ (fiche S03, LST-020).
+ Version 106 (réservée à US-307 par l’orchestrateur ; les 102 à 105 sont celles d’US-709, US-305, US-703
+ et US-317) : no-show et refus du véhicule (US-307, ADR-191) :
+ `common.noShow.*` (réponses des routes `/trips/{id}/no-show` : trop tôt, fenêtre close, partie
+ présente, preuve manquante, demande en cours, base injoignable), `web.noShow.*` (écran de l’hôte
+ « le voyageur n’est pas venu » et du voyageur « l’hôte n’est pas venu » : fenêtre, preuve tracée
+ dans les messages, déclaration définitive, état de la demande, liens du détail du trip) et
+ `backoffice.noShow.*` (console : `DECLARE_NO_SHOW` et `REFUSE_AT_PICKUP` à saisie fermée, refus
+ expliqués).
  Version 107 (réservée à US-314 par l’orchestrateur ; les 104 à 106 sont réservées à US-703,
  US-317 et US-307 ; le numéro ne redescend jamais) : versements de l’hôte (US-314, ADR-192) :
  `common.payouts.*` (réponses de `GET /host/accounts/{orgId}/payouts`), `web.a08.payouts.*` (A08 :

@@ -96,8 +96,6 @@ export const PT_PROTO = {
   'web.s04.result.glare':
     'A foto da sua carteira saiu com reflexo. Incline um pouco e evite luz direta.',
   'web.s05.contract': 'Aceito o contrato de aluguel com {host_name}',
-  'web.s05.mitConsent':
-    'Autorizo cobranças depois da viagem neste cartão apenas por despesas da viagem, minha franquia ou danos, sempre com aviso e comprovação.',
   'web.s05.review.notice':
     'Analisamos cada reserva. Se não pudermos aprovar, devolvemos tudo a você.',
   'web.s06.pre.title': 'Na sua fatura vai aparecer: {merchant_name}',
@@ -321,12 +319,6 @@ export const PT_PROTO = {
   'web.a13.promise': 'Sua promessa aos viajantes',
   'web.a13.empty': 'Conte aos viajantes quem você é',
   'backoffice.o01.empty': 'Nenhum item na fila',
-  'web.review.until': 'Você pode avaliar até {date}',
-  'web.review.blind': {
-    one: '{name} só verá sua avaliação quando vocês dois avaliarem ou depois de {count} dia',
-    other: '{name} só verá sua avaliação quando vocês dois avaliarem ou depois de {count} dias',
-  },
-  'web.review.closed': 'O prazo para avaliar terminou em {date}.',
   'web.s14.becomeHost': 'Anuncie seu carro',
   'web.s14.profilePhoto':
     'Adicione uma foto de perfil: seu anfitrião vai vê-la ao entregar o carro.',
@@ -519,7 +511,6 @@ export const PT_PROTO = {
   'web.a11.error.body': 'Suas regras continuam como antes. Tente de novo.',
   'web.a11.preview.body': 'Isto é o que o viajante verá na página do seu carro antes de reservar.',
   'web.a11.preview.back': 'Voltar à edição',
-  'web.a13.title': 'Seu perfil público',
   'web.a13.memberSince': 'na {brand} desde {year}',
   'web.a13.languages': 'Idiomas que você fala',
   'web.a13.about': 'Quem é você',
@@ -530,7 +521,6 @@ export const PT_PROTO = {
     other: 'Você responde em {count} horas em média · {rate}% de resposta',
   },
   'web.a13.response.body': 'Calculado pelas suas mensagens; não pode ser editado.',
-  'web.a13.reviews': 'Avaliações recebidas',
   'web.a13.review.by': { one: '{name} · {count} estrela', other: '{name} · {count} estrelas' },
   'web.a13.reply': 'Responder publicamente',
   'web.a13.empty.body': 'Uma apresentação curta e uma promessa ajudam a ser escolhido.',

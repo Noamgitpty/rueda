@@ -31,7 +31,10 @@ import {
   DepositCheckoutGate,
   PgDepositCheckoutStore,
   PgDepositRailConfigReader,
+  PgMitConsentStore,
+  UNAVAILABLE_MIT_CONSENTS,
 } from '../../../pay/index.js';
+import type { MitConsentPort } from '../../../pay/index.js';
 import { PgQuoteStore, UnavailableQuoteStore } from '../../../prc/index.js';
 import type { QuoteParamsOf, QuoteStore } from '../../../prc/index.js';
 import { CheckoutController } from './checkout.controller.js';
@@ -81,6 +84,8 @@ export interface AvlCheckoutPaymentOptions {
   readonly providers: ReadonlyMap<string, HostedPaymentProvider>;
   /** Porte de la caution (US-701, ADR-169) : décidée et figée AVANT le paiement. */
   readonly deposits: DepositGatePort;
+  /** Consentement MIT du checkout (US-703, ADR-189) ; absent : indisponible (503). */
+  readonly consents?: MitConsentPort;
 }
 
 /** Porte de la caution sans base : 503 (jamais un paiement sans décision de caution). */
@@ -164,6 +169,8 @@ export function postgresCheckoutAdapters(
         new PgDepositCheckoutStore(db),
         new PgDepositRailConfigReader(db),
       ),
+      // US-703 : consentement MIT du checkout (0169), une fois par hold
+      consents: new PgMitConsentStore(db),
     },
     // US-223c : refus et lecture des demandes ; aucune capture avant le lot C
     hostRequests: { store: new PgHostRequestStore(db), providers: new Map() },
@@ -209,6 +216,8 @@ export class AvlCheckoutModule {
             (options.payments ?? UNAVAILABLE_CHECKOUT_PAYMENTS).providers,
             (options.payments ?? UNAVAILABLE_CHECKOUT_PAYMENTS).deposits,
             LOG_PAYMENT_FAILURE,
+            (options.payments ?? UNAVAILABLE_CHECKOUT_PAYMENTS).consents ??
+              UNAVAILABLE_MIT_CONSENTS,
           ),
         },
         {

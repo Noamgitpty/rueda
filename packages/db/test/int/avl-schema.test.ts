@@ -89,7 +89,9 @@ const PRICING_TABLES = [
 
 // Avis et agrégats (US-218, 0104) : socle RLS commun ; aucun droit applicatif, commande liée et
 // lecture publique de review_cmd_owner, preuves par test/l0/l0-us218-reviews.test.ts.
-const REVIEW_TABLES = ['review_rating_aggregate', 'review_review'] as const;
+// Scellé des avis donnés dans l'application (US-317, 0170) : même socle ; preuves par
+// test/l0/l0-us317-reviews.test.ts.
+const REVIEW_TABLES = ['review_rating_aggregate', 'review_review', 'review_submission'] as const;
 
 // Dossier de support (US-011, 0024) : socle RLS commun ; lectures app_api vérifiées par les preuves
 // RLS (test/l0/l0-rls-*.test.ts).
@@ -122,6 +124,16 @@ const PAY_PORT_TABLES = [
   'payment_refund_instance',
   // caution figée au checkout (US-701, 0146) : preuves dans test/l0/l0-us701-deposit-hold.test.ts
   'payment_deposit_hold',
+  // carte enregistrée, consentement MIT, débits post-trip et dette (US-703, 0169) : aucun droit
+  // applicatif, commandes de cmd_money_owner ; preuves dans test/l0/l0-us703-mit-charges.test.ts
+  'payment_payment_instrument',
+  'payment_mit_consent',
+  'payment_mit_consent_reminder',
+  'payment_mit_network_rule',
+  'payment_post_trip_charge',
+  'payment_post_trip_charge_attempt',
+  'payment_debt_balance',
+  'payment_debt_collection',
 ] as const;
 
 // Compte de versement de l'hôte (US-707, 0159) : même socle RLS ; aucun droit applicatif,

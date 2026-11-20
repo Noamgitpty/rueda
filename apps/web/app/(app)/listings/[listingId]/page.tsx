@@ -34,10 +34,12 @@ import {
   regulatoryNoticesUnavailable,
 } from '../../../../account/regulatory-notices.ts';
 import { clientContext } from '../../../../account/request.ts';
+import { hostProfileOf, memberYearOf } from '../../../../account/trip-reviews.ts';
 import { listingDatesOf, searchHref, TIME_SLOTS, wallClock } from '../../../../account/search.ts';
 import { getRequestI18n, getRequestLocaleTag } from '../../../../i18n.ts';
 import accountStyles from '../../_account/account.module.css';
 import { RegulatoryNotices } from '../../_account/regulatory-notices.tsx';
+import { ReviewList } from '../../_reviews/review-list.tsx';
 import searchStyles from '../../_search/search.module.css';
 import { MAIN_ID } from '../../_shell/main-id.ts';
 import styles from '../../host/host.module.css';
@@ -369,7 +371,7 @@ export default async function ListingPage({
     );
   }
   const title = `${listing.makeName} ${listing.modelName} ${listing.year}`;
-  const [noticeReply, slotReply, meetingReply, conditionsReply] = await Promise.all([
+  const [noticeReply, slotReply, meetingReply, conditionsReply, hostReply] = await Promise.all([
     // US-125 : limite légale connue du pays de l'annonce, pour le voyageur
     callApi('GET', regulatoryNoticesPath(listing.country, 'GUEST'), { ...ctx, sessionToken: null }),
     slot !== null && slot.ok
@@ -381,7 +383,11 @@ export default async function ListingPage({
       : Promise.resolve(null),
     // US-205 : annulation du pays, caution, protection de l'assureur partenaire (jugée en base)
     callApi('GET', `/listings/${listing.id}/conditions`, { ...ctx, sessionToken: null }),
+    // US-317 (LST-020) : profil public de l'hôte (ancienneté, note, avis publiés), jugé en base
+    callApi('GET', `/listings/${listing.id}/host-profile`, { ...ctx, sessionToken: null }),
   ]);
+  // profil illisible : le bloc de l'hôte reste servi, sans ancienneté ni avis (jamais deviné)
+  const hostProfile = hostProfileOf(hostReply, listing.id);
   const notices = regulatoryNoticesOf(noticeReply, listing.country, 'GUEST');
   const slotView: SlotView | null =
     slot === null
@@ -510,8 +516,23 @@ export default async function ListingPage({
           name={listing.hostFirstName}
           rating={ratingValue(extras.hostRating)}
           trips={extras.hostRating?.tripCount ?? 0}
+          memberSince={memberYearOf(hostProfile?.memberSince ?? null)}
           verified={extras.hostVerified}
         />
+      )}
+      {/* avis publiés sur l'hôte (US-317, LST-020) : prénom de l'auteur seulement */}
+      {listing.hostFirstName !== null && hostProfile !== null && hostProfile.reviews.length > 0 && (
+        <section className={styles['section']} aria-labelledby="s03-host-reviews">
+          <h2 id="s03-host-reviews" className={accountStyles['h2']}>
+            {t('web.listing.hostReviews', { name: listing.hostFirstName })}
+          </h2>
+          <ReviewList
+            i18n={i18n}
+            reviews={hostProfile.reviews}
+            timezone={listing.timezone ?? 'UTC'}
+            testId="s03-host-reviews"
+          />
+        </section>
       )}
 
       <section className={styles['section']} aria-labelledby="s03-meet">

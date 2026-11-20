@@ -718,7 +718,8 @@ async function checkoutRoute(req, res, path) {
 // (409 HOST_PAYOUT_RAIL_UNAVAILABLE) ; le 19, réservation en revue avant tout débit (409
 // BOOKING_UNDER_REVIEW tant que la revue n'est pas décidée) ; le 21, aucun compte marchand (503
 // PAYMENT_UNAVAILABLE). Aucun montant
-// reçu : un champ autre que `method` ⇒ 400. `GET …/payment` : état dérivé du hold et du trip né,
+// reçu : un champ autre que `method`, `mitConsent` et `locale` ⇒ 400 ; consentement MIT absent ⇒
+// 422 MIT_CONSENT_REQUIRED (US-703). `GET …/payment` : état dérivé du hold et du trip né,
 // comme l'API (jamais un statut d'opération). `GET /__e2e/payment/webhook?hold=&event=` joue le
 // webhook FAKE signé et la conversion : SUCCEEDED (trip né ; après échéance : compensé), FAILED
 // (refus, hold gardé), MISMATCH (montant reçu différent : rien n'est appliqué), EXPIRE (échéance) ;
@@ -807,6 +808,22 @@ const paymentStateOf = (h) => {
   if (status === 'COMPENSATED') return 'REFUND_DUE';
   return !h.op || h.op === 'FAILED' ? 'ENDED' : 'UNPROVEN';
 };
+// US-703 (ADR-189 n° 15, DEC-FONDATEUR-22) : forme du consentement MIT du pays rendue pour un hold
+// payable : mention au bouton (NOTICE, défaut comme Turo) ; le 16 décembre, case séparée
+// obligatoire (CHECKBOX : pays dont `mit_consent_checkbox_required` vaut vrai) ; le 11, paramètre
+// du pays absent (BLOCKED, fail_mode BLOCK : aucun paiement offert).
+const MIT_CHECKBOX_DAY = '-12-16T';
+const MIT_BLOCKED_DAY = '-12-11T';
+const mitModeOf = (h) =>
+  h.quote.startAt.includes(MIT_CHECKBOX_DAY)
+    ? 'CHECKBOX'
+    : h.quote.startAt.includes(MIT_BLOCKED_DAY)
+      ? 'BLOCKED'
+      : 'NOTICE';
+const mitConsentJson = (h) =>
+  ['PAYABLE', 'DECLINED', 'INTERRUPTED'].includes(paymentStateOf(h))
+    ? { mitConsent: { mode: mitModeOf(h) } }
+    : {};
 const paymentJson = (h, redirectUrl) => ({
   holdId: h.id,
   state: paymentStateOf(h),
@@ -819,6 +836,7 @@ const paymentJson = (h, redirectUrl) => ({
     ? { request: { status: requestStatusOf(h), respondBy: h.respondBy ?? null } }
     : {}),
   ...depositJson(h),
+  ...mitConsentJson(h),
 });
 
 async function paymentRoute(req, res, url) {
@@ -918,8 +936,16 @@ async function paymentRoute(req, res, url) {
   if (req.method === 'GET') return json(res, 200, { payment: paymentJson(h) });
   if (req.method !== 'POST') return err(res, 404, 'NOT_FOUND', 'common.error.notFound');
   const b = await readBody(req);
-  if (b !== null && (typeof b !== 'object' || Object.keys(b).some((k) => k !== 'method'))) {
+  // US-703 : le consentement MIT du checkout (case S05) et la langue du texte, comme l'API
+  const PAY_KEYS = ['method', 'mitConsent', 'locale'];
+  if (b !== null && (typeof b !== 'object' || Object.keys(b).some((k) => !PAY_KEYS.includes(k)))) {
     return err(res, 400, 'REQUEST_INVALID', 'common.auth.requestInvalid');
+  }
+  if (b !== null && b.mitConsent === true && typeof b.locale !== 'string') {
+    return err(res, 400, 'REQUEST_INVALID', 'common.auth.requestInvalid');
+  }
+  if (b === null || b.mitConsent !== true) {
+    return err(res, 422, 'MIT_CONSENT_REQUIRED', 'common.payment.mitConsentRequired');
   }
   const state = paymentStateOf(h);
   // INTERRUPTED : reprise sous la même clé (le PSP du double ne trouve aucun ordre : il le crée)
@@ -3031,7 +3057,8 @@ async function handoverRoute(req, res, url) {
       guest: url.searchParams.get('guest') ?? '',
       host: url.searchParams.get('host') ?? '',
       status: url.searchParams.get('status') ?? 'BOOKED',
-      identity: null,
+      // US-703 : permis déjà contrôlé par l'hôte (capture du départ du voyageur, S09)
+      identity: url.searchParams.get('identity') === 'OK' ? 'OK' : null,
       done: { checkin: null, checkout: null },
       validations: {
         checkin: { HOST: null, GUEST: null },
@@ -3123,7 +3150,8 @@ async function handoverRoute(req, res, url) {
     return json(res, 200, { status: t.identity, checkedAt: HANDOVER_AT, alreadyChecked: already });
   }
   // validation : en personne seulement ; toute clé inconnue (une heure du client) est refusée
-  if (Object.keys(b).some((k) => !['odometerKm', 'fuelEighths', 'method'].includes(k))) {
+  // US-703 : langue du rappel du consentement MIT (voyageur, au départ)
+  if (Object.keys(b).some((k) => !['odometerKm', 'fuelEighths', 'method', 'locale'].includes(k))) {
     return err(res, 400, 'REQUEST_INVALID', 'common.auth.requestInvalid');
   }
   if (b.method === 'CONTACTLESS') {
@@ -3170,6 +3198,230 @@ async function handoverRoute(req, res, url) {
   });
 }
 
+// ---- Avis réciproques (US-317) : S13 du voyageur, avis reçus, profil public de l'hôte ------------
+// Un trip FIXE rendu (REVIEW_TRIP, captures stables) : le voyageur (session « G0st… ») note une fois ;
+// l'hôte n'a pas encore noté, l'avis reste donc SCELLÉ (en attente). Avis reçus : un avis publié de
+// l'hôte sur le voyageur ; l'hôte (« H0st… ») a un avis publié d'une voyageuse. Profil public de
+// l'hôte des annonces du double : ancienneté seulement, aucun avis (captures de la fiche stables).
+// Les vraies règles (fenêtre, scellé, publication simultanée, masquage) sont prouvées sur
+// PostgreSQL (l0-us317-*). Jamais une note ni un texte dans un journal.
+const REVIEW_TRIP = '00000000-0000-4000-8000-000000317e2e';
+const reviewsByToken = new Map();
+const HOST_REVIEW = {
+  authorRole: 'HOST',
+  authorName: 'María',
+  overall: 5,
+  subScores: { punctuality: 5 },
+  text: 'Devolvió el auto limpio y a la hora acordada. ¡Gracias!',
+  publishedAt: '2036-12-14T15:00:00.000Z',
+};
+
+async function reviewsRoute(req, res, url) {
+  const profile = /^\/listings\/([0-9a-f-]{36})\/host-profile$/.exec(url.pathname)?.[1];
+  if (profile !== undefined && req.method === 'GET') {
+    if (
+      ![PUBLIC_ID, MANUAL_ID, NO_COVER_ID, DEPOSIT_UNAVAILABLE_ID, REQUEST_ID].includes(profile)
+    ) {
+      return err(res, 404, 'LISTING_NOT_FOUND', 'common.listing.notFound');
+    }
+    return json(res, 200, {
+      code: 'HOST_PROFILE',
+      messageKey: 'common.reviews.hostProfile',
+      listingId: profile,
+      firstName: 'Ana',
+      memberSince: '2024-03',
+      tripCount: 0,
+      reviewCount: 0,
+      averageX100: null,
+      reviews: [],
+    });
+  }
+  if (url.pathname === '/reviews/received' && req.method === 'GET') {
+    const token = tokenOf(req);
+    if (token === undefined) return err(res, 401, 'AUTH_REQUIRED', 'common.auth.sessionRequired');
+    const host = HOST_TOKEN.test(token);
+    return json(res, 200, {
+      code: 'REVIEWS_RECEIVED',
+      messageKey: 'common.reviews.received',
+      asGuest: host
+        ? { reviewCount: 0, averageX100: null, reviews: [] }
+        : { reviewCount: 1, averageX100: 500, reviews: [HOST_REVIEW] },
+      asHost: host
+        ? {
+            firstName: 'Ana',
+            memberSince: '2024-03',
+            tripCount: 1,
+            reviewCount: 1,
+            averageX100: 400,
+            reviews: [
+              {
+                authorRole: 'GUEST',
+                authorName: 'Lucía',
+                overall: 4,
+                subScores: {},
+                text: 'Auto cómodo y entrega puntual en el lugar acordado.',
+                publishedAt: '2036-12-15T15:00:00.000Z',
+              },
+            ],
+          }
+        : null,
+    });
+  }
+  const m = /^\/trips\/([^/]+)\/reviews$/.exec(url.pathname);
+  if (m === null) return false;
+  const token = tokenOf(req);
+  if (token === undefined) return err(res, 401, 'AUTH_REQUIRED', 'common.auth.sessionRequired');
+  const tripId = m[1].toLowerCase();
+  if (!GUEST_TOKEN.test(token) || tripId !== REVIEW_TRIP) {
+    return err(res, 404, 'TRIP_NOT_FOUND', 'common.trips.notFound');
+  }
+  const key = `${token}:${tripId}`;
+  const mine = reviewsByToken.get(key) ?? null;
+  if (req.method === 'GET') {
+    return json(res, 200, {
+      code: 'TRIP_REVIEWS',
+      messageKey: 'common.reviews.trip',
+      tripId,
+      viewerRole: 'GUEST',
+      counterpartName: 'María',
+      timezone: 'UTC',
+      windowDays: 10,
+      endedAt: '2036-12-13T15:00:00.000Z',
+      closesAt: '2099-12-23T15:00:00.000Z',
+      canSubmit: mine === null,
+      mine,
+      published: [],
+      guestProfile: null,
+    });
+  }
+  if (req.method !== 'POST') return err(res, 404, 'TRIP_NOT_FOUND', 'common.trips.notFound');
+  const b = await readBody(req);
+  if (b === null || !Number.isInteger(b.overall)) {
+    return err(res, 400, 'REQUEST_INVALID', 'common.auth.requestInvalid');
+  }
+  if (mine !== null) {
+    return err(res, 409, 'REVIEW_ALREADY_SUBMITTED', 'common.reviews.alreadySubmitted');
+  }
+  const text = typeof b.text === 'string' ? b.text.trim() : '';
+  if (b.overall < 1 || b.overall > 5)
+    return err(res, 422, 'REVIEW_INVALID', 'common.reviews.invalid');
+  if (b.overall <= 3 && [...text].length < 25) {
+    return err(res, 422, 'REVIEW_TEXT_REQUIRED', 'common.reviews.textRequired');
+  }
+  const body = text.replace(/\+?\d[\d\s().-]{5,}\d/g, '•••');
+  const submittedAt = '2036-12-14T16:00:00.000Z';
+  reviewsByToken.set(key, {
+    status: 'SUBMITTED',
+    overall: b.overall,
+    subScores: b.subScores ?? {},
+    text: body === '' ? null : body,
+    contactMasked: body !== text,
+    submittedAt,
+  });
+  return json(res, 201, {
+    code: 'REVIEW_SUBMITTED',
+    messageKey: 'common.reviews.submitted',
+    review: { status: 'SUBMITTED', submittedAt, publishedAt: null },
+  });
+}
+
+// No-show entre particuliers (US-307) : `GET /__e2e/no-show/new?guest=&host=&traced=` crée un trip
+// en remise ouverte dont la fenêtre de déclaration est ouverte à l'heure « serveur » fixe du double
+// (`traced` : message de la partie présente suivi de 15 min sans réponse) ; l'hôte déclare le
+// voyageur absent, le voyageur l'hôte ; toute autre session ⇒ 404 NO_SHOW_NOT_FOUND ; même
+// `requestId` ⇒ la même demande ; une seconde ⇒ 409 CANCELLATION_PENDING ; aucune heure reçue.
+const noShows = new Map();
+const NO_SHOW_START = '2036-12-10T12:00:00.000Z';
+const NO_SHOW_AT = '2036-12-10T15:00:00.000Z';
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+
+async function noShowRoute(req, res, url) {
+  const path = url.pathname;
+  if (req.method === 'GET' && path === '/__e2e/no-show/new') {
+    const tripId = uuid();
+    noShows.set(tripId, {
+      guest: url.searchParams.get('guest') ?? '',
+      host: url.searchParams.get('host') ?? '',
+      traced: url.searchParams.get('traced') === 'yes',
+      declaration: null,
+    });
+    return json(res, 200, { tripId });
+  }
+  const m = /^\/trips\/([^/]+)\/no-show$/.exec(path);
+  if (m === null) return false;
+  const token = tokenOf(req);
+  if (token === undefined) return err(res, 401, 'AUTH_REQUIRED', 'common.auth.sessionRequired');
+  const t = noShows.get(m[1]);
+  const role =
+    t === undefined ? null : token === t.guest ? 'GUEST' : token === t.host ? 'HOST' : null;
+  if (t === undefined || role === null) {
+    return err(res, 404, 'NO_SHOW_NOT_FOUND', 'common.noShow.notFound');
+  }
+  const absent = role === 'HOST' ? 'GUEST' : 'HOST';
+  const blocker =
+    t.declaration !== null
+      ? 'CANCELLATION_PENDING'
+      : role === 'GUEST' && !t.traced
+        ? 'NO_SHOW_EVIDENCE_REQUIRED'
+        : null;
+  if (req.method === 'GET') {
+    return json(res, 200, {
+      tripId: m[1],
+      viewerRole: role,
+      absentParty: absent,
+      tripStatus: 'CHECKIN_OPEN',
+      timezone: INSPECTION_TZ,
+      scheduledStart: NO_SHOW_START,
+      declarableFrom: role === 'HOST' ? '2036-12-10T13:00:00.000Z' : '2036-12-10T12:30:00.000Z',
+      declarableUntil: '2036-12-13T12:00:00.000Z',
+      canDeclare: blocker === null,
+      blocker,
+      messageTraced: t.traced,
+      declaration:
+        t.declaration === null
+          ? null
+          : {
+              id: t.declaration.id,
+              requestedReason: t.declaration.reason,
+              status: t.declaration.status,
+              requestedAt: NO_SHOW_AT,
+              mine: t.declaration.by === role,
+            },
+    });
+  }
+  if (req.method !== 'POST') return false;
+  const b = (await readBody(req)) ?? {};
+  const keys = Object.keys(b);
+  if (keys.length !== 1 || typeof b.requestId !== 'string' || !UUID_RE.test(b.requestId)) {
+    return err(res, 400, 'REQUEST_INVALID', 'common.auth.requestInvalid');
+  }
+  if (t.declaration !== null && t.declaration.id === b.requestId && t.declaration.by === role) {
+    return json(res, 200, {
+      declarationId: b.requestId,
+      requestedAt: NO_SHOW_AT,
+      status: t.declaration.status,
+    });
+  }
+  if (blocker === 'CANCELLATION_PENDING') {
+    return err(res, 409, 'CANCELLATION_PENDING', 'common.noShow.pending');
+  }
+  if (blocker === 'NO_SHOW_EVIDENCE_REQUIRED') {
+    return err(res, 409, 'NO_SHOW_EVIDENCE_REQUIRED', 'common.noShow.evidenceRequired');
+  }
+  t.declaration = {
+    id: b.requestId,
+    by: role,
+    reason: absent === 'GUEST' ? 'GUEST_NO_SHOW' : 'HOST_NO_SHOW',
+    // le signalement du voyageur attend la validation de l'ops (US-307, ADR-191)
+    status: role === 'GUEST' ? 'AWAITING_REVIEW' : 'PENDING',
+  };
+  return json(res, 200, {
+    declarationId: b.requestId,
+    requestedAt: NO_SHOW_AT,
+    status: t.declaration.status,
+  });
+}
+
 createServer(async (req, res) => {
   const url = new URL(req.url ?? '/', 'http://127.0.0.1');
   const path = url.pathname;
@@ -3178,6 +3430,7 @@ createServer(async (req, res) => {
   if ((await contractRoute(req, res, url)) !== false) return;
   if ((await inspectionRoute(req, res, url)) !== false) return;
   if ((await handoverRoute(req, res, url)) !== false) return;
+  if ((await noShowRoute(req, res, url)) !== false) return;
   if ((await constanciaRoute(req, res, url)) !== false) return;
   if (refundRoute(req, res, url) !== false) return;
   if (receiptRoute(req, res, url) !== false) return;
@@ -3185,6 +3438,7 @@ createServer(async (req, res) => {
   if (payoutsRoute(req, res, url) !== false) return;
   if ((await messagesRoute(req, res, url)) !== false) return;
   if ((await meetingsRoute(req, res, url)) !== false) return;
+  if ((await reviewsRoute(req, res, url)) !== false) return;
   if ((await helpRoute(req, res, url)) !== false) return;
   if (guestTripsRoute(req, res, url) !== false) return;
   if ((await checkoutRoute(req, res, path)) !== false) return;

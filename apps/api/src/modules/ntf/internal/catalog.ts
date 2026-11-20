@@ -157,6 +157,8 @@ export const TEMPLATE_KEYS = [
   'EVT_CATALOG_ADDITION_REJECTED',
   'EVT_TRIP_HOST_RESTRICTED',
   'EVT_TRIP_HOST_RESTRICTION_LIFTED',
+  // signalement du no-show de l'hôte par le voyageur (US-307, ADR-191) : l'hôte est prévenu
+  'EVT_TRIP_NO_SHOW_REPORTED',
   // confirmation et demandes de réservation (US-213, ADR-157)
   'EVT_BOOKING_CONFIRMED_HOST',
   'EVT_BOOKING_REQUEST_RECEIVED',
@@ -297,6 +299,16 @@ export const TEMPLATES: Readonly<Record<TemplateKey, TemplateSpec>> = {
   EVT_TRIP_HOST_RESTRICTION_LIFTED: {
     key: 'EVT_TRIP_HOST_RESTRICTION_LIFTED',
     slug: 'tripHostRestrictionLifted',
+    variables: { first_name: FIRST_NAME, brand: BRAND, booking_ref: BOOKING_REF },
+    channels: EMAIL_THEN_SMS,
+    critical: true,
+  },
+  // signalement du no-show de l'hôte par le voyageur (16 TRP-015 ; US-307, ADR-191, PROPOSÉ) :
+  // l'hôte apprend que le voyageur l'a signalé absent et que Kmino vérifie ; aucune donnée du
+  // voyageur, aucun montant ni pénalité annoncés (la décision appartient à l'ops)
+  EVT_TRIP_NO_SHOW_REPORTED: {
+    key: 'EVT_TRIP_NO_SHOW_REPORTED',
+    slug: 'tripNoShowReported',
     variables: { first_name: FIRST_NAME, brand: BRAND, booking_ref: BOOKING_REF },
     channels: EMAIL_THEN_SMS,
     critical: true,
@@ -573,6 +585,14 @@ export const RULES: readonly RuleSpec[] = [
     eventType: 'booking.trip.host_restriction_lifted',
     template: 'EVT_TRIP_HOST_RESTRICTION_LIFTED',
     recipients: [GUEST],
+  },
+  // `trip.no_show.reported` (0171, US-307, ADR-191, PROPOSÉ, à reporter dans 17 §4.5 : trip_id,
+  // absent_party, declaration_id) : le voyageur signale l'hôte absent ; parties lues en base
+  {
+    eventType: 'trip.no_show.reported',
+    template: 'EVT_TRIP_NO_SHOW_REPORTED',
+    recipients: [HOST],
+    parties: TRIP_PARTIES,
   },
   // demandes de réservation (0126, US-223c ; charges utiles : hold_id, vehicle_id, org_id, et
   // request_respond_by pour la réception) : parties du hold lues en base (US-213, ADR-157)

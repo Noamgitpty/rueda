@@ -68,9 +68,19 @@ const ISOLATED = [
   // US-708 : deux travailleurs préparent le versement du même trip, à deux sessions ; trip encaissé
   // et terminé VALIDÉ sur le compte PSP ACTIVE partagé du pays (fixture 9800), lot validé
   'test/l0/l0-us708-payout-race.test.ts',
+  // US-307 : même monde qu'US-215 (préparation et déclarations commitées, deux rôles, compte PSP
+  // ACTIVE du pays partagé, fixture 9800) ; course de deux connexions sur la même déclaration
+  'test/l0/l0-us307-no-show.test.ts',
   // US-709 : compensation contre passage en perte du même hôte à deux sessions ; créance et décision
   // FINANCE VALIDÉES, compte PSP ACTIVE partagé du pays (fixture 9800)
   'test/l0/l0-us709-ledger-race.test.ts',
+  // US-703 : deux travailleurs planifient la tentative MIT du même débit, à deux sessions ; débit
+  // VALIDÉ sur le compte PSP ACTIVE partagé du pays (fixture 9800), SUPPORTS_MIT remise inconnue
+  'test/l0/l0-us703-mit-race.test.ts',
+  // US-317 : publication des avis à l'échéance par le travailleur et courses à deux sessions
+  // (travailleurs, enregistrements simultanés) ; trips, sessions et avis commités ; le travailleur
+  // publie tous les scellés échus de la base
+  'test/l0/l0-us317-review-timer.test.ts',
 ];
 const C11 = ['test/l0/l0-c11-fuzz.test.ts'];
 // US-049 : les attaques de la red team (test/redteam/<axe>/) tournent seules, après tous les autres

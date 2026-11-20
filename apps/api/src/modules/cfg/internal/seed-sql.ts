@@ -43,6 +43,11 @@ export const POST_SEED_PARAMS: readonly {
    * commun (`deposit_*` couvre des clés de 0009). Le préfixe reste l'identifiant du groupe.
    */
   readonly extraKeys?: readonly string[];
+  /**
+   * US-703 (ADR-189) : le rendu du groupe est un BLOC d'une migration de story (numéro unique de
+   * la story), pas un fichier entier ; le test exige que le fichier contienne le rendu à l'identique.
+   */
+  readonly embedded?: boolean;
 }[] = [
   { prefix: 'rate_limit_', file: '0046_config_rate_limit_params.sql', story: 'US-052' },
   { prefix: 'otp_rate_', file: '0065_config_otp_rate_params.sql', story: 'US-104' },
@@ -169,6 +174,20 @@ export const POST_SEED_PARAMS: readonly {
     file: '0160_config_payout_account_params.sql',
     story: 'US-707',
     refs: '08 BR-PAYOUT-01 ; 16 PYO-001 ; ADR-180',
+  },
+  {
+    prefix: 'mit_consent_checkbox_required',
+    file: '0169_payment_mit_post_trip_charges.sql',
+    story: 'US-703',
+    refs: '16 PAY-015 ; 10b UX-30 ; DEC-FONDATEUR-22 ; ADR-189',
+    embedded: true,
+  },
+  {
+    prefix: 'no_show_report_review_alert_minutes',
+    file: '0171_trip_no_show_refusal.sql',
+    story: 'US-307',
+    refs: '16 TRP-015 ; 08 BR-CXL-13 ; ADR-191',
+    embedded: true,
   },
 ];
 

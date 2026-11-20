@@ -373,6 +373,29 @@ async function openTripMessages(
   await expect(page.locator('[data-testid="s16-thread"]')).toBeVisible();
 }
 
+/** S13 — avis du voyageur sur un trip rendu du double (US-317) : formulaire, double aveugle. */
+const REVIEW_TRIP = '00000000-0000-4000-8000-000000317e2e';
+async function openTripReview(
+  page: Page,
+  context: BrowserContext,
+  language: Language,
+): Promise<void> {
+  await signInGuest(context, language);
+  await page.goto(`/trips/${REVIEW_TRIP}/review`);
+  await expect(page.locator('[data-testid="review-form"]')).toBeVisible();
+}
+
+/** Avis reçus par le voyageur (US-317 ; droit d'accès, Ley 81). */
+async function openReceivedReviews(
+  page: Page,
+  context: BrowserContext,
+  language: Language,
+): Promise<void> {
+  await signInGuest(context, language);
+  await page.goto('/reviews');
+  await expect(page.locator('[data-testid="reviews-as-guest-list"]')).toBeVisible();
+}
+
 /**
  * A10 → A08 de l'hôte (US-217 partie 217b) : mois du double qui porte des gains (acquis, à
  * liquider, pénalité en ligne séparée), compte au marché à deux décimales ; US-314 : versements
@@ -456,6 +479,37 @@ async function openHandover(page: Page, context: BrowserContext): Promise<void> 
   const { tripId } = (await r.json()) as { tripId: string };
   await page.goto(`/host/trips/${tripId}/handover/checkin`);
   await expect(page.locator('[data-testid="handover-identity"]')).toBeVisible();
+}
+
+/**
+ * S09 · check-in du voyageur (US-315), validation du départ sous le rappel du consentement MIT
+ * (US-703, 16 PAY-037) : permis contrôlé par l'hôte, trip créé par le double.
+ */
+async function openGuestHandover(
+  page: Page,
+  context: BrowserContext,
+  language: Language,
+): Promise<void> {
+  await signInGuest(context, language);
+  const token = (await context.cookies()).find((c) => c.name === '__Host-session')?.value ?? '';
+  const r = await fetch(
+    `${API}/__e2e/handover/new?guest=${token}&host=&status=CHECKIN_OPEN&identity=OK`,
+  );
+  expect(r.status).toBe(200);
+  const { tripId } = (await r.json()) as { tripId: string };
+  await page.goto(`/trips/${tripId}/handover/checkin`);
+  await expect(page.locator('[data-testid="handover-mit-reminder"]')).toBeVisible();
+}
+
+/** US-307 : écran du no-show de l'hôte (message tracé, déclaration possible). */
+async function openNoShow(page: Page, context: BrowserContext): Promise<void> {
+  await signInHost(context);
+  const token = (await context.cookies()).find((c) => c.name === '__Host-session')?.value ?? '';
+  const r = await fetch(`${API}/__e2e/no-show/new?guest=&host=${token}&traced=yes`);
+  expect(r.status).toBe(200);
+  const { tripId } = (await r.json()) as { tripId: string };
+  await page.goto(`/host/trips/${tripId}/no-show`);
+  await expect(page.locator('[data-testid="no-show-form"]')).toBeVisible();
 }
 
 interface Screen {
@@ -841,11 +895,34 @@ export const SCREENS: readonly Screen[] = [
     source: 'A03, US-315',
     open: (page, context) => openHandover(page, context),
   },
+  // US-703 : départ du voyageur (S09) sous le rappel du consentement MIT
+  {
+    name: 'remise-voyageur',
+    source: 'S09 · check-in, US-315, US-703',
+    open: (page, context, language) => openGuestHandover(page, context, language),
+  },
+  // US-307 : no-show du voyageur déclaré par l'hôte (A05 · no-show)
+  {
+    name: 'no-show-hote',
+    source: 'A05, US-307',
+    open: (page, context) => openNoShow(page, context),
+  },
   // US-525 : messages du trip (S16), fil du voyageur
   {
     name: 'messages-voyage',
     source: 'S16, US-525',
     open: (page, context, language) => openTripMessages(page, context, language),
+  },
+  // US-317 : avis du voyageur (S13 : fenêtre, double aveugle, formulaire) et avis reçus
+  {
+    name: 'avis-voyage',
+    source: 'S13, US-317',
+    open: (page, context, language) => openTripReview(page, context, language),
+  },
+  {
+    name: 'avis-recus',
+    source: 'US-317 (droit d’accès)',
+    open: (page, context, language) => openReceivedReviews(page, context, language),
   },
   { name: 'vitrine-composants', source: 'US-032', open: at('/ui?width=mobile') },
 ];

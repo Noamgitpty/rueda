@@ -19,6 +19,8 @@ import { PayWebhookModule } from './modules/pay/index.js';
 import { PyoPayoutModule } from './modules/pyo/index.js';
 import type { PyoPayoutOptions } from './modules/pyo/index.js';
 import type { PayWebhookOptions } from './modules/pay/index.js';
+import { RevReviewsModule } from './modules/rev/index.js';
+import type { RevReviewsOptions } from './modules/rev/index.js';
 import { RiskHttpModule } from './modules/risk/index.js';
 import type { RiskHttpOptions } from './modules/risk/index.js';
 import {
@@ -42,7 +44,8 @@ import type { TrpInspectionOptions } from './modules/trp/index.js';
  * consentement biométrique, US-105 : sans adaptateurs KYC, magasin indisponible et aucun
  * fournisseur, fail-closed ; recherche publique, US-201 : sans adaptateurs, 503 ; checkout, devis
  * figé et pose du hold, US-208 : sans adaptateurs, 503 ; photos d'état du véhicule, US-303 : sans
- * adaptateurs, 503 ; dossier de preuve, US-308 : sans coffre ni stockage, 503).
+ * adaptateurs, 503 ; dossier de preuve, US-308 : sans coffre ni stockage, 503 ; avis réciproques,
+ * US-317 : sans adaptateurs, 503).
  */
 @Module({})
 export class ApiModule {
@@ -62,6 +65,7 @@ export class ApiModule {
     pyo?: PyoPayoutOptions,
     msg?: MsgTripMessagesOptions,
     evidence?: SupEvidenceBundleOptions,
+    rev?: RevReviewsOptions,
   ): DynamicModule {
     return {
       module: ApiModule,
@@ -89,6 +93,10 @@ export class ApiModule {
         // US-525 : messagerie par trip /trips/{tripId}/messages (après IAM : SessionGuard) ; sans
         // adaptateurs, 503
         MsgTripMessagesModule.register(msg),
+        // US-317 : avis réciproques /trips/{tripId}/reviews (SessionGuard + TermsGuard, après IAM
+        // et CTR), /reviews/received, /listings/{listingId}/host-profile (public) ; sans
+        // adaptateurs, 503
+        RevReviewsModule.register(rev),
         PayWebhookModule.register(pay),
         StaffConsoleModule.register(staff),
         SupConsoleModule.register(sup),

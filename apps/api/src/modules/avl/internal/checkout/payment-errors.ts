@@ -26,6 +26,8 @@ export const PAYMENT_MESSAGES = {
   PAYMENT_ATTEMPTS_EXCEEDED: { status: 409, messageKey: 'common.payment.attemptsExceeded' },
   HOST_PAYOUT_RAIL_UNAVAILABLE: { status: 409, messageKey: 'common.payment.payoutRailUnavailable' },
   PAYMENT_METHOD_UNAVAILABLE: { status: 422, messageKey: 'common.payment.methodUnavailable' },
+  // US-703 (ADR-189 ; 08 BR-PAY-09, 16 PAY-015) : case du consentement MIT non cochée (S05)
+  MIT_CONSENT_REQUIRED: { status: 422, messageKey: 'common.payment.mitConsentRequired' },
   QUOTE_UNAVAILABLE: { status: 422, messageKey: 'common.quote.unavailable' },
   ACCOUNT_RESTRICTED: CHECKOUT_MESSAGES.ACCOUNT_RESTRICTED,
   KYC_NOT_APPROVED: CHECKOUT_MESSAGES.KYC_NOT_APPROVED,

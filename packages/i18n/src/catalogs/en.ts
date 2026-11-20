@@ -1297,6 +1297,12 @@ export const EN_MESSAGES = {
     'Hi {first_name}. We are reviewing the account of the host of your booking {booking_ref}. Your booking is still on record and we will keep you posted. If the host cancels it, you get a full refund. Details in the app.',
   'ntf.tripHostRestricted.sms.body':
     '{brand}: we are reviewing the host account for your booking {booking_ref}. Full refund if the host cancels it. Details in the app.',
+  'ntf.tripNoShowReported.email.subject':
+    'Booking {booking_ref}: the guest says you did not show up',
+  'ntf.tripNoShowReported.email.body':
+    'Hi {first_name}. The guest on booking {booking_ref} reported that you did not show up for the handover. Kmino is checking before deciding. If you were there, write to us from the trip help in the app.',
+  'ntf.tripNoShowReported.sms.body':
+    '{brand}: the guest on booking {booking_ref} reported that you did not show up. We are checking. If you were there, write to us from the app.',
   'ntf.tripHostRestrictionLifted.email.subject': 'Booking {booking_ref}: news about your host',
   'ntf.tripHostRestrictionLifted.email.body':
     'Hi {first_name}. We have finished reviewing the account of the host of your booking {booking_ref}. Your booking stands, unchanged. Details in the app.',
@@ -2152,6 +2158,11 @@ export const EN_MESSAGES = {
   'web.s05.title': 'Confirm your booking',
   'web.s05.intro':
     'Check the trip, enter your name and accept the terms. You don’t pay anything yet.',
+  'web.s05.mitConsentNotice':
+    'By paying, I authorize post-trip charges to the card I pay with, only for trip costs, my deductible or damage, always with notice and proof.',
+  'web.s05.mitConsentRequiredHint': 'Required to book.',
+  'web.s05.mitConsent':
+    'I authorize post-trip charges to this card only for trip costs, my deductible or damage, always with notice and proof.',
   'web.s05.loading': 'Loading your booking…',
   'web.s05.error': 'We couldn’t load your booking. Try again.',
   'web.s05.notFound': 'Quote not available',
@@ -2231,6 +2242,9 @@ export const EN_MESSAGES = {
   'common.payment.attemptsExceeded':
     'You’ve reached the maximum number of payment attempts for this booking. You haven’t been charged.',
   'common.payment.methodUnavailable': 'This payment method isn’t available for this booking.',
+  'common.payment.mitRailUnavailable':
+    'Post-trip card charges aren’t available yet with our payment provider.',
+  'common.payment.mitConsentRequired': 'To book, accept post-trip charges to your card.',
   'web.s05.cta': 'Pay {amount}',
   'web.s05.pay.title': 'Pay for your booking',
   'web.s06.pre.leaving': "You'll pay {amount} on a secure page from our payment processor.",
@@ -3083,6 +3097,8 @@ export const EN_MESSAGES = {
   'web.handover.validate.HOST.checkout': 'Take the car back',
   'web.handover.validate.GUEST.checkin': 'I got the car',
   'web.handover.validate.GUEST.checkout': 'Return the car',
+  'web.handover.mitReminder':
+    'Reminder: you agreed that post-trip costs (fuel, tolls, late return, cleaning) and your share of any damage can be charged to your card, always with notice and proof. Validating confirms it.',
   'web.handover.validate.hint': 'The time that counts is the server time when you both confirm.',
   'web.handover.waiting.HOST': 'Waiting for the guest to confirm.',
   'web.handover.waiting.GUEST': 'Waiting for the host to confirm.',
@@ -3250,9 +3266,183 @@ export const EN_MESSAGES = {
     'Hi {first_name}. The return meetup for booking {booking_ref} is confirmed for {meet_at}. See the agreed place in the booking chat on {brand}.',
   'ntf.meetingReturnConfirmed.sms.body':
     '{brand}: return meetup confirmed ({booking_ref}) for {meet_at}. See the place in the app.',
+  // US-307 (ADR-191) : no-show et refus du véhicule — routes, écrans de l’hôte et du voyageur, console
+  'common.noShow.notFound': 'We can’t find this trip.',
+  'common.noShow.checkinNotOpen': 'Open the car handover first (“I’ve arrived”).',
+  'common.noShow.notAllowed': 'This trip no longer allows this report.',
+  'common.noShow.tooEarly': 'It’s too early: wait until the time shown to report it.',
+  'common.noShow.windowClosed': 'The time to report it has ended (72 hours after the start).',
+  'common.noShow.partyPresent': 'The other person did show up for the handover.',
+  'common.noShow.evidenceRequired':
+    'Message them in the trip messages and wait 15 minutes with no reply: that proves you waited.',
+  'common.noShow.pending': 'There is already a request in progress for this trip.',
+  'common.noShow.unavailable': 'We couldn’t record it. Check your connection and try again.',
+  'web.noShow.title.HOST': 'The guest didn’t show up',
+  'web.noShow.title.GUEST': 'The host didn’t show up',
+  'web.noShow.back': 'Back to the trip',
+  'web.noShow.link.HOST': 'The guest didn’t show up',
+  'web.noShow.link.GUEST': 'The host didn’t show up',
+  'web.noShow.lead.HOST': 'If the guest doesn’t show up, you can report it from {d1} until {d2}.',
+  'web.noShow.lead.GUEST': 'If the host doesn’t show up, you can tell us from {d1} until {d2}.',
+  'web.noShow.rule.HOST':
+    'First, message the guest in the trip messages and wait 15 minutes. Without that message, the guest gets the same refund, but you earn nothing for this trip.',
+  'web.noShow.rule.GUEST':
+    'Message the host in the trip messages and wait 15 minutes. Kmino checks your report and, if confirmed, refunds everything you paid.',
+  'web.noShow.traced.yes': 'Your message and the 15-minute wait are on record.',
+  'web.noShow.traced.no': 'There’s no message from you with a 15-minute wait yet.',
+  'web.noShow.messagesLink': 'Go to the trip messages',
+  'web.noShow.declare.HOST': 'Report that the guest didn’t show up',
+  'web.noShow.declare.GUEST': 'Report that the host didn’t show up',
+  'web.noShow.confirmRequired': 'Tick the box to confirm this is final.',
+  'web.noShow.status.AWAITING_REVIEW':
+    'Report recorded on {date}. Kmino checks it before any refund; the outcome will appear on this page.',
+  'web.noShow.title.against': 'No-show report',
+  'web.noShow.against.HOST':
+    'On {date}, the guest reported that you did not show up for the handover.',
+  'web.noShow.against.GUEST':
+    'On {date}, the host reported that you did not show up for the handover.',
+  'web.noShow.againstStatus.AWAITING_REVIEW':
+    'Kmino is checking it. If you were there, write to us from the trip help.',
+  'web.noShow.againstStatus.PENDING': 'Kmino is working out the outcome of the trip.',
+  'web.noShow.againstStatus.SETTLED': 'Resolved: the trip is cancelled.',
+  'web.noShow.againstStatus.FIN_REVIEW':
+    'Kmino is reviewing the outcome. It will appear on this page.',
+  'web.noShow.againstStatus.FAILED': 'The report was not upheld: the trip goes ahead as planned.',
+  'backoffice.noShow.choice.NO_SHOW_REJECT_REPORT': 'Reject the guest’s report: the host was there',
+  'backoffice.noShow.refused.NO_SHOW_REPORT_INVALIDATED':
+    'The guest’s report no longer holds (the host was present or the trip changed state). Reject it.',
+  'backoffice.noShow.refused.NO_REPORT_PENDING': 'There is no guest report to review on this trip.',
+  'backoffice.noShow.tripInvalid': 'Enter the full trip identifier.',
+  'backoffice.noShow.confirm.title': 'Confirm before recording',
+  'backoffice.noShow.confirm.trip': 'Trip: {d1}',
+  'backoffice.noShow.confirm.irreversible':
+    'This is final: the trip may be cancelled, with a refund and, depending on the case, a penalty. It cannot be undone.',
+  'backoffice.noShow.confirm.send': 'Confirm and record',
+  'backoffice.noShow.confirm.back': 'Edit',
+  'backoffice.noShow.next': 'Review',
+  'web.noShow.final': 'This is final: the trip is cancelled and Kmino works out the refund.',
+  'web.noShow.status.PENDING': 'Report recorded on {date}. Kmino is working out the refund.',
+  'web.noShow.status.SETTLED': 'Resolved: the trip is cancelled and the refund is under way.',
+  'web.noShow.status.FIN_REVIEW':
+    'Kmino is reviewing the refund. The outcome will appear on this page.',
+  'web.noShow.status.FAILED':
+    'It could not be resolved this way. If you need help, write to us from the trip help.',
+  'web.noShow.reason.GUEST_NO_SHOW': 'Reason: the guest didn’t show up.',
+  'web.noShow.reason.HOST_NO_SHOW': 'Reason: the host didn’t show up.',
+  'web.noShow.reason.other': 'Reason: another trip cancellation.',
+  'web.noShow.loadError': 'We couldn’t load this page.',
+  'web.noShow.retry': 'Try again',
+  'backoffice.noShow.heading': 'No-show and car refusal',
+  'backoffice.noShow.hint':
+    'Report a no-show or confirm a car refusal at pickup. Kmino works out the refund; never type an amount.',
+  'backoffice.noShow.subject': 'Trip',
+  'backoffice.noShow.choice.NO_SHOW_GUEST': 'The guest didn’t show up',
+  'backoffice.noShow.choice.NO_SHOW_HOST':
+    'The host didn’t show up: confirm the guest’s report or report it (attach the proof)',
+  'backoffice.noShow.choice.REFUSE_CLEANLINESS': 'Dirty car: the guest refuses it',
+  'backoffice.noShow.choice.REFUSE_SAFETY': 'Unsafe car: the guest refuses it',
+  'backoffice.noShow.choice.REFUSE_INVALID_LICENSE':
+    'Invalid licence: the host doesn’t hand over the car',
+  'backoffice.noShow.choice.REFUSE_IDENTITY_NOT_VERIFIED':
+    'Identity not verified: the host doesn’t hand over the car',
+  'backoffice.noShow.choice.REFUSE_OTHER_DRIVER_SENT':
+    'Someone else came: the host doesn’t hand over the car',
+  'backoffice.noShow.evidenceHint':
+    'Proof identifiers, separated by spaces. Without proof, a licence refusal counts as a host cancellation.',
+  'backoffice.noShow.settleNote':
+    'The refund and the host penalty are worked out next. Check their status under “Cancellations”.',
+  'backoffice.noShow.record': 'Record',
+  'backoffice.noShow.recorded': 'Request recorded. The refund is being worked out.',
+  'backoffice.noShow.refused.NO_SHOW_TOO_EARLY':
+    'Too early: the country’s waiting time isn’t over.',
+  'backoffice.noShow.refused.NO_SHOW_WINDOW_CLOSED':
+    'Deadline passed: more than 72 hours since the start.',
+  'backoffice.noShow.refused.NO_SHOW_PARTY_PRESENT': 'That person did show up for the handover.',
+  'backoffice.noShow.refused.NO_SHOW_PARTY_REQUIRED': 'Choose who didn’t show up.',
+  'backoffice.noShow.refused.REFUSAL_REASON_REQUIRED': 'Choose the refusal reason.',
+  'backoffice.noShow.refused.REFUSAL_AFTER_CHECKIN':
+    'The guest already confirmed the handover: open an incident.',
+  'backoffice.noShow.refused.CHECKIN_NOT_OPEN': 'The handover isn’t open yet.',
+  'backoffice.noShow.refused.TRIP_TRANSITION_FORBIDDEN': 'The trip’s status no longer allows it.',
+  'backoffice.noShow.refused.CANCELLATION_PENDING':
+    'There is already a request in progress for this trip.',
+  'backoffice.noShow.refused.SELF_FORBIDDEN': 'You can’t act on your own trip.',
+  'backoffice.noShow.refused.NOT_FOUND': 'We can’t find this trip.',
   'ntf.tripAtRiskHost.email.subject': 'Booking {booking_ref}: the car is not back yet',
   'ntf.tripAtRiskHost.email.body':
     'Hi {first_name}. Your booking {booking_ref} starts on {start_at}, but the previous trip with this car has not ended: the return is late. Our team will contact you about the options with the guest. You can message us from the booking in the app.',
   'ntf.tripAtRiskHost.sms.body':
     '{brand}: the car for booking {booking_ref} ({start_at}) has not been returned from the previous trip yet. We will contact you.',
+  'common.reviews.trip': 'Trip reviews.',
+  'common.reviews.submitted': 'Review sent.',
+  'common.reviews.received': 'Reviews received.',
+  'common.reviews.hostProfile': 'Host profile.',
+  'common.reviews.alreadySubmitted': 'You already reviewed this trip. A review can’t be changed.',
+  'common.reviews.notOpen': 'You can leave a review once the car’s return is recorded.',
+  'common.reviews.windowClosed': 'The review period for this trip has ended.',
+  'common.reviews.textRequired':
+    'With 3 stars or fewer, tell us what happened in at least 25 characters.',
+  'common.reviews.invalid': 'Check the rating and the text (1,000 characters at most).',
+  'common.reviews.unavailable': 'Reviews aren’t available right now. Try again in a few minutes.',
+  'web.review.until': 'You can leave a review until {date}',
+  'web.review.blind': {
+    one: "{name} won't see your review until you've both reviewed or until {count} day after the trip ends",
+    other:
+      "{name} won't see your review until you've both reviewed or until {count} days after the trip ends",
+  },
+  'web.review.closed': 'The review period ended on {date}.',
+  'web.review.back': 'Back to the trip',
+  'web.review.heading.guest': 'Review your trip',
+  'web.review.heading.host': 'Review your guest',
+  'web.review.with': 'Trip with {name}',
+  'web.review.withUnknown': 'Trip',
+  'web.review.overall': 'Overall rating',
+  'web.review.stars': { one: '{count} star', other: '{count} stars' },
+  'web.review.subScores': 'Details (optional)',
+  'web.review.sub.cleanliness': 'Cleanliness',
+  'web.review.sub.communication': 'Communication',
+  'web.review.sub.convenience': 'Convenience',
+  'web.review.sub.accuracy': 'Listing accuracy',
+  'web.review.sub.maintenance': 'Maintenance',
+  'web.review.sub.punctuality': 'Punctuality',
+  'web.review.sub.returnCondition': 'Condition at return',
+  'web.review.sub.rulesRespect': 'Respect for the rules',
+  'web.review.noScore': 'No rating',
+  'web.review.text': 'Your review',
+  'web.review.textHint':
+    'Required with 3 stars or fewer (at least 25 characters). It’s published with your first name; don’t include phone numbers or emails.',
+  'web.review.final': 'Once sent, your review can’t be changed.',
+  'web.review.public.guest':
+    'Your review will be public on the guest’s profile, and they’ll be able to read it.',
+  'web.review.public.host': 'Your review will be public on the listing and on the host’s profile.',
+  'web.review.submit': 'Send review',
+  'web.review.mine': 'Your review',
+  'web.review.status.SUBMITTED':
+    'Saved: it will be published once you’ve both reviewed or the period ends.',
+  'web.review.status.PUBLISHED': 'Published',
+  'web.review.done.SUBMITTED': 'Done. Your review is saved.',
+  'web.review.done.PUBLISHED': 'Done. Both reviews are now published.',
+  'web.review.masked': 'We hid contact details that were in your text.',
+  'web.review.published': 'Published reviews',
+  'web.review.publishedEmpty': 'No reviews have been published for this trip yet.',
+  'web.review.author.GUEST': 'Guest',
+  'web.review.author.HOST': 'Host',
+  'web.review.guestProfile': 'Hosts’ reviews of {name}',
+  'web.review.guestProfileEmpty': 'No reviews from hosts yet.',
+  'web.review.loadError': 'We couldn’t load the reviews.',
+  'web.review.retry': 'Try again',
+  'web.review.link': 'Review the trip',
+  'web.reviews.received.title': 'Reviews about you',
+  'web.reviews.received.intro':
+    'Here you can see every published review about you, with the first name of who wrote it.',
+  'web.reviews.received.asGuest': 'As a guest',
+  'web.reviews.received.asHost': 'As a host',
+  'web.reviews.received.empty': 'No reviews about you have been published yet.',
+  'web.reviews.count': { one: '{count} review', other: '{count} reviews' },
+  'web.reviews.link': 'Reviews about you',
+  'web.a13.title': 'Your public profile',
+  'web.a13.preview': 'This is how guests see you on your listings.',
+  'web.a13.reviews': 'Reviews received',
+  'web.a13.link': 'Your public profile',
+  'web.listing.hostReviews': 'Reviews of {name}',
 } as const satisfies Readonly<Record<MessageKey, Message>>;

@@ -1335,6 +1335,11 @@ export const PT_MESSAGES = {
     'Olá, {first_name}. Estamos analisando a conta do anfitrião da sua reserva {booking_ref}. Sua reserva continua registrada e vamos manter você informado. Se o anfitrião cancelar, você recebe o reembolso integral. Detalhes no app.',
   'ntf.tripHostRestricted.sms.body':
     '{brand}: estamos analisando a conta do anfitrião da sua reserva {booking_ref}. Reembolso integral se o anfitrião cancelar. Detalhes no app.',
+  'ntf.tripNoShowReported.email.subject': 'Reserva {booking_ref}: o viajante relatou sua ausência',
+  'ntf.tripNoShowReported.email.body':
+    'Olá, {first_name}. O viajante da reserva {booking_ref} informou que você não compareceu à entrega. A Kmino está verificando antes de decidir. Se você estava lá, escreva para nós pela ajuda da viagem no app.',
+  'ntf.tripNoShowReported.sms.body':
+    '{brand}: o viajante da reserva {booking_ref} informou que você não apareceu. Estamos verificando. Se você estava lá, escreva pelo app.',
   'ntf.tripHostRestrictionLifted.email.subject':
     'Reserva {booking_ref}: novidade sobre seu anfitrião',
   'ntf.tripHostRestrictionLifted.email.body':
@@ -2220,6 +2225,11 @@ export const PT_MESSAGES = {
   'web.s05.title': 'Confirme sua reserva',
   'web.s05.intro':
     'Confira a viagem, digite seu nome e aceite as condições. Você ainda não paga nada.',
+  'web.s05.mitConsentNotice':
+    'Ao pagar, autorizo cobranças depois da viagem no cartão com que eu pagar, apenas por despesas da viagem, minha franquia ou danos, sempre com aviso e comprovação.',
+  'web.s05.mitConsentRequiredHint': 'Obrigatório para reservar.',
+  'web.s05.mitConsent':
+    'Autorizo cobranças depois da viagem neste cartão apenas por despesas da viagem, minha franquia ou danos, sempre com aviso e comprovação.',
   'web.s05.loading': 'Carregando sua reserva…',
   'web.s05.error': 'Não conseguimos carregar sua reserva. Tente de novo.',
   'web.s05.notFound': 'Orçamento indisponível',
@@ -2301,6 +2311,10 @@ export const PT_MESSAGES = {
     'Você atingiu o número máximo de tentativas de pagamento desta reserva. Nada foi cobrado.',
   'common.payment.methodUnavailable':
     'Este meio de pagamento não está disponível para esta reserva.',
+  'common.payment.mitRailUnavailable':
+    'As cobranças no cartão depois da viagem ainda não estão disponíveis com nosso provedor de pagamento.',
+  'common.payment.mitConsentRequired':
+    'Para reservar, aceite as cobranças após a viagem no seu cartão.',
   'web.s05.cta': 'Pagar {amount}',
   'web.s05.pay.title': 'Pague sua reserva',
   'web.s06.pre.leaving':
@@ -3169,6 +3183,8 @@ export const PT_MESSAGES = {
   'web.handover.validate.HOST.checkout': 'Receber o carro',
   'web.handover.validate.GUEST.checkin': 'Recebi o carro',
   'web.handover.validate.GUEST.checkout': 'Devolver o carro',
+  'web.handover.mitReminder':
+    'Lembrete: você aceitou que custos após a viagem (combustível, pedágios, atraso, limpeza) e sua parte de um dano sejam cobrados no seu cartão, sempre com aviso e comprovação. Ao validar, você confirma.',
   'web.handover.validate.hint': 'O horário que vale é o do servidor quando vocês dois confirmam.',
   'web.handover.waiting.HOST': 'Aguardando a confirmação do viajante.',
   'web.handover.waiting.GUEST': 'Aguardando a confirmação do anfitrião.',
@@ -3338,9 +3354,187 @@ export const PT_MESSAGES = {
     'Olá, {first_name}. O encontro para a devolução da reserva {booking_ref} está confirmado para {meet_at}. O local combinado está nas mensagens da reserva no {brand}.',
   'ntf.meetingReturnConfirmed.sms.body':
     '{brand}: encontro para a devolução confirmado ({booking_ref}) em {meet_at}. Local nas mensagens do app.',
+  // US-307 (ADR-191) : no-show et refus du véhicule — routes, écrans de l’hôte et du voyageur, console
+  'common.noShow.notFound': 'Não encontramos esta viagem.',
+  'common.noShow.checkinNotOpen': 'Abra primeiro a entrega do carro (“Cheguei”).',
+  'common.noShow.notAllowed': 'Esta viagem não permite mais esta declaração.',
+  'common.noShow.tooEarly': 'Ainda é cedo: espere o horário indicado para declarar.',
+  'common.noShow.windowClosed': 'O prazo para declarar terminou (72 horas após o início).',
+  'common.noShow.partyPresent': 'A outra pessoa compareceu à entrega.',
+  'common.noShow.evidenceRequired':
+    'Escreva nas mensagens da viagem e espere 15 minutos sem resposta: é a prova da sua espera.',
+  'common.noShow.pending': 'Já existe uma solicitação em andamento para esta viagem.',
+  'common.noShow.unavailable': 'Não conseguimos registrar. Verifique sua conexão e tente de novo.',
+  'web.noShow.title.HOST': 'O viajante não apareceu',
+  'web.noShow.title.GUEST': 'O anfitrião não apareceu',
+  'web.noShow.back': 'Voltar à viagem',
+  'web.noShow.link.HOST': 'O viajante não apareceu',
+  'web.noShow.link.GUEST': 'O anfitrião não apareceu',
+  'web.noShow.lead.HOST': 'Se o viajante não aparecer, você pode declarar de {d1} até {d2}.',
+  'web.noShow.lead.GUEST': 'Se o anfitrião não aparecer, você pode nos avisar de {d1} até {d2}.',
+  'web.noShow.rule.HOST':
+    'Antes, escreva nas mensagens da viagem e espere 15 minutos. Sem essa mensagem, o viajante recebe o mesmo reembolso, mas você não recebe ganhos por esta viagem.',
+  'web.noShow.rule.GUEST':
+    'Escreva nas mensagens da viagem e espere 15 minutos. A Kmino verifica seu aviso e, se confirmado, devolve tudo o que você pagou.',
+  'web.noShow.traced.yes': 'Sua mensagem e a espera de 15 minutos foram registradas.',
+  'web.noShow.traced.no': 'Ainda não há uma mensagem sua com 15 minutos de espera.',
+  'web.noShow.messagesLink': 'Ir para as mensagens da viagem',
+  'web.noShow.declare.HOST': 'Declarar que o viajante não apareceu',
+  'web.noShow.declare.GUEST': 'Avisar que o anfitrião não apareceu',
+  'web.noShow.confirmRequired': 'Selecione a caixa para confirmar que a decisão é definitiva.',
+  'web.noShow.status.AWAITING_REVIEW':
+    'Aviso registrado em {date}. A Kmino verifica antes de qualquer reembolso; o resultado aparecerá nesta página.',
+  'web.noShow.title.against': 'Aviso de não comparecimento',
+  'web.noShow.against.HOST': 'Em {date}, o viajante informou que você não compareceu à entrega.',
+  'web.noShow.against.GUEST': 'Em {date}, o anfitrião declarou que você não compareceu à entrega.',
+  'web.noShow.againstStatus.AWAITING_REVIEW':
+    'A Kmino está verificando. Se você estava lá, escreva pela ajuda da viagem.',
+  'web.noShow.againstStatus.PENDING': 'A Kmino está calculando o resultado da viagem.',
+  'web.noShow.againstStatus.SETTLED': 'Resolvido: a viagem está cancelada.',
+  'web.noShow.againstStatus.FIN_REVIEW':
+    'A Kmino está revisando o resultado. Ele aparecerá nesta página.',
+  'web.noShow.againstStatus.FAILED': 'O aviso não foi mantido: a viagem segue como previsto.',
+  'backoffice.noShow.choice.NO_SHOW_REJECT_REPORT':
+    'Rejeitar o aviso do viajante: o anfitrião estava lá',
+  'backoffice.noShow.refused.NO_SHOW_REPORT_INVALIDATED':
+    'O aviso do viajante não se sustenta mais (o anfitrião estava presente ou a viagem mudou de estado). Rejeite-o.',
+  'backoffice.noShow.refused.NO_REPORT_PENDING':
+    'Não há nenhum aviso do viajante para revisar nesta viagem.',
+  'backoffice.noShow.tripInvalid': 'Digite o identificador completo da viagem.',
+  'backoffice.noShow.confirm.title': 'Confirme antes de registrar',
+  'backoffice.noShow.confirm.trip': 'Viagem: {d1}',
+  'backoffice.noShow.confirm.irreversible':
+    'É definitivo: a viagem pode ser cancelada, com reembolso e, conforme o caso, uma penalidade. Não pode ser desfeito.',
+  'backoffice.noShow.confirm.send': 'Confirmar e registrar',
+  'backoffice.noShow.confirm.back': 'Corrigir',
+  'backoffice.noShow.next': 'Revisar',
+  'web.noShow.final':
+    'É uma decisão definitiva: a viagem é cancelada e a Kmino calcula o reembolso.',
+  'web.noShow.status.PENDING':
+    'Declaração registrada em {date}. A Kmino está calculando o reembolso.',
+  'web.noShow.status.SETTLED':
+    'Resolvido: a viagem está cancelada e o reembolso está em andamento.',
+  'web.noShow.status.FIN_REVIEW':
+    'A Kmino está revisando o reembolso. O resultado aparecerá nesta página.',
+  'web.noShow.status.FAILED':
+    'Não foi possível resolver assim. Se precisar de ajuda, escreva pela ajuda da viagem.',
+  'web.noShow.reason.GUEST_NO_SHOW': 'Motivo: o viajante não apareceu.',
+  'web.noShow.reason.HOST_NO_SHOW': 'Motivo: o anfitrião não apareceu.',
+  'web.noShow.reason.other': 'Motivo: outro cancelamento da viagem.',
+  'web.noShow.loadError': 'Não conseguimos carregar esta página.',
+  'web.noShow.retry': 'Tentar de novo',
+  'backoffice.noShow.heading': 'Não comparecimento e recusa do carro',
+  'backoffice.noShow.hint':
+    'Registre um não comparecimento ou valide uma recusa do carro na entrega. A Kmino calcula o reembolso; nunca digite um valor.',
+  'backoffice.noShow.subject': 'Viagem',
+  'backoffice.noShow.choice.NO_SHOW_GUEST': 'O viajante não apareceu',
+  'backoffice.noShow.choice.NO_SHOW_HOST':
+    'O anfitrião não apareceu: validar o aviso do viajante ou declará-lo (anexe a prova)',
+  'backoffice.noShow.choice.REFUSE_CLEANLINESS': 'Carro sujo: o viajante recusa',
+  'backoffice.noShow.choice.REFUSE_SAFETY': 'Carro perigoso: o viajante recusa',
+  'backoffice.noShow.choice.REFUSE_INVALID_LICENSE':
+    'Carteira inválida: o anfitrião não entrega o carro',
+  'backoffice.noShow.choice.REFUSE_IDENTITY_NOT_VERIFIED':
+    'Identidade não verificada: o anfitrião não entrega o carro',
+  'backoffice.noShow.choice.REFUSE_OTHER_DRIVER_SENT':
+    'Veio outra pessoa: o anfitrião não entrega o carro',
+  'backoffice.noShow.evidenceHint':
+    'Identificadores das provas, separados por espaços. Sem prova, uma recusa por carteira conta como cancelamento do anfitrião.',
+  'backoffice.noShow.settleNote':
+    'O reembolso e a penalidade do anfitrião são calculados depois. Acompanhe em “Cancelamentos”.',
+  'backoffice.noShow.record': 'Registrar',
+  'backoffice.noShow.recorded': 'Solicitação registrada. O reembolso está sendo calculado.',
+  'backoffice.noShow.refused.NO_SHOW_TOO_EARLY':
+    'Cedo demais: o tempo de espera ainda não terminou.',
+  'backoffice.noShow.refused.NO_SHOW_WINDOW_CLOSED':
+    'Prazo vencido: mais de 72 horas desde o início.',
+  'backoffice.noShow.refused.NO_SHOW_PARTY_PRESENT': 'Essa pessoa compareceu à entrega.',
+  'backoffice.noShow.refused.NO_SHOW_PARTY_REQUIRED': 'Escolha quem não apareceu.',
+  'backoffice.noShow.refused.REFUSAL_REASON_REQUIRED': 'Escolha o motivo da recusa.',
+  'backoffice.noShow.refused.REFUSAL_AFTER_CHECKIN':
+    'O viajante já validou a entrega: abra um incidente.',
+  'backoffice.noShow.refused.CHECKIN_NOT_OPEN': 'A entrega ainda não está aberta.',
+  'backoffice.noShow.refused.TRIP_TRANSITION_FORBIDDEN': 'O estado da viagem não permite mais.',
+  'backoffice.noShow.refused.CANCELLATION_PENDING':
+    'Já existe uma solicitação em andamento para esta viagem.',
+  'backoffice.noShow.refused.SELF_FORBIDDEN': 'Você não pode agir sobre uma viagem sua.',
+  'backoffice.noShow.refused.NOT_FOUND': 'Não encontramos esta viagem.',
   'ntf.tripAtRiskHost.email.subject': 'Reserva {booking_ref}: o carro ainda não voltou',
   'ntf.tripAtRiskHost.email.body':
     'Olá, {first_name}. Sua reserva {booking_ref} começa em {start_at}, mas a viagem anterior com este carro ainda não terminou: a devolução está atrasada. Nossa equipe vai entrar em contato para ver as opções com o viajante. Você pode nos escrever pela reserva no app.',
   'ntf.tripAtRiskHost.sms.body':
     '{brand}: o carro da reserva {booking_ref} ({start_at}) ainda não foi devolvido pela viagem anterior. Vamos entrar em contato.',
+  'common.reviews.trip': 'Avaliações da viagem.',
+  'common.reviews.submitted': 'Avaliação enviada.',
+  'common.reviews.received': 'Avaliações recebidas.',
+  'common.reviews.hostProfile': 'Perfil do anfitrião.',
+  'common.reviews.alreadySubmitted':
+    'Você já avaliou esta viagem. Uma avaliação não pode ser alterada.',
+  'common.reviews.notOpen': 'Você poderá avaliar quando a devolução do carro for registrada.',
+  'common.reviews.windowClosed': 'O prazo para avaliar esta viagem terminou.',
+  'common.reviews.textRequired':
+    'Com 3 estrelas ou menos, conte o que aconteceu em pelo menos 25 caracteres.',
+  'common.reviews.invalid': 'Confira a nota e o texto (no máximo 1.000 caracteres).',
+  'common.reviews.unavailable':
+    'As avaliações não estão disponíveis agora. Tente de novo em alguns minutos.',
+  'web.review.until': 'Você pode avaliar até {date}',
+  'web.review.blind': {
+    one: '{name} não verá sua avaliação até que vocês dois avaliem ou até {count} dia depois do fim da viagem',
+    other:
+      '{name} não verá sua avaliação até que vocês dois avaliem ou até {count} dias depois do fim da viagem',
+  },
+  'web.review.closed': 'O prazo para avaliar terminou em {date}.',
+  'web.review.back': 'Voltar à viagem',
+  'web.review.heading.guest': 'Avalie sua viagem',
+  'web.review.heading.host': 'Avalie o viajante',
+  'web.review.with': 'Viagem com {name}',
+  'web.review.withUnknown': 'Viagem',
+  'web.review.overall': 'Nota geral',
+  'web.review.stars': { one: '{count} estrela', other: '{count} estrelas' },
+  'web.review.subScores': 'Detalhes (opcional)',
+  'web.review.sub.cleanliness': 'Limpeza',
+  'web.review.sub.communication': 'Comunicação',
+  'web.review.sub.convenience': 'Praticidade',
+  'web.review.sub.accuracy': 'Precisão do anúncio',
+  'web.review.sub.maintenance': 'Manutenção',
+  'web.review.sub.punctuality': 'Pontualidade',
+  'web.review.sub.returnCondition': 'Condição na devolução',
+  'web.review.sub.rulesRespect': 'Respeito às regras',
+  'web.review.noScore': 'Sem nota',
+  'web.review.text': 'Sua avaliação',
+  'web.review.textHint':
+    'Obrigatória com 3 estrelas ou menos (pelo menos 25 caracteres). É publicada com seu primeiro nome; não inclua telefones nem e-mails.',
+  'web.review.final': 'Depois de enviada, sua avaliação não pode ser alterada.',
+  'web.review.public.guest': 'Sua avaliação será pública no perfil do viajante, que poderá lê-la.',
+  'web.review.public.host': 'Sua avaliação será pública no anúncio e no perfil do anfitrião.',
+  'web.review.submit': 'Enviar avaliação',
+  'web.review.mine': 'Sua avaliação',
+  'web.review.status.SUBMITTED':
+    'Salva: será publicada quando vocês dois avaliarem ou o prazo terminar.',
+  'web.review.status.PUBLISHED': 'Publicada',
+  'web.review.done.SUBMITTED': 'Pronto. Sua avaliação foi salva.',
+  'web.review.done.PUBLISHED': 'Pronto. As duas avaliações já estão publicadas.',
+  'web.review.masked': 'Ocultamos dados de contato que estavam no seu texto.',
+  'web.review.published': 'Avaliações publicadas',
+  'web.review.publishedEmpty': 'Ainda não há avaliações publicadas desta viagem.',
+  'web.review.author.GUEST': 'Viajante',
+  'web.review.author.HOST': 'Anfitrião',
+  'web.review.guestProfile': 'Avaliações de anfitriões sobre {name}',
+  'web.review.guestProfileEmpty': 'Ainda não tem avaliações de anfitriões.',
+  'web.review.loadError': 'Não conseguimos carregar as avaliações.',
+  'web.review.retry': 'Tentar de novo',
+  'web.review.link': 'Avaliar a viagem',
+  'web.reviews.received.title': 'Avaliações sobre você',
+  'web.reviews.received.intro':
+    'Aqui você vê todas as avaliações publicadas sobre você, com o primeiro nome de quem as escreveu.',
+  'web.reviews.received.asGuest': 'Como viajante',
+  'web.reviews.received.asHost': 'Como anfitrião',
+  'web.reviews.received.empty': 'Ainda não há avaliações publicadas sobre você.',
+  'web.reviews.count': { one: '{count} avaliação', other: '{count} avaliações' },
+  'web.reviews.link': 'Avaliações sobre você',
+  'web.a13.title': 'Seu perfil público',
+  'web.a13.preview': 'É assim que os viajantes veem você nos seus anúncios.',
+  'web.a13.reviews': 'Avaliações recebidas',
+  'web.a13.link': 'Seu perfil público',
+  'web.listing.hostReviews': 'Avaliações sobre {name}',
 } as const satisfies Readonly<Record<MessageKey, Message>>;

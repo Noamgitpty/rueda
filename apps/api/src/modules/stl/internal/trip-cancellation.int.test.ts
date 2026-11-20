@@ -97,13 +97,18 @@ interface World {
 }
 
 /** Trip neuf du vecteur, capturé par les jambes `capture` (webhook signé, report). VALIDÉ. */
-async function world(vector: string, capture: string): Promise<World> {
+async function world(
+  vector: string,
+  capture: string,
+  shiftMs = 0,
+  checkinOpen = false,
+): Promise<World> {
   const v = settlementVector(golden, vector);
   const c = countryCases().find((x) => x.currency === v.currency);
   if (c === undefined) throw new Error(`aucun pays en ${v.currency}`);
   const at = v.event.requestedAtMinutes;
   if (at === undefined) throw new Error(`${vector} : instant de demande absent`);
-  const startAtMs = REQUESTED_AT_MS - at * MINUTE;
+  const startAtMs = REQUESTED_AT_MS + shiftMs - at * MINUTE;
   const bookedAtMs = startAtMs + v.trip.bookedAtMinutes * MINUTE;
   const legs = legVector(golden, capture).legsMinor;
   const trip = randomUUID();
@@ -153,12 +158,25 @@ async function world(vector: string, capture: string): Promise<World> {
     [operation, raw.rows[0]?.id],
   );
   await w.query('SELECT core.settlement_cmd_apply_leg_movement($1)', [operation]);
+  if (checkinOpen) {
+    // US-307 : remise ouverte (un no-show ne se déclare qu'en CHECKIN_OPEN ou START_WINDOW_EXPIRED)
+    await w.query(`SELECT pg_catalog.set_config('app.worker_name', 'trip_lifecycle', true)`);
+    await w.query(
+      `SELECT core.booking_cmd_trip_transition($1, 'CHECKIN_OPEN', 'CHECKIN_WINDOW_OPENED', NULL)`,
+      [trip],
+    );
+  }
   await w.query('COMMIT');
   return { trip, capture: operation, country: c.country };
 }
 
 /** Demande de la console (CANCEL_TRIP_GUEST) d'un agent OPS du pays, à l'instant virtuel. */
-async function request(w: World): Promise<string> {
+async function request(
+  w: World,
+  action = 'CANCEL_TRIP_GUEST',
+  input: Record<string, unknown> = {},
+  shiftMs = 0,
+): Promise<string> {
   const api = await open('app_api');
   const userId = randomUUID();
   const reg = await api.query<{ ok: boolean }>(
@@ -182,7 +200,7 @@ async function request(w: World): Promise<string> {
   );
   await api.query('BEGIN');
   await api.query(`SELECT pg_catalog.set_config('app.virtual_now', $1, true)`, [
-    iso(REQUESTED_AT_MS),
+    iso(REQUESTED_AT_MS + shiftMs),
   ]);
   const hash = createHash('sha256').update(randomBytes(32)).digest();
   await api.query('SELECT test_fixture.iam_open_elevated_session($1, $2)', [userId, hash]);
@@ -194,9 +212,8 @@ async function request(w: World): Promise<string> {
   });
   const { rows } = await api.query<{ outcome: string; domain_ref: string | null }>(
     `SELECT outcome, domain_ref
-       FROM core.iam_staff_cmd_manual_action($1, $2, 'CANCEL_TRIP_GUEST', $3, $4, '{}'::jsonb,
-                                             '{}'::uuid[])`,
-    [hash, randomUUID(), w.trip, 'Demande du support, motif de test'],
+       FROM core.iam_staff_cmd_manual_action($1, $2, $3, $4, $5, $6::jsonb, '{}'::uuid[])`,
+    [hash, randomUUID(), action, w.trip, 'Demande du support, motif de test', input],
   );
   await api.query('COMMIT');
   expect(rows[0]?.outcome).toBe('DONE');
@@ -293,5 +310,62 @@ describe('US-215 — processeur de production sur base réelle', () => {
     const tj08b = legVector(golden, 'TJ08b').legsMinor;
     expect(o.variation).toEqual({ ...tj08b });
     expect(o.refund).toEqual(negate({ ...tj08b }));
+  });
+});
+
+/**
+ * US-307 (ADR-191) — no-show du voyageur déclaré par l'ops (`DECLARE_NO_SHOW`, absentParty GUEST)
+ * à T+72 h sans message de l'hôte tracé (T39, hôte inéligible) : le VRAI processeur lit
+ * `hostMessageTraced` en base, garde la réaffectation par `SUPPORTS_PAYOUT_ADJUSTMENT` (capacité
+ * VALIDÉE dans une fenêtre virtuelle propre à ce fichier, 2032), écrit la réaffectation puis le
+ * remboursement ; capacité non validée (ligne plus récente `UNKNOWN`) ⇒ FIN_REVIEW, rien d'écrit.
+ * Attendus : TJ05b de l'export ; 08 E7 (note de TJ05b) : 18,53 réaffectés, 112,72 + 25,50 remboursés.
+ */
+async function setCapability(country: string, status: string, validFromMs: number): Promise<void> {
+  const w = await open('app_worker');
+  await w.query(
+    `SELECT test_fixture.us024_set_capability('FAKE', $1, 'CARD', 'SUPPORTS_PAYOUT_ADJUSTMENT',
+                                              'true'::jsonb, $2, $3::timestamptz)`,
+    [country, status, iso(validFromMs)],
+  );
+}
+
+describe('US-307 — no-show déclaré, processeur de production', () => {
+  it('T39 (devise à deux décimales) : capacité validée ⇒ réglée, variation TJ05b, réaffectation HOST → PLATFORM puis remboursement', async () => {
+    const w = await world('T39', 'TJ01', 0, true);
+    await setCapability(w.country, 'VALIDATED_SANDBOX', REQUESTED_AT_MS - 60 * MINUTE);
+    const id = await request(w, 'DECLARE_NO_SHOW', { absentParty: 'GUEST' });
+    const alerts = new Alerts();
+    const p = new TripCancellationProcessor({
+      transactions: committing(REQUESTED_AT_MS + MINUTE),
+      alerts,
+      tripOf: tripOf('T39'),
+    });
+    expect(await p.process(id)).toEqual({ outcome: 'SETTLED', costBearer: 'GUEST', orders: 2 });
+    expect(alerts.sent).toEqual([]);
+    const o = await observe(id, w.trip);
+    expect(o.variation).toEqual({ ...legVector(golden, 'TJ05b').legsMinor });
+    expect(o.refund).toEqual({ HOST: 11272n, INSURER: 2550n, TAX_THIRD_PARTY: 0n, PLATFORM: 0n });
+  });
+
+  it('T39 (devise à deux décimales) : capacité non validée ⇒ FIN_REVIEW (LEG_REALLOCATION_UNSUPPORTED), alerte FIN, aucun ordre', async () => {
+    const day = 24 * 60 * MINUTE;
+    const w = await world('T39', 'TJ01', day, true);
+    await setCapability(w.country, 'UNKNOWN', REQUESTED_AT_MS + day - 60 * MINUTE);
+    const id = await request(w, 'DECLARE_NO_SHOW', { absentParty: 'GUEST' }, day);
+    const alerts = new Alerts();
+    const p = new TripCancellationProcessor({
+      transactions: committing(REQUESTED_AT_MS + day + MINUTE),
+      alerts,
+      tripOf: tripOf('T39'),
+    });
+    expect(await p.process(id)).toEqual({
+      outcome: 'FIN_REVIEW',
+      code: 'LEG_REALLOCATION_UNSUPPORTED',
+    });
+    expect(alerts.sent.map((a) => a.code)).toEqual(['FIN_SETTLEMENT_REVIEW']);
+    const o = await observe(id, w.trip);
+    expect(o.row).toMatchObject({ status: 'FIN_REVIEW', settlement_id: null });
+    expect(o.refund).toEqual({});
   });
 });

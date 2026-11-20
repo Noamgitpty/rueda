@@ -1697,6 +1697,212 @@
         "decision_executed_at": "C1"
       }
     },
+    "core.payment_payment_instrument": {
+      "lifecycle": "B",
+      "subjects": [
+        {
+          "column": "user_id",
+          "type": "USER"
+        }
+      ],
+      "export": "controller",
+      "columns": {
+        "id": "C1",
+        "user_id": "C1",
+        "psp_account_id": "C1",
+        "country_code": "C1",
+        "token_ref": {
+          "class": "C4"
+        },
+        "network": "C1",
+        "funding": "C1",
+        "last4": {
+          "class": "C2",
+          "erasure": "pseudonymisation"
+        },
+        "exp_month": {
+          "class": "C2",
+          "erasure": "pseudonymisation"
+        },
+        "exp_year": {
+          "class": "C2",
+          "erasure": "pseudonymisation"
+        },
+        "status": "C1",
+        "replaced_at": "C1",
+        "created_at": "C1",
+        "updated_at": "C1"
+      }
+    },
+    "core.payment_mit_consent": {
+      "lifecycle": "A",
+      "subjects": [
+        {
+          "column": "user_id",
+          "type": "USER"
+        }
+      ],
+      "export": "controller",
+      "columns": {
+        "id": "C1",
+        "user_id": "C1",
+        "hold_id": "C1",
+        "trip_id": "C1",
+        "instrument_id": "C1",
+        "scopes": "C1",
+        "consent_key": "C1",
+        "catalog_version": "C1",
+        "locale": "C1",
+        "accepted_at": "C1",
+        "bound_at": "C1",
+        "network_tx_reference": "C1",
+        "transaction_link_id": "C1"
+      }
+    },
+    "core.payment_mit_consent_reminder": {
+      "lifecycle": "A",
+      "subjects": [
+        {
+          "column": "user_id",
+          "type": "USER"
+        }
+      ],
+      "export": "controller",
+      "columns": {
+        "trip_id": "C1",
+        "consent_id": "C1",
+        "user_id": "C1",
+        "catalog_version": "C1",
+        "locale": "C1",
+        "acknowledged_at": "C1"
+      }
+    },
+    "core.payment_mit_network_rule": {
+      "lifecycle": "C",
+      "export": "none",
+      "columns": {
+        "country_code": "C1",
+        "network": "C1",
+        "reason": "C1",
+        "version": "C1",
+        "notice_hours": "C1",
+        "deadline_days": "C1",
+        "deadline_from": "C1",
+        "retry_offsets_days": "C1",
+        "source_ref": "C1",
+        "created_at": "C1"
+      }
+    },
+    "core.payment_post_trip_charge": {
+      "lifecycle": "B",
+      "subjects": [
+        {
+          "column": "user_id",
+          "type": "USER"
+        }
+      ],
+      "export": "controller",
+      "columns": {
+        "id": "C1",
+        "trip_id": "C1",
+        "user_id": "C1",
+        "country_code": "C1",
+        "currency": "C1",
+        "purpose": "C1",
+        "reason": "C1",
+        "origin_type": "C1",
+        "origin_id": "C1",
+        "settlement_version": "C1",
+        "tender_operation_id": "C1",
+        "psp_account_id": "C1",
+        "amount_minor": "C1",
+        "leg_host_minor": "C1",
+        "leg_insurer_minor": "C1",
+        "leg_tax_third_party_minor": "C1",
+        "leg_platform_minor": "C1",
+        "notified_at": "C1",
+        "guest_agreed_at": "C1",
+        "status": "C1",
+        "next_check_at": "C1",
+        "network": "C1",
+        "first_attempt_at": "C1",
+        "attempt_no": "C1",
+        "outcome_code": "C1",
+        "leg_reported": "C1",
+        "created_at": "C1",
+        "updated_at": "C1"
+      }
+    },
+    "core.payment_post_trip_charge_attempt": {
+      "lifecycle": "A",
+      "export": "none",
+      "columns": {
+        "charge_id": "C1",
+        "attempt_no": "C1",
+        "idem_plain": "C1",
+        "idem_sent": "C1",
+        "amount_minor": "C1",
+        "operation_id": "C1",
+        "planned_at": "C1",
+        "settled": "C1",
+        "do_not_retry": "C1"
+      }
+    },
+    "core.payment_debt_balance": {
+      "lifecycle": "B",
+      "subjects": [
+        {
+          "column": "user_id",
+          "type": "USER"
+        }
+      ],
+      "export": "controller",
+      "columns": {
+        "id": "C1",
+        "user_id": "C1",
+        "trip_id": "C1",
+        "charge_id": "C1",
+        "country_code": "C1",
+        "currency": "C1",
+        "origin_type": "C1",
+        "opened_reason": "C1",
+        "amount_minor": "C1",
+        "due_host_minor": "C1",
+        "due_insurer_minor": "C1",
+        "due_tax_third_party_minor": "C1",
+        "due_platform_minor": "C1",
+        "paid_host_minor": "C1",
+        "paid_insurer_minor": "C1",
+        "paid_tax_third_party_minor": "C1",
+        "paid_platform_minor": "C1",
+        "collection_seq": "C1",
+        "rule_version": "C1",
+        "status": "C1",
+        "created_at": "C1",
+        "updated_at": "C1"
+      }
+    },
+    "core.payment_debt_collection": {
+      "lifecycle": "A",
+      "export": "none",
+      "columns": {
+        "id": "C1",
+        "debt_id": "C1",
+        "seq": "C1",
+        "amount_minor": "C1",
+        "leg_host_minor": "C1",
+        "leg_insurer_minor": "C1",
+        "leg_tax_third_party_minor": "C1",
+        "leg_platform_minor": "C1",
+        "rule_version": "C1",
+        "idem_plain": "C1",
+        "idem_sent": "C1",
+        "operation_id": "C1",
+        "status": "C1",
+        "created_at": "C1",
+        "settled_at": "C1"
+      }
+    },
     "core.payment_payment_command": {
       "lifecycle": "T",
       "export": "none",
@@ -3051,7 +3257,60 @@
         "manual_action_id": "C1",
         "recorded_by": "C1",
         "published_at": "C1",
-        "created_at": "C1"
+        "created_at": "C1",
+        "submission_id": "C1",
+        "body": {
+          "class": "C2",
+          "erasure": "derogation",
+          "justification": "texte libre d'un avis, coordonnées masquées avant l'écriture (BR-REVIEW-07, messaging_mask_contacts), dans un registre immuable (ni UPDATE ni clé de sujet) ; prénom de l'auteur lu à la volée, jamais recopié ; retrait d'un avis par la modération (BR-REVIEW-07) et effacement à la demande de la personne à livrer",
+          "report": "US-536"
+        },
+        "contact_masked": "C1",
+        "punctuality": "C1",
+        "return_condition": "C1",
+        "rules_respect": "C1"
+      }
+    },
+    "core.review_submission": {
+      "lifecycle": "A",
+      "subjects": [
+        {
+          "column": "author_user_id",
+          "type": "USER"
+        },
+        {
+          "column": "recorded_by",
+          "type": "USER"
+        }
+      ],
+      "export": "controller",
+      "columns": {
+        "id": "C1",
+        "trip_id": "C1",
+        "country_code": "C1",
+        "author_user_id": "C1",
+        "author_role": "C1",
+        "overall": "C1",
+        "cleanliness": "C1",
+        "communication": "C1",
+        "convenience": "C1",
+        "accuracy": "C1",
+        "maintenance": "C1",
+        "punctuality": "C1",
+        "return_condition": "C1",
+        "rules_respect": "C1",
+        "body": {
+          "class": "C2",
+          "erasure": "derogation",
+          "justification": "texte libre d'un avis, coordonnées masquées avant l'écriture (BR-REVIEW-07, messaging_mask_contacts), dans un registre immuable (ni UPDATE ni clé de sujet) ; prénom de l'auteur lu à la volée, jamais recopié ; retrait d'un avis par la modération (BR-REVIEW-07) et effacement à la demande de la personne à livrer",
+          "report": "US-536"
+        },
+        "contact_masked": "C1",
+        "source": "C1",
+        "manual_action_id": "C1",
+        "recorded_by": "C1",
+        "submitted_at": "C1",
+        "window_closes_at": "C1"
       }
     },
     "core.review_rating_aggregate": {
@@ -3253,7 +3512,9 @@
         "cost_bearer": "C1",
         "outcome_code": "C1",
         "decided_at": "C1",
-        "created_at": "C1"
+        "created_at": "C1",
+        "host_message_traced": "C1",
+        "review_alerted_at": "C1"
       }
     },
     "core.booking_trip_state_log": {

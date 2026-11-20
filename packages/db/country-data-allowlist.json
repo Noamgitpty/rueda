@@ -96,6 +96,14 @@
     {
       "path": "packages/db/migrations/0160_config_payout_account_params.sql",
       "justification": "Graine complémentaire du paramètre payout_account_rails (08 BR-PAYOUT-01 : virement ACH au PA, SIPAP et portefeuilles au PY ; 16 PYO-001 : compte de versement de l'hôte ; formats de numéro et établissements par pays, jamais en constante), valeurs PROPOSÉES PA / PY à confirmer avec le PSP au lot C, générée par apps/api/src/modules/cfg/internal/seed-sql.ts (renderParamSeedSql) depuis les données CFG ; le test seed-sql.test.ts échoue si le fichier diffère du rendu. 0009 est immuable (ADR-044, ADR-075). US-707, ADR-180."
+    },
+    {
+      "path": "packages/db/migrations/0169_payment_mit_post_trip_charges.sql",
+      "justification": "Bloc final GÉNÉRÉ du paramètre mit_consent_checkbox_required (valeurs PA / PY), rendu par apps/api/src/modules/cfg/internal/seed-sql.ts (renderParamSeedSql, groupe `embedded` de POST_SEED_PARAMS) depuis les données CFG ; seed-sql.test.ts exige le bloc à l'identique. Le reste de la migration ne nomme aucun pays (graine des règles des réseaux par config_country). US-703, ADR-189, DEC-FONDATEUR-22."
+    },
+    {
+      "path": "packages/db/migrations/0171_trip_no_show_refusal.sql",
+      "justification": "Bloc final GÉNÉRÉ du paramètre no_show_report_review_alert_minutes (valeurs PA / PY), rendu par apps/api/src/modules/cfg/internal/seed-sql.ts (renderParamSeedSql, groupe `embedded` de POST_SEED_PARAMS) depuis les données CFG ; seed-sql.test.ts exige le bloc à l'identique. Le reste de la migration ne nomme aucun pays (délais du no-show communs aux deux pays, 08). US-307, ADR-191."
     }
   ]
 }

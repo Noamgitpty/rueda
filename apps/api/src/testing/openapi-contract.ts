@@ -439,10 +439,16 @@ export const CONTRACT_SUITES: Readonly<Record<string, string>> = {
   // rendez-vous d'un trip : proposition de l'hôte, réponse du voyageur (US-316, module MSG)
   '/trips/{tripId}/meetings': 'modules/msg/testing/trip-meetings.contract.test.ts',
   '/trips/constancias': 'modules/ctr/testing/trip-constancia.contract.test.ts',
+  // avis réciproques en double aveugle, avis reçus, profil public de l'hôte (US-317, module REV)
+  '/trips/{tripId}/reviews': 'modules/rev/testing/reviews.contract.test.ts',
+  '/reviews': 'modules/rev/testing/reviews.contract.test.ts',
+  '/listings/{listingId}/host-profile': 'modules/rev/testing/reviews.contract.test.ts',
   // photos d'état du véhicule d'un trip (US-303, module TRP)
   '/trips/{tripId}/inspections': 'modules/trp/testing/trip-inspection.contract.test.ts',
   // remise et retour entre particuliers (US-315, module TRP)
   '/trips/{tripId}/handover': 'modules/trp/testing/trip-handover.contract.test.ts',
+  // no-show déclaré par une partie du trip (US-307, module TRP)
+  '/trips/{tripId}/no-show': 'modules/trp/testing/trip-no-show.contract.test.ts',
   // aide et urgence (US-310, module SUP) : S17 public, aide d'un trip, demande d'aide, console
   '/help': 'modules/sup/testing/help.contract.test.ts',
   '/trips/{tripId}/help': 'modules/sup/testing/help.contract.test.ts',
