@@ -2449,6 +2449,7 @@ function seedThread() {
       masked: false,
       offPlatform: false,
       sentAt: '2036-12-09T15:00:00.000Z',
+      purged: false,
     },
   ];
 }
@@ -2495,7 +2496,13 @@ async function messagesRoute(req, res, url) {
   const sentAt = new Date(Date.parse('2036-12-09T16:00:00.000Z') + messages.length * 60_000);
   const message = { id: b.id, body, masked, offPlatform, sentAt: sentAt.toISOString() };
   if (!messages.some((x) => x.id === b.id)) {
-    messages.push({ ...message, mine: true, authorRole: 'GUEST', authorName: 'Lucía' });
+    messages.push({
+      ...message,
+      mine: true,
+      authorRole: 'GUEST',
+      authorName: 'Lucía',
+      purged: false,
+    });
   }
   const notices = [
     ...(masked ? ['CONTACT_MASKED'] : []),
@@ -2506,6 +2513,78 @@ async function messagesRoute(req, res, url) {
     messageKey: 'common.messages.sent',
     message,
     notices,
+  });
+}
+
+// ---- Rendez-vous du trip (US-316) : remise proposée par l'hôte, réponse du voyageur ---------------
+// Même trips FIXES et mêmes parties que la messagerie : le voyageur (session « G0st… ») voit une
+// remise PROPOSÉE (lieu sans coordonnées, heure fixe) sur MESSAGES_TRIP, aucune sur
+// MESSAGES_CLOSED_TRIP ; il la confirme ou la refuse (une fois). Toute autre session ⇒ 404. Les
+// vraies règles (bornes, statuts, coordonnées, événement sans lieu) sont prouvées sur PostgreSQL
+// (l0-us316-messaging-privacy). Jamais un lieu dans un journal.
+const MEETING_ID = '00000000-0000-4000-8000-000000316001';
+const meetingsByToken = new Map();
+
+function seedMeetings(tripId) {
+  if (tripId !== MESSAGES_TRIP) return [];
+  return [
+    {
+      id: MEETING_ID,
+      kind: 'PICKUP',
+      place: 'Estacionamiento del centro comercial, entrada norte',
+      meetAt: '2036-12-10T14:00:00.000Z',
+      status: 'PROPOSED',
+      mine: false,
+      createdAt: '2036-12-09T15:05:00.000Z',
+      answeredAt: null,
+    },
+  ];
+}
+
+async function meetingsRoute(req, res, url) {
+  const m = /^\/trips\/([^/]+)\/meetings(?:\/([^/]+)\/answer)?$/.exec(url.pathname);
+  if (m === null) return false;
+  const token = tokenOf(req);
+  if (token === undefined) return err(res, 401, 'AUTH_REQUIRED', 'common.auth.sessionRequired');
+  const tripId = m[1].toLowerCase();
+  if (!GUEST_TOKEN.test(token) || (tripId !== MESSAGES_TRIP && tripId !== MESSAGES_CLOSED_TRIP)) {
+    return err(res, 404, 'TRIP_NOT_FOUND', 'common.trips.notFound');
+  }
+  const key = `${token}:${tripId}`;
+  if (!meetingsByToken.has(key)) meetingsByToken.set(key, seedMeetings(tripId));
+  const meetings = meetingsByToken.get(key);
+  if (m[2] === undefined) {
+    if (req.method !== 'GET') {
+      return err(res, 403, 'MEETING_NOT_ALLOWED', 'common.meetings.notAllowed');
+    }
+    return json(res, 200, {
+      code: 'TRIP_MEETINGS',
+      messageKey: 'common.meetings.list',
+      tripId,
+      viewerRole: 'GUEST',
+      canPropose: false,
+      timezone: 'UTC',
+      meetings,
+    });
+  }
+  if (req.method !== 'POST') return err(res, 404, 'MEETING_NOT_FOUND', 'common.meetings.notFound');
+  const b = await readBody(req);
+  const found = meetings.find((x) => x.id === m[2].toLowerCase());
+  if (found === undefined) return err(res, 404, 'MEETING_NOT_FOUND', 'common.meetings.notFound');
+  if (b === null || (b.decision !== 'ACCEPT' && b.decision !== 'DECLINE')) {
+    return err(res, 400, 'REQUEST_INVALID', 'common.auth.requestInvalid');
+  }
+  const target = b.decision === 'ACCEPT' ? 'ACCEPTED' : 'DECLINED';
+  if (found.status !== 'PROPOSED' && found.status !== target) {
+    return err(res, 409, 'MEETING_NOT_PENDING', 'common.meetings.notPending');
+  }
+  found.status = target;
+  found.mine = true;
+  found.answeredAt = '2036-12-09T16:00:00.000Z';
+  return json(res, 200, {
+    code: 'MEETING_ANSWERED',
+    messageKey: 'common.meetings.answered',
+    meeting: { id: found.id, kind: found.kind, meetAt: found.meetAt, status: target },
   });
 }
 
@@ -3042,6 +3121,7 @@ createServer(async (req, res) => {
   if (receiptRoute(req, res, url) !== false) return;
   if (earningsRoute(req, res, url) !== false) return;
   if ((await messagesRoute(req, res, url)) !== false) return;
+  if ((await meetingsRoute(req, res, url)) !== false) return;
   if ((await helpRoute(req, res, url)) !== false) return;
   if (guestTripsRoute(req, res, url) !== false) return;
   if ((await checkoutRoute(req, res, path)) !== false) return;

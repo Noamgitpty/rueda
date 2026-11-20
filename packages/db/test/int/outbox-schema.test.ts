@@ -232,6 +232,12 @@ describe('schéma outbox (US-008)', () => {
           expect(r).toMatchObject({ roles: 'iam_staff_owner', cmd: 'a' });
           continue;
         }
+        // rendez-vous accepté (0166, US-316, ADR-186) : trip.meeting.confirmed seulement, agrégat
+        // trip, acteur GUEST (le voyageur de la session)
+        if (r.pol === 'outbox_outbox_event.messaging_cmd_meeting_event') {
+          expect(r).toMatchObject({ roles: 'messaging_cmd_owner', cmd: 'a' });
+          continue;
+        }
         // registre des incidents (0092, US-112) : insertion de security.incident.opened seulement
         if (r.pol === 'outbox_outbox_event.iam_staff_incident_event') {
           expect(r).toMatchObject({ roles: 'iam_staff_owner', cmd: 'a' });

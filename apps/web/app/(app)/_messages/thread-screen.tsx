@@ -9,13 +9,26 @@
  * masquées avec explication (MSG-007), rappels à l'expéditeur après un envoi signalé (critères 1
  * et 2 d'US-525), fil en lecture seule après la fin du trip + `review_window_days`, formulaire qui
  * garde le texte en cas d'échec. Rendu serveur ; jamais de texte de message dans une URL.
+ *
+ * Rendez-vous (US-316, ADR-186 ; 10b S16 « heure et détails du rendez-vous ») : bloc
+ * « rendez-vous » au-dessus du fil : remise et retour proposés par l'hôte (lieu sans coordonnées,
+ * heure locale du trip, statut), confirmation ou refus par le voyageur, formulaire de proposition
+ * pour l'hôte ; les avis n'en donnent que l'heure. Rendez-vous illisibles : le fil reste servi, le
+ * bloc dit l'erreur.
  */
 import { randomUUID } from 'node:crypto';
 import type { ReactNode } from 'react';
 import { redirect } from 'next/navigation';
-import { Banner, ButtonLink, EmptyState, ErrorState } from '@rueda/ui';
+import { Banner, Button, ButtonLink, EmptyState, ErrorState } from '@rueda/ui';
 import { callApi, codeOf } from '../../../account/api-client.ts';
 import { clientContext } from '../../../account/request.ts';
+import {
+  ANSWER_ERROR_KEYS,
+  answerErrorFromQuery,
+  meetingDoneFromQuery,
+  tripMeetingsOf,
+} from '../../../account/trip-meetings.ts';
+import type { MeetingKind, MeetingStatus, TripMeetings } from '../../../account/trip-meetings.ts';
 import { noticesFromQuery, threadPath, tripThreadOf } from '../../../account/trip-messages.ts';
 import type { TripMessage, ViewerRole } from '../../../account/trip-messages.ts';
 import { getRequestBrand } from '../../../brand-source.ts';
@@ -23,6 +36,8 @@ import { getRequestI18n, getRequestLocaleTag } from '../../../i18n.ts';
 import accountStyles from '../_account/account.module.css';
 import { MAIN_ID } from '../_shell/main-id.ts';
 import hostStyles from '../host/host.module.css';
+import { answerMeetingAction } from './meeting-actions.ts';
+import { MeetingForm } from './meeting-form.tsx';
 import { MessageForm } from './message-form.tsx';
 import styles from './messages.module.css';
 
@@ -31,6 +46,20 @@ const ROLE_KEYS = {
   HOST: 'web.s16.role.HOST',
   CO_HOST: 'web.s16.role.CO_HOST',
 } as const satisfies Readonly<Record<ViewerRole, string>>;
+const KIND_KEYS = {
+  PICKUP: 'web.s16.meeting.kind.PICKUP',
+  RETURN: 'web.s16.meeting.kind.RETURN',
+} as const satisfies Readonly<Record<MeetingKind, string>>;
+const STATUS_KEYS = {
+  PROPOSED: 'web.s16.meeting.status.PROPOSED',
+  ACCEPTED: 'web.s16.meeting.status.ACCEPTED',
+  DECLINED: 'web.s16.meeting.status.DECLINED',
+} as const satisfies Readonly<Record<MeetingStatus, string>>;
+const DONE_KEYS = {
+  PROPOSED: 'web.s16.meeting.done.PROPOSED',
+  ACCEPTED: 'web.s16.meeting.done.ACCEPTED',
+  DECLINED: 'web.s16.meeting.done.DECLINED',
+} as const;
 
 export interface ThreadScreenProps {
   readonly scope: 'guest' | 'host';
@@ -72,7 +101,10 @@ export async function ThreadScreen({ scope, tripId, back, query }: ThreadScreenP
     <EmptyState icon="car" headingLevel={2} title={t('common.trips.notFound')} />,
   );
   if (self === null) return notFound;
-  const reply = await callApi('GET', `/trips/${tripId}/messages`, ctx);
+  const [reply, meetingsReply] = await Promise.all([
+    callApi('GET', `/trips/${tripId}/messages`, ctx),
+    callApi('GET', `/trips/${tripId}/meetings`, ctx),
+  ]);
   if (reply.status === 401) redirect('/login');
   if (codeOf(reply) === 'TERMS_REACCEPT_REQUIRED') redirect('/terms/update');
   if (reply.status === 404) return notFound;
@@ -92,12 +124,107 @@ export async function ThreadScreen({ scope, tripId, back, query }: ThreadScreenP
   // identifiant du prochain message : un nouvel écran (après un envoi) remonte le formulaire vide
   const messageId = randomUUID();
   const sent = query['sent'] === '1';
+  const meetings: TripMeetings | null = tripMeetingsOf(meetingsReply, tripId);
+  const meetingDone = meetingDoneFromQuery(query['mt']);
+  const answerError = answerErrorFromQuery(query['me']);
+  // identifiant de la prochaine proposition (même principe que le message)
+  const meetingId = randomUUID();
   const authorOf = (m: TripMessage): string =>
     m.mine ? t('web.s16.you') : (m.authorName ?? t(ROLE_KEYS[m.authorRole]));
   return shell(
     name === null ? t('web.s16.withUnknown') : t('web.s16.with', { name }),
     <>
       <p className={accountStyles['muted']}>{t('web.s16.privacy')}</p>
+      <section
+        aria-labelledby="s16-meeting"
+        className={`${styles['form']} ${styles['meetings']}`}
+        data-testid="s16-meetings"
+      >
+        <h2 id="s16-meeting" className={accountStyles['h2']}>
+          {t('web.s16.meeting.heading')}
+        </h2>
+        {meetingDone !== null && (
+          <div data-testid="s16-meeting-done">
+            <Banner tone="success" live="polite">
+              {t(DONE_KEYS[meetingDone])}
+            </Banner>
+          </div>
+        )}
+        {answerError !== null && (
+          <div data-testid="s16-meeting-error">
+            <Banner tone="danger" live="assertive">
+              {t(ANSWER_ERROR_KEYS[answerError])}
+            </Banner>
+          </div>
+        )}
+        {meetings === null ? (
+          <p className={accountStyles['muted']} data-testid="s16-meetings-error">
+            {t('common.messages.unavailable')}
+          </p>
+        ) : (
+          <>
+            <p className={accountStyles['muted']}>
+              {meetings.viewerRole === 'GUEST'
+                ? t('web.s16.meeting.leadGuest')
+                : t('web.s16.meeting.leadHost')}{' '}
+              {t('web.s16.meeting.privacy')}
+            </p>
+            {meetings.meetings.length === 0 ? (
+              <p className={accountStyles['muted']} data-testid="s16-meetings-none">
+                {t('web.s16.meeting.none')}
+              </p>
+            ) : (
+              <ul className={styles['thread']}>
+                {meetings.meetings.map((m) => (
+                  <li key={m.id} className={styles['meeting']} data-testid="s16-meeting">
+                    <p className={styles['author']}>
+                      {t(KIND_KEYS[m.kind])} · {t(STATUS_KEYS[m.status])}
+                    </p>
+                    <p className={styles['body']}>
+                      <time dateTime={m.meetAt}>{i18n.dateTime(m.meetAt, meetings.timezone)}</time>
+                    </p>
+                    <p className={styles['body']}>
+                      {t('web.s16.meeting.place', { place: m.place })}
+                    </p>
+                    {meetings.viewerRole === 'GUEST' && m.status === 'PROPOSED' && (
+                      <form action={answerMeetingAction} className={styles['answers']}>
+                        <input type="hidden" name="trip" value={tripId} />
+                        <input type="hidden" name="meeting" value={m.id} />
+                        <Button
+                          type="submit"
+                          name="decision"
+                          value="ACCEPT"
+                          data-testid="s16-meeting-accept"
+                        >
+                          {t('web.s16.meeting.accept')}
+                        </Button>
+                        <Button
+                          type="submit"
+                          name="decision"
+                          value="DECLINE"
+                          variant="secondary"
+                          data-testid="s16-meeting-decline"
+                        >
+                          {t('web.s16.meeting.decline')}
+                        </Button>
+                      </form>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+            {meetings.canPropose && (
+              <MeetingForm
+                key={meetingId}
+                localeTag={localeTag}
+                tripId={tripId}
+                timezone={meetings.timezone}
+                meetingId={meetingId}
+              />
+            )}
+          </>
+        )}
+      </section>
       {sent && notices.length === 0 && (
         <div data-testid="s16-sent">
           <Banner tone="success" live="polite">
@@ -138,7 +265,9 @@ export async function ThreadScreen({ scope, tripId, back, query }: ThreadScreenP
                 data-testid="s16-message"
               >
                 <p className={styles['author']}>{authorOf(m)}</p>
-                <p className={styles['body']}>{m.body ?? t('web.s16.hidden')}</p>
+                <p className={styles['body']}>
+                  {m.body ?? (m.purged ? t('web.s16.purged') : t('web.s16.hidden'))}
+                </p>
                 {m.body !== null && m.masked && (
                   <p className={styles['meta']}>{t('web.s16.masked')}</p>
                 )}

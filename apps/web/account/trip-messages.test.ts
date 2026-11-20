@@ -27,6 +27,7 @@ const thread = (over: Record<string, unknown> = {}) => ({
       masked: true,
       offPlatform: false,
       sentAt: '2035-05-02T09:00:00.000Z',
+      purged: false,
     },
   ],
   ...over,

@@ -3229,6 +3229,58 @@ export const PT_MESSAGES = {
     'Olá, {first_name}. Recebemos sua solicitação de ajuda sobre a reserva {booking_ref}. Nossa equipe não está disponível agora e responderá o quanto antes. Se houver perigo ou feridos, ligue para a emergência. {assistance}',
   'ntf.helpOffHoursHost.sms.body':
     '{brand}: recebemos sua solicitação ({booking_ref}). Responderemos o quanto antes. Em caso de perigo, ligue para a emergência. {assistance}',
+  // confidentialité, rendez-vous et rétention de la messagerie (US-316, ADR-186, catalogue v101)
+  'common.meetings.list': 'Encontros da viagem.',
+  'common.meetings.proposed': 'Proposta enviada.',
+  'common.meetings.answered': 'Resposta registrada.',
+  'common.meetings.notAllowed':
+    'Só o anfitrião propõe o encontro e só o viajante confirma, enquanto a viagem não terminar.',
+  'common.meetings.notFound': 'Não encontramos esta proposta de encontro.',
+  'common.meetings.notPending': 'Esta proposta já foi respondida ou substituída por outra.',
+  'common.meetings.expired': 'O horário proposto já passou. Peça outra proposta nas mensagens.',
+  'common.meetings.invalid':
+    'Informe um local de 3 a 160 caracteres e um horário futuro próximo às datas da viagem.',
+  'common.meetings.placeContact':
+    'O local não pode ter telefone, e-mail, usuário nem link. Descreva um ponto fácil de achar.',
+  'web.s16.purged': 'Esta mensagem foi apagada ao fim do prazo de guarda.',
+  'web.s16.meeting.heading': 'Encontro',
+  'web.s16.meeting.leadGuest':
+    'Seu anfitrião propõe o local e o horário da entrega e da devolução; confirme aqui.',
+  'web.s16.meeting.leadHost':
+    'Proponha o local e o horário da entrega e da devolução; o viajante confirma.',
+  'web.s16.meeting.privacy': 'Só vocês dois veem o local; os avisos mostram apenas o horário.',
+  'web.s16.meeting.none': 'Ainda não há encontro proposto.',
+  'web.s16.meeting.kind.PICKUP': 'Entrega',
+  'web.s16.meeting.kind.RETURN': 'Devolução',
+  'web.s16.meeting.status.PROPOSED': 'Aguardando confirmação',
+  'web.s16.meeting.status.ACCEPTED': 'Confirmado',
+  'web.s16.meeting.status.DECLINED': 'Recusado',
+  'web.s16.meeting.place': 'Local: {place}',
+  'web.s16.meeting.accept': 'Confirmar',
+  'web.s16.meeting.decline': 'Recusar',
+  'web.s16.meeting.done.ACCEPTED': 'Encontro confirmado. Avisamos vocês dois do horário.',
+  'web.s16.meeting.done.DECLINED':
+    'Proposta recusada. Escreva ao seu anfitrião para combinar outra.',
+  'web.s16.meeting.done.PROPOSED': 'Proposta enviada. O viajante vai confirmar aqui.',
+  'web.s16.meeting.form.title': 'Propor um encontro',
+  'web.s16.meeting.form.kind': 'Etapa',
+  'web.s16.meeting.form.place': 'Local do encontro',
+  'web.s16.meeting.form.placeHint':
+    'Um local público e fácil de achar. Sem telefone, e-mail nem link.',
+  'web.s16.meeting.form.when': 'Data e horário',
+  'web.s16.meeting.form.whenHint': 'Horário local da viagem.',
+  'web.s16.meeting.form.submit': 'Propor',
+  'web.s16.meeting.form.required': 'Informe o local, a data e o horário.',
+  'ntf.meetingPickupConfirmed.email.subject': 'Reserva {booking_ref}: encontro confirmado',
+  'ntf.meetingPickupConfirmed.email.body':
+    'Olá, {first_name}. O encontro para a entrega da reserva {booking_ref} está confirmado para {meet_at}. O local combinado está nas mensagens da reserva no {brand}.',
+  'ntf.meetingPickupConfirmed.sms.body':
+    '{brand}: encontro para a entrega confirmado ({booking_ref}) em {meet_at}. Local nas mensagens do app.',
+  'ntf.meetingReturnConfirmed.email.subject': 'Reserva {booking_ref}: encontro confirmado',
+  'ntf.meetingReturnConfirmed.email.body':
+    'Olá, {first_name}. O encontro para a devolução da reserva {booking_ref} está confirmado para {meet_at}. O local combinado está nas mensagens da reserva no {brand}.',
+  'ntf.meetingReturnConfirmed.sms.body':
+    '{brand}: encontro para a devolução confirmado ({booking_ref}) em {meet_at}. Local nas mensagens do app.',
   'ntf.tripAtRiskHost.email.subject': 'Reserva {booking_ref}: o carro ainda não voltou',
   'ntf.tripAtRiskHost.email.body':
     'Olá, {first_name}. Sua reserva {booking_ref} começa em {start_at}, mas a viagem anterior com este carro ainda não terminou: a devolução está atrasada. Nossa equipe vai entrar em contato para ver as opções com o viajante. Você pode nos escrever pela reserva no app.',
