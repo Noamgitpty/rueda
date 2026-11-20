@@ -16,7 +16,7 @@
  *    checkout (hold posé) → capacité bloquante absente : paiement refusé AVANT T1 (critère 2) →
  *    paiement par le vrai `CheckoutPaymentService` : T1, ordre envoyé au PSP FAKE avec le montant
  *    EXPLICITE de chaque jambe, T2 ; Σ jambes = total.
- * B. « Du paiement au trip » (données VALIDÉES, horloge virtuelle 2052, aucun interrupteur) : même
+ * B. « Du paiement au trip » (données VALIDÉES, horloge virtuelle 2060, aucun interrupteur) : même
  *    voyageur inscrit, hold posé par la vraie commande, devis engagé au checkout posé par la fixture
  *    9969 (seule couture : le gel et le checkout réels exigent les interrupteurs) aux jambes de la
  *    capture de l'oracle (TJ01 / TJ08a) → T1 / T2 par le vrai service → FAKE hostile : SUCCEEDED
@@ -734,7 +734,13 @@ describe.each(CASES)('US-221 — parcours dorés « réservation » ($country, $
 
   // ---------------------------------------------------------------------------------------------
   describe('B — paiement prouvé par webhook signé, trip BOOKED, notifications, « Mis viajes »', () => {
-    const T0 = Date.UTC(2052, 2, 2, 10, 0, 0) + c.index * 7 * DAY;
+    // Horloge APRÈS celle de tout contrôle « sur toute la base » des fichiers int d'apps/api (oracle
+    // C12 et rapprochement : reconciliation 2033, segment C 2052, red team L2 2053). Entre le
+    // SUCCEEDED non signé et la conversion, l'opération du hold est « SUCCEEDED sans disposition »
+    // (état transitoire légitime, validé). Un contrôle lancé en parallèle à une horloge plus
+    // tardive de plus de 20 min le comptait comme un écart (SUCCEEDED_WITHOUT_DISPOSITION, run de la
+    // PR #275). Un contrôle à une horloge antérieure ne voit pas cet état comme échu.
+    const T0 = Date.UTC(2060, 2, 2, 10, 0, 0) + c.index * 7 * DAY;
     const t = (m: number): string => iso(T0 + m * MINUTE);
     const start = t(3 * 24 * 60);
     const end = t(5 * 24 * 60);
