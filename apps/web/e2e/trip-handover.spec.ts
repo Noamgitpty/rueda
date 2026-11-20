@@ -125,6 +125,10 @@ for (const language of LANGUAGES) {
       await page.goto(`/trips/${trip}/handover/checkin`);
       await expect(page.getByText(t('web.handover.license.ok'))).toBeVisible();
       await expect(page.locator('[data-testid="handover-guest"]')).toHaveCount(0);
+      // US-703 (16 PAY-037) : rappel du consentement MIT au voyageur, sous la validation
+      await expect(page.locator('[data-testid="handover-mit-reminder"]')).toHaveText(
+        t('web.handover.mitReminder'),
+      );
       await page.locator('#handover-odometer').fill('41250');
       await page.locator('[data-testid="handover-validate-submit"]').click();
       await expect(

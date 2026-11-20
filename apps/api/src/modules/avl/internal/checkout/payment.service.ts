@@ -28,10 +28,17 @@
  * `DEPOSIT_PARAM_MISSING` sans écriture ni ordre ; sinon la décision est figée (`deposit_hold`),
  * puis le paiement suit.
  */
-import { assertMovingLegs, isPaymentError, PAYMENT_METHODS } from '../../../pay/index.js';
+import {
+  assertMovingLegs,
+  isPaymentError,
+  mitConsentLocaleOf,
+  PAYMENT_METHODS,
+  UNAVAILABLE_MIT_CONSENTS,
+} from '../../../pay/index.js';
 import type {
   DepositEnforcement,
   DepositGuestView,
+  MitConsentPort,
   PaymentMethod,
   PaymentProvider,
 } from '../../../pay/index.js';
@@ -205,12 +212,18 @@ const viewOf = (holdId: string, row: CheckoutPaymentRow): CheckoutPayment => ({
   ...(row.request === null ? {} : { request: row.request }),
 });
 
-/** Corps de `POST …/payment` : seulement le moyen (défaut `CARD`) ; tout autre champ ⇒ refus. */
+/** Champs admis du corps de `POST …/payment` (US-703 : consentement MIT et langue du texte). */
+const PAYMENT_DEMAND_KEYS: ReadonlySet<string> = new Set(['method', 'mitConsent', 'locale']);
+
+/**
+ * Corps de `POST …/payment` : le moyen (défaut `CARD`), et le consentement MIT du checkout (US-703)
+ * avec la langue du texte affiché ; tout autre champ ⇒ refus.
+ */
 export function parsePaymentDemand(body: unknown): PaymentMethod | null {
   if (body === undefined || body === null) return 'CARD';
   if (typeof body !== 'object' || Array.isArray(body)) return null;
   const keys = Object.keys(body);
-  if (keys.some((k) => k !== 'method')) return null;
+  if (keys.some((k) => !PAYMENT_DEMAND_KEYS.has(k))) return null;
   const method = (body as { method?: unknown }).method;
   if (method === undefined) return 'CARD';
   return (PAYMENT_METHODS as readonly unknown[]).includes(method)
@@ -218,8 +231,23 @@ export function parsePaymentDemand(body: unknown): PaymentMethod | null {
     : null;
 }
 
+/**
+ * Consentement MIT du corps (US-703, 16 PAY-015 ; 10b UX-30 : case séparée, non pré-cochée) :
+ * `mitConsent` doit valoir exactement `true` et la langue d'affichage être lisible ; absent ou
+ * `false` : `null` (aucun paiement sans consentement : carte enregistrée et consentement exigés
+ * pour tout trip, 08 BR-PAY-09). Forme invalide (type, langue) : `undefined`.
+ */
+export function parseMitConsent(body: unknown): { readonly locale: string } | null | undefined {
+  if (typeof body !== 'object' || body === null || Array.isArray(body)) return null;
+  const b = body as Record<string, unknown>;
+  if (b['mitConsent'] === undefined || b['mitConsent'] === false) return null;
+  if (b['mitConsent'] !== true) return undefined;
+  const locale = mitConsentLocaleOf(b['locale']);
+  return locale === null ? undefined : { locale };
+}
+
 export type PaymentOperation =
-  'read' | 'start' | 'provider' | 'lookup' | 'psp' | 'record' | 'deposit';
+  'read' | 'start' | 'provider' | 'lookup' | 'psp' | 'record' | 'deposit' | 'consent';
 
 /** Journal d'exploitation : opération, nom de l'erreur, SQLSTATE et code PSP ; aucune valeur. */
 export type PaymentFailureLog = (operation: PaymentOperation, error: unknown) => void;
@@ -247,6 +275,8 @@ export class CheckoutPaymentService {
     /** Porte de la caution (US-701) ; sans base, elle échoue (503), jamais un paiement sans elle. */
     private readonly deposits: DepositGatePort,
     private readonly logFailure: PaymentFailureLog = LOG_PAYMENT_FAILURE,
+    /** Consentement MIT du checkout (US-703) ; sans base, il échoue (503), jamais supposé. */
+    private readonly consents: MitConsentPort = UNAVAILABLE_MIT_CONSENTS,
   ) {}
 
   /** État du paiement du hold du voyageur de la session ; inconnu ou d'un autre ⇒ 404. */
@@ -284,6 +314,8 @@ export class CheckoutPaymentService {
     const id = holdId.toLowerCase();
     const method = parsePaymentDemand(body);
     if (method === null) throw new PaymentHttpError('REQUEST_INVALID');
+    const consent = parseMitConsent(body);
+    if (consent === undefined) throw new PaymentHttpError('REQUEST_INVALID');
     const before = viewOf(id, await this.#read(proof, id));
     // INTERRUPTED : T1 rend RETRY_SAME_KEY (recherche par clé puis même clé) ou un état à vérifier
     if (
@@ -294,6 +326,8 @@ export class CheckoutPaymentService {
       const view = await this.#withDeposit(proof, before);
       return { created: false, payment: { ...view, redirectUrl: null } };
     }
+    // US-703 (08 BR-PAY-09, 16 PAY-015) : consentement MIT exigé AVANT toute écriture
+    if (consent === null) throw new PaymentHttpError('MIT_CONSENT_REQUIRED');
     // US-701 : caution décidée AVANT le paiement ; refus sans écriture ni ordre (08 BR-PAY-06)
     const gate = await this.#guard('deposit', () => this.deposits.enforce(proof, id));
     switch (gate.kind) {
@@ -311,6 +345,14 @@ export class CheckoutPaymentService {
     }
     // aucun connecteur dans cette image : refus AVANT T1 (le hold n'est pas mis en vol)
     if (this.providers.size === 0) throw new PaymentHttpError('PAYMENT_UNAVAILABLE');
+    // US-703 : consentement MIT enregistré par la base sur le hold du voyageur, une fois, AVANT T1
+    const accepted = await this.#guard('consent', () =>
+      this.consents.accept(proof, id, consent.locale),
+    );
+    if (accepted === 'NOT_FOUND') throw new PaymentHttpError('HOLD_NOT_FOUND');
+    if (accepted === 'REQUEST_INVALID') throw new PaymentHttpError('REQUEST_INVALID');
+    // hold devenu terminal entre la lecture et le consentement : l'état fait foi
+    if (accepted === 'HOLD_NOT_PAYABLE') return this.#current(proof, id, null);
     const started = await this.#guard('start', () => this.store.start(proof, id, method));
     if (started.kind === 'REFUSED') throw new PaymentHttpError(started.code);
     if (started.kind === 'IN_FLIGHT') return this.#current(proof, id, null);

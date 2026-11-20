@@ -30,6 +30,7 @@ import type { HostedPaymentProvider } from '../internal/checkout/payment.service
 import {
   FakeCheckoutPaymentStore,
   FakeDepositGate,
+  FakeMitConsents,
   PaymentError,
   RecordingHostedPayments,
 } from './fake-checkout-payment-store.js';
@@ -68,6 +69,9 @@ const startOf = (v: GoldenLegVector, outcome: PaymentStart['outcome'] = 'NEW_ORD
   },
 });
 
+/** US-703 : corps du paiement avec le consentement MIT (S05, case non pré-cochée, cochée). */
+const CONSENTED = { method: 'CARD', mitConsent: true, locale: 'es' } as const;
+
 const apps: ContractApp[] = [];
 
 async function app(
@@ -78,6 +82,7 @@ async function app(
 ) {
   const store = new FakeCheckoutPaymentStore();
   const psp = options.psp ?? new RecordingHostedPayments();
+  const consents = new FakeMitConsents();
   const a = await startContractApp({
     checkout: {
       // US-701 : porte de la caution imposée « aucune caution » (contrat d'US-223 inchangé)
@@ -85,6 +90,8 @@ async function app(
         store,
         providers: options.providers ?? new Map([['FAKE', psp]]),
         deposits: new FakeDepositGate(),
+        // US-703 : consentement MIT du checkout (case cochée par le voyageur)
+        consents,
       },
     },
   });
@@ -94,14 +101,14 @@ async function app(
     store.holds.set(`${a.hash('voyageur')}:${HOLD}`, h);
     return h;
   };
-  const pay = (body: unknown = { method: 'CARD' }) =>
+  const pay = (body: unknown = CONSENTED) =>
     a.api.request('POST', `/checkout/holds/${HOLD}/payment`, {
       headers: a.cookie('voyageur'),
       body,
     });
   const read = () =>
     a.api.request('GET', `/checkout/holds/${HOLD}/payment`, { headers: a.cookie('voyageur') });
-  return { a, store, psp, hold, pay, read };
+  return { a, store, psp, consents, hold, pay, read };
 }
 
 describe('US-223b — contrat du paiement du hold du checkout', () => {
@@ -176,7 +183,7 @@ describe('US-223b — contrat du paiement du hold du checkout', () => {
     const send = () =>
       a.api.request('POST', `/checkout/holds/${HOLD}/payment`, {
         headers: a.cookie('voyageur'),
-        body: { method: 'CARD' },
+        body: CONSENTED,
       });
     const replies = await Promise.all([send(), send()]);
     expect(replies.map((r) => r.status).sort()).toEqual([200, 201]);
@@ -324,6 +331,43 @@ describe('US-223b — contrat du paiement du hold du checkout', () => {
     expect(psp.orders).toEqual([]);
   });
 
+  it('US-703 : case du consentement MIT non cochée ⇒ 422 MIT_CONSENT_REQUIRED AVANT toute écriture ; consentement de forme invalide ⇒ 400 ; cochée ⇒ consentement enregistré une fois, dans la langue du texte, avant T1', async () => {
+    const { store, psp, consents, hold, pay } = await app();
+    hold({}, { start: startOf(TJ01) });
+    for (const body of [{ method: 'CARD' }, { method: 'CARD', mitConsent: false }, {}]) {
+      const r = await pay(body);
+      expect(r.status, JSON.stringify(body)).toBe(422);
+      expect(r.json).toEqual({
+        code: 'MIT_CONSENT_REQUIRED',
+        messageKey: 'common.payment.mitConsentRequired',
+      });
+    }
+    for (const body of [
+      { method: 'CARD', mitConsent: 'yes', locale: 'es' },
+      { method: 'CARD', mitConsent: true },
+      { method: 'CARD', mitConsent: true, locale: 'espagnol' },
+    ]) {
+      expect((await pay(body)).status, JSON.stringify(body)).toBe(400);
+    }
+    expect(store.starts).toEqual([]);
+    expect(psp.orders).toEqual([]);
+    expect(consents.accepted).toEqual([]);
+    const r = await pay({ method: 'CARD', mitConsent: true, locale: 'pt-BR' });
+    expect(r.status).toBe(201);
+    expect(consents.accepted).toEqual([{ holdId: HOLD, locale: 'pt-BR' }]);
+  });
+
+  it('US-703 : hold d’un autre voyageur au consentement ⇒ 404 ; hold devenu terminal ⇒ état, aucun ordre', async () => {
+    const { store, psp, consents, hold, pay } = await app();
+    hold({}, { start: startOf(TJ01) });
+    consents.outcome = 'NOT_FOUND';
+    expect((await pay()).status).toBe(404);
+    consents.outcome = 'HOLD_NOT_PAYABLE';
+    expect((await pay()).status).toBe(200);
+    expect(store.starts).toEqual([]);
+    expect(psp.orders).toEqual([]);
+  });
+
   it('IDOR : hold d’un autre voyageur ou inconnu ⇒ 404 HOLD_NOT_FOUND (même réponse), rien n’est démarré', async () => {
     const { a, store, hold } = await app();
     hold({}, { start: startOf(TJ01) });
@@ -334,7 +378,7 @@ describe('US-223b — contrat du paiement du hold du checkout', () => {
     ]) {
       const r = await a.api.request('POST', path, {
         headers: a.cookie('staff_sans_mfa'),
-        body: { method: 'CARD' },
+        body: CONSENTED,
       });
       expect(r.status).toBe(404);
       expect(r.json).toEqual({

@@ -27,6 +27,8 @@
  *
  * | `payout_scheduler`    | 60 s (US-708, ADR-185)                     | `PayoutScheduler` de PYO sous le nom `payment_command` : trips COMPLETED préparés (`core.payout_cmd_prepare_trip`, 0165 : `payout_at` J+2 ouvrés du pays, J+5 au premier versement, écrivain unique de `release_at`, lot et motifs de retenue) ; lots échus compensés (`core.payout_cmd_net_batch`) ; motifs relus à l'envoi, `LEG_RELEASE` par item puis `payout` du lot par le connecteur du fournisseur. `payouts_enabled` = false (lots ON_HOLD) et aucun connecteur en production avant le lot C : rien n'est envoyé |
  *
+ * | `mit_charge_scheduler` | 60 s (US-703, ADR-189)                    | `MitChargeScheduler` de PAY sous le nom `payment_command` : file `core.payment_post_trip_charges_due` (0169) ; tentative planifiée par `core.payment_cmd_plan_mit_attempt` (consentement du checkout, rappel à la remise, carte consentie, règle du réseau en données, préavis, délai, `SUPPORTS_MIT` inconnue = non, J0 / J+3 / J+7, clé `…:MIT_CHARGE:…:i1:a{n}`), ordre stocké relu sous les verrous du trip et du débit et envoyé par `MoneyCommandSender` (`chargeMIT`, montant explicite de chaque jambe), issue reportée par `core.payment_cmd_settle_mit_attempt` (relance ou dette et `UNPAID_BALANCE`). Aucun connecteur en production avant le lot C : rien n'est planifié ni envoyé |
+ *
  * | `deposit_timer`       | 60 s (US-701, ADR-169)                     | `DepositReauthTimer` de PAY sous le nom `payment_command` : file `core.payment_deposit_reauth_due` (0146), ré-autorisation de la caution (rail a) par le connecteur du fournisseur, report `core.payment_cmd_deposit_transition` ; refusée ⇒ décision avancée avant l'expiration, alerte `DEPOSIT_REAUTH_FAILED` (P1), aucun débit. Puis décisions échues (US-702, ADR-172) : `DepositDecisionTimer`, file `core.payment_deposit_decision_due` (0150), VOID / capture des frais / MIT par le connecteur, transition finale `core.payment_cmd_deposit_decide` et événement `deposit.decision.executed` (avis au voyageur) ; aucune source de frais annexes en production (`NO_DEPOSIT_FEES` : caution libérée en entier). Aucun connecteur en production avant le lot C : rien n'est envoyé |
  *
  * Non déclarés ici, faute de port réel (tracé dans docs/team/handoffs/US-003.md) :
@@ -56,6 +58,7 @@ import {
   PgWebhookWorkStore,
   PRODUCTION_PAYMENT_CONNECTORS,
   registerDepositTimers,
+  registerMitChargeScheduler,
   WebhookProcessor,
 } from './modules/pay/index.js';
 import type { CountryConfig } from './modules/cfg/index.js';
@@ -338,6 +341,12 @@ export function registerWorkerTasks(registry: BusRegistry, deps: WorkerTaskDeps)
   // connecteur en production avant le lot C et payouts_enabled = false (lots ON_HOLD), rien n'est
   // envoyé (fail-closed) ; aucune option ne permet d'injecter un autre registre (C19)
   registerPayoutScheduler(registry, deps.transactions, deps.log, PRODUCTION_PAYMENT_CONNECTORS);
+
+  // Débits post-trip par MIT (US-703, ADR-189) : tentatives planifiées et jugées par la base
+  // (consentement, rappel, carte, règle du réseau, préavis, délai, SUPPORTS_MIT) ; envoi par le
+  // connecteur du PSP seulement : aucun connecteur en production avant le lot C, rien n'est
+  // planifié ni envoyé (fail-closed) ; aucune option ne permet d'injecter un autre registre (C19)
+  registerMitChargeScheduler(registry, deps.transactions, deps.log, PRODUCTION_PAYMENT_CONNECTORS);
 
   // US-701 (ADR-169) : ré-autorisation de la caution avant l'échéance (rail a) ; refusée ⇒ ops,
   // sans débit. Aucun connecteur en production avant le lot C : rien n'est envoyé

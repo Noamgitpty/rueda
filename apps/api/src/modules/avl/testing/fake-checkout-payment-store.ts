@@ -6,6 +6,7 @@
  * et retiennent ce que l'API leur transmet.
  */
 import { assertMovingLegs, PaymentError } from '../../pay/index.js';
+import type { MitConsentOutcome, MitConsentPort, MitReminderOutcome } from '../../pay/index.js';
 import type {
   CreateHostedPaymentRequest,
   DepositEnforcement,
@@ -154,5 +155,31 @@ export class FakeDepositGate implements DepositGatePort {
     this.enforced.push(holdId);
     if (this.down) return Promise.reject(new Error('base indisponible'));
     return Promise.resolve(this.enforcement);
+  }
+}
+
+/**
+ * Consentement MIT du checkout imposé (US-703) — TESTS SEULEMENT. Par défaut, chaque consentement
+ * est ACCEPTÉ (puis ALREADY_ACCEPTED) ; la règle (hold du voyageur, hold payable, une fois) est
+ * prouvée en base (`l0-us703-mit-charges`).
+ */
+export class FakeMitConsents implements MitConsentPort {
+  readonly accepted: { readonly holdId: string; readonly locale: string }[] = [];
+  readonly reminded: { readonly tripId: string; readonly locale: string }[] = [];
+  outcome: MitConsentOutcome | null = null;
+  down = false;
+
+  accept(_proof: Buffer, holdId: string, locale: string): Promise<MitConsentOutcome> {
+    if (this.down) return Promise.reject(new Error('base indisponible'));
+    if (this.outcome !== null) return Promise.resolve(this.outcome);
+    const again = this.accepted.some((a) => a.holdId === holdId);
+    this.accepted.push({ holdId, locale });
+    return Promise.resolve(again ? 'ALREADY_ACCEPTED' : 'ACCEPTED');
+  }
+
+  acknowledgeReminder(_proof: Buffer, tripId: string, locale: string): Promise<MitReminderOutcome> {
+    if (this.down) return Promise.reject(new Error('base indisponible'));
+    this.reminded.push({ tripId, locale });
+    return Promise.resolve('ACKNOWLEDGED');
   }
 }

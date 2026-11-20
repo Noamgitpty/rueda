@@ -2213,6 +2213,8 @@ export const ES_MESSAGES = {
   'web.s05.title': 'Confirma tu reserva',
   'web.s05.intro':
     'Revisa el viaje, escribe tu nombre y acepta las condiciones. Todavía no pagas nada.',
+  'web.s05.mitConsent':
+    'Autorizo cargos posteriores al viaje en esta tarjeta solo por gastos del viaje, mi franquicia o daños, siempre con aviso y prueba.',
   'web.s05.loading': 'Cargando tu reserva…',
   'web.s05.error': 'No pudimos cargar tu reserva. Inténtalo de nuevo.',
   'web.s05.notFound': 'Presupuesto no disponible',
@@ -2293,6 +2295,8 @@ export const ES_MESSAGES = {
   'common.payment.attemptsExceeded':
     'Llegaste al máximo de intentos de pago para esta reserva. No se te cobró nada.',
   'common.payment.methodUnavailable': 'Este medio de pago no está disponible para esta reserva.',
+  'common.payment.mitConsentRequired':
+    'Para reservar, acepta los cargos posteriores al viaje en tu tarjeta.',
   'web.s05.cta': 'Pagar {amount}',
   'web.s05.pay.title': 'Pago de tu reserva',
   'web.s06.pre.leaving':
@@ -3105,6 +3109,8 @@ export const ES_MESSAGES = {
   'web.handover.validate.HOST.checkout': 'Recibir el auto',
   'web.handover.validate.GUEST.checkin': 'Recibí el auto',
   'web.handover.validate.GUEST.checkout': 'Devolver el auto',
+  'web.handover.mitReminder':
+    'Recuerda: aceptaste que se cobren en tu tarjeta los gastos posteriores al viaje (combustible, peajes, retraso, limpieza) y tu parte de un daño, siempre con aviso y prueba. Al validar, lo confirmas.',
   'web.handover.validate.hint': 'La hora que cuenta es la del servidor cuando ambos confirman.',
   'web.handover.waiting.HOST': 'Esperando la confirmación del viajero.',
   'web.handover.waiting.GUEST': 'Esperando la confirmación del anfitrión.',

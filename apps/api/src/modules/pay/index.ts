@@ -287,3 +287,47 @@ export {
   fakeAdapterVariables,
 } from './internal/startup-guard.js';
 export type { PaymentStartupState } from './internal/startup-guard.js';
+
+// Carte enregistrée, consentement MIT et débits post-trip (US-703, ADR-189)
+export {
+  MIT_CONSENT_CATALOG_VERSION,
+  MIT_CONSENT_OUTCOMES,
+  MIT_REMINDER_OUTCOMES,
+  mitConsentLocaleOf,
+  PgMitConsentStore,
+  UNAVAILABLE_MIT_CONSENTS,
+} from './internal/mit-consent.js';
+export type {
+  MitConsentOutcome,
+  MitConsentPort,
+  MitReminderOutcome,
+} from './internal/mit-consent.js';
+export {
+  classifyMitError,
+  MIT_CHARGE_SCHEDULER_BATCH,
+  MIT_CHARGE_SCHEDULER_PERIOD_SECONDS,
+  MIT_CHARGE_SCHEDULER_WORKER,
+  MitChargeScheduler,
+  registerMitChargeScheduler,
+} from './internal/mit-charge-scheduler.js';
+export type {
+  MitChargeOutcome,
+  MitChargeSchedulerDeps,
+  MitChargeStep,
+} from './internal/mit-charge-scheduler.js';
+export {
+  PLAN_OUTCOMES,
+  POST_TRIP_CHARGE_STATUSES,
+  SETTLE_OUTCOMES,
+} from './internal/mit-charge-store.js';
+export type {
+  DueCharge,
+  MitChargeStore,
+  MitOrder,
+  PlanOutcome,
+  PlanResult,
+  PostTripChargeStatus,
+  SettleOutcome,
+  SettleResult,
+} from './internal/mit-charge-store.js';
+export { MitChargeStoreError, PgMitChargeStore } from './internal/pg-mit-charge-store.js';

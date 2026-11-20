@@ -6,10 +6,15 @@
  * Pendant l'envoi : `aria-busy` et second clic ignoré (un seul ordre par hold, jugé aussi par la
  * base). Sans JavaScript : envoi natif, même action serveur. Un refus s'affiche au-dessus du bouton
  * (`role="alert"`).
+ *
+ * US-703 (ADR-189 ; 10b UX-30, 16 PAY-015) : case de consentement MIT séparée, NON pré-cochée,
+ * obligatoire (`web.s05.mitConsent`, débits après le trip sur la carte enregistrée, avec avis et
+ * preuve) ; la langue du texte affiché part avec le formulaire, l'API refuse sans la case
+ * (`MIT_CONSENT_REQUIRED`).
  */
 import { useActionState } from 'react';
 import { createTranslator, getProfile } from '@rueda/i18n';
-import { Banner, Button, ButtonLink } from '@rueda/ui';
+import { Banner, Button, ButtonLink, Checkbox } from '@rueda/ui';
 import { IDENTITY_HREF, IDENTITY_REFUSAL_KEYS } from '../../../../../account/checkout.ts';
 import { LOCALE_CONFIG } from '../../../../../locale-config.ts';
 import accountStyles from '../../../_account/account.module.css';
@@ -32,6 +37,7 @@ export function PayForm({ localeTag, holdId, label, testId }: PayFormProps) {
   return (
     <form action={action} className={accountStyles['stack']} data-testid={testId}>
       <input type="hidden" name="holdId" value={holdId} />
+      <input type="hidden" name="locale" value={localeTag} />
       {state.error !== null && (
         <Banner tone="danger" live="assertive">
           {i18n.t(state.error)}
@@ -47,6 +53,13 @@ export function PayForm({ localeTag, holdId, label, testId }: PayFormProps) {
           {i18n.t('web.s05.kyc.link')}
         </ButtonLink>
       )}
+      <Checkbox
+        id={`${testId}-mit-consent`}
+        name="mitConsent"
+        required
+        label={i18n.t('web.s05.mitConsent')}
+        data-testid={`${testId}-mit-consent`}
+      />
       <Button
         type="submit"
         block

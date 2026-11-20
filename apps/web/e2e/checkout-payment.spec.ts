@@ -125,6 +125,10 @@ async function payAt(page: Page, offsite: string[], button: string): Promise<voi
       body: '<!doctype html><title>psp</title><main>psp</main>',
     });
   });
+  // US-703 : case du consentement MIT, non pré-cochée, cochée par le voyageur (10b UX-30)
+  const consent = page.locator(`[data-testid="${button}-mit-consent"]`);
+  await expect(consent).not.toBeChecked();
+  await consent.check();
   await page.locator(`[data-testid="${button}-submit"]`).click();
   await expect(page).toHaveURL(PSP);
   expect(hosted).toMatch(PSP);
@@ -383,6 +387,7 @@ for (const language of LANGUAGES) {
         await signInGuest(context, language);
         const holdId = await placeHold(page, day);
         const button = page.locator('[data-testid="s05-pay-submit"]');
+        await page.locator('[data-testid="s05-pay-mit-consent"]').check();
         await submitAndSettle(page, button);
         await expect(page).toHaveURL(new RegExp(`/checkout/hold/${holdId}$`));
         await expect(page.locator('[data-testid="s05-pay"] [role="alert"]')).toHaveText(

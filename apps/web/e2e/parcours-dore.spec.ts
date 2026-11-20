@@ -103,6 +103,8 @@ test.describe(`parcours doré « réservation » · ${LANGUAGE}`, () => {
         body: '<!doctype html><title>psp</title><main>psp</main>',
       });
     });
+    // US-703 : consentement MIT du checkout (case séparée, non pré-cochée)
+    await page.locator('[data-testid="s05-pay-mit-consent"]').check();
     await pay.click();
     await expect(page).toHaveURL(PSP);
     expect(offsite).toEqual([hosted]);
