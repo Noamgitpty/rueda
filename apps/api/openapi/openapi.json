@@ -26413,7 +26413,7 @@
                 "type": "null"
               },
               {
-                "$ref": "#/components/schemas/HostReviewSummary"
+                "$ref": "#/components/schemas/ReceivedHostSummary"
               }
             ]
           }
@@ -26470,6 +26470,51 @@
           "reviews": {
             "type": "array",
             "maxItems": 5,
+            "items": {
+              "$ref": "#/components/schemas/PublishedReview"
+            }
+          }
+        }
+      },
+      "ReceivedHostSummary": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "firstName",
+          "memberSince",
+          "tripCount",
+          "reviewCount",
+          "averageX100",
+          "reviews"
+        ],
+        "properties": {
+          "firstName": {
+            "type": ["string", "null"],
+            "maxLength": 40,
+            "description": "prénom de la personne de la session tel que le voient les voyageurs (aperçu A13)"
+          },
+          "memberSince": {
+            "type": ["string", "null"],
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])$",
+            "description": "mois d’inscription (AAAA-MM)"
+          },
+          "tripCount": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "trips réalisés (COMPLETED ou IN_DISPUTE)"
+          },
+          "reviewCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "averageX100": {
+            "type": ["integer", "null"],
+            "minimum": 100,
+            "maximum": 500
+          },
+          "reviews": {
+            "type": "array",
+            "maxItems": 50,
             "items": {
               "$ref": "#/components/schemas/PublishedReview"
             }

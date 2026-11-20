@@ -459,7 +459,8 @@ BEGIN
       RAISE EXCEPTION 'avis : masquage indisponible'
         USING ERRCODE = 'object_not_in_prerequisite_state';
     END IF;
-    v_text := NULLIF(pg_catalog.btrim(v_text, E' 	
+    v_text := NULLIF(pg_catalog.btrim(v_text, E' 	
+
 '), '');
   END IF;
   IF v_text IS NOT NULL AND pg_catalog.char_length(v_text) > 1000 THEN
@@ -666,7 +667,8 @@ REVOKE ALL ON FUNCTION core.review_trip_read(bytea, uuid) FROM PUBLIC;
 
 -- 5.6 Avis PUBLIÉS reçus par la personne de la session (droit d'accès, Ley 81 ; A13) : comme
 -- voyageur (sujet GUEST) et comme hôte (sujet HOST des comptes dont elle est titulaire), 50
--- derniers de chaque, avec le nombre et la moyenne ×100 arrondie au demi supérieur (formule de 0104).
+-- derniers de chaque, avec le nombre et la moyenne ×100 arrondie au demi supérieur (formule de 0104) ;
+-- comme hôte, son propre prénom affiché, son ancienneté et ses trips réalisés (aperçu A13).
 CREATE FUNCTION core.review_my_received(p_token_hash bytea)
   RETURNS TABLE (outcome text, view jsonb)
   LANGUAGE plpgsql
@@ -681,6 +683,7 @@ DECLARE
   v_guest jsonb;
   v_host  jsonb;
   v_since text;
+  v_name  text;
 BEGIN
   SELECT s.user_id INTO v_user FROM core.iam_session_resolve(p_token_hash) AS s;
   IF v_user IS NULL THEN
@@ -689,8 +692,12 @@ BEGIN
   END IF;
   SELECT pg_catalog.array_agg(o.id) INTO v_orgs
     FROM core.iam_organization AS o WHERE o.holder_user_id = v_user;
-  SELECT pg_catalog.to_char(u.created_at AT TIME ZONE 'UTC', 'YYYY-MM') INTO v_since
-    FROM core.iam_user_account AS u WHERE u.id = v_user;
+  -- prénom affiché aux voyageurs (aperçu A13) et mois d'inscription de la personne elle-même
+  SELECT pg_catalog.to_char(u.created_at AT TIME ZONE 'UTC', 'YYYY-MM'),
+         NULLIF(pg_catalog.left(pg_catalog.split_part(pg_catalog.btrim(u.legal_first_name), ' ', 1),
+                                40), '')
+    INTO v_since, v_name
+    FROM core.iam_user_account AS u WHERE u.id = v_user AND u.pseudonymized_at IS NULL;
 
   SELECT pg_catalog.jsonb_build_object(
            'reviewCount', pg_catalog.count(*),
@@ -709,6 +716,7 @@ BEGIN
 
   IF v_orgs IS NOT NULL THEN
     SELECT pg_catalog.jsonb_build_object(
+             'firstName', v_name,
              'memberSince', v_since,
              'tripCount', (SELECT pg_catalog.count(*) FROM core.booking_trip AS t
                             WHERE t.org_id = ANY (v_orgs) AND t.status IN ('COMPLETED', 'IN_DISPUTE')),

@@ -192,6 +192,7 @@ export class FakeReviewStore implements ReviewStore {
         asHost: asHost
           ? {
               ...summary(reviews.filter((r) => r.authorRole === 'GUEST')),
+              firstName: 'María',
               memberSince: '2034-11',
               tripCount: 1,
             }

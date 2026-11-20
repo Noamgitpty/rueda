@@ -94,9 +94,14 @@ export interface HostReviewSummary extends ReviewSummary {
   readonly tripCount: number;
 }
 
+/** Avis reçus comme hôte : avec son propre prénom affiché aux voyageurs (aperçu A13). */
+export interface ReceivedHostSummary extends HostReviewSummary {
+  readonly firstName: string | null;
+}
+
 export interface ReceivedReviews {
   readonly asGuest: ReviewSummary;
-  readonly asHost: HostReviewSummary | null;
+  readonly asHost: ReceivedHostSummary | null;
 }
 
 export interface HostProfile extends HostReviewSummary {
@@ -405,17 +410,16 @@ export function receivedOf(rows: readonly Record<string, unknown>[]): ReceivedRe
     op,
     50,
   );
-  const asHost =
-    v['asHost'] === null
-      ? null
-      : hostSummaryOf(
-          exactKeys(
-            v['asHost'],
-            ['memberSince', 'tripCount', 'reviewCount', 'averageX100', 'reviews'],
-            op,
-          ),
-          op,
-        );
+  let asHost: ReceivedHostSummary | null = null;
+  if (v['asHost'] !== null) {
+    const h = exactKeys(
+      v['asHost'],
+      ['firstName', 'memberSince', 'tripCount', 'reviewCount', 'averageX100', 'reviews'],
+      op,
+    );
+    asHost = { ...hostSummaryOf(h, op), firstName: textOrNull(h['firstName'], op, 40) };
+  }
+
   return { outcome: 'DONE', view: { asGuest, asHost } };
 }
 
