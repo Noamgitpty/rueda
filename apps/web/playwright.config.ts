@@ -63,6 +63,8 @@ const CONTRACT = /trip-contract\.spec\.ts$/;
 const INSPECTION = /trip-inspection\.spec\.ts$/;
 /** Remise du véhicule entre particuliers : A03 de l'hôte, S09 · check-in du voyageur (US-315) : 360 px. */
 const HANDOVER = /trip-handover\.spec\.ts$/;
+// US-307 : no-show de l'hôte et du voyageur (360 px ; l'écran de l'hôte passe à 390 px par SCREENS)
+const NO_SHOW = /trip-no-show\.spec\.ts$/;
 /** Remboursement d'un trip : S10 · remboursement du voyageur, A05 de l'hôte (US-224 partie 224d) : 360 px. */
 const REFUND = /trip-refund\.spec\.ts$/;
 /** « Mis viajes » (S08) et détail du trip (S09) du voyageur (US-214) : 360 px, une langue. */
@@ -184,6 +186,7 @@ export default defineConfig({
         CONTRACT,
         INSPECTION,
         HANDOVER,
+        NO_SHOW,
         REFUND,
         GUEST_TRIPS,
         TRIP_MESSAGES,
@@ -221,6 +224,7 @@ export default defineConfig({
         // INSPECTION (US-303) : 360 px seulement, son écran passe à 390 px par SCREENS
         // HANDOVER (US-315) : 360 px seulement, son écran A03 passe à 390 px par SCREENS
         // TRIP_MESSAGES (US-525) : 360 px seulement, son écran passe à 390 px par SCREENS
+        // NO_SHOW (US-307) : 360 px seulement, l'écran de l'hôte passe à 390 px par SCREENS
         SCREENS,
       ],
       use: { ...phone, viewport: { width: 390, height: 844 } },

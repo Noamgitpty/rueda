@@ -48,3 +48,7 @@ API publique (`index.ts`) : `MsgModule`, `MsgTripMessagesModule`, `unavailableMs
 
 - Unitaires et contrat HTTP (vitest, sans base) : `pnpm --filter @rueda/api exec vitest run src/modules/msg` (`internal/trip-message-store.test.ts`, `testing/trip-messages.contract.test.ts` et `testing/trip-meetings.contract.test.ts` (US-316) sur l'application réelle et les FAKE des magasins, confrontés au contrat OpenAPI).
 - Preuves en base (PostgreSQL réel, rôles de production, PA et PY) : `packages/db/test/l0/l0-us525-messaging.test.ts` et `packages/db/test/l0/l0-us316-messaging-privacy.test.ts` (US-316 : confidentialité, RLS-9, rendez-vous, purge et gel) (`pnpm --filter @rueda/db test:l0`) ; matrice des routes `src/testing/route-matrix.int.test.ts` (`pnpm --filter @rueda/api test:int`). Guide : `docs/ops/INSTALL.md` (compose de dev) ou `RUEDA_PG_TESTCONTAINERS=1` ; la CI (Testcontainers) fait foi.
+
+## Preuve de l'attente (US-307, ADR-191)
+
+`core.messaging_wait_traced` (0171, `messaging_cmd_owner`, EXECUTE `cmd_hold_owner` seulement) : un message d'une partie dans le fil du trip, au plus tôt au début prévu, suivi de 15 min sans réponse de l'autre (08 BR-CXL-08, `hostMessageTraced`) ; lu par les déclarations de no-show d'AVL, aucun texte lu ni servi.

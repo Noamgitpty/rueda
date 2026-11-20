@@ -3281,4 +3281,81 @@ export const PT_MESSAGES = {
     'Olá, {first_name}. O encontro para a devolução da reserva {booking_ref} está confirmado para {meet_at}. O local combinado está nas mensagens da reserva no {brand}.',
   'ntf.meetingReturnConfirmed.sms.body':
     '{brand}: encontro para a devolução confirmado ({booking_ref}) em {meet_at}. Local nas mensagens do app.',
+  // US-307 (ADR-191) : no-show et refus du véhicule — routes, écrans de l’hôte et du voyageur, console
+  'common.noShow.notFound': 'Não encontramos esta viagem.',
+  'common.noShow.checkinNotOpen': 'Abra primeiro a entrega do carro (“Cheguei”).',
+  'common.noShow.notAllowed': 'Esta viagem não permite mais esta declaração.',
+  'common.noShow.tooEarly': 'Ainda é cedo: espere o horário indicado para declarar.',
+  'common.noShow.windowClosed': 'O prazo para declarar terminou (72 horas após o início).',
+  'common.noShow.partyPresent': 'A outra pessoa compareceu à entrega.',
+  'common.noShow.evidenceRequired':
+    'Escreva nas mensagens da viagem e espere 15 minutos sem resposta: é a prova da sua espera.',
+  'common.noShow.pending': 'Já existe uma solicitação em andamento para esta viagem.',
+  'common.noShow.unavailable': 'Não conseguimos registrar. Verifique sua conexão e tente de novo.',
+  'web.noShow.title.HOST': 'O viajante não apareceu',
+  'web.noShow.title.GUEST': 'O anfitrião não apareceu',
+  'web.noShow.back': 'Voltar à viagem',
+  'web.noShow.link.HOST': 'O viajante não apareceu',
+  'web.noShow.link.GUEST': 'O anfitrião não apareceu',
+  'web.noShow.lead.HOST': 'Se o viajante não aparecer, você pode declarar de {d1} até {d2}.',
+  'web.noShow.lead.GUEST': 'Se o anfitrião não aparecer, você pode nos avisar de {d1} até {d2}.',
+  'web.noShow.rule.HOST':
+    'Antes, escreva nas mensagens da viagem e espere 15 minutos. Sem essa mensagem, o viajante recebe o mesmo reembolso, mas você não recebe ganhos por esta viagem.',
+  'web.noShow.rule.GUEST':
+    'Escreva nas mensagens da viagem e espere 15 minutos. Se ele não vier, devolvemos tudo o que você pagou.',
+  'web.noShow.traced.yes': 'Sua mensagem e a espera de 15 minutos foram registradas.',
+  'web.noShow.traced.no': 'Ainda não há uma mensagem sua com 15 minutos de espera.',
+  'web.noShow.messagesLink': 'Ir para as mensagens da viagem',
+  'web.noShow.declare.HOST': 'Declarar que o viajante não apareceu',
+  'web.noShow.declare.GUEST': 'Avisar que o anfitrião não apareceu',
+  'web.noShow.confirmRequired': 'Selecione a caixa para confirmar que a decisão é definitiva.',
+  'web.noShow.final':
+    'É uma decisão definitiva: a viagem é cancelada e a Kmino calcula o reembolso.',
+  'web.noShow.status.PENDING':
+    'Declaração registrada em {date}. A Kmino está calculando o reembolso.',
+  'web.noShow.status.SETTLED':
+    'Resolvido: a viagem está cancelada e o reembolso está em andamento.',
+  'web.noShow.status.FIN_REVIEW': 'A Kmino está revisando o reembolso. Avisaremos você.',
+  'web.noShow.status.FAILED':
+    'Não conseguimos resolver automaticamente. O suporte vai entrar em contato.',
+  'web.noShow.reason.GUEST_NO_SHOW': 'Motivo: o viajante não apareceu.',
+  'web.noShow.reason.HOST_NO_SHOW': 'Motivo: o anfitrião não apareceu.',
+  'web.noShow.reason.other': 'Motivo: outro cancelamento da viagem.',
+  'web.noShow.loadError': 'Não conseguimos carregar esta página.',
+  'web.noShow.retry': 'Tentar de novo',
+  'backoffice.noShow.heading': 'Não comparecimento e recusa do carro',
+  'backoffice.noShow.hint':
+    'Registre um não comparecimento ou valide uma recusa do carro na entrega. A Kmino calcula o reembolso; nunca digite um valor.',
+  'backoffice.noShow.subject': 'Viagem',
+  'backoffice.noShow.choice.NO_SHOW_GUEST': 'O viajante não apareceu',
+  'backoffice.noShow.choice.NO_SHOW_HOST': 'O anfitrião não apareceu (anexe a prova)',
+  'backoffice.noShow.choice.REFUSE_CLEANLINESS': 'Carro sujo: o viajante recusa',
+  'backoffice.noShow.choice.REFUSE_SAFETY': 'Carro perigoso: o viajante recusa',
+  'backoffice.noShow.choice.REFUSE_INVALID_LICENSE':
+    'Carteira inválida: o anfitrião não entrega o carro',
+  'backoffice.noShow.choice.REFUSE_IDENTITY_NOT_VERIFIED':
+    'Identidade não verificada: o anfitrião não entrega o carro',
+  'backoffice.noShow.choice.REFUSE_OTHER_DRIVER_SENT':
+    'Veio outra pessoa: o anfitrião não entrega o carro',
+  'backoffice.noShow.evidenceHint':
+    'Identificadores das provas, separados por espaços. Sem prova, uma recusa por carteira conta como cancelamento do anfitrião.',
+  'backoffice.noShow.settleNote':
+    'O reembolso e a penalidade do anfitrião são calculados depois. Acompanhe em “Cancelamentos”.',
+  'backoffice.noShow.record': 'Registrar',
+  'backoffice.noShow.recorded': 'Solicitação registrada. O reembolso está sendo calculado.',
+  'backoffice.noShow.refused.NO_SHOW_TOO_EARLY':
+    'Cedo demais: o tempo de espera ainda não terminou.',
+  'backoffice.noShow.refused.NO_SHOW_WINDOW_CLOSED':
+    'Prazo vencido: mais de 72 horas desde o início.',
+  'backoffice.noShow.refused.NO_SHOW_PARTY_PRESENT': 'Essa pessoa compareceu à entrega.',
+  'backoffice.noShow.refused.NO_SHOW_PARTY_REQUIRED': 'Escolha quem não apareceu.',
+  'backoffice.noShow.refused.REFUSAL_REASON_REQUIRED': 'Escolha o motivo da recusa.',
+  'backoffice.noShow.refused.REFUSAL_AFTER_CHECKIN':
+    'O viajante já validou a entrega: abra um incidente.',
+  'backoffice.noShow.refused.CHECKIN_NOT_OPEN': 'A entrega ainda não está aberta.',
+  'backoffice.noShow.refused.TRIP_TRANSITION_FORBIDDEN': 'O estado da viagem não permite mais.',
+  'backoffice.noShow.refused.CANCELLATION_PENDING':
+    'Já existe uma solicitação em andamento para esta viagem.',
+  'backoffice.noShow.refused.SELF_FORBIDDEN': 'Você não pode agir sobre uma viagem sua.',
+  'backoffice.noShow.refused.NOT_FOUND': 'Não encontramos esta viagem.',
 } as const satisfies Readonly<Record<MessageKey, Message>>;

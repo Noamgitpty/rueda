@@ -3198,4 +3198,77 @@ export const EN_MESSAGES = {
     'Hi {first_name}. The return meetup for booking {booking_ref} is confirmed for {meet_at}. See the agreed place in the booking chat on {brand}.',
   'ntf.meetingReturnConfirmed.sms.body':
     '{brand}: return meetup confirmed ({booking_ref}) for {meet_at}. See the place in the app.',
+  // US-307 (ADR-191) : no-show et refus du véhicule — routes, écrans de l’hôte et du voyageur, console
+  'common.noShow.notFound': 'We can’t find this trip.',
+  'common.noShow.checkinNotOpen': 'Open the car handover first (“I’ve arrived”).',
+  'common.noShow.notAllowed': 'This trip no longer allows this report.',
+  'common.noShow.tooEarly': 'It’s too early: wait until the time shown to report it.',
+  'common.noShow.windowClosed': 'The time to report it has ended (72 hours after the start).',
+  'common.noShow.partyPresent': 'The other person did show up for the handover.',
+  'common.noShow.evidenceRequired':
+    'Message them in the trip messages and wait 15 minutes with no reply: that proves you waited.',
+  'common.noShow.pending': 'There is already a request in progress for this trip.',
+  'common.noShow.unavailable': 'We couldn’t record it. Check your connection and try again.',
+  'web.noShow.title.HOST': 'The guest didn’t show up',
+  'web.noShow.title.GUEST': 'The host didn’t show up',
+  'web.noShow.back': 'Back to the trip',
+  'web.noShow.link.HOST': 'The guest didn’t show up',
+  'web.noShow.link.GUEST': 'The host didn’t show up',
+  'web.noShow.lead.HOST': 'If the guest doesn’t show up, you can report it from {d1} until {d2}.',
+  'web.noShow.lead.GUEST': 'If the host doesn’t show up, you can tell us from {d1} until {d2}.',
+  'web.noShow.rule.HOST':
+    'First, message the guest in the trip messages and wait 15 minutes. Without that message, the guest gets the same refund, but you earn nothing for this trip.',
+  'web.noShow.rule.GUEST':
+    'Message the host in the trip messages and wait 15 minutes. If they don’t come, we refund everything you paid.',
+  'web.noShow.traced.yes': 'Your message and the 15-minute wait are on record.',
+  'web.noShow.traced.no': 'There’s no message from you with a 15-minute wait yet.',
+  'web.noShow.messagesLink': 'Go to the trip messages',
+  'web.noShow.declare.HOST': 'Report that the guest didn’t show up',
+  'web.noShow.declare.GUEST': 'Report that the host didn’t show up',
+  'web.noShow.confirmRequired': 'Tick the box to confirm this is final.',
+  'web.noShow.final': 'This is final: the trip is cancelled and Kmino works out the refund.',
+  'web.noShow.status.PENDING': 'Report recorded on {date}. Kmino is working out the refund.',
+  'web.noShow.status.SETTLED': 'Resolved: the trip is cancelled and the refund is under way.',
+  'web.noShow.status.FIN_REVIEW': 'Kmino is reviewing the refund. We’ll let you know.',
+  'web.noShow.status.FAILED': 'We couldn’t resolve it automatically. Support will contact you.',
+  'web.noShow.reason.GUEST_NO_SHOW': 'Reason: the guest didn’t show up.',
+  'web.noShow.reason.HOST_NO_SHOW': 'Reason: the host didn’t show up.',
+  'web.noShow.reason.other': 'Reason: another trip cancellation.',
+  'web.noShow.loadError': 'We couldn’t load this page.',
+  'web.noShow.retry': 'Try again',
+  'backoffice.noShow.heading': 'No-show and car refusal',
+  'backoffice.noShow.hint':
+    'Report a no-show or confirm a car refusal at pickup. Kmino works out the refund; never type an amount.',
+  'backoffice.noShow.subject': 'Trip',
+  'backoffice.noShow.choice.NO_SHOW_GUEST': 'The guest didn’t show up',
+  'backoffice.noShow.choice.NO_SHOW_HOST': 'The host didn’t show up (attach the proof)',
+  'backoffice.noShow.choice.REFUSE_CLEANLINESS': 'Dirty car: the guest refuses it',
+  'backoffice.noShow.choice.REFUSE_SAFETY': 'Unsafe car: the guest refuses it',
+  'backoffice.noShow.choice.REFUSE_INVALID_LICENSE':
+    'Invalid licence: the host doesn’t hand over the car',
+  'backoffice.noShow.choice.REFUSE_IDENTITY_NOT_VERIFIED':
+    'Identity not verified: the host doesn’t hand over the car',
+  'backoffice.noShow.choice.REFUSE_OTHER_DRIVER_SENT':
+    'Someone else came: the host doesn’t hand over the car',
+  'backoffice.noShow.evidenceHint':
+    'Proof identifiers, separated by spaces. Without proof, a licence refusal counts as a host cancellation.',
+  'backoffice.noShow.settleNote':
+    'The refund and the host penalty are worked out next. Check their status under “Cancellations”.',
+  'backoffice.noShow.record': 'Record',
+  'backoffice.noShow.recorded': 'Request recorded. The refund is being worked out.',
+  'backoffice.noShow.refused.NO_SHOW_TOO_EARLY':
+    'Too early: the country’s waiting time isn’t over.',
+  'backoffice.noShow.refused.NO_SHOW_WINDOW_CLOSED':
+    'Deadline passed: more than 72 hours since the start.',
+  'backoffice.noShow.refused.NO_SHOW_PARTY_PRESENT': 'That person did show up for the handover.',
+  'backoffice.noShow.refused.NO_SHOW_PARTY_REQUIRED': 'Choose who didn’t show up.',
+  'backoffice.noShow.refused.REFUSAL_REASON_REQUIRED': 'Choose the refusal reason.',
+  'backoffice.noShow.refused.REFUSAL_AFTER_CHECKIN':
+    'The guest already confirmed the handover: open an incident.',
+  'backoffice.noShow.refused.CHECKIN_NOT_OPEN': 'The handover isn’t open yet.',
+  'backoffice.noShow.refused.TRIP_TRANSITION_FORBIDDEN': 'The trip’s status no longer allows it.',
+  'backoffice.noShow.refused.CANCELLATION_PENDING':
+    'There is already a request in progress for this trip.',
+  'backoffice.noShow.refused.SELF_FORBIDDEN': 'You can’t act on your own trip.',
+  'backoffice.noShow.refused.NOT_FOUND': 'We can’t find this trip.',
 } as const satisfies Readonly<Record<MessageKey, Message>>;

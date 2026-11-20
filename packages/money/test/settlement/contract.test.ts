@@ -85,6 +85,8 @@ const DECISION_TABLE: Readonly<Record<string, readonly [string, string]>> = {
   HOST_ACCOUNT_CLOSED: ['FULL', 'CANCELLED_BY_PLATFORM'],
   PLATFORM_REVIEW_DELAY: ['FULL', 'CANCELLED_BY_PLATFORM'],
   PSP_FAILURE: ['FULL', 'CANCELLED_BY_PLATFORM'],
+  // US-307 (cxl-beta/2) : ligne n° 8 de 08 (refus du véhicule validé, BR-CXL-04)
+  CLEANLINESS_SAFETY_VALID: ['FULL', 'REFUSED_AT_PICKUP'],
 };
 
 describe.each(COUNTRY_VARIANTS)('contrat du moteur — $country', ({ currency }) => {

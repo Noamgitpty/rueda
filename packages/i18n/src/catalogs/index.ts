@@ -342,8 +342,16 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  coordonnées), `web.s16.meeting.*` (S16 : bloc « rendez-vous » de la remise et du retour, statuts,
  confirmation et refus du voyageur, formulaire de l’hôte) et l’avis de rendez-vous confirmé
  `ntf.meetingPickupConfirmed.*` / `ntf.meetingReturnConfirmed.*` (heure seulement, jamais le lieu).
+ Version 106 (réservée à US-307 par l’orchestrateur ; les 102 à 105 sont celles d’US-709, US-305,
+ US-703 et US-317, non fusionnées à l’écriture) : no-show et refus du véhicule (US-307, ADR-191) :
+ `common.noShow.*` (réponses des routes `/trips/{id}/no-show` : trop tôt, fenêtre close, partie
+ présente, preuve manquante, demande en cours, base injoignable), `web.noShow.*` (écran de l’hôte
+ « le voyageur n’est pas venu » et du voyageur « l’hôte n’est pas venu » : fenêtre, preuve tracée
+ dans les messages, déclaration définitive, état de la demande, liens du détail du trip) et
+ `backoffice.noShow.*` (console : `DECLARE_NO_SHOW` et `REFUSE_AT_PICKUP` à saisie fermée, refus
+ expliqués).
  */
-export const CATALOG_VERSION = 101;
+export const CATALOG_VERSION = 106;
 
 /** Catalogues de base par langue ; la langue d'un profil de locale choisit le sien. */
 export const CATALOGS: Readonly<Record<CatalogLanguage, VersionedCatalog<MessageKey>>> = {

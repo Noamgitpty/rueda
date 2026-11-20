@@ -824,3 +824,120 @@ describe('isolement des demandes, alertes et essais bornés (revue code n° 1 à
     );
   });
 });
+
+describe('US-307 (ADR-191) — no-show déclaré : hostMessageTraced lu en base, réaffectation gardée par la capacité', () => {
+  const captureRow = {
+    id: 'cap-1',
+    psp_account_id: 'acc-1',
+    method: 'CARD',
+    amount_minor: '25666',
+    committed_minor: '0',
+  };
+  const planned = {
+    instance_id: 'ri-1',
+    operation_id: 'op-1',
+    advance_id: null,
+    status: 'PLANNED',
+    blocked_reason: null,
+    replayed: false,
+  };
+
+  it('T05 (message tracé) et T39 (aucun message) : événement du moteur = fait de la base ; 138,22 dans les deux cas, gains 75,00 puis 0,00 (oracle)', () => {
+    for (const [vector, traced, host] of [
+      ['T05', true, 7_500n],
+      ['T39', false, 0n],
+    ] as const) {
+      const { facts, trip } = factsOf(vector, { hostMessageTraced: traced });
+      expect(cancellationEvent(facts)).toMatchObject({
+        reason: 'GUEST_NO_SHOW',
+        hostMessageTraced: traced,
+      });
+      const plan = planCancellation(facts, trip);
+      expect(plan.record.guestRefundMinor).toBe(13_822n);
+      expect(plan.record.hostEarningsMinor).toBe(host);
+    }
+    // autre motif : jamais de fait hostMessageTraced dans l'événement lié par la base (0124)
+    const t03 = factsOf('T03', { hostMessageTraced: true }).facts;
+    expect(cancellationEvent(t03)).not.toHaveProperty('hostMessageTraced');
+  });
+
+  it('no-show du voyageur sans le fait en base ⇒ refus du moteur (fail-closed), jamais une valeur par défaut', () => {
+    const { facts, trip } = factsOf('T05', { hostMessageTraced: null });
+    expect(() => planCancellation(facts, trip)).toThrow(
+      expect.objectContaining({ code: 'SETTLEMENT_INPUT_INVALID' }),
+    );
+  });
+
+  it('T39 : faits lus (début, drapeaux), garde de la capacité AVANT la réaffectation, puis le remboursement', async () => {
+    const { facts, trip } = factsOf('T39', { hostMessageTraced: false });
+    const db = new FakeDb((sql) => {
+      if (sql.includes('booking_trip_cancellation_begin')) return [beginRow(facts)];
+      if (sql.includes('booking_trip_cancellation_flags')) return [{ host_message_traced: false }];
+      if (sql.includes('settlement_cmd_record')) return [{ id: 'set-1' }];
+      if (sql.includes('booking_cmd_trip_settle_cancellation'))
+        return [{ r: { costBearer: 'GUEST' } }];
+      if (sql.includes('payment_payment_operation')) return [captureRow];
+      if (sql.includes('payment_assert_payout_adjustment')) return [{}];
+      if (sql.includes('payment_cmd_record_operation'))
+        return [{ operation_id: 'op-r', replayed: false }];
+      if (sql.includes('payment_cmd_plan_refund')) return [planned];
+      return new Error(`requête inattendue : ${sql}`);
+    });
+    const p = new TripCancellationProcessor({
+      transactions: transactionsOf(db),
+      alerts: new Alerts(),
+      tripOf: () => trip,
+    });
+    expect(await p.process(CANCELLATION_ID)).toEqual({
+      outcome: 'SETTLED',
+      costBearer: 'GUEST',
+      orders: 2,
+    });
+    expect(db.calls.map((c) => [c.worker, /core\.([a-z_]+)/.exec(c.sql)?.[1]])).toEqual([
+      ['trip_lifecycle', 'booking_trip_cancellation_begin'],
+      ['trip_lifecycle', 'booking_trip_cancellation_flags'],
+      ['settlement', 'settlement_cmd_record'],
+      ['trip_lifecycle', 'booking_cmd_trip_settle_cancellation'],
+      ['payment_command', 'payment_payment_operation'],
+      ['payment_command', 'payment_assert_payout_adjustment'],
+      ['payment_command', 'payment_cmd_record_operation'],
+      ['payment_command', 'payment_cmd_plan_refund'],
+    ]);
+  });
+
+  it('capacité inconnue (leg_reallocation_unsupported) ⇒ FIN_REVIEW garé, alerte FIN, aucun ordre écrit', async () => {
+    const { facts, trip } = factsOf('T39', { hostMessageTraced: false });
+    const refused = Object.assign(new Error('payment: payout adjustment not validated'), {
+      code: '55000',
+      constraint: 'leg_reallocation_unsupported',
+    });
+    const db = new FakeDb((sql) => {
+      if (sql.includes('booking_trip_cancellation_begin')) return [beginRow(facts)];
+      if (sql.includes('booking_trip_cancellation_flags')) return [{ host_message_traced: false }];
+      if (sql.includes('settlement_cmd_record')) return [{ id: 'set-1' }];
+      if (sql.includes('booking_cmd_trip_settle_cancellation'))
+        return [{ r: { costBearer: 'GUEST' } }];
+      if (sql.includes('payment_payment_operation')) return [captureRow];
+      if (sql.includes('payment_assert_payout_adjustment')) return refused;
+      if (sql.includes('booking_cmd_trip_park_cancellation')) return [{ r: 'PARKED' }];
+      return new Error(`requête inattendue : ${sql}`);
+    });
+    const alerts = new Alerts();
+    const p = new TripCancellationProcessor({
+      transactions: transactionsOf(db),
+      alerts,
+      tripOf: () => trip,
+    });
+    expect(await p.process(CANCELLATION_ID)).toEqual({
+      outcome: 'FIN_REVIEW',
+      code: 'LEG_REALLOCATION_UNSUPPORTED',
+    });
+    expect(alerts.sent.map((a) => a.code)).toEqual(['FIN_SETTLEMENT_REVIEW']);
+    expect(db.calls.some((c) => c.sql.includes('payment_cmd_record_operation'))).toBe(false);
+    expect(db.calls.some((c) => c.sql.includes('payment_cmd_plan_refund'))).toBe(false);
+    expect(classify(refused)).toEqual({
+      outcome: 'FIN_REVIEW',
+      code: 'LEG_REALLOCATION_UNSUPPORTED',
+    });
+  });
+});

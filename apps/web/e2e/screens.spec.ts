@@ -455,6 +455,17 @@ async function openHandover(page: Page, context: BrowserContext): Promise<void> 
   await expect(page.locator('[data-testid="handover-identity"]')).toBeVisible();
 }
 
+/** US-307 : écran du no-show de l'hôte (message tracé, déclaration possible). */
+async function openNoShow(page: Page, context: BrowserContext): Promise<void> {
+  await signInHost(context);
+  const token = (await context.cookies()).find((c) => c.name === '__Host-session')?.value ?? '';
+  const r = await fetch(`${API}/__e2e/no-show/new?guest=&host=${token}&traced=yes`);
+  expect(r.status).toBe(200);
+  const { tripId } = (await r.json()) as { tripId: string };
+  await page.goto(`/host/trips/${tripId}/no-show`);
+  await expect(page.locator('[data-testid="no-show-form"]')).toBeVisible();
+}
+
 interface Screen {
   /** Nom stable de la capture (dossier de références). */
   readonly name: string;
@@ -837,6 +848,12 @@ export const SCREENS: readonly Screen[] = [
     name: 'remise-hote',
     source: 'A03, US-315',
     open: (page, context) => openHandover(page, context),
+  },
+  // US-307 : no-show du voyageur déclaré par l'hôte (A05 · no-show)
+  {
+    name: 'no-show-hote',
+    source: 'A05, US-307',
+    open: (page, context) => openNoShow(page, context),
   },
   // US-525 : messages du trip (S16), fil du voyageur
   {

@@ -28,3 +28,7 @@ export type {
 export { HANDOVER_MESSAGES, HandoverHttpError } from './internal/handover/errors.js';
 export { PgHandoverStore, UnavailableHandoverStore } from './internal/handover/store.js';
 export type { HandoverStore, HandoverViewRow } from './internal/handover/store.js';
+// No-show déclaré par une partie du trip (US-307, ADR-191)
+export { NO_SHOW_MESSAGES, NoShowHttpError } from './internal/no-show/errors.js';
+export { PgNoShowStore, UnavailableNoShowStore } from './internal/no-show/store.js';
+export type { NoShowStore, NoShowViewRow } from './internal/no-show/store.js';

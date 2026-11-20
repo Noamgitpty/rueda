@@ -445,6 +445,8 @@ describe('US-211 partie 211b — routes du contrat de location d’un trip', () 
           !d.includes(' /trips/{tripId}/inspections/') &&
           // remise et retour (US-315) : leur propre suite (trp/testing/trip-handover.contract)
           !d.includes(' /trips/{tripId}/handover/') &&
+          // no-show d'une partie (US-307) : sa propre suite (trp/testing/trip-no-show.contract)
+          !d.includes(' /trips/{tripId}/no-show ') &&
           // messagerie par trip (US-525) : sa propre suite (msg/testing/trip-messages.contract)
           !d.includes(' /trips/{tripId}/messages ') &&
           // rendez-vous d'un trip (US-316) : leur propre suite (msg/testing/trip-meetings.contract)

@@ -129,3 +129,10 @@ La pénalité de l'hôte qui annule (`host_penalty_minor` du règlement, 08 E7 r
 ## Registre et bordereau de l'assureur (US-227, ADR-165)
 
 La jambe `INSURER` est écrite au registre de l'assureur (`core.settlement_insurer_ledger_entry`, migration 0143) par la base elle-même, dans la transaction de sa source : chaque encaissement porté sur les soldes (`COLLECTION`, jambe de l'opération) et chaque version de règlement (`SETTLEMENT_VARIATION`, variation stockée ; une version n+1 n'écrit que sa variation depuis la version n). Une variation sur un trip déjà porté par un bordereau émis est refusée (`insurer_leg_on_bordereau`) : l'annulation de l'ops est garée `FIN_REVIEW`. La tâche `bordereau` (`internal/insurer-bordereau.ts`, 24 h, `registerInsurerBordereaux` dans `worker-tasks.ts`) appelle `core.settlement_cmd_draft_insurer_bordereaux(NULL)` : bordereau DRAFT du mois clos par contrat, projection `insurer_ledger_state`. L'émission reste `ISSUE_BORDEREAU` à deux personnes FINANCE (console d'US-101), gardée par `insurer_bordereau_issue_check`. Aucun paiement à l'assureur (lot C, GL-42). Preuves : `insurer-bordereau.test.ts`, `packages/db/test/l0/l0-us227-insurer-ledger.test.ts`.
+
+## No-show et refus du véhicule (US-307, ADR-191)
+
+- Le processeur `TripCancellationProcessor` règle aussi les déclarations de no-show (hôte, voyageur, console `DECLARE_NO_SHOW`) et les refus du véhicule (console `REFUSE_AT_PICKUP`) : même transaction, même moteur, mêmes ordres.
+- `hostMessageTraced` d'un no-show du voyageur est lu en base (`core.booking_trip_cancellation_flags`, figé à la déclaration) ; absent ⇒ refus du moteur (`SETTLEMENT_INPUT_INVALID`), jamais une valeur par défaut.
+- Une réaffectation de jambes (TJ05b, hôte inéligible) exige `SUPPORTS_PAYOUT_ADJUSTMENT` VALIDÉE (`core.payment_assert_payout_adjustment`) ; sinon `FIN_REVIEW` `LEG_REALLOCATION_UNSUPPORTED`, alerte FIN, rien d'écrit.
+- Moteur `cxl-beta/2` : le refus du véhicule validé (`CLEANLINESS_SAFETY_VALID`) entre dans le sous-ensemble ; vérifié en base par `core.settlement_verify_cxl_beta_2`. Pénalité de l'hôte au `host_ledger` par le déclencheur de 0129.

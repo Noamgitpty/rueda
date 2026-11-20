@@ -143,6 +143,16 @@ export default async function HostTripPage({
           )}
         </a>
       )}
+      {/* no-show du voyageur déclaré par l'hôte (US-307) : remise ouverte, pas encore commencée */}
+      {(read.trip.status === 'CHECKIN_OPEN' || read.trip.status === 'START_WINDOW_EXPIRED') && (
+        <a
+          className={styles['link']}
+          href={`/host/trips/${tripId}/no-show?org=${account.orgId}`}
+          data-testid="a05-no-show"
+        >
+          {t('web.noShow.link.HOST')}
+        </a>
+      )}
       {(shownRefunds.length > 0 || refundsFailed) && (
         <section className={styles['section']} aria-labelledby="a05-refund-title">
           <h2 id="a05-refund-title" className={accountStyles['h2']}>

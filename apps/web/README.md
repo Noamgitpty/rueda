@@ -135,3 +135,5 @@ Démarrer le laboratoire en local (PowerShell, depuis la racine du dépôt) :
 pnpm --filter @rueda/web build
 $env:WEB_LAB_PWA_IOS_ENABLED = 'true'; pnpm --filter @rueda/web start
 ```
+
+- **US-307 (no-show entre particuliers, ADR-191)** : **`/host/trips/{tripId}/no-show?org=`** (l'hôte déclare que le voyageur n'est pas venu) et **`/trips/{tripId}/no-show`** (le voyageur signale que l'hôte n'est pas venu), écran commun `_no-show/no-show-screen.tsx` (rendu serveur, `account/trip-no-show.ts` : lecture défensive) : fenêtre de déclaration en heure serveur dans le fuseau du trip, preuve de l'attente tracée dans les messages du trip (lien vers S16), déclaration définitive confirmée par une case (`reportNoShowAction`, identifiant de la demande fixé au rendu : aucune déclaration ne se rejoue), état de la demande ; jamais un montant ni une heure envoyés. Liens sur A05 et S09 en remise ouverte (CHECKIN_OPEN, START_WINDOW_EXPIRED). e2e : `e2e/trip-no-show.spec.ts` (projet `mobile-360`, quatre langues) et l'écran `no-show-hote` de `SCREENS` (références à recopier de l'artefact CI `regression-visuelle`). Catalogue v106.

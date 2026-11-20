@@ -14943,6 +14943,219 @@
         }
       }
     },
+    "/trips/{tripId}/no-show": {
+      "get": {
+        "operationId": "getTripNoShow",
+        "tags": ["trp"],
+        "summary": "No-show de l'autre partie vu par une partie du trip : fenêtre de déclaration (heure serveur depuis le début prévu), premier obstacle, preuve tracée dans le fil du trip, dernière demande (motif, statut, heure) ; jamais un montant",
+        "parameters": [
+          {
+            "name": "tripId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "État du no-show : l'hôte déclare le voyageur absent, le voyageur signale l'hôte absent",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TripNoShow"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthRequired"
+          },
+          "404": {
+            "description": "Trip inconnu, d'une autre personne ou identifiant mal formé : même réponse (17 §2.3 point 5)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "NO_SHOW_NOT_FOUND"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Base injoignable : rien n'est écrit ; réessayer",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "NO_SHOW_UNAVAILABLE"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "reportTripNoShow",
+        "tags": ["trp"],
+        "summary": "Déclaration du no-show de l'autre partie (hôte : voyageur absent après la grâce du pays ; voyageur : hôte absent 30 min après le début, message tracé) ; demande réglée par la base (moteur unique, remboursement par jambe) ; rejeu idempotent par requestId",
+        "parameters": [
+          {
+            "name": "tripId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TripNoShowRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Demande enregistrée (ou déjà enregistrée sous ce requestId : la même)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TripNoShowReported"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Corps invalide (requestId absent ou mal formé, clé inconnue, dont toute heure) ou requestId déjà pris par une autre demande",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "REQUEST_INVALID"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthRequired"
+          },
+          "404": {
+            "description": "Trip inconnu, d'une autre personne ou identifiant mal formé : même réponse (17 §2.3 point 5)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "NO_SHOW_NOT_FOUND"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Déclaration impossible : remise non ouverte, état du trip, trop tôt, fenêtre close, partie présente, preuve manquante ou demande déjà en cours",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "enum": [
+                        "CHECKIN_NOT_OPEN",
+                        "NO_SHOW_NOT_ALLOWED",
+                        "NO_SHOW_TOO_EARLY",
+                        "NO_SHOW_WINDOW_CLOSED",
+                        "NO_SHOW_PARTY_PRESENT",
+                        "NO_SHOW_EVIDENCE_REQUIRED",
+                        "CANCELLATION_PENDING"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "415": {
+            "$ref": "#/components/responses/NotJson"
+          },
+          "503": {
+            "description": "Base injoignable : rien n'est écrit ; réessayer",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "NO_SHOW_UNAVAILABLE"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/console/evidence-bundles/{bundleId}": {
       "get": {
         "operationId": "consoleEvidenceBundleStatus",
@@ -25729,6 +25942,157 @@
           "fileCount": {
             "type": "integer",
             "minimum": 0
+          }
+        }
+      },
+      "TripNoShow": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "tripId",
+          "viewerRole",
+          "absentParty",
+          "tripStatus",
+          "timezone",
+          "scheduledStart",
+          "declarableFrom",
+          "declarableUntil",
+          "canDeclare",
+          "blocker",
+          "messageTraced",
+          "declaration"
+        ],
+        "properties": {
+          "tripId": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+          },
+          "viewerRole": {
+            "enum": ["HOST", "GUEST"]
+          },
+          "absentParty": {
+            "enum": ["HOST", "GUEST"]
+          },
+          "tripStatus": {
+            "type": "string",
+            "pattern": "^[A-Z_]{2,32}$"
+          },
+          "timezone": {
+            "type": "string",
+            "minLength": 1
+          },
+          "scheduledStart": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}[.][0-9]{3}Z$"
+          },
+          "declarableFrom": {
+            "oneOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}[.][0-9]{3}Z$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "declarableUntil": {
+            "oneOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}[.][0-9]{3}Z$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "canDeclare": {
+            "type": "boolean"
+          },
+          "blocker": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "enum": [
+                  "NO_SHOW_NOT_FOUND",
+                  "CHECKIN_NOT_OPEN",
+                  "NO_SHOW_NOT_ALLOWED",
+                  "NO_SHOW_TOO_EARLY",
+                  "NO_SHOW_WINDOW_CLOSED",
+                  "NO_SHOW_PARTY_PRESENT",
+                  "NO_SHOW_EVIDENCE_REQUIRED",
+                  "CANCELLATION_PENDING",
+                  "NO_SHOW_UNAVAILABLE"
+                ]
+              }
+            ]
+          },
+          "messageTraced": {
+            "type": "boolean"
+          },
+          "declaration": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["id", "requestedReason", "status", "requestedAt", "mine"],
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+                  },
+                  "requestedReason": {
+                    "type": "string",
+                    "pattern": "^[A-Z][A-Z0-9_]{1,63}$"
+                  },
+                  "status": {
+                    "enum": ["PENDING", "SETTLED", "FIN_REVIEW", "FAILED"]
+                  },
+                  "requestedAt": {
+                    "type": "string",
+                    "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}[.][0-9]{3}Z$"
+                  },
+                  "mine": {
+                    "type": "boolean"
+                  }
+                }
+              }
+            ]
+          }
+        }
+      },
+      "TripNoShowRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["requestId"],
+        "properties": {
+          "requestId": {
+            "type": "string",
+            "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+          }
+        }
+      },
+      "TripNoShowReported": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["declarationId", "requestedAt", "status"],
+        "properties": {
+          "declarationId": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+          },
+          "requestedAt": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}[.][0-9]{3}Z$"
+          },
+          "status": {
+            "const": "PENDING"
           }
         }
       }

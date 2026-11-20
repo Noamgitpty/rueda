@@ -10,7 +10,7 @@
  *
  * 1. `core.booking_trip_cancellation_begin` : verrous voyageur → véhicule → trip, faits du trip,
  *    preuve validée dérivée des pièces de l'action, devis figé, paramètres du pays ;
- * 2. moteur UNIQUE de `@rueda/money` (`buildSettlementRecord`, `cxl-beta/1`) sur le trip tiré du
+ * 2. moteur UNIQUE de `@rueda/money` (`buildSettlementRecord`, `cxl-beta/2`) sur le trip tiré du
  *    devis figé REJOUÉ (`replayFrozenQuote`, `quoteSettlementTrip` de PRC), instants et paramètres
  *    de la base ; `REFUND_OUT_OF_RANGE` ⇒ revue FIN (`settleOrFinReview`), rien d'écrit ; le même
  *    refus levé plus loin par 08 E2 (`ordersByTender` : remboursement au-delà des reliquats des
@@ -24,6 +24,14 @@
  *    bornés par 0121 (travailleur `payment_command`) : réaffectation par la commande PAY à 15
  *    arguments, remboursement par l'instance `PLANNED` d'US-224b (`PgRefundPlanner.plan`) ;
  *    la contrainte différée de 0124 exige Σ REFUND = remboursement du voyageur à la validation.
+ *
+ * US-307 (ADR-191) : les déclarations de no-show (hôte, voyageur, console `DECLARE_NO_SHOW`) et
+ * les refus du véhicule (console `REFUSE_AT_PICKUP`) sont des demandes de la même table, réglées
+ * par ce même processeur : `hostMessageTraced` d'un no-show du voyageur est lu en base
+ * (`core.booking_trip_cancellation_flags`, figé à la déclaration) ; une réaffectation de jambes
+ * (TJ05b) exige `SUPPORTS_PAYOUT_ADJUSTMENT` validée (`core.payment_assert_payout_adjustment`,
+ * capacité inconnue = « non ») : sinon la demande est garée FIN_REVIEW
+ * (`LEG_REALLOCATION_UNSUPPORTED`), rien n'est remboursé ni réaffecté.
  *
  * Un refus déterministe (moteur, paramètre, devis, état du trip, ordre refusé) annule la
  * transaction ; la demande est alors garée dans une transaction à part (`FIN_REVIEW` ou `FAILED`,
@@ -97,6 +105,11 @@ export interface CancellationFacts {
   readonly evidenceValidated: boolean;
   readonly checkinValidated: boolean;
   readonly requestedAtMs: number;
+  /**
+   * US-307 : no-show du voyageur seulement — message de l'hôte et 15 min sans réponse tracés à la
+   * déclaration (08 BR-CXL-08), lu en base ; absent pour tout autre motif.
+   */
+  readonly hostMessageTraced?: boolean | null;
   readonly frozen: FrozenQuote | null;
   /** Paramètres du pays dans la forme canonique des entrées du règlement (0124), ou `null`. */
   readonly params: unknown;
@@ -139,6 +152,10 @@ export function cancellationEvent(f: CancellationFacts): CancellationEvent {
       ? { evidenceValidated: f.evidenceValidated }
       : {}),
     checkinValidated: f.checkinValidated,
+    // US-307 : fait exigé par le moteur pour un no-show du voyageur (absent ⇒ refus du moteur)
+    ...(f.requestedReason === 'GUEST_NO_SHOW' && typeof f.hostMessageTraced === 'boolean'
+      ? { hostMessageTraced: f.hostMessageTraced }
+      : {}),
   };
 }
 
@@ -401,6 +418,16 @@ export async function beginCancellation(
   );
   const r = rows[0];
   if (r === undefined) return null;
+  const requestedReason = text(r['requested_reason']);
+  // US-307 (ADR-191) : hostMessageTraced figé à la déclaration (no-show du voyageur seulement)
+  let hostMessageTraced: boolean | null = null;
+  if (requestedReason === 'GUEST_NO_SHOW') {
+    const flags = await db.query<Record<string, unknown>>(
+      'SELECT host_message_traced FROM core.booking_trip_cancellation_flags($1::uuid)',
+      [cancellationId],
+    );
+    hostMessageTraced = bool(flags.rows[0]?.['host_message_traced']);
+  }
   const frozen: FrozenQuote | null =
     r['quote_inputs'] === null || r['quote_inputs'] === undefined
       ? null
@@ -423,11 +450,12 @@ export async function beginCancellation(
     tripRowVersion: int(r['trip_row_version']),
     startAtMs: int(r['start_at_ms']),
     bookedAtMs: int(r['booked_at_ms']),
-    requestedReason: text(r['requested_reason']),
+    requestedReason,
     subReason: textOrNull(r['sub_reason']),
     evidenceValidated: bool(r['evidence_validated']),
     checkinValidated: bool(r['checkin_validated']),
     requestedAtMs: int(r['requested_at_ms']),
+    ...(requestedReason === 'GUEST_NO_SHOW' ? { hostMessageTraced } : {}),
     frozen,
     params: r['params'] ?? null,
   };
@@ -591,6 +619,12 @@ export class TripCancellationProcessor {
           });
           continue;
         }
+        // US-307 (ADR-191 ; 08 E7 règle 3, 17 §2.8) : réaffectation seulement si la capacité
+        // SUPPORTS_PAYOUT_ADJUSTMENT est validée pour le compte et le moyen (inconnue = non)
+        await db.query('SELECT core.payment_assert_payout_adjustment($1::uuid, $2)', [
+          o.tender.accountId,
+          o.tender.method,
+        ]);
         await recorder.record({
           id: randomUUID(),
           holdId: null,
@@ -725,6 +759,8 @@ const FIN_CONSTRAINTS = new Set([
   'refund_exceeds_tender',
   'advance_decision_required',
   'insurer_leg_on_bordereau',
+  // US-307 (ADR-191) : réaffectation sans SUPPORTS_PAYOUT_ADJUSTMENT validée (17 §2.8)
+  'leg_reallocation_unsupported',
 ]);
 /** Interblocage, sérialisation : reprise au passage suivant. */
 const RETRY_STATES = new Set(['40P01', '40001']);

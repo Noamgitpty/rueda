@@ -14,7 +14,7 @@ TRP gère la remise et le retour du véhicule entre particuliers (17 §2.2, §2.
 
 TRP ne change pas lui-même l'état du trip : il demande les transitions SM-1 à AVL. La table du trip (`core.booking_trip`, migration 0004) appartient à AVL.
 
-État réel du code : **photos guidées de l'état du véhicule** (US-303, ADR-179, migration 0158) et **remise et retour entre particuliers** (US-315, ADR-183, migration 0163 : ouverture, contrôle du permis, validations, passages IN_PROGRESS et RETURNED). Le reste arrive avec US-305 et US-306 (retards et escalade), US-307 (refus et no-show), US-706 (frais annexes) et US-524 (hors ligne).
+État réel du code : **photos guidées de l'état du véhicule** (US-303, ADR-179, migration 0158) et **remise et retour entre particuliers** (US-315, ADR-183, migration 0163 : ouverture, contrôle du permis, validations, passages IN_PROGRESS et RETURNED). **No-show déclaré par une partie** (US-307, ADR-191, migration 0171). Le reste arrive avec US-305 et US-306 (retards et escalade), US-706 (frais annexes) et US-524 (hors ligne).
 
 ### Photos d'état (US-303)
 
@@ -66,3 +66,9 @@ pnpm --filter @rueda/api exec vitest run src/modules/trp
 ```
 
 Preuves L0 sous les rôles de production, PA / USD et PY / PYG : `packages/db/test/l0/l0-us303-inspection-photos.test.ts`, `packages/db/test/l0/l0-us315-handover.test.ts` (conditions une à une avec témoin, permis, deux séries, heures serveur, retour, deux connexions) (`pnpm --filter @rueda/db test:l0`, PostgreSQL requis : `docs/ops/INSTALL.md` ou `RUEDA_PG_TESTCONTAINERS=1`).
+
+### No-show déclaré par une partie (US-307)
+
+- Routes (`SessionGuard`, `TermsGuard`) : `GET /trips/{tripId}/no-show` (fenêtre en heure serveur, premier obstacle, preuve tracée, dernière demande) et `POST /trips/{tripId}/no-show` (`{ requestId }` seulement : clé d'idempotence ; la partie absente est l'autre partie de la session, jugée en base). Codes : `NO_SHOW_NOT_FOUND` (404, même réponse pour toute autre personne), `CHECKIN_NOT_OPEN`, `NO_SHOW_NOT_ALLOWED`, `NO_SHOW_TOO_EARLY`, `NO_SHOW_WINDOW_CLOSED`, `NO_SHOW_PARTY_PRESENT`, `NO_SHOW_EVIDENCE_REQUIRED`, `CANCELLATION_PENDING` (409), `REQUEST_INVALID` (400), `NO_SHOW_UNAVAILABLE` (503).
+- Port `NoShowStore`, adaptateur `PgNoShowStore` (`core.trip_no_show_view`, `core.trip_cmd_report_no_show`, 0171) ; FAKE de test `testing/fake-no-show-store.ts` ; contrat `testing/trip-no-show.contract.test.ts`.
+- La demande est réglée par le travailleur `trip_lifecycle` (STL, `TripCancellationProcessor`) : aucun montant ici.

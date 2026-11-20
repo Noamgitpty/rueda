@@ -3108,6 +3108,97 @@ async function handoverRoute(req, res, url) {
   });
 }
 
+// No-show entre particuliers (US-307) : `GET /__e2e/no-show/new?guest=&host=&traced=` crée un trip
+// en remise ouverte dont la fenêtre de déclaration est ouverte à l'heure « serveur » fixe du double
+// (`traced` : message de la partie présente suivi de 15 min sans réponse) ; l'hôte déclare le
+// voyageur absent, le voyageur l'hôte ; toute autre session ⇒ 404 NO_SHOW_NOT_FOUND ; même
+// `requestId` ⇒ la même demande ; une seconde ⇒ 409 CANCELLATION_PENDING ; aucune heure reçue.
+const noShows = new Map();
+const NO_SHOW_START = '2036-12-10T12:00:00.000Z';
+const NO_SHOW_AT = '2036-12-10T15:00:00.000Z';
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+
+async function noShowRoute(req, res, url) {
+  const path = url.pathname;
+  if (req.method === 'GET' && path === '/__e2e/no-show/new') {
+    const tripId = uuid();
+    noShows.set(tripId, {
+      guest: url.searchParams.get('guest') ?? '',
+      host: url.searchParams.get('host') ?? '',
+      traced: url.searchParams.get('traced') === 'yes',
+      declaration: null,
+    });
+    return json(res, 200, { tripId });
+  }
+  const m = /^\/trips\/([^/]+)\/no-show$/.exec(path);
+  if (m === null) return false;
+  const token = tokenOf(req);
+  if (token === undefined) return err(res, 401, 'AUTH_REQUIRED', 'common.auth.sessionRequired');
+  const t = noShows.get(m[1]);
+  const role =
+    t === undefined ? null : token === t.guest ? 'GUEST' : token === t.host ? 'HOST' : null;
+  if (t === undefined || role === null) {
+    return err(res, 404, 'NO_SHOW_NOT_FOUND', 'common.noShow.notFound');
+  }
+  const absent = role === 'HOST' ? 'GUEST' : 'HOST';
+  const blocker =
+    t.declaration !== null
+      ? 'CANCELLATION_PENDING'
+      : role === 'GUEST' && !t.traced
+        ? 'NO_SHOW_EVIDENCE_REQUIRED'
+        : null;
+  if (req.method === 'GET') {
+    return json(res, 200, {
+      tripId: m[1],
+      viewerRole: role,
+      absentParty: absent,
+      tripStatus: 'CHECKIN_OPEN',
+      timezone: INSPECTION_TZ,
+      scheduledStart: NO_SHOW_START,
+      declarableFrom: role === 'HOST' ? '2036-12-10T13:00:00.000Z' : '2036-12-10T12:30:00.000Z',
+      declarableUntil: '2036-12-13T12:00:00.000Z',
+      canDeclare: blocker === null,
+      blocker,
+      messageTraced: t.traced,
+      declaration:
+        t.declaration === null
+          ? null
+          : {
+              id: t.declaration.id,
+              requestedReason: t.declaration.reason,
+              status: 'PENDING',
+              requestedAt: NO_SHOW_AT,
+              mine: t.declaration.by === role,
+            },
+    });
+  }
+  if (req.method !== 'POST') return false;
+  const b = (await readBody(req)) ?? {};
+  const keys = Object.keys(b);
+  if (keys.length !== 1 || typeof b.requestId !== 'string' || !UUID_RE.test(b.requestId)) {
+    return err(res, 400, 'REQUEST_INVALID', 'common.auth.requestInvalid');
+  }
+  if (t.declaration !== null && t.declaration.id === b.requestId && t.declaration.by === role) {
+    return json(res, 200, {
+      declarationId: b.requestId,
+      requestedAt: NO_SHOW_AT,
+      status: 'PENDING',
+    });
+  }
+  if (blocker === 'CANCELLATION_PENDING') {
+    return err(res, 409, 'CANCELLATION_PENDING', 'common.noShow.pending');
+  }
+  if (blocker === 'NO_SHOW_EVIDENCE_REQUIRED') {
+    return err(res, 409, 'NO_SHOW_EVIDENCE_REQUIRED', 'common.noShow.evidenceRequired');
+  }
+  t.declaration = {
+    id: b.requestId,
+    by: role,
+    reason: absent === 'GUEST' ? 'GUEST_NO_SHOW' : 'HOST_NO_SHOW',
+  };
+  return json(res, 200, { declarationId: b.requestId, requestedAt: NO_SHOW_AT, status: 'PENDING' });
+}
+
 createServer(async (req, res) => {
   const url = new URL(req.url ?? '/', 'http://127.0.0.1');
   const path = url.pathname;
@@ -3116,6 +3207,7 @@ createServer(async (req, res) => {
   if ((await contractRoute(req, res, url)) !== false) return;
   if ((await inspectionRoute(req, res, url)) !== false) return;
   if ((await handoverRoute(req, res, url)) !== false) return;
+  if ((await noShowRoute(req, res, url)) !== false) return;
   if ((await constanciaRoute(req, res, url)) !== false) return;
   if (refundRoute(req, res, url) !== false) return;
   if (receiptRoute(req, res, url) !== false) return;

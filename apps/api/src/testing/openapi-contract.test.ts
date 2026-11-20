@@ -27,7 +27,7 @@ import { MSG_MESSAGES } from '../modules/msg/index.js';
 import { HELP_MESSAGES, OPS_MESSAGES } from '../modules/sup/index.js';
 import { QUOTE_MESSAGES } from '../modules/prc/index.js';
 import { RISK_MESSAGES } from '../modules/risk/index.js';
-import { HANDOVER_MESSAGES, INSPECTION_MESSAGES } from '../modules/trp/index.js';
+import { HANDOVER_MESSAGES, INSPECTION_MESSAGES, NO_SHOW_MESSAGES } from '../modules/trp/index.js';
 import { startApiHarness } from './api-harness.js';
 import type { ApiHarness } from './api-harness.js';
 import { controllerRoutes } from './controller-routes.js';
@@ -257,6 +257,8 @@ const CATALOG: ReadonlyMap<string, ReadonlySet<number>> = (() => {
     CONSTANCIA_MESSAGES,
     INSPECTION_MESSAGES,
     HANDOVER_MESSAGES,
+    // US-307 : no-show déclaré par une partie
+    NO_SHOW_MESSAGES,
     HELP_MESSAGES,
     EVIDENCE_BUNDLE_MESSAGES,
   ] as const) {

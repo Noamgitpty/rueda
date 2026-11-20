@@ -27,6 +27,8 @@ import { CancelPanel } from './cancel-view.tsx';
 import type { CancelHandlers, CancelState } from './cancel-view.tsx';
 import { REFUND_ROLES, RefundsPanel } from './refund-view.tsx';
 import type { RefundsHandlers, RefundsState } from './refund-view.tsx';
+import { NO_SHOW_ROLES, NoShowPanel } from './no-show-view.tsx';
+import type { NoShowSubmit } from './no-show-view.tsx';
 import { OpsPanels, SANCTIONS_LISTS } from './ops-view.tsx';
 import type { OpsHandlers, OpsState, SanctionsList, SanctionsListResult } from './ops-view.tsx';
 
@@ -100,8 +102,7 @@ export const ACTION_GROUPS = {
   state: [
     // US-215b : CANCEL_TRIP_GUEST / HOST / PLATFORM ont leur propre formulaire (cancel-view.tsx :
     // motif qualifié en liste fermée, confirmation, état réel du règlement)
-    'DECLARE_NO_SHOW',
-    'REFUSE_AT_PICKUP',
+    // US-307 : DECLARE_NO_SHOW et REFUSE_AT_PICKUP ont le leur (no-show-view.tsx : saisie fermée)
     'KYC_DECISION',
     'HOST_VERIFICATION_DECISION',
     'PUBLISH_LISTING',
@@ -270,6 +271,11 @@ export interface ConsoleHandlers {
     reason: string,
     evidence: readonly string[],
   ) => void;
+  /**
+   * US-307 : no-show (`DECLARE_NO_SHOW`) ou refus du véhicule (`REFUSE_AT_PICKUP`) d'un trip,
+   * saisie fermée ; la base juge les délais, la présence et la preuve, puis règle la demande.
+   */
+  readonly onNoShow?: NoShowSubmit;
   readonly onApprove: (approvalId: string) => void;
   readonly onSignOut: () => void;
 }
@@ -283,8 +289,6 @@ const ROLE_KEYS: Readonly<Record<string, MessageKey>> = {
 };
 
 const ACTION_KEYS: Readonly<Record<ConsoleAction, MessageKey>> = {
-  DECLARE_NO_SHOW: 'backoffice.action.DECLARE_NO_SHOW',
-  REFUSE_AT_PICKUP: 'backoffice.action.REFUSE_AT_PICKUP',
   KYC_DECISION: 'backoffice.action.KYC_DECISION',
   HOST_VERIFICATION_DECISION: 'backoffice.action.HOST_VERIFICATION_DECISION',
   PUBLISH_LISTING: 'backoffice.action.PUBLISH_LISTING',
@@ -911,6 +915,11 @@ export function ConsoleView({
                   </div>
                 </form>
               </section>
+            )}
+
+          {handlers.onNoShow !== undefined &&
+            state.roles.some((r) => NO_SHOW_ROLES.has(r.role)) && (
+              <NoShowPanel i18n={i18n} busy={busy} onSubmit={handlers.onNoShow} />
             )}
 
           {state.roles.some((r) => APPROVER_ROLES.has(r.role)) &&
