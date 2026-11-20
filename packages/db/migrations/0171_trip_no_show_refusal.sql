@@ -718,7 +718,7 @@ COMMENT ON FUNCTION core.trip_cmd_report_no_show(bytea, uuid, uuid) IS
 CREATE FUNCTION core.trip_no_show_view(p_token_hash bytea, p_trip_id uuid)
   RETURNS jsonb
   LANGUAGE plpgsql
-  STABLE
+  VOLATILE
   SECURITY DEFINER
   SET search_path = pg_catalog, pg_temp
 AS $fn$
