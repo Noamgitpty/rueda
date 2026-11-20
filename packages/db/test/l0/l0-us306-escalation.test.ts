@@ -526,7 +526,7 @@ describe('US-306 — droits, portée pays et écritures directes', () => {
           tx.query('SELECT test_fixture.us306_stage_probe($1, $2)', [o.tripId, 'T2H']),
         ),
       ).rejects.toMatchObject({ code: '23000', constraint: 'trip_overdue_case_immutable' });
-      // contexte STAFF : étape sautée (garde) ou reculée (politique) refusée
+      // contexte STAFF : étape sautée ou reculée refusée par la garde (la politique refuse aussi le recul)
       await expect(
         withTestTransaction(cl.api, { virtualNow: due }, async (tx) => {
           await staffContext(tx, ops);
@@ -541,7 +541,9 @@ describe('US-306 — droits, portée pays et écritures directes', () => {
           await staffContext(tx, ops);
           return tx.query('SELECT test_fixture.us306_stage_probe($1, $2)', [o.tripId, 'T30M']);
         }),
-      ).rejects.toMatchObject({ code: '42501' });
+        // étape reculée : la garde (déclencheur BEFORE, évalué avant le WITH CHECK de la politique,
+        // qui la refuserait aussi) rend 23000
+      ).rejects.toMatchObject({ code: '23000', constraint: 'trip_overdue_case_immutable' });
       // escalade : ni réécrite ni supprimée (aucun droit, garde en défense)
       for (const op of ['UPDATE', 'DELETE']) {
         await expect(
