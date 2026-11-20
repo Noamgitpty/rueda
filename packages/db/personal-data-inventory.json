@@ -3377,7 +3377,9 @@
         "answered_by": "C1",
         "answered_at": "C1",
         "created_at": "C1",
-        "purged_at": "C1"
+        "purged_at": "C1",
+        "offplatform_codes": "C1",
+        "review_item_id": "C1"
       }
     }
   }

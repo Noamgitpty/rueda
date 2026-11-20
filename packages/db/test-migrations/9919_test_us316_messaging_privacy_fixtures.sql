@@ -104,13 +104,14 @@ $fn$;
 
 CREATE FUNCTION test_fixture.us316_meetings(p_trip uuid)
   RETURNS TABLE (id uuid, kind text, proposer_role text, place_label text, meet_at timestamptz,
-                 status text, answered_by uuid, purged_at timestamptz)
+                 status text, answered_by uuid, purged_at timestamptz, offplatform_codes text[],
+                 review_item boolean)
   LANGUAGE sql
   SECURITY DEFINER
   SET search_path = pg_catalog, pg_temp
 AS $fn$
   SELECT p.id, p.kind, p.proposer_role, p.place_label, p.meet_at, p.status, p.answered_by,
-         p.purged_at
+         p.purged_at, p.offplatform_codes, p.review_item_id IS NOT NULL
     FROM core.messaging_meeting_proposal AS p
    WHERE p.trip_id = p_trip
    ORDER BY p.created_at, p.id

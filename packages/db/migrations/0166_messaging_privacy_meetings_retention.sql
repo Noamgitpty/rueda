@@ -155,6 +155,18 @@ CREATE TABLE core.messaging_meeting_proposal (
   answered_at   timestamptz,
   created_at    timestamptz NOT NULL DEFAULT platform.now(),
   purged_at     timestamptz,
+  -- motifs « paiement hors plateforme » du catalogue d'ADR-176 trouvés dans le lieu : CODES
+  -- seulement (jamais le texte) ; le fil du trip est mis dans la file GRAY_MARKET (signal, jamais un
+  -- refus) ; review_item_id = élément de la file
+  offplatform_codes text[]
+    CONSTRAINT messaging_meeting_offplatform_codes
+      CHECK (offplatform_codes IS NULL
+             OR (pg_catalog.cardinality(offplatform_codes) BETWEEN 1 AND 32
+                 AND pg_catalog.array_to_string(offplatform_codes, ',')
+                     ~ '^[A-Z][A-Z0-9_]{1,63}(,[A-Z][A-Z0-9_]{1,63})*$')),
+  review_item_id uuid,
+  CONSTRAINT messaging_meeting_flag_shape
+    CHECK ((offplatform_codes IS NULL) = (review_item_id IS NULL)),
   CONSTRAINT messaging_meeting_answer_shape CHECK (
     (answered_by IS NULL) = (answered_at IS NULL)
     AND (status <> 'PROPOSED' OR answered_by IS NULL)
@@ -187,10 +199,10 @@ AS $fn$
 BEGIN
   IF TG_OP = 'UPDATE'
      AND (NEW.id, NEW.trip_id, NEW.kind, NEW.proposed_by, NEW.proposer_role, NEW.meet_at,
-          NEW.created_at)
+          NEW.created_at, NEW.offplatform_codes, NEW.review_item_id)
          IS NOT DISTINCT FROM
          (OLD.id, OLD.trip_id, OLD.kind, OLD.proposed_by, OLD.proposer_role, OLD.meet_at,
-          OLD.created_at) THEN
+          OLD.created_at, OLD.offplatform_codes, OLD.review_item_id) THEN
     -- réponse du voyageur : PROPOSED → ACCEPTED ou DECLINED, réponse posée une fois
     IF OLD.status = 'PROPOSED' AND NEW.status IN ('ACCEPTED', 'DECLINED')
        AND OLD.answered_by IS NULL AND NEW.answered_by IS NOT NULL
@@ -377,6 +389,10 @@ DECLARE
   v_place text := pg_catalog.btrim(p_place, E' \t\r\n');
   v_mask  record;
   v_old   record;
+  v_codes  text[];
+  v_thread uuid;
+  v_item   record;
+  v_item_id uuid;
 BEGIN
   IF p_trip_id IS NULL OR p_meeting_id IS NULL THEN
     RETURN QUERY SELECT 'REQUEST_INVALID'::text, NULL::uuid, NULL::text, NULL::text,
@@ -401,10 +417,14 @@ BEGIN
     pg_catalog.hashtextextended('messaging_meeting:' || p_trip_id::text, 0));
   -- réessai : la même proposition (même auteur, même trip) est rendue telle qu'enregistrée ;
   -- un identifiant déjà pris ailleurs est refusé
-  SELECT p.id, p.trip_id, p.proposed_by, p.kind, p.place_label, p.meet_at, p.status INTO v_old
+  SELECT p.id, p.trip_id, p.proposed_by, p.kind, p.place_label, p.meet_at, p.status, p.purged_at
+    INTO v_old
     FROM core.messaging_meeting_proposal AS p WHERE p.id = p_meeting_id;
   IF v_old.id IS NOT NULL THEN
-    IF v_old.proposed_by IS DISTINCT FROM v_user OR v_old.trip_id IS DISTINCT FROM p_trip_id THEN
+    -- identifiant pris ailleurs, ou proposition purgée par la rétention (lieu effacé : rien à
+    -- rejouer) : refus, jamais une ligne sans lieu
+    IF v_old.proposed_by IS DISTINCT FROM v_user OR v_old.trip_id IS DISTINCT FROM p_trip_id
+       OR v_old.purged_at IS NOT NULL THEN
       RETURN QUERY SELECT 'REQUEST_INVALID'::text, NULL::uuid, NULL::text, NULL::text,
                           NULL::timestamptz, NULL::text;
       RETURN;
@@ -455,14 +475,38 @@ BEGIN
     RETURN;
   END IF;
 
+  -- paiement hors plateforme dans le lieu (motifs d'ADR-176, mêmes que les messages) : SIGNALÉ,
+  -- jamais refusé (jamais plus lourd que Turo) : le fil du trip va dans la file GRAY_MARKET, dans
+  -- la même transaction ; file indisponible : exception, rien d'écrit (jamais un signal perdu)
+  v_codes := core.messaging_offplatform_codes(v_place);
+  IF pg_catalog.cardinality(v_codes) > 0 THEN
+    INSERT INTO core.messaging_message_thread AS th (id, trip_id, created_at)
+    VALUES (pg_catalog.gen_random_uuid(), p_trip_id, v_now)
+    ON CONFLICT ON CONSTRAINT messaging_message_thread_trip_unique DO NOTHING;
+    SELECT th.id INTO v_thread FROM core.messaging_message_thread AS th
+     WHERE th.trip_id = p_trip_id;
+    SELECT q.outcome, q.item_id INTO v_item
+      FROM core.support_enqueue_review('GRAY_MARKET', 'MESSAGE_THREAD', v_thread,
+                                       v_party.country_code, v_user) AS q;
+    IF v_item.outcome IS NULL OR v_item.outcome NOT IN ('CREATED', 'EXISTS')
+       OR v_item.item_id IS NULL THEN
+      RAISE EXCEPTION 'messagerie : file GRAY_MARKET indisponible (%)', COALESCE(v_item.outcome, '?')
+        USING ERRCODE = 'object_not_in_prerequisite_state', CONSTRAINT = 'gray_market_unavailable';
+    END IF;
+    v_item_id := v_item.item_id;
+  ELSE
+    v_codes := NULL;
+  END IF;
+
   -- la proposition en attente du même sens est remplacée
   UPDATE core.messaging_meeting_proposal AS p
      SET status = 'SUPERSEDED'
    WHERE p.trip_id = p_trip_id AND p.kind = p_kind AND p.status = 'PROPOSED';
   INSERT INTO core.messaging_meeting_proposal (id, trip_id, kind, proposed_by, proposer_role,
-                                               place_label, meet_at, status, created_at)
+                                               place_label, meet_at, status, created_at,
+                                               offplatform_codes, review_item_id)
   VALUES (p_meeting_id, p_trip_id, p_kind, v_user, v_party.role, v_place, p_meet_at, 'PROPOSED',
-          v_now);
+          v_now, v_codes, v_item_id);
   RETURN QUERY SELECT 'DONE'::text, p_meeting_id, p_kind, v_place, p_meet_at, 'PROPOSED'::text;
 END
 $fn$;

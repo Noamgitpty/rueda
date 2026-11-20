@@ -406,6 +406,54 @@ describe.each(COUNTRIES)('US-316 — confidentialité et rendez-vous ($country, 
     }
   });
 
+  it('lieu proposant un paiement hors plateforme : enregistré (jamais refusé), codes seulement, fil du trip dans la file GRAY_MARKET (ADR-176) ; lieu ordinaire : aucun signal', async () => {
+    const api = await connectAs('app_api');
+    try {
+      await inTx(api, { virtualNow: T0 }, async (tx) => {
+        const t = await trip(tx, c, uuid());
+        const h = await openSession(tx, t.holder);
+        const plain = uuid();
+        await propose(tx, h.hash, t.trip, 'RETURN', PLACE, at(END, -1), plain);
+        expect(
+          await rows(tx, 'SELECT * FROM test_fixture.us525_review_items($1)', [t.trip]),
+        ).toEqual([]);
+        const cash = uuid();
+        const r = await propose(
+          tx,
+          h.hash,
+          t.trip,
+          'PICKUP',
+          'Plaza central, te pago en efectivo al llegar',
+          at(START, -1),
+          cash,
+        );
+        expect(r).toMatchObject({ outcome: 'DONE', meeting_id: cash, status: 'PROPOSED' });
+        const stored = (await meetingsOf(tx, t.trip)).find((m) => m['id'] === cash)!;
+        expect(stored['review_item']).toBe(true);
+        const codes = stored['offplatform_codes'] as string[];
+        expect(codes.length).toBeGreaterThan(0);
+        for (const code of codes) expect(code).toMatch(/^[A-Z][A-Z0-9_]+$/);
+        expect((await meetingsOf(tx, t.trip)).find((m) => m['id'] === plain)).toMatchObject({
+          offplatform_codes: null,
+          review_item: false,
+        });
+        expect(
+          await rows(tx, 'SELECT * FROM test_fixture.us525_review_items($1)', [t.trip]),
+        ).toEqual([
+          {
+            queue: 'GRAY_MARKET',
+            subject_type: 'MESSAGE_THREAD',
+            country_code: c.country,
+            status: 'OPEN',
+            flag_items: '0',
+          },
+        ]);
+      });
+    } finally {
+      await releaseClient(api);
+    }
+  });
+
   it('lieu sans coordonnées (refus, jamais masqué) ; heure future et bornée par le trip ; trip clos ou commencé : refus ; heure passée : plus acceptable', async () => {
     const api = await connectAs('app_api');
     try {
