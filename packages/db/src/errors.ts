@@ -351,6 +351,23 @@ export const CONSTRAINT_CODES: Readonly<Record<string, readonly [string, DbBusin
   leg_release_insurer_inactive: [SQLSTATE.objectNotInPrerequisiteState, 'FORBIDDEN'],
   leg_release_payouts_disabled: [SQLSTATE.objectNotInPrerequisiteState, 'FORBIDDEN'],
   leg_funds_holding_disabled: [SQLSTATE.objectNotInPrerequisiteState, 'FORBIDDEN'],
+  // lots de versement à l'hôte (0165, US-708, ADR-185) : commandes réservées au travailleur,
+  // ordre LEG_RELEASE d'un item (lot READY, clé, rang, montant ; un seul ordre HOST vivant),
+  // interrupteurs à l'émission, écrivain unique de release_at, registres immuables
+  payout_command_forbidden: [SQLSTATE.insufficientPrivilege, 'FORBIDDEN'],
+  payout_release_batch_not_ready: [SQLSTATE.objectNotInPrerequisiteState, 'INVALID_TRANSITION'],
+  payout_release_item_mismatch: [SQLSTATE.objectNotInPrerequisiteState, 'INVARIANT_VIOLATION'],
+  payout_release_duplicate: [SQLSTATE.objectNotInPrerequisiteState, 'INVARIANT_VIOLATION'],
+  payout_batch_payouts_disabled: [SQLSTATE.objectNotInPrerequisiteState, 'FORBIDDEN'],
+  payout_batch_funds_holding_disabled: [SQLSTATE.objectNotInPrerequisiteState, 'FORBIDDEN'],
+  payout_batch_transition: [SQLSTATE.integrityConstraintViolation, 'INVALID_TRANSITION'],
+  payout_batch_immutable: [SQLSTATE.integrityConstraintViolation, 'IMMUTABLE_RECORD'],
+  payout_item_immutable: [SQLSTATE.integrityConstraintViolation, 'IMMUTABLE_RECORD'],
+  payout_item_trip_leg_unique: [SQLSTATE.uniqueViolation, 'INVARIANT_VIOLATION'],
+  trip_leg_balance_release_at_guarded: [
+    SQLSTATE.integrityConstraintViolation,
+    'INVARIANT_VIOLATION',
+  ],
   // intention de paiement, conversion gardée et compensation (0040, 0041, US-024)
   hold_not_payable: [SQLSTATE.objectNotInPrerequisiteState, 'HOLD_EXPIRED'],
   hold_payment_terminal: [SQLSTATE.objectNotInPrerequisiteState, 'INVALID_TRANSITION'],

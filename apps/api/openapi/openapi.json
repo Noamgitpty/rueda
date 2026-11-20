@@ -89,15 +89,25 @@
             "name": "country",
             "in": "query",
             "required": false,
-            "schema": { "$ref": "#/components/schemas/CountryCode" }
+            "schema": {
+              "$ref": "#/components/schemas/CountryCode"
+            }
           }
         ],
         "responses": {
           "200": {
             "description": "Aide du pays demandé (sans pays : de chaque pays configuré)",
-            "headers": { "Cache-Control": { "$ref": "#/components/headers/PublicCache" } },
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/PublicCache"
+              }
+            },
             "content": {
-              "application/json": { "schema": { "$ref": "#/components/schemas/HelpReply" } }
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HelpReply"
+                }
+              }
             }
           },
           "400": {
@@ -106,7 +116,11 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/AuthBody",
-                  "properties": { "code": { "const": "REQUEST_INVALID" } }
+                  "properties": {
+                    "code": {
+                      "const": "REQUEST_INVALID"
+                    }
+                  }
                 }
               }
             }
@@ -120,37 +134,70 @@
         "tags": ["sup"],
         "summary": "Aide d’un trip : rôle de la session (voyageur ou hôte) et aide du pays du trip (US-310)",
         "parameters": [
-          { "name": "tripId", "in": "path", "required": true, "schema": { "type": "string" } }
+          {
+            "name": "tripId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
         ],
         "responses": {
           "200": {
             "description": "Rôle de la session dans le trip et aide de son pays",
-            "headers": { "Cache-Control": { "$ref": "#/components/headers/NoStore" } },
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
             "content": {
-              "application/json": { "schema": { "$ref": "#/components/schemas/TripHelpReply" } }
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TripHelpReply"
+                }
+              }
             }
           },
-          "401": { "$ref": "#/components/responses/AuthRequired" },
+          "401": {
+            "$ref": "#/components/responses/AuthRequired"
+          },
           "404": {
             "description": "Trip inconnu, d’une autre personne ou identifiant mal formé : même réponse (17 §2.3 point 5)",
-            "headers": { "Cache-Control": { "$ref": "#/components/headers/NoStore" } },
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
             "content": {
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/AuthBody",
-                  "properties": { "code": { "const": "TRIP_NOT_FOUND" } }
+                  "properties": {
+                    "code": {
+                      "const": "TRIP_NOT_FOUND"
+                    }
+                  }
                 }
               }
             }
           },
           "503": {
             "description": "Base indisponible ou réponse inattendue : rien n’est écrit ; l’écran garde les numéros de la page (fail-closed)",
-            "headers": { "Cache-Control": { "$ref": "#/components/headers/NoStore" } },
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
             "content": {
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/AuthBody",
-                  "properties": { "code": { "const": "HELP_UNAVAILABLE" } }
+                  "properties": {
+                    "code": {
+                      "const": "HELP_UNAVAILABLE"
+                    }
+                  }
                 }
               }
             }
@@ -164,63 +211,118 @@
         "tags": ["sup"],
         "summary": "Demande d’aide du trip par son voyageur ou le titulaire du compte d’hôte (SUP-004, US-310) ; réponse automatique hors plage",
         "parameters": [
-          { "name": "tripId", "in": "path", "required": true, "schema": { "type": "string" } }
+          {
+            "name": "tripId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
         ],
         "requestBody": {
           "required": true,
           "content": {
-            "application/json": { "schema": { "$ref": "#/components/schemas/HelpRequestBody" } }
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HelpRequestBody"
+              }
+            }
           }
         },
         "responses": {
           "200": {
             "description": "Rejeu (DUPLICATE) ou demande vivante du même motif (EXISTS) : rien de nouveau",
-            "headers": { "Cache-Control": { "$ref": "#/components/headers/NoStore" } },
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
             "content": {
-              "application/json": { "schema": { "$ref": "#/components/schemas/HelpRequestReply" } }
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HelpRequestReply"
+                }
+              }
             }
           },
           "201": {
             "description": "Demande ouverte (dossier IN_APP, hors plage jugé par la base)",
-            "headers": { "Cache-Control": { "$ref": "#/components/headers/NoStore" } },
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
             "content": {
-              "application/json": { "schema": { "$ref": "#/components/schemas/HelpRequestReply" } }
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HelpRequestReply"
+                }
+              }
             }
           },
           "400": {
             "description": "Corps invalide (motif hors liste, identifiant mal formé, champ inconnu)",
-            "headers": { "Cache-Control": { "$ref": "#/components/headers/NoStore" } },
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
             "content": {
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/AuthBody",
-                  "properties": { "code": { "const": "REQUEST_INVALID" } }
+                  "properties": {
+                    "code": {
+                      "const": "REQUEST_INVALID"
+                    }
+                  }
                 }
               }
             }
           },
-          "401": { "$ref": "#/components/responses/AuthRequired" },
+          "401": {
+            "$ref": "#/components/responses/AuthRequired"
+          },
           "404": {
             "description": "Trip inconnu, d’une autre personne ou identifiant mal formé : même réponse (17 §2.3 point 5)",
-            "headers": { "Cache-Control": { "$ref": "#/components/headers/NoStore" } },
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
             "content": {
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/AuthBody",
-                  "properties": { "code": { "const": "TRIP_NOT_FOUND" } }
+                  "properties": {
+                    "code": {
+                      "const": "TRIP_NOT_FOUND"
+                    }
+                  }
                 }
               }
             }
           },
-          "415": { "$ref": "#/components/responses/NotJson" },
+          "415": {
+            "$ref": "#/components/responses/NotJson"
+          },
           "503": {
             "description": "Base indisponible ou réponse inattendue : rien n’est écrit ; l’écran garde les numéros de la page (fail-closed)",
-            "headers": { "Cache-Control": { "$ref": "#/components/headers/NoStore" } },
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
             "content": {
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/AuthBody",
-                  "properties": { "code": { "const": "HELP_UNAVAILABLE" } }
+                  "properties": {
+                    "code": {
+                      "const": "HELP_UNAVAILABLE"
+                    }
+                  }
                 }
               }
             }
@@ -238,29 +340,49 @@
             "name": "country",
             "in": "query",
             "required": false,
-            "schema": { "$ref": "#/components/schemas/CountryCode" }
+            "schema": {
+              "$ref": "#/components/schemas/CountryCode"
+            }
           },
           {
             "name": "limit",
             "in": "query",
             "required": false,
-            "schema": { "type": "integer", "minimum": 1, "maximum": 200 }
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200
+            }
           }
         ],
         "responses": {
           "200": {
             "description": "Demandes vivantes (sans donnée personnelle) et M6 par pays permis",
-            "headers": { "Cache-Control": { "$ref": "#/components/headers/NoStore" } },
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/ConsoleHelpRequests" }
+                "schema": {
+                  "$ref": "#/components/schemas/ConsoleHelpRequests"
+                }
               }
             }
           },
-          "400": { "$ref": "#/components/responses/StaffRequestInvalid" },
-          "401": { "$ref": "#/components/responses/StaffAuthRequired" },
-          "403": { "$ref": "#/components/responses/StaffForbidden" },
-          "429": { "$ref": "#/components/responses/StaffRateLimited" }
+          "400": {
+            "$ref": "#/components/responses/StaffRequestInvalid"
+          },
+          "401": {
+            "$ref": "#/components/responses/StaffAuthRequired"
+          },
+          "403": {
+            "$ref": "#/components/responses/StaffForbidden"
+          },
+          "429": {
+            "$ref": "#/components/responses/StaffRateLimited"
+          }
         }
       }
     },
@@ -14820,6 +14942,428 @@
           }
         }
       }
+    },
+    "/console/evidence-bundles/{bundleId}": {
+      "get": {
+        "operationId": "consoleEvidenceBundleStatus",
+        "tags": ["sup"],
+        "summary": "État d'un dossier de preuve pour son demandeur seulement (REQUESTED, READY, EXPIRED calculé, FAILED et constat), empreintes, pièces absentes ; aucune donnée personnelle (US-308)",
+        "parameters": [
+          {
+            "name": "bundleId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "État du dossier",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EvidenceBundleStatus"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/StaffRequestInvalid"
+          },
+          "401": {
+            "$ref": "#/components/responses/StaffAuthRequired"
+          },
+          "403": {
+            "description": "Sans rôle interne ou sans evidence.export (FORBIDDEN) ; dossier d'un autre agent ou inconnu (FORBIDDEN, journalisé) ; session non élevée (2FA_REQUIRED)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "enum": ["FORBIDDEN", "2FA_REQUIRED"]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Dossier d'un autre agent (permission détenue) : jamais montré, le lien ne se partage pas (journalisé)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "EVIDENCE_BUNDLE_NOT_FOUND"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "$ref": "#/components/responses/StaffRateLimited"
+          },
+          "503": {
+            "description": "Base du dossier de preuve indisponible",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "EVIDENCE_EXPORT_UNAVAILABLE"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/console/evidence-bundles/{bundleId}/download": {
+      "post": {
+        "operationId": "consoleEvidenceBundleDownload",
+        "tags": ["sup"],
+        "summary": "Archive ZIP du dossier de preuve (manifest.json scellé, photos, contrat) pour son demandeur seulement, avant l'échéance de 168 h ; ouverture journalisée (BULK_EXPORT) ; servie seulement si son SHA-256 recalculé égale l'empreinte enregistrée (US-308)",
+        "parameters": [
+          {
+            "name": "bundleId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["reason"],
+                "additionalProperties": false,
+                "properties": {
+                  "reason": {
+                    "type": "string",
+                    "minLength": 10,
+                    "maxLength": 500
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Archive ZIP ; ses empreintes sont dans X-Evidence-Sha256 et X-Evidence-Manifest-Sha256",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              },
+              "Content-Disposition": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "pattern": "^attachment; filename=\"evidence-[0-9a-f-]{36}-[0-9a-f-]{36}\\.zip\"$"
+                }
+              },
+              "X-Evidence-Sha256": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$"
+                }
+              },
+              "X-Evidence-Manifest-Sha256": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$"
+                }
+              }
+            },
+            "content": {
+              "application/zip": {
+                "schema": {
+                  "type": "string",
+                  "contentMediaType": "application/zip"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/StaffRequestInvalid"
+          },
+          "401": {
+            "$ref": "#/components/responses/StaffAuthRequired"
+          },
+          "403": {
+            "description": "Sans rôle interne ou sans evidence.export (FORBIDDEN) ; dossier d'un autre agent : le lien ne se partage pas (FORBIDDEN, journalisé) ; session non élevée (2FA_REQUIRED) ; dossier de support clos ou réassigné (STAFF_CASE_REQUIRED, journalisé) ; trip qui concerne l'agent (STAFF_SELF_FORBIDDEN, journalisé)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "enum": [
+                        "FORBIDDEN",
+                        "2FA_REQUIRED",
+                        "STAFF_CASE_REQUIRED",
+                        "STAFF_SELF_FORBIDDEN"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Dossier d'un autre agent (permission détenue) : jamais montré, le lien ne se partage pas (journalisé)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "EVIDENCE_BUNDLE_NOT_FOUND"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Archive pas encore générée (EVIDENCE_EXPORT_NOT_READY) ; constat du travailleur ou archive dont l'empreinte diffère : rien n'est servi (EVIDENCE_EXPORT_FAILED, 16 CLM-034)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "enum": ["EVIDENCE_EXPORT_NOT_READY", "EVIDENCE_EXPORT_FAILED"]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "Lien échu (168 h après la génération) : refus journalisé",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "EVIDENCE_EXPORT_EXPIRED"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "415": {
+            "$ref": "#/components/responses/NotJsonNoStore"
+          },
+          "429": {
+            "$ref": "#/components/responses/StaffRateLimited"
+          },
+          "503": {
+            "description": "Coffre ou stockage du dossier de preuve indisponibles (production bêta) : rien n'est demandé ni servi",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "EVIDENCE_EXPORT_UNAVAILABLE"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/console/evidence-bundles": {
+      "post": {
+        "operationId": "consoleEvidenceBundleRequest",
+        "tags": ["sup"],
+        "summary": "Dossier de preuve d'un trip (16 CLM-034, US-308) : manifeste scellé par la base (photos et empreintes, contrat et signature, CGU acceptées, journal d'état, pièces absentes), archive générée ensuite par le travailleur ; permission evidence.export dans le pays du dossier de support OUVERT de ce trip assigné à l'agent, motif journalisé (BULK_EXPORT), refus journalisés",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["requestId", "tripId", "caseId", "purpose", "reason"],
+                "additionalProperties": false,
+                "properties": {
+                  "requestId": {
+                    "$ref": "#/components/schemas/Uuid"
+                  },
+                  "tripId": {
+                    "$ref": "#/components/schemas/Uuid"
+                  },
+                  "caseId": {
+                    "$ref": "#/components/schemas/Uuid"
+                  },
+                  "purpose": {
+                    "enum": ["ACODECO", "CHARGEBACK", "INSURER", "DISPUTE"]
+                  },
+                  "reason": {
+                    "type": "string",
+                    "minLength": 10,
+                    "maxLength": 500
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Rejeu de la même requête : le dossier d'origine",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EvidenceBundleRequested"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Dossier scellé (REQUESTED)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EvidenceBundleRequested"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/StaffRequestInvalid"
+          },
+          "401": {
+            "$ref": "#/components/responses/StaffAuthRequired"
+          },
+          "403": {
+            "description": "Sans rôle interne ou sans `evidence.export` dans le pays du dossier (FORBIDDEN, journalisé) ; session non élevée (2FA_REQUIRED) ; dossier de support inconnu, clos, d'un autre trip ou non assigné à l'agent (STAFF_CASE_REQUIRED, journalisé) ; trip qui concerne l'agent (STAFF_SELF_FORBIDDEN, journalisé, ADR-122)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "enum": [
+                        "FORBIDDEN",
+                        "2FA_REQUIRED",
+                        "STAFF_CASE_REQUIRED",
+                        "STAFF_SELF_FORBIDDEN"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "415": {
+            "$ref": "#/components/responses/NotJsonNoStore"
+          },
+          "429": {
+            "$ref": "#/components/responses/StaffRateLimited"
+          },
+          "503": {
+            "description": "Coffre ou stockage du dossier de preuve indisponibles (production bêta) : rien n'est demandé ni servi",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "EVIDENCE_EXPORT_UNAVAILABLE"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -15108,26 +15652,44 @@
           "supportHours"
         ],
         "properties": {
-          "country": { "$ref": "#/components/schemas/CountryCode" },
+          "country": {
+            "$ref": "#/components/schemas/CountryCode"
+          },
           "names": {
             "type": "object",
             "additionalProperties": false,
             "required": ["es", "en", "fr", "pt"],
             "properties": {
-              "es": { "type": "string" },
-              "en": { "type": "string" },
-              "fr": { "type": "string" },
-              "pt": { "type": "string" }
+              "es": {
+                "type": "string"
+              },
+              "en": {
+                "type": "string"
+              },
+              "fr": {
+                "type": "string"
+              },
+              "pt": {
+                "type": "string"
+              }
             }
           },
-          "emergencyNumber": { "type": "string", "pattern": "^[0-9]{3,6}$" },
+          "emergencyNumber": {
+            "type": "string",
+            "pattern": "^[0-9]{3,6}$"
+          },
           "trafficAuthority": {
             "type": "object",
             "additionalProperties": false,
             "required": ["id", "messageKey"],
             "properties": {
-              "id": { "type": "string", "pattern": "^[a-z][a-zA-Z0-9]{0,31}$" },
-              "messageKey": { "$ref": "#/components/schemas/MessageKey" }
+              "id": {
+                "type": "string",
+                "pattern": "^[a-z][a-zA-Z0-9]{0,31}$"
+              },
+              "messageKey": {
+                "$ref": "#/components/schemas/MessageKey"
+              }
             }
           },
           "supportPhone": {
@@ -15143,14 +15705,22 @@
           "supportHours": {
             "description": "Plage publiée du support (heures locales, 7 j / 7) ; null : aucune plage publiée (SUP-020)",
             "oneOf": [
-              { "type": "null" },
+              {
+                "type": "null"
+              },
               {
                 "type": "object",
                 "additionalProperties": false,
                 "required": ["from", "to"],
                 "properties": {
-                  "from": { "type": "string", "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$" },
-                  "to": { "type": "string", "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$" }
+                  "from": {
+                    "type": "string",
+                    "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$"
+                  },
+                  "to": {
+                    "type": "string",
+                    "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$"
+                  }
                 }
               }
             ]
@@ -15162,7 +15732,12 @@
         "additionalProperties": false,
         "required": ["countries"],
         "properties": {
-          "countries": { "type": "array", "items": { "$ref": "#/components/schemas/HelpCountry" } }
+          "countries": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/HelpCountry"
+            }
+          }
         }
       },
       "TripHelpReply": {
@@ -15170,9 +15745,15 @@
         "additionalProperties": false,
         "required": ["tripId", "role", "help"],
         "properties": {
-          "tripId": { "$ref": "#/components/schemas/Uuid" },
-          "role": { "enum": ["GUEST", "HOST"] },
-          "help": { "$ref": "#/components/schemas/HelpCountry" }
+          "tripId": {
+            "$ref": "#/components/schemas/Uuid"
+          },
+          "role": {
+            "enum": ["GUEST", "HOST"]
+          },
+          "help": {
+            "$ref": "#/components/schemas/HelpCountry"
+          }
         }
       },
       "HelpRequestBody": {
@@ -15181,8 +15762,12 @@
         "additionalProperties": false,
         "required": ["requestId", "topic"],
         "properties": {
-          "requestId": { "$ref": "#/components/schemas/Uuid" },
-          "topic": { "enum": ["ACCIDENT", "BREAKDOWN", "HANDOVER", "SAFETY", "OTHER"] }
+          "requestId": {
+            "$ref": "#/components/schemas/Uuid"
+          },
+          "topic": {
+            "enum": ["ACCIDENT", "BREAKDOWN", "HANDOVER", "SAFETY", "OTHER"]
+          }
         }
       },
       "HelpRequestReply": {
@@ -15190,9 +15775,15 @@
         "additionalProperties": false,
         "required": ["caseId", "outcome", "offHours"],
         "properties": {
-          "caseId": { "$ref": "#/components/schemas/Uuid" },
-          "outcome": { "enum": ["OPENED", "DUPLICATE", "EXISTS"] },
-          "offHours": { "type": "boolean" }
+          "caseId": {
+            "$ref": "#/components/schemas/Uuid"
+          },
+          "outcome": {
+            "enum": ["OPENED", "DUPLICATE", "EXISTS"]
+          },
+          "offHours": {
+            "type": "boolean"
+          }
         }
       },
       "ConsoleHelpRequests": {
@@ -15220,18 +15811,42 @@
                 "assignedToMe"
               ],
               "properties": {
-                "caseId": { "$ref": "#/components/schemas/Uuid" },
-                "tripId": { "$ref": "#/components/schemas/Uuid" },
-                "country": { "$ref": "#/components/schemas/CountryCode" },
-                "topic": { "enum": ["ACCIDENT", "BREAKDOWN", "HANDOVER", "SAFETY", "OTHER"] },
-                "requesterRole": { "enum": ["GUEST", "HOST"] },
-                "priority": { "enum": ["LOW", "NORMAL", "HIGH", "URGENT"] },
-                "status": { "enum": ["OPEN", "PENDING"] },
-                "offHours": { "type": "boolean" },
-                "createdAt": { "type": "string" },
-                "firstResponseAt": { "type": ["string", "null"] },
-                "assigned": { "type": "boolean" },
-                "assignedToMe": { "type": "boolean" }
+                "caseId": {
+                  "$ref": "#/components/schemas/Uuid"
+                },
+                "tripId": {
+                  "$ref": "#/components/schemas/Uuid"
+                },
+                "country": {
+                  "$ref": "#/components/schemas/CountryCode"
+                },
+                "topic": {
+                  "enum": ["ACCIDENT", "BREAKDOWN", "HANDOVER", "SAFETY", "OTHER"]
+                },
+                "requesterRole": {
+                  "enum": ["GUEST", "HOST"]
+                },
+                "priority": {
+                  "enum": ["LOW", "NORMAL", "HIGH", "URGENT"]
+                },
+                "status": {
+                  "enum": ["OPEN", "PENDING"]
+                },
+                "offHours": {
+                  "type": "boolean"
+                },
+                "createdAt": {
+                  "type": "string"
+                },
+                "firstResponseAt": {
+                  "type": ["string", "null"]
+                },
+                "assigned": {
+                  "type": "boolean"
+                },
+                "assignedToMe": {
+                  "type": "boolean"
+                }
               }
             }
           },
@@ -15242,15 +15857,32 @@
               "additionalProperties": false,
               "required": ["country", "opened", "answered", "medianSeconds", "p90Seconds"],
               "properties": {
-                "country": { "$ref": "#/components/schemas/CountryCode" },
-                "opened": { "type": "integer", "minimum": 0 },
-                "answered": { "type": "integer", "minimum": 0 },
-                "medianSeconds": { "type": ["integer", "null"], "minimum": 0 },
-                "p90Seconds": { "type": ["integer", "null"], "minimum": 0 }
+                "country": {
+                  "$ref": "#/components/schemas/CountryCode"
+                },
+                "opened": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "answered": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "medianSeconds": {
+                  "type": ["integer", "null"],
+                  "minimum": 0
+                },
+                "p90Seconds": {
+                  "type": ["integer", "null"],
+                  "minimum": 0
+                }
               }
             }
           },
-          "windowDays": { "type": "integer", "minimum": 1 }
+          "windowDays": {
+            "type": "integer",
+            "minimum": 1
+          }
         }
       },
       "TripContract": {
@@ -24969,6 +25601,134 @@
           },
           "alreadyValidated": {
             "type": "boolean"
+          }
+        }
+      },
+      "EvidenceBundleRequested": {
+        "type": "object",
+        "required": ["bundleId", "status", "manifestSha256"],
+        "additionalProperties": false,
+        "properties": {
+          "bundleId": {
+            "$ref": "#/components/schemas/Uuid"
+          },
+          "status": {
+            "enum": ["REQUESTED", "READY", "FAILED"]
+          },
+          "manifestSha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          }
+        }
+      },
+      "EvidenceBundleStatus": {
+        "type": "object",
+        "required": [
+          "bundleId",
+          "tripId",
+          "country",
+          "purpose",
+          "status",
+          "manifestSha256",
+          "requestedAt",
+          "generatedAt",
+          "expiresAt",
+          "exportSha256",
+          "exportBytes",
+          "failureCode",
+          "findings",
+          "absent",
+          "fileCount"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "bundleId": {
+            "$ref": "#/components/schemas/Uuid"
+          },
+          "tripId": {
+            "$ref": "#/components/schemas/Uuid"
+          },
+          "country": {
+            "type": "string",
+            "pattern": "^[A-Z]{2}$"
+          },
+          "purpose": {
+            "enum": ["ACODECO", "CHARGEBACK", "INSURER", "DISPUTE"]
+          },
+          "status": {
+            "enum": ["REQUESTED", "READY", "EXPIRED", "FAILED"]
+          },
+          "manifestSha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "requestedAt": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+          },
+          "generatedAt": {
+            "type": ["string", "null"],
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+          },
+          "expiresAt": {
+            "type": ["string", "null"],
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+          },
+          "exportSha256": {
+            "type": ["string", "null"],
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "exportBytes": {
+            "type": ["integer", "null"],
+            "minimum": 1
+          },
+          "failureCode": {
+            "enum": [
+              "INTEGRITY_MISMATCH",
+              "OBJECT_MISSING",
+              "KEY_UNAVAILABLE",
+              "RENDER_FAILED",
+              "TOO_LARGE",
+              null
+            ]
+          },
+          "findings": {
+            "type": ["array", "null"],
+            "items": {
+              "type": "object",
+              "required": ["piece", "ref", "reason"],
+              "additionalProperties": false,
+              "properties": {
+                "piece": {
+                  "type": "string"
+                },
+                "ref": {
+                  "type": "string"
+                },
+                "reason": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "absent": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["piece", "reason"],
+              "properties": {
+                "piece": {
+                  "type": "string"
+                },
+                "reason": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "fileCount": {
+            "type": "integer",
+            "minimum": 0
           }
         }
       }

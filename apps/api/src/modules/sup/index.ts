@@ -60,3 +60,12 @@ export type {
   HelpStore,
   HelpTopic,
 } from './internal/help/help-store.js';
+// Dossier de preuve d'un trip dans la console (US-308, ADR-184) : montage par le processus API
+// seulement ; rendu du contrat (CTR) pour le travailleur de l'archive (CLM).
+export {
+  postgresEvidenceBundle,
+  SupEvidenceBundleModule,
+  unavailableEvidenceBundle,
+} from './internal/sup-evidence-bundle.module.js';
+export type { SupEvidenceBundleOptions } from './internal/sup-evidence-bundle.module.js';
+export { ctrEvidenceContractRenderer } from './internal/evidence-contract-renderer.js';

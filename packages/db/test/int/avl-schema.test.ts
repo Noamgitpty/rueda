@@ -123,7 +123,12 @@ const PAY_PORT_TABLES = [
 
 // Compte de versement de l'hôte (US-707, 0159) : même socle RLS ; aucun droit applicatif,
 // commandes de cmd_money_owner, preuves par test/l0/l0-us707-payout-account.test.ts.
-const PYO_TABLES = ['payout_payout_account'] as const;
+const PYO_TABLES = [
+  'payout_payout_account',
+  'payout_payout_batch',
+  'payout_payout_item',
+  'payout_prepare_deferral',
+] as const;
 
 // Socle de marque (US-034, 0042) : même socle RLS ; lecture publique d'app_api et commandes sous
 // iam_staff_owner vérifiées par test/l0/l0-brand.test.ts.
@@ -168,6 +173,9 @@ describe('schéma core (US-006)', () => {
             AND c.relname !~ '^catalog_'      -- tables CAT : test/l0/l0-us113-vehicle-catalog.test.ts (US-113)
             AND c.relname !~ '^kyc_'          -- tables KYC : test/l0/l0-us105-identity-verification.test.ts (US-105)
             AND c.relname !~ '^messaging_'    -- tables MSG : test/l0/l0-us525-messaging.test.ts (US-525)
+            -- tables CLM : test/l0/l0-us308-evidence-bundle.test.ts (US-308 : RLS ENABLE + FORCE,
+            -- propriétaire migrator, politiques des seuls propriétaires NOLOGIN, aucun droit applicatif)
+            AND c.relname !~ '^claim_'
           ORDER BY c.relname`,
       );
       expect(rows.map((r) => r.relname)).toEqual(

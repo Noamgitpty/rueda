@@ -24,3 +24,24 @@ export type {
   VerifyPayoutAccountRequest,
 } from './internal/payout-account-verifier.port.js';
 export { PYO_MESSAGES, PyoHttpError } from './internal/errors.js';
+
+// Lots de versement à l'hôte depuis la jambe HOST (US-708, ADR-185)
+export {
+  PAYOUT_SCHEDULER_BATCH,
+  PAYOUT_SCHEDULER_PERIOD_SECONDS,
+  PAYOUT_SCHEDULER_WORKER,
+  PayoutScheduler,
+  registerPayoutScheduler,
+} from './internal/payout-scheduler.js';
+export type { PayoutBatchStep, PayoutSchedulerDeps } from './internal/payout-scheduler.js';
+export { PgPayoutBatchStore } from './internal/pg-payout-batch-store.js';
+export type {
+  BatchCheck,
+  DueBatch,
+  PayoutBatchStore,
+  PayoutOrder,
+  PayoutStep,
+  PrepareResult,
+  RecordReleaseInput,
+  ReleaseItem,
+} from './internal/payout-batch-store.js';

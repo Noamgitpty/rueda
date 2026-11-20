@@ -8,6 +8,7 @@ import { FakeKeyWrapper } from '../testing/fake-audit-adapters.ts';
 import {
   FileAssetError,
   FileStoreConflictError,
+  readFileAsset,
   receiveFile,
   sha256Stream,
   verifyFileAsset,
@@ -161,5 +162,18 @@ describe('receiveFile / verifyFileAsset : échecs du stockage en valeurs (US-020
       status: 'UNREADABLE',
       reason: 'OBJECT_MISSING',
     });
+  });
+  it('lecture vérifiée (US-308) : contenu rendu sur MATCH seulement ; octet changé ⇒ MISMATCH sans contenu', async () => {
+    const db = memoryDb();
+    const store = new InMemoryFileStore();
+    const keys = new SubjectKeyStore(new FakeKeyWrapper());
+    await receiveFile(db, store, keys, input('f1', 'a'), [Buffer.from('preuve')]);
+    const ok = await readFileAsset(db, store, keys, 'f1');
+    expect(ok.status === 'MATCH' && ok.content.toString()).toBe('preuve');
+    store.corrupt('PRIVATE_EVIDENCE', 'a', 0);
+    const bad = await readFileAsset(db, store, keys, 'f1');
+    expect(bad.status).toBe('MISMATCH');
+    expect('content' in bad).toBe(false);
+    expect(await readFileAsset(db, store, keys, 'inconnu')).toEqual({ status: 'UNKNOWN_FILE' });
   });
 });

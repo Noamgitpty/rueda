@@ -2845,6 +2845,79 @@
         "updated_at": "C1"
       }
     },
+    "core.payout_payout_batch": {
+      "lifecycle": "B",
+      "subjects": [
+        {
+          "column": "org_id",
+          "type": "ORG"
+        }
+      ],
+      "export": "controller",
+      "columns": {
+        "id": "C1",
+        "org_id": "C1",
+        "country_code": "C1",
+        "currency": "C1",
+        "kind": "C1",
+        "variant": "C1",
+        "psp_account_id": "C1",
+        "payout_account_id": "C1",
+        "first_payout": "C1",
+        "status": "C1",
+        "scheduled_for": "C1",
+        "gross_minor": "C1",
+        "netted_minor": "C1",
+        "net_minor": "C1",
+        "hold_reasons": "C1",
+        "netted_at": "C1",
+        "next_check_at": "C1",
+        "attempt_no": "C1",
+        "idempotency_key": "C1",
+        "provider_ref": "C1",
+        "initiated_at": "C1",
+        "paid_at": "C1",
+        "row_version": "C1",
+        "created_at": "C1",
+        "updated_at": "C1"
+      }
+    },
+    "core.payout_payout_item": {
+      "lifecycle": "A",
+      "subjects": [
+        {
+          "column": "org_id",
+          "type": "ORG"
+        }
+      ],
+      "export": "controller",
+      "columns": {
+        "id": "C1",
+        "batch_id": "C1",
+        "trip_id": "C1",
+        "segment_no": "C1",
+        "leg": "C1",
+        "org_id": "C1",
+        "country_code": "C1",
+        "currency": "C1",
+        "amount_minor": "C1",
+        "release_attempt": "C1",
+        "release_operation_id": "C1",
+        "created_at": "C1",
+        "updated_at": "C1"
+      }
+    },
+    "core.payout_prepare_deferral": {
+      "lifecycle": "T",
+      "export": "none",
+      "columns": {
+        "trip_id": "C1",
+        "outcome": "C1",
+        "attempts": "C1",
+        "next_attempt_at": "C1",
+        "updated_at": "C1"
+      }
+    },
     "core.kyc_host_tax_profile": {
       "lifecycle": "B",
       "subjects": [
@@ -3347,6 +3420,37 @@
         "method": "C1",
         "at": "C1",
         "by_user": "C1"
+      }
+    },
+    "core.claim_evidence_bundle": {
+      "lifecycle": "A",
+      "subjects": [
+        {
+          "column": "requested_by",
+          "type": "USER"
+        }
+      ],
+      "export": "controller",
+      "columns": {
+        "id": "C1",
+        "trip_id": "C1",
+        "country_code": "C1",
+        "case_id": "C1",
+        "purpose": "C1",
+        "requested_by": "C1",
+        "requested_role": "C1",
+        "request_id": "C1",
+        "status": "C1",
+        "manifest": "C1",
+        "manifest_sha256": "C1",
+        "requested_at": "C1",
+        "generated_at": "C1",
+        "expires_at": "C1",
+        "export_file_id": "C1",
+        "export_sha256": "C1",
+        "export_bytes": "C1",
+        "failure_code": "C1",
+        "findings": "C1"
       }
     },
     "core.messaging_meeting_proposal": {

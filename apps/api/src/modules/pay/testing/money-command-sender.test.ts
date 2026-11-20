@@ -385,3 +385,38 @@ describe.each(['TJ01', 'TJ08a'])(
     });
   },
 );
+
+describe('US-708 — libération d’une jambe (LEG_RELEASE) : une seule jambe, montant explicite', () => {
+  const host = legs('TJ01').HOST;
+  const zero = { HOST: 0n, INSURER: 0n, TAX_THIRD_PARTY: 0n, PLATFORM: 0n };
+
+  it('deux jambes non nulles ou un bénéficiaire absent : refus avant tout appel au PSP', async () => {
+    const r = rig({});
+    const k = 'release:A:1:HOST:i1';
+    r.store.addOperation({ id: 'l1', accountId: 'acc', idemSent: k, providerReference: null });
+    const base = {
+      kind: 'LEG_RELEASE' as const,
+      idemSent: k,
+      amountMinor: host + 1n,
+      currency: 'XXX',
+      legs: { ...zero, HOST: host, PLATFORM: 1n },
+      targetReference: null,
+      release: { tripReference: 'A', beneficiaryReference: 'fk_sm_000001' },
+    };
+    await expect(r.sender.send(command(r, 'l1', base))).rejects.toMatchObject({
+      code: 'LEG_SUM_MISMATCH',
+    });
+    const withoutBeneficiary = {
+      kind: base.kind,
+      idemSent: k,
+      amountMinor: host,
+      currency: base.currency,
+      legs: { ...zero, HOST: host },
+      targetReference: null,
+    };
+    await expect(r.sender.send(command(r, 'l1', withoutBeneficiary))).rejects.toMatchObject({
+      code: 'INVALID_REQUEST',
+    });
+    expect(r.stack.psp.totalCalls()).toBe(0);
+  });
+});
