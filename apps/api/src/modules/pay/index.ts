@@ -291,6 +291,7 @@ export type { PaymentStartupState } from './internal/startup-guard.js';
 // Carte enregistrée, consentement MIT et débits post-trip (US-703, ADR-189)
 export {
   MIT_CONSENT_CATALOG_VERSION,
+  MIT_CONSENT_MODES,
   MIT_CONSENT_OUTCOMES,
   MIT_REMINDER_OUTCOMES,
   mitConsentLocaleOf,
@@ -298,6 +299,7 @@ export {
   UNAVAILABLE_MIT_CONSENTS,
 } from './internal/mit-consent.js';
 export type {
+  MitConsentMode,
   MitConsentOutcome,
   MitConsentPort,
   MitReminderOutcome,

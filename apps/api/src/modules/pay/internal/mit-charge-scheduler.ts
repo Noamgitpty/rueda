@@ -34,7 +34,7 @@ import { MoneyCommandSender } from './money-command-sender.js';
 import type { SendOutcome } from './money-command-sender.js';
 import type { DueCharge, MitChargeStore, SettleResult } from './mit-charge-store.js';
 import { PgMitChargeStore } from './pg-mit-charge-store.js';
-import type { PaymentProvider } from './port.js';
+import type { PaymentProvider, ProviderOperation } from './port.js';
 import type { PaymentConnectorRegistry } from './production.js';
 
 /** Nom de la tâche périodique (file du travailleur). */
@@ -162,9 +162,11 @@ export class MitChargeScheduler {
             break;
         }
       }
-      return await this.#deps.transactions.run(PAYMENT_COMMAND_WORKER, (db) =>
+      const sent = await this.#deps.transactions.run(PAYMENT_COMMAND_WORKER, (db) =>
         this.#sendAndSettle(this.#storeOf(db), connector, due),
       );
+      await this.#deferIfStuck(due, sent);
+      return sent;
     } catch (error) {
       const outcome =
         error instanceof NotSent
@@ -176,7 +178,33 @@ export class MitChargeScheduler {
         step: outcome.step,
         code: outcome.code ?? '',
       });
+      await this.#deferIfStuck(due, outcome);
       return outcome;
+    }
+  }
+
+  /**
+   * Revue code n° 3 (aucune famine de la file) : un débit dont le traitement n'aboutit pas
+   * (issue inconnue, revue, preuve attendue, refus de la base) reçoit sa prochaine relecture
+   * (+15 min, base) ; la file sert d'abord les autres. Un échec de ce report est journalisé.
+   */
+  async #deferIfStuck(due: DueCharge, outcome: MitChargeOutcome): Promise<void> {
+    const stuck =
+      outcome.step === 'WAITING' ||
+      outcome.step === 'ATTENTION' ||
+      (outcome.step === 'CHARGED' && outcome.code === 'AWAITING_PROOF');
+    if (!stuck) return;
+    try {
+      await this.#deps.transactions.run(PAYMENT_COMMAND_WORKER, (db) =>
+        this.#storeOf(db).defer(due.chargeId, outcome.code ?? outcome.step),
+      );
+    } catch (error) {
+      this.#log({
+        level: 'warn',
+        event: 'defer',
+        step: 'ERROR',
+        code: classifyMitError(error).code ?? '',
+      });
     }
   }
 
@@ -234,14 +262,62 @@ export class MitChargeScheduler {
         }
       } else if (
         order.operationId !== null &&
+        order.status !== null &&
         order.status !== 'SUCCEEDED' &&
         order.status !== 'FAILED'
       ) {
-        // tentative sans statut mais carte consentie retirée : rien n'est envoyé, revue
-        return { step: 'ATTENTION', code: 'NO_INSTRUMENT' };
+        // revue code n° 4 : tentative sans statut mais carte consentie retirée entre-temps. Aucun
+        // envoi (aucun jeton) ; l'issue est LUE d'abord chez le PSP (la lecture n'exige pas le
+        // jeton) : trouvée ⇒ appliquée puis reportée (débité, refus ⇒ relance ou dette) ; inconnue
+        // du PSP ou lecture impossible ⇒ revue FIN, relue au prochain passage (jamais une dette
+        // tant qu'un débit a pu partir : aucun double recouvrement)
+        const read = await this.#readOnly(connector, store, order.operationId, order);
+        if (read !== null) return read;
       }
     }
     return settledStep(await store.settle(due.chargeId, doNotRetry));
+  }
+
+  /** Lecture seule de l'issue d'une tentative (aucun envoi) ; `null` : issue appliquée. */
+  async #readOnly(
+    connector: PaymentProvider,
+    store: MitChargeStore,
+    operationId: string,
+    order: { readonly idemSent: string | null; readonly providerReference: string | null },
+  ): Promise<MitChargeOutcome | null> {
+    const byKey = connector.capabilities().bool('SUPPORTS_LOOKUP_BY_MERCHANT_REF');
+    if (byKey ? order.idemSent === null : order.providerReference === null) {
+      return { step: 'ATTENTION', code: 'NO_INSTRUMENT' };
+    }
+    let found: ProviderOperation | null;
+    try {
+      found = await connector.getOperation(
+        byKey
+          ? { merchantReference: order.idemSent as string }
+          : { providerReference: order.providerReference as string },
+      );
+    } catch (error) {
+      if (
+        isPaymentError(error) &&
+        (error.code === 'UNKNOWN_OUTCOME' || error.code === 'PROVIDER_UNAVAILABLE')
+      ) {
+        return { step: 'WAITING', code: 'NO_INSTRUMENT' };
+      }
+      throw error;
+    }
+    if (found === null || found.status === 'PENDING' || found.status === 'UNKNOWN') {
+      return { step: 'ATTENTION', code: 'NO_INSTRUMENT' };
+    }
+    const applied = await store.apply({
+      operationId,
+      status: found.status,
+      source: 'POLL',
+      rawRef: null,
+      providerReference: found.providerReference,
+    });
+    if (applied === 'MISMATCH') return { step: 'ATTENTION', code: 'MISMATCH' };
+    if (applied === 'UNPROVEN') return { step: 'WAITING', code: 'UNPROVEN' };
+    return null;
   }
 
   #log(fields: Record<string, string>): void {

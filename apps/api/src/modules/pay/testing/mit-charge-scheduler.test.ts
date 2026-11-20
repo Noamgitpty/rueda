@@ -78,6 +78,14 @@ class MemoryMitStore implements MitChargeStore {
   /** Motif rendu par la base avant toute tentative (préavis…) ; `null` : échu. */
   notDue: string | null = null;
   plans = 0;
+  /** Carte consentie retirée entre la planification et l'envoi (aucun jeton servi). */
+  cardWithdrawn = false;
+  /** Ordre servi incomplet (forme illisible de la base). */
+  unreadable = false;
+  /** Débits reportés à plus tard (`defer`), codes seulement. */
+  readonly deferred: string[] = [];
+  /** Erreur levée par la prochaine planification (interblocage simulé). */
+  failNextPlan: unknown = null;
 
   constructor(
     readonly now: () => number,
@@ -107,6 +115,11 @@ class MemoryMitStore implements MitChargeStore {
 
   plan(_chargeId: string, operationId: string): Promise<PlanResult> {
     this.plans += 1;
+    if (this.failNextPlan !== null) {
+      const e = this.failNextPlan;
+      this.failNextPlan = null;
+      return Promise.reject(e);
+    }
     const none = { code: null, operationId: null, attempt: null } as const;
     if (this.status === 'CHARGED' || this.status === 'UNPAID') {
       return Promise.resolve({ ...none, outcome: 'DONE', code: this.status });
@@ -146,19 +159,21 @@ class MemoryMitStore implements MitChargeStore {
   orderForSend(): Promise<MitOrder> {
     const a = this.#current();
     const op = a === undefined ? undefined : this.payments.operations.get(a.operationId);
-    const sendable =
+    const live =
       this.status === 'CHARGING' &&
       a !== undefined &&
       a.settled === null &&
       op !== undefined &&
       op.status !== 'SUCCEEDED' &&
       op.status !== 'FAILED';
+    // comme 0169 : sans carte consentie ACTIVE, l'ordre est rendu sans jeton (non envoyable)
+    const sendable = live && !this.cardWithdrawn;
     return Promise.resolve({
       sendable,
       operationId: a?.operationId ?? null,
       status: op?.status ?? null,
-      idemSent: sendable ? (a?.key ?? null) : null,
-      amountMinor: sendable ? this.amountMinor : null,
+      idemSent: live ? (a?.key ?? null) : null,
+      amountMinor: sendable && !this.unreadable ? this.amountMinor : null,
       currency: sendable ? this.currency : null,
       legs: sendable ? this.legs : null,
       providerReference: op?.providerReference ?? null,
@@ -193,7 +208,18 @@ class MemoryMitStore implements MitChargeStore {
     return Promise.resolve({ outcome: 'RETRY_DUE', code: null });
   }
 
+  defer(_chargeId: string, code: string): Promise<string> {
+    this.deferred.push(code);
+    return Promise.resolve('DEFERRED');
+  }
+
+  /** Opérations dont le montant reçu différerait de l'ordre (`MISMATCH` de la base). */
+  readonly mismatch = new Set<string>();
+
   apply(input: ApplyStatusInput): Promise<ApplyOutcome> {
+    if (this.mismatch.has(input.operationId) && input.status === 'SUCCEEDED') {
+      return Promise.resolve('MISMATCH');
+    }
     return this.payments.apply(input);
   }
 }
@@ -332,6 +358,49 @@ describe.each(CASES)('US-703 — ordonnanceur des débits MIT — $country ($cur
     r.store.notDue = 'MIT_NOTICE_PERIOD_NOT_ELAPSED';
     expect(await r.pass()).toEqual({ step: 'NOT_DUE', code: 'MIT_NOTICE_PERIOD_NOT_ELAPSED' });
     expect(r.stack.psp.calls('MIT_CHARGE')).toBe(0);
+  });
+
+  it('revue code n° 4 : carte consentie retirée pendant une tentative sans statut ⇒ issue LUE (jamais renvoyée) puis reportée ; inconnue du PSP ⇒ revue, débit relu plus tard', async () => {
+    const r = rig(c, {
+      scenario: { responses: { MIT_CHARGE: [{ kind: 'TIMEOUT_AFTER_SUCCESS' }] } },
+    });
+    expect(await r.pass()).toMatchObject({ step: 'WAITING' });
+    expect(r.store.deferred).toEqual(['UNKNOWN']);
+    r.store.cardWithdrawn = true;
+    // débité chez le PSP malgré la réponse perdue : lu par notre clé, reporté, aucun second appel
+    expect(await r.pass()).toMatchObject({ step: 'CHARGED' });
+    expect(r.stack.psp.calls('MIT_CHARGE')).toBe(1);
+    expect(r.debits()).toHaveLength(1);
+
+    const lost = rig(c, { scenario: { responses: { MIT_CHARGE: [{ kind: 'TIMEOUT_BEFORE' }] } } });
+    expect(await lost.pass()).toMatchObject({ step: 'WAITING' });
+    lost.store.cardWithdrawn = true;
+    // jamais parti chez le PSP : rien n'est renvoyé sans jeton, revue FIN, prochaine relecture
+    expect(await lost.pass()).toEqual({ step: 'ATTENTION', code: 'NO_INSTRUMENT' });
+    expect(lost.store.deferred).toEqual(['UNKNOWN', 'NO_INSTRUMENT']);
+    expect(lost.stack.psp.calls('MIT_CHARGE')).toBe(1);
+    expect(lost.debits()).toHaveLength(0);
+  });
+
+  it('revue qa n° 5 : ordre illisible, montant reçu différent, interblocage ⇒ revue ou reprise, aucun débit de plus, débit relu plus tard', async () => {
+    const unreadable = rig(c, { scenario: { responses: { MIT_CHARGE: [{ kind: 'OK' }] } } });
+    unreadable.store.unreadable = true;
+    expect(await unreadable.pass()).toEqual({ step: 'ATTENTION', code: 'ORDER_UNREADABLE' });
+    expect(unreadable.stack.psp.calls('MIT_CHARGE')).toBe(0);
+    expect(unreadable.store.deferred).toEqual(['ORDER_UNREADABLE']);
+
+    const mismatch = rig(c, { scenario: { responses: { MIT_CHARGE: [{ kind: 'OK' }] } } });
+    await mismatch.store.plan('charge-1', 'op-m');
+    mismatch.store.mismatch.add('op-m');
+    expect(await mismatch.pass()).toEqual({ step: 'ATTENTION', code: 'MISMATCH' });
+    expect(mismatch.store.deferred).toEqual(['MISMATCH']);
+
+    const deadlock = rig(c, { scenario: { responses: { MIT_CHARGE: [{ kind: 'OK' }] } } });
+    deadlock.store.failNextPlan = Object.assign(new Error('deadlock'), { code: '40P01' });
+    expect(await deadlock.pass()).toEqual({ step: 'RETRY', code: '40P01' });
+    expect(deadlock.stack.psp.calls('MIT_CHARGE')).toBe(0);
+    expect(await deadlock.pass()).toMatchObject({ step: 'CHARGED' });
+    expect(deadlock.debits()).toHaveLength(1);
   });
 
   it('aucun connecteur (production avant le lot C, C19) ⇒ rien n’est planifié ni envoyé', async () => {

@@ -28,6 +28,15 @@ export const MIT_REMINDER_OUTCOMES = [
 ] as const;
 export type MitReminderOutcome = (typeof MIT_REMINDER_OUTCOMES)[number];
 
+/**
+ * Mode du consentement du pays (DEC-FONDATEUR-22, ADR-189 n° 15) : `NOTICE` (défaut, comme Turo)
+ * mention explicite à côté du bouton de paiement ; `CHECKBOX` case séparée obligatoire
+ * (`mit_consent_checkbox_required[pays]` vrai). Dans les deux modes, le consentement est exigé et
+ * enregistré avec la clé du texte affiché.
+ */
+export const MIT_CONSENT_MODES = ['NOTICE', 'CHECKBOX'] as const;
+export type MitConsentMode = (typeof MIT_CONSENT_MODES)[number];
+
 /** Version du catalogue dont le texte du consentement est servi (es / en / fr / pt-BR). */
 export const MIT_CONSENT_CATALOG_VERSION: number = CATALOG_VERSION;
 
@@ -37,6 +46,8 @@ export function mitConsentLocaleOf(value: unknown): string | null {
 }
 
 export interface MitConsentPort {
+  /** Mode du consentement du pays du hold, pour son voyageur ; `null` : hold d'un autre. */
+  mode(proof: Buffer, holdId: string): Promise<MitConsentMode | null>;
   /** Consentement au checkout (S05), une fois par hold. */
   accept(proof: Buffer, holdId: string, locale: string): Promise<MitConsentOutcome>;
   /** Rappel lu et confirmé par le voyageur à la remise (S09). */
@@ -45,6 +56,7 @@ export interface MitConsentPort {
 
 /** Sans base : toute écriture échoue (jamais un consentement supposé). */
 export const UNAVAILABLE_MIT_CONSENTS: MitConsentPort = {
+  mode: () => Promise.reject(new Error('consentement MIT indisponible')),
   accept: () => Promise.reject(new Error('consentement MIT indisponible')),
   acknowledgeReminder: () => Promise.reject(new Error('consentement MIT indisponible')),
 };
@@ -59,6 +71,15 @@ export class PgMitConsentStore implements MitConsentPort {
 
   constructor(db: SqlExecutor) {
     this.#db = db;
+  }
+
+  async mode(proof: Buffer, holdId: string): Promise<MitConsentMode | null> {
+    const { rows } = await this.#db.query(
+      'SELECT mode FROM core.payment_mit_consent_mode_of_hold($1, $2::uuid)',
+      [proof, holdId],
+    );
+    const r = rows[0];
+    return r === undefined ? null : outcomeOf(MIT_CONSENT_MODES, r['mode']);
   }
 
   async accept(proof: Buffer, holdId: string, locale: string): Promise<MitConsentOutcome> {

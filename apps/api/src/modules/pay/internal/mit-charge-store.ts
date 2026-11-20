@@ -89,4 +89,6 @@ export interface MitChargeStore extends OperationStatusStore {
   orderForSend(chargeId: string): Promise<MitOrder>;
   /** Reporte l'issue connue de la tentative courante (refus « ne pas réessayer » compris). */
   settle(chargeId: string, doNotRetry: boolean): Promise<SettleResult>;
+  /** Prochaine relecture d'un débit en cours ou en attente de preuve (+15 min, base). */
+  defer(chargeId: string, code: string): Promise<string>;
 }

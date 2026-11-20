@@ -139,6 +139,16 @@ export class PgMitChargeStore implements MitChargeStore {
     };
   }
 
+  async defer(chargeId: string, code: string): Promise<string> {
+    const { rows } = await this.#tx.query(
+      'SELECT core.payment_cmd_defer_mit_charge($1, $2) AS outcome',
+      [chargeId, code],
+    );
+    const outcome = rows[0]?.['outcome'];
+    if (typeof outcome !== 'string') throw new MitChargeStoreError('report sans résultat');
+    return outcome;
+  }
+
   apply(input: ApplyStatusInput): Promise<ApplyOutcome> {
     return applyOperationStatus(this.#tx, input);
   }
