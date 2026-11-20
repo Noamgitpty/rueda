@@ -693,7 +693,7 @@ describe.each(COUNTRIES)(
     it('report (revue qa n° 5) : claim_cmd_defer_decision repousse une décision PENDING de 15 min avec son code (file : plus due), NOT_DUE hors PENDING, code mal formé refusé, autre travailleur refusé ; file lue sur la décision du test seulement', async () => {
       // instant propre à ce test, loin de toute autre décision (aucune dépendance à la file globale)
       const at = new Date(
-        Date.UTC(2001, 0, 1) + Math.floor(Math.random() * 1e9) * 1000,
+        Date.UTC(2034, 0, 1) + Math.floor(Math.random() * 8_000) * 3_600_000,
       ).toISOString();
       await withRole('app_worker', (client) =>
         payTx(client, { worker: 'payment_command', virtualNow: at }, async (tx) => {
@@ -870,7 +870,7 @@ describe.each(COUNTRIES)(
           `SELECT c.relname AS t, c.relrowsecurity AS rls, c.relforcerowsecurity AS force,
                 pg_catalog.pg_get_userbyid(c.relowner) AS owner,
                 pg_catalog.array_to_string(ARRAY(
-                  SELECT p.polname || ':' || p.polcmd || ':' || pg_catalog.array_to_string(ARRAY(
+                  SELECT p.polname || ':' || p.polcmd::text || ':' || pg_catalog.array_to_string(ARRAY(
                            SELECT pg_catalog.pg_get_userbyid(r)
                              FROM pg_catalog.unnest(p.polroles) AS r ORDER BY 1), ',')
                     FROM pg_catalog.pg_policy p WHERE p.polrelid = c.oid ORDER BY 1), ';') AS pols
