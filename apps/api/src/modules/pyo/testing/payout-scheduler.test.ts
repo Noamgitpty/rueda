@@ -196,6 +196,9 @@ class MemoryStore implements PayoutBatchStore {
       holdReasons: [],
     });
   }
+  deferTrip(): Promise<void> {
+    return Promise.resolve();
+  }
   dueBatches(): Promise<readonly DueBatch[]> {
     return Promise.resolve([]);
   }
@@ -417,6 +420,26 @@ describe.each(CASES)('US-708 — ordonnanceur des versements ($label, $vector)',
     expect(r.calls('PAYOUT')).toBe(1);
     expect(r.psp.movements().filter((m) => m.operation === 'RELEASE_LEG')).toHaveLength(1);
     expect(r.store.applied).toBe(1);
+  });
+
+  it('arrêt d’urgence : interrupteur fermé APRÈS l’émission (réponse perdue avant le PSP) ⇒ lot relu, jamais renvoyé ; compteur payout du FAKE inchangé', async () => {
+    const r = rig(tj.currency, [host], { responses: { PAYOUT: [{ kind: 'TIMEOUT_BEFORE' }] } });
+    await r.scheduler.process(r.due('NET'));
+    expect(await r.scheduler.process(r.due('RELEASE'))).toBe('WAITING');
+    expect(r.store.status).toBe('INITIATED');
+    const before = r.calls('PAYOUT');
+    // l'interrupteur est refermé : la base relit le motif sur le lot émis (REPLAY)
+    r.store.holds = ['PAYOUTS_DISABLED'];
+    expect(await r.scheduler.process(r.due('PAYOUT'))).toBe('ON_HOLD');
+    expect(await r.scheduler.process(r.due('PAYOUT'))).toBe('ON_HOLD');
+    expect(r.calls('PAYOUT')).toBe(before);
+    expect(r.calls('LOOKUP')).toBeGreaterThan(0);
+    expect(r.psp.submerchant(r.store.submerchant)?.paidOutMinor).toBe(0n);
+    // rouvert : la même clé part, une fois
+    r.store.holds = [];
+    expect(await r.scheduler.process(r.due('PAYOUT'))).toBe('PAID');
+    expect(r.calls('PAYOUT')).toBe(before + 1);
+    expect(r.psp.submerchant(r.store.submerchant)?.paidOutMinor).toBe(host);
   });
 
   it('RT-L3-V01 : payouts_enabled = false (motif lu par la base) ⇒ lot ON_HOLD, compteur d’appels payout et releaseLeg du FAKE = 0', async () => {

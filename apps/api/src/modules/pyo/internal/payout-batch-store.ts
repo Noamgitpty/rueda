@@ -66,7 +66,10 @@ export interface RecordReleaseInput {
 
 /** Ordre de versement d'un lot (`payout:{lot}:r{n}`). */
 export interface PayoutOrder {
-  /** INITIATED (émis à l'instant), REPLAY (déjà émis : lecture d'abord), ON_HOLD, RELEASE_PENDING… */
+  /**
+   * INITIATED (émis à l'instant), REPLAY (déjà émis : lecture d'abord ; `holdReasons` non vide ⇒
+   * lecture seule, jamais un envoi), ON_HOLD, RELEASE_PENDING…
+   */
   readonly outcome: string;
   readonly idempotencyKey: string | null;
   readonly amountMinor: bigint | null;
@@ -79,6 +82,8 @@ export interface PayoutOrder {
 export interface PayoutBatchStore extends OperationStatusStore {
   tripsToPrepare(limit: number): Promise<readonly string[]>;
   prepareTrip(tripId: string): Promise<PrepareResult>;
+  /** Préparation différée après un refus de la base (`code` : contrainte ou SQLSTATE). */
+  deferTrip(tripId: string, code: string): Promise<void>;
   dueBatches(limit: number): Promise<readonly DueBatch[]>;
   netBatch(batchId: string): Promise<BatchCheck>;
   recheckBatch(batchId: string): Promise<BatchCheck>;

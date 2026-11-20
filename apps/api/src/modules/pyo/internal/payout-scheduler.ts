@@ -97,7 +97,19 @@ export class PayoutScheduler {
       );
       return r.outcome;
     } catch (error) {
-      return classify(error) === 'RETRY' ? 'RETRY' : 'ERROR';
+      if (classify(error) === 'RETRY') return 'RETRY';
+      // refus de la base ou erreur : trip différé (il ne revient pas en tête de la file à chaque
+      // passage) ; seuls le SQLSTATE et la contrainte sont journalisés, jamais un message
+      const code = errorCode(error);
+      this.#log({ level: 'warn', event: 'prepare', outcome: 'ERROR', error_code: code });
+      try {
+        await this.#deps.transactions.run(PAYMENT_COMMAND_WORKER, (db) =>
+          this.#storeOf(db).deferTrip(tripId, code),
+        );
+      } catch {
+        // différé impossible : repris au passage suivant
+      }
+      return 'ERROR';
     }
   }
 
@@ -214,7 +226,10 @@ export class PayoutScheduler {
       return 'ATTENTION';
     }
     const caps = connector.capabilities();
-    if (order.outcome === 'REPLAY' || !caps.bool('SUPPORTS_IDEMPOTENCY_HEADER')) {
+    // arrêt d'urgence (L3-PM-30) : un lot déjà émis dont la base lit un motif (interrupteur fermé
+    // après l'émission, gel, compte…) n'est que LU ; jamais un envoi
+    const readOnly = order.outcome === 'REPLAY' && order.holdReasons.length > 0;
+    if (readOnly || order.outcome === 'REPLAY' || !caps.bool('SUPPORTS_IDEMPOTENCY_HEADER')) {
       const byKey = caps.bool('SUPPORTS_LOOKUP_BY_MERCHANT_REF');
       if (!byKey && order.providerRef === null) return 'ATTENTION';
       let found: ProviderOperation | null;
@@ -228,6 +243,7 @@ export class PayoutScheduler {
       }
       if (found !== null)
         return this.#result(store, batchId, found.status, found.providerReference);
+      if (readOnly) return 'ON_HOLD';
     }
     try {
       const r = await connector.payout({
@@ -262,6 +278,19 @@ export class PayoutScheduler {
   #log(fields: Record<string, string>): void {
     this.#deps.log?.(JSON.stringify({ worker: PAYOUT_SCHEDULER_WORKER, ...fields }));
   }
+}
+
+/** Code d'une erreur de la base : contrainte (majuscules) ou `DB_<SQLSTATE>`, jamais un message. */
+function errorCode(error: unknown): string {
+  const e = typeof error === 'object' && error !== null ? (error as Record<string, unknown>) : {};
+  const constraint = e['constraint'];
+  if (typeof constraint === 'string' && /^[a-z][a-z0-9_]{1,62}$/.test(constraint)) {
+    return constraint.toUpperCase();
+  }
+  const state = e['code'];
+  return typeof state === 'string' && /^[0-9A-Z]{5}$/.test(state)
+    ? `DB_${state}`
+    : 'UNEXPECTED_ERROR';
 }
 
 /** Interblocage ou sérialisation ⇒ reprise ; toute autre erreur ⇒ revue (jamais un message). */

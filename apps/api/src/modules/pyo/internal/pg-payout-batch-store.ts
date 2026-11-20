@@ -70,6 +70,10 @@ export class PgPayoutBatchStore implements PayoutBatchStore {
     };
   }
 
+  async deferTrip(tripId: string, code: string): Promise<void> {
+    await this.#db.query('SELECT core.payout_cmd_defer_trip($1, $2)', [tripId, code]);
+  }
+
   async dueBatches(limit: number): Promise<readonly DueBatch[]> {
     const { rows } = await this.#db.query<{
       batch_id: string;
