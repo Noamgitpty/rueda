@@ -7,7 +7,7 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 
 ## Synthèse
 
-- 164 migrations ; 142 tables ; 3 vues ; 805 politiques RLS ; 330 fonctions `SECURITY DEFINER` ; 279 autres fonctions.
+- 164 migrations ; 143 tables ; 3 vues ; 809 politiques RLS ; 331 fonctions `SECURITY DEFINER` ; 279 autres fonctions.
 - Tables sans RLS `ENABLE` + `FORCE` : aucune.
 - Rôles applicatifs avec `SUPERUSER` ou `BYPASSRLS` : aucun.
 
@@ -5212,6 +5212,7 @@ Déclencheurs :
 | `net_minor` | `bigint` | oui | `0` |
 | `hold_reasons` | `text[]` | oui | `ARRAY[]::text[]` |
 | `netted_at` | `timestamp with time zone` | non | — |
+| `next_check_at` | `timestamp with time zone` | non | — |
 | `attempt_no` | `integer` | oui | `0` |
 | `idempotency_key` | `text` | non | — |
 | `provider_ref` | `text` | non | — |
@@ -5260,7 +5261,7 @@ Politiques RLS :
 
 Déclencheurs :
 
-- `payout_payout_batch_guard` : `CREATE TRIGGER payout_payout_batch_guard BEFORE DELETE OR UPDATE ON core.payout_payout_batch FOR EACH ROW EXECUTE FUNCTION core.payout_payout_batch_guard()`
+- `payout_payout_batch_guard` : `CREATE TRIGGER payout_payout_batch_guard BEFORE INSERT OR DELETE OR UPDATE ON core.payout_payout_batch FOR EACH ROW EXECUTE FUNCTION core.payout_payout_batch_guard()`
 - `payout_payout_batch_no_truncate` : `CREATE TRIGGER payout_payout_batch_no_truncate BEFORE TRUNCATE ON core.payout_payout_batch FOR EACH STATEMENT EXECUTE FUNCTION core.payout_payout_batch_guard()`
 
 ### `core.payout_payout_item`
@@ -5315,6 +5316,37 @@ Déclencheurs :
 
 - `payout_payout_item_guard` : `CREATE TRIGGER payout_payout_item_guard BEFORE DELETE OR UPDATE ON core.payout_payout_item FOR EACH ROW EXECUTE FUNCTION core.payout_payout_item_guard()`
 - `payout_payout_item_no_truncate` : `CREATE TRIGGER payout_payout_item_no_truncate BEFORE TRUNCATE ON core.payout_payout_item FOR EACH STATEMENT EXECUTE FUNCTION core.payout_payout_item_guard()`
+
+### `core.payout_prepare_deferral`
+
+- RLS : ENABLE + FORCE ; propriétaire `migrator`
+- Droits : cmd_money_owner: INSERT, SELECT ; migrator: DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE
+
+| Colonne | Type | NOT NULL | Défaut |
+| ------- | ---- | -------- | ------ |
+| `trip_id` | `uuid` | oui | — |
+| `outcome` | `text` | oui | — |
+| `attempts` | `integer` | oui | `1` |
+| `next_attempt_at` | `timestamp with time zone` | oui | — |
+| `updated_at` | `timestamp with time zone` | oui | `platform.now()` |
+
+Contraintes :
+
+- `payout_prepare_deferral_attempts_valid` : `CHECK (attempts >= 1)`
+- `payout_prepare_deferral_outcome_format` : `CHECK (outcome ~ '^[A-Z][A-Z0-9_]{1,63}$'::text)`
+- `payout_prepare_deferral_pkey` : `PRIMARY KEY (trip_id)`
+- `payout_prepare_deferral_trip_fk` : `FOREIGN KEY (trip_id) REFERENCES core.booking_trip(id)`
+
+Index :
+
+- `payout_prepare_deferral_next_idx` : `CREATE INDEX payout_prepare_deferral_next_idx ON core.payout_prepare_deferral USING btree (next_attempt_at)`
+
+Politiques RLS :
+
+- `cmd_money_ins` (INSERT, PERMISSIVE, cmd_money_owner) WITH CHECK `((app.actor_kind() = 'WORKER'::text) AND (app.worker_name() = 'payment_command'::text))`
+- `cmd_money_sel` (SELECT, PERMISSIVE, cmd_money_owner) USING `true`
+- `cmd_money_upd` (UPDATE, PERMISSIVE, cmd_money_owner) USING `((app.actor_kind() = 'WORKER'::text) AND (app.worker_name() = 'payment_command'::text))` WITH CHECK `((app.actor_kind() = 'WORKER'::text) AND (app.worker_name() = 'payment_command'::text))`
+- `migrator_all` (ALL, PERMISSIVE, migrator) USING `true` WITH CHECK `true`
 
 ### `core.pricing_quote`
 
@@ -7385,6 +7417,7 @@ Chacune a un propriétaire `NOLOGIN` dédié (ADR-053) et un `search_path` figé
 | `core.payment_startup_guard()` | `TABLE(deployment_env text, fake_accounts integer)` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; app_worker: EXECUTE ; cmd_money_owner: EXECUTE |
 | `core.payment_trip_refund_view(p_trip_id uuid, p_viewer text)` | `jsonb` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | cmd_hold_owner: EXECUTE ; cmd_money_owner: EXECUTE ; iam_staff_owner: EXECUTE |
 | `core.payout_batches_due(p_limit integer)` | `TABLE(batch_id uuid, step text, status text, country_code text, currency text, provider text)` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; cmd_money_owner: EXECUTE |
+| `core.payout_cmd_defer_trip(p_trip_id uuid, p_outcome text)` | `timestamp with time zone` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; cmd_money_owner: EXECUTE |
 | `core.payout_cmd_initiate_batch(p_batch_id uuid)` | `TABLE(outcome text, idempotency_key text, amount_minor bigint, currency text, submerchant_reference text, provider_ref text, hold_reasons text[])` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; cmd_money_owner: EXECUTE |
 | `core.payout_cmd_net_batch(p_batch_id uuid)` | `TABLE(outcome text, gross_minor bigint, netted_minor bigint, net_minor bigint, hold_reasons text[])` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; cmd_money_owner: EXECUTE |
 | `core.payout_cmd_prepare_trip(p_trip_id uuid)` | `TABLE(outcome text, batch_id uuid, payout_at timestamp with time zone, status text, hold_reasons text[])` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; cmd_money_owner: EXECUTE |
