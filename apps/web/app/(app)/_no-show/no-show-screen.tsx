@@ -9,7 +9,7 @@
  */
 import { randomUUID } from 'node:crypto';
 import type { ReactNode } from 'react';
-import { Badge, Banner, ButtonLink, EmptyState, ErrorState } from '@rueda/ui';
+import { Banner, ButtonLink, EmptyState, ErrorState } from '@rueda/ui';
 import { callApi } from '../../../account/api-client.ts';
 import { clientContext } from '../../../account/request.ts';
 import {
@@ -28,12 +28,6 @@ import { NoShowForm } from './no-show-form.tsx';
 
 const STATUS_TONE = {
   PENDING: 'info',
-  SETTLED: 'success',
-  FIN_REVIEW: 'warning',
-  FAILED: 'danger',
-} as const;
-const STATUS_BADGE = {
-  PENDING: 'neutral',
   SETTLED: 'success',
   FIN_REVIEW: 'warning',
   FAILED: 'danger',
@@ -122,20 +116,17 @@ export async function NoShowScreen({
       </p>
       {d !== null ? (
         <section className={styles['card']} data-testid="no-show-declaration">
-          <p className={styles['hint']}>
-            <Badge tone={STATUS_BADGE[d.status]}>{t(reasonKey(d.requestedReason))}</Badge>
-          </p>
+          <p className={styles['strong']}>{t(reasonKey(d.requestedReason))}</p>
           <Banner tone={STATUS_TONE[d.status]} live="polite">
             {t(`web.noShow.status.${d.status}`, { date: date(d.requestedAt) })}
           </Banner>
         </section>
       ) : (
         <section className={styles['card']} data-testid="no-show-proof">
-          <p className={styles['hint']}>
-            <Badge tone={view.messageTraced ? 'success' : 'warning'}>
-              {t(view.messageTraced ? 'web.noShow.traced.yes' : 'web.noShow.traced.no')}
-            </Badge>
-          </p>
+          {/* texte long : bandeau qui passe à la ligne (un badge ne passe jamais à la ligne à 360 px) */}
+          <Banner tone={view.messageTraced ? 'success' : 'warning'} live="off">
+            {t(view.messageTraced ? 'web.noShow.traced.yes' : 'web.noShow.traced.no')}
+          </Banner>
           <a className={styles['link']} href={messagesHref(role, view.tripId, org)}>
             {t('web.noShow.messagesLink')}
           </a>
