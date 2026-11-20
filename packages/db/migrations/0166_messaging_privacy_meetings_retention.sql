@@ -254,6 +254,8 @@ CREATE POLICY messaging_cmd_upd ON core.messaging_meeting_proposal FOR UPDATE
 GRANT INSERT (type, schema_version, aggregate_type, aggregate_id, aggregate_version, country_code,
               actor_user_id, actor_role, correlation_id, payload, partition_key)
   ON core.outbox_outbox_event TO messaging_cmd_owner;
+-- identifiant de l'événement (défaut de la colonne id)
+GRANT EXECUTE ON FUNCTION platform.uuid_v7() TO messaging_cmd_owner;
 CREATE POLICY messaging_cmd_meeting_event ON core.outbox_outbox_event FOR INSERT
   TO messaging_cmd_owner
   WITH CHECK (type = 'trip.meeting.confirmed' AND aggregate_type = 'trip'
