@@ -35,13 +35,17 @@ CREATE FUNCTION test_fixture.us317_trip(p_country text, p_org uuid, p_guest uuid
   SECURITY DEFINER
   SET search_path = pg_catalog, pg_temp
 AS $fn$
+DECLARE
+  v record;
+  v_listing uuid;
 BEGIN
-  -- plpgsql : corps résolu à l'appel (9926, qui définit us525_trip, s'applique après 9915)
-  RETURN QUERY
-  SELECT x.trip_id, x.org_id, x.vehicle_id, x.holder_id, t.listing_id
+  -- plpgsql : corps résolu à l'appel (9926, qui définit us525_trip, s'applique après 9915) ;
+  -- annonce relue par une instruction SUIVANTE (l'instantané de l'appel ne voit pas le trip créé)
+  SELECT x.trip_id, x.org_id, x.vehicle_id, x.holder_id INTO v
     FROM test_fixture.us525_trip(p_country, p_org, p_guest, 'Ana', 'María José', p_start, p_end)
-         AS x
-    JOIN core.booking_trip AS t ON t.id = x.trip_id;
+         AS x;
+  SELECT t.listing_id INTO v_listing FROM core.booking_trip AS t WHERE t.id = v.trip_id;
+  RETURN QUERY SELECT v.trip_id, v.org_id, v.vehicle_id, v.holder_id, v_listing;
 END
 $fn$;
 

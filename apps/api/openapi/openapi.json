@@ -15673,7 +15673,7 @@
             }
           },
           "404": {
-            "description": "Annonce non publiée, inconnue ou identifiant mal formé, compte d’hôte inactif",
+            "description": "Annonce non publiée, inconnue ou identifiant mal formé, titulaire du compte pseudonymisé",
             "headers": {
               "Cache-Control": {
                 "$ref": "#/components/headers/NoStore"

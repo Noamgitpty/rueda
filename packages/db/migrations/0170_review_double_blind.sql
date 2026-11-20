@@ -747,7 +747,7 @@ REVOKE ALL ON FUNCTION core.review_my_received(bytea) FROM PUBLIC;
 
 -- 5.7 Profil public de l'hôte d'une annonce LISTED (LST-020) : prénom, ancienneté au mois, nombre
 -- de trips réalisés, nombre d'avis, moyenne ×100 et 5 derniers avis publiés sur l'hôte. Annonce
--- inconnue ou non LISTED, compte d'hôte non actif : NOT_FOUND. Ni nom de famille, ni contact, ni
+-- inconnue ou non LISTED, titulaire du compte pseudonymisé : NOT_FOUND. Ni nom de famille, ni contact, ni
 -- identifiant de compte.
 CREATE FUNCTION core.review_listing_host_profile(p_listing_id uuid)
   RETURNS TABLE (outcome text, view jsonb)
