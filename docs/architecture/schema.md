@@ -7,7 +7,7 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 
 ## Synthèse
 
-- 164 migrations ; 143 tables ; 3 vues ; 807 politiques RLS ; 325 fonctions `SECURITY DEFINER` ; 274 autres fonctions.
+- 165 migrations ; 144 tables ; 3 vues ; 817 politiques RLS ; 329 fonctions `SECURITY DEFINER` ; 275 autres fonctions.
 - Tables sans RLS `ENABLE` + `FORCE` : aucune.
 - Rôles applicatifs avec `SUPERUSER` ou `BYPASSRLS` : aucun.
 
@@ -179,6 +179,7 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 | `0161_messaging_trip_threads` | MSG : messagerie par trip entre le voyageur et l'hôte, masquage des coordonnées et |
 | `0162_support_help_request` | SUP : demande d'aide pendant le trip (voyageur ou hôte), réponse automatique hors plage |
 | `0163_trip_handover_in_person` | TRP / AVL : remise et retour du véhicule entre particuliers, en personne (bêta). |
+| `0166_messaging_privacy_meetings_retention` | MSG : messagerie hôte–voyageur, confidentialité, rendez-vous et rétention. |
 
 ## Rôles
 
@@ -4132,6 +4133,60 @@ Politiques RLS :
 - `kyc_cmd_select` (SELECT, PERMISSIVE, kyc_cmd_owner) USING `true`
 - `migrator_all` (ALL, PERMISSIVE, migrator) USING `true` WITH CHECK `true`
 
+### `core.messaging_meeting_proposal`
+
+- RLS : ENABLE + FORCE ; propriétaire `migrator`
+- Droits : messaging_cmd_owner: INSERT, SELECT ; migrator: DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE
+
+| Colonne | Type | NOT NULL | Défaut |
+| ------- | ---- | -------- | ------ |
+| `id` | `uuid` | oui | — |
+| `trip_id` | `uuid` | oui | — |
+| `kind` | `text` | oui | — |
+| `proposed_by` | `uuid` | oui | — |
+| `proposer_role` | `text` | oui | — |
+| `place_label` | `text` | non | — |
+| `meet_at` | `timestamp with time zone` | oui | — |
+| `status` | `text` | oui | — |
+| `answered_by` | `uuid` | non | — |
+| `answered_at` | `timestamp with time zone` | non | — |
+| `created_at` | `timestamp with time zone` | oui | `platform.now()` |
+| `purged_at` | `timestamp with time zone` | non | — |
+
+Contraintes :
+
+- `messaging_meeting_answer_after` : `CHECK (answered_at IS NULL OR answered_at >= created_at)`
+- `messaging_meeting_answer_shape` : `CHECK ((answered_by IS NULL) = (answered_at IS NULL) AND (status <> 'PROPOSED'::text OR answered_by IS NULL) AND ((status <> ALL (ARRAY['ACCEPTED'::text, 'DECLINED'::text])) OR answered_by IS NOT NULL))`
+- `messaging_meeting_kind_valid` : `CHECK (kind = ANY (ARRAY['PICKUP'::text, 'RETURN'::text]))`
+- `messaging_meeting_place_length` : `CHECK (char_length(place_label) >= 3 AND char_length(place_label) <= 160)`
+- `messaging_meeting_proposal_answered_by_fkey` : `FOREIGN KEY (answered_by) REFERENCES core.iam_user_account(id)`
+- `messaging_meeting_proposal_pkey` : `PRIMARY KEY (id)`
+- `messaging_meeting_proposal_proposed_by_fkey` : `FOREIGN KEY (proposed_by) REFERENCES core.iam_user_account(id)`
+- `messaging_meeting_proposal_trip_id_fkey` : `FOREIGN KEY (trip_id) REFERENCES core.booking_trip(id)`
+- `messaging_meeting_proposer_valid` : `CHECK (proposer_role = ANY (ARRAY['HOST'::text, 'CO_HOST'::text]))`
+- `messaging_meeting_purge_shape` : `CHECK (purged_at IS NULL AND place_label IS NOT NULL OR purged_at IS NOT NULL AND place_label IS NULL AND purged_at >= created_at)`
+- `messaging_meeting_status_valid` : `CHECK (status = ANY (ARRAY['PROPOSED'::text, 'ACCEPTED'::text, 'DECLINED'::text, 'SUPERSEDED'::text]))`
+
+Index :
+
+- `messaging_meeting_one_accepted` : `CREATE UNIQUE INDEX messaging_meeting_one_accepted ON core.messaging_meeting_proposal USING btree (trip_id, kind) WHERE (status = 'ACCEPTED'::text)`
+- `messaging_meeting_one_pending` : `CREATE UNIQUE INDEX messaging_meeting_one_pending ON core.messaging_meeting_proposal USING btree (trip_id, kind) WHERE (status = 'PROPOSED'::text)`
+- `messaging_meeting_trip_idx` : `CREATE INDEX messaging_meeting_trip_idx ON core.messaging_meeting_proposal USING btree (trip_id, created_at, id)`
+
+Politiques RLS :
+
+- `messaging_cmd_ins` (INSERT, PERMISSIVE, messaging_cmd_owner) WITH CHECK `((status = 'PROPOSED'::text) AND (purged_at IS NULL))`
+- `messaging_cmd_sel` (SELECT, PERMISSIVE, messaging_cmd_owner) USING `true`
+- `messaging_cmd_upd` (UPDATE, PERMISSIVE, messaging_cmd_owner) USING `(purged_at IS NULL)` WITH CHECK `(status = ANY (ARRAY['ACCEPTED'::text, 'DECLINED'::text, 'SUPERSEDED'::text]))`
+- `migrator_all` (ALL, PERMISSIVE, migrator) USING `true` WITH CHECK `true`
+- `privacy_cmd_purge` (UPDATE, PERMISSIVE, privacy_cmd_owner) USING `(purged_at IS NULL)` WITH CHECK `(purged_at IS NOT NULL)`
+- `privacy_cmd_read` (SELECT, PERMISSIVE, privacy_cmd_owner) USING `true`
+
+Déclencheurs :
+
+- `messaging_meeting_proposal_guard` : `CREATE TRIGGER messaging_meeting_proposal_guard BEFORE DELETE OR UPDATE ON core.messaging_meeting_proposal FOR EACH ROW EXECUTE FUNCTION core.messaging_meeting_guard()`
+- `messaging_meeting_proposal_no_truncate` : `CREATE TRIGGER messaging_meeting_proposal_no_truncate BEFORE TRUNCATE ON core.messaging_meeting_proposal FOR EACH STATEMENT EXECUTE FUNCTION core.messaging_meeting_guard()`
+
 ### `core.messaging_message`
 
 - RLS : ENABLE + FORCE ; propriétaire `migrator`
@@ -4143,12 +4198,13 @@ Politiques RLS :
 | `thread_id` | `uuid` | oui | — |
 | `author_user_id` | `uuid` | oui | — |
 | `author_role` | `text` | oui | — |
-| `body` | `text` | oui | — |
-| `body_masked` | `text` | oui | — |
+| `body` | `text` | non | — |
+| `body_masked` | `text` | non | — |
 | `channel_origin` | `text` | oui | `'IN_APP'::text` |
 | `status` | `text` | oui | — |
 | `sent_at` | `timestamp with time zone` | oui | `platform.now()` |
 | `hidden_at` | `timestamp with time zone` | non | — |
+| `purged_at` | `timestamp with time zone` | non | — |
 
 Contraintes :
 
@@ -4159,6 +4215,7 @@ Contraintes :
 - `messaging_message_channel_valid` : `CHECK (channel_origin = ANY (ARRAY['IN_APP'::text, 'WHATSAPP_RELAY'::text]))`
 - `messaging_message_hidden_after_sent` : `CHECK (hidden_at IS NULL OR hidden_at >= sent_at)`
 - `messaging_message_pkey` : `PRIMARY KEY (id)`
+- `messaging_message_purge_shape` : `CHECK (purged_at IS NULL AND body IS NOT NULL AND body_masked IS NOT NULL OR purged_at IS NOT NULL AND body IS NULL AND body_masked IS NULL AND purged_at >= sent_at)`
 - `messaging_message_status_valid` : `CHECK (status = ANY (ARRAY['SENT'::text, 'FLAGGED'::text]))`
 - `messaging_message_thread_id_fkey` : `FOREIGN KEY (thread_id) REFERENCES core.messaging_message_thread(id)`
 
@@ -4171,6 +4228,8 @@ Politiques RLS :
 - `messaging_cmd_ins` (INSERT, PERMISSIVE, messaging_cmd_owner) WITH CHECK `((hidden_at IS NULL) AND (channel_origin = 'IN_APP'::text))`
 - `messaging_cmd_sel` (SELECT, PERMISSIVE, messaging_cmd_owner) USING `true`
 - `migrator_all` (ALL, PERMISSIVE, migrator) USING `true` WITH CHECK `true`
+- `privacy_cmd_purge` (UPDATE, PERMISSIVE, privacy_cmd_owner) USING `(purged_at IS NULL)` WITH CHECK `(purged_at IS NOT NULL)`
+- `privacy_cmd_read` (SELECT, PERMISSIVE, privacy_cmd_owner) USING `true`
 
 Déclencheurs :
 
@@ -4236,6 +4295,7 @@ Politiques RLS :
 - `messaging_cmd_ins` (INSERT, PERMISSIVE, messaging_cmd_owner) WITH CHECK `true`
 - `messaging_cmd_sel` (SELECT, PERMISSIVE, messaging_cmd_owner) USING `true`
 - `migrator_all` (ALL, PERMISSIVE, migrator) USING `true` WITH CHECK `true`
+- `privacy_cmd_read` (SELECT, PERMISSIVE, privacy_cmd_owner) USING `true`
 
 Déclencheurs :
 
@@ -4431,6 +4491,7 @@ Politiques RLS :
 - `kyc_cmd_event_ins` (INSERT, PERMISSIVE, kyc_cmd_owner) WITH CHECK `((((type = 'kyc.verification.status_changed'::text) AND (aggregate_type = 'identity_verification'::text)) OR ((type = 'kyc.consent.withdrawn'::text) AND (aggregate_type = 'user_account'::text))) AND (actor_role = ANY (ARRAY['GUEST'::text, 'SYSTEM'::text])))`
 - `kyc_cmd_event_ops` (INSERT, PERMISSIVE, kyc_cmd_owner) WITH CHECK `((type = 'kyc.verification.status_changed'::text) AND (aggregate_type = 'identity_verification'::text) AND (actor_role = ANY (ARRAY['OPS_AGENT'::text, 'ADMIN'::text])) AND (actor_user_id IS NOT NULL))`
 - `kyc_cmd_host_event_ins` (INSERT, PERMISSIVE, kyc_cmd_owner) WITH CHECK `((((type = ANY (ARRAY['kyc.host_verification.decided'::text, 'kyc.host_screening.flagged'::text])) AND (aggregate_type = 'host_verification'::text)) OR ((type = ANY (ARRAY['iam.organization.status_changed'::text, 'iam.organization.created'::text])) AND (aggregate_type = 'organization'::text))) AND (actor_role = ANY (ARRAY['GUEST'::text, 'OPS_AGENT'::text, 'ADMIN'::text, 'SYSTEM'::text])))`
+- `messaging_cmd_meeting_event` (INSERT, PERMISSIVE, messaging_cmd_owner) WITH CHECK `((type = 'trip.meeting.confirmed'::text) AND (aggregate_type = 'trip'::text) AND (actor_role = 'GUEST'::text) AND (actor_user_id IS NOT NULL))`
 - `migrator_all` (ALL, PERMISSIVE, migrator) USING `true` WITH CHECK `true`
 - `worker_insert` (INSERT, PERMISSIVE, app_worker) WITH CHECK `((app.actor_kind() = 'WORKER'::text) AND (app.worker_name() IS NOT NULL))`
 - `worker_select_monitor` (SELECT, PERMISSIVE, app_worker) USING `((app.actor_kind() = 'WORKER'::text) AND (app.worker_name() = ANY (ARRAY['bus_monitor'::text, 'ops_monitor'::text])))`
@@ -7342,7 +7403,10 @@ Chacune a un propriétaire `NOLOGIN` dédié (ADR-053) et un `search_path` figé
 | `core.kyc_worker_auto_review_hosts(p_batch integer, p_org uuid)` | `TABLE(approved integer, kept integer, skipped integer, failed integer)` | `kyc_cmd_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; kyc_cmd_owner: EXECUTE |
 | `core.kyc_worker_enqueue_reviews(p_batch integer)` | `TABLE(enqueued integer, unqueued integer, waiting integer, skipped integer)` | `kyc_cmd_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; kyc_cmd_owner: EXECUTE |
 | `core.kyc_worker_prune(p_batch integer)` | `integer` | `kyc_cmd_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; kyc_cmd_owner: EXECUTE |
+| `core.messaging_cmd_answer_meeting(p_token_hash bytea, p_trip_id uuid, p_meeting_id uuid, p_decision text)` | `TABLE(outcome text, meeting_id uuid, kind text, meet_at timestamp with time zone, status text)` | `messaging_cmd_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; messaging_cmd_owner: EXECUTE |
 | `core.messaging_cmd_post_message(p_token_hash bytea, p_trip_id uuid, p_message_id uuid, p_body text)` | `TABLE(outcome text, message_id uuid, body text, masked boolean, off_platform boolean, sent_at timestamp with time zone)` | `messaging_cmd_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; messaging_cmd_owner: EXECUTE |
+| `core.messaging_cmd_propose_meeting(p_token_hash bytea, p_trip_id uuid, p_meeting_id uuid, p_kind text, p_place text, p_meet_at timestamp with time zone)` | `TABLE(outcome text, meeting_id uuid, kind text, place_label text, meet_at timestamp with time zone, status text)` | `messaging_cmd_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; messaging_cmd_owner: EXECUTE |
+| `core.messaging_meeting_read(p_token_hash bytea, p_trip_id uuid)` | `TABLE(outcome text, viewer_role text, can_propose boolean, timezone text, meeting_id uuid, kind text, place_label text, meet_at timestamp with time zone, status text, mine boolean, created_at timestamp with time zone, answered_at timestamp with time zone)` | `messaging_cmd_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; messaging_cmd_owner: EXECUTE |
 | `core.messaging_thread_read(p_token_hash bytea, p_trip_id uuid, p_limit integer)` | `TABLE(outcome text, viewer_role text, counterpart_name text, writable boolean, closes_at timestamp with time zone, timezone text, message_id uuid, mine boolean, author_role text, author_name text, body text, masked boolean, off_platform boolean, sent_at timestamp with time zone)` | `messaging_cmd_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; messaging_cmd_owner: EXECUTE |
 | `core.payment_assert_operation_legs()` | `trigger` | `integrity_owner` | search_path=pg_catalog, pg_temp | integrity_owner: EXECUTE |
 | `core.payment_cmd_apply_operation_status(p_operation_id uuid, p_status text, p_source text, p_raw_ref uuid, p_provider_reference text)` | `text` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; cmd_money_owner: EXECUTE |
@@ -7379,6 +7443,7 @@ Chacune a un propriétaire `NOLOGIN` dédié (ADR-053) et un `search_path` figé
 | `core.privacy_kyc_register_gate(p_country text)` | `text` | `privacy_cmd_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; privacy_cmd_owner: EXECUTE |
 | `core.privacy_manual_action_dsr(p_token_hash bytea, p_action_id uuid, p_action_code text, p_subject_id uuid, p_input jsonb, p_reason text, p_actor uuid, p_actor_role text)` | `TABLE(outcome text, ref_id uuid, emitted_event_ids uuid[])` | `privacy_cmd_owner` | search_path=pg_catalog, pg_temp | iam_staff_owner: EXECUTE ; privacy_cmd_owner: EXECUTE |
 | `core.privacy_worker_dsr_overdue(p_batch integer)` | `TABLE(country_code text, overdue integer)` | `privacy_cmd_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; privacy_cmd_owner: EXECUTE |
+| `core.privacy_worker_message_purge(p_batch integer)` | `integer` | `privacy_cmd_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; privacy_cmd_owner: EXECUTE |
 | `core.privacy_worker_retention_sweep(p_batch integer)` | `integer` | `privacy_cmd_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; privacy_cmd_owner: EXECUTE |
 | `core.privacy_worker_stale_kyc_erasures(p_after_minutes integer)` | `integer` | `privacy_cmd_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; privacy_cmd_owner: EXECUTE |
 | `core.review_listing_ratings(p_listing_ids uuid[])` | `TABLE(listing_id uuid, vehicle_trip_count integer, vehicle_review_count integer, vehicle_avg_x100 integer, host_trip_count integer, host_review_count integer, host_avg_x100 integer)` | `review_cmd_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; review_cmd_owner: EXECUTE |
@@ -7623,6 +7688,7 @@ Chacune a un propriétaire `NOLOGIN` dédié (ADR-053) et un `search_path` figé
 | `core.kyc_retention_days(p_country text)` | `integer` | `kyc_cmd_owner` | kyc_cmd_owner: EXECUTE |
 | `core.kyc_review_enqueue(p_user uuid, p_actor uuid)` | `text` | `kyc_cmd_owner` | kyc_cmd_owner: EXECUTE |
 | `core.messaging_mask_contacts(p_text text, OUT masked text, OUT kinds text[])` | `record` | `messaging_cmd_owner` | messaging_cmd_owner: EXECUTE |
+| `core.messaging_meeting_guard()` | `trigger` | `migrator` | migrator: EXECUTE |
 | `core.messaging_offplatform_codes(p_text text)` | `text[]` | `messaging_cmd_owner` | messaging_cmd_owner: EXECUTE |
 | `core.messaging_party(p_user uuid, p_trip_id uuid)` | `TABLE(role text, country_code text, org_id uuid, guest_user_id uuid, scheduled_end timestamp with time zone, timezone text)` | `messaging_cmd_owner` | messaging_cmd_owner: EXECUTE |
 | `core.messaging_record_guard()` | `trigger` | `migrator` | migrator: EXECUTE |
@@ -7730,4 +7796,4 @@ Chacune a un propriétaire `NOLOGIN` dédié (ADR-053) et un `search_path` figé
 | `platform.environment_declaration_immutable()` | `trigger` | `migrator` | migrator: EXECUTE |
 | `platform.now()` | `timestamp with time zone` | `migrator` | app_api: EXECUTE ; app_worker: EXECUTE ; audit_chain_owner: EXECUTE ; catalog_cmd_owner: EXECUTE ; catalog_probe_owner: EXECUTE ; cmd_golive_owner: EXECUTE ; cmd_hold_owner: EXECUTE ; cmd_money_owner: EXECUTE ; cmd_param_owner: EXECUTE ; guard_owner: EXECUTE ; host_view_owner: EXECUTE ; iam_auth_owner: EXECUTE ; iam_staff_owner: EXECUTE ; integrity_owner: EXECUTE ; kyc_cmd_owner: EXECUTE ; messaging_cmd_owner: EXECUTE ; migrator: EXECUTE ; policy_fn_owner: EXECUTE ; privacy_cmd_owner: EXECUTE ; review_cmd_owner: EXECUTE ; risk_limit_owner: EXECUTE |
 | `platform.touch_row()` | `trigger` | `migrator` | migrator: EXECUTE |
-| `platform.uuid_v7()` | `uuid` | `migrator` | app_api: EXECUTE ; app_worker: EXECUTE ; catalog_cmd_owner: EXECUTE ; cmd_golive_owner: EXECUTE ; cmd_hold_owner: EXECUTE ; cmd_money_owner: EXECUTE ; cmd_param_owner: EXECUTE ; iam_auth_owner: EXECUTE ; iam_staff_owner: EXECUTE ; kyc_cmd_owner: EXECUTE ; migrator: EXECUTE ; privacy_cmd_owner: EXECUTE ; review_cmd_owner: EXECUTE |
+| `platform.uuid_v7()` | `uuid` | `migrator` | app_api: EXECUTE ; app_worker: EXECUTE ; catalog_cmd_owner: EXECUTE ; cmd_golive_owner: EXECUTE ; cmd_hold_owner: EXECUTE ; cmd_money_owner: EXECUTE ; cmd_param_owner: EXECUTE ; iam_auth_owner: EXECUTE ; iam_staff_owner: EXECUTE ; kyc_cmd_owner: EXECUTE ; messaging_cmd_owner: EXECUTE ; migrator: EXECUTE ; privacy_cmd_owner: EXECUTE ; review_cmd_owner: EXECUTE |
