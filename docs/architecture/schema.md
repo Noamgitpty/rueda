@@ -2327,7 +2327,7 @@ Politiques RLS :
 
 - `cmd_money_claim_ins` (INSERT, PERMISSIVE, cmd_money_owner) WITH CHECK `((app.actor_kind() = 'STAFF'::text) AND (status = 'REPORTED'::text))`
 - `cmd_money_claim_sel` (SELECT, PERMISSIVE, cmd_money_owner) USING `true`
-- `cmd_money_claim_upd` (UPDATE, PERMISSIVE, cmd_money_owner) USING `((app.actor_kind() = 'STAFF'::text) AND (status = 'REPORTED'::text))` WITH CHECK `((app.actor_kind() = 'STAFF'::text) AND (status = 'DECIDED'::text))`
+- `cmd_money_claim_upd` (UPDATE, PERMISSIVE, cmd_money_owner) USING `(app.actor_kind() = 'STAFF'::text)` WITH CHECK `((app.actor_kind() = 'STAFF'::text) AND (status = 'DECIDED'::text))`
 - `iam_staff_claim_sel` (SELECT, PERMISSIVE, iam_staff_owner) USING `true`
 - `migrator_all` (ALL, PERMISSIVE, migrator) USING `true` WITH CHECK `true`
 

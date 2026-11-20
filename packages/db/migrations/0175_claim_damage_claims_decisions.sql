@@ -340,8 +340,11 @@ CREATE POLICY cmd_money_claim_sel ON core.claim_damage_claim FOR SELECT TO cmd_m
   USING (true);
 CREATE POLICY cmd_money_claim_ins ON core.claim_damage_claim FOR INSERT TO cmd_money_owner
   WITH CHECK (app.actor_kind() = 'STAFF' AND status = 'REPORTED');
+-- USING sans l'état : la décision verrouille la déclaration (FOR UPDATE) même déjà décidée, pour
+-- rendre le rejeu ou CLAIM_ALREADY_DECIDED ; la garde claim_record_guard n'admet que REPORTED →
+-- DECIDED
 CREATE POLICY cmd_money_claim_upd ON core.claim_damage_claim FOR UPDATE TO cmd_money_owner
-  USING (app.actor_kind() = 'STAFF' AND status = 'REPORTED')
+  USING (app.actor_kind() = 'STAFF')
   WITH CHECK (app.actor_kind() = 'STAFF' AND status = 'DECIDED');
 
 GRANT SELECT, INSERT ON core.claim_decision TO cmd_money_owner;
