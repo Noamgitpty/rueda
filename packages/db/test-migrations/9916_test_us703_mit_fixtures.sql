@@ -233,6 +233,39 @@ AS $fn$
     FROM core.payment_payment_instrument AS i WHERE i.user_id = p_user ORDER BY i.created_at, i.id
 $fn$;
 
+-- Règle en vigueur (version la plus haute) d'un pays, d'un réseau et d'un motif
+CREATE FUNCTION test_fixture.us703_rule_of(p_country text, p_network text, p_reason text)
+  RETURNS TABLE (notice_hours integer, deadline_days integer, deadline_from text)
+  LANGUAGE sql
+  STABLE
+  SECURITY DEFINER
+  SET search_path = pg_catalog, pg_temp
+AS $fn$
+  SELECT r.notice_hours, r.deadline_days, r.deadline_from
+    FROM core.payment_mit_network_rule AS r
+   WHERE r.country_code = p_country AND r.network = p_network AND r.reason = p_reason
+   ORDER BY r.version DESC
+   LIMIT 1
+$fn$;
+
+-- Valeur en vigueur d'un paramètre du pays (portée COUNTRY, ou NETWORK si `p_network`)
+CREATE FUNCTION test_fixture.us703_param(p_key text, p_country text, p_network text)
+  RETURNS TABLE (value jsonb)
+  LANGUAGE sql
+  STABLE
+  SECURITY DEFINER
+  SET search_path = pg_catalog, pg_temp
+AS $fn$
+  SELECT v.value
+    FROM core.config_param_value AS v
+   WHERE v.key = p_key AND v.country_code::text = p_country
+     AND (CASE WHEN p_network IS NULL THEN v.scope_type = 'COUNTRY'
+               ELSE v.scope_type = 'NETWORK' AND v.network = p_network END)
+     AND v.valid_from <= platform.now() AND (v.valid_to IS NULL OR v.valid_to > platform.now())
+   ORDER BY v.valid_from DESC
+   LIMIT 1
+$fn$;
+
 REVOKE ALL ON FUNCTION
   test_fixture.us703_card(uuid, uuid, text, text),
   test_fixture.us703_consent(uuid, uuid, text[], boolean),
@@ -245,7 +278,9 @@ REVOKE ALL ON FUNCTION
   test_fixture.us703_paying_hold(text, uuid, timestamptz, timestamptz, bigint),
   test_fixture.us703_hold_consent(uuid),
   test_fixture.us703_consent_of_hold(uuid),
-  test_fixture.us703_cards(uuid)
+  test_fixture.us703_cards(uuid),
+  test_fixture.us703_rule_of(text, text, text),
+  test_fixture.us703_param(text, text, text)
 FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION
   test_fixture.us703_card(uuid, uuid, text, text),
@@ -259,5 +294,7 @@ GRANT EXECUTE ON FUNCTION
   test_fixture.us703_paying_hold(text, uuid, timestamptz, timestamptz, bigint),
   test_fixture.us703_hold_consent(uuid),
   test_fixture.us703_consent_of_hold(uuid),
-  test_fixture.us703_cards(uuid)
+  test_fixture.us703_cards(uuid),
+  test_fixture.us703_rule_of(text, text, text),
+  test_fixture.us703_param(text, text, text)
 TO app_worker, app_api;

@@ -12,7 +12,10 @@
       "status": "OQ-BR-30",
       "decision": "TO_DECIDE",
       "decisionRef": "OQ-BR-30 ; J-ADM-031 (défaut de 22 : 25 h)",
-      "values": { "PA": 25, "PY": 25 }
+      "values": {
+        "PA": 25,
+        "PY": 25
+      }
     },
     {
       "key": "free_cancel_lead",
@@ -24,7 +27,10 @@
       "status": "ADM-031",
       "decision": "TO_DECIDE",
       "decisionRef": "J-ADM-031 (16 ADM-031)",
-      "values": { "PA": 24, "PY": 24 }
+      "values": {
+        "PA": 24,
+        "PY": 24
+      }
     },
     {
       "key": "no_show_grace_minutes",
@@ -36,7 +42,10 @@
       "status": "OQ-BR-33",
       "decision": "TO_DECIDE",
       "decisionRef": "OQ-BR-33 ; J-ADM-031 (défaut de 22 : 60 min)",
-      "values": { "PA": 60, "PY": 60 }
+      "values": {
+        "PA": 60,
+        "PY": 60
+      }
     },
     {
       "key": "grace_minutes",
@@ -48,7 +57,10 @@
       "status": "OQ-BR-04 (ouverte)",
       "decision": "TO_DECIDE",
       "decisionRef": "OQ-BR-04 ; J-ADM-031 (défaut de 22 : 29 min)",
-      "values": { "PA": 29, "PY": 29 }
+      "values": {
+        "PA": 29,
+        "PY": 29
+      }
     },
     {
       "key": "billing_boundary_minutes",
@@ -73,7 +85,10 @@
       "status": "PROPOSÉ (08)",
       "decision": "PROPOSED",
       "decisionRef": "17 §7.2 PROPOSÉ (08 BR-BOOK-10)",
-      "values": { "PA": 10, "PY": 10 }
+      "values": {
+        "PA": 10,
+        "PY": 10
+      }
     },
     {
       "key": "hold_max_total_minutes",
@@ -85,7 +100,10 @@
       "status": "PROPOSÉ",
       "decision": "PROPOSED",
       "decisionRef": "17 §7.2 PROPOSÉ",
-      "values": { "PA": 20, "PY": 20 }
+      "values": {
+        "PA": 20,
+        "PY": 20
+      }
     },
     {
       "key": "sweep_lead_s",
@@ -97,7 +115,10 @@
       "status": "PROPOSÉ ; à mesurer",
       "decision": "PROPOSED",
       "decisionRef": "17 §7.2 PROPOSÉ (à mesurer)",
-      "values": { "PA": 30, "PY": 30 }
+      "values": {
+        "PA": 30,
+        "PY": 30
+      }
     },
     {
       "key": "sweep_grace_s",
@@ -109,7 +130,10 @@
       "status": "PROPOSÉ ; à mesurer",
       "decision": "PROPOSED",
       "decisionRef": "17 §7.2 PROPOSÉ (à mesurer)",
-      "values": { "PA": 60, "PY": 60 }
+      "values": {
+        "PA": 60,
+        "PY": 60
+      }
     },
     {
       "key": "disposition_sweeper_period_s",
@@ -121,7 +145,10 @@
       "status": "PROPOSÉ",
       "decision": "PROPOSED",
       "decisionRef": "17 §7.2 PROPOSÉ",
-      "values": { "PA": 60, "PY": 60 }
+      "values": {
+        "PA": 60,
+        "PY": 60
+      }
     },
     {
       "key": "disposition_repair_after_minutes",
@@ -133,7 +160,10 @@
       "status": "PROPOSÉ",
       "decision": "PROPOSED",
       "decisionRef": "17 §7.2 PROPOSÉ",
-      "values": { "PA": 2, "PY": 2 }
+      "values": {
+        "PA": 2,
+        "PY": 2
+      }
     },
     {
       "key": "disposition_alert_minutes",
@@ -145,7 +175,10 @@
       "status": "PROPOSÉ",
       "decision": "PROPOSED",
       "decisionRef": "17 §7.2 PROPOSÉ",
-      "values": { "PA": 10, "PY": 10 }
+      "values": {
+        "PA": 10,
+        "PY": 10
+      }
     },
     {
       "key": "review_hold_minutes",
@@ -157,7 +190,10 @@
       "status": "PROPOSÉ ; UXQ-08 ouverte",
       "decision": "TO_DECIDE",
       "decisionRef": "UXQ-08 (ouverte)",
-      "values": { "PA": 120, "PY": 120 }
+      "values": {
+        "PA": 120,
+        "PY": 120
+      }
     },
     {
       "key": "availability_probe_per_minute",
@@ -169,7 +205,10 @@
       "status": "PROPOSÉ",
       "decision": "PROPOSED",
       "decisionRef": "17 §7.2 PROPOSÉ",
-      "values": { "PA": 60, "PY": 60 }
+      "values": {
+        "PA": 60,
+        "PY": 60
+      }
     },
     {
       "key": "catalog_addition_sla_business_h",
@@ -181,7 +220,10 @@
       "status": "PROPOSÉ",
       "decision": "PROPOSED",
       "decisionRef": "17 §7.2 PROPOSÉ",
-      "values": { "PA": 24, "PY": 24 }
+      "values": {
+        "PA": 24,
+        "PY": 24
+      }
     },
     {
       "key": "payment_in_flight_margin_s",
@@ -193,7 +235,10 @@
       "status": "PROPOSÉ ; à mesurer en bac à sable",
       "decision": "PROPOSED",
       "decisionRef": "17 §7.2 PROPOSÉ (à mesurer en bac à sable)",
-      "values": { "PA": 120, "PY": 120 }
+      "values": {
+        "PA": 120,
+        "PY": 120
+      }
     },
     {
       "key": "psp_call_timeout_s",
@@ -205,7 +250,10 @@
       "status": "PROPOSÉ",
       "decision": "PROPOSED",
       "decisionRef": "17 §7.2 PROPOSÉ",
-      "values": { "PA": 20, "PY": 20 }
+      "values": {
+        "PA": 20,
+        "PY": 20
+      }
     },
     {
       "key": "conversion_start_tolerance_minutes",
@@ -217,7 +265,10 @@
       "status": "PROPOSÉ",
       "decision": "PROPOSED",
       "decisionRef": "17 §7.2 PROPOSÉ",
-      "values": { "PA": 0, "PY": 0 }
+      "values": {
+        "PA": 0,
+        "PY": 0
+      }
     },
     {
       "key": "hold_creations_per_guest_vehicle_hour",
@@ -229,7 +280,10 @@
       "status": "PROPOSÉ",
       "decision": "PROPOSED",
       "decisionRef": "17 §7.2 PROPOSÉ",
-      "values": { "PA": 3, "PY": 3 }
+      "values": {
+        "PA": 3,
+        "PY": 3
+      }
     },
     {
       "key": "reacquire_preempts_unpaid_hold",
@@ -240,7 +294,10 @@
       "status": "PROPOSÉ, non retenu",
       "decision": "PROPOSED",
       "decisionRef": "17 §7.2 PROPOSÉ, non retenu",
-      "values": { "PA": false, "PY": false }
+      "values": {
+        "PA": false,
+        "PY": false
+      }
     },
     {
       "key": "webhook_raw_body_retention_days",
@@ -252,7 +309,9 @@
       "status": "PROPOSÉ ; OQ-BR-25, OQ-MK-09 ; PY à fixer",
       "decision": "TO_DECIDE",
       "decisionRef": "OQ-BR-25, OQ-MK-09 (avis juridique)",
-      "values": { "PA": 90 }
+      "values": {
+        "PA": 90
+      }
     },
     {
       "key": "trip_id_evidence_retention_days",
@@ -264,7 +323,9 @@
       "status": "PROPOSÉ ; OQ-BR-25, OQ-MK-09 ; PY à fixer",
       "decision": "TO_DECIDE",
       "decisionRef": "OQ-BR-25, OQ-MK-09 (avis juridique)",
-      "values": { "PA": 90 }
+      "values": {
+        "PA": 90
+      }
     },
     {
       "key": "biometric_score_retention_days",
@@ -276,7 +337,9 @@
       "status": "PROPOSÉ ; OQ-BR-25, OQ-MK-09 ; PY à fixer",
       "decision": "TO_DECIDE",
       "decisionRef": "OQ-BR-25, OQ-MK-09 (avis juridique)",
-      "values": { "PA": 30 }
+      "values": {
+        "PA": 30
+      }
     },
     {
       "key": "subject_dek_cache_ttl_s",
@@ -288,7 +351,10 @@
       "status": "PROPOSÉ",
       "decision": "PROPOSED",
       "decisionRef": "17 §7.2 PROPOSÉ",
-      "values": { "PA": 300, "PY": 300 }
+      "values": {
+        "PA": 300,
+        "PY": 300
+      }
     },
     {
       "key": "max_active_holds_per_guest",
@@ -300,7 +366,10 @@
       "status": "PROPOSÉ (08)",
       "decision": "PROPOSED",
       "decisionRef": "17 §7.2 PROPOSÉ (08 BR-BOOK-10)",
-      "values": { "PA": 2, "PY": 2 }
+      "values": {
+        "PA": 2,
+        "PY": 2
+      }
     },
     {
       "key": "payment_attempts_per_hold",
@@ -312,7 +381,10 @@
       "status": "décidé",
       "decision": "DECIDED",
       "decisionRef": "17 §7.2 décidé (PAY-017)",
-      "values": { "PA": 3, "PY": 3 }
+      "values": {
+        "PA": 3,
+        "PY": 3
+      }
     },
     {
       "key": "refund_bank_details_ttl_days",
@@ -324,7 +396,10 @@
       "status": "PROPOSÉ",
       "decision": "PROPOSED",
       "decisionRef": "17 §7.2 PROPOSÉ",
-      "values": { "PA": 30, "PY": 30 }
+      "values": {
+        "PA": 30,
+        "PY": 30
+      }
     },
     {
       "key": "overdue_occupancy_step_minutes",
@@ -336,7 +411,10 @@
       "status": "PROPOSÉ",
       "decision": "PROPOSED",
       "decisionRef": "17 §7.2 PROPOSÉ",
-      "values": { "PA": 60, "PY": 60 }
+      "values": {
+        "PA": 60,
+        "PY": 60
+      }
     },
     {
       "key": "webhook_silence_alert_hours",
@@ -348,7 +426,10 @@
       "status": "PROPOSÉ",
       "decision": "PROPOSED",
       "decisionRef": "17 §7.2 PROPOSÉ",
-      "values": { "PA": 24, "PY": 24 }
+      "values": {
+        "PA": 24,
+        "PY": 24
+      }
     },
     {
       "key": "invoice_guest_response_h",
@@ -360,7 +441,10 @@
       "status": "PROPOSÉ",
       "decision": "PROPOSED",
       "decisionRef": "17 §7.2 PROPOSÉ",
-      "values": { "PA": 72, "PY": 72 }
+      "values": {
+        "PA": 72,
+        "PY": 72
+      }
     },
     {
       "key": "incidental_charge_deadline_days",
@@ -457,7 +541,10 @@
       "status": "PROPOSÉ",
       "decision": "PROPOSED",
       "decisionRef": "17 §7.2 PROPOSÉ",
-      "values": { "PA": 30, "PY": 30 }
+      "values": {
+        "PA": 30,
+        "PY": 30
+      }
     },
     {
       "key": "soft_delete_purge_days",
@@ -469,7 +556,10 @@
       "status": "PROPOSÉ",
       "decision": "PROPOSED",
       "decisionRef": "17 §7.2 PROPOSÉ",
-      "values": { "PA": 30, "PY": 30 }
+      "values": {
+        "PA": 30,
+        "PY": 30
+      }
     },
     {
       "key": "biometric_appeal_retention_days",
@@ -481,7 +571,9 @@
       "status": "OQ-BR-25, OQ-MK-09 ; PY à fixer",
       "decision": "TO_DECIDE",
       "decisionRef": "OQ-BR-25, OQ-MK-09 (avis juridique)",
-      "values": { "PA": 30 }
+      "values": {
+        "PA": 30
+      }
     },
     {
       "key": "capture_max_delay_after_booking_h",
@@ -493,7 +585,10 @@
       "status": "décidé",
       "decision": "DECIDED",
       "decisionRef": "17 §7.2 décidé (PAY-006)",
-      "values": { "PA": 24, "PY": 24 }
+      "values": {
+        "PA": 24,
+        "PY": 24
+      }
     },
     {
       "key": "buffer_minutes",
@@ -505,7 +600,10 @@
       "status": "ADM-031",
       "decision": "TO_DECIDE",
       "decisionRef": "J-ADM-031 (16 ADM-031)",
-      "values": { "PA": 120, "PY": 120 }
+      "values": {
+        "PA": 120,
+        "PY": 120
+      }
     },
     {
       "key": "advance_notice_minutes",
@@ -517,10 +615,23 @@
       "status": "ADM-031",
       "decision": "TO_DECIDE",
       "decisionRef": "J-ADM-031 (16 ADM-031)",
-      "values": { "PA": 180, "PY": 180 },
+      "values": {
+        "PA": 180,
+        "PY": 180
+      },
       "scoped": [
-        { "country": "PA", "scopeType": "CATEGORY", "scopeId": "LUXE", "value": 1440 },
-        { "country": "PY", "scopeType": "CATEGORY", "scopeId": "LUXE", "value": 1440 }
+        {
+          "country": "PA",
+          "scopeType": "CATEGORY",
+          "scopeId": "LUXE",
+          "value": 1440
+        },
+        {
+          "country": "PY",
+          "scopeType": "CATEGORY",
+          "scopeId": "LUXE",
+          "value": 1440
+        }
       ]
     },
     {
@@ -533,10 +644,23 @@
       "status": "ADM-031 (21 / 25)",
       "decision": "TO_DECIDE",
       "decisionRef": "J-ADM-031 (16 ADM-031)",
-      "values": { "PA": 21, "PY": 21 },
+      "values": {
+        "PA": 21,
+        "PY": 21
+      },
       "scoped": [
-        { "country": "PA", "scopeType": "CATEGORY", "scopeId": "PREMIUM", "value": 25 },
-        { "country": "PY", "scopeType": "CATEGORY", "scopeId": "PREMIUM", "value": 25 }
+        {
+          "country": "PA",
+          "scopeType": "CATEGORY",
+          "scopeId": "PREMIUM",
+          "value": 25
+        },
+        {
+          "country": "PY",
+          "scopeType": "CATEGORY",
+          "scopeId": "PREMIUM",
+          "value": 25
+        }
       ]
     },
     {
@@ -549,7 +673,10 @@
       "status": "décidé (bêta)",
       "decision": "TO_DECIDE",
       "decisionRef": "J-ADM-031 (16 ADM-031 « durée max 30 j » ; 17 §7.2 : décidé pour la bêta)",
-      "values": { "PA": 30, "PY": 30 }
+      "values": {
+        "PA": 30,
+        "PY": 30
+      }
     },
     {
       "key": "segment_days",
@@ -561,7 +688,10 @@
       "status": "décidé",
       "decision": "DECIDED",
       "decisionRef": "17 §7.2 décidé (BR-PAY-04)",
-      "values": { "PA": 30, "PY": 30 }
+      "values": {
+        "PA": 30,
+        "PY": 30
+      }
     },
     {
       "key": "host_penalty",
@@ -610,7 +740,10 @@
       "status": "décidé",
       "decision": "DECIDED",
       "decisionRef": "17 §7.2 décidé (08)",
-      "values": { "PA": true, "PY": true }
+      "values": {
+        "PA": true,
+        "PY": true
+      }
     },
     {
       "key": "refund_protection_on_nr",
@@ -621,7 +754,10 @@
       "status": "OQ-BR-42",
       "decision": "TO_DECIDE",
       "decisionRef": "OQ-BR-42",
-      "values": { "PA": false, "PY": false }
+      "values": {
+        "PA": false,
+        "PY": false
+      }
     },
     {
       "key": "cxl_contest_window_h",
@@ -633,7 +769,10 @@
       "status": "décidé",
       "decision": "DECIDED",
       "decisionRef": "17 §7.2 décidé (08 E5)",
-      "values": { "PA": 72, "PY": 72 }
+      "values": {
+        "PA": 72,
+        "PY": 72
+      }
     },
     {
       "key": "chargeback_window_days",
@@ -645,7 +784,10 @@
       "status": "OQ-BR-43",
       "decision": "TO_DECIDE",
       "decisionRef": "OQ-BR-43",
-      "values": { "PA": 180, "PY": 180 }
+      "values": {
+        "PA": 180,
+        "PY": 180
+      }
     },
     {
       "key": "provider_max_hold_h",
@@ -669,7 +811,10 @@
       "status": "OQ-PAY-02",
       "decision": "TO_DECIDE",
       "decisionRef": "OQ-PAY-02",
-      "values": { "PA": 72, "PY": 72 }
+      "values": {
+        "PA": 72,
+        "PY": 72
+      }
     },
     {
       "key": "deposit_safety_h",
@@ -681,7 +826,10 @@
       "status": "OQ-PAY-02",
       "decision": "TO_DECIDE",
       "decisionRef": "OQ-PAY-02",
-      "values": { "PA": 2, "PY": 2 }
+      "values": {
+        "PA": 2,
+        "PY": 2
+      }
     },
     {
       "key": "marge_h",
@@ -693,7 +841,10 @@
       "status": "OQ-PAY-02 (marge à relever)",
       "decision": "TO_DECIDE",
       "decisionRef": "OQ-PAY-02",
-      "values": { "PA": 0, "PY": 0 }
+      "values": {
+        "PA": 0,
+        "PY": 0
+      }
     },
     {
       "key": "auth_lead_h",
@@ -705,7 +856,10 @@
       "status": "OQ-PAY-02",
       "decision": "TO_DECIDE",
       "decisionRef": "OQ-PAY-02",
-      "values": { "PA": 24, "PY": 24 }
+      "values": {
+        "PA": 24,
+        "PY": 24
+      }
     },
     {
       "key": "deposit_charge_cap",
@@ -729,7 +883,10 @@
       "status": "OQ-PAY-18",
       "decision": "TO_DECIDE",
       "decisionRef": "OQ-PAY-18",
-      "values": { "PA": 10, "PY": 10 }
+      "values": {
+        "PA": 10,
+        "PY": 10
+      }
     },
     {
       "key": "visa_objection_days",
@@ -741,7 +898,10 @@
       "status": "OQ-PAY-18",
       "decision": "TO_DECIDE",
       "decisionRef": "OQ-PAY-18",
-      "values": { "PA": 20, "PY": 20 }
+      "values": {
+        "PA": 20,
+        "PY": 20
+      }
     },
     {
       "key": "damage_charge_deadline_days",
@@ -755,12 +915,42 @@
       "decisionRef": "OQ-PAY-18",
       "values": {},
       "scoped": [
-        { "country": "PA", "scopeType": "NETWORK", "network": "MASTERCARD", "value": 30 },
-        { "country": "PA", "scopeType": "NETWORK", "network": "VISA", "value": 90 },
-        { "country": "PA", "scopeType": "NETWORK", "network": "AMEX", "value": 90 },
-        { "country": "PY", "scopeType": "NETWORK", "network": "MASTERCARD", "value": 30 },
-        { "country": "PY", "scopeType": "NETWORK", "network": "VISA", "value": 90 },
-        { "country": "PY", "scopeType": "NETWORK", "network": "AMEX", "value": 90 }
+        {
+          "country": "PA",
+          "scopeType": "NETWORK",
+          "network": "MASTERCARD",
+          "value": 30
+        },
+        {
+          "country": "PA",
+          "scopeType": "NETWORK",
+          "network": "VISA",
+          "value": 90
+        },
+        {
+          "country": "PA",
+          "scopeType": "NETWORK",
+          "network": "AMEX",
+          "value": 90
+        },
+        {
+          "country": "PY",
+          "scopeType": "NETWORK",
+          "network": "MASTERCARD",
+          "value": 30
+        },
+        {
+          "country": "PY",
+          "scopeType": "NETWORK",
+          "network": "VISA",
+          "value": 90
+        },
+        {
+          "country": "PY",
+          "scopeType": "NETWORK",
+          "network": "AMEX",
+          "value": 90
+        }
       ]
     },
     {
@@ -773,7 +963,10 @@
       "status": "OQ-BR-25",
       "decision": "TO_DECIDE",
       "decisionRef": "OQ-BR-25 (avis juridique)",
-      "values": { "PA": 15, "PY": 15 }
+      "values": {
+        "PA": 15,
+        "PY": 15
+      }
     },
     {
       "key": "biometric_retention_max_years",
@@ -785,7 +978,9 @@
       "status": "OQ-BR-25, OQ-MK-09 ; PY à fixer",
       "decision": "TO_DECIDE",
       "decisionRef": "OQ-BR-25, OQ-MK-09 (avis juridique)",
-      "values": { "PA": 3 }
+      "values": {
+        "PA": 3
+      }
     },
     {
       "key": "audit_log_retention_years",
@@ -797,7 +992,10 @@
       "status": "OQ-BR-25",
       "decision": "TO_DECIDE",
       "decisionRef": "OQ-BR-25 (avis juridique)",
-      "values": { "PA": 5, "PY": 5 }
+      "values": {
+        "PA": 5,
+        "PY": 5
+      }
     },
     {
       "key": "refund_reminders_days",
@@ -809,7 +1007,10 @@
       "status": "OQ-BR-44",
       "decision": "TO_DECIDE",
       "decisionRef": "OQ-BR-44",
-      "values": { "PA": [1, 3, 7], "PY": [1, 3, 7] }
+      "values": {
+        "PA": [1, 3, 7],
+        "PY": [1, 3, 7]
+      }
     },
     {
       "key": "promo_reissue_min_days",
@@ -821,7 +1022,10 @@
       "status": "décidé",
       "decision": "DECIDED",
       "decisionRef": "17 §7.2 décidé (08 E2)",
-      "values": { "PA": 30, "PY": 30 }
+      "values": {
+        "PA": 30,
+        "PY": 30
+      }
     },
     {
       "key": "payout_business_day_offset",
@@ -833,7 +1037,10 @@
       "status": "PROPOSÉ (fermé par payouts_enabled)",
       "decision": "PROPOSED",
       "decisionRef": "17 §7.2 PROPOSÉ (fermé par payouts_enabled)",
-      "values": { "PA": 2, "PY": 2 }
+      "values": {
+        "PA": 2,
+        "PY": 2
+      }
     },
     {
       "key": "first_payout_business_day",
@@ -845,7 +1052,10 @@
       "status": "PROPOSÉ (fermé par payouts_enabled)",
       "decision": "PROPOSED",
       "decisionRef": "17 §7.2 PROPOSÉ (fermé par payouts_enabled)",
-      "values": { "PA": 5, "PY": 5 }
+      "values": {
+        "PA": 5,
+        "PY": 5
+      }
     },
     {
       "key": "payout_batch_local_time",
@@ -857,7 +1067,10 @@
       "status": "PROPOSÉ (fermé par payouts_enabled)",
       "decision": "PROPOSED",
       "decisionRef": "17 §7.2 PROPOSÉ (fermé par payouts_enabled)",
-      "values": { "PA": 600, "PY": 600 }
+      "values": {
+        "PA": 600,
+        "PY": 600
+      }
     },
     {
       "key": "ach_xpress_max_minor",
@@ -870,7 +1083,9 @@
       "status": "rail du PSP ; sans objet au PY",
       "decision": "TO_DECIDE",
       "decisionRef": "rail du PSP, choisi au lot C (DEC-PAYS, porte PAY-041)",
-      "values": { "PA": "500000" }
+      "values": {
+        "PA": "500000"
+      }
     },
     {
       "key": "trip_fee_schedule",
@@ -886,17 +1101,35 @@
       "values": {
         "PA": {
           "tiers": [
-            { "maxDays": 6, "rateBps": 1500 },
-            { "maxDays": 29, "rateBps": 1200 },
-            { "maxDays": null, "rateBps": 800 }
+            {
+              "maxDays": 6,
+              "rateBps": 1500
+            },
+            {
+              "maxDays": 29,
+              "rateBps": 1200
+            },
+            {
+              "maxDays": null,
+              "rateBps": 800
+            }
           ],
           "minMinor": "500"
         },
         "PY": {
           "tiers": [
-            { "maxDays": 6, "rateBps": 1500 },
-            { "maxDays": 29, "rateBps": 1200 },
-            { "maxDays": null, "rateBps": 800 }
+            {
+              "maxDays": 6,
+              "rateBps": 1500
+            },
+            {
+              "maxDays": 29,
+              "rateBps": 1200
+            },
+            {
+              "maxDays": null,
+              "rateBps": 800
+            }
           ],
           "minMinor": "35000"
         }
@@ -913,7 +1146,9 @@
       "status": "décidé ; sans objet au PA",
       "decision": "DECIDED",
       "decisionRef": "17 §7.2 décidé (BR-PRICE-14)",
-      "values": { "PY": "1000" }
+      "values": {
+        "PY": "1000"
+      }
     },
     {
       "key": "otp_ttl_min",
@@ -925,7 +1160,10 @@
       "status": "décidé",
       "decision": "DECIDED",
       "decisionRef": "17 §7.2 décidé (VER-013)",
-      "values": { "PA": 10, "PY": 10 }
+      "values": {
+        "PA": 10,
+        "PY": 10
+      }
     },
     {
       "key": "otp_max_attempts",
@@ -937,7 +1175,10 @@
       "status": "décidé",
       "decision": "DECIDED",
       "decisionRef": "17 §7.2 décidé (VER-013)",
-      "values": { "PA": 5, "PY": 5 }
+      "values": {
+        "PA": 5,
+        "PY": 5
+      }
     },
     {
       "key": "otp_lock_min",
@@ -949,7 +1190,10 @@
       "status": "décidé",
       "decision": "DECIDED",
       "decisionRef": "17 §7.2 décidé (VER-013)",
-      "values": { "PA": 60, "PY": 60 }
+      "values": {
+        "PA": 60,
+        "PY": 60
+      }
     },
     {
       "key": "otp_sms_fallback_s",
@@ -961,7 +1205,10 @@
       "status": "décidé",
       "decision": "DECIDED",
       "decisionRef": "17 §7.2 décidé (VER-013)",
-      "values": { "PA": 60, "PY": 60 }
+      "values": {
+        "PA": 60,
+        "PY": 60
+      }
     },
     {
       "key": "otp_rate_per_account_hour",
@@ -973,7 +1220,10 @@
       "status": "PROPOSÉ",
       "decision": "PROPOSED",
       "decisionRef": "17 §6.6 PROPOSÉ (US-104, ADR-098)",
-      "values": { "PA": 5, "PY": 5 }
+      "values": {
+        "PA": 5,
+        "PY": 5
+      }
     },
     {
       "key": "otp_rate_per_prefix_hour",
@@ -985,7 +1235,10 @@
       "status": "PROPOSÉ",
       "decision": "PROPOSED",
       "decisionRef": "17 §6.6 PROPOSÉ (US-104, ADR-098)",
-      "values": { "PA": 300, "PY": 300 }
+      "values": {
+        "PA": 300,
+        "PY": 300
+      }
     },
     {
       "key": "ical_poll_minutes",
@@ -997,7 +1250,10 @@
       "status": "décidé",
       "decision": "DECIDED",
       "decisionRef": "17 §7.2 décidé (CAL-009)",
-      "values": { "PA": 15, "PY": 15 }
+      "values": {
+        "PA": 15,
+        "PY": 15
+      }
     },
     {
       "key": "overdue_detection_minutes",
@@ -1009,7 +1265,10 @@
       "status": "décidé",
       "decision": "TO_DECIDE",
       "decisionRef": "OQ-BR-04 (grace_minutes + 1 tant qu’elle est ouverte ; défaut de 22 : 30 min)",
-      "values": { "PA": 30, "PY": 30 }
+      "values": {
+        "PA": 30,
+        "PY": 30
+      }
     },
     {
       "key": "overdue_escalation_hours",
@@ -1021,7 +1280,10 @@
       "status": "décidé",
       "decision": "DECIDED",
       "decisionRef": "17 §7.2 décidé (TRP-035, TRP-038)",
-      "values": { "PA": [2, 6, 24], "PY": [2, 6, 24] }
+      "values": {
+        "PA": [2, 6, 24],
+        "PY": [2, 6, 24]
+      }
     },
     {
       "key": "claim_declaration_window_h",
@@ -1033,7 +1295,10 @@
       "status": "ADM-031",
       "decision": "TO_DECIDE",
       "decisionRef": "J-ADM-031 (16 ADM-031)",
-      "values": { "PA": 24, "PY": 24 }
+      "values": {
+        "PA": 24,
+        "PY": 24
+      }
     },
     {
       "key": "kyc_review_sla_business_h",
@@ -1045,7 +1310,10 @@
       "status": "décidé",
       "decision": "DECIDED",
       "decisionRef": "17 §7.2 décidé (ADM-002)",
-      "values": { "PA": 4, "PY": 4 }
+      "values": {
+        "PA": 4,
+        "PY": 4
+      }
     },
     {
       "key": "listing_review_sla_h",
@@ -1057,7 +1325,10 @@
       "status": "décidé",
       "decision": "DECIDED",
       "decisionRef": "17 §7.2 décidé (ADM-003)",
-      "values": { "PA": 24, "PY": 24 }
+      "values": {
+        "PA": 24,
+        "PY": 24
+      }
     },
     {
       "key": "listing_min_photos",
@@ -1069,7 +1340,10 @@
       "status": "PROPOSÉ",
       "decision": "PROPOSED",
       "decisionRef": "08 BR-LIST-05 PROPOSÉ (US-115)",
-      "values": { "PA": 6, "PY": 6 }
+      "values": {
+        "PA": 6,
+        "PY": 6
+      }
     },
     {
       "key": "listing_manual_review_required",
@@ -1080,7 +1354,10 @@
       "status": "PROPOSÉ",
       "decision": "PROPOSED",
       "decisionRef": "DEC-FONDATEUR-22 ; ADR-114 PROPOSÉ (US-118)",
-      "values": { "PA": false, "PY": false }
+      "values": {
+        "PA": false,
+        "PY": false
+      }
     },
     {
       "key": "vehicle_default_value_class",
@@ -1092,7 +1369,10 @@
       "status": "PROPOSÉ (N-83, ADR-159 : STANDARD, comme Turo où la classe suit la valeur et où la plupart des véhicules sont standard ; les marques et modèles de valeur haute sont relevés par les règles de classement, jamais par ce défaut ; valeur définitive à confirmer avec l'assureur partenaire)",
       "decision": "PROPOSED",
       "decisionRef": "ADR-159 PROPOSÉ (N-83) ; COMME_TURO ; POUR_LE_FONDATEUR §3",
-      "values": { "PA": "STANDARD", "PY": "STANDARD" }
+      "values": {
+        "PA": "STANDARD",
+        "PY": "STANDARD"
+      }
     },
     {
       "key": "price_ceiling_daily_minor",
@@ -1104,7 +1384,10 @@
       "status": "PROPOSÉ (défaut à confirmer par le fondateur)",
       "decision": "PROPOSED",
       "decisionRef": "16 PRC-001 PROPOSÉ (US-115)",
-      "values": { "PA": "500000", "PY": "35000000" }
+      "values": {
+        "PA": "500000",
+        "PY": "35000000"
+      }
     },
     {
       "key": "price_ceiling_extra_km_minor",
@@ -1116,7 +1399,10 @@
       "status": "PROPOSÉ (défaut à confirmer par le fondateur)",
       "decision": "PROPOSED",
       "decisionRef": "16 PRC-001 PROPOSÉ (US-115)",
-      "values": { "PA": "1000", "PY": "75000" }
+      "values": {
+        "PA": "1000",
+        "PY": "75000"
+      }
     },
     {
       "key": "elig_age_years_ceiling",
@@ -1128,7 +1414,10 @@
       "status": "PROPOSÉ (défaut à confirmer par le fondateur)",
       "decision": "TO_DECIDE",
       "decisionRef": "16 HST-019 « valeurs À DÉCIDER dans ADM-031 » ; OQ-P2P-02 ; J-ADM-031 (US-124)",
-      "values": { "PA": 10, "PY": 10 }
+      "values": {
+        "PA": 10,
+        "PY": 10
+      }
     },
     {
       "key": "elig_odometer_km_ceiling",
@@ -1140,7 +1429,10 @@
       "status": "PROPOSÉ (défaut à confirmer par le fondateur)",
       "decision": "TO_DECIDE",
       "decisionRef": "16 HST-019 « valeurs À DÉCIDER dans ADM-031 » ; OQ-P2P-02 ; J-ADM-031 (US-124)",
-      "values": { "PA": 200000, "PY": 200000 }
+      "values": {
+        "PA": 200000,
+        "PY": 200000
+      }
     },
     {
       "key": "elig_doc_owner_authorization",
@@ -1151,7 +1443,10 @@
       "status": "PROPOSÉ (défaut à confirmer par le fondateur)",
       "decision": "TO_DECIDE",
       "decisionRef": "OQ-P2P-02 ; 16 HST-039 (US-124)",
-      "values": { "PA": false, "PY": false }
+      "values": {
+        "PA": false,
+        "PY": false
+      }
     },
     {
       "key": "elig_doc_lender_consent",
@@ -1162,7 +1457,10 @@
       "status": "PROPOSÉ (défaut à confirmer par le fondateur)",
       "decision": "TO_DECIDE",
       "decisionRef": "OQ-P2P-02 ; 16 HST-039 (US-124)",
-      "values": { "PA": false, "PY": false }
+      "values": {
+        "PA": false,
+        "PY": false
+      }
     },
     {
       "key": "elig_doc_title",
@@ -1173,7 +1471,10 @@
       "status": "PROPOSÉ (défaut à confirmer par le fondateur)",
       "decision": "TO_DECIDE",
       "decisionRef": "OQ-P2P-02 ; 16 HST-039 (US-124)",
-      "values": { "PA": false, "PY": false }
+      "values": {
+        "PA": false,
+        "PY": false
+      }
     },
     {
       "key": "elig_doc_plate_vin_photo",
@@ -1184,7 +1485,10 @@
       "status": "PROPOSÉ (défaut à confirmer par le fondateur)",
       "decision": "TO_DECIDE",
       "decisionRef": "OQ-P2P-02 ; 16 HST-039 (US-124)",
-      "values": { "PA": false, "PY": false }
+      "values": {
+        "PA": false,
+        "PY": false
+      }
     },
     {
       "key": "elig_doc_inspection",
@@ -1195,7 +1499,10 @@
       "status": "PROPOSÉ (défaut à confirmer par le fondateur)",
       "decision": "TO_DECIDE",
       "decisionRef": "OQ-P2P-02 ; 16 HST-039 (US-124)",
-      "values": { "PA": false, "PY": false }
+      "values": {
+        "PA": false,
+        "PY": false
+      }
     },
     {
       "key": "elig_doc_compulsory_insurance",
@@ -1206,7 +1513,10 @@
       "status": "PROPOSÉ (défaut à confirmer par le fondateur)",
       "decision": "TO_DECIDE",
       "decisionRef": "OQ-P2P-02 ; 16 HST-039 (US-124)",
-      "values": { "PA": false, "PY": false }
+      "values": {
+        "PA": false,
+        "PY": false
+      }
     },
     {
       "key": "dispute_decision_sla_business_days",
@@ -1218,7 +1528,10 @@
       "status": "décidé",
       "decision": "DECIDED",
       "decisionRef": "17 §7.2 décidé (ADM-008)",
-      "values": { "PA": 5, "PY": 5 }
+      "values": {
+        "PA": 5,
+        "PY": 5
+      }
     },
     {
       "key": "more_info_timeout_days",
@@ -1230,7 +1543,10 @@
       "status": "décidé",
       "decision": "DECIDED",
       "decisionRef": "17 §7.2 décidé (SM-3)",
-      "values": { "PA": 15, "PY": 15 }
+      "values": {
+        "PA": 15,
+        "PY": 15
+      }
     },
     {
       "key": "appeal_window_days",
@@ -1242,7 +1558,10 @@
       "status": "décidé",
       "decision": "DECIDED",
       "decisionRef": "17 §7.2 décidé (SM-3)",
-      "values": { "PA": 15, "PY": 15 }
+      "values": {
+        "PA": 15,
+        "PY": 15
+      }
     },
     {
       "key": "cohost_invite_validity_days",
@@ -1254,7 +1573,10 @@
       "status": "décidé",
       "decision": "DECIDED",
       "decisionRef": "17 §7.2 décidé (BR-COHOST)",
-      "values": { "PA": 30, "PY": 30 }
+      "values": {
+        "PA": 30,
+        "PY": 30
+      }
     },
     {
       "key": "payout_account_change_hold_h",
@@ -1266,7 +1588,10 @@
       "status": "décidé",
       "decision": "DECIDED",
       "decisionRef": "17 §7.2 décidé (PYO-001)",
-      "values": { "PA": 48, "PY": 48 }
+      "values": {
+        "PA": 48,
+        "PY": 48
+      }
     },
     {
       "key": "payout_account_rails",
@@ -1332,7 +1657,10 @@
       "status": "décidé",
       "decision": "DECIDED",
       "decisionRef": "17 §7.2 décidé (TRP-002)",
-      "values": { "PA": 500, "PY": 500 }
+      "values": {
+        "PA": 500,
+        "PY": 500
+      }
     },
     {
       "key": "photo_max_px",
@@ -1344,7 +1672,10 @@
       "status": "décidé",
       "decision": "DECIDED",
       "decisionRef": "17 §7.2 décidé (TRP-002)",
-      "values": { "PA": 1600, "PY": 1600 }
+      "values": {
+        "PA": 1600,
+        "PY": 1600
+      }
     },
     {
       "key": "clock_skew_flag_h",
@@ -1356,7 +1687,10 @@
       "status": "décidé",
       "decision": "DECIDED",
       "decisionRef": "17 §7.2 décidé (TRP-057)",
-      "values": { "PA": 2, "PY": 2 }
+      "values": {
+        "PA": 2,
+        "PY": 2
+      }
     },
     {
       "key": "foreign_license_review_enabled",
@@ -1367,7 +1701,10 @@
       "status": "PROPOSÉ (comme Turo : aucune revue sur le seul permis étranger ; à activer par pays si l'avis juridique d'OQ-BR-21 confirme la règle des 90 jours)",
       "decision": "TO_DECIDE",
       "decisionRef": "OQ-BR-21 (avis juridique, préalable à la mise en service) ; défaut DEC-FONDATEUR-22, ADR-135 PROPOSÉ (US-209)",
-      "values": { "PA": false, "PY": false }
+      "values": {
+        "PA": false,
+        "PY": false
+      }
     },
     {
       "key": "flagged_booking_payment_order",
@@ -1379,7 +1716,10 @@
       "status": "UXQ-08 ouverte ; défaut fail-closed REVIEW_BEFORE_CHARGE",
       "decision": "TO_DECIDE",
       "decisionRef": "UXQ-08 (ouverte ; défaut fail-closed REVIEW_BEFORE_CHARGE)",
-      "values": { "PA": "REVIEW_BEFORE_CHARGE", "PY": "REVIEW_BEFORE_CHARGE" }
+      "values": {
+        "PA": "REVIEW_BEFORE_CHARGE",
+        "PY": "REVIEW_BEFORE_CHARGE"
+      }
     },
     {
       "key": "host_share_pct",
@@ -1392,8 +1732,12 @@
       "decision": "TO_DECIDE",
       "decisionRef": "OQ-P2P-11 ; J-ADM-031 (16 ADM-031 « ESTÁNDAR 75 % »)",
       "values": {
-        "PA": { "ESTÁNDAR": "3/4" },
-        "PY": { "ESTÁNDAR": "3/4" }
+        "PA": {
+          "ESTÁNDAR": "3/4"
+        },
+        "PY": {
+          "ESTÁNDAR": "3/4"
+        }
       }
     },
     {
@@ -1432,7 +1776,10 @@
       "status": "interrupteur : false en production, deux personnes (RLS-27, US-125)",
       "decision": "DECIDED",
       "decisionRef": "17 §0.1 : false en production ; true seulement par US-125",
-      "values": { "PA": false, "PY": false }
+      "values": {
+        "PA": false,
+        "PY": false
+      }
     },
     {
       "key": "insurer_contract_active",
@@ -1444,7 +1791,10 @@
       "status": "interrupteur : false en production, deux personnes (RLS-27, US-125)",
       "decision": "DECIDED",
       "decisionRef": "17 §0.1 : false en production ; true seulement par US-125",
-      "values": { "PA": false, "PY": false }
+      "values": {
+        "PA": false,
+        "PY": false
+      }
     },
     {
       "key": "funds_holding_enabled",
@@ -1456,7 +1806,10 @@
       "status": "interrupteur : false en production, deux personnes (RLS-27, US-125)",
       "decision": "DECIDED",
       "decisionRef": "17 §0.1 : false en production ; true seulement par US-125",
-      "values": { "PA": false, "PY": false }
+      "values": {
+        "PA": false,
+        "PY": false
+      }
     },
     {
       "key": "payouts_enabled",
@@ -1468,7 +1821,10 @@
       "status": "interrupteur : false en production, deux personnes (RLS-27, US-125)",
       "decision": "DECIDED",
       "decisionRef": "17 §0.1 : false en production ; true seulement par US-125",
-      "values": { "PA": false, "PY": false }
+      "values": {
+        "PA": false,
+        "PY": false
+      }
     },
     {
       "key": "collection_mode",
@@ -1480,7 +1836,10 @@
       "status": "PROPOSÉ ; PLATFORM_MOR refusé si funds_holding_enabled = false",
       "decision": "PROPOSED",
       "decisionRef": "17 §7.2 PROPOSÉ (ADR-045 ; PLATFORM_MOR fermé par funds_holding_enabled)",
-      "values": { "PA": "SPLIT_AT_SOURCE", "PY": "SPLIT_AT_SOURCE" }
+      "values": {
+        "PA": "SPLIT_AT_SOURCE",
+        "PY": "SPLIT_AT_SOURCE"
+      }
     },
     {
       "key": "host_default_plan",
@@ -1492,7 +1851,10 @@
       "status": "PROPOSÉ",
       "decision": "TO_DECIDE",
       "decisionRef": "OQ-P2P-11 ; J-ADM-031 (16 ADM-031)",
-      "values": { "PA": "ESTÁNDAR", "PY": "ESTÁNDAR" }
+      "values": {
+        "PA": "ESTÁNDAR",
+        "PY": "ESTÁNDAR"
+      }
     },
     {
       "key": "insurer_premium_share",
@@ -1505,8 +1867,16 @@
       "decision": "TO_DECIDE",
       "decisionRef": "contrat d'assureur (Q-002, OQ-P2P-03)",
       "values": {
-        "PA": { "BASICA": "7/10", "ESTANDAR": "7/10", "TOTAL": "7/10" },
-        "PY": { "BASICA": "7/10", "ESTANDAR": "7/10", "TOTAL": "7/10" }
+        "PA": {
+          "BASICA": "7/10",
+          "ESTANDAR": "7/10",
+          "TOTAL": "7/10"
+        },
+        "PY": {
+          "BASICA": "7/10",
+          "ESTANDAR": "7/10",
+          "TOTAL": "7/10"
+        }
       }
     },
     {
@@ -1519,7 +1889,10 @@
       "status": "contrat d'assureur (à fixer)",
       "decision": "TO_DECIDE",
       "decisionRef": "contrat d'assureur (Q-002, OQ-P2P-03)",
-      "values": { "PA": "1/2", "PY": "1/2" }
+      "values": {
+        "PA": "1/2",
+        "PY": "1/2"
+      }
     },
     {
       "key": "insurer_settlement_at",
@@ -1531,7 +1904,10 @@
       "status": "PROPOSÉ ; contrat d'assureur",
       "decision": "TO_DECIDE",
       "decisionRef": "contrat d'assureur (Q-002, OQ-P2P-03)",
-      "values": { "PA": "MONTHLY", "PY": "MONTHLY" }
+      "values": {
+        "PA": "MONTHLY",
+        "PY": "MONTHLY"
+      }
     },
     {
       "key": "platform_release_at",
@@ -1543,7 +1919,10 @@
       "status": "PROPOSÉ (US-056), fail-closed",
       "decision": "PROPOSED",
       "decisionRef": "17 §7.2 PROPOSÉ (US-056), fail-closed",
-      "values": { "PA": "TRIP_PAYOUT_AT", "PY": "TRIP_PAYOUT_AT" }
+      "values": {
+        "PA": "TRIP_PAYOUT_AT",
+        "PY": "TRIP_PAYOUT_AT"
+      }
     },
     {
       "key": "platform_reserve_minor",
@@ -1579,7 +1958,10 @@
       "status": "PROPOSÉ",
       "decision": "PROPOSED",
       "decisionRef": "17 §7.2 PROPOSÉ",
-      "values": { "PA": 180, "PY": 180 }
+      "values": {
+        "PA": 180,
+        "PY": 180
+      }
     },
     {
       "key": "credit_beyond_platform_leg_enabled",
@@ -1590,7 +1972,10 @@
       "status": "PROPOSÉ, fail-closed",
       "decision": "PROPOSED",
       "decisionRef": "17 §7.2 PROPOSÉ, fail-closed",
-      "values": { "PA": false, "PY": false }
+      "values": {
+        "PA": false,
+        "PY": false
+      }
     },
     {
       "key": "host_min_age_years",
@@ -1602,7 +1987,10 @@
       "status": "PROPOSÉ",
       "decision": "TO_DECIDE",
       "decisionRef": "OQ-P2P-01 ; J-ADM-031 (16 ADM-031)",
-      "values": { "PA": 21, "PY": 21 }
+      "values": {
+        "PA": 21,
+        "PY": 21
+      }
     },
     {
       "key": "p2p_host_requires_tax_id",
@@ -1613,7 +2001,10 @@
       "status": "PROPOSÉ",
       "decision": "TO_DECIDE",
       "decisionRef": "OQ-PAY-09, OQ-P2P-07 (colonne « Source » de 17 §7.2 ; 17 : PROPOSÉ)",
-      "values": { "PA": true, "PY": true }
+      "values": {
+        "PA": true,
+        "PY": true
+      }
     },
     {
       "key": "host_review_manual_required",
@@ -1624,7 +2015,10 @@
       "status": "PROPOSÉ",
       "decision": "PROPOSED",
       "decisionRef": "consigne du fondateur du 2026-11-12 « jamais plus lourd que Turo » ; ADR-111",
-      "values": { "PA": false, "PY": false }
+      "values": {
+        "PA": false,
+        "PY": false
+      }
     },
     {
       "key": "host_review_auto_delay_minutes",
@@ -1636,7 +2030,10 @@
       "status": "PROPOSÉ",
       "decision": "PROPOSED",
       "decisionRef": "revues sécurité et qa d'US-108 (2026-11-12) ; ADR-111",
-      "values": { "PA": 1440, "PY": 1440 }
+      "values": {
+        "PA": 1440,
+        "PY": 1440
+      }
     },
     {
       "key": "host_tax_id_required_for_activation",
@@ -1647,7 +2044,10 @@
       "status": "PROPOSÉ ; absent ⇒ numéro exigé",
       "decision": "PROPOSED",
       "decisionRef": "DEC-FONDATEUR-22 (2026-11-12) ; remplace la lecture de p2p_host_requires_tax_id par l’activation (ADR-115)",
-      "values": { "PA": false, "PY": false }
+      "values": {
+        "PA": false,
+        "PY": false
+      }
     },
     {
       "key": "vehicle_financed_requires_lender_consent",
@@ -1658,7 +2058,10 @@
       "status": "PROPOSÉ",
       "decision": "PROPOSED",
       "decisionRef": "17 §7.2 PROPOSÉ",
-      "values": { "PA": true, "PY": true }
+      "values": {
+        "PA": true,
+        "PY": true
+      }
     },
     {
       "key": "plate_claims_open_per_host",
@@ -1670,7 +2073,10 @@
       "status": "PROPOSÉ",
       "decision": "PROPOSED",
       "decisionRef": "ADR-122 PROPOSÉ (US-122)",
-      "values": { "PA": 5, "PY": 5 }
+      "values": {
+        "PA": 5,
+        "PY": 5
+      }
     },
     {
       "key": "self_booking_forbidden",
@@ -1681,7 +2087,10 @@
       "status": "PROPOSÉ",
       "decision": "TO_DECIDE",
       "decisionRef": "OQ-P2P-08 ; J-ADM-031 (16 ADM-031)",
-      "values": { "PA": true, "PY": true }
+      "values": {
+        "PA": true,
+        "PY": true
+      }
     },
     {
       "key": "p2p_default_booking_mode",
@@ -1693,7 +2102,10 @@
       "status": "PROPOSÉ",
       "decision": "TO_DECIDE",
       "decisionRef": "J-ADM-031 (16 ADM-031)",
-      "values": { "PA": "INSTANT", "PY": "INSTANT" }
+      "values": {
+        "PA": "INSTANT",
+        "PY": "INSTANT"
+      }
     },
     {
       "key": "booking_request_expiry_hours",
@@ -1705,7 +2117,10 @@
       "status": "PROPOSÉ (US-060)",
       "decision": "TO_DECIDE",
       "decisionRef": "OQ-P2P-10 (colonne « Source » de 17 §7.2 ; 17 : PROPOSÉ, US-060)",
-      "values": { "PA": 4, "PY": 4 }
+      "values": {
+        "PA": 4,
+        "PY": 4
+      }
     },
     {
       "key": "p2p_contactless_handover_enabled",
@@ -1716,7 +2131,10 @@
       "status": "PROPOSÉ",
       "decision": "PROPOSED",
       "decisionRef": "17 §7.2 PROPOSÉ",
-      "values": { "PA": false, "PY": false }
+      "values": {
+        "PA": false,
+        "PY": false
+      }
     },
     {
       "key": "review_window_days",
@@ -1728,7 +2146,10 @@
       "status": "décidé (comme Turo)",
       "decision": "TO_DECIDE",
       "decisionRef": "OQ-P2P-06 ; J-ADM-031 (16 ADM-031 ; 17 §7.2 : décidé comme Turo)",
-      "values": { "PA": 10, "PY": 10 }
+      "values": {
+        "PA": 10,
+        "PY": 10
+      }
     },
     {
       "key": "guest_protection_min_level",
@@ -1740,7 +2161,10 @@
       "status": "PROPOSÉ",
       "decision": "TO_DECIDE",
       "decisionRef": "OQ-P2P-12 (assureur) ; J-ADM-031 (16 ADM-031)",
-      "values": { "PA": "BASICA", "PY": "BASICA" }
+      "values": {
+        "PA": "BASICA",
+        "PY": "BASICA"
+      }
     },
     {
       "key": "protection_grid",
@@ -1812,7 +2236,10 @@
       "status": "PROPOSÉ",
       "decision": "PROPOSED",
       "decisionRef": "17 §6.6 PROPOSÉ (US-052)",
-      "values": { "PA": 5, "PY": 5 }
+      "values": {
+        "PA": 5,
+        "PY": 5
+      }
     },
     {
       "key": "rate_limit_otp_per_ip_hour",
@@ -1824,7 +2251,10 @@
       "status": "PROPOSÉ",
       "decision": "PROPOSED",
       "decisionRef": "17 §6.6 PROPOSÉ (US-052)",
-      "values": { "PA": 20, "PY": 20 }
+      "values": {
+        "PA": 20,
+        "PY": 20
+      }
     },
     {
       "key": "rate_limit_email_per_address_hour",
@@ -1836,7 +2266,10 @@
       "status": "PROPOSÉ",
       "decision": "PROPOSED",
       "decisionRef": "17 §6.6 PROPOSÉ (US-052)",
-      "values": { "PA": 10, "PY": 10 }
+      "values": {
+        "PA": 10,
+        "PY": 10
+      }
     },
     {
       "key": "rate_limit_email_per_ip_hour",
@@ -1848,7 +2281,10 @@
       "status": "PROPOSÉ",
       "decision": "PROPOSED",
       "decisionRef": "17 §6.6 PROPOSÉ (US-052)",
-      "values": { "PA": 50, "PY": 50 }
+      "values": {
+        "PA": 50,
+        "PY": 50
+      }
     },
     {
       "key": "rate_limit_sms_daily_cap",
@@ -1860,7 +2296,10 @@
       "status": "PROPOSÉ",
       "decision": "PROPOSED",
       "decisionRef": "17 §6.6 PROPOSÉ (US-052)",
-      "values": { "PA": 2000, "PY": 2000 }
+      "values": {
+        "PA": 2000,
+        "PY": 2000
+      }
     },
     {
       "key": "rate_limit_search_per_ip_minute",
@@ -1872,7 +2311,10 @@
       "status": "PROPOSÉ",
       "decision": "PROPOSED",
       "decisionRef": "17 §6.6 PROPOSÉ (US-052)",
-      "values": { "PA": 120, "PY": 120 }
+      "values": {
+        "PA": 120,
+        "PY": 120
+      }
     },
     {
       "key": "rate_limit_search_per_account_minute",
@@ -1884,7 +2326,10 @@
       "status": "PROPOSÉ",
       "decision": "PROPOSED",
       "decisionRef": "17 §6.6 PROPOSÉ (US-052)",
-      "values": { "PA": 120, "PY": 120 }
+      "values": {
+        "PA": 120,
+        "PY": 120
+      }
     },
     {
       "key": "rate_limit_quote_per_ip_minute",
@@ -1896,7 +2341,10 @@
       "status": "PROPOSÉ",
       "decision": "PROPOSED",
       "decisionRef": "17 §6.6 PROPOSÉ (US-052)",
-      "values": { "PA": 60, "PY": 60 }
+      "values": {
+        "PA": 60,
+        "PY": 60
+      }
     },
     {
       "key": "rate_limit_quote_per_account_minute",
@@ -1908,7 +2356,10 @@
       "status": "PROPOSÉ",
       "decision": "PROPOSED",
       "decisionRef": "17 §6.6 PROPOSÉ (US-052)",
-      "values": { "PA": 60, "PY": 60 }
+      "values": {
+        "PA": 60,
+        "PY": 60
+      }
     },
     {
       "key": "rate_limit_api_per_ip_minute",
@@ -1920,7 +2371,10 @@
       "status": "PROPOSÉ",
       "decision": "PROPOSED",
       "decisionRef": "17 §6.6 PROPOSÉ (US-052)",
-      "values": { "PA": 600, "PY": 600 }
+      "values": {
+        "PA": 600,
+        "PY": 600
+      }
     },
     {
       "key": "rate_limit_api_per_account_minute",
@@ -1932,7 +2386,10 @@
       "status": "PROPOSÉ",
       "decision": "PROPOSED",
       "decisionRef": "17 §6.6 PROPOSÉ (US-052)",
-      "values": { "PA": 300, "PY": 300 }
+      "values": {
+        "PA": 300,
+        "PY": 300
+      }
     },
     {
       "key": "rate_limit_webhook_per_ip_minute",
@@ -1944,7 +2401,10 @@
       "status": "PROPOSÉ",
       "decision": "PROPOSED",
       "decisionRef": "17 §6.6 PROPOSÉ (US-052)",
-      "values": { "PA": 6000, "PY": 6000 }
+      "values": {
+        "PA": 6000,
+        "PY": 6000
+      }
     },
     {
       "key": "rate_limit_signup_burst_per_ip_10min",
@@ -1956,7 +2416,10 @@
       "status": "PROPOSÉ",
       "decision": "PROPOSED",
       "decisionRef": "17 §6.6 PROPOSÉ (US-052)",
-      "values": { "PA": 5, "PY": 5 }
+      "values": {
+        "PA": 5,
+        "PY": 5
+      }
     },
     {
       "key": "rate_limit_bot_weight",
@@ -1968,7 +2431,10 @@
       "status": "PROPOSÉ",
       "decision": "PROPOSED",
       "decisionRef": "17 §6.6 PROPOSÉ (US-052)",
-      "values": { "PA": 4, "PY": 4 }
+      "values": {
+        "PA": 4,
+        "PY": 4
+      }
     },
     {
       "key": "privacy_dsr_response_days",
@@ -1980,7 +2446,10 @@
       "status": "PROPOSÉ ; OQ-MK-09 (Ley 81, Ley 7593)",
       "decision": "TO_DECIDE",
       "decisionRef": "OQ-MK-09 (avis juridique) ; ADR-118 (US-111)",
-      "values": { "PA": 10, "PY": 10 }
+      "values": {
+        "PA": 10,
+        "PY": 10
+      }
     },
     {
       "key": "privacy_register_validated",
@@ -1991,7 +2460,10 @@
       "status": "PROPOSÉ, fail-closed ; OQ-MK-09",
       "decision": "TO_DECIDE",
       "decisionRef": "OQ-MK-09 (avis juridique) ; 19 F-19 (responsable des données) ; ADR-118 (US-111)",
-      "values": { "PA": false, "PY": false }
+      "values": {
+        "PA": false,
+        "PY": false
+      }
     },
     {
       "key": "privacy_vehicle_attestation_retention_months",
@@ -2003,7 +2475,10 @@
       "status": "PROPOSÉ ; OQ-BR-25",
       "decision": "TO_DECIDE",
       "decisionRef": "OQ-BR-25 (avis juridique) ; ADR-118 (US-111)",
-      "values": { "PA": 60, "PY": 60 }
+      "values": {
+        "PA": 60,
+        "PY": 60
+      }
     },
     {
       "key": "security_incident_authority_notice_hours",
@@ -2015,7 +2490,10 @@
       "status": "PROPOSÉ ; OQ-MK-09 (défaut 72 h, à confirmer par l’avocat PA et PY)",
       "decision": "TO_DECIDE",
       "decisionRef": "OQ-MK-09 (défaut de 22 : 72 h) ; ADR-121",
-      "values": { "PA": 72, "PY": 72 }
+      "values": {
+        "PA": 72,
+        "PY": 72
+      }
     },
     {
       "key": "security_incident_subjects_notice_hours",
@@ -2027,7 +2505,10 @@
       "status": "PROPOSÉ ; OQ-MK-09 (même délai que l’autorité en attendant l’avis)",
       "decision": "TO_DECIDE",
       "decisionRef": "OQ-MK-09 (défaut prudent : 72 h, aligné sur l’autorité) ; ADR-121",
-      "values": { "PA": 72, "PY": 72 }
+      "values": {
+        "PA": 72,
+        "PY": 72
+      }
     },
     {
       "key": "upload_photo_max_kb",
@@ -2039,7 +2520,10 @@
       "status": "PROPOSÉ (comme Turo : le moins limitant raisonnable, 10 Mio, borne de l'API)",
       "decision": "PROPOSED",
       "decisionRef": "ADR-124 PROPOSÉ (US-122) ; COMME_TURO",
-      "values": { "PA": 10240, "PY": 10240 }
+      "values": {
+        "PA": 10240,
+        "PY": 10240
+      }
     },
     {
       "key": "upload_gallery_photos_max",
@@ -2051,7 +2535,10 @@
       "status": "PROPOSÉ (comme Turo : très au-dessus d'une galerie ordinaire, aucun hôte honnête bloqué)",
       "decision": "PROPOSED",
       "decisionRef": "ADR-124 PROPOSÉ (US-122) ; COMME_TURO",
-      "values": { "PA": 100, "PY": 100 }
+      "values": {
+        "PA": 100,
+        "PY": 100
+      }
     },
     {
       "key": "upload_documents_per_minute",
@@ -2063,7 +2550,10 @@
       "status": "PROPOSÉ (comme Turo : débit d'un dépôt humain, jamais atteint par un hôte honnête)",
       "decision": "PROPOSED",
       "decisionRef": "ADR-124 PROPOSÉ (US-122) ; COMME_TURO",
-      "values": { "PA": 20, "PY": 20 }
+      "values": {
+        "PA": 20,
+        "PY": 20
+      }
     },
     {
       "key": "quote_freezes_per_guest_hour",
@@ -2075,7 +2565,10 @@
       "status": "PROPOSÉ (comme Turo : débit d'un voyageur qui compare des dates, jamais atteint par un voyageur honnête)",
       "decision": "PROPOSED",
       "decisionRef": "ADR-133 PROPOSÉ (US-208) ; COMME_TURO",
-      "values": { "PA": 30, "PY": 30 }
+      "values": {
+        "PA": 30,
+        "PY": 30
+      }
     },
     {
       "key": "quote_validity_minutes",
@@ -2087,7 +2580,10 @@
       "status": "PROPOSÉ (16 PRC-025 : 30 min ; comme Turo : le prix affiché au checkout tient le temps de réserver)",
       "decision": "PROPOSED",
       "decisionRef": "ADR-133 PROPOSÉ (US-208) ; COMME_TURO",
-      "values": { "PA": 30, "PY": 30 }
+      "values": {
+        "PA": 30,
+        "PY": 30
+      }
     },
     {
       "key": "insurer_rc_minimum",
@@ -2099,7 +2595,10 @@
       "status": "PROPOSÉ (OQ-BR-16 : montant minimum par événement à confirmer par l'avocat et l'assureur ; PY : équivalent en PYG de la recommandation de 08, valeur de test)",
       "decision": "TO_DECIDE",
       "decisionRef": "OQ-BR-16 (à fixer avec l'avocat et l'assureur) ; ADR-138 PROPOSÉ (US-205)",
-      "values": { "PA": "10000000", "PY": "750000000" }
+      "values": {
+        "PA": "10000000",
+        "PY": "750000000"
+      }
     },
     {
       "key": "last_minute_free_window_minutes",
@@ -2111,7 +2610,10 @@
       "status": "PROPOSÉ (comme Turo : 1 h après la réservation ; égal à la fenêtre du moteur d'annulation cxl-beta/1, qui ne lit pas encore ce paramètre)",
       "decision": "PROPOSED",
       "decisionRef": "ADR-140 PROPOSÉ (US-205b) ; COMME_TURO",
-      "values": { "PA": 60, "PY": 60 }
+      "values": {
+        "PA": 60,
+        "PY": 60
+      }
     },
     {
       "key": "booking_request_mode_enabled",
@@ -2122,7 +2624,10 @@
       "status": "PROPOSÉ (US-223c, ADR-146 : faux tant que les écrans du mode sur demande, partie 223c-écrans, ne sont pas livrés ; vrai ensuite, comme Turo)",
       "decision": "PROPOSED",
       "decisionRef": "ADR-146 PROPOSÉ (US-223c) ; COMME_TURO",
-      "values": { "PA": false, "PY": false }
+      "values": {
+        "PA": false,
+        "PY": false
+      }
     },
     {
       "key": "deposit_always_required",
@@ -2133,7 +2638,10 @@
       "status": "PROPOSÉ comme Turo (ADR-108) : aucune caution par défaut",
       "decision": "PROPOSED",
       "decisionRef": "17 §7.2 PROPOSÉ (ADR-108 ; COMME_TURO OQ-P2P-04)",
-      "values": { "PA": false, "PY": false }
+      "values": {
+        "PA": false,
+        "PY": false
+      }
     },
     {
       "key": "deposit_trigger_classes",
@@ -2145,7 +2653,10 @@
       "status": "PROPOSÉ comme Turo ({LUXE}, équivalent Super Deluxe) ; à confirmer par le fondateur avant la mise en ligne",
       "decision": "TO_DECIDE",
       "decisionRef": "OQ-P2P-04 ; décision du fondateur du 2026-11-12 (hésitation sur le luxe) ; ADR-108",
-      "values": { "PA": ["LUXE"], "PY": ["LUXE"] }
+      "values": {
+        "PA": ["LUXE"],
+        "PY": ["LUXE"]
+      }
     },
     {
       "key": "deposit_young_driver_age",
@@ -2157,7 +2668,10 @@
       "status": "PROPOSÉ comme Turo (30 ans) ; sans effet tant que deposit_young_driver_classes est vide",
       "decision": "PROPOSED",
       "decisionRef": "17 §7.2 PROPOSÉ (ADR-108)",
-      "values": { "PA": 30, "PY": 30 }
+      "values": {
+        "PA": 30,
+        "PY": 30
+      }
     },
     {
       "key": "deposit_young_driver_classes",
@@ -2169,7 +2683,10 @@
       "status": "décidé (DEC-FONDATEUR-21, 2026-11-12) : ensemble vide, aucune caution liée à l’âge au PA et au PY",
       "decision": "DECIDED",
       "decisionRef": "DEC-FONDATEUR-21 (2026-11-12) ; 17 §7.2",
-      "values": { "PA": [], "PY": [] }
+      "values": {
+        "PA": [],
+        "PY": []
+      }
     },
     {
       "key": "deposit_on_risk_flag",
@@ -2180,7 +2697,10 @@
       "status": "PROPOSÉ comme Turo (vrai) ; sans effet tant que risk_control_deployed est faux",
       "decision": "PROPOSED",
       "decisionRef": "17 §7.2 PROPOSÉ (ADR-108)",
-      "values": { "PA": true, "PY": true }
+      "values": {
+        "PA": true,
+        "PY": true
+      }
     },
     {
       "key": "risk_control_deployed",
@@ -2191,7 +2711,10 @@
       "status": "PROPOSÉ (faux tant que la caution sur signal de risque n’est pas branchée au contrôle de risque de US-209 ; changé seulement par l’administration avec journal)",
       "decision": "PROPOSED",
       "decisionRef": "ADR-108 point 3 bis ; 08 BR-PAY-06 (à reporter dans 17 §7.2)",
-      "values": { "PA": false, "PY": false }
+      "values": {
+        "PA": false,
+        "PY": false
+      }
     },
     {
       "key": "deposit_reauth_lead_h",
@@ -2203,7 +2726,10 @@
       "status": "PROPOSÉ (08 BR-PAY-06 ; la capacité SUPPORTS_REAUTH reste à valider avec le PSP)",
       "decision": "PROPOSED",
       "decisionRef": "08 BR-PAY-06 ; ADR-164 (à reporter dans 17 §7.2)",
-      "values": { "PA": 24, "PY": 24 }
+      "values": {
+        "PA": 24,
+        "PY": 24
+      }
     },
     {
       "key": "deposit_fee_notice_h",
@@ -2215,7 +2741,24 @@
       "status": "PROPOSÉ (08 BR-PAY-06, BR-REIMB-03)",
       "decision": "PROPOSED",
       "decisionRef": "08 BR-PAY-06 ; ADR-164 (à reporter dans 17 §7.2)",
-      "values": { "PA": 48, "PY": 48 }
+      "values": {
+        "PA": 48,
+        "PY": 48
+      }
+    },
+    {
+      "key": "mit_consent_checkbox_required",
+      "type": "BOOL",
+      "scopes": ["COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "16 PAY-015, 10b UX-30 (case séparée `web.s05.mitConsent`) ; DEC-FONDATEUR-22 (« jamais plus lourd que Turo ; tout contrôle plus lourd = paramètre pays à false ») ; ADR-189 ; faux : consentement MIT par la mention explicite à côté du bouton de paiement (comme Turo), toujours enregistré ; vrai : case séparée obligatoire ; absent : mention (comme Turo), le consentement reste exigé et enregistré",
+      "status": "PROPOSÉ comme Turo (ADR-189) : mention au bouton, aucune case de plus ; vrai seulement si une règle de réseau ou un avis l’exige dans le pays",
+      "decision": "PROPOSED",
+      "decisionRef": "ADR-189 ; COMME_TURO (US-703) ; DEC-FONDATEUR-22",
+      "values": {
+        "PA": false,
+        "PY": false
+      }
     }
   ]
 }

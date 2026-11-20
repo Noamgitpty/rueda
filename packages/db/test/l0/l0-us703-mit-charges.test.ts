@@ -343,7 +343,7 @@ describe.each(COUNTRIES)('US-703 — débits post-trip MIT — $country ($curren
     });
   });
 
-  it('RT-L3-H03 / critère 3 : SUPPORTS_MIT inconnue (non validée) ⇒ aucun ordre, HOST_PAYOUT_RAIL_UNAVAILABLE', async () => {
+  it('RT-L3-H03 / critère 3 : SUPPORTS_MIT inconnue (non validée) ⇒ aucun ordre, MIT_RAIL_UNAVAILABLE', async () => {
     await asPayments(async (tx) => {
       const w = await world(tx, c, await bench(tx, c, false), { returned: true });
       const charge = await notify(tx, w, {
@@ -354,7 +354,7 @@ describe.each(COUNTRIES)('US-703 — débits post-trip MIT — $country ($curren
       await setVirtualNow(tx, plus(T0, 4));
       expect(await plan(tx, charge)).toMatchObject({
         outcome: 'BLOCKED',
-        code: 'HOST_PAYOUT_RAIL_UNAVAILABLE',
+        code: 'MIT_RAIL_UNAVAILABLE',
       });
       expect((await mitOps(tx, w.trip)).n).toBe(0);
     });
@@ -659,10 +659,16 @@ describe.each(COUNTRIES)('US-703 — débits post-trip MIT — $country ($curren
                                                             12, 2034, 'ntx-1', NULL)`,
           [uuid(), hold, psp, token, last4],
         );
-      // PAN de test (Luhn valide) : jamais stocké
-      expect((await caught(tx, () => record('4111111111111111', '1111')))?.constraint).toBe(
-        'payment_instrument_token_no_pan',
-      );
+      // PAN de test (Luhn valide) : jamais stocké, ni cité dans l'erreur (revue sécurité n° 6)
+      const pan = '4111111111111111';
+      const refused = (await caught(tx, () => record(pan, '1111'))) as {
+        constraint?: string;
+        message?: string;
+        detail?: string;
+      } | null;
+      expect(refused?.constraint).toBe('payment_instrument_token_no_pan');
+      expect(`${refused?.message ?? ''} ${refused?.detail ?? ''}`).not.toContain(pan);
+      expect(`${refused?.message ?? ''} ${refused?.detail ?? ''}`).not.toContain('1111');
       const first = (await record('tok_us703_first_card', '4242')).rows[0];
       expect(first).toMatchObject({ bound: true, replayed: false });
       expect((await record('tok_us703_first_card', '4242')).rows[0]).toMatchObject({
@@ -693,6 +699,190 @@ describe.each(COUNTRIES)('US-703 — débits post-trip MIT — $country ($curren
           )
         )?.constraint,
       ).toBe('mit_consent_immutable');
+
+      // revue argent n° 5 : voyageur qui revient. Second hold payé avec la carte ACTIVE déjà
+      // enregistrée (même jeton) : son consentement est lié à cette carte
+      const recordOn = (h: string | undefined, token: string, last4: string) =>
+        tx.query<{ instrument_id: string; bound: boolean; replayed: boolean }>(
+          `SELECT * FROM core.payment_cmd_record_instrument($1, $2, $3, $4, 'VISA', 'CREDIT', $5,
+                                                            12, 2034, 'ntx-2', NULL)`,
+          [uuid(), h, psp, token, last4],
+        );
+      const newHold = async (start: string, end: string): Promise<string | undefined> => {
+        const id = (
+          await tx.query<{ id: string }>(
+            'SELECT test_fixture.us703_paying_hold($1, $2, $3, $4, $5::bigint) AS id',
+            [c.country, guest, start, end, c.rentMinor],
+          )
+        ).rows[0]?.id;
+        await tx.query('SELECT test_fixture.us703_hold_consent($1)', [id]);
+        return id;
+      };
+      const hold2 = await newHold('2035-09-01T15:00:00Z', '2035-09-03T15:00:00Z');
+      expect((await recordOn(hold2, 'tok_us703_second_card', '0005')).rows[0]).toMatchObject({
+        instrument_id: second?.instrument_id,
+        bound: true,
+        replayed: true,
+      });
+      // troisième hold payé avec l'ANCIENNE carte (REPLACED) : elle redevient la carte courante,
+      // l'autre est remplacée ; le consentement du hold lui est lié
+      const hold3 = await newHold('2035-10-01T15:00:00Z', '2035-10-03T15:00:00Z');
+      expect((await recordOn(hold3, 'tok_us703_first_card', '4242')).rows[0]).toMatchObject({
+        instrument_id: first?.instrument_id,
+        bound: true,
+        replayed: true,
+      });
+      const after = await tx.query<{ status: string; last4: string }>(
+        'SELECT status, last4 FROM test_fixture.us703_cards($1)',
+        [guest],
+      );
+      expect(after.rows.map((r) => `${r.last4}:${r.status}`).sort()).toEqual([
+        '0005:REPLACED',
+        '4242:ACTIVE',
+      ]);
+      for (const [h, card] of [
+        [hold2, second?.instrument_id],
+        [hold3, first?.instrument_id],
+      ] as const) {
+        const k = await tx.query<{ instrument_id: string }>(
+          'SELECT * FROM test_fixture.us703_consent_of_hold($1)',
+          [h],
+        );
+        expect(k.rows[0]?.instrument_id).toBe(card);
+      }
+    });
+  });
+
+  it('revue argent n° 5 : carte connue liée au consentement du nouveau trip ⇒ le débit est TENTÉ sur la carte (jamais une dette MIT_CONSENT_MISSING)', async () => {
+    await asPayments(async (tx) => {
+      const psp = await bench(tx, c);
+      const w = await world(tx, c, psp, { returned: true });
+      // second trip du même voyageur, consentement donné, carte pas encore liée
+      const trip2 = uuid();
+      await tx.query(`SELECT test_fixture.rls_insert_trip($1, $2, $3, $4, $5, $6, $7, $8, $9)`, [
+        trip2,
+        w.guest,
+        uuid(),
+        uuid(),
+        c.country,
+        c.currency,
+        c.timezone,
+        '2035-02-24T10:00:00Z',
+        '2035-02-26T10:00:00Z',
+      ]);
+      const capture = legsOf(CAPTURE_LEGS[c.currency] ?? '');
+      const { operation_id: tender2 } = await recordOperation(tx, {
+        tripId: trip2,
+        accountId: psp,
+        kind: 'CAPTURE',
+        amountMinor: sum(capture),
+        currency: c.currency,
+        idemPlain: `trip:${trip2}:CAPTURE:${uuid()}`,
+        legs: capture,
+      });
+      expect(await applySignedStatus(tx, tender2, 'SUCCEEDED')).toBe('APPLIED');
+      // la carte du premier trip est celle du second (fixture : consentement lié à cette carte)
+      await tx.query('SELECT test_fixture.us703_consent($1, $2, $3::text[], true)', [
+        trip2,
+        w.card,
+        ['DELAYED_CHARGES', 'NO_SHOW', 'DAMAGE_SEPARATE', 'REAUTHORIZATION'],
+      ]);
+      await tx.query('SELECT test_fixture.us708_complete_trip($1)', [trip2]);
+      const charge = await notify(
+        tx,
+        { ...w, trip: trip2, tender: tender2 },
+        { purpose: 'INCIDENTAL', reason: 'DELAYED_CHARGES', legs: damageLegs(c) },
+      );
+      await setVirtualNow(tx, plus(T0, 4));
+      expect(await plan(tx, charge)).toMatchObject({ outcome: 'PLANNED', attempt: 1 });
+    });
+  });
+
+  it('revue code n° 3 / qa n° 4 : file des débits sans famine — plus de 50 débits en cours repoussés à leur prochaine relecture ⇒ le débit échu suivant est servi', async () => {
+    await asPayments(async (tx) => {
+      const psp = await bench(tx, c);
+      const w = await world(tx, c, psp, { returned: true });
+      const due = async (): Promise<string[]> =>
+        (
+          await tx.query<{ charge_id: string }>(
+            'SELECT charge_id FROM core.payment_post_trip_charges_due(50)',
+          )
+        ).rows.map((r) => r.charge_id);
+      const stuck: string[] = [];
+      for (let i = 0; i < 51; i += 1) {
+        stuck.push(
+          await notify(tx, w, {
+            purpose: 'INCIDENTAL',
+            reason: 'DELAYED_CHARGES',
+            legs: damageLegs(c),
+          }),
+        );
+      }
+      // préavis de 72 h écoulé : chaque débit a une tentative en vol (CHARGING)
+      await setVirtualNow(tx, plus(T0, 4));
+      for (const id of stuck) expect((await plan(tx, id)).outcome).toBe('PLANNED');
+      // un débit échu notifié après eux
+      await setVirtualNow(tx, plus(T0, 4, 1000));
+      const fresh = await notify(tx, w, {
+        purpose: 'INCIDENTAL',
+        reason: 'DELAYED_CHARGES',
+        legs: damageLegs(c),
+      });
+      // 51 débits en cours plus anciens : sans relecture différée, le débit échu attendrait
+      expect(await due()).not.toContain(fresh);
+      for (const id of stuck) {
+        const r = await tx.query<{ r: string }>(
+          'SELECT core.payment_cmd_defer_mit_charge($1, $2) AS r',
+          [id, 'NO_INSTRUMENT'],
+        );
+        expect(r.rows[0]?.r).toBe('DEFERRED');
+      }
+      const served = await due();
+      expect(served).toContain(fresh);
+      expect(served.filter((id) => stuck.includes(id))).toEqual([]);
+      expect(await chargeOf(tx, stuck[0] ?? '')).toMatchObject({ outcome_code: 'NO_INSTRUMENT' });
+      // un débit terminé n'est jamais repoussé
+      expect(
+        (
+          await tx.query<{ r: string }>('SELECT core.payment_cmd_defer_mit_charge($1, $2) AS r', [
+            fresh,
+            'X_CODE',
+          ])
+        ).rows[0]?.r,
+      ).toBe('UNCHANGED');
+      // 15 min plus tard : les débits en cours reviennent
+      await setVirtualNow(tx, plus(T0, 4, 16 * 60_000));
+      expect(await due()).toContain(stuck[0]);
+    });
+  });
+
+  it('revue architecture n° 1 : la graine des règles des réseaux concorde avec les paramètres du pays de 0009 (visa_objection_days, damage_charge_deadline_days, invoice_guest_response_h)', async () => {
+    await asPayments(async (tx) => {
+      const rule = async (network: string, reason: string) =>
+        (
+          await tx.query<{ notice_hours: number | null; deadline_days: number | null }>(
+            'SELECT notice_hours, deadline_days FROM test_fixture.us703_rule_of($1, $2, $3)',
+            [c.country, network, reason],
+          )
+        ).rows[0];
+      const param = async (key: string, network: string | null) =>
+        (
+          await tx.query<{ v: number }>(
+            `SELECT (value #>> '{}')::integer AS v FROM test_fixture.us703_param($1, $2, $3)`,
+            [key, c.country, network],
+          )
+        ).rows[0]?.v;
+      expect((await rule('VISA', 'DAMAGE_SEPARATE'))?.notice_hours).toBe(
+        ((await param('visa_objection_days', null)) ?? -1) * 24,
+      );
+      for (const network of ['VISA', 'MASTERCARD', 'AMEX']) {
+        expect((await rule(network, 'DAMAGE_SEPARATE'))?.deadline_days, network).toBe(
+          await param('damage_charge_deadline_days', network),
+        );
+        expect((await rule(network, 'DELAYED_CHARGES'))?.notice_hours, network).toBe(
+          await param('invoice_guest_response_h', null),
+        );
+      }
     });
   });
 
@@ -756,6 +946,20 @@ describe.each(COUNTRIES)(
             );
           expect((await accept(h.hash, hold)).rows[0]?.outcome).toBe('NOT_FOUND');
           expect((await accept(g.hash, hold, 'xx_YY')).rows[0]?.outcome).toBe('REQUEST_INVALID');
+          const mode = await tx.query<{ mode: string }>(
+            'SELECT mode FROM core.payment_mit_consent_mode_of_hold($1, $2::uuid)',
+            [g.hash, hold],
+          );
+          // DEC-FONDATEUR-22 : mention au bouton par défaut (paramètre du pays à false)
+          expect(mode.rows).toEqual([{ mode: 'NOTICE' }]);
+          expect(
+            (
+              await tx.query(
+                'SELECT mode FROM core.payment_mit_consent_mode_of_hold($1, $2::uuid)',
+                [h.hash, hold],
+              )
+            ).rowCount,
+          ).toBe(0);
           const a = (await accept(g.hash, hold)).rows[0];
           expect(a?.outcome).toBe('ACCEPTED');
           expect((await accept(g.hash, hold, 'pt-BR')).rows[0]).toEqual({

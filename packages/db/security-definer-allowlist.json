@@ -2543,6 +2543,20 @@
       "owner": "cmd_money_owner",
       "execute": ["app_worker"],
       "story": "US-703"
+    },
+    {
+      "signature": "core.payment_mit_consent_mode_of_hold(bytea,uuid)",
+      "family": "cmd_money",
+      "owner": "cmd_money_owner",
+      "execute": ["app_api"],
+      "story": "US-703"
+    },
+    {
+      "signature": "core.payment_cmd_defer_mit_charge(uuid,text)",
+      "family": "cmd_money",
+      "owner": "cmd_money_owner",
+      "execute": ["app_worker"],
+      "story": "US-703"
     }
   ]
 }

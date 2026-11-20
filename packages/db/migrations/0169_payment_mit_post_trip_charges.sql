@@ -93,13 +93,13 @@ CREATE POLICY cmd_money_debt_restriction_sel ON core.iam_restriction FOR SELECT
   TO cmd_money_owner USING (kind = 'UNPAID_BALANCE');
 CREATE POLICY cmd_money_debt_restriction_ins ON core.iam_restriction FOR INSERT
   TO cmd_money_owner
-  WITH CHECK (kind = 'UNPAID_BALANCE' AND active
+  WITH CHECK (kind = 'UNPAID_BALANCE' AND active AND source_ref LIKE 'debt:%'
               AND app.actor_kind() = 'WORKER' AND app.worker_name() = 'payment_command');
 CREATE POLICY cmd_money_debt_restriction_upd ON core.iam_restriction FOR UPDATE
   TO cmd_money_owner
-  USING (kind = 'UNPAID_BALANCE'
+  USING (kind = 'UNPAID_BALANCE' AND source_ref LIKE 'debt:%'
          AND app.actor_kind() = 'WORKER' AND app.worker_name() = 'payment_command')
-  WITH CHECK (kind = 'UNPAID_BALANCE' AND NOT active
+  WITH CHECK (kind = 'UNPAID_BALANCE' AND NOT active AND source_ref LIKE 'debt:%'
               AND app.actor_kind() = 'WORKER' AND app.worker_name() = 'payment_command');
 
 -- 2. Tables ---------------------------------------------------------------------------------------
@@ -495,8 +495,10 @@ BEGIN
      IS DISTINCT FROM
      (OLD.id, OLD.user_id, OLD.psp_account_id, OLD.country_code, OLD.token_ref, OLD.network,
       OLD.funding, OLD.last4, OLD.exp_month, OLD.exp_year, OLD.created_at)
-     OR OLD.status <> 'ACTIVE' OR NEW.status NOT IN ('REPLACED', 'REVOKED') THEN
-    RAISE EXCEPTION 'payment: instrument is immutable except its retirement'
+     OR NOT ((OLD.status = 'ACTIVE' AND NEW.status IN ('REPLACED', 'REVOKED'))
+             OR (OLD.status = 'REPLACED' AND NEW.status = 'ACTIVE' AND NEW.replaced_at IS NULL))
+  THEN
+    RAISE EXCEPTION 'payment: instrument is immutable except its retirement or its reuse'
       USING ERRCODE = 'integrity_constraint_violation', CONSTRAINT = 'mit_instrument_immutable';
   END IF;
   NEW.updated_at := platform.now();
@@ -1024,7 +1026,7 @@ BEGIN
     RETURN QUERY SELECT 'NOT_FOUND'::text, NULL::uuid;
     RETURN;
   END IF;
-  SELECT x.id, x.guest_user_id, x.status INTO h
+  SELECT x.id, x.guest_user_id, x.status, x.country_code INTO h
     FROM core.booking_checkout_hold AS x WHERE x.id = p_hold_id;
   IF h.id IS NULL OR h.guest_user_id IS DISTINCT FROM v_user THEN
     RETURN QUERY SELECT 'NOT_FOUND'::text, NULL::uuid;
@@ -1050,7 +1052,10 @@ BEGIN
                                         locale)
   VALUES (v_id, v_user, p_hold_id,
           ARRAY['DELAYED_CHARGES', 'NO_SHOW', 'DAMAGE_SEPARATE', 'REAUTHORIZATION'],
-          'web.s05.mitConsent', p_catalog_version, p_locale)
+          -- texte réellement affiché : case séparée (paramètre du pays vrai) ou mention au bouton
+          CASE core.payment_mit_consent_mode(h.country_code::text)
+            WHEN 'CHECKBOX' THEN 'web.s05.mitConsent' ELSE 'web.s05.mitConsentNotice' END,
+          p_catalog_version, p_locale)
   ON CONFLICT ON CONSTRAINT mit_consent_hold_unique DO NOTHING;
   PERFORM pg_catalog.set_config('app.actor_kind', COALESCE(v_kind, ''), true);
   SELECT c.id INTO v_id FROM core.payment_mit_consent AS c WHERE c.hold_id = p_hold_id;
@@ -1100,6 +1105,12 @@ BEGIN
   -- verrou du voyageur : une carte ACTIVE à la fois, remplacement sans course
   PERFORM pg_catalog.pg_advisory_xact_lock(
     pg_catalog.hashtextextended('mit.instrument:' || h.guest_user_id::text, 0));
+  -- revue sécurité n° 6 : un PAN est refusé AVANT toute écriture, sans jamais citer la valeur
+  -- (la contrainte payment_instrument_token_no_pan reste la défense en profondeur)
+  IF p_token_ref IS NULL OR core.payment_text_has_pan(p_token_ref) THEN
+    RAISE EXCEPTION 'payment: card token refused (looks like a card number)'
+      USING ERRCODE = 'check_violation', CONSTRAINT = 'payment_instrument_token_no_pan';
+  END IF;
   SELECT * INTO v_existing FROM core.payment_payment_instrument AS i
    WHERE i.psp_account_id = p_psp_account_id AND i.token_ref = p_token_ref;
   IF v_existing.id IS NOT NULL THEN
@@ -1107,6 +1118,28 @@ BEGIN
        OR v_existing.last4 <> p_last4 THEN
       RAISE EXCEPTION 'payment: same token, different card'
         USING ERRCODE = 'integrity_constraint_violation', CONSTRAINT = 'mit_instrument_conflict';
+    END IF;
+    -- revue argent n° 5 : voyageur qui revient avec une carte déjà enregistrée. Carte retirée
+    -- (REVOKED) : jamais reprise, rien n'est lié ; carte remplacée (REPLACED) redevenue celle du
+    -- paiement : elle redevient la carte courante (l'autre est remplacée, ADR-189 n° 14)
+    IF v_existing.status = 'REPLACED' THEN
+      UPDATE core.payment_payment_instrument AS i
+         SET status = 'REPLACED', replaced_at = platform.now()
+       WHERE i.user_id = h.guest_user_id AND i.psp_account_id = p_psp_account_id
+         AND i.status = 'ACTIVE';
+      UPDATE core.payment_payment_instrument AS i
+         SET status = 'ACTIVE', replaced_at = NULL
+       WHERE i.id = v_existing.id;
+      v_existing.status := 'ACTIVE';
+    END IF;
+    IF v_existing.status = 'ACTIVE' THEN
+      -- le consentement de CE hold, encore sans carte, est lié une fois à la carte connue
+      UPDATE core.payment_mit_consent AS c
+         SET instrument_id = v_existing.id, bound_at = platform.now(),
+             network_tx_reference = p_network_tx_reference,
+             transaction_link_id = p_transaction_link_id,
+             trip_id = COALESCE(c.trip_id, h.converted_trip_id)
+       WHERE c.hold_id = p_hold_id AND c.user_id = h.guest_user_id AND c.instrument_id IS NULL;
     END IF;
     instrument_id := v_existing.id;
     SELECT EXISTS (SELECT 1 FROM core.payment_mit_consent AS c
@@ -1514,10 +1547,9 @@ BEGIN
   IF v_acc.status IS DISTINCT FROM 'ACTIVE'
      OR NOT core.payment_capability_bool(v_acc.provider, c.country_code, 'CARD', 'SUPPORTS_MIT') THEN
     UPDATE core.payment_post_trip_charge AS x
-       SET next_check_at = v_now + interval '1 day', outcome_code = 'HOST_PAYOUT_RAIL_UNAVAILABLE'
+       SET next_check_at = v_now + interval '1 day', outcome_code = 'MIT_RAIL_UNAVAILABLE'
      WHERE x.id = c.id;
-    RETURN QUERY SELECT 'BLOCKED'::text, 'HOST_PAYOUT_RAIL_UNAVAILABLE'::text, NULL::uuid,
-                        c.attempt_no;
+    RETURN QUERY SELECT 'BLOCKED'::text, 'MIT_RAIL_UNAVAILABLE'::text, NULL::uuid, c.attempt_no;
     RETURN;
   END IF;
 
@@ -1747,9 +1779,9 @@ BEGIN
   SELECT c.id, c.status, a.provider::text, c.country_code
     FROM core.payment_post_trip_charge AS c
     JOIN core.payment_psp_account AS a ON a.id = c.psp_account_id
-   WHERE (c.status IN ('NOTIFIED', 'RETRY_DUE') AND c.next_check_at <= platform.now())
-      OR c.status = 'CHARGING'
-      OR (c.status = 'CHARGED' AND NOT c.leg_reported)
+   WHERE c.next_check_at <= platform.now()
+     AND (c.status IN ('NOTIFIED', 'RETRY_DUE', 'CHARGING')
+          OR (c.status = 'CHARGED' AND NOT c.leg_reported))
    ORDER BY c.next_check_at, c.id
    LIMIT GREATEST(1, LEAST(COALESCE(p_limit, 50), 500));
 END
@@ -1930,6 +1962,89 @@ COMMENT ON FUNCTION core.payment_cmd_settle_debt_collection(uuid) IS
   'Report d''un encaissement de dette prouvé : cumul par jambe, dette payée, restriction levée. '
   'Travailleur payment_command. SECURITY DEFINER, EXECUTE app_worker. US-703 (ADR-189).';
 
+-- 7.12 Mode du consentement du pays (DEC-FONDATEUR-22, ADR-189 n° 15) : `CHECKBOX` si
+-- `mit_consent_checkbox_required[pays]` vaut vrai, sinon `NOTICE` (mention explicite au bouton de
+-- paiement, comme Turo ; paramètre absent ⇒ mention). Le consentement reste exigé et enregistré
+-- dans les deux modes. Interne (SECURITY INVOKER, aucun EXECUTE).
+CREATE FUNCTION core.payment_mit_consent_mode(p_country text)
+  RETURNS text
+  LANGUAGE sql
+  STABLE
+  SET search_path = pg_catalog, pg_temp
+AS $fn$
+  SELECT CASE WHEN core.payout_param('mit_consent_checkbox_required', p_country) = 'true'::jsonb
+              THEN 'CHECKBOX' ELSE 'NOTICE' END
+$fn$;
+
+-- 7.13 Mode du consentement vu par le voyageur du hold (S05) ; aucune ligne pour toute autre
+-- personne.
+CREATE FUNCTION core.payment_mit_consent_mode_of_hold(p_token_hash bytea, p_hold_id uuid)
+  RETURNS TABLE (mode text)
+  LANGUAGE plpgsql
+  STABLE
+  SECURITY DEFINER
+  SET search_path = pg_catalog, pg_temp
+AS $fn$
+#variable_conflict use_column
+DECLARE
+  v_user uuid;
+  h      record;
+BEGIN
+  IF p_token_hash IS NULL OR p_hold_id IS NULL THEN
+    RETURN;
+  END IF;
+  SELECT s.user_id INTO v_user FROM core.iam_session_resolve(p_token_hash) AS s;
+  SELECT x.id, x.guest_user_id, x.country_code INTO h
+    FROM core.booking_checkout_hold AS x WHERE x.id = p_hold_id;
+  IF v_user IS NULL OR h.id IS NULL OR h.guest_user_id IS DISTINCT FROM v_user THEN
+    RETURN;
+  END IF;
+  RETURN QUERY SELECT core.payment_mit_consent_mode(h.country_code::text);
+END
+$fn$;
+COMMENT ON FUNCTION core.payment_mit_consent_mode_of_hold(bytea, uuid) IS
+  'Mode du consentement MIT (CHECKBOX ou NOTICE) du pays du hold, vu par son voyageur (S05). '
+  'SECURITY DEFINER, EXECUTE app_api. US-703 (ADR-189).';
+
+-- 7.14 Prochaine relecture d'un débit dont le traitement n'a pas abouti (revue code n° 3 : aucune
+-- famine de la file) : débit en cours (`CHARGING`) ou débité dont le mouvement de jambe attend sa
+-- preuve, repoussé de 15 min (PROPOSÉ), code journalisé ; tout autre état : rien. Travailleur
+-- payment_command.
+CREATE FUNCTION core.payment_cmd_defer_mit_charge(p_charge_id uuid, p_code text)
+  RETURNS text
+  LANGUAGE plpgsql
+  VOLATILE
+  SECURITY DEFINER
+  SET search_path = pg_catalog, pg_temp
+AS $fn$
+DECLARE
+  v_trip uuid;
+  v_n    integer;
+BEGIN
+  IF app.actor_kind() IS DISTINCT FROM 'WORKER'
+     OR app.worker_name() IS DISTINCT FROM 'payment_command' THEN
+    RAISE EXCEPTION 'payment: defer_mit_charge reserved to the payment_command worker'
+      USING ERRCODE = 'insufficient_privilege', CONSTRAINT = 'mit_command_forbidden';
+  END IF;
+  SELECT x.trip_id INTO v_trip FROM core.payment_post_trip_charge AS x WHERE x.id = p_charge_id;
+  IF v_trip IS NULL THEN
+    RETURN 'NOT_FOUND';
+  END IF;
+  PERFORM 1 FROM core.booking_trip AS t WHERE t.id = v_trip FOR UPDATE;
+  UPDATE core.payment_post_trip_charge AS x
+     SET next_check_at = platform.now() + interval '15 minutes',
+         outcome_code = CASE WHEN p_code ~ '^[A-Z][A-Z0-9_]{1,63}$' THEN p_code
+                             ELSE x.outcome_code END
+   WHERE x.id = p_charge_id
+     AND (x.status = 'CHARGING' OR (x.status = 'CHARGED' AND NOT x.leg_reported));
+  GET DIAGNOSTICS v_n = ROW_COUNT;
+  RETURN CASE WHEN v_n = 1 THEN 'DEFERRED' ELSE 'UNCHANGED' END;
+END
+$fn$;
+COMMENT ON FUNCTION core.payment_cmd_defer_mit_charge(uuid, text) IS
+  'Prochaine relecture (+15 min) d''un débit post-trip en cours ou en attente de preuve : la file '
+  'ne le ramène plus en tête. Travailleur payment_command. SECURITY DEFINER, EXECUTE app_worker. US-703.';
+
 -- 8. Droits et propriétaire -------------------------------------------------------------------
 REVOKE ALL ON FUNCTION
   core.payment_partial_collection_legs(bigint[], bigint[], bigint),
@@ -1949,12 +2064,16 @@ REVOKE ALL ON FUNCTION
   core.payment_cmd_settle_mit_attempt(uuid, boolean),
   core.payment_post_trip_charges_due(integer),
   core.payment_cmd_plan_debt_collection(uuid, uuid, uuid, bigint),
-  core.payment_cmd_settle_debt_collection(uuid)
+  core.payment_cmd_settle_debt_collection(uuid),
+  core.payment_mit_consent_mode(text),
+  core.payment_mit_consent_mode_of_hold(bytea, uuid),
+  core.payment_cmd_defer_mit_charge(uuid, text)
 FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION
   core.payment_cmd_accept_mit_consent(bytea, uuid, text, integer),
   core.payment_cmd_ack_mit_reminder(bytea, uuid, text, integer),
-  core.payment_mit_consent_view(bytea, uuid)
+  core.payment_mit_consent_view(bytea, uuid),
+  core.payment_mit_consent_mode_of_hold(bytea, uuid)
 TO app_api;
 GRANT EXECUTE ON FUNCTION
   core.payment_cmd_record_instrument(uuid, uuid, uuid, text, text, text, text, integer, integer,
@@ -1966,7 +2085,8 @@ GRANT EXECUTE ON FUNCTION
   core.payment_cmd_settle_mit_attempt(uuid, boolean),
   core.payment_post_trip_charges_due(integer),
   core.payment_cmd_plan_debt_collection(uuid, uuid, uuid, bigint),
-  core.payment_cmd_settle_debt_collection(uuid)
+  core.payment_cmd_settle_debt_collection(uuid),
+  core.payment_cmd_defer_mit_charge(uuid, text)
 TO app_worker;
 
 GRANT CREATE ON SCHEMA core TO cmd_money_owner;
@@ -2002,4 +2122,46 @@ ALTER FUNCTION core.payment_post_trip_charges_due(integer) OWNER TO cmd_money_ow
 ALTER FUNCTION core.payment_cmd_plan_debt_collection(uuid, uuid, uuid, bigint)
   OWNER TO cmd_money_owner;
 ALTER FUNCTION core.payment_cmd_settle_debt_collection(uuid) OWNER TO cmd_money_owner;
+ALTER FUNCTION core.payment_mit_consent_mode(text) OWNER TO cmd_money_owner;
+ALTER FUNCTION core.payment_mit_consent_mode_of_hold(bytea, uuid) OWNER TO cmd_money_owner;
+ALTER FUNCTION core.payment_cmd_defer_mit_charge(uuid, text) OWNER TO cmd_money_owner;
 REVOKE CREATE ON SCHEMA core FROM cmd_money_owner;
+
+-- 9. Mode du consentement : lecture du paramètre par cmd_money_owner (liste de 0165 + la clé ;
+-- même nom de politique : remplacement admis, ADR-081)
+ALTER POLICY cmd_money_sel ON core.config_param_value
+  USING (key IN ('payouts_enabled', 'insurer_contract_active', 'funds_holding_enabled',
+                 'payout_account_rails', 'payout_account_change_hold_h',
+                 'payout_business_day_offset', 'first_payout_business_day',
+                 'payout_batch_local_time', 'mit_consent_checkbox_required'));
+
+-- 10. Paramètre `mit_consent_checkbox_required` (DEC-FONDATEUR-22) : bloc GÉNÉRÉ depuis
+-- apps/api/src/modules/cfg/data/params.json (`renderParamSeedSql`, groupe `embedded` de
+-- POST_SEED_PARAMS) ; seed-sql.test.ts exige ce bloc à l'identique. Ne pas l'éditer à la main.
+-- 0169 — graine complémentaire : paramètres « mit_consent_checkbox_required* » (US-703 ; 17 §7.2).
+-- FICHIER GÉNÉRÉ depuis apps/api/src/modules/cfg/data/params.json par seed-sql.ts
+-- (renderParamSeedSql) : ne pas l’éditer à la main (test seed-sql.test.ts). Appliquée sous
+-- `migrator`. 0009 est immuable (ADR-044) : elle reste rendue sans ces paramètres (ADR-075).
+-- Valeurs PROPOSÉES ; valid_from posé par la garde (platform.now()).
+--
+-- Retour arrière (base sans dépendance) : DELETE des valeurs puis des définitions dont la clé
+-- commence par « mit_consent_checkbox_required » ; jamais en production : nouvelle migration à la place.
+INSERT INTO core.config_param_definition (key, type, unit, allowed_scopes, currency_bound, fail_mode, optional, go_live_switch, not_applicable_in, allowed_values, source_ref, status) VALUES
+  ('mit_consent_checkbox_required', 'BOOL', NULL, ARRAY['COUNTRY']::text[], false, 'BLOCK', false, false, '{}'::text[], NULL, '16 PAY-015, 10b UX-30 (case séparée `web.s05.mitConsent`) ; DEC-FONDATEUR-22 (« jamais plus lourd que Turo ; tout contrôle plus lourd = paramètre pays à false ») ; ADR-189 ; faux : consentement MIT par la mention explicite à côté du bouton de paiement (comme Turo), toujours enregistré ; vrai : case séparée obligatoire ; absent : mention (comme Turo), le consentement reste exigé et enregistré', 'PROPOSÉ comme Turo (ADR-189) : mention au bouton, aucune case de plus ; vrai seulement si une règle de réseau ou un avis l’exige dans le pays');
+
+INSERT INTO core.config_param_value (key, country_code, scope_type, scope_id, network, value, change_reason) VALUES
+  ('mit_consent_checkbox_required', 'PA', 'COUNTRY', NULL, NULL, 'false'::jsonb, 'graine US-703 : défauts PROPOSÉS (16 PAY-015 ; 10b UX-30 ; DEC-FONDATEUR-22 ; ADR-189)'),
+  ('mit_consent_checkbox_required', 'PY', 'COUNTRY', NULL, NULL, 'false'::jsonb, 'graine US-703 : défauts PROPOSÉS (16 PAY-015 ; 10b UX-30 ; DEC-FONDATEUR-22 ; ADR-189)');
+
+-- Fail-closed : chaque paramètre du groupe a une valeur dans chaque pays déclaré.
+DO $check$
+BEGIN
+  IF EXISTS (SELECT 1 FROM core.config_param_definition AS d
+              CROSS JOIN core.config_country AS c
+             WHERE d.key LIKE 'mit\_consent\_checkbox\_required%'
+               AND NOT EXISTS (SELECT 1 FROM core.config_param_value AS v
+                                WHERE v.key = d.key AND v.country_code = c.code)) THEN
+    RAISE EXCEPTION 'graine : paramètre mit_consent_checkbox_required* sans valeur pour un pays' USING ERRCODE = 'check_violation';
+  END IF;
+END
+$check$;
