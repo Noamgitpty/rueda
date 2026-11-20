@@ -9,6 +9,10 @@
  *   après une réponse perdue et des passages répétés (lecture d'abord), puis `payout` une fois ;
  * - `payouts_enabled` = false (motif de la base) : compteur d'appels `payout` et `releaseLeg` du
  *   FAKE à 0 ; variante B sans `funds_holding_enabled` : 0 appel ; aucun connecteur : rien.
+ * - US-709 (ADR-187) : lot compensé (créance de la règle 3 bis, TJ18b / TJ18d) ⇒ `adjustPayout` de
+ *   la part compensée UNE fois (clé `adjust:{lot}:r1`), avant le `payout` du net ; réponse perdue ⇒
+ *   lecture d'abord ; capacité `SUPPORTS_PAYOUT_ADJUSTMENT` absente ⇒ aucun appel (revue). La
+ *   mémoire suit la garde de 0167 (aucune émission d'un lot compensé sans ajustement réussi).
  *
  * Attendus : jambe HOST des vecteurs TJ01 (USD) et TJ08a (PYG sans décimale) de l'export des
  * oracles Python (`@rueda/money/golden-vectors`) ; jamais le code testé.
@@ -21,6 +25,7 @@ import type { SqlClient, WorkerTransactions } from '../../bus/index.js';
 import { CapabilitySet, PaymentError } from '../../pay/index.js';
 import type {
   ApplyOutcome,
+  AdjustPayoutRequest,
   ApplyStatusInput,
   OperationStatus,
   PaymentConnectorRegistry,
@@ -30,6 +35,7 @@ import type {
   ReleaseLegRequest,
 } from '../../pay/index.js';
 import type {
+  AdjustmentOrder,
   BatchCheck,
   DueBatch,
   PayoutBatchStore,
@@ -59,6 +65,7 @@ const CAPABILITIES: readonly FakeCapability[] = [
   v('SUPPORTS_LOOKUP_BY_MERCHANT_REF', true),
   v('SUPPORTS_IDEMPOTENCY_HEADER', true),
   v('IDEMPOTENCY_KEY_MAX_LEN', 64),
+  v('SUPPORTS_PAYOUT_ADJUSTMENT', true),
 ];
 
 const statusOf = (s: string): OperationStatus =>
@@ -77,8 +84,8 @@ function translate(error: unknown): never {
 }
 
 /** Connecteur de test minimal : les seules méthodes du versement, sur le FAKE. */
-function connectorOf(psp: FakePsp): PaymentProvider {
-  const caps = new CapabilitySet(CAPABILITIES);
+function connectorOf(psp: FakePsp, capabilities = CAPABILITIES): PaymentProvider {
+  const caps = new CapabilitySet(capabilities);
   const run = <T>(fn: () => T): T => {
     try {
       return fn();
@@ -111,6 +118,19 @@ function connectorOf(psp: FakePsp): PaymentProvider {
             submerchantReference: r.submerchantReference,
             amountMinor: r.amountMinor,
             currency: r.currency,
+          });
+          return { providerReference: tx.reference, status: statusOf(tx.status) };
+        }),
+      ),
+    adjustPayout: (r: AdjustPayoutRequest) =>
+      Promise.resolve(
+        run(() => {
+          const tx = psp.adjustPayout({
+            merchantReference: r.idempotencyKey,
+            submerchantReference: r.submerchantReference,
+            amountMinor: r.amountMinor,
+            currency: r.currency,
+            reason: r.reason,
           });
           return { providerReference: tx.reference, status: statusOf(tx.status) };
         }),
@@ -152,6 +172,10 @@ class MemoryStore implements PayoutBatchStore {
   key: string | null = null;
   providerRef: string | null = null;
   applied = 0;
+  /** Part compensée du lot (dette du host_ledger, 0167) et son ajustement. */
+  netted = 0n;
+  adjusted: 'SUBMITTED' | 'SUCCEEDED' | 'FAILED' | null = null;
+  adjustmentRef: string | null = null;
   readonly items: {
     id: string;
     trip: string;
@@ -182,7 +206,7 @@ class MemoryStore implements PayoutBatchStore {
   }
 
   get net(): bigint {
-    return this.items.reduce((s, i) => s + i.amount, 0n);
+    return this.items.reduce((s, i) => s + i.amount, 0n) - this.netted;
   }
 
   tripsToPrepare(): Promise<readonly string[]> {
@@ -269,6 +293,36 @@ class MemoryStore implements PayoutBatchStore {
     this.applied += 1;
     return Promise.resolve('APPLIED');
   }
+  adjustment(): Promise<AdjustmentOrder> {
+    const order = (outcome: string): AdjustmentOrder => ({
+      outcome,
+      idempotencyKey: this.adjusted === null ? null : `adjust:${this.batchId}:r1`,
+      amountMinor: this.netted,
+      currency: this.currency,
+      submerchantReference: this.submerchant,
+      providerRef: this.adjustmentRef,
+      holdReasons: [...this.holds],
+    });
+    if (this.status !== 'READY') return Promise.resolve(order(this.status));
+    if (this.netted === 0n) return Promise.resolve(order('NONE'));
+    if (this.adjusted === 'SUCCEEDED') return Promise.resolve(order('DONE'));
+    if (this.adjusted === 'FAILED') return Promise.resolve(order('FAILED'));
+    if (this.items.some((i) => !i.applied)) return Promise.resolve(order('RELEASE_PENDING'));
+    if (this.holds.length > 0) {
+      this.status = 'ON_HOLD';
+      return Promise.resolve(order('ON_HOLD'));
+    }
+    if (this.adjusted === 'SUBMITTED') return Promise.resolve(order('REPLAY'));
+    this.adjusted = 'SUBMITTED';
+    return Promise.resolve(order('ADJUST'));
+  }
+  recordAdjustment(_b: string, status: OperationStatus, ref: string | null): Promise<string> {
+    if (this.adjusted === 'SUBMITTED' && (status === 'SUCCEEDED' || status === 'FAILED')) {
+      this.adjusted = status;
+      this.adjustmentRef = ref ?? this.adjustmentRef;
+    }
+    return Promise.resolve(this.adjusted ?? 'NONE');
+  }
   initiate(): Promise<PayoutOrder> {
     const order = (outcome: string): PayoutOrder => ({
       outcome,
@@ -287,6 +341,10 @@ class MemoryStore implements PayoutBatchStore {
     if (this.holds.length > 0) {
       this.status = 'ON_HOLD';
       return Promise.resolve(order('ON_HOLD'));
+    }
+    // garde de 0167 : aucune émission d'un lot compensé sans ajustement réussi
+    if (this.netted > 0n && this.adjusted !== 'SUCCEEDED') {
+      throw Object.assign(new Error('payout_batch_adjustment_required'), { code: '55000' });
     }
     this.attempt += 1;
     this.key = `payout:${this.batchId}:r${this.attempt}`;
@@ -317,12 +375,17 @@ const transactions: WorkerTransactions = {
     fn({ query: () => Promise.reject(new Error('aucune base')) } as unknown as SqlClient),
 };
 
-function rig(currency: string, hosts: readonly bigint[], scenario?: FakePspScenario) {
+function rig(
+  currency: string,
+  hosts: readonly bigint[],
+  scenario?: FakePspScenario,
+  capabilities: readonly FakeCapability[] = CAPABILITIES,
+) {
   let now = Date.parse('2032-01-20T15:00:00.000Z');
   const psp = new FakePsp({
     secret: 'whsec_fake_test_only',
     clock: () => now,
-    capabilities: CAPABILITIES,
+    capabilities,
     ...(scenario !== undefined ? { scenario } : {}),
   });
   const sm = psp.registerSubmerchant({
@@ -354,7 +417,7 @@ function rig(currency: string, hosts: readonly bigint[], scenario?: FakePspScena
     sm.reference,
     trips,
   );
-  const connector = connectorOf(psp);
+  const connector = connectorOf(psp, capabilities);
   const connectors: PaymentConnectorRegistry = {
     get: (p) => (p === PROVIDER ? connector : undefined),
   };
@@ -479,5 +542,81 @@ describe.each(CASES)('US-708 — ordonnanceur des versements ($label, $vector)',
     );
     expect(r.calls('RELEASE_LEG') + r.calls('PAYOUT')).toBe(0);
     expect(r.store.status).toBe('READY');
+  });
+});
+
+/**
+ * US-709 (ADR-187 ; 08 E7 règle 7 ; SM-6b) : la créance de la règle 3 bis de l'hôte (08 TJ18b :
+ * « créance de 75,00 au host_ledger[hôte][USD] » ; TJ18d : « créance de 518 750 au
+ * host_ledger[hôte][PYG] ») est compensée sur le lot suivant (jambe HOST de TJ01 / TJ08a).
+ */
+const CLAIMS = [
+  { vector: 'TJ01', claim: 7500n, label: 'TJ18b, deux décimales' },
+  { vector: 'TJ08a', claim: 518_750n, label: 'TJ18d, sans décimale' },
+] as const;
+
+describe.each(CLAIMS)('US-709 — ajustement de la part compensée ($label)', ({ vector, claim }) => {
+  const tj = legVector(golden, vector);
+  const host = tj.legsMinor.HOST;
+
+  it('lot compensé : adjustPayout de la part compensée une fois (adjust:{lot}:r1), puis payout du net une fois ; aucun rappel ensuite', async () => {
+    const r = rig(tj.currency, [host]);
+    r.store.netted = claim;
+    expect(await r.scheduler.process(r.due('NET'))).toBe('NETTED');
+    expect(await r.scheduler.process(r.due('RELEASE'))).toBe('PAID');
+    expect(r.calls('ADJUST_PAYOUT')).toBe(1);
+    expect(r.calls('PAYOUT')).toBe(1);
+    expect(r.psp.lookup({ merchantReference: `adjust:${r.store.batchId}:r1` })?.amountMinor).toBe(
+      claim,
+    );
+    const sm = r.psp.submerchant(r.store.submerchant);
+    expect(sm?.adjustedMinor).toBe(claim);
+    expect(sm?.paidOutMinor).toBe(host - claim);
+    expect(await r.scheduler.process(r.due('RELEASE'))).toBe('IDLE');
+    expect(await r.scheduler.process(r.due('PAYOUT'))).toBe('IDLE');
+    expect(r.calls('ADJUST_PAYOUT')).toBe(1);
+    expect(r.calls('PAYOUT')).toBe(1);
+  });
+
+  it('réponse perdue après l’ajustement : lecture d’abord, aucun second ajustement ; le versement part une fois', async () => {
+    const r = rig(tj.currency, [host], {
+      responses: { ADJUST_PAYOUT: [{ kind: 'TIMEOUT_AFTER_SUCCESS' }] },
+    });
+    r.store.netted = claim;
+    await r.scheduler.process(r.due('NET'));
+    expect(await r.scheduler.process(r.due('RELEASE'))).toBe('WAITING');
+    expect(r.store.adjusted).toBe('SUBMITTED');
+    expect(r.calls('PAYOUT')).toBe(0);
+    expect(await r.scheduler.process(r.due('RELEASE'))).toBe('PAID');
+    expect(r.calls('ADJUST_PAYOUT')).toBe(1);
+    expect(r.calls('PAYOUT')).toBe(1);
+    expect(r.psp.submerchant(r.store.submerchant)?.adjustedMinor).toBe(claim);
+  });
+
+  it('SUPPORTS_PAYOUT_ADJUSTMENT absente (inconnue = non) : aucun ajustement ni versement, revue', async () => {
+    const r = rig(
+      tj.currency,
+      [host],
+      undefined,
+      CAPABILITIES.filter((c) => c.capability !== 'SUPPORTS_PAYOUT_ADJUSTMENT'),
+    );
+    r.store.netted = claim;
+    await r.scheduler.process(r.due('NET'));
+    expect(await r.scheduler.process(r.due('RELEASE'))).toBe('ATTENTION');
+    expect(r.calls('ADJUST_PAYOUT') + r.calls('PAYOUT')).toBe(0);
+    expect(r.store.status).toBe('READY');
+  });
+
+  it('ajustement refusé par le PSP : jamais renvoyé, aucun versement (revue FIN)', async () => {
+    const r = rig(tj.currency, [host], {
+      responses: { ADJUST_PAYOUT: [{ kind: 'DECLINE', code: 'do_not_honor' }] },
+    });
+    r.store.netted = claim;
+    await r.scheduler.process(r.due('NET'));
+    expect(await r.scheduler.process(r.due('RELEASE'))).toBe('ATTENTION');
+    expect(await r.scheduler.process(r.due('RELEASE'))).toBe('ATTENTION');
+    expect(r.calls('ADJUST_PAYOUT')).toBe(1);
+    expect(r.calls('PAYOUT')).toBe(0);
+    expect(r.store.adjusted).toBe('FAILED');
   });
 });

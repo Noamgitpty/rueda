@@ -449,6 +449,16 @@ describe.each(CASES)('RT-L2-ARG — jambes, preuve, crédits ($country, $currenc
           WHERE operation_id = $1`,
         [cb.operation_id],
       );
+      // US-709 (0167) : l'imputation de TJ14a / TJ14b est écrite par la base au statut SUCCEEDED
+      // (table d'imputation, lue par le contrôle FIN) ; comptée comme une imputation
+      await tx.query('SAVEPOINT rt_l2_cb');
+      await asWorker(tx, 'reconciliation');
+      const facts = await tx.query<{ n: number }>(
+        `SELECT pg_catalog.count(*)::int AS n FROM core.finance_chargeback_facts()
+          WHERE country_code = $1 AND imputed`,
+        [c.country],
+      );
+      await tx.query('ROLLBACK TO SAVEPOINT rt_l2_cb');
       const frozen = await tx.query<{ frozen: boolean }>(
         `SELECT frozen FROM core.settlement_trip_leg_balance
           WHERE trip_id = $1 AND segment_no = 1 AND leg = 'HOST'`,
@@ -457,7 +467,7 @@ describe.each(CASES)('RT-L2-ARG — jambes, preuve, crédits ($country, $currenc
       await asWorker(tx, 'reconciliation');
       const report = reconciliationReportJson(await runMoneyReconciliation(sqlOf(tx)));
       chargeback.set(c.country, {
-        moved: moved === null || (imputed.rows[0]?.n ?? 0) > 0,
+        moved: moved === null || (imputed.rows[0]?.n ?? 0) > 0 || (facts.rows[0]?.n ?? 0) > 0,
         hostFrozen: frozen.rows[0]?.frozen === true,
         violations: report.violations,
       });
@@ -487,8 +497,10 @@ describe.each(CASES)('RT-L2-ARG — jambes, preuve, crédits ($country, $currenc
 
   // US-222d (preuve du correctif, 0155) : sans chargeback, la jambe HOST n'est pas gelée et aucun
   // écart CHARGEBACK_UNIMPUTED ; un chargeback enregistré gèle la jambe HOST (frozen_reason
-  // CHARGEBACK) avant toute preuve ; prouvé (SUCCEEDED) sans imputation, il est un écart FIN
-  it('US-222d : chargeback ⇒ jambe HOST gelée (CHARGEBACK) dès l’enregistrement, écart FIN CHARGEBACK_UNIMPUTED une fois prouvé ; trip sans chargeback ⇒ ni gel ni écart', async () => {
+  // CHARGEBACK) avant toute preuve. US-709 (0167) : prouvé (SUCCEEDED), il est IMPUTÉ par la base
+  // (trip réalisé : aucune reprise, TJ14b), donc décidé : dégel et aucun écart FIN ; la part INSURER
+  // est gelée avec HOST pendant le litige (08 E7 règle 7, N-415)
+  it('US-222d / US-709 : chargeback ⇒ jambes HOST et INSURER gelées (CHARGEBACK) dès l’enregistrement ; prouvé ⇒ imputé, dégelé, aucun écart FIN ; trip sans chargeback ⇒ ni gel ni écart', async () => {
     const worker = await open('app_worker');
     await inTx(worker, { worker: 'payment_command', at: at(0) }, async (tx) => {
       const w = await capturedTripIn(tx, c, T0 + 8 * DAY, 3);
@@ -519,16 +531,17 @@ describe.each(CASES)('RT-L2-ARG — jambes, preuve, crédits ($country, $currenc
       });
       expect(await host()).toEqual({ frozen: true, frozen_reason: 'CHARGEBACK' });
       expect(await unimputed()).toBe('0');
-      expect(await signedStatus(tx, cb.operation_id, 'SUCCEEDED')).toBe('APPLIED');
-      expect(await host()).toEqual({ frozen: true, frozen_reason: 'CHARGEBACK' });
-      expect(await unimputed()).toBe('1');
-      // les autres jambes ne sont pas gelées (08 E7 règle 7 : seule HOST est en jeu sur un trip)
+      // 08 E7 règle 7 : la part INSURER est gelée avec HOST, TAX_THIRD_PARTY et PLATFORM jamais
       const others = await tx.query<{ n: number }>(
         `SELECT pg_catalog.count(*)::int AS n FROM core.settlement_trip_leg_balance
-          WHERE trip_id = $1 AND leg <> 'HOST' AND frozen`,
+          WHERE trip_id = $1 AND leg NOT IN ('HOST', 'INSURER') AND frozen`,
         [w.trip],
       );
       expect(others.rows[0]?.n).toBe(0);
+      expect(await signedStatus(tx, cb.operation_id, 'SUCCEEDED')).toBe('APPLIED');
+      // US-709 : imputé par la base (TJ14b), donc décidé : dégel et aucun écart FIN
+      expect(await host()).toEqual({ frozen: false, frozen_reason: null });
+      expect(await unimputed()).toBe('0');
     });
   });
 });

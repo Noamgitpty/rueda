@@ -277,6 +277,13 @@ Pour chaque point : ce que c'est, pourquoi ça compte, ce qu'on propose, ce qu'o
 - _Ce qu'on propose_ : passer au lot 3 (remise et retour de la voiture, versements) ; pour le paiement hors plateforme, comme Turo : refuser le texte et le signaler à l'équipe, sans rien exiger de plus de l'hôte.
 - _Ce qu'on attend de toi_ : rien de nouveau, information.
 
+**7.12 Chargebacks et dettes des hôtes : construits, sans décision attendue** (US-709, ADR-187 ; 2026-11-20).
+
+- _Ce que c'est_ : quand un voyageur gagne un chargeback, la plateforme ne reprend à l'hôte que ce qu'il a déjà reçu pour un voyage annulé, jamais pour un voyage réalisé, jamais sur la part de l'assureur ni sur la taxe ; la dette de l'hôte (pénalité, reprise, avance de Kmino) est retenue sur son versement suivant, dans la même monnaie ; un litige gagné libère enfin le versement gelé.
+- _Pourquoi ça compte_ : sans cela, un chargeback restait gelé pour toujours et les dettes des hôtes n'étaient jamais retenues.
+- _Ce qu'on propose_ : passer une dette en perte reste une décision de **deux personnes de la finance** (le délai de 180 jours est indicatif) ; il faut donc un second approbateur FINANCE avant la mise en service (déjà dans la liste).
+- _Ce qu'on attend de toi_ : rien maintenant.
+
 **7.11 Versements aux hôtes : livrés, fermés en production ; ce qu'il faut avant de les ouvrir** (US-707, US-708, ADR-180, ADR-185 ; 2026-11-19, complété le 2026-11-20).
 
 - _Ce que c'est_ : les versements par lots existent (simulés) : après un voyage, l'hôte est versé le **2ᵉ jour ouvré** de son pays (le **5ᵉ** pour son premier versement), jours fériés du pays compris ; le montant est sa part du voyage moins ses dettes (pénalités) ; un chargeback, un litige ou un compte de versement changé depuis moins de 48 h retiennent le versement. Tant que l'interrupteur `payouts_enabled` du pays vaut « non », **rien ne part** : les lots restent en attente.
