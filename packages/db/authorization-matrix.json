@@ -2215,6 +2215,36 @@
         "app_anon": []
       }
     },
+    "core.settlement_chargeback_imputation": {
+      "type": "table",
+      "identifiant": "operation_id",
+      "droits": {
+        "app_api": {
+          "SELECT": "*"
+        },
+        "app_worker": {},
+        "app_anon": {}
+      },
+      "politiques": {
+        "app_api": ["fin_read:SELECT"],
+        "app_worker": [],
+        "app_anon": []
+      },
+      "lecture": {
+        "sans_contexte": "aucune",
+        "voyageur": "aucune",
+        "hote": "aucune",
+        "cohote": "aucune",
+        "hote_org_forgee": "aucune",
+        "SUPPORT_AGENT": "aucune",
+        "OPS_AGENT": "aucune",
+        "FINANCE": "country_code = :pays",
+        "ADMIN": "country_code = :pays",
+        "ADMIN_portee_elargie": "country_code = :pays",
+        "SUPERADMIN": "aucune",
+        "staff_sans_session": "aucune"
+      }
+    },
     "core.settlement_finance_approval": {
       "type": "table",
       "droits": {
@@ -2512,17 +2542,50 @@
           "SELECT": [
             "advance_id",
             "amount_minor",
+            "chargeback_operation_id",
             "country_code",
             "created_at",
             "currency",
             "id",
             "org_id",
+            "payout_batch_id",
             "reason",
             "segment_no",
             "settlement_id",
             "settlement_version",
-            "trip_id"
+            "trip_id",
+            "write_off_approval_id"
           ]
+        },
+        "app_worker": {},
+        "app_anon": {}
+      },
+      "politiques": {
+        "app_api": ["fin_read:SELECT"],
+        "app_worker": [],
+        "app_anon": []
+      },
+      "lecture": {
+        "sans_contexte": "aucune",
+        "voyageur": "aucune",
+        "hote": "aucune",
+        "cohote": "aucune",
+        "hote_org_forgee": "aucune",
+        "SUPPORT_AGENT": "aucune",
+        "OPS_AGENT": "aucune",
+        "FINANCE": "country_code = :pays",
+        "ADMIN": "country_code = :pays",
+        "ADMIN_portee_elargie": "country_code = :pays",
+        "SUPERADMIN": "aucune",
+        "staff_sans_session": "aucune"
+      }
+    },
+    "core.settlement_host_ledger_state": {
+      "type": "table",
+      "identifiant": "org_id",
+      "droits": {
+        "app_api": {
+          "SELECT": "*"
         },
         "app_worker": {},
         "app_anon": {}

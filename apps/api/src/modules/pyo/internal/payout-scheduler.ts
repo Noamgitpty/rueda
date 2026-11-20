@@ -14,6 +14,10 @@
  *    chaque item, l'ordre `LEG_RELEASE` vivant ou un nouvel ordre au rang suivant (après un refus
  *    reçu seulement), envoyé par `MoneyCommandSender` (lecture d'abord si l'issue est inconnue ou
  *    sans en-tête d'idempotence, même clé, montant explicite) puis reporté sur les soldes ;
+ * 3 bis. ajustement (US-709, ADR-187) : la part compensée du lot (dette du `host_ledger`) est reprise
+ *    chez le PSP par `adjustPayout` (clé `adjust:{lot}:r1`, montant STOCKÉ) avant le versement ;
+ *    capacité `SUPPORTS_PAYOUT_ADJUSTMENT` inconnue = non : rien n'est envoyé (revue) ; la base
+ *    refuse l'émission d'un lot compensé sans ajustement réussi ;
  * 4. `PAYOUT` : quand chaque item est libéré, émission du lot (`core.payout_cmd_initiate_batch`,
  *    motifs relus À L'ENVOI, garde de la table sur `payouts_enabled`), puis `payout` du connecteur
  *    avec la clé `payout:{lot}:r{n}` ; un lot déjà émis est LU avant tout renvoi.
@@ -31,7 +35,13 @@ import type {
   PaymentProvider,
   ProviderOperation,
 } from '../../pay/index.js';
-import type { DueBatch, PayoutBatchStore, PayoutOrder, ReleaseItem } from './payout-batch-store.js';
+import type {
+  AdjustmentOrder,
+  DueBatch,
+  PayoutBatchStore,
+  PayoutOrder,
+  ReleaseItem,
+} from './payout-batch-store.js';
 import { PgPayoutBatchStore } from './pg-payout-batch-store.js';
 
 /** Nom de la tâche périodique (file du travailleur). */
@@ -153,8 +163,88 @@ export class PayoutScheduler {
         if (done !== 'RELEASED') pending += 1;
       }
       if (pending > 0) return 'RELEASING';
+      const adjusted = await this.#adjust(
+        store,
+        connector,
+        await store.adjustment(due.batchId),
+        due.batchId,
+      );
+      if (adjusted !== 'DONE') return adjusted;
     }
     return this.#payout(store, connector, await store.initiate(due.batchId), due.batchId);
+  }
+
+  /**
+   * Ajustement de la part compensée (US-709) : lecture d'abord pour un ajustement déjà envoyé ou
+   * sans en-tête d'idempotence ; un refus reçu n'est jamais renvoyé (revue FIN).
+   */
+  async #adjust(
+    store: PayoutBatchStore,
+    connector: PaymentProvider,
+    order: AdjustmentOrder,
+    batchId: string,
+  ): Promise<PayoutBatchStep | 'DONE'> {
+    if (order.outcome === 'NONE' || order.outcome === 'DONE') return 'DONE';
+    if (order.outcome === 'ON_HOLD') return 'ON_HOLD';
+    if (order.outcome === 'RELEASE_PENDING') return 'RELEASING';
+    if (order.outcome === 'FAILED') return 'ATTENTION';
+    if (order.outcome !== 'ADJUST' && order.outcome !== 'REPLAY') return 'IDLE';
+    const key = order.idempotencyKey;
+    if (
+      key === null ||
+      order.amountMinor === null ||
+      order.currency === null ||
+      order.submerchantReference === null
+    ) {
+      return 'ATTENTION';
+    }
+    const caps = connector.capabilities();
+    // capacité inconnue = non (17 §2.8) : aucun appel, le lot reste compensé et non émis
+    if (!caps.bool('SUPPORTS_PAYOUT_ADJUSTMENT')) return 'ATTENTION';
+    if (order.outcome === 'REPLAY' || !caps.bool('SUPPORTS_IDEMPOTENCY_HEADER')) {
+      const byKey = caps.bool('SUPPORTS_LOOKUP_BY_MERCHANT_REF');
+      if (!byKey && order.providerRef === null) return 'ATTENTION';
+      let found: ProviderOperation | null;
+      try {
+        found = await connector.getOperation(
+          byKey ? { merchantReference: key } : { providerReference: order.providerRef ?? '' },
+        );
+      } catch (error) {
+        if (isPaymentError(error)) return 'WAITING';
+        throw error;
+      }
+      if (found !== null) {
+        return this.#adjusted(store, batchId, found.status, found.providerReference);
+      }
+    }
+    try {
+      const r = await connector.adjustPayout({
+        idempotencyKey: key,
+        submerchantReference: order.submerchantReference,
+        amountMinor: order.amountMinor,
+        currency: order.currency,
+        reason: 'HOST_LEDGER_NETTING',
+      });
+      return await this.#adjusted(store, batchId, r.status, r.providerReference);
+    } catch (error) {
+      if (!isPaymentError(error)) throw error;
+      if (error.code === 'DECLINED') return this.#adjusted(store, batchId, 'FAILED', null);
+      if (error.code === 'UNKNOWN_OUTCOME' || error.code === 'PROVIDER_UNAVAILABLE') {
+        return 'WAITING';
+      }
+      return 'ATTENTION';
+    }
+  }
+
+  async #adjusted(
+    store: PayoutBatchStore,
+    batchId: string,
+    status: OperationStatus,
+    providerRef: string | null,
+  ): Promise<PayoutBatchStep | 'DONE'> {
+    const s = await store.recordAdjustment(batchId, status, providerRef);
+    if (s === 'SUCCEEDED') return 'DONE';
+    return s === 'FAILED' ? 'ATTENTION' : 'WAITING';
   }
 
   /** Une libération par item : l'ordre vivant, ou un nouvel ordre au rang suivant. */
