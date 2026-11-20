@@ -68,6 +68,9 @@ const ISOLATED = [
   // US-708 : deux travailleurs préparent le versement du même trip, à deux sessions ; trip encaissé
   // et terminé VALIDÉ sur le compte PSP ACTIVE partagé du pays (fixture 9800), lot validé
   'test/l0/l0-us708-payout-race.test.ts',
+  // US-709 : compensation contre passage en perte du même hôte à deux sessions ; créance et décision
+  // FINANCE VALIDÉES, compte PSP ACTIVE partagé du pays (fixture 9800)
+  'test/l0/l0-us709-ledger-race.test.ts',
   // US-317 : publication des avis à l'échéance par le travailleur et courses à deux sessions
   // (travailleurs, enregistrements simultanés) ; trips, sessions et avis commités ; le travailleur
   // publie tous les scellés échus de la base

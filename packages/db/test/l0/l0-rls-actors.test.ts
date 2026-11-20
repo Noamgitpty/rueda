@@ -718,6 +718,9 @@ describe('RLS-5, RLS-12, RLS-18', () => {
           'settlement_settlement',
           // US-709a (0129, ADR-153) : host_ledger, lecture FINANCE / ADMIN du pays (fin_read)
           'settlement_host_ledger_entry',
+          // US-709 (0167, ADR-187) : même règle (imputation des chargebacks, état SM-6b)
+          'settlement_chargeback_imputation',
+          'settlement_host_ledger_state',
           // US-227 (0143, ADR-165) : registre de l'assureur, lecture FINANCE / ADMIN du pays (fin_read)
           'settlement_insurer_ledger_entry',
           'settlement_platform_advance', // US-062 : créance du titulaire, FINANCE / ADMIN

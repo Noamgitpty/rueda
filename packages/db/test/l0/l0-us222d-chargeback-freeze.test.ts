@@ -5,13 +5,15 @@
  * et en PYG sans décimale (PY), transactions ANNULÉES.
  *
  * - Un CHARGEBACK enregistré par la vraie commande gèle la jambe HOST de son trip (raison
- *   CHARGEBACK), et elle seule ; un statut FAILED ensuite ne dégèle rien (aucune voie de dégel avant
- *   la décision FIN d'US-709) ; un trip sans solde HOST : rien d'écrit, aucune erreur.
+ *   CHARGEBACK) ; US-709 (0167, N-415 ; 08 E7 règle 7) : la part INSURER est gelée avec elle,
+ *   TAX_THIRD_PARTY et PLATFORM jamais ; un statut FAILED (chargeback gagné) DÉGÈLE les deux, quand
+ *   aucun autre chargeback du trip n'est ouvert (voie de dégel d'US-709, éprouvée en détail par
+ *   l0-us709-chargebacks) ; un trip sans solde HOST : rien d'écrit, aucune erreur.
  * - Garde `core.settlement_trip_leg_balance_guard` : sous migrator (fixture 9931, aucun rôle
  *   applicatif n'a le droit d'écrire `frozen`), un dégel (`frozen = false`) ou une requalification
- *   (`frozen_reason` = un autre motif) ⇒ 23000 `trip_leg_balance_freeze_forbidden` ; le gel d'une
- *   autre jambe (part INSURER, 08 E7 règle 7 ; fixture 9850) reste permis, puis ne se lève pas non
- *   plus.
+ *   (`frozen_reason` = un autre motif) TANT QUE le chargeback est ouvert ⇒ 23000
+ *   `trip_leg_balance_freeze_forbidden` ; le gel d'une autre jambe (part INSURER, 08 E7 règle 7 ;
+ *   fixture 9850) reste permis, puis ne se lève pas non plus.
  * Montants : capture de TJ01 / TJ08a (export des oracles), jamais calculés ici.
  */
 import { legVector, loadGoldenVectors } from '@rueda/money/golden-vectors';
@@ -109,7 +111,7 @@ describe.each(COUNTRIES)('US-222d — gel au chargeback — $country ($currency)
     return { trip, account };
   }
 
-  it('chargeback enregistré ⇒ jambe HOST gelée (CHARGEBACK), elle seule ; FAILED ensuite ne dégèle rien', async () => {
+  it('chargeback enregistré ⇒ jambes HOST et INSURER gelées (CHARGEBACK), TAX et PLATFORM jamais ; FAILED ensuite dégèle (US-709)', async () => {
     await withRole('app_worker', async (client) => {
       await payTx(client, { worker: 'payment_command' }, async (tx) => {
         const { trip, account } = await capturedTrip(tx);
@@ -119,18 +121,25 @@ describe.each(COUNTRIES)('US-222d — gel au chargeback — $country ($currency)
           frozen: true,
           frozen_reason: 'CHARGEBACK',
         });
-        for (const leg of ['INSURER', 'TAX_THIRD_PARTY', 'PLATFORM']) {
+        // US-709 (N-415, 08 E7 règle 7) : la part INSURER est gelée avec HOST pendant le litige
+        expect(await freezeOf(tx, trip, 'INSURER')).toEqual({
+          frozen: true,
+          frozen_reason: 'CHARGEBACK',
+        });
+        for (const leg of ['TAX_THIRD_PARTY', 'PLATFORM']) {
           expect(await freezeOf(tx, trip, leg), leg).toEqual({
             frozen: false,
             frozen_reason: null,
           });
         }
-        // chargeback gagné ou rejeté (FAILED) : aucune voie de dégel avant la décision FIN (US-709)
+        // US-709 : chargeback gagné ou rejeté (FAILED), aucun autre ouvert ⇒ dégel de HOST et INSURER
         expect(await applySignedStatus(tx, cb, 'FAILED')).toBe('APPLIED');
-        expect(await freezeOf(tx, trip, 'HOST')).toEqual({
-          frozen: true,
-          frozen_reason: 'CHARGEBACK',
-        });
+        for (const leg of ['HOST', 'INSURER']) {
+          expect(await freezeOf(tx, trip, leg), leg).toEqual({
+            frozen: false,
+            frozen_reason: null,
+          });
+        }
       });
     });
   });

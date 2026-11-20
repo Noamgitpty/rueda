@@ -227,6 +227,8 @@ export const PAYOUT_ADJUSTMENT_REASONS = [
   'IMPUTED_REFUND',
   'RELEASED_LEG_RECOVERY',
   'CHARGEBACK_RECOVERY',
+  /** US-709 (ADR-187) : part compensée d'un lot (dette du `host_ledger`, tous motifs, SM-6b). */
+  'HOST_LEDGER_NETTING',
 ] as const;
 export type PayoutAdjustmentReason = (typeof PAYOUT_ADJUSTMENT_REASONS)[number];
 

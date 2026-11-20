@@ -821,6 +821,16 @@ beforeAll(async () => {
         }
       }
     });
+    // US-709 (0167, ADR-187) : une imputation de chargeback sur les trips a1 et b1 (encaissés), pour
+    // éprouver chaque cellule de la table sur des lignes réelles, par pays ; l'état SM-6b
+    // (settlement_host_ledger_state) est projeté par les écritures de l'étape US-709a ci-dessus
+    await withTestTransaction(client, { commit: true }, async (tx) => {
+      for (const x of world.countries) {
+        for (const trip of [x.trips.a1.id, x.trips.b1.id]) {
+          await tx.query('SELECT test_fixture.us709_insert_imputation($1)', [trip]);
+        }
+      }
+    });
     // US-227 (0143, ADR-165) : une écriture du registre de l'assureur sur le règlement en tête des
     // trips a1, a2 et b1 (sans effet si le règlement a déjà la sienne), pour éprouver chaque cellule
     // de la table sur des lignes réelles, par pays
