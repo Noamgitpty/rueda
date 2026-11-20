@@ -414,12 +414,13 @@ describe('tâches du travailleur (US-003)', () => {
 
   // US-111 (16 LEG-009 « tâche de purge → pseudonymisation tracée », LEG-010) : comptes de la base
   // relayés, une alerte P1 par pays en retard, une alerte P1 si un effacement KYC est en souffrance
-  it('privacy_request : pseudonymisation, retards des demandes par pays, effacements KYC en souffrance ; alertes P1 ; comptes journalisés', async () => {
+  it('privacy_request : pseudonymisation, purge des messages (US-316), retards des demandes par pays, effacements KYC en souffrance ; alertes P1 ; comptes journalisés', async () => {
     const registry = new BusRegistry();
     const alerts = new RecordingAlerts();
     const logs: string[] = [];
     const { tx, sql } = recordingTx({
       privacy_worker_retention_sweep: [{ n: '3' }],
+      privacy_worker_message_purge: [{ n: 2 }],
       privacy_worker_dsr_overdue: [
         { country_code: C1, overdue: 2 },
         { country_code: C2, overdue: '1' },
@@ -440,6 +441,8 @@ describe('tâches du travailleur (US-003)', () => {
     const d = WORKER_TASK_DEFAULTS;
     expect(sql).toEqual([
       `SELECT core.privacy_worker_retention_sweep($1) AS n [${d.privacyBatch}]`,
+      // US-316 (ADR-186) : purge des messages à l'échéance TRIP_MESSAGES, même lot
+      `SELECT core.privacy_worker_message_purge($1) AS n [${d.privacyBatch}]`,
       `SELECT country_code, overdue FROM core.privacy_worker_dsr_overdue($1) [${d.privacyBatch}]`,
       `SELECT core.privacy_worker_stale_kyc_erasures($1) AS n [${d.kycErasureStaleMinutes}]`,
     ]);
@@ -463,6 +466,7 @@ describe('tâches du travailleur (US-003)', () => {
         level: 'info',
         worker: 'privacy_request',
         pseudonymised: 3,
+        messagesPurged: 2,
         overdue: 3,
         stale: 4,
       }),
@@ -472,6 +476,8 @@ describe('tâches du travailleur (US-003)', () => {
   it('privacy_request : rien en retard ni en souffrance ⇒ aucune alerte ; canal en échec ⇒ la passe échoue (rejouée)', async () => {
     const quiet = recordingTx({
       privacy_worker_retention_sweep: [{ n: 0 }],
+      // US-316 : aucune purge de messages due
+      privacy_worker_message_purge: [{ n: 0 }],
       privacy_worker_stale_kyc_erasures: [{ n: 0 }],
     });
     const alerts = new RecordingAlerts();
@@ -490,6 +496,7 @@ describe('tâches du travailleur (US-003)', () => {
     expect(alerts.sent).toEqual([]);
     const late = recordingTx({
       privacy_worker_retention_sweep: [{ n: 0 }],
+      privacy_worker_message_purge: [{ n: 0 }],
       privacy_worker_dsr_overdue: [{ country_code: C1, overdue: 1 }],
       privacy_worker_stale_kyc_erasures: [{ n: 0 }],
     });

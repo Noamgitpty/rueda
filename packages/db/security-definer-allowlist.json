@@ -2433,6 +2433,34 @@
       "story": "US-308"
     },
     {
+      "signature": "core.messaging_meeting_read(bytea,uuid)",
+      "family": "messaging_cmd",
+      "owner": "messaging_cmd_owner",
+      "execute": ["app_api"],
+      "story": "US-316"
+    },
+    {
+      "signature": "core.messaging_cmd_propose_meeting(bytea,uuid,uuid,text,text,timestamp with time zone)",
+      "family": "messaging_cmd",
+      "owner": "messaging_cmd_owner",
+      "execute": ["app_api"],
+      "story": "US-316"
+    },
+    {
+      "signature": "core.messaging_cmd_answer_meeting(bytea,uuid,uuid,text)",
+      "family": "messaging_cmd",
+      "owner": "messaging_cmd_owner",
+      "execute": ["app_api"],
+      "story": "US-316"
+    },
+    {
+      "signature": "core.privacy_worker_message_purge(integer)",
+      "family": "privacy_cmd",
+      "owner": "privacy_cmd_owner",
+      "execute": ["app_worker"],
+      "story": "US-316"
+    },
+    {
       "signature": "core.settlement_refresh_host_ledger_state(uuid,text)",
       "family": "cmd_money",
       "owner": "cmd_money_owner",

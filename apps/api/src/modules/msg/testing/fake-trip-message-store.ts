@@ -95,6 +95,7 @@ export class FakeTripMessageStore implements TripMessageStore {
         masked: m.masked,
         offPlatform: m.author === party.userId && m.offPlatform,
         sentAt: m.sentAt,
+        purged: m.purged,
       })),
     });
   }
@@ -138,6 +139,7 @@ export class FakeTripMessageStore implements TripMessageStore {
       masked,
       offPlatform,
       sentAt,
+      purged: false,
     });
     return Promise.resolve({
       outcome: 'DONE',

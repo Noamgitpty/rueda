@@ -51,6 +51,8 @@ export interface TripMessageView {
   readonly masked: boolean;
   readonly offPlatform: boolean;
   readonly sentAt: string;
+  /** Texte effacé par la rétention (US-316) ; `body` est alors `null`. */
+  readonly purged: boolean;
 }
 
 export interface TripThreadView extends MsgBody {

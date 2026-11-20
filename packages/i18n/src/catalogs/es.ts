@@ -3222,6 +3222,60 @@ export const ES_MESSAGES = {
     'Hola, {first_name}. Recibimos tu solicitud de ayuda sobre la reserva {booking_ref}. Nuestro equipo no está disponible en este momento y te responderá lo antes posible. Si hay peligro o heridos, llama a emergencias. {assistance}',
   'ntf.helpOffHoursHost.sms.body':
     '{brand}: recibimos tu solicitud ({booking_ref}). Te responderemos lo antes posible. Si hay peligro, llama a emergencias. {assistance}',
+  // confidentialité, rendez-vous et rétention de la messagerie (US-316, ADR-186, catalogue v101)
+  'common.meetings.list': 'Encuentros del viaje.',
+  'common.meetings.proposed': 'Propuesta enviada.',
+  'common.meetings.answered': 'Respuesta registrada.',
+  'common.meetings.notAllowed':
+    'Solo quien ofrece el auto propone el encuentro y solo quien viaja lo confirma, mientras el viaje no haya terminado.',
+  'common.meetings.notFound': 'No encontramos esta propuesta de encuentro.',
+  'common.meetings.notPending': 'Esta propuesta ya fue respondida o reemplazada por otra.',
+  'common.meetings.expired': 'La hora propuesta ya pasó. Pide otra propuesta en los mensajes.',
+  'common.meetings.invalid':
+    'Indica un lugar de 3 a 160 caracteres y una hora futura cercana a las fechas del viaje.',
+  'common.meetings.placeContact':
+    'El lugar no puede llevar teléfono, correo, usuario ni enlace. Describe un sitio fácil de ubicar.',
+  'web.s16.purged': 'Este mensaje se borró al terminar el plazo de conservación.',
+  'web.s16.meeting.heading': 'Encuentro',
+  'web.s16.meeting.leadGuest':
+    'Tu anfitrión propone el lugar y la hora de la entrega y de la devolución; confírmalos aquí.',
+  'web.s16.meeting.leadHost':
+    'Propón el lugar y la hora de la entrega y de la devolución; el viajero los confirma.',
+  'web.s16.meeting.privacy': 'El lugar solo lo ven ustedes dos; los avisos indican solo la hora.',
+  'web.s16.meeting.none': 'Aún no hay encuentro propuesto.',
+  'web.s16.meeting.kind.PICKUP': 'Entrega',
+  'web.s16.meeting.kind.RETURN': 'Devolución',
+  'web.s16.meeting.status.PROPOSED': 'Por confirmar',
+  'web.s16.meeting.status.ACCEPTED': 'Confirmado',
+  'web.s16.meeting.status.DECLINED': 'Rechazado',
+  'web.s16.meeting.place': 'Lugar: {place}',
+  'web.s16.meeting.accept': 'Confirmar',
+  'web.s16.meeting.decline': 'Rechazar',
+  'web.s16.meeting.done.ACCEPTED': 'Encuentro confirmado. Les avisamos a los dos con la hora.',
+  'web.s16.meeting.done.DECLINED':
+    'Propuesta rechazada. Escríbele a tu anfitrión para acordar otra.',
+  'web.s16.meeting.done.PROPOSED': 'Propuesta enviada. El viajero la confirmará aquí.',
+  'web.s16.meeting.form.title': 'Proponer un encuentro',
+  'web.s16.meeting.form.kind': 'Etapa',
+  'web.s16.meeting.form.place': 'Lugar del encuentro',
+  'web.s16.meeting.form.placeHint':
+    'Un lugar público y fácil de ubicar. Sin teléfono, correo ni enlace.',
+  'web.s16.meeting.form.when': 'Fecha y hora',
+  'web.s16.meeting.form.whenHint': 'Hora local del viaje.',
+  'web.s16.meeting.form.submit': 'Proponer',
+  'web.s16.meeting.form.required': 'Indica el lugar, la fecha y la hora.',
+  'ntf.meetingPickupConfirmed.email.subject':
+    'Reserva {booking_ref}: encuentro de la entrega confirmado',
+  'ntf.meetingPickupConfirmed.email.body':
+    'Hola, {first_name}. El encuentro para la entrega de la reserva {booking_ref} quedó confirmado para el {meet_at}. El lugar acordado está en los mensajes de la reserva en {brand}.',
+  'ntf.meetingPickupConfirmed.sms.body':
+    '{brand}: encuentro de la entrega confirmado ({booking_ref}) para el {meet_at}. Lugar en los mensajes de la app.',
+  'ntf.meetingReturnConfirmed.email.subject':
+    'Reserva {booking_ref}: encuentro de la devolución confirmado',
+  'ntf.meetingReturnConfirmed.email.body':
+    'Hola, {first_name}. El encuentro para la devolución de la reserva {booking_ref} quedó confirmado para el {meet_at}. El lugar acordado está en los mensajes de la reserva en {brand}.',
+  'ntf.meetingReturnConfirmed.sms.body':
+    '{brand}: encuentro de la devolución confirmado ({booking_ref}) para el {meet_at}. Lugar en los mensajes de la app.',
 } as const satisfies Catalog;
 
 export type MessageKey = keyof typeof ES_MESSAGES;

@@ -871,6 +871,26 @@ async function requestOf(
         path: `/trips/${randomUUID()}/messages`,
         body: { id: randomUUID(), body: 'Hola, ¿dónde nos vemos?' },
       };
+    // rendez-vous d'un trip (US-316) : trip dont l'acteur n'est pas partie ⇒ 404, rien d'écrit
+    case 'GET /trips/{tripId}/meetings':
+      return { method: 'GET', path: `/trips/${randomUUID()}/meetings` };
+    case 'POST /trips/{tripId}/meetings':
+      return {
+        method: 'POST',
+        path: `/trips/${randomUUID()}/meetings`,
+        body: {
+          id: randomUUID(),
+          kind: 'PICKUP',
+          place: 'Plaza central, entrada norte',
+          meetAt: '2035-06-10T14:00:00.000Z',
+        },
+      };
+    case 'POST /trips/{tripId}/meetings/{meetingId}/answer':
+      return {
+        method: 'POST',
+        path: `/trips/${randomUUID()}/meetings/${randomUUID()}/answer`,
+        body: { decision: 'ACCEPT' },
+      };
     case 'POST /trips/{tripId}/contract/sign':
       return {
         method: 'POST',
