@@ -4142,7 +4142,7 @@ Politiques RLS :
 ### `core.kyc_identity_verification`
 
 - RLS : ENABLE + FORCE ; propriétaire `migrator`
-INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE
+- Droits : kyc_cmd_owner: INSERT, SELECT ; migrator: DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE
 
 | Colonne | Type | NOT NULL | Défaut |
 | ------- | ---- | -------- | ------ |
