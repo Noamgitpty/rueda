@@ -3006,6 +3006,113 @@ export const ES_MESSAGES = {
   'web.inspection.retry': 'Reintentar',
   'web.inspection.link.checkin': 'Fotos de salida del auto',
   'web.inspection.link.checkout': 'Fotos de devolución del auto',
+  'common.handover.notFound': 'No encontramos la entrega de este viaje.',
+  'common.handover.hostOnly': 'Solo el anfitrión puede hacer este paso.',
+  'common.handover.checkinNotOpen': 'La entrega todavía no está abierta para este viaje.',
+  'common.handover.checkoutNotOpen': 'La devolución se abre cuando el viaje está en curso.',
+  'common.handover.paymentNotConfirmed':
+    'El pago todavía no está confirmado: no se puede entregar el auto.',
+  'common.handover.contractNotSigned':
+    'El viajero todavía no firmó el contrato: no se puede entregar el auto.',
+  'common.handover.depositNotReady':
+    'El depósito de garantía todavía no está listo: no se puede entregar el auto.',
+  'common.handover.insurerInactive':
+    'La protección de la aseguradora no está activa por ahora: no se puede entregar el auto.',
+  'common.handover.blocked': 'La entrega está bloqueada. Escribe a soporte.',
+  'common.handover.licenseCheckIncomplete':
+    'Revisa los 6 puntos de la licencia, o elige un motivo para no entregar el auto.',
+  'common.handover.identityFailed': 'La licencia no se verificó: la entrega está detenida.',
+  'common.handover.checkinStepIncomplete':
+    'Falta un paso de la entrega: primero valida tus fotos y la licencia.',
+  'common.handover.checkoutStepIncomplete':
+    'Falta un paso de la devolución: primero valida tus fotos.',
+  'common.handover.readingInvalid': 'Revisa el kilometraje y el combustible.',
+  'common.handover.contactlessUnavailable':
+    'La entrega sin encuentro no está disponible: se hace en persona.',
+  'common.handover.unavailable':
+    'No pudimos guardar este paso. Revisa tu conexión y vuelve a intentarlo.',
+  'web.a03.arrived': 'Ya llegué',
+  'web.a03.refuse': 'No entregar el auto',
+  'web.a03.handover': 'Entregar las llaves',
+  'web.a03.check.face': 'La persona se parece a la foto de la licencia',
+  'web.a03.check.name': 'El nombre y la inicial del apellido coinciden con la licencia',
+  'web.a03.check.birthYear': 'El año de nacimiento coincide',
+  'web.a03.check.valid': 'La licencia está vigente',
+  'web.a03.check.provisional': 'No es una licencia provisional',
+  'web.a03.check.restrictions': 'Sus restricciones permiten manejar este auto',
+  'web.handover.back': 'Volver al viaje',
+  'web.handover.title.checkin': 'Entrega del auto',
+  'web.handover.title.checkout': 'Devolución del auto',
+  'web.handover.link.checkin': 'Hacer la entrega del auto',
+  'web.handover.link.checkout': 'Hacer la devolución del auto',
+  'web.handover.loadError': 'No pudimos cargar la entrega.',
+  'web.handover.retry': 'Volver a cargar',
+  'web.handover.lead.checkin':
+    'Hagan la entrega juntos, en persona, en el lugar acordado. Cada paso dice qué falta.',
+  'web.handover.lead.checkout': 'Hagan la devolución juntos, en persona. Cada paso dice qué falta.',
+  'web.handover.online': 'Necesitas conexión a internet: sin red, nada se guarda.',
+  'web.handover.step.arrival': 'Llegada al lugar de entrega',
+  'web.handover.step.license': 'Licencia de conducir',
+  'web.handover.step.photos': 'Fotos del auto',
+  'web.handover.step.keys': 'Kilometraje, combustible y llaves',
+  'web.handover.step.close': 'Kilometraje, combustible y cierre',
+  'web.handover.opensAt': 'La entrega se abre el {date}.',
+  'web.handover.opened': 'La entrega está abierta.',
+  'web.handover.closed': 'Este paso no está abierto en este momento.',
+  'web.handover.checkoutClosed': 'La devolución se abre cuando el viaje esté en curso.',
+  'web.handover.blockersTitle': 'Antes de entregar el auto, falta:',
+  'web.handover.blocker.CHECKIN_PAYMENT_NOT_CONFIRMED': 'la confirmación del pago',
+  'web.handover.blocker.CONTRACT_NOT_SIGNED': 'la firma del contrato por el viajero',
+  'web.handover.blocker.DEPOSIT_NOT_READY': 'el depósito de garantía',
+  'web.handover.blocker.INSURER_CONTRACT_INACTIVE': 'la protección activa de la aseguradora',
+  'web.handover.blocker.HANDOVER_BLOCKED': 'una revisión de soporte; escribe a soporte desde Ayuda',
+  'web.handover.license.lead':
+    'Compara la licencia física del viajero con estos datos. No le tomes foto ni anotes su número.',
+  'web.handover.license.name': 'Nombre en la cuenta',
+  'web.handover.license.birthYear': 'Año de nacimiento en la cuenta',
+  'web.handover.license.unknown': 'Dato no disponible',
+  'web.handover.license.points': 'Los 6 puntos de la licencia',
+  'web.handover.license.confirm': 'Confirmar la licencia',
+  'web.handover.license.ok': 'Licencia verificada',
+  'web.handover.license.failed':
+    'Entrega detenida: la licencia no se verificó. El viaje no puede empezar.',
+  'web.handover.license.guest': 'El anfitrión revisará tu licencia física al encontrarse.',
+  'web.handover.refuse.reason': 'Motivo si no entregas el auto',
+  'web.handover.refuse.INVALID_LICENSE': 'La licencia no es válida',
+  'web.handover.refuse.IDENTITY_NOT_VERIFIED': 'La persona no coincide con la cuenta',
+  'web.handover.refuse.OTHER_DRIVER_SENT': 'Vino otro conductor',
+  'web.handover.refuse.choose': '— Elige un motivo —',
+  'web.handover.refuse.confirm':
+    'Entiendo que no entregar el auto es una decisión definitiva: la entrega se detiene y no se puede deshacer.',
+  'web.handover.refuse.reasonRequired': 'Elige el motivo antes de no entregar el auto.',
+  'web.handover.refuse.confirmRequired': 'Confirma que entiendes que la decisión es definitiva.',
+  'web.handover.refuse.hint':
+    'Si un punto no se cumple, no entregues el auto: elige el motivo y confirma. Es definitivo: la entrega se detiene y el viaje no podrá empezar.',
+  'web.handover.photos.mine.NONE': 'Tus fotos: sin empezar',
+  'web.handover.photos.mine.DRAFT': 'Tus fotos: en curso',
+  'web.handover.photos.mine.SUBMITTED': 'Tus fotos: validadas',
+  'web.handover.photos.other.HOST.NONE': 'Fotos del anfitrión: sin empezar',
+  'web.handover.photos.other.HOST.DRAFT': 'Fotos del anfitrión: en curso',
+  'web.handover.photos.other.HOST.SUBMITTED': 'Fotos del anfitrión: validadas',
+  'web.handover.photos.other.GUEST.NONE': 'Fotos del viajero: sin empezar',
+  'web.handover.photos.other.GUEST.DRAFT': 'Fotos del viajero: en curso',
+  'web.handover.photos.other.GUEST.SUBMITTED': 'Fotos del viajero: validadas',
+  'web.handover.photos.take': 'Tomar mis fotos',
+  'web.handover.photos.view': 'Ver mis fotos',
+  'web.handover.odometer': 'Kilometraje del tablero (km)',
+  'web.handover.fuel': 'Nivel de combustible (octavos)',
+  'web.handover.reading': 'Confirmaste: {km} km, combustible {fuel}/8.',
+  'web.handover.validate.HOST.checkout': 'Recibir el auto',
+  'web.handover.validate.GUEST.checkin': 'Recibí el auto',
+  'web.handover.validate.GUEST.checkout': 'Devolver el auto',
+  'web.handover.validate.hint': 'La hora que cuenta es la del servidor cuando ambos confirman.',
+  'web.handover.waiting.HOST': 'Esperando la confirmación del viajero.',
+  'web.handover.waiting.GUEST': 'Esperando la confirmación del anfitrión.',
+  'web.handover.otherDone': 'La otra persona ya confirmó: falta tu confirmación.',
+  'web.handover.photosFirst': 'Primero valida tus fotos del auto.',
+  'web.handover.licenseFirst': 'Primero verifica la licencia del viajero.',
+  'web.handover.done.checkin': 'Viaje en curso desde el {date}.',
+  'web.handover.done.checkout': 'Auto devuelto el {date}.',
   // US-525 (ADR-181) : messagerie par trip (S16) et rappels du signal hors plateforme
   'common.messages.thread': 'Mensajes del viaje.',
   'common.messages.sent': 'Mensaje enviado.',
@@ -3045,6 +3152,76 @@ export const ES_MESSAGES = {
   'web.s16.notice.offPlatform':
     'Recuerda: todo pago pasa por {brand}. Un pago por fuera no tiene protección ni reembolso, y nuestro equipo revisa estos mensajes.',
   'web.s16.sent': 'Mensaje enviado.',
+  // aide et urgence pendant le trip (US-310, ADR-182, catalogue v97)
+  'web.shell.help': 'Ayuda',
+  'web.help.title': 'Ayuda y emergencias',
+  'web.help.lead': 'Los números de emergencia y de asistencia están siempre en esta página.',
+  'web.help.emergency.title': 'En una emergencia',
+  'web.help.emergency.call': 'Emergencias: {number}',
+  'web.help.emergency.accident':
+    'Después de un accidente de tránsito, avisa también a {authority}.',
+  'web.help.emergency.safety':
+    'Si tú u otra persona están en peligro, ponte a salvo y llama primero a emergencias.',
+  'web.help.roadside.title': 'Avería o accidente',
+  'web.help.roadside.number': 'Asistencia de la aseguradora asociada: {number}',
+  'web.help.roadside.inApp':
+    'El número de la asistencia de la aseguradora asociada aparecerá aquí. Mientras tanto, pide ayuda desde tu viaje.',
+  'web.help.support.title': 'Soporte de {brand}',
+  'web.help.support.number': 'Teléfono del soporte: {number}',
+  'web.help.support.inApp':
+    'Pide ayuda desde el detalle de tu viaje: tu solicitud llega a nuestro equipo.',
+  'web.help.support.hours':
+    'Atención de personas, en español y en inglés, todos los días de {from} a {to} (hora local).',
+  'web.help.support.noHours':
+    'Si nuestro equipo no está disponible, recibes enseguida los números de asistencia y te respondemos lo antes posible.',
+  'web.help.trips.lead': '¿Tienes un viaje? Ve a tus viajes para pedir ayuda sobre uno de ellos.',
+  'web.help.trips.link': 'Mis viajes',
+  'web.help.unavailable':
+    'No pudimos cargar los números. En una emergencia, llama a los servicios de emergencia locales.',
+  'web.help.faq.title': 'Preguntas frecuentes',
+  'web.help.faq.accident.q': '¿Qué hago después de un accidente?',
+  'web.help.faq.accident.a':
+    'Ponte a salvo y llama a emergencias si hay heridos. Avisa a la autoridad de tránsito y a la asistencia de la aseguradora, toma fotos y pide ayuda desde tu viaje.',
+  'web.help.faq.privacy.q': '¿El soporte comparte mi teléfono?',
+  'web.help.faq.privacy.a':
+    'No. Nunca damos tu teléfono a la otra persona del viaje: escríbanse solo por {brand}.',
+  'web.help.trip.title': 'Ayuda con este viaje',
+  'web.help.trip.back': 'Volver al viaje',
+  'web.help.trip.section': 'Ayuda y emergencias',
+  'web.help.trip.open': 'Pedir ayuda o ver los números de emergencia',
+  'web.help.request.title': 'Pedir ayuda a {brand}',
+  'web.help.request.topic': '¿Qué pasa?',
+  'web.help.topic.ACCIDENT': 'Tuve un accidente',
+  'web.help.topic.BREAKDOWN': 'El auto tiene una avería',
+  'web.help.topic.HANDOVER': 'Problema con la entrega o la devolución',
+  'web.help.topic.SAFETY': 'Tengo un problema de seguridad',
+  'web.help.topic.OTHER': 'Otra consulta sobre este viaje',
+  'web.help.request.safetyHint': 'Si hay peligro inmediato, llama primero a emergencias.',
+  'web.help.request.privacy':
+    'Tu solicitud solo indica el tema y el viaje. Nunca compartimos tu teléfono con la otra persona.',
+  'web.help.request.submit': 'Enviar solicitud',
+  'web.help.request.topicRequired': 'Elige un tema.',
+  'web.help.request.sent': 'Recibimos tu solicitud.',
+  'web.help.request.offHours':
+    'Nuestro equipo no está disponible en este momento: te enviamos los números de asistencia y te responderemos lo antes posible.',
+  'web.help.request.inHours': 'Nuestro equipo la revisará y te contactará.',
+  'web.help.request.exists':
+    'Ya tienes una solicitud abierta sobre este tema: nuestro equipo la está siguiendo.',
+  'web.help.request.error': 'No pudimos enviar tu solicitud. Usa los números de esta página.',
+  'common.help.unavailable':
+    'La ayuda en la app no está disponible ahora. En una emergencia, llama a los servicios de emergencia.',
+  'common.help.authority.attt': 'Tránsito (ATTT)',
+  'common.help.authority.caminera': 'la Policía Caminera o la Policía Municipal de Tránsito (PMT)',
+  'ntf.helpOffHours.email.subject': 'Recibimos tu solicitud de ayuda ({booking_ref})',
+  'ntf.helpOffHours.email.body':
+    'Hola, {first_name}. Recibimos tu solicitud de ayuda sobre la reserva {booking_ref}. Nuestro equipo no está disponible en este momento y te responderá lo antes posible. Si hay peligro o heridos, llama a emergencias. {assistance}',
+  'ntf.helpOffHours.sms.body':
+    '{brand}: recibimos tu solicitud ({booking_ref}). Te responderemos lo antes posible. Si hay peligro, llama a emergencias. {assistance}',
+  'ntf.helpOffHoursHost.email.subject': 'Recibimos tu solicitud de ayuda ({booking_ref})',
+  'ntf.helpOffHoursHost.email.body':
+    'Hola, {first_name}. Recibimos tu solicitud de ayuda sobre la reserva {booking_ref}. Nuestro equipo no está disponible en este momento y te responderá lo antes posible. Si hay peligro o heridos, llama a emergencias. {assistance}',
+  'ntf.helpOffHoursHost.sms.body':
+    '{brand}: recibimos tu solicitud ({booking_ref}). Te responderemos lo antes posible. Si hay peligro, llama a emergencias. {assistance}',
 } as const satisfies Catalog;
 
 export type MessageKey = keyof typeof ES_MESSAGES;

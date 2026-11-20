@@ -1,4 +1,4 @@
--- 9922 — fixtures des preuves du dossier de preuve d'un trip (US-308, migration 0165). TESTS
+-- 9922 — fixtures des preuves du dossier de preuve d'un trip (US-308, migration 0164). TESTS
 -- SEULEMENT.
 --
 -- JAMAIS appliquée hors tests : seul le harnais ajoute test-migrations/, et seulement à la base

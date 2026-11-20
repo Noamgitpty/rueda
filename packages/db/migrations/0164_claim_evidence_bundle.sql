@@ -1,4 +1,4 @@
--- 0165 — CLM : dossier de preuve d'un trip, manifeste scellé, export par l'ops (bêta).
+-- 0164 — CLM : dossier de preuve d'un trip, manifeste scellé, export par l'ops (bêta).
 -- US-308 ; 19 US-308 (« Given un trip terminé, When l'export est généré, Then le manifeste liste
 -- chaque fichier avec son SHA-256 et chaque empreinte correspond » ; « Given 40 photos, contrat,
 -- constancia et messages, When l'export est demandé, Then prêt en ≤ 10 min, lien expirant après

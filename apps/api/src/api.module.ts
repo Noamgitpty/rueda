@@ -24,6 +24,7 @@ import type { RiskHttpOptions } from './modules/risk/index.js';
 import {
   SupBrandConsoleModule,
   SupConsoleModule,
+  SupHelpModule,
   SupEvidenceBundleModule,
   SupSecurityConsoleModule,
 } from './modules/sup/index.js';
@@ -96,6 +97,9 @@ export class ApiModule {
         RegulatoryNoticesModule,
         SupBrandConsoleModule,
         SupSecurityConsoleModule,
+        // US-310 : aide et urgence (route publique /help ; routes du trip gardées par SessionGuard,
+        // /console/help-requests par StaffGuard) ; sans magasin, 503 (fail-closed)
+        SupHelpModule.register(sup.help),
         // US-308 : dossier de preuve /console/trips/{tripId}/evidence-bundles et
         // /console/evidence-bundles/{bundleId}… (StaffGuard) ; sans coffre ni stockage, 503
         SupEvidenceBundleModule.register(evidence),

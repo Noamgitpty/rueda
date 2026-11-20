@@ -8,7 +8,7 @@ CLM traite ce qui arrive pendant ou après un trip : déclarations de dommage et
 
 CLM ne calcule pas le règlement (STL, nouvelle version sur décision) et n'exécute aucun débit (PAY).
 
-État réel : **dossier de preuve d'un trip** (US-308, ADR-184, migration 0165). Les dommages, incidents et décisions arrivent avec US-309 et US-528, les sinistres entre particuliers avec US-318, les débits post-trip avec US-703.
+État réel : **dossier de preuve d'un trip** (US-308, ADR-184, migration 0164). Les dommages, incidents et décisions arrivent avec US-309 et US-528, les sinistres entre particuliers avec US-318, les débits post-trip avec US-703.
 
 ## Dossier de preuve (US-308)
 
@@ -28,7 +28,7 @@ CLM ne calcule pas le règlement (STL, nouvelle version sur décision) et n'exé
 
 Émis (cible 17 §4.5) : `claim.status_changed`, `invoice.status_changed`, `dispute.opened` / `.decided`, `evidence.bundle.generated`. **Aucun n'est émis aujourd'hui** (le demandeur lit l'état de son dossier ; l'alerte d'un constat est une suite).
 
-Consommés (cible 17 §4.5) : `settlement.computed` (STL), `payment.chargeback.opened` / `.closed` et `deposit.decision.executed` (PAY), `trip.checkin.validated` (TRP, photos de départ). Aucun consommateur n'est branché.
+Consommés (cible 17 §4.5) : `settlement.computed` (STL), `payment.chargeback.opened` / `.closed` et `deposit.decision.executed` (PAY), `trip.checkin.validated` (TRP, photos de départ) (non émis : `trip.status_changed` porte la transition, motifs `CHECKIN_VALIDATED` et `CHECKOUT_VALIDATED`, US-315, ADR-183). Aucun consommateur n'est branché.
 
 ## Ports
 

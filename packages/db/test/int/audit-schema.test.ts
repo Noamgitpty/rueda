@@ -169,7 +169,7 @@ describe('schéma d’audit (US-009)', () => {
         if (r.roles === 'cmd_hold_owner') {
           // US-303 (0158, ADR-179) : fichier d'une photo d'état du véhicule (PRIVATE_EVIDENCE, C2,
           // capture dans l'application, clé USER de l'envoyeur) ; INSERT seulement
-          // US-308 (0165, ADR-184) : archive du dossier de preuve (PRIVATE_EVIDENCE, C2, GENERATED,
+          // US-308 (0164, ADR-184) : archive du dossier de preuve (PRIVATE_EVIDENCE, C2, GENERATED,
           // clé USER du demandeur), INSERT ; lecture des colonnes non chiffrées du seul bucket
           // PRIVATE_EVIDENCE (type, taille, empreinte, emplacement) pour le manifeste, SELECT ;
           // toujours aucune UPDATE / DELETE / ALL (la règle de ce test reste entière)

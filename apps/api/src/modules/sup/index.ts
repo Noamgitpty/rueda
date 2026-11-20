@@ -41,6 +41,25 @@ export { SupBrandConsoleModule } from './internal/sup-brand-console.module.js';
 // Tableau de sécurité (US-052) : montage par le processus API seulement.
 export { SupSecurityConsoleModule } from './internal/sup-security-console.module.js';
 
+// Aide et urgence pendant le trip (US-310) : montage par le processus API seulement.
+export { SupHelpModule } from './internal/help/help.module.js';
+export { HELP_MESSAGES, authorityMessageKey, helpViewOf } from './internal/help/help.controller.js';
+export type { HelpCountryView } from './internal/help/help.controller.js';
+export {
+  HELP_TOPICS,
+  HelpStoreError,
+  PgHelpStore,
+  UnavailableHelpStore,
+} from './internal/help/help-store.js';
+export type {
+  HelpContextRow,
+  HelpHours,
+  HelpOpenRow,
+  HelpRole,
+  HelpStaffResult,
+  HelpStore,
+  HelpTopic,
+} from './internal/help/help-store.js';
 // Dossier de preuve d'un trip dans la console (US-308, ADR-184) : montage par le processus API
 // seulement ; rendu du contrat (CTR) pour le travailleur de l'archive (CLM).
 export {

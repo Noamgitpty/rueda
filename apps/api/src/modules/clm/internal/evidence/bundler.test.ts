@@ -1,7 +1,7 @@
 /**
  * Travailleur du dossier de preuve (US-308, ADR-184 ; pré-mortem L3-PM-04 : « empreinte calculée par
  * le serveur sur les octets stockés, recalculée à l'export ; tout écart d'empreinte = constat »).
- * Base simulée (réponses des commandes de 0165, prouvées par la preuve L0), stockage FAKE
+ * Base simulée (réponses des commandes de 0164, prouvées par la preuve L0), stockage FAKE
  * (`InMemoryFileStore`), clé de sujet fixe ; empreintes attendues recalculées ici par
  * `node:crypto`, jamais tirées du code testé.
  */

@@ -354,10 +354,11 @@
         "catalog_cmd_owner",
         "cmd_hold_owner",
         "cmd_money_owner",
+        "iam_staff_owner",
         "kyc_cmd_owner",
         "messaging_cmd_owner"
       ],
-      "story": "US-010, US-115, US-105, US-202, US-208, US-525"
+      "story": "US-010, US-115, US-105, US-202, US-208, US-525, US-310"
     },
     {
       "signature": "core.iam_staff_audit_read(bytea,bigint,integer)",
@@ -2145,6 +2146,27 @@
       "story": "US-702"
     },
     {
+      "signature": "core.support_trip_help_context(bytea,uuid)",
+      "family": "iam_staff",
+      "owner": "iam_staff_owner",
+      "execute": ["app_api"],
+      "story": "US-310"
+    },
+    {
+      "signature": "core.support_cmd_open_help_request(bytea,uuid,uuid,text,jsonb)",
+      "family": "iam_staff",
+      "owner": "iam_staff_owner",
+      "execute": ["app_api"],
+      "story": "US-310"
+    },
+    {
+      "signature": "core.support_staff_help_requests(bytea,text,integer)",
+      "family": "iam_staff",
+      "owner": "iam_staff_owner",
+      "execute": ["app_api"],
+      "story": "US-310"
+    },
+    {
       "signature": "core.payment_cmd_deposit_decide(uuid,integer,text,bigint,bigint)",
       "family": "cmd_hold",
       "owner": "cmd_hold_owner",
@@ -2241,6 +2263,34 @@
       "owner": "messaging_cmd_owner",
       "execute": ["app_api"],
       "story": "US-525"
+    },
+    {
+      "signature": "core.trip_handover_view(bytea,uuid,text)",
+      "family": "cmd_hold",
+      "owner": "cmd_hold_owner",
+      "execute": ["app_api"],
+      "story": "US-315"
+    },
+    {
+      "signature": "core.trip_cmd_open_checkin(bytea,uuid)",
+      "family": "cmd_hold",
+      "owner": "cmd_hold_owner",
+      "execute": ["app_api"],
+      "story": "US-315"
+    },
+    {
+      "signature": "core.trip_cmd_identity_check(bytea,uuid,jsonb,text)",
+      "family": "cmd_hold",
+      "owner": "cmd_hold_owner",
+      "execute": ["app_api"],
+      "story": "US-315"
+    },
+    {
+      "signature": "core.trip_cmd_validate_handover(bytea,uuid,text,integer,integer,text)",
+      "family": "cmd_hold",
+      "owner": "cmd_hold_owner",
+      "execute": ["app_api"],
+      "story": "US-315"
     },
     {
       "signature": "core.claim_evidence_record(uuid,text,uuid,text,uuid,text,uuid)",

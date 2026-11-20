@@ -220,6 +220,12 @@ describe('schéma outbox (US-008)', () => {
           expect(r).toMatchObject({ roles: 'iam_staff_owner', cmd: 'a' });
           continue;
         }
+        // demande d'aide du trip (0162, US-310, ADR-182) : support.help_request.received seulement,
+        // agrégat support_case, acteur GUEST ou HOST (la personne de la session)
+        if (r.pol === 'outbox_outbox_event.iam_staff_help_event') {
+          expect(r).toMatchObject({ roles: 'iam_staff_owner', cmd: 'a' });
+          continue;
+        }
         // registre des incidents (0092, US-112) : insertion de security.incident.opened seulement
         if (r.pol === 'outbox_outbox_event.iam_staff_incident_event') {
           expect(r).toMatchObject({ roles: 'iam_staff_owner', cmd: 'a' });

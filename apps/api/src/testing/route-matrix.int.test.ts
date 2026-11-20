@@ -41,7 +41,7 @@ import {
 } from '../modules/ctr/index.js';
 import { postgresIamAdapters, postgresStaffAdapters } from '../modules/iam/index.js';
 import { postgresKycAdapters } from '../modules/kyc/index.js';
-import { PgInspectionStore } from '../modules/trp/index.js';
+import { PgHandoverStore, PgInspectionStore } from '../modules/trp/index.js';
 import { postgresPyoAdapters } from '../modules/pyo/index.js';
 import { postgresMsgAdapters } from '../modules/msg/index.js';
 import type { StaffOptions } from '../modules/iam/index.js';
@@ -56,6 +56,7 @@ import {
 import type { RateLimitPolicy } from '../modules/risk/index.js';
 import {
   PgFinanceApprovalStore,
+  PgHelpStore,
   PgManualActionStore,
   PgOpsConsoleStore,
   postgresEvidenceBundle,
@@ -307,6 +308,20 @@ async function requestOf(
       return { method: 'GET', path: `/brand/assets/${id}` };
     case 'GET /regulatory-notices':
       return { method: 'GET', path: `/regulatory-notices?country=${country}&audience=GUEST` };
+    // aide et urgence (US-310) : configuration pays (public) ; trip inconnu de l'acteur ⇒ 404 ;
+    // console : demandes des pays permis seulement
+    case 'GET /help':
+      return { method: 'GET', path: `/help?country=${country}` };
+    case 'GET /trips/{tripId}/help':
+      return { method: 'GET', path: `/trips/${randomUUID()}/help` };
+    case 'POST /trips/{tripId}/help-requests':
+      return {
+        method: 'POST',
+        path: `/trips/${randomUUID()}/help-requests`,
+        body: { requestId: randomUUID(), topic: 'OTHER' },
+      };
+    case 'GET /console/help-requests':
+      return { method: 'GET', path: `/console/help-requests?country=${country}&limit=5` };
     case 'POST /auth/signup':
       return {
         method: 'POST',
@@ -888,6 +903,32 @@ async function requestOf(
         path: `/trips/${randomUUID()}/inspections/checkin/submit`,
         body: {},
       };
+    // remise et retour (US-315) : trip inconnu de l'acteur ⇒ 404 (rien n'est écrit)
+    case 'GET /trips/{tripId}/handover/{direction}':
+      return { method: 'GET', path: `/trips/${randomUUID()}/handover/checkin` };
+    case 'POST /trips/{tripId}/handover/checkin/open':
+      return { method: 'POST', path: `/trips/${randomUUID()}/handover/checkin/open`, body: {} };
+    case 'POST /trips/{tripId}/handover/checkin/identity':
+      return {
+        method: 'POST',
+        path: `/trips/${randomUUID()}/handover/checkin/identity`,
+        body: {
+          checklist: {
+            face: true,
+            name: true,
+            birthYear: true,
+            valid: true,
+            provisional: true,
+            restrictions: true,
+          },
+        },
+      };
+    case 'POST /trips/{tripId}/handover/{direction}/validate':
+      return {
+        method: 'POST',
+        path: `/trips/${randomUUID()}/handover/checkin/validate`,
+        body: { odometerKm: 1, fuelEighths: 8, method: 'IN_PERSON' },
+      };
     // constancia d'arrendamiento (US-212) : trip inconnu de l'acteur ⇒ 404 ; recherche de l'hôte :
     // plaque dans le corps, aucun trip d'un autre compte
     case 'GET /trips/{tripId}/constancia':
@@ -1212,6 +1253,8 @@ beforeAll(async () => {
         // US-109 : commandes réelles ; pièces : adaptateurs de production (indisponibles, 503)
         ops: new PgOpsConsoleStore(client),
         evidence: unavailableEvidence(singlePool),
+        // US-310 : commandes réelles de l'aide (0162), même connexion de test
+        help: new PgHelpStore(client),
       },
       {
         store: new PgBrandStore(client),
@@ -1242,12 +1285,12 @@ beforeAll(async () => {
         new QuoteService(new CountryConfigService()).params(ctx),
       ),
       // photos d'état du véhicule (US-303) : commandes réelles de 0158 sous app_api
-      { store: new PgInspectionStore(client) },
+      { store: new PgInspectionStore(client), handover: new PgHandoverStore(client) },
       // compte de versement (US-707) : commandes réelles de 0159 sous app_api ; aucun coffre (503)
       postgresPyoAdapters(client),
       // messagerie par trip (US-525) : fonctions réelles de 0161 sous app_api
       postgresMsgAdapters(client),
-      // dossier de preuve (US-308) : portes réelles de 0165 ; coffre et stockage de production
+      // dossier de preuve (US-308) : portes réelles de 0164 ; coffre et stockage de production
       // (indisponibles) : la base juge d'abord, puis 503 et transaction annulée
       postgresEvidenceBundle(singlePool as unknown as Parameters<typeof postgresEvidenceBundle>[0]),
     ),

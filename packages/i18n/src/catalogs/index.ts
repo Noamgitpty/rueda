@@ -319,12 +319,24 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  indisponible), `web.s16.*` (S16 : bandeau `web.s16.payOnPlatform` et vide `web.s16.empty` de 10b
  §4.3, prénom de l’autre partie, coordonnées masquées, rappels à l’expéditeur après un signal,
  fenêtre d’écriture, formulaire).
- Version 100 (les versions 97 à 99 sont réservées à US-310 et US-315 ; la 96 est celle
- d’US-525) : dossier de preuve d’un trip (US-308, ADR-184) : réponses de la console
+ Version 97 (réservée à US-310 par le pré-mortem du lot 3 ; la 96 est celle d’US-525 ; les 94 et 95 celles d’US-303 et
+ US-707) : aide et urgence pendant le trip (US-310, ADR-182) : `web.shell.help` (lien
+ d’aide de l’en-tête de chaque écran), `web.help.*` (S17 : urgences et autorité de circulation
+ du pays, assistance de l’assureur partenaire, support et sa plage publiée, demande d’aide du trip
+ à motif fermé et ses issues, FAQ courte ; `web.help.call`, inutilisée, retirée avant la fusion), `common.help.unavailable`,
+ `common.help.authority.<id>` (autorité de circulation de la configuration pays) et la réponse
+ automatique hors plage `ntf.helpOffHours.*` / `ntf.helpOffHoursHost.*`.
+ Version 98 (la 97 est celle d’US-310) : remise et retour du véhicule entre
+ particuliers (US-315, ADR-183) : `common.handover.*` (refus des routes `/trips/{id}/handover/…`,
+ dont `common.handover.unavailable` : sans réseau, réessayer, aucune file hors ligne au lot 3),
+ `web.a03.arrived`, `web.a03.refuse`, `web.a03.handover` et les 6 points `web.a03.check.*` de
+ 10b §4.3 (texte portugais ajouté ; `web.a03.check.face` sans la photo de profil, absente côté IAM : écart d'ADR-183), `web.handover.*` (étapes A03, A04 et S09 · check-in /
+ check-out, blocages, relevés, validation, liens du détail du trip).
+ Version 99 (la 98 est celle d’US-315) : dossier de preuve d’un trip (US-308, ADR-184) : réponses de la console
  `common.evidenceBundle.*` (dossier d’un autre agent, archive en préparation, lien échu après 7 j,
  constat d’empreinte ou pièce absente : rien n’est remis, coffre ou stockage indisponibles).
  */
-export const CATALOG_VERSION = 100;
+export const CATALOG_VERSION = 99;
 
 /** Catalogues de base par langue ; la langue d'un profil de locale choisit le sien. */
 export const CATALOGS: Readonly<Record<CatalogLanguage, VersionedCatalog<MessageKey>>> = {

@@ -27,6 +27,10 @@
     "GET /regulatory-notices": {
       "acces": "public"
     },
+    "GET /help": {
+      "acces": "public",
+      "idor": "aide et urgence de la configuration pays seulement (US-310, ADR-182) : numéros publics du pays, jamais le téléphone d'une partie du trip ; aucune donnée personnelle"
+    },
     "POST /auth/signup": {
       "acces": "public"
     },
@@ -127,6 +131,13 @@
       "portee": "pays",
       "idor": "demande de l'autre pays : 403 journalisé ; demandeur : 409 STAFF_SELF_APPROVAL"
     },
+    "GET /console/help-requests": {
+      "acces": "staff",
+      "permission": "support.case_write",
+      "roles": ["SUPPORT_AGENT", "OPS_AGENT", "ADMIN"],
+      "portee": "sans_pays",
+      "idor": "demandes de l'autre pays ou d'un pays sans la permission : jamais rendues (lignes filtrées en base, core.support_staff_help_requests, 0162) ; aucune donnée personnelle (ni demandeur, ni nom, ni téléphone) ; preuve L0 l0-us310-help-request"
+    },
     "GET /console/queues": {
       "acces": "staff",
       "permission": "kyc.decide ou ops.review_listing_host (permission de chaque file, support_review_queue)",
@@ -171,21 +182,21 @@
     },
     "POST /console/trips/{tripId}/evidence-bundles": {
       "acces": "staff",
-      "permission": "evidence.export (OPS_AGENT, ADMIN) dans le pays du dossier de support OUVERT de ce trip assigné à l’agent (ADMIN : tout dossier de son pays), garde ADR-122, motif journalisé (BULK_EXPORT, audit chaîné), refus journalisés (US-308, 0165)",
+      "permission": "evidence.export (OPS_AGENT, ADMIN) dans le pays du dossier de support OUVERT de ce trip assigné à l’agent (ADMIN : tout dossier de son pays), garde ADR-122, motif journalisé (BULK_EXPORT, audit chaîné), refus journalisés (US-308, 0164)",
       "roles": ["OPS_AGENT", "ADMIN"],
       "portee": "pays",
       "idor": "trip ou dossier de l’autre pays, dossier d’un collègue, clos ou d’un autre trip : 403 journalisé, rien n’est scellé ; trip qui concerne l’agent : 403 STAFF_SELF_FORBIDDEN ; hôte, voyageur, co-hôte : aucune route (preuve L0 l0-us308-evidence-bundle, RT-L3-D03)"
     },
     "GET /console/evidence-bundles/{bundleId}": {
       "acces": "staff",
-      "permission": "evidence.export, demandeur du dossier seulement (US-308, 0165) ; aucune donnée personnelle rendue",
+      "permission": "evidence.export, demandeur du dossier seulement (US-308, 0164) ; aucune donnée personnelle rendue",
       "roles": ["OPS_AGENT", "ADMIN"],
       "portee": "pays",
       "idor": "dossier d’un autre agent du pays (ADMIN compris) : 404 EVIDENCE_BUNDLE_NOT_FOUND journalisé (le dossier n’est jamais montré) ; dossier inconnu ou d’un autre pays : 403 FORBIDDEN journalisé ; aucune donnée (preuve L0 l0-us308-evidence-bundle)"
     },
     "POST /console/evidence-bundles/{bundleId}/download": {
       "acces": "staff",
-      "permission": "evidence.export, demandeur du dossier seulement, dossier de support toujours ouvert et assigné, avant l’échéance de 168 h ; ouverture journalisée (BULK_EXPORT, audit chaîné) (US-308, 0165)",
+      "permission": "evidence.export, demandeur du dossier seulement, dossier de support toujours ouvert et assigné, avant l’échéance de 168 h ; ouverture journalisée (BULK_EXPORT, audit chaîné) (US-308, 0164)",
       "roles": ["OPS_AGENT", "ADMIN"],
       "portee": "pays",
       "idor": "dossier d’un autre agent du pays : 404 EVIDENCE_BUNDLE_NOT_FOUND journalisé (le lien ne se partage pas) ; dossier inconnu ou d’un autre pays : 403 FORBIDDEN journalisé ; lien rejoué après 7 j : 410 EVIDENCE_EXPORT_EXPIRED journalisé ; archive dont l’empreinte diffère : 409 EVIDENCE_EXPORT_FAILED, rien n’est servi (preuve L0 l0-us308-evidence-bundle)"
@@ -604,6 +615,14 @@
       "acces": "session",
       "idor": "liste du voyageur de la SESSION seulement (core.booking_guest_trips, 0136 : aucun identifiant de personne reçu) ; les trips qu'il héberge n'y figurent pas ; de l'hôte seulement prénom et initiale (L2-PM-35), aucune plaque, adresse exacte d'un trip à venir ou en cours seulement ; preuves base : l0-us214-guest-trips"
     },
+    "GET /trips/{tripId}/help": {
+      "acces": "session",
+      "idor": "trip d'une autre personne (ni son voyageur ni le titulaire de son compte d'hôte), inconnu ou identifiant mal formé : 404 TRIP_NOT_FOUND, même réponse (17 §2.3 point 5) ; la partie est celle de la session, jugée en base (core.support_trip_help_context, 0162) ; aucune donnée personnelle rendue, jamais le téléphone de l'autre partie ; preuves base : l0-us310-help-request"
+    },
+    "POST /trips/{tripId}/help-requests": {
+      "acces": "session",
+      "idor": "trip d'une autre personne (ni son voyageur ni le titulaire de son compte d'hôte), inconnu ou identifiant mal formé : 404 TRIP_NOT_FOUND, même réponse, rien n'est écrit (17 §2.3 point 5) ; demandeur = la personne de la session, jugée en base (core.support_cmd_open_help_request, 0162) ; motif fermé, aucun texte libre ; preuves base : l0-us310-help-request"
+    },
     "GET /trips/{tripId}": {
       "acces": "session",
       "idor": "trip d'une autre personne (y compris un trip que la session héberge), inconnu ou identifiant mal formé : 404 TRIP_NOT_FOUND, même réponse (RLS-1, 17 §2.3 point 5) ; le voyageur est celui de la session, jugé en base (core.booking_guest_trips, 0136) ; preuves base : l0-us214-guest-trips"
@@ -663,6 +682,22 @@
     "POST /trips/{tripId}/inspections/{kind}/submit": {
       "acces": "session",
       "idor": "trip d'une autre personne (ni son voyageur ni le titulaire de son compte d'hôte), inconnu, type de série ou identifiant mal formé : 404 INSPECTION_NOT_FOUND, même réponse (17 §2.3 point 5) ; la partie est celle de la session, jugée en base (core.trip_inspection_view, core.trip_cmd_open_photo_capture, core.trip_photo_capture_check, core.trip_cmd_add_inspection_photo, core.trip_cmd_submit_inspection, 0158) ; chaque partie écrit SA série seulement (jeton de capture de la personne, de la série et de l'angle) et lit les deux séries de SON trip : métadonnées seulement (angle, empreinte, heure), jamais le contenu ; preuves base : l0-us303"
+    },
+    "GET /trips/{tripId}/handover/{direction}": {
+      "acces": "session",
+      "idor": "trip d'une autre personne (ni son voyageur ni le titulaire de son compte d'hôte), inconnu, sens ou identifiant mal formé : 404 HANDOVER_NOT_FOUND, même réponse (17 §2.3 point 5) ; la partie est celle de la session, jugée en base (core.trip_handover_view, core.trip_cmd_open_checkin, core.trip_cmd_identity_check, core.trip_cmd_validate_handover, 0163) ; chaque partie écrit SA validation seulement ; le contrôle du permis est celui du seul hôte (403 HANDOVER_HOST_ONLY au voyageur) ; l'hôte ne lit du voyageur que le prénom, l'initiale du nom et l'année de naissance, au départ ; aucune heure reçue du client ; preuves base : l0-us315"
+    },
+    "POST /trips/{tripId}/handover/checkin/open": {
+      "acces": "session",
+      "idor": "trip d'une autre personne (ni son voyageur ni le titulaire de son compte d'hôte), inconnu, sens ou identifiant mal formé : 404 HANDOVER_NOT_FOUND, même réponse (17 §2.3 point 5) ; la partie est celle de la session, jugée en base (core.trip_handover_view, core.trip_cmd_open_checkin, core.trip_cmd_identity_check, core.trip_cmd_validate_handover, 0163) ; chaque partie écrit SA validation seulement ; le contrôle du permis est celui du seul hôte (403 HANDOVER_HOST_ONLY au voyageur) ; l'hôte ne lit du voyageur que le prénom, l'initiale du nom et l'année de naissance, au départ ; aucune heure reçue du client ; preuves base : l0-us315"
+    },
+    "POST /trips/{tripId}/handover/checkin/identity": {
+      "acces": "session",
+      "idor": "trip d'une autre personne (ni son voyageur ni le titulaire de son compte d'hôte), inconnu, sens ou identifiant mal formé : 404 HANDOVER_NOT_FOUND, même réponse (17 §2.3 point 5) ; la partie est celle de la session, jugée en base (core.trip_handover_view, core.trip_cmd_open_checkin, core.trip_cmd_identity_check, core.trip_cmd_validate_handover, 0163) ; chaque partie écrit SA validation seulement ; le contrôle du permis est celui du seul hôte (403 HANDOVER_HOST_ONLY au voyageur) ; l'hôte ne lit du voyageur que le prénom, l'initiale du nom et l'année de naissance, au départ ; aucune heure reçue du client ; preuves base : l0-us315"
+    },
+    "POST /trips/{tripId}/handover/{direction}/validate": {
+      "acces": "session",
+      "idor": "trip d'une autre personne (ni son voyageur ni le titulaire de son compte d'hôte), inconnu, sens ou identifiant mal formé : 404 HANDOVER_NOT_FOUND, même réponse (17 §2.3 point 5) ; la partie est celle de la session, jugée en base (core.trip_handover_view, core.trip_cmd_open_checkin, core.trip_cmd_identity_check, core.trip_cmd_validate_handover, 0163) ; chaque partie écrit SA validation seulement ; le contrôle du permis est celui du seul hôte (403 HANDOVER_HOST_ONLY au voyageur) ; l'hôte ne lit du voyageur que le prénom, l'initiale du nom et l'année de naissance, au départ ; aucune heure reçue du client ; preuves base : l0-us315"
     }
   }
 }

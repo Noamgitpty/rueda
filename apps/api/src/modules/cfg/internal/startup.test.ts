@@ -68,11 +68,13 @@ describe('contrôle de production sur la configuration du dépôt', () => {
     expect(missing('PY')).toEqual([...TO_FIX_BOTH, ...TO_FIX_PY].sort());
   });
 
-  it('entité juridique, numéros d’assistance et fériés manquent, taux de taxe à décider, dans les deux pays', () => {
+  it('entité juridique, numéros d’assistance, plage du support et fériés manquent, taux de taxe à décider, dans les deux pays', () => {
     for (const c of ['PA', 'PY']) {
       expect(issues.filter((i) => i.country === c && i.key === null).map((i) => i.kind)).toEqual([
         'LEGAL_ENTITY_MISSING',
         'ASSISTANCE_CONTACTS_MISSING',
+        // US-310 (SUP-020, ADR-182) : aucune plage publiée sans planning de présence validé
+        'SUPPORT_HOURS_MISSING',
         'HOLIDAYS_MISSING',
         'TAX_UNDECIDED',
       ]);

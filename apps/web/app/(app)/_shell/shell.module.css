@@ -93,6 +93,34 @@
   flex: none;
 }
 
+/* Outils de l'en-tête : lien d'aide (US-310) puis choix de la langue. */
+.tools {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+/* Lien d'aide et d'urgence (S17, US-310) : même forme que le choix de langue, cible tactile du thème. */
+.help {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-block-size: var(--size-touch-target);
+  min-inline-size: var(--size-touch-target);
+  padding: 0 var(--space-3);
+  border: thin solid var(--color-border-strong);
+  border-radius: var(--radius-pill);
+  color: var(--color-text);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-strong);
+  text-decoration: none;
+}
+
+.help:hover {
+  background: var(--color-surface-sunken);
+}
+
 .languageToggle {
   display: inline-flex;
   align-items: center;

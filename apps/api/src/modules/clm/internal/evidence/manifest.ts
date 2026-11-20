@@ -1,5 +1,5 @@
 /**
- * Lecture du manifeste scellé par la base (US-308, migration 0165, ADR-184). Le manifeste est le
+ * Lecture du manifeste scellé par la base (US-308, migration 0164, ADR-184). Le manifeste est le
  * texte exact de `claim_evidence_bundle.manifest` (forme canonique de jsonb) : il est écrit tel quel
  * dans `manifest.json` de l'archive, et son SHA-256 doit égaler `manifest_sha256` (scellé). Ici,
  * seules les parties dont le travailleur a besoin sont lues et contrôlées (fail-closed : une forme

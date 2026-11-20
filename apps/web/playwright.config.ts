@@ -61,6 +61,8 @@ const REQUEST_MODE = /request-mode\.spec\.ts$/;
 const CONTRACT = /trip-contract\.spec\.ts$/;
 /** Photos d'état du véhicule : S09 · check-in du voyageur (US-303) : 360 px. */
 const INSPECTION = /trip-inspection\.spec\.ts$/;
+/** Remise du véhicule entre particuliers : A03 de l'hôte, S09 · check-in du voyageur (US-315) : 360 px. */
+const HANDOVER = /trip-handover\.spec\.ts$/;
 /** Remboursement d'un trip : S10 · remboursement du voyageur, A05 de l'hôte (US-224 partie 224d) : 360 px. */
 const REFUND = /trip-refund\.spec\.ts$/;
 /** « Mis viajes » (S08) et détail du trip (S09) du voyageur (US-214) : 360 px, une langue. */
@@ -82,6 +84,12 @@ const RECEIPT = /trip-receipt\.spec\.ts$/;
  * e2e ; la fiche passe à 390 px par LISTING et SCREENS).
  */
 const DEPOSIT_NOTICE = /deposit-notice\.spec\.ts$/;
+/**
+ * Aide et urgence (S17, US-310) : lien d'en-tête, numéros du pays, demande d'aide du trip depuis
+ * S09 ; 360 px et espagnol seulement (durée du job e2e ; les quatre langues sont prouvées par les
+ * catalogues et les tests de rendu).
+ */
+const HELP = /help\.spec\.ts$/;
 /**
  * Parcours doré « réservation » S01 → S06 (US-221) : 360 px et espagnol seulement, un test (durée
  * du job e2e ; chaque écran est éprouvé en quatre langues par sa spec propre).
@@ -175,12 +183,14 @@ export default defineConfig({
         REQUEST_MODE,
         CONTRACT,
         INSPECTION,
+        HANDOVER,
         REFUND,
         GUEST_TRIPS,
         TRIP_MESSAGES,
         CONSTANCIA,
         RECEIPT,
         DEPOSIT_NOTICE,
+        HELP,
         GOLDEN,
         SCREENS,
       ],
@@ -209,6 +219,7 @@ export default defineConfig({
         // GUEST_TRIPS (US-214) : 360 px seulement, ses deux écrans passent à 390 px par SCREENS
         // RECEIPT (US-217b) : 360 px seulement, ses deux écrans passent à 390 px par SCREENS
         // INSPECTION (US-303) : 360 px seulement, son écran passe à 390 px par SCREENS
+        // HANDOVER (US-315) : 360 px seulement, son écran A03 passe à 390 px par SCREENS
         // TRIP_MESSAGES (US-525) : 360 px seulement, son écran passe à 390 px par SCREENS
         SCREENS,
       ],

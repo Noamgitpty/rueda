@@ -3012,6 +3012,114 @@ export const PT_MESSAGES = {
   'web.inspection.retry': 'Tentar de novo',
   'web.inspection.link.checkin': 'Fotos de retirada do carro',
   'web.inspection.link.checkout': 'Fotos de devolução do carro',
+  'common.handover.notFound': 'Não encontramos a entrega desta viagem.',
+  'common.handover.hostOnly': 'Só o anfitrião pode fazer esta etapa.',
+  'common.handover.checkinNotOpen': 'A entrega ainda não está aberta para esta viagem.',
+  'common.handover.checkoutNotOpen': 'A devolução abre quando a viagem está em andamento.',
+  'common.handover.paymentNotConfirmed':
+    'O pagamento ainda não foi confirmado: o carro não pode ser entregue.',
+  'common.handover.contractNotSigned':
+    'O viajante ainda não assinou o contrato: o carro não pode ser entregue.',
+  'common.handover.depositNotReady':
+    'O depósito caução ainda não está pronto: o carro não pode ser entregue.',
+  'common.handover.insurerInactive':
+    'A proteção da seguradora não está ativa no momento: o carro não pode ser entregue.',
+  'common.handover.blocked': 'A entrega está bloqueada. Fale com o suporte.',
+  'common.handover.licenseCheckIncomplete':
+    'Confira os 6 pontos da carteira, ou escolha um motivo para não entregar o carro.',
+  'common.handover.identityFailed': 'A carteira não foi verificada: a entrega está suspensa.',
+  'common.handover.checkinStepIncomplete':
+    'Falta uma etapa da entrega: primeiro confirme suas fotos e a carteira.',
+  'common.handover.checkoutStepIncomplete':
+    'Falta uma etapa da devolução: primeiro confirme suas fotos.',
+  'common.handover.readingInvalid': 'Confira a quilometragem e o combustível.',
+  'common.handover.contactlessUnavailable':
+    'A entrega sem encontro não está disponível: ela é feita pessoalmente.',
+  'common.handover.unavailable':
+    'Não conseguimos salvar esta etapa. Confira sua conexão e tente de novo.',
+  'web.a03.arrived': 'Já cheguei',
+  'web.a03.refuse': 'Não entregar o carro',
+  'web.a03.handover': 'Entregar as chaves',
+  'web.a03.check.face': 'A pessoa se parece com a foto da carteira',
+  'web.a03.check.name': 'O nome e a inicial do sobrenome batem com a carteira',
+  'web.a03.check.birthYear': 'O ano de nascimento confere',
+  'web.a03.check.valid': 'A carteira está dentro da validade',
+  'web.a03.check.provisional': 'Não é uma permissão provisória',
+  'web.a03.check.restrictions': 'As restrições permitem dirigir este carro',
+  'web.handover.back': 'Voltar para a viagem',
+  'web.handover.title.checkin': 'Entrega do carro',
+  'web.handover.title.checkout': 'Devolução do carro',
+  'web.handover.link.checkin': 'Fazer a entrega do carro',
+  'web.handover.link.checkout': 'Fazer a devolução do carro',
+  'web.handover.loadError': 'Não conseguimos carregar a entrega.',
+  'web.handover.retry': 'Carregar de novo',
+  'web.handover.lead.checkin':
+    'Façam a entrega juntos, pessoalmente, no local combinado. Cada etapa mostra o que falta.',
+  'web.handover.lead.checkout':
+    'Façam a devolução juntos, pessoalmente. Cada etapa mostra o que falta.',
+  'web.handover.online': 'Você precisa de conexão com a internet: sem rede, nada é salvo.',
+  'web.handover.step.arrival': 'Chegada ao local de entrega',
+  'web.handover.step.license': 'Carteira de motorista',
+  'web.handover.step.photos': 'Fotos do carro',
+  'web.handover.step.keys': 'Quilometragem, combustível e chaves',
+  'web.handover.step.close': 'Quilometragem, combustível e encerramento',
+  'web.handover.opensAt': 'A entrega abre em {date}.',
+  'web.handover.opened': 'A entrega está aberta.',
+  'web.handover.closed': 'Esta etapa não está aberta agora.',
+  'web.handover.checkoutClosed': 'A devolução vai abrir quando a viagem estiver em andamento.',
+  'web.handover.blockersTitle': 'Antes de entregar o carro, ainda falta:',
+  'web.handover.blocker.CHECKIN_PAYMENT_NOT_CONFIRMED': 'a confirmação do pagamento',
+  'web.handover.blocker.CONTRACT_NOT_SIGNED': 'a assinatura do contrato pelo viajante',
+  'web.handover.blocker.DEPOSIT_NOT_READY': 'o depósito caução',
+  'web.handover.blocker.INSURER_CONTRACT_INACTIVE': 'a proteção ativa da seguradora',
+  'web.handover.blocker.HANDOVER_BLOCKED': 'uma análise do suporte; fale com o suporte pela Ajuda',
+  'web.handover.license.lead':
+    'Compare a carteira física do viajante com estes dados. Não tire foto nem anote o número.',
+  'web.handover.license.name': 'Nome na conta',
+  'web.handover.license.birthYear': 'Ano de nascimento na conta',
+  'web.handover.license.unknown': 'Dado indisponível',
+  'web.handover.license.points': 'Os 6 pontos da carteira',
+  'web.handover.license.confirm': 'Confirmar a carteira',
+  'web.handover.license.ok': 'Carteira verificada',
+  'web.handover.license.failed':
+    'Entrega interrompida: a carteira não foi verificada. A viagem não pode começar.',
+  'web.handover.license.guest': 'O anfitrião vai conferir sua carteira física no encontro.',
+  'web.handover.refuse.reason': 'Motivo se você não entregar o carro',
+  'web.handover.refuse.INVALID_LICENSE': 'A carteira não é válida',
+  'web.handover.refuse.IDENTITY_NOT_VERIFIED': 'A pessoa não corresponde à conta',
+  'web.handover.refuse.OTHER_DRIVER_SENT': 'Veio outro motorista',
+  'web.handover.refuse.choose': '— Escolha um motivo —',
+  'web.handover.refuse.confirm':
+    'Entendo que não entregar o carro é uma decisão definitiva: a entrega é interrompida e não pode ser desfeita.',
+  'web.handover.refuse.reasonRequired': 'Escolha o motivo antes de não entregar o carro.',
+  'web.handover.refuse.confirmRequired': 'Confirme que você entende que a decisão é definitiva.',
+  'web.handover.refuse.hint':
+    'Se um ponto não confere, não entregue o carro: escolha o motivo e confirme. É definitivo: a entrega é interrompida e a viagem não poderá começar.',
+  'web.handover.photos.mine.NONE': 'Suas fotos: não iniciadas',
+  'web.handover.photos.mine.DRAFT': 'Suas fotos: em andamento',
+  'web.handover.photos.mine.SUBMITTED': 'Suas fotos: confirmadas',
+  'web.handover.photos.other.HOST.NONE': 'Fotos do anfitrião: não iniciadas',
+  'web.handover.photos.other.HOST.DRAFT': 'Fotos do anfitrião: em andamento',
+  'web.handover.photos.other.HOST.SUBMITTED': 'Fotos do anfitrião: confirmadas',
+  'web.handover.photos.other.GUEST.NONE': 'Fotos do viajante: não iniciadas',
+  'web.handover.photos.other.GUEST.DRAFT': 'Fotos do viajante: em andamento',
+  'web.handover.photos.other.GUEST.SUBMITTED': 'Fotos do viajante: confirmadas',
+  'web.handover.photos.take': 'Tirar minhas fotos',
+  'web.handover.photos.view': 'Ver minhas fotos',
+  'web.handover.odometer': 'Quilometragem do painel (km)',
+  'web.handover.fuel': 'Nível de combustível (oitavos)',
+  'web.handover.reading': 'Você confirmou: {km} km, combustível {fuel}/8.',
+  'web.handover.validate.HOST.checkout': 'Receber o carro',
+  'web.handover.validate.GUEST.checkin': 'Recebi o carro',
+  'web.handover.validate.GUEST.checkout': 'Devolver o carro',
+  'web.handover.validate.hint': 'O horário que vale é o do servidor quando vocês dois confirmam.',
+  'web.handover.waiting.HOST': 'Aguardando a confirmação do viajante.',
+  'web.handover.waiting.GUEST': 'Aguardando a confirmação do anfitrião.',
+  'web.handover.otherDone': 'A outra pessoa já confirmou: falta a sua confirmação.',
+  'web.handover.photosFirst': 'Primeiro confirme suas fotos do carro.',
+  'web.handover.licenseFirst': 'Primeiro confira a carteira do viajante.',
+  'web.handover.done.checkin': 'Viagem em andamento desde {date}.',
+  'web.handover.done.checkout': 'Carro devolvido em {date}.',
   // US-525 (ADR-181) : messagerie par trip (S16) et rappels du signal hors plateforme
   'common.messages.thread': 'Mensagens da viagem.',
   'common.messages.sent': 'Mensagem enviada.',
@@ -3052,4 +3160,73 @@ export const PT_MESSAGES = {
   'web.s16.notice.offPlatform':
     'Lembre-se: todo pagamento passa pelo {brand}. Um pagamento por fora não tem proteção nem reembolso, e nossa equipe revisa essas mensagens.',
   'web.s16.sent': 'Mensagem enviada.',
+  // aide et urgence pendant le trip (US-310, ADR-182, catalogue v97)
+  'web.shell.help': 'Ajuda',
+  'web.help.title': 'Ajuda e emergências',
+  'web.help.lead': 'Os números de emergência e de assistência estão sempre nesta página.',
+  'web.help.emergency.title': 'Em uma emergência',
+  'web.help.emergency.call': 'Emergências: {number}',
+  'web.help.emergency.accident': 'Depois de um acidente de trânsito, avise também {authority}.',
+  'web.help.emergency.safety':
+    'Se você ou outra pessoa estiver em perigo, fique em segurança e ligue primeiro para a emergência.',
+  'web.help.roadside.title': 'Pane ou acidente',
+  'web.help.roadside.number': 'Assistência da seguradora parceira: {number}',
+  'web.help.roadside.inApp':
+    'O número da assistência da seguradora parceira aparecerá aqui. Enquanto isso, peça ajuda pela sua viagem.',
+  'web.help.support.title': 'Suporte da {brand}',
+  'web.help.support.number': 'Telefone do suporte: {number}',
+  'web.help.support.inApp':
+    'Peça ajuda pelo detalhe da sua viagem: sua solicitação chega à nossa equipe.',
+  'web.help.support.hours':
+    'Atendimento por pessoas, em espanhol e inglês, todos os dias das {from} às {to} (horário local).',
+  'web.help.support.noHours':
+    'Se nossa equipe não estiver disponível, você recebe na hora os números de assistência e respondemos o quanto antes.',
+  'web.help.trips.lead': 'Tem uma viagem? Vá para suas viagens para pedir ajuda sobre uma delas.',
+  'web.help.trips.link': 'Minhas viagens',
+  'web.help.unavailable':
+    'Não conseguimos carregar os números. Em uma emergência, ligue para os serviços de emergência locais.',
+  'web.help.faq.title': 'Perguntas frequentes',
+  'web.help.faq.accident.q': 'O que fazer depois de um acidente?',
+  'web.help.faq.accident.a':
+    'Fique em segurança e ligue para a emergência se houver feridos. Avise a autoridade de trânsito e a assistência da seguradora, tire fotos e peça ajuda pela sua viagem.',
+  'web.help.faq.privacy.q': 'O suporte compartilha meu telefone?',
+  'web.help.faq.privacy.a':
+    'Não. Nunca passamos seu telefone para a outra pessoa da viagem: conversem só pela {brand}.',
+  'web.help.trip.title': 'Ajuda com esta viagem',
+  'web.help.trip.back': 'Voltar para a viagem',
+  'web.help.trip.section': 'Ajuda e emergências',
+  'web.help.trip.open': 'Pedir ajuda ou ver os números de emergência',
+  'web.help.request.title': 'Pedir ajuda à {brand}',
+  'web.help.request.topic': 'O que está acontecendo?',
+  'web.help.topic.ACCIDENT': 'Sofri um acidente',
+  'web.help.topic.BREAKDOWN': 'O carro está com pane',
+  'web.help.topic.HANDOVER': 'Problema na entrega ou na devolução',
+  'web.help.topic.SAFETY': 'Tenho um problema de segurança',
+  'web.help.topic.OTHER': 'Outra dúvida sobre esta viagem',
+  'web.help.request.safetyHint': 'Se houver perigo imediato, ligue primeiro para a emergência.',
+  'web.help.request.privacy':
+    'Sua solicitação indica só o assunto e a viagem. Nunca compartilhamos seu telefone com a outra pessoa.',
+  'web.help.request.submit': 'Enviar solicitação',
+  'web.help.request.topicRequired': 'Escolha um assunto.',
+  'web.help.request.sent': 'Recebemos sua solicitação.',
+  'web.help.request.offHours':
+    'Nossa equipe não está disponível agora: enviamos os números de assistência e responderemos o quanto antes.',
+  'web.help.request.inHours': 'Nossa equipe vai analisá-la e entrar em contato.',
+  'web.help.request.exists':
+    'Você já tem uma solicitação aberta sobre este assunto: nossa equipe está acompanhando.',
+  'web.help.request.error': 'Não conseguimos enviar sua solicitação. Use os números desta página.',
+  'common.help.unavailable':
+    'A ajuda no app não está disponível agora. Em uma emergência, ligue para os serviços de emergência.',
+  'common.help.authority.attt': 'Tránsito (ATTT)',
+  'common.help.authority.caminera': 'a Policía Caminera ou a Policía Municipal de Tránsito (PMT)',
+  'ntf.helpOffHours.email.subject': 'Recebemos sua solicitação de ajuda ({booking_ref})',
+  'ntf.helpOffHours.email.body':
+    'Olá, {first_name}. Recebemos sua solicitação de ajuda sobre a reserva {booking_ref}. Nossa equipe não está disponível agora e responderá o quanto antes. Se houver perigo ou feridos, ligue para a emergência. {assistance}',
+  'ntf.helpOffHours.sms.body':
+    '{brand}: recebemos sua solicitação ({booking_ref}). Responderemos o quanto antes. Em caso de perigo, ligue para a emergência. {assistance}',
+  'ntf.helpOffHoursHost.email.subject': 'Recebemos sua solicitação de ajuda ({booking_ref})',
+  'ntf.helpOffHoursHost.email.body':
+    'Olá, {first_name}. Recebemos sua solicitação de ajuda sobre a reserva {booking_ref}. Nossa equipe não está disponível agora e responderá o quanto antes. Se houver perigo ou feridos, ligue para a emergência. {assistance}',
+  'ntf.helpOffHoursHost.sms.body':
+    '{brand}: recebemos sua solicitação ({booking_ref}). Responderemos o quanto antes. Em caso de perigo, ligue para a emergência. {assistance}',
 } as const satisfies Readonly<Record<MessageKey, Message>>;

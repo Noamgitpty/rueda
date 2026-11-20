@@ -108,6 +108,38 @@ export interface AssistanceContactsConfig {
   readonly insurerAssistancePhone: string;
 }
 
+/**
+ * Plage publiée du support humain (16 SUP-004 « Bêta pilote : plage réduite », SUP-020 « ne publier
+ * aucune plage de support sans équipe pour la tenir » ; US-310, ADR-182). Heures locales du pays,
+ * 7 j / 7, borne haute exclue. Donnée du fondateur : la plage n'existe que si un planning de
+ * présence validé la couvre (`staffingPlanRef`).
+ */
+export interface SupportHoursConfig {
+  /** Ouverture, heure locale `HH:MM`. */
+  readonly from: string;
+  /** Fermeture (exclue), heure locale `HH:MM`, après l'ouverture. */
+  readonly to: string;
+  /** Référence du planning de présence validé (SUP-020) qui couvre la plage. */
+  readonly staffingPlanRef: string;
+}
+
+/**
+ * Aide et urgence du pays (10b S17 ; 16 SUP-004 ; US-310, ADR-182) : numéro d'urgence et autorité
+ * de circulation (données publiques du pays, À VALIDER par l'ops), plage du support (donnée du
+ * fondateur : `null` tant qu'aucun planning validé ne la couvre ; la production refuse alors de
+ * démarrer, `SUPPORT_HOURS_MISSING`, et toute demande d'aide est traitée hors plage).
+ */
+export interface HelpConfig {
+  /** Numéro d'urgence du pays (chiffres seulement). */
+  readonly emergencyNumber: string;
+  /**
+   * Identifiant de l'autorité de circulation (accident) ; texte du catalogue `@rueda/i18n` sous
+   * `common.help.authority.<id>` (es, en, fr, pt).
+   */
+  readonly trafficAuthority: string;
+  readonly supportHours: SupportHoursConfig | null;
+}
+
 export interface HolidayConfig {
   /** Date civile locale `AAAA-MM-JJ`. */
   readonly date: string;
@@ -179,6 +211,8 @@ export interface CountryConfigEntry {
   readonly legalEntity: LegalEntityConfig | null;
   /** Numéros du support et de l'assistance de l'assureur (US-213) ; `null` : non fournis. */
   readonly assistanceContacts: AssistanceContactsConfig | null;
+  /** Aide et urgence (US-310) : numéro d'urgence, autorité de circulation, plage du support. */
+  readonly help: HelpConfig;
   readonly holidayCalendar: {
     readonly version: number;
     readonly holidays: readonly HolidayConfig[];

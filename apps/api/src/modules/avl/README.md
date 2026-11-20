@@ -93,7 +93,7 @@ Déjà émis par le code (écrits dans `core.outbox_outbox_event` par les foncti
 
 Cible seulement (17 §4.5) : `booking.request.*`, `booking.hold.release_requested`, `booking.hold.superseded`, `booking.ical.conflict_detected`, `booking.ical.feed_failing`, `payment.disposition.repair_alert`.
 
-Consommés (cible 17 §4.5) : `iam.restriction.applied` / `.lifted`, `iam.organization.*`, `kyc.verification.status_changed`, `kyc.trip_identity.failed`, `catalog.listing.status_changed`, `catalog.vehicle.restricted`, `payment.received`, `trip.checkin.validated`, `trip.checkout.completed`, `dispute.opened` / `.decided`. Aucun consommateur TypeScript n'est branché ; la conversion est la fonction `core.booking_convert_payment`, exécutée par le travailleur `booking_conversion`.
+Consommés (cible 17 §4.5) : `iam.restriction.applied` / `.lifted`, `iam.organization.*`, `kyc.verification.status_changed`, `kyc.trip_identity.failed`, `catalog.listing.status_changed`, `catalog.vehicle.restricted`, `payment.received`, `trip.checkin.validated`, `trip.checkout.completed` (non émis : `trip.status_changed` porte la transition, motifs `CHECKIN_VALIDATED` et `CHECKOUT_VALIDATED`, US-315, ADR-183), `dispute.opened` / `.decided`. Aucun consommateur TypeScript n'est branché ; la conversion est la fonction `core.booking_convert_payment`, exécutée par le travailleur `booking_conversion`.
 
 ## Ports
 

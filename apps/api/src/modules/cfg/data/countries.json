@@ -71,6 +71,8 @@
       "legalEntity": null,
       "$assistanceContacts": "Numéros donnés au voyageur par la confirmation de réservation (US-213 critère 2, 16 NTF-007, 08 BR-PROT-05 ; ADR-174, PROPOSÉ) : support de la plateforme et assistance de l'assureur partenaire (dépannage, accident), au format E.164 avec l'indicatif du pays ; jamais le téléphone de l'hôte. Donnée du fondateur (contrat de l'assureur, POUR_LE_FONDATEUR.md §2.13, BOARD N-298) : null tant qu'elle n'est pas fournie ; le message renvoie alors à la réservation dans l'appli et la production refuse de démarrer (ASSISTANCE_CONTACTS_MISSING).",
       "assistanceContacts": null,
+      "$help": "Aide et urgence (10b S17, 16 SUP-004, SUP-020 ; US-310, ADR-182, PROPOSÉ) : numéro d'urgence du pays et autorité de circulation à appeler après un accident (texte du catalogue common.help.authority.<id>), données publiques À VALIDER par l'ops ; plage du support humain (heures locales, 7 j / 7, borne haute exclue) avec la référence du planning de présence validé qui la couvre : donnée du fondateur (SUP-020, défaut de 16 : 8 h–20 h, non publié tant qu'aucun planning n'est validé). null : toute demande d'aide est hors plage (réponse automatique, aucun délai promis) et la production refuse de démarrer (SUPPORT_HOURS_MISSING). Panama : 911 (SUME 911), Tránsito (ATTT).",
+      "help": { "emergencyNumber": "911", "trafficAuthority": "attt", "supportHours": null },
       "$holidays": "17 §1.3, §7.1 point 8 : calendrier versionné. Aucune liste de fériés dans les spécifications : calendrier vide, la production refuse de démarrer sans fériés pour l'année en cours.",
       "holidayCalendar": { "version": 1, "holidays": [] },
       "$timeZoneChecks": "Contrôle tzdata de démarrage (17 §1.3, ADR-019) : America/Panama = UTC−5 sans heure d'été.",
@@ -146,6 +148,8 @@
       "taxDecision": { "decision": "TO_DECIDE", "decisionRef": "OQ-BR-14, OQ-MK-06 (avis fiscal)" },
       "legalEntity": null,
       "assistanceContacts": null,
+      "$help": "Même règle que PA (US-310, ADR-182). Paraguay : 911 (Sistema 911), Policía Caminera et Policía Municipal de Tránsito (PMT). À VALIDER par l'ops ; plage du support : donnée du fondateur (SUP-020).",
+      "help": { "emergencyNumber": "911", "trafficAuthority": "caminera", "supportHours": null },
       "holidayCalendar": { "version": 1, "holidays": [] },
       "$timeZoneChecks": "America/Asuncion = UTC−3 permanent (Ley 7354/2024, 08 BR-CXL-00, OQ-BR-20) ; instants qui encadrent les anciennes bascules d'heure d'été (EC-33) ; 2023-07-15 : UTC−4, preuve que la tzdata est historisée.",
       "timeZoneChecks": [

@@ -8,7 +8,9 @@
  * pays : l'entité juridique (17 §3.2 `legal_entity`) et un calendrier de fériés couvrant l'année
  * de l'instant contrôlé (17 §1.3) : sans eux, facturation et jours ouvrés seraient faux en silence ;
  * les numéros du support et de l'assistance de l'assureur (US-213, ADR-174) : sans eux, la
- * confirmation de réservation ne les donnerait pas au voyageur.
+ * confirmation de réservation ne les donnerait pas au voyageur ; la plage du support couverte par
+ * un planning de présence validé (US-310, ADR-182 ; 16 SUP-020 critère : « Given la plage publiée,
+ * When l'ouverture est demandée, Then un planning de présence la couvre et a été validé »).
  *
  * US-110 : toute valeur **en vigueur** dont le statut est `TO_DECIDE` (« À DÉCIDER », défaut
  * fail-closed de 22 chargé pour construire) refuse aussi la production (`PARAM_UNDECIDED`), de même
@@ -26,6 +28,7 @@ export interface ReadinessIssue {
     | 'PARAM_MISSING'
     | 'LEGAL_ENTITY_MISSING'
     | 'ASSISTANCE_CONTACTS_MISSING'
+    | 'SUPPORT_HOURS_MISSING'
     | 'HOLIDAYS_MISSING'
     | 'PARAM_UNDECIDED'
     | 'TAX_UNDECIDED';
@@ -39,6 +42,7 @@ const MISSING_KINDS: ReadonlySet<ReadinessIssue['kind']> = new Set([
   'PARAM_MISSING',
   'LEGAL_ENTITY_MISSING',
   'ASSISTANCE_CONTACTS_MISSING',
+  'SUPPORT_HOURS_MISSING',
   'HOLIDAYS_MISSING',
 ]);
 
@@ -69,6 +73,8 @@ export function findReadinessIssues(config: CountryConfig, at: Date): ReadinessI
   for (const [country, entry] of [...config.countries].sort(([a], [b]) => a.localeCompare(b))) {
     if (entry.legalEntity === null) issue(country, 'LEGAL_ENTITY_MISSING');
     if (entry.assistanceContacts === null) issue(country, 'ASSISTANCE_CONTACTS_MISSING');
+    // US-310 (SUP-020, ADR-182) : aucune plage publiée sans planning de présence validé
+    if (entry.help.supportHours === null) issue(country, 'SUPPORT_HOURS_MISSING');
     if (!entry.holidayCalendar.holidays.some((h) => h.date.startsWith(`${year}-`))) {
       issue(country, 'HOLIDAYS_MISSING');
     }

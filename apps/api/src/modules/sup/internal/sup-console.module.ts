@@ -9,6 +9,7 @@ import { ConsoleController } from './console.controller.js';
 import { EvidenceService } from './evidence.js';
 import type { EvidenceOptions } from './evidence.js';
 import type { FinanceApprovalStore } from './finance-approval-store.js';
+import type { HelpStore } from './help/help-store.js';
 import type { ManualActionStore } from './manual-action-store.js';
 import { OpsConsoleController } from './ops-console.controller.js';
 import type { OpsConsoleStore } from './ops-console-store.js';
@@ -38,6 +39,8 @@ export interface SupConsoleOptions {
   readonly evidence: EvidenceOptions;
   /** Pièces du véhicule lues par l'ops (US-124) ; absent : indisponibles (503, fail-closed). */
   readonly vehicleFiles?: VehicleFilesOptions;
+  /** Aide et urgence du trip (US-310) ; absent : routes de l'aide en 503 (fail-closed). */
+  readonly help?: HelpStore;
 }
 
 @Module({})
