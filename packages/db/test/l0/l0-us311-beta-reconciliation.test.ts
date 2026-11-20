@@ -199,17 +199,24 @@ async function rejects(tx: Tx, sql: string, values: readonly unknown[], code: st
 /** Transaction annulée en REPEATABLE READ : un seul instantané (correction #281). */
 async function inSnapshot<T>(fn: (tx: Tx) => Promise<T>): Promise<T> {
   return withRole('app_api', async (client) => {
-    await client.query(`SET default_transaction_isolation = 'repeatable read'`);
-    try {
-      return await withTestTransaction(client, {}, async (tx) => {
-        const { rows } = await tx.query<{ level: string }>(
-          `SELECT pg_catalog.current_setting('transaction_isolation') AS level`,
-        );
-        if (rows[0]?.level !== 'repeatable read') throw new Error('isolement attendu');
-        return fn(tx);
-      });
-    } finally {
-      await client.query('RESET default_transaction_isolation');
+    // REPEATABLE READ : une écriture concurrente de la tête de la chaîne d'audit (élévation du
+    // staff) peut annuler la transaction (40001, échec de sérialisation attendu à ce niveau) ;
+    // la transaction, toujours annulée, est alors rejouée entière, au plus 5 fois
+    for (let attempt = 1; ; attempt += 1) {
+      await client.query(`SET default_transaction_isolation = 'repeatable read'`);
+      try {
+        return await withTestTransaction(client, {}, async (tx) => {
+          const { rows } = await tx.query<{ level: string }>(
+            `SELECT pg_catalog.current_setting('transaction_isolation') AS level`,
+          );
+          if (rows[0]?.level !== 'repeatable read') throw new Error('isolement attendu');
+          return fn(tx);
+        });
+      } catch (error) {
+        if ((error as { code?: unknown }).code !== '40001' || attempt >= 5) throw error;
+      } finally {
+        await client.query('RESET default_transaction_isolation');
+      }
     }
   });
 }
