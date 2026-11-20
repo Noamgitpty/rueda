@@ -3359,4 +3359,9 @@ export const FR_MESSAGES = {
     'Bonjour {first_name}. Le rendez-vous pour le retour de la réservation {booking_ref} est confirmé pour le {meet_at}. Le lieu convenu est dans les messages de la réservation sur {brand}.',
   'ntf.meetingReturnConfirmed.sms.body':
     '{brand} : rendez-vous pour le retour confirmé ({booking_ref}) le {meet_at}. Lieu dans les messages de l’appli.',
+  'ntf.tripAtRiskHost.email.subject': 'Réservation {booking_ref} : la voiture n’est pas rentrée',
+  'ntf.tripAtRiskHost.email.body':
+    'Bonjour {first_name}. Ta réservation {booking_ref} commence le {start_at}, mais le voyage précédent avec cette voiture n’est pas terminé : le retour est en retard. Notre équipe te contactera pour voir les options avec le voyageur. Tu peux nous écrire depuis la réservation dans l’appli.',
+  'ntf.tripAtRiskHost.sms.body':
+    '{brand} : la voiture de la réservation {booking_ref} ({start_at}) n’est pas encore rendue après le voyage précédent. Nous te contacterons.',
 } as const satisfies Readonly<Record<MessageKey, Message>>;

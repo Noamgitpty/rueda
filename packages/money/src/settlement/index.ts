@@ -8,6 +8,13 @@ export {
   freeUntil,
 } from './cancellation.ts';
 export { assertPayableAmounts, type PayableAmounts } from './amounts.ts';
+export {
+  chargebackImputation,
+  lostTripMinor,
+  type ChargebackImputation,
+  type ChargebackInputs,
+  type ChargebackLegs,
+} from './chargeback.ts';
 export { computeCaptureLegs, computeLegs, legVariation } from './legs.ts';
 export {
   PARTIAL_COLLECTION_RULE_VERSION,

@@ -55,6 +55,9 @@ const TRIP_SM_TABLES = [
   'trip_ops_handover_validation',
   'trip_ops_identity_check',
   'trip_ops_key_handover',
+  // US-305 (0168) : dossier de retard, écrit et lu par les commandes de cmd_hold_owner seulement
+  // (travailleur trip_overdue) ; preuves : test/l0/l0-us305-overdue
+  'trip_ops_overdue_case',
 ] as const;
 
 // Tables de configuration pays (US-013, 0008) : même socle RLS (ENABLE + FORCE, migrator_all),

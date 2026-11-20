@@ -110,6 +110,9 @@ describe('tâches du travailleur (US-003)', () => {
       'security_incident_watch',
       // US-215 (ADR-148) : annulations demandées par l'ops, réglées dans la transition
       'trip_lifecycle',
+      // US-305 (ADR-188) : détection des retards et alerte de l'ops, une par événement
+      'trip_overdue',
+      'trip_overdue_alert',
       'webhook_ingest',
     ]);
     expect(
@@ -133,6 +136,7 @@ describe('tâches du travailleur (US-003)', () => {
       ['risk_pruner', 3_600, 5],
       ['security_incident_watch', 300, 5],
       ['trip_lifecycle', 10, 5],
+      ['trip_overdue', 60, 5],
       ['webhook_ingest', 10, 5],
     ]);
     // aucun travailleur qui lirait ou appellerait le PSP (lot C, US-061) ; booking_conversion ne lit

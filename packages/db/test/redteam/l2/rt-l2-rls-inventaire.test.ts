@@ -53,6 +53,9 @@ const MONEY_TABLES = [
   'settlement_insurer_ledger_entry',
   'settlement_insurer_bordereau_line',
   'settlement_host_ledger_entry',
+  // lot 3 : US-709 (imputation des chargebacks, état SM-6b)
+  'settlement_chargeback_imputation',
+  'settlement_host_ledger_state',
   'payment_refund_instance',
   'payment_deposit_hold',
   'payment_payment_operation_event',

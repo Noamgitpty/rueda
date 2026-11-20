@@ -8,6 +8,7 @@ import type { SqlClient } from '../../bus/index.js';
 import { PgOperationRecorder } from '../../pay/index.js';
 import type { ApplyOutcome, ApplyStatusInput, OperationStatus } from '../../pay/index.js';
 import type {
+  AdjustmentOrder,
   BatchCheck,
   DueBatch,
   PayoutBatchStore,
@@ -184,6 +185,46 @@ export class PgPayoutBatchStore implements PayoutBatchStore {
       [operationId],
     );
     return rows[0]?.outcome ?? '';
+  }
+
+  async adjustment(batchId: string): Promise<AdjustmentOrder> {
+    const { rows } = await this.#db.query<{
+      outcome: string;
+      idempotency_key: string | null;
+      amount_minor: string | null;
+      currency: string | null;
+      submerchant_reference: string | null;
+      provider_ref: string | null;
+      hold_reasons: string[] | null;
+    }>(
+      `SELECT outcome, idempotency_key, amount_minor::text AS amount_minor, currency,
+              submerchant_reference, provider_ref, hold_reasons
+         FROM core.payout_cmd_adjustment($1)`,
+      [batchId],
+    );
+    const r = rows[0];
+    if (r === undefined) throw new Error('PYO : ajustement sans résultat');
+    return {
+      outcome: r.outcome,
+      idempotencyKey: r.idempotency_key,
+      amountMinor: bigOrNull(r.amount_minor),
+      currency: r.currency,
+      submerchantReference: r.submerchant_reference,
+      providerRef: r.provider_ref,
+      holdReasons: r.hold_reasons ?? [],
+    };
+  }
+
+  async recordAdjustment(
+    batchId: string,
+    status: OperationStatus,
+    providerRef: string | null,
+  ): Promise<string> {
+    const { rows } = await this.#db.query<{ s: string }>(
+      'SELECT core.payout_cmd_record_adjustment($1, $2, $3) AS s',
+      [batchId, status, providerRef],
+    );
+    return rows[0]?.s ?? '';
   }
 
   async initiate(batchId: string): Promise<PayoutOrder> {

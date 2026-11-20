@@ -129,6 +129,8 @@ Module `src/settlement/refunds.ts`, exporté par `@rueda/money` ; fonction pure,
 
 ## Harnais des vecteurs dorés (US-016)
 
+**Chargeback perdu (US-709, ADR-187).** `chargebackImputation` (formule cumulative de 08 E5 : reprise `max(0, versé − payable après)`, 0 sur un trip réalisé ; C des remboursements bloqués, T67 ; jambes de E7 règle 7 : `HOST` = − reprise, `INSURER` = `TAX_THIRD_PARTY` = 0) et `lostTripMinor` (montant perdu ramené dans la devise du trip au ratio de la capture, `roundHalfUp`, T55) ; tests dorés `test/settlement/chargeback.golden.test.ts` (T53, T54, T55, T67, TJ14a à TJ14c) et propriétés `chargeback.properties.test.ts`.
+
 Le sous-chemin `@rueda/money/golden-vectors` (`src/golden-vectors/`), **réservé aux tests**, charge les attendus exportés par les oracles Python de `docs/specs/tools/` (T01–T68, TJ01–TJ21, TA01–TA11, en USD et en PYG) et compare un moteur (US-017, US-018) à ces attendus, sans jamais les recalculer. Il n'est pas exporté par `@rueda/money`. Voir [`src/golden-vectors/README.md`](src/golden-vectors/README.md).
 
 ## Commandes de test

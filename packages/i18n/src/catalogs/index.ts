@@ -342,6 +342,10 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  coordonnées), `web.s16.meeting.*` (S16 : bloc « rendez-vous » de la remise et du retour, statuts,
  confirmation et refus du voyageur, formulaire de l’hôte) et l’avis de rendez-vous confirmé
  `ntf.meetingPickupConfirmed.*` / `ntf.meetingReturnConfirmed.*` (heure seulement, jamais le lieu).
+ Version 103 (réservée à US-305 par l’orchestrateur ; la 101 est celle d’US-316, la 102 est
+ réservée à US-709 ; le numéro ne redescend jamais) : trip suivant à risque (US-305, ADR-188) :
+ `ntf.tripAtRiskHost.*` (le véhicule du trip précédent, en retard, n’est pas rendu ; l’hôte est
+ prévenu, l’ops le contacte).
  Version 104 (réservée à US-703 par l’orchestrateur ; les 102 et 103 sont celles d’US-709 et
  US-305) : carte enregistrée et consentement MIT (US-703, ADR-189) : case séparée du checkout
  `web.s05.mitConsent` de 10b §4.3 (UX-30, texte portugais ajouté), refus

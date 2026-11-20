@@ -1,6 +1,6 @@
 /**
  * Lots de versement à l'hôte (US-708, ADR-185 ; 08 SM-6, BR-PAYOUT-02 ; 17 §3.2.9) : port de
- * stockage du travailleur `payout_scheduler`. Une instance par transaction du travailleur
+ * stockage du travailleur `payout_scheduler` ; ajustement de la part compensée (US-709, 0167). Une instance par transaction du travailleur
  * `payment_command` (la base l'exige pour chaque commande). Aucun montant n'est calculé ici :
  * montants, clés, rangs et motifs de retenue viennent des commandes de la migration 0165.
  */
@@ -79,6 +79,24 @@ export interface PayoutOrder {
   readonly holdReasons: readonly string[];
 }
 
+/**
+ * Ajustement de versement de la part compensée d'un lot (US-709, ADR-187 ; 08 E7 règle 7,
+ * `adjustPayout`), avant le versement : clé `adjust:{lot}:r1`, montant compensé STOCKÉ.
+ */
+export interface AdjustmentOrder {
+  /**
+   * ADJUST (à envoyer), REPLAY (déjà envoyé : lecture d'abord), DONE (réussi), FAILED (revue FIN,
+   * jamais renvoyé), NONE (rien de compensé), RELEASE_PENDING, ON_HOLD, l'état du lot sinon.
+   */
+  readonly outcome: string;
+  readonly idempotencyKey: string | null;
+  readonly amountMinor: bigint | null;
+  readonly currency: string | null;
+  readonly submerchantReference: string | null;
+  readonly providerRef: string | null;
+  readonly holdReasons: readonly string[];
+}
+
 export interface PayoutBatchStore extends OperationStatusStore {
   tripsToPrepare(limit: number): Promise<readonly string[]>;
   prepareTrip(tripId: string): Promise<PrepareResult>;
@@ -92,6 +110,13 @@ export interface PayoutBatchStore extends OperationStatusStore {
   recordRelease(input: RecordReleaseInput): Promise<string>;
   /** Report d'une libération prouvée sur les soldes par jambe. */
   applyRelease(operationId: string): Promise<string>;
+  /** Ajustement de la part compensée (US-709) : à faire avant `initiate`. */
+  adjustment(batchId: string): Promise<AdjustmentOrder>;
+  recordAdjustment(
+    batchId: string,
+    status: OperationStatus,
+    providerRef: string | null,
+  ): Promise<string>;
   initiate(batchId: string): Promise<PayoutOrder>;
   recordPayoutResult(
     batchId: string,

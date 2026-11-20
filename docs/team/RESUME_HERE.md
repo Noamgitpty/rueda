@@ -1,6 +1,6 @@
 # RESUME_HERE — point de reprise du dépôt
 
-> Lu en premier par toute session qui reprend le travail (handoff §4.9). Tenu par l'orchestrateur à chaque fin de session. **Dernière mise à jour : 2026-11-19, 12 h UTC (fin du lot 2 : 27 stories sur 27 MERGED, 140 points sur 140 ; porte L2 franchie, #261 ; détail au `BOARD.md`).** Mise à jour précédente : 2026-11-19, 7 h UTC (lot 2 : 26 sur 27, 137 points). Avant : 2026-11-18, 23 h UTC (lot 2 : 21 sur 27, 110 points). Avant : 2026-11-10 (porte du lot 0 tenue : PR #92, #93 et #94 fusionnées ; US-027 en revue).
+> Lu en premier par toute session qui reprend le travail (handoff §4.9). Tenu par l'orchestrateur à chaque fin de session. **Dernière mise à jour : 2026-11-20, 6 h UTC (lot 3 en cours : 8 stories sur 21 MERGED, 48 points sur 110 ; détail au `BOARD.md`).** Mise à jour précédente : 2026-11-19, 12 h UTC (fin du lot 2 : 27 stories sur 27 MERGED, 140 points sur 140 ; porte L2 franchie, #261). Avant : 2026-11-19, 7 h UTC (lot 2 : 26 sur 27, 137 points). Avant : 2026-11-18, 23 h UTC (lot 2 : 21 sur 27, 110 points). Avant : 2026-11-10 (porte du lot 0 tenue : PR #92, #93 et #94 fusionnées ; US-027 en revue).
 
 ## Pour reprendre
 
@@ -8,7 +8,27 @@
 2. Sous Git Bash : `export PATH="/c/Program Files/nodejs:/c/Users/noamm/AppData/Roaming/npm:/c/Program Files/GitHub CLI:$PATH"`. Vérifie `node -v`, qui doit donner v26.13.0 (ADR-041).
 3. `git fetch`, `git worktree list`, puis relance les tests de chaque branche en cours **avant** de continuer (OPERATING_RULES §3).
 
-## État au 2026-11-19, fin du lot 2
+## État au 2026-11-20
+
+Le `BOARD.md` fait foi ; ce résumé ne sert qu'à reprendre vite.
+
+- **Lots 0 à 2** : inchangés (lot 2 clos, porte L2 franchie le 2026-11-19 ; US-027, US-050 et US-122 comme au BOARD). **US-535a MERGED** (#262, `f44199cf`, 0157, ADR-178 ; 5 points hors total, tranche d'US-535) : N-411 et N-421 faites.
+- **Lot 3** (21 stories, 110 points) : **8 MERGED, 48 points** (44 %) : US-303 (#266, `7bf6159b`), US-707 (#267, `3bcbfdea`), US-525 (#268, `95dc6662`), US-310 (#269, `f7fb5113`), US-315 (#270, `bf989b30`), US-308 (#271, `84d35703`), US-708 (#273, `fce5db9c` : **S-06 faite**, écrivain unique de `release_at`), US-316 (#274, `b24b893f`). Fusionnés aussi : registre des revues du lot 3 (#264, US-050), pré-mortem du lot 3 (#265, US-313 critère 1, `gates/L3/premortem.md`, L3-PM-01 à 60), e2e web à 45 min (#272, US-050), stabilité des parcours dorés (#276, US-221 ; remplace #275, fermée). Bêta : environ **59 %** (514 points sur 869).
+- **En revue** : **US-709** (PR #277, `story/US-709-grand-livre` ; grand livre, chargebacks, compensation, solde négatif ; N-270 à N-277, N-402, N-415, N-455).
+- **En cours** : **US-305** (PR #278, brouillon, `story/US-305-retards`), **US-703** (en cours d'écriture, pas encore de PR) ; **US-313** (porte) : pré-mortem fait, red team et post-mortem en dernier.
+- **Prochaine vague** : US-307, US-317, US-309, US-706, US-306, US-311, US-314, US-318, US-312, puis la **porte US-313**.
+- **Numéros sur `main`** (à reprendre à la suite) : dernière migration **0166** (#274), catalogue **v101** (#274 ; v100 non prise), dernier ADR **ADR-186** (#274), fixtures jusqu'à **9919** (#274 ; 9928 et 9923 non prises, 9920 libre). **Réservés** : US-709 0167 / ADR-187 ; US-305 0168 / ADR-188 / v103 ; US-703 0169 / ADR-189 / v104 (v102 libre). Vérifier les PR ouvertes avant de réserver ; renuméroter à chaque fusion de `main` si l'ordre change.
+- **Suites** : N-433 à N-461 inscrites au BOARD (réserves des revues et suites des passations d'US-303, US-707, US-525, US-310, US-315, US-308, US-708, US-316, US-221 et US-535a) ; N-120, N-362, N-383, N-410, N-416 faites en partie ; N-422 confiée à la partie post-mortem d'US-313 ; S-04 portée par US-314. **Prérequis d'ouverture de `payouts_enabled`** : N-437 (OTP avant un changement de compte, notification de l'hôte), N-438, N-454 (L0 `IN_TRANSIT` / `FAILED` / reprise au rang suivant, `PgPayoutBatchStore` contre PostgreSQL, alertes FIN bloquantes, fériés PA / PY saisis), N-455, N-270 à N-272, N-384, S-04. Inventaire « avant l'ouverture d'un pays » : 45 suites (dont N-445 : numéros d'urgence à valider par l'ops, heures du support et plan de staffing, SUP-020).
+- **Fondateur** : `POUR_LE_FONDATEUR.md` (page 1 et son ordre gardés) ; §0 à jour ; branche `fix/US-221-flocon-parcours-dores` ajoutée à la demande de « oui » pour les branches mortes (vingt et une) ; en information : versements aux hôtes livrés mais fermés en production, prérequis qui relèvent de lui (fériés, heures du support, numéros d'urgence à valider) ; aucune nouvelle demande.
+
+## Prochaine action exacte (orchestrateur, 2026-11-20)
+
+1. Faire relire **#277** (US-709) par les revues exigées (`node scripts/ci/check-story-reviews.mjs --branch story/US-709-grand-livre --base origin/main --root . --author-model <modèle de l'auteur>`), argent sur un autre modèle, puis fusionner CI verte et revues APPROUVÉ ; N-402, N-415 et N-455 passent alors FAIT selon la passation.
+2. Mener **#278** (US-305) et **US-703** à la revue ; lancer la vague suivante (US-307, US-317, US-309, puis US-706, US-306, US-311, US-314, US-318, US-312) en réservant les numéros au BOARD avant de coder.
+3. Avant toute idée d'ouverture des versements : N-437 et N-454 (prérequis, jamais codés comme ouverture ; `payouts_enabled` ne change que par la commande à deux personnes sur décision écrite du fondateur).
+4. Ne supprimer aucune branche distante sans le « oui » écrit du fondateur (`POUR_LE_FONDATEUR.md` §5, N-428).
+
+## État au 2026-11-19, fin du lot 2 (historique)
 
 Le `BOARD.md` fait foi ; ce résumé ne sert qu'à reprendre vite.
 
@@ -20,7 +40,7 @@ Le `BOARD.md` fait foi ; ce résumé ne sert qu'à reprendre vite.
 - **Suites** : N-415 à N-432 inscrites au BOARD (suites d'US-222d, mineurs des revues de #256, #259, #260, #261, renvois à la porte du lot 3 N-423, manques bloquants pour la production N-424 à N-428, suites de `gate.md` §6 N-429 à N-432) ; S-04 (US-125) comptée parmi les élevés hérités ; inventaire « avant l'ouverture d'un pays » : 35 suites.
 - **Fondateur** : `POUR_LE_FONDATEUR.md` (page 1 inchangée) ; en information : lot 2 terminé et porte franchie (§0, §7.10) ; rappel des manques bloquants pour la production qui relèvent de lui : « oui » pour supprimer les branches mortes (§5, nuits rouges), jeton du bot et accès des agents (priorité 6, §2.8).
 
-## Prochaine action exacte (orchestrateur, 2026-11-19, fin du lot 2)
+## Prochaine action exacte (orchestrateur, 2026-11-19, fin du lot 2, historique)
 
 1. Faire relire **#262** (US-535a) par les revues exigées (`node scripts/ci/check-story-reviews.mjs --branch story/US-535-commande-parametres --base origin/main --root . --author-model <modèle de l'auteur>`), argent / `SECURITY DEFINER` sur un autre modèle, puis fusionner CI verte et revues APPROUVÉ ; N-411 et N-421 passent alors FAIT.
 2. **Démarrer le lot 3** : pré-mortem du lot 3 (`docs/team/gates/L3/premortem.md`, US-313 critère 1, branche de story) et ordre des stories, en cours d'analyse par l'orchestrateur ; y reprendre les renvois de la porte du lot 2 (N-423) et les corrections de `gate.md` (N-422).
