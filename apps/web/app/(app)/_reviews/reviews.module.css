@@ -34,15 +34,42 @@
 }
 
 .star {
+  position: relative;
   display: inline-flex;
   align-items: center;
-  gap: var(--space-2);
+  justify-content: center;
+  gap: var(--space-1);
+  min-inline-size: var(--size-touch-target);
   min-block-size: var(--size-touch-target);
   padding-inline: var(--space-3);
   border: 1px solid var(--color-border-strong);
   border-radius: var(--radius-md);
   background: var(--color-surface-raised);
   color: var(--color-text);
+  font-weight: var(--font-weight-strong);
+  cursor: pointer;
+}
+
+/* radio natif posé sur toute l'étiquette : cible tactile de l'étiquette, clavier et lecteur d'écran
+   conservés ; seule son apparence est remplacée par celle de l'étiquette */
+.star input {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+/* état sélectionné visible sans la couleur seule : fond plein, contraste du texte, bordure */
+.star:has(input:checked) {
+  border-color: var(--color-primary);
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+}
+
+.star:has(input:focus-visible) {
+  outline: var(--size-focus-ring) solid var(--color-focus);
+  outline-offset: var(--size-focus-offset);
 }
 
 .scores {
