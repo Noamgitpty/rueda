@@ -149,7 +149,8 @@ AS $fn$
    WHERE a.subject_type = p_subject_type AND a.subject_id = p_subject_id
 $fn$;
 
--- Événements de la boîte d'envoi portant sur le trip (aucun n'est attendu d'un avis)
+-- Événements d'avis (« review.* ») de la boîte d'envoi portant sur le trip : aucun n'est attendu
+-- (la naissance du trip en écrit d'autres)
 CREATE FUNCTION test_fixture.us317_events(p_trip uuid)
   RETURNS TABLE (type text, payload jsonb)
   LANGUAGE sql
@@ -158,7 +159,8 @@ CREATE FUNCTION test_fixture.us317_events(p_trip uuid)
 AS $fn$
   SELECT e.type, e.payload
     FROM core.outbox_outbox_event AS e
-   WHERE e.aggregate_id = p_trip OR e.payload ->> 'trip_id' = p_trip::text
+   WHERE (e.aggregate_id = p_trip OR e.payload ->> 'trip_id' = p_trip::text)
+     AND e.type LIKE 'review%'
    ORDER BY e.occurred_at, e.id
 $fn$;
 
