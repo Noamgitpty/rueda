@@ -16,7 +16,7 @@
  *    checkout (hold posé) → capacité bloquante absente : paiement refusé AVANT T1 (critère 2) →
  *    paiement par le vrai `CheckoutPaymentService` : T1, ordre envoyé au PSP FAKE avec le montant
  *    EXPLICITE de chaque jambe, T2 ; Σ jambes = total.
- * B. « Du paiement au trip » (données VALIDÉES, horloge virtuelle 2052, aucun interrupteur) : même
+ * B. « Du paiement au trip » (données VALIDÉES, horloge virtuelle 2060, aucun interrupteur) : même
  *    voyageur inscrit, hold posé par la vraie commande, devis engagé au checkout posé par la fixture
  *    9969 (seule couture : le gel et le checkout réels exigent les interrupteurs) aux jambes de la
  *    capture de l'oracle (TJ01 / TJ08a) → T1 / T2 par le vrai service → FAKE hostile : SUCCEEDED
@@ -87,6 +87,7 @@ import {
   type CancellationFacts,
 } from '../../src/modules/stl/index.js';
 import { countryCases } from '../support/countries.js';
+import { onFakeAccount as onFakeAccountSafely } from '../support/fake-account.js';
 
 const golden = loadGoldenVectors();
 const LEGS = ['HOST', 'INSURER', 'TAX_THIRD_PARTY', 'PLATFORM'] as const;
@@ -418,21 +419,6 @@ class NoDepositGate {
   }
 }
 
-/** « Pagar » par le vrai service ; un refus est rendu avec son code (diagnostic de la CI). */
-async function payOrExplain(
-  service: CheckoutPaymentService,
-  hash: Buffer,
-  holdId: string,
-  explain: () => Promise<string> = () => Promise.resolve(''),
-) {
-  try {
-    return await service.pay(hash, holdId, { method: 'CARD' });
-  } catch (error) {
-    const code = (error as { code?: unknown }).code;
-    throw new Error(`paiement refusé : ${String(code)} ${await explain()}`, { cause: error });
-  }
-}
-
 /**
  * Diagnostic d'un refus de T1 (aucun identifiant ni montant) : comptes ACTIVE du pays (fournisseur,
  * environnement, mode d'encaissement, lus sous app_worker) et capacités bloquantes manquantes de
@@ -457,47 +443,19 @@ async function accountsDiagnostic(tx: pg.ClientBase, country: string): Promise<s
   return `comptes : ${out.join(' ; ')}`;
 }
 
-/**
- * T1 (`booking_cmd_checkout_pay`) retient le premier compte marchand ACTIVE du pays (fournisseur,
- * puis identifiant). Les scènes de `concurrence-webhook.int.test.ts` VALIDENT, le temps d'un test,
- * un compte ACTIVE d'un autre fournisseur du même pays (BAC, EBANX : avant FAKE dans l'ordre) puis
- * le suspendent : attendre (au plus 30 s) que seul le compte FAKE du pays soit actif, sinon T1
- * viserait ce compte de passage (course entre fichiers de test, pas un défaut du produit ;
- * passation US-221, constat C-1). Lecture seule, sous app_worker.
- */
-async function soleFakeAccount(country: string): Promise<void> {
-  const worker = await open('app_worker');
-  for (let i = 0; i < 120; i++) {
-    const { rows } = await worker.query<{ provider: string }>(
-      `SELECT provider FROM core.payment_psp_account WHERE country_code = $1 AND status = 'ACTIVE'`,
-      [country],
-    );
-    if (rows.length > 0 && rows.every((r) => r.provider === 'FAKE')) return;
-    await new Promise((resolve) => setTimeout(resolve, 250));
-  }
-  throw new Error('un compte marchand actif d’un autre fournisseur reste ouvert dans le pays');
-}
-
-/** Fournisseur du compte que T1 retiendrait À CET INSTANT (ordre de `booking_cmd_checkout_pay`). */
-async function firstProvider(worker: pg.ClientBase, country: string): Promise<string | null> {
-  const { rows } = await worker.query<{ provider: string }>(
-    `SELECT provider FROM core.payment_psp_account WHERE country_code = $1 AND status = 'ACTIVE'
-      ORDER BY (environment = 'LIVE') DESC, provider, id LIMIT 1`,
-    [country],
-  );
-  return rows[0]?.provider ?? null;
+/** Refus de T1 rendu avec son code et l'état des comptes du pays (diagnostic de la CI). */
+async function refusal(error: unknown, tx: pg.ClientBase, country: string): Promise<Error> {
+  const code = String((error as { code?: unknown }).code);
+  return new Error(`paiement refusé : ${code} ${await accountsDiagnostic(tx, country)}`, {
+    cause: error,
+  });
 }
 
 /**
- * Essai de T1 sur le compte FAKE du pays (constat C-1) : les scènes de
- * `concurrence-webhook.int.test.ts` ouvrent, le temps d'un test, un compte ACTIVE BAC ou EBANX du
- * même pays, retenu AVANT FAKE par `booking_cmd_checkout_pay`. Un essai n'est retenu (réussite OU
- * refus) que si FAKE est en tête juste avant ET juste après lui ; sinon il est annulé par son point
- * de sauvegarde et rejoué dès que FAKE est de nouveau en tête (au plus 60 s). Un essai annulé
- * retire aussi du PSP FAKE les ordres qu'il lui a envoyés : rejoué depuis le point de sauvegarde, il
- * renvoie le MÊME ordre (même clé d'idempotence `hold:…:CAPTURE:a1`), qu'un PSP réel dédoublonne.
- * Transaction ANNULÉE du segment A seulement ; le résultat retenu est affirmé tel quel par
- * l'appelant.
+ * Essai de T1 sur le compte FAKE du pays (constat C-1) : retenu seulement si aucun compte non FAKE
+ * du pays n'a bougé pendant lui (`../support/fake-account.ts`), sinon annulé par son point de
+ * sauvegarde et rejoué. La transaction de l'appelant (annulée au segment A, validée au segment B)
+ * n'est validée qu'après l'essai retenu.
  */
 async function onFakeAccount<T>(
   tx: pg.ClientBase,
@@ -507,30 +465,15 @@ async function onFakeAccount<T>(
 ): Promise<{ ok: true; value: T } | { ok: false; error: unknown }> {
   // UNE connexion app_worker pour toute l'attente (libérée par afterEach), jamais une par lecture
   const worker = await open('app_worker');
-  for (let i = 0; i < 240; i++) {
-    if ((await firstProvider(worker, country)) === 'FAKE') {
-      await tx.query('SAVEPOINT us221_fake');
-      const sent = psp.orders.length;
-      let out: { ok: true; value: T } | { ok: false; error: unknown };
-      try {
-        out = { ok: true, value: await attempt() };
-      } catch (error) {
-        out = { ok: false, error };
-      }
-      if ((await firstProvider(worker, country)) === 'FAKE') {
-        await tx.query(
-          out.ok ? 'RELEASE SAVEPOINT us221_fake' : 'ROLLBACK TO SAVEPOINT us221_fake',
-        );
-        return out;
-      }
-      await tx.query('ROLLBACK TO SAVEPOINT us221_fake');
-      psp.orders.splice(sent);
-    }
-    await new Promise((resolve) => setTimeout(resolve, 250));
-  }
-  throw new Error(
-    `le compte FAKE n'est jamais resté en tête : ${await accountsDiagnostic(tx, country)}`,
-  );
+  return onFakeAccountSafely({
+    tx,
+    worker,
+    country,
+    orders: psp.orders,
+    savepoint: 'us221_fake',
+    attempt,
+    diagnostic: () => accountsDiagnostic(tx, country),
+  });
 }
 
 // --- état partagé des segments (par pays) --------------------------------------------------------
@@ -755,15 +698,7 @@ describe.each(CASES)('US-221 — parcours dorés « réservation » ($country, $
           const paid = await onFakeAccount(tx, c.country, psp, () =>
             pay.pay(hash, holdId, { method: 'CARD' }),
           );
-          if (!paid.ok) {
-            const code = String((paid.error as { code?: unknown }).code);
-            throw new Error(
-              `paiement refusé : ${code} ${await accountsDiagnostic(tx, c.country)}`,
-              {
-                cause: paid.error,
-              },
-            );
-          }
+          if (!paid.ok) throw await refusal(paid.error, tx, c.country);
           const started = paid.value;
           expect(started.created).toBe(true);
           expect(started.payment).toMatchObject({
@@ -799,7 +734,13 @@ describe.each(CASES)('US-221 — parcours dorés « réservation » ($country, $
 
   // ---------------------------------------------------------------------------------------------
   describe('B — paiement prouvé par webhook signé, trip BOOKED, notifications, « Mis viajes »', () => {
-    const T0 = Date.UTC(2052, 2, 2, 10, 0, 0) + c.index * 7 * DAY;
+    // Horloge APRÈS celle de tout contrôle « sur toute la base » des fichiers int d'apps/api (oracle
+    // C12 et rapprochement : reconciliation 2033, segment C 2052, red team L2 2053). Entre le
+    // SUCCEEDED non signé et la conversion, l'opération du hold est « SUCCEEDED sans disposition »
+    // (état transitoire légitime, validé). Un contrôle lancé en parallèle à une horloge plus
+    // tardive de plus de 20 min le comptait comme un écart (SUCCEEDED_WITHOUT_DISPOSITION, run de la
+    // PR #275). Un contrôle à une horloge antérieure ne voit pas cet état comme échu.
+    const T0 = Date.UTC(2060, 2, 2, 10, 0, 0) + c.index * 7 * DAY;
     const t = (m: number): string => iso(T0 + m * MINUTE);
     const start = t(3 * 24 * 60);
     const end = t(5 * 24 * 60);
@@ -852,82 +793,91 @@ describe.each(CASES)('US-221 — parcours dorés « réservation » ($country, $
         )
       )[0]!.n;
 
-    it('voyageur inscrit, hold posé par la vraie commande, devis engagé aux jambes de l’oracle ; T1 / T2 par le vrai service : ordre au PSP aux jambes EXPLICITES de la capture', async () => {
-      const api = await open('app_api');
-      w.guest = randomUUID();
-      w.org = randomUUID();
-      w.vehicle = randomUUID();
-      w.guestHash = await inTx(api, { at: t(0), commit: true }, async (tx) => {
-        await register(tx, c.country, w.guest);
-        await tx.query('SELECT test_fixture.l0_ensure_parties($1::uuid[], $2, $3)', [
-          [w.guest],
-          w.org,
-          c.country,
-        ]);
-        await tx.query('SELECT test_fixture.register_vehicle($1, $2, $3)', [
-          w.vehicle,
-          w.org,
-          c.country,
-        ]);
-        await tx.query('SELECT test_fixture.us209_driver($1, $2, $3::date, $4::date, $5)', [
-          w.guest,
-          c.country,
-          '1990-01-01',
-          '2099-12-31',
-          c.country,
-        ]);
-        await capabilities(tx, c.country, t(-60));
-        await tx.query('SELECT test_fixture.us024_psp_account($1)', [c.country]);
-        return openSession(tx, w.guest!);
-      });
-      w.hold = await inTx(api, { at: t(0), commit: true }, async (tx) => {
-        const { text, values } = commandCallSql(
-          { kind: 'GUEST', actorId: w.guest! },
-          'core.booking_cmd_place_hold',
-          [
-            { value: w.vehicle, type: 'uuid' },
-            { value: start, type: 'timestamptz' },
-            { value: end, type: 'timestamptz' },
-            { value: false, type: 'boolean' },
-          ],
-        );
-        return (await tx.query<{ result: string }>(text, values)).rows[0]!.result;
-      });
-      w.quote = await inTx(api, { at: t(0), commit: true }, async (tx) => {
-        const r = await tx.query<{ id: string }>(
-          `SELECT test_fixture.us223_checkout_acceptance($1, $2::bigint, $3, $4::jsonb,
+    it(
+      'voyageur inscrit, hold posé par la vraie commande, devis engagé aux jambes de l’oracle ; T1 / T2 par le vrai service : ordre au PSP aux jambes EXPLICITES de la capture',
+      { timeout: 180_000 },
+      async () => {
+        const api = await open('app_api');
+        w.guest = randomUUID();
+        w.org = randomUUID();
+        w.vehicle = randomUUID();
+        w.guestHash = await inTx(api, { at: t(0), commit: true }, async (tx) => {
+          await register(tx, c.country, w.guest);
+          await tx.query('SELECT test_fixture.l0_ensure_parties($1::uuid[], $2, $3)', [
+            [w.guest],
+            w.org,
+            c.country,
+          ]);
+          await tx.query('SELECT test_fixture.register_vehicle($1, $2, $3)', [
+            w.vehicle,
+            w.org,
+            c.country,
+          ]);
+          await tx.query('SELECT test_fixture.us209_driver($1, $2, $3::date, $4::date, $5)', [
+            w.guest,
+            c.country,
+            '1990-01-01',
+            '2099-12-31',
+            c.country,
+          ]);
+          await capabilities(tx, c.country, t(-60));
+          await tx.query('SELECT test_fixture.us024_psp_account($1)', [c.country]);
+          return openSession(tx, w.guest!);
+        });
+        w.hold = await inTx(api, { at: t(0), commit: true }, async (tx) => {
+          const { text, values } = commandCallSql(
+            { kind: 'GUEST', actorId: w.guest! },
+            'core.booking_cmd_place_hold',
+            [
+              { value: w.vehicle, type: 'uuid' },
+              { value: start, type: 'timestamptz' },
+              { value: end, type: 'timestamptz' },
+              { value: false, type: 'boolean' },
+            ],
+          );
+          return (await tx.query<{ result: string }>(text, values)).rows[0]!.result;
+        });
+        w.quote = await inTx(api, { at: t(0), commit: true }, async (tx) => {
+          const r = await tx.query<{ id: string }>(
+            `SELECT test_fixture.us223_checkout_acceptance($1, $2::bigint, $3, $4::jsonb,
                                                          $5::timestamptz, $6::timestamptz) AS id`,
-          [w.hold, total.toString(), c.currency, JSON.stringify(legsText(capture)), start, end],
-        );
-        return r.rows[0]!.id;
-      });
+            [w.hold, total.toString(), c.currency, JSON.stringify(legsText(capture)), start, end],
+          );
+          return r.rows[0]!.id;
+        });
 
-      const psp = new FakeHostedPsp();
-      await soleFakeAccount(c.country);
-      const started = await inTx(api, { at: t(1), commit: true }, (tx) =>
-        payOrExplain(paymentService(tx, psp), w.guestHash!, w.hold!),
-      );
-      expect(started.created).toBe(true);
-      expect(started.payment).toMatchObject({ state: 'VERIFYING', tripId: null });
-      expect(psp.orders).toHaveLength(1);
-      expect(psp.orders[0]).toMatchObject({
-        amountMinor: total,
-        currency: c.currency,
-        capture: 'AUTO',
-      });
-      expect({ ...psp.orders[0]!.legs }).toEqual(capture);
+        // T1 sur le compte FAKE (constat C-1) : essai retenu seulement si aucun compte non FAKE du
+        // pays n'a bougé pendant lui ; transaction validée après l'essai retenu
+        const psp = new FakeHostedPsp();
+        const started = await inTx(api, { at: t(1), commit: true }, async (tx) => {
+          const paid = await onFakeAccount(tx, c.country, psp, () =>
+            paymentService(tx, psp).pay(w.guestHash!, w.hold!, { method: 'CARD' }),
+          );
+          if (!paid.ok) throw await refusal(paid.error, tx, c.country);
+          return paid.value;
+        });
+        expect(started.created).toBe(true);
+        expect(started.payment).toMatchObject({ state: 'VERIFYING', tripId: null });
+        expect(psp.orders).toHaveLength(1);
+        expect(psp.orders[0]).toMatchObject({
+          amountMinor: total,
+          currency: c.currency,
+          capture: 'AUTO',
+        });
+        expect({ ...psp.orders[0]!.legs }).toEqual(capture);
 
-      const ops = await workerSql<{ id: string; amount_minor: string; status: string }>(
-        'payment_command',
-        undefined,
-        `SELECT o.id, o.amount_minor::text AS amount_minor, o.status
+        const ops = await workerSql<{ id: string; amount_minor: string; status: string }>(
+          'payment_command',
+          undefined,
+          `SELECT o.id, o.amount_minor::text AS amount_minor, o.status
            FROM core.payment_payment_operation AS o WHERE o.hold_id = $1`,
-        [w.hold],
-      );
-      expect(ops).toHaveLength(1);
-      expect(ops[0]).toMatchObject({ amount_minor: total.toString(), status: 'SUBMITTED' });
-      w.operation = ops[0]!.id;
-    });
+          [w.hold],
+        );
+        expect(ops).toHaveLength(1);
+        expect(ops[0]).toMatchObject({ amount_minor: total.toString(), status: 'SUBMITTED' });
+        w.operation = ops[0]!.id;
+      },
+    );
 
     it('FAKE hostile : SUCCEEDED de réponse d’API (non signé) ⇒ NOT_PROVEN, aucun trip ; webhook signé ⇒ preuve ; conversion ⇒ trip BOOKED, version de prix n° 1 = devis du checkout, booking.trip.booked une fois ; rejeux ⇒ DUPLICATE et REPLAY', async () => {
       const op = w.operation;
