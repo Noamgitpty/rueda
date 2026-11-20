@@ -172,13 +172,14 @@ CREATE POLICY cmd_hold_overdue_upd ON core.trip_ops_overdue_case FOR UPDATE TO c
 
 -- 3.1 Trip : transition IN_PROGRESS → OVERDUE (paire de SM-1, journal de la même transaction : garde
 -- trip_transition_guard de 0099) et marque « à risque » d'un trip pas encore commencé ; travailleur
--- trip_overdue seulement
+-- trip_overdue seulement. USING admet OVERDUE : le verrou de ligne (SELECT … FOR UPDATE) d'un trip
+-- déjà en retard passe par les politiques UPDATE (prolongations suivantes)
 GRANT SELECT (id, status, guest_user_id, org_id, vehicle_id, country_code, scheduled_start,
               scheduled_end, booked_at, row_version, at_risk_reason)
   ON core.booking_trip TO cmd_hold_owner;
 GRANT UPDATE (at_risk_reason) ON core.booking_trip TO cmd_hold_owner;
 CREATE POLICY cmd_trip_overdue_upd ON core.booking_trip FOR UPDATE TO cmd_hold_owner
-  USING (status IN ('IN_PROGRESS', 'BOOKED', 'CHECKIN_OPEN', 'START_WINDOW_EXPIRED')
+  USING (status IN ('IN_PROGRESS', 'OVERDUE', 'BOOKED', 'CHECKIN_OPEN', 'START_WINDOW_EXPIRED')
          AND app.actor_kind() = 'WORKER' AND app.worker_name() = 'trip_overdue')
   WITH CHECK ((status = 'OVERDUE'
                OR (status IN ('BOOKED', 'CHECKIN_OPEN', 'START_WINDOW_EXPIRED')
@@ -330,16 +331,24 @@ BEGIN
   END IF;
   PERFORM pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended('guest:' || v_guest::text, 0));
   PERFORM pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended('veh:' || v_vehicle::text, 0));
+  -- état relu APRÈS l'attente des verrous : un retour validé pendant l'attente est vu (RETURNED),
+  -- jamais rattrapé par une détection ; seuls IN_PROGRESS et OVERDUE sont ensuite verrouillés
+  -- (FOR UPDATE passe par les politiques UPDATE, cmd_trip_overdue_upd)
+  SELECT tr.status INTO v_outcome FROM core.booking_trip AS tr WHERE tr.id = p_trip_id;
+  IF v_outcome IS NULL OR v_outcome NOT IN ('IN_PROGRESS', 'OVERDUE') THEN
+    RETURN pg_catalog.jsonb_build_object('tripId', p_trip_id, 'outcome', 'SKIPPED',
+                                         'status', v_outcome);
+  END IF;
   SELECT tr.id, tr.status, tr.country_code, tr.org_id, tr.scheduled_end, tr.booked_at
     INTO t
     FROM core.booking_trip AS tr WHERE tr.id = p_trip_id FOR UPDATE;
-  -- heure lue APRÈS l'attente des verrous (17 §1.3 point 1) : un retour validé pendant l'attente
-  -- est vu (RETURNED), jamais rattrapé par une détection
-  v_now := platform.now();
-  IF t.status NOT IN ('IN_PROGRESS', 'OVERDUE') THEN
-    RETURN pg_catalog.jsonb_build_object('tripId', t.id, 'outcome', 'SKIPPED',
-                                         'status', t.status);
+  IF t.id IS NULL THEN
+    RAISE EXCEPTION 'trip overdue: trip row not lockable'
+      USING ERRCODE = 'insufficient_privilege', CONSTRAINT = 'trip_command_forbidden';
   END IF;
+  -- heure lue APRÈS l'attente des verrous (17 §1.3 point 1)
+  v_now := platform.now();
+  v_outcome := NULL;
   SELECT oc.id, oc.use_until, oc.occupancy_until, oc.bounded, oc.next_trip_id
     INTO c
     FROM core.trip_ops_overdue_case AS oc WHERE oc.trip_id = t.id;
