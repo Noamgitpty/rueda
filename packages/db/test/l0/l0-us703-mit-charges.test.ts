@@ -994,6 +994,77 @@ describe.each(COUNTRIES)(
       );
     });
 
+    it('forme du consentement (ADR-189 n° 15) : faux ⇒ mention enregistrée, vrai ⇒ case enregistrée, absent ⇒ BLOCKED et aucun consentement (fail_mode BLOCK)', async () => {
+      await withRole('app_api', (client) =>
+        withTestTransaction(client, { virtualNow: '2035-05-01T10:00:00.000Z' }, async (tx) => {
+          const payingHold = async (): Promise<{ hold: string | undefined; hash: Buffer }> => {
+            const w = await guestTrip(tx);
+            const { rows } = await tx.query<{ hold_id: string }>(
+              `SELECT * FROM test_fixture.us214_request($1, $2, 'Luis', 'Benítez',
+                                                      'Ciudad de prueba', $3, $4, $5::bigint, $6,
+                                                      'IN_FLIGHT')`,
+              [
+                c.country,
+                w.guest,
+                '2035-08-01T15:00:00Z',
+                '2035-08-03T15:00:00Z',
+                c.rentMinor,
+                '2035-05-02T10:00:00Z',
+              ],
+            );
+            return { hold: rows[0]?.hold_id, hash: (await openSession(tx, w.guest)).hash };
+          };
+          const modeOf = async (p: { hold: string | undefined; hash: Buffer }) =>
+            (
+              await tx.query<{ mode: string }>(
+                'SELECT mode FROM core.payment_mit_consent_mode_of_hold($1, $2::uuid)',
+                [p.hash, p.hold],
+              )
+            ).rows[0]?.mode;
+          const accept = async (p: { hold: string | undefined; hash: Buffer }) =>
+            (
+              await tx.query<{ outcome: string; consent_id: string | null }>(
+                "SELECT * FROM core.payment_cmd_accept_mit_consent($1, $2::uuid, 'fr', 104)",
+                [p.hash, p.hold],
+              )
+            ).rows[0];
+          const consentOf = async (hold: string | undefined) =>
+            (
+              await tx.query<{ consent_key: string; catalog_version: number; locale: string }>(
+                'SELECT consent_key, catalog_version, locale FROM test_fixture.us703_consent_of_hold($1)',
+                [hold],
+              )
+            ).rows;
+          // graine du pays (faux, DEC-FONDATEUR-22) : mention au bouton, clé de la mention
+          const notice = await payingHold();
+          expect(await modeOf(notice)).toBe('NOTICE');
+          expect((await accept(notice))?.outcome).toBe('ACCEPTED');
+          expect(await consentOf(notice.hold)).toEqual([
+            { consent_key: 'web.s05.mitConsentNotice', catalog_version: 104, locale: 'fr' },
+          ]);
+          // paramètre du pays à vrai : branche CHECKBOX de la base, clé de la case séparée
+          await tx.query("SELECT test_fixture.us703_set_consent_param($1, 'true'::jsonb)", [
+            c.country,
+          ]);
+          const checkbox = await payingHold();
+          expect(await modeOf(checkbox)).toBe('CHECKBOX');
+          expect((await accept(checkbox))?.outcome).toBe('ACCEPTED');
+          expect(await consentOf(checkbox.hold)).toEqual([
+            { consent_key: 'web.s05.mitConsent', catalog_version: 104, locale: 'fr' },
+          ]);
+          // le consentement déjà donné garde la clé du texte affiché alors (jamais réécrit)
+          expect((await consentOf(notice.hold))[0]?.consent_key).toBe('web.s05.mitConsentNotice');
+          // paramètre ABSENT (pays ajouté sans valeur) : fail_mode BLOCK, des deux côtés ; le site
+          // lit BLOCKED et n'offre pas le paiement, la base refuse le consentement sans écrire
+          await tx.query('SELECT test_fixture.us703_set_consent_param($1, NULL)', [c.country]);
+          const missing = await payingHold();
+          expect(await modeOf(missing)).toBe('BLOCKED');
+          expect(await accept(missing)).toEqual({ outcome: 'PARAM_MISSING', consent_id: null });
+          expect(await consentOf(missing.hold)).toEqual([]);
+        }),
+      );
+    });
+
     it('S09 : rappel à la remise par le voyageur du trip pendant CHECKIN_OPEN seulement ; vue : marque et 4 derniers chiffres, jamais le jeton', async () => {
       await withRole('app_api', (client) =>
         withTestTransaction(client, { virtualNow: '2035-06-10T12:00:00.000Z' }, async (tx) => {
