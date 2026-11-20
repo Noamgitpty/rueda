@@ -13,7 +13,7 @@ D'après 17 §2.2 et §2.14 :
 
 FIN ne calcule ni le règlement ni les jambes (STL), et ne déplace pas de fonds (PAY). Le loyer de l'hôte particulier n'est pas facturé par Kmino tant que l'avis OQ-BR-14 / OQ-P2P-07 ne le demande pas (17 §3.2.13).
 
-État du code : `FinModule` est vide (US-001). Existent le port `EInvoicingProvider` (US-020, ADR-058) et les **contrôles de rapprochement de l'argent** (US-047, ADR-087). US-217 (partie 217a, ADR-161) livre en base le reçu des gains de l'hôte, le reçu du trip fee du voyageur, le relevé mensuel et les faits de l'invariant par jambe (section ci-dessous). Restent US-541 (relevés figés, annuel), US-711 (rapprochement par jambe avec le PSP) et, pour le connecteur réel, US-604 (lot C).
+État du code : `FinModule` est vide (US-001). Existent le port `EInvoicingProvider` (US-020, ADR-058) et les **contrôles de rapprochement de l'argent** (US-047, ADR-087). US-217 (partie 217a, ADR-161) livre en base le reçu des gains de l'hôte, le reçu du trip fee du voyageur, le relevé mensuel et les faits de l'invariant par jambe (section ci-dessous). US-311 (ADR-194) livre le rapprochement par jambe **assisté** (mensuel, manuel borné). Restent US-541 (relevés figés, annuel), US-711 (rapprochement quotidien automatisé) et, pour le connecteur réel, US-604 (lot C).
 
 ## Rapprochement de l'argent (US-047, ADR-087)
 
@@ -26,6 +26,10 @@ Trois contrôles s'ajoutent au rapprochement nocturne, lus de `core.finance_insu
 ## Chargeback sans imputation au rapprochement (US-222d, ADR-176)
 
 Quinzième contrôle, `CHARGEBACK_UNIMPUTED`, lu de `core.finance_chargeback_facts()` (0155, travailleur `reconciliation` seulement ; requête `chargebackFactsSql`, source `CHARGEBACK_FACTS_SOURCE`, pays et drapeaux seulement) : un chargeback SUCCEEDED qui n'a déplacé aucune jambe est un écart (constat F-L2-ARG-04 de la red team ; 08 E7 règle 7, BR-PAY-11, TJ14a / TJ14b) tant que l'imputation d'US-709 n'existe pas. La jambe HOST de son trip est gelée par la base dès l'enregistrement du chargeback (déclencheur de 0155) : rien n'est versé sans décision FIN ; un chargeback dont la jambe HOST n'est pas gelée est compté (`examined.chargebackHostUnfrozen`). Preuves : `internal/money-reconciliation.test.ts` (bloc US-222d), `apps/api/test/int/redteam-l2-argent-jambes.int.test.ts` (F-L2-ARG-04 et preuve du correctif).
+
+## Rapprochement par jambe assisté avec le PSP (US-311, ADR-194)
+
+Migration 0174 : passages (`core.finance_reconciliation_run`) et éléments (`core.finance_reconciliation_item`), classe A, RLS `ENABLE` + `FORCE`, aucun droit applicatif ; écrits seulement par les portes de la console `core.finance_staff_*` (SECURITY DEFINER, `iam_staff_owner`, permission `finance.reconciliation` dans le pays, FINANCE et ADMIN). La base apparie le relevé du PSP (export collé, ou `listLegBalances` du FAKE) à l'unité mineure, sans tolérance : opérations par référence du PSP, jambes par trip (ou hold d'origine) et jambe sur les cinq composantes de 17 §2.9 ; « opération sans trip », ligne absente du PSP, montant ou versement en écart sont des éléments en écart, jamais absorbés. Seuil `reconciliation_delta_threshold_bps` (J-ADM-031) : absent ⇒ 0 ; il ne décide que de l'escalade (traitement sous 5 jours ouvrés). Résolution motivée une fois, clôture par la checklist signée ; deux mois d'écart inexpliqué ⇒ rapprochement quotidien (US-711) préalable. Export de la plateforme journalisé (`BULK_EXPORT`). Routes servies par RPT ; procédure : `docs/ops/RAPPROCHEMENT_MENSUEL.md`. Le contrôle nocturne d'US-047 reste distinct (invariants internes, sans relevé du PSP).
 
 ## Reçu des gains, reçu du trip fee, relevé mensuel (US-217 partie 217a, ADR-161)
 
@@ -45,8 +49,8 @@ Entités de 17 §3.2.13 possédées par FIN (17 §2.2) :
 | `host_earnings_statement` | lecture calculée (0137, ADR-161) : `core.finance_host_statement`               |
 | `host_earnings_line`      | lecture calculée (0137, ADR-161) : `core.finance_earning_lines`                |
 | `tax_remittance`          | cible 17 (§2.2 seulement, sans fiche en §3.2.13), pas encore créée             |
-| `reconciliation_run`      | cible 17, pas encore créée                                                     |
-| `reconciliation_item`     | cible 17, pas encore créée                                                     |
+| `reconciliation_run`      | table `core.finance_reconciliation_run` (migration 0174, US-311, ADR-194)      |
+| `reconciliation_item`     | table `core.finance_reconciliation_item` (migration 0174, US-311, ADR-194)     |
 
 `insurer` et `insurer_contract` sont listés en §3.2.13 mais possédés par STL. Les tables d'argent de STL lues par FIN (`core.settlement_*`, migrations 0027 et 0036) sont décrites dans le README de STL. Permissions déjà semées dans `core.iam_role_permission` : `finance.read_org_statements`, `finance.platform_advance`, `finance.insurer_bordereau` (migrations 0035, 0036).
 

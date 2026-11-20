@@ -364,8 +364,13 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  `web.reviews.*` (avis reçus, droit d’accès Ley 81), `web.a13.title`, `web.a13.preview`,
  `web.a13.reviews`, `web.a13.link` (A13 : aperçu du profil public) et `web.listing.hostReviews`
  (fiche S03, LST-020).
+ Version 109 (réservée à US-311 par l’orchestrateur ; les 104 et 105 sont celles d’US-703 et
+ US-317, les 106 à 108 sont réservées à, US-307, US-314 et US-306 ; le numéro ne redescend jamais) : vues de la bêta et
+ rapprochement par jambe assisté (US-311, ADR-194) : réponses de la console
+ `common.reconciliation.*` (relevé du PSP absent ou mal formé, checklist mensuelle incomplète,
+ passage clôturé, écart déjà expliqué, base indisponible : rien n’est lu ni enregistré).
  */
-export const CATALOG_VERSION = 105;
+export const CATALOG_VERSION = 109;
 
 /** Catalogues de base par langue ; la langue d'un profil de locale choisit le sien. */
 export const CATALOGS: Readonly<Record<CatalogLanguage, VersionedCatalog<MessageKey>>> = {
