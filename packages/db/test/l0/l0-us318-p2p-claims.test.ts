@@ -401,10 +401,18 @@ describe.each(COUNTRIES)('US-318 — sinistres entre particuliers ($country, $cu
         await tx.query('SELECT test_fixture.us309_returned($1)', [noCard.trip]);
         const ongoing = await world(tx, c, 'IN_PROGRESS');
         await setNow(tx, plus(END, HOUR));
-        const h = (await openSession(tx, w.holder)).hash;
-        const hNoCard = (await openSession(tx, noCard.holder)).hash;
-        const g = (await openSession(tx, w.guest)).hash;
-        const hOngoing = (await openSession(tx, ongoing.holder)).hash;
+        let h = (await openSession(tx, w.holder)).hash;
+        let hNoCard = (await openSession(tx, noCard.holder)).hash;
+        let g = (await openSession(tx, w.guest)).hash;
+        let hOngoing = (await openSession(tx, ongoing.holder)).hash;
+        // sessions ouvertes à l'instant (virtuel) de la déclaration : une session de la veille du
+        // retour aurait expiré 120 jours plus tard (refus NOT_FOUND, sans rapport avec le délai)
+        const reopen = async (): Promise<void> => {
+          h = (await openSession(tx, w.holder)).hash;
+          hNoCard = (await openSession(tx, noCard.holder)).hash;
+          g = (await openSession(tx, w.guest)).hash;
+          hOngoing = (await openSession(tx, ongoing.holder)).hash;
+        };
         await subjectKey(tx, w.holder);
         await subjectKey(tx, noCard.holder);
 
@@ -439,6 +447,7 @@ describe.each(COUNTRIES)('US-318 — sinistres entre particuliers ($country, $cu
 
         // délai : fin effective (retour à END) + 120 j ; + 1 ms : refus, rien d'écrit
         await setNow(tx, plus(DEADLINE, 1));
+        await reopen();
         const late = await declare(h, w.trip, 'FINE', plus(START, HOUR), f1.fileId);
         expect(late['outcome']).toBe('TRAFFIC_CHARGE_DEADLINE_PASSED');
         expect((late['body'] as Row)['deadlineAt']).toBe(DEADLINE);
@@ -447,6 +456,7 @@ describe.each(COUNTRIES)('US-318 — sinistres entre particuliers ($country, $cu
         ).toEqual([]);
 
         await setNow(tx, DEADLINE);
+        await reopen();
         // bornes du fait : début − 1 ms et fin + 1 ms refusés ; début et fin acceptés
         expect((await declare(h, w.trip, 'TOLL', plus(START, -1), f1.fileId))['outcome']).toBe(
           'TRAFFIC_OUTSIDE_TRIP',

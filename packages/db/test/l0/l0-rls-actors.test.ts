@@ -742,6 +742,9 @@ describe('RLS-5, RLS-12, RLS-18', () => {
           r.t.startsWith('pricing_') ||
           // US-707 (0159) : compte de versement, fonctions SECURITY DEFINER seulement
           r.t.startsWith('payout_') ||
+          // US-318 (0178) : dossier de vol et refacturations, fonctions SECURITY DEFINER seulement
+          r.t === 'claim_theft_case' ||
+          r.t === 'claim_traffic_charge' ||
           r.t === 'booking_checkout_acceptance'
         ) {
           expect(r.api_policies, r.t).toBe(0);
