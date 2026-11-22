@@ -3089,6 +3089,63 @@ export const ES_MESSAGES = {
   'web.a08.empty': 'Aún no tienes ganancias',
   'web.a08.payoutsOff':
     'Tus ganancias quedan registradas. Los pagos a anfitriones en {country} aún no están abiertos; te avisaremos.',
+  // US-314 : versements de l’hôte (A08), motifs de retenue, lignes du host_ledger (ADR-192)
+  'common.payouts.readForbidden': 'No puedes ver los pagos de esta cuenta.',
+  'common.payouts.unavailable': 'No pudimos cargar tus pagos. Inténtalo más tarde.',
+  'web.a08.line.RELEASED_LEG_ADVANCE': 'Reembolso al viajero adelantado por la plataforma',
+  'web.a08.line.CHARGEBACK_CLAWBACK': 'Contracargo del viajero',
+  'web.a08.line.RECEIVABLE_WRITE_OFF': 'Deuda anulada',
+  'web.a08.line.PAYOUT_NETTING': 'Descontado de un pago',
+  'web.a08.line.creditHint': 'Este monto reduce lo que debes.',
+  'web.a08.payouts.title': 'Pagos',
+  'web.a08.payouts.schedule':
+    'Te pagamos {n} días hábiles después del fin del viaje, hacia las {time} (hora local). El primer pago a una cuenta nueva sale {first} días hábiles después del viaje, mientras verificamos la cuenta.',
+  'web.a08.payouts.scheduleClosed':
+    'Cuando los pagos a anfitriones abran en {country}, te pagaremos {n} días hábiles después del fin del viaje, hacia las {time} (hora local); el primer pago a una cuenta nueva, {first} días hábiles después del viaje.',
+  'web.a08.payouts.toPay': 'Monto a pagar',
+  'web.a08.payouts.scheduleUnknown': 'El calendario de pagos de {country} aún no está publicado.',
+  'web.a08.payouts.empty': 'Aún no tienes pagos. Preparamos uno después de cada viaje terminado.',
+  'web.a08.payouts.scheduledFor': 'Previsto el {date}',
+  'web.a08.payouts.sentOn': 'Enviado el {date}',
+  'web.a08.payouts.paidOn': 'Pagado el {date}',
+  'web.a08.payouts.first': 'Primer pago',
+  'web.a08.payouts.gross': 'Ganancias del pago',
+  'web.a08.payouts.netted': 'Descontado por montos que debes',
+  'web.a08.payouts.net': 'Monto del pago',
+  'web.a08.payouts.heldTitle': 'Pago retenido',
+  'web.a08.payouts.loadError': 'No pudimos cargar tus pagos.',
+  'web.a08.payouts.trips': { one: '{count} viaje', other: '{count} viajes' },
+  'web.a08.payouts.status.SCHEDULED': 'Programado',
+  'web.a08.payouts.status.ON_HOLD': 'Retenido',
+  'web.a08.payouts.status.NETTING': 'En preparación',
+  'web.a08.payouts.status.READY': 'Listo para enviar',
+  'web.a08.payouts.status.ZERO_NET': 'Sin monto a pagar',
+  'web.a08.payouts.status.INITIATED': 'Enviado',
+  'web.a08.payouts.status.IN_TRANSIT': 'En camino',
+  'web.a08.payouts.status.PAID': 'Pagado',
+  'web.a08.payouts.status.FAILED': 'Rechazado por el banco',
+  'web.a08.payouts.hold.PAYOUTS_DISABLED':
+    'Los pagos a anfitriones en {country} aún no están abiertos.',
+  'web.a08.payouts.hold.FUNDS_HOLDING_DISABLED':
+    'Este medio de pago aún no está disponible en {country}.',
+  'web.a08.payouts.hold.VARIANT_B_UNAVAILABLE': 'Este medio de pago aún no está disponible.',
+  'web.a08.payouts.hold.HOST_PAYOUT_RAIL_UNAVAILABLE':
+    'Nuestro proveedor de pagos aún no puede pagar a particulares en {country}.',
+  'web.a08.payouts.hold.SUBMERCHANT_INACTIVE':
+    'Nuestro proveedor de pagos aún está verificando tu cuenta.',
+  'web.a08.payouts.hold.PAYOUT_ACCOUNT_MISSING':
+    'Agrega una cuenta de cobro para recibir tus pagos.',
+  'web.a08.payouts.hold.PAYOUT_ACCOUNT_UNVERIFIED': 'Tu cuenta de cobro aún se está verificando.',
+  'web.a08.payouts.hold.PAYOUT_ACCOUNT_CHANGE_HOLD':
+    'Cambiaste tu cuenta de cobro hace poco: por seguridad, el pago espera un tiempo.',
+  'web.a08.payouts.hold.CHARGEBACK':
+    'El viajero disputó el cobro con su banco; el pago espera la decisión.',
+  'web.a08.payouts.hold.DISPUTE':
+    'Hay un desacuerdo abierto sobre este viaje; el pago espera la decisión.',
+  'web.a08.payouts.hold.CLAIM':
+    'Hay un reclamo abierto sobre este viaje; el pago espera la decisión de nuestro equipo de soporte.',
+  'web.a08.payouts.hold.TRIP_NOT_COMPLETED': 'El viaje aún no está cerrado.',
+  'web.a08.payouts.hold.OTHER': 'El pago está retenido; nuestro equipo lo revisa.',
   // US-303 : photos guidées de l’état du véhicule (ADR-179)
   'common.inspection.notFound': 'No encontramos las fotos de este viaje.',
   'common.inspection.notOpen': 'Las fotos de este viaje no están abiertas en este momento.',

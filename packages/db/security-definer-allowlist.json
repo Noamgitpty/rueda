@@ -2796,6 +2796,20 @@
       "owner": "iam_staff_owner",
       "execute": ["app_api"],
       "story": "US-309"
+    },
+    {
+      "signature": "core.payout_host_payouts(bytea,uuid)",
+      "family": "cmd_money",
+      "owner": "cmd_money_owner",
+      "execute": ["app_api"],
+      "story": "US-314"
+    },
+    {
+      "signature": "core.payout_release_hold_reasons(uuid)",
+      "family": "cmd_money",
+      "owner": "cmd_money_owner",
+      "execute": [],
+      "story": "US-314"
     }
   ]
 }

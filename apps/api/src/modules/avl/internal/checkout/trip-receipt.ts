@@ -53,8 +53,18 @@ export type EarningKind = (typeof EARNING_KINDS)[number];
 /** Source du montant : version en tête du règlement, ou capture tant qu'aucun règlement n'existe. */
 export const RECEIPT_SOURCES = ['CAPTURE', 'SETTLEMENT'] as const;
 export type ReceiptSource = (typeof RECEIPT_SOURCES)[number];
-/** Motifs du host_ledger (0129) ; tout autre motif est une extension revue. */
-export const ADJUSTMENT_REASONS = ['HOST_CANCELLATION_PENALTY'] as const;
+/**
+ * Motifs du host_ledger (0129, 0139, 0167) ; tout autre motif est une extension revue. US-314
+ * (ADR-192) : les motifs de 0139 et 0167 sont lisibles (avant, une seule de ces écritures rendait
+ * le relevé et le reçu en 503).
+ */
+export const ADJUSTMENT_REASONS = [
+  'HOST_CANCELLATION_PENALTY',
+  'RELEASED_LEG_ADVANCE',
+  'CHARGEBACK_CLAWBACK',
+  'PAYOUT_NETTING',
+  'RECEIVABLE_WRITE_OFF',
+] as const;
 export type AdjustmentReason = (typeof ADJUSTMENT_REASONS)[number];
 
 export interface HostAdjustment {

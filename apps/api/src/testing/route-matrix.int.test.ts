@@ -1108,6 +1108,10 @@ async function requestOf(
     // co-hôte compris) ; aucun coffre en production (503) après le contrôle du compte
     case 'GET /host/accounts/{orgId}/payout-account':
       return { method: 'GET', path: `/host/accounts/${id}/payout-account` };
+    // versements du titulaire (US-314) : compte d'hôte d'aucun acteur de la cellule ⇒ 404 (IDOR,
+    // co-hôte compris), lecture seule
+    case 'GET /host/accounts/{orgId}/payouts':
+      return { method: 'GET', path: `/host/accounts/${id}/payouts` };
     case 'POST /host/accounts/{orgId}/payout-account':
       return {
         method: 'POST',

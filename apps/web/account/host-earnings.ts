@@ -13,8 +13,17 @@ export const EARNING_LINE_KINDS = ['EARNING', 'CXL_EARNING', 'ADJUSTMENT'] as co
 export type EarningLineKind = (typeof EARNING_LINE_KINDS)[number];
 export const EARNING_SOURCES = ['CAPTURE', 'SETTLEMENT', 'HOST_LEDGER'] as const;
 export type EarningSource = (typeof EARNING_SOURCES)[number];
-/** Motifs du host_ledger connus de l'écran ; tout autre motif ⇒ relevé illisible. */
-export const ADJUSTMENT_REASONS = ['HOST_CANCELLATION_PENALTY'] as const;
+/**
+ * Motifs du host_ledger connus de l'écran (0129, 0139, 0167 ; US-314, ADR-192) ; tout autre motif
+ * ⇒ relevé illisible.
+ */
+export const ADJUSTMENT_REASONS = [
+  'HOST_CANCELLATION_PENALTY',
+  'RELEASED_LEG_ADVANCE',
+  'CHARGEBACK_CLAWBACK',
+  'PAYOUT_NETTING',
+  'RECEIVABLE_WRITE_OFF',
+] as const;
 export type AdjustmentReason = (typeof ADJUSTMENT_REASONS)[number];
 
 export interface EarningLineView {

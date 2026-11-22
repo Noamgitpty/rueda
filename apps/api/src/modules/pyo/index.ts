@@ -45,3 +45,19 @@ export type {
   RecordReleaseInput,
   ReleaseItem,
 } from './internal/payout-batch-store.js';
+
+// Versements lus par le titulaire du compte d'hôte (US-314, ADR-192 ; écran A08)
+export {
+  HOLD_REASONS,
+  HostPayoutsService,
+  PgHostPayoutsStore,
+  UnavailableHostPayoutsStore,
+} from './internal/host-payouts.js';
+export type {
+  HoldReason,
+  HostPayout,
+  HostPayoutsRow,
+  HostPayoutsStore,
+  HostPayoutsView,
+  PayoutSchedule,
+} from './internal/host-payouts.js';

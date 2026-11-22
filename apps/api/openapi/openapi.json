@@ -13775,6 +13775,103 @@
         }
       }
     },
+    "/host/accounts/{orgId}/payouts": {
+      "get": {
+        "operationId": "getHostPayouts",
+        "tags": ["pyo"],
+        "summary": "Versements d'un compte d'hôte pour son seul titulaire (US-314, ADR-192 ; 19 US-314 critère 5 ; écran A08) : calendrier du pays (jours ouvrés du versement et du premier versement, heure locale du lot, fuseau) et 24 derniers lots (état SM-6, date prévue, premier versement, brut, compensation, net, motifs de retenue, dates d'émission et de paiement, trips) ; aucun identifiant du personnel ni du PSP (RLS-26) ; co-hôte refusé (RLS-28)",
+        "parameters": [
+          {
+            "name": "orgId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Calendrier et lots du compte, les plus récents d’abord (aucun : liste vide)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HostPayouts"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthRequired"
+          },
+          "403": {
+            "description": "Matrice sans finance.read_org_statements en vigueur pour le rôle P2P_HOST (17 §2.3)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "PAYOUTS_READ_FORBIDDEN"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Compte d'hôte inconnu, d'un autre hôte, dont la personne n'est que co-hôte ou identifiant mal formé : même réponse (17 §2.3 point 5, RLS-28)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "HOST_ACCOUNT_NOT_FOUND"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Base indisponible ou réponse inattendue : rien n’est servi (fail-closed)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "PAYOUTS_UNAVAILABLE"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/trips/{tripId}/meetings": {
       "get": {
         "operationId": "tripMeetings",
@@ -20387,7 +20484,13 @@
                       "properties": {
                         "reason": {
                           "type": "string",
-                          "enum": ["HOST_CANCELLATION_PENALTY"]
+                          "enum": [
+                            "HOST_CANCELLATION_PENALTY",
+                            "RELEASED_LEG_ADVANCE",
+                            "CHARGEBACK_CLAWBACK",
+                            "PAYOUT_NETTING",
+                            "RECEIVABLE_WRITE_OFF"
+                          ]
                         },
                         "amountMinor": {
                           "$ref": "#/components/schemas/SignedMinorUnits"
@@ -20521,7 +20624,14 @@
                       },
                       "reason": {
                         "type": ["string", "null"],
-                        "enum": ["HOST_CANCELLATION_PENALTY", null]
+                        "enum": [
+                          "HOST_CANCELLATION_PENALTY",
+                          "RELEASED_LEG_ADVANCE",
+                          "CHARGEBACK_CLAWBACK",
+                          "PAYOUT_NETTING",
+                          "RECEIVABLE_WRITE_OFF",
+                          null
+                        ]
                       },
                       "eventAt": {
                         "type": "string",
@@ -25948,6 +26058,175 @@
             "type": "string",
             "minLength": 1,
             "maxLength": 64
+          }
+        }
+      },
+      "HostPayouts": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "Versements d'un compte d'hôte (US-314, ADR-192) : montants en unités mineures, en texte (bigint exact), lus et jamais recalculés ; motif de retenue inconnu ⇒ OTHER",
+        "required": ["orgId", "country", "currency", "currencyExponent", "schedule", "payouts"],
+        "properties": {
+          "orgId": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+          },
+          "country": {
+            "$ref": "#/components/schemas/CountryCode"
+          },
+          "currency": {
+            "type": "string",
+            "pattern": "^[A-Z]{3}$"
+          },
+          "currencyExponent": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4
+          },
+          "schedule": {
+            "type": "object",
+            "additionalProperties": false,
+            "description": "Paramètres du pays (17 §7.2) ; illisible ⇒ null",
+            "required": [
+              "businessDayOffset",
+              "firstPayoutBusinessDay",
+              "localTimeMinutes",
+              "timeZone",
+              "payoutsOpen"
+            ],
+            "properties": {
+              "businessDayOffset": {
+                "type": ["integer", "null"],
+                "minimum": 0,
+                "maximum": 99
+              },
+              "firstPayoutBusinessDay": {
+                "type": ["integer", "null"],
+                "minimum": 0,
+                "maximum": 99
+              },
+              "localTimeMinutes": {
+                "type": ["integer", "null"],
+                "minimum": 0,
+                "maximum": 1439
+              },
+              "timeZone": {
+                "type": ["string", "null"]
+              },
+              "payoutsOpen": {
+                "type": "boolean",
+                "description": "payouts_enabled[pays] lu par la base (absent ⇒ false) : calendrier annoncé au conditionnel"
+              }
+            }
+          },
+          "payouts": {
+            "type": "array",
+            "maxItems": 24,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "batchId",
+                "kind",
+                "status",
+                "scheduledFor",
+                "firstPayout",
+                "grossMinor",
+                "nettedMinor",
+                "netMinor",
+                "holdReasons",
+                "initiatedAt",
+                "paidAt",
+                "trips"
+              ],
+              "properties": {
+                "batchId": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+                },
+                "kind": {
+                  "enum": ["FINAL", "CXL_EARNINGS", "INVOICE_SHARE", "PARTIAL_WEEKLY"]
+                },
+                "status": {
+                  "enum": [
+                    "SCHEDULED",
+                    "ON_HOLD",
+                    "NETTING",
+                    "READY",
+                    "ZERO_NET",
+                    "INITIATED",
+                    "IN_TRANSIT",
+                    "PAID",
+                    "FAILED"
+                  ]
+                },
+                "scheduledFor": {
+                  "type": "string",
+                  "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+                },
+                "firstPayout": {
+                  "type": "boolean"
+                },
+                "grossMinor": {
+                  "type": "string",
+                  "pattern": "^(0|[1-9][0-9]{0,17})$"
+                },
+                "nettedMinor": {
+                  "type": "string",
+                  "pattern": "^(0|[1-9][0-9]{0,17})$"
+                },
+                "netMinor": {
+                  "type": "string",
+                  "pattern": "^(0|[1-9][0-9]{0,17})$"
+                },
+                "holdReasons": {
+                  "type": "array",
+                  "items": {
+                    "enum": [
+                      "PAYOUTS_DISABLED",
+                      "FUNDS_HOLDING_DISABLED",
+                      "VARIANT_B_UNAVAILABLE",
+                      "HOST_PAYOUT_RAIL_UNAVAILABLE",
+                      "SUBMERCHANT_INACTIVE",
+                      "PAYOUT_ACCOUNT_MISSING",
+                      "PAYOUT_ACCOUNT_UNVERIFIED",
+                      "PAYOUT_ACCOUNT_CHANGE_HOLD",
+                      "CHARGEBACK",
+                      "DISPUTE",
+                      "CLAIM",
+                      "TRIP_NOT_COMPLETED",
+                      "OTHER"
+                    ]
+                  }
+                },
+                "initiatedAt": {
+                  "type": ["string", "null"],
+                  "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+                },
+                "paidAt": {
+                  "type": ["string", "null"],
+                  "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+                },
+                "trips": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["tripId", "amountMinor"],
+                    "properties": {
+                      "tripId": {
+                        "type": "string",
+                        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+                      },
+                      "amountMinor": {
+                        "type": "string",
+                        "pattern": "^(0|[1-9][0-9]{0,17})$"
+                      }
+                    }
+                  }
+                }
+              }
+            }
           }
         }
       },

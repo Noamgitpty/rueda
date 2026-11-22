@@ -350,6 +350,8 @@ export const CONSTRAINT_CODES: Readonly<Record<string, readonly [string, DbBusin
   ],
   leg_release_insurer_inactive: [SQLSTATE.objectNotInPrerequisiteState, 'FORBIDDEN'],
   leg_release_payouts_disabled: [SQLSTATE.objectNotInPrerequisiteState, 'FORBIDDEN'],
+  // US-314 (0172, ADR-192) : lot du trip retenu (réclamation, litige, gel…) relu à l'ordre et au report
+  leg_release_payout_held: [SQLSTATE.objectNotInPrerequisiteState, 'FORBIDDEN'],
   leg_funds_holding_disabled: [SQLSTATE.objectNotInPrerequisiteState, 'FORBIDDEN'],
   // lots de versement à l'hôte (0165, US-708, ADR-185) : commandes réservées au travailleur,
   // ordre LEG_RELEASE d'un item (lot READY, clé, rang, montant ; un seul ordre HOST vivant),

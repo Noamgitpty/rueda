@@ -587,7 +587,7 @@ describe.each(COUNTRIES)(
       });
     });
 
-    it('gel (US-314, L3-PM-34) : réclamation sans décision exécutée ⇒ lot de l’hôte ON_HOLD CLAIM, avant ou après la préparation, quel que soit le déclarant ; levé par la seule décision exécutée', async () => {
+    it('gel (US-314, L3-PM-34) : réclamation sans décision exécutée ⇒ lot de l’hôte ON_HOLD CLAIM, avant ou après la préparation, quel que soit le déclarant ; levé par la seule décision exécutée ; bloc réuni avec le dossier CLAIM ouvert d’US-314', async () => {
       const capture: Legs = {
         ...legVector(golden, c.currency === 'USD' ? 'TJ01' : 'TJ08a').legsMinor,
       };
@@ -686,6 +686,11 @@ describe.each(COUNTRIES)(
           const lifted = await net(String(p2['batch_id']));
           expect(lifted).not.toContain('CLAIM');
           expect(lifted).toContain('PAYOUTS_DISABLED');
+          // bloc CLAIM réuni avec US-314 (0172) : un dossier de support CLAIM ouvert sur le trip
+          // retient encore le lot, décision exécutée ou non ; un seul motif CLAIM
+          await claimCase(tx, c, after, null);
+          const both = await net(String(p2['batch_id']));
+          expect(both.filter((r) => r === 'CLAIM')).toHaveLength(1);
         }),
       );
     });

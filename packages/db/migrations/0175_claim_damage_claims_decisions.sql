@@ -61,11 +61,11 @@
 -- Expand / contract : tables, fonctions, politiques et colonne `claim_decision_id` du host_ledger
 -- AJOUTÉES ; motif `CLAIM_HOST_DEDUCTIBLE` ajouté aux contraintes du host_ledger (remplacées sous
 -- le même nom, élargies) ; `core.payout_batch_hold_reasons` remplacée à signature identique (corps
--- de 0167 recopié, un bloc marqué US-309). La version N de l'API n'appelle pas les nouvelles
+-- de 0172 recopié, son bloc CLAIM élargi à la source US-309). La version N de l'API n'appelle pas les nouvelles
 -- fonctions.
 --
 -- Retour arrière (jamais en production : nouvelle migration) :
---   réappliquer core.payout_batch_hold_reasons de 0167 (sous cmd_money_owner) ;
+--   réappliquer core.payout_batch_hold_reasons de 0172 (sous cmd_money_owner) ;
 --   DROP FUNCTION core.support_staff_record_claim(bytea, uuid, uuid, uuid, text, text, text),
 --     core.support_staff_claim(bytea, uuid, uuid),
 --     core.support_staff_issue_decision(bytea, uuid, uuid, jsonb, boolean),
@@ -1134,7 +1134,8 @@ COMMENT ON FUNCTION core.claim_cmd_record_insurer_declaration(uuid, text) IS
   'Travailleur payment_command : déclaration à l''assureur envoyée (référence du port), '
   'interrupteur relu. EXECUTE app_worker. US-309 (ADR-195).';
 
--- 4.8 Motifs de retenue d'un lot (0167, même signature) : corps recopié ; bloc US-309 marqué.
+-- 4.8 Motifs de retenue d'un lot (0172, même signature) : corps de 0172 recopié ; le bloc CLAIM
+-- d'US-314 et celui d'US-309 réunis en un seul.
 CREATE OR REPLACE FUNCTION core.payout_batch_hold_reasons(p_batch_id uuid)
   RETURNS text[]
   LANGUAGE sql
@@ -1182,16 +1183,22 @@ AS $fn$
       FROM core.payout_payout_item AS i
       JOIN core.booking_trip AS t ON t.id = i.trip_id
      WHERE i.batch_id = p_batch_id AND t.status <> 'COMPLETED'
+    -- motif CLAIM, un seul bloc pour deux sources :
+    -- US-314 (ADR-192) : réclamation ouverte sur un trip du lot (08 BR-PAYOUT-02) ; levée par la
+    -- seule décision du support (RESOLVED, CLOSED) ;
     -- US-309 (ADR-195) : réclamation de dommage ou d'incident du trip sans décision exécutée,
     -- quel que soit le déclarant ; levée par la seule décision exécutée (L3-PM-34, RT-L3-V04)
     UNION ALL
     SELECT 'CLAIM'
       FROM core.payout_payout_item AS i
      WHERE i.batch_id = p_batch_id
-       AND EXISTS (SELECT 1 FROM core.claim_damage_claim AS c
-                     LEFT JOIN core.claim_decision AS d ON d.claim_id = c.id
-                    WHERE c.trip_id = i.trip_id
-                      AND (d.id IS NULL OR d.execution_status <> 'DONE'))
+       AND (EXISTS (SELECT 1 FROM core.support_support_case AS k
+                     WHERE k.trip_id = i.trip_id AND k.category = 'CLAIM'
+                       AND k.status IN ('OPEN', 'PENDING'))
+            OR EXISTS (SELECT 1 FROM core.claim_damage_claim AS c
+                         LEFT JOIN core.claim_decision AS d ON d.claim_id = c.id
+                        WHERE c.trip_id = i.trip_id
+                          AND (d.id IS NULL OR d.execution_status <> 'DONE')))
   )
   SELECT COALESCE(pg_catalog.array_agg(DISTINCT reasons.r ORDER BY reasons.r), ARRAY[]::text[])
     FROM reasons WHERE reasons.r IS NOT NULL
