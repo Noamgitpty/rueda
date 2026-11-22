@@ -740,6 +740,8 @@ describe('RLS-5, RLS-12, RLS-18', () => {
           r.t.startsWith('pricing_') ||
           // US-707 (0159) : compte de versement, fonctions SECURITY DEFINER seulement
           r.t.startsWith('payout_') ||
+          // US-706 (0177) : frais annexes, fonctions SECURITY DEFINER seulement
+          r.t === 'claim_incidental_invoice' ||
           r.t === 'booking_checkout_acceptance'
         ) {
           expect(r.api_policies, r.t).toBe(0);
