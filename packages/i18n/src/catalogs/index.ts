@@ -379,7 +379,13 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  dans le pays (`scheduleClosed`), « montant à verser » avant le paiement (`toPay`), états SM-6, motifs de retenue lisibles, montants),
  lignes du host_ledger `web.a08.line.RELEASED_LEG_ADVANCE`, `CHARGEBACK_CLAWBACK`,
  `RECEIVABLE_WRITE_OFF`, `PAYOUT_NETTING` et `web.a08.line.creditHint`.
- Version 110 (la 106 est celle d’US-307, la 107 celle d’US-314 ; les 108 et 109 sont réservées à US-306 et US-311) : dommages,
+ Version 108 (réservée à US-306 par l’orchestrateur ; 104 à 107 sont réservées à US-703, US-317,
+ US-307 et US-314 ; le numéro ne redescend jamais) : vue des retards et escalade de
+ non-restitution (US-306, ADR-193) : `backoffice.overdue.*` (O01 : retard, étape, étape suivante et
+ son heure, confirmation qui dit ce que la plateforme fait et ne fait pas, refus expliqués) et les
+ gabarits remis à l’hôte `ntf.unreturnedContact.*`, `ntf.unreturnedFormalNotice.*` (mise en demeure
+ au nom de l’hôte) et `ntf.unreturnedPoliceReport.*` (plainte pré-remplie que l’hôte dépose).
+ Version 110 (la 106 est celle d’US-307, la 107 celle d’US-314, la 108 celle d’US-306 ; la 109 est réservée à US-311) : dommages,
  incidents et décisions (US-309, ADR-195) : `common.claim.*` (réponses des routes
  `/console/claims…` : délai de déclaration dépassé, preuves de départ et de retour absentes, motif
  exigé, décision « définitive » refusée, somme des parts, plafonds, ADMIN pour tout débit) et

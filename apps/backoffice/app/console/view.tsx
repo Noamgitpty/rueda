@@ -29,6 +29,8 @@ import type { ClaimsHandlers, ClaimsState } from './claim-view.tsx';
 import type { CancelHandlers, CancelState } from './cancel-view.tsx';
 import { REFUND_ROLES, RefundsPanel } from './refund-view.tsx';
 import type { RefundsHandlers, RefundsState } from './refund-view.tsx';
+import { OVERDUE_ROLES, OverduePanel } from './overdue-view.tsx';
+import type { OverdueHandlers, OverdueState } from './overdue-view.tsx';
 import { NO_SHOW_ROLES, NoShowPanel } from './no-show-view.tsx';
 import type { NoShowSubmit } from './no-show-view.tsx';
 import { OpsPanels, SANCTIONS_LISTS } from './ops-view.tsx';
@@ -108,7 +110,8 @@ export const ACTION_GROUPS = {
     'KYC_DECISION',
     'HOST_VERIFICATION_DECISION',
     'PUBLISH_LISTING',
-    'ESCALATE_OVERDUE',
+    // US-306 : ESCALATE_OVERDUE se lance depuis la vue des retards (overdue-view.tsx : étape suivante
+    // seulement, liste fermée, ce que la plateforme fait et ne fait pas dit avant la confirmation)
     // US-209b : REVIEW_FLAGGED_BOOKING se décide depuis le dossier de la file RISK_BOOKING
     // US-107 : compte d'hôte d'une personne inscrite (sujet : son compte de personne)
     'CREATE_HOST_ACCOUNT',
@@ -294,7 +297,6 @@ const ACTION_KEYS: Readonly<Record<ConsoleAction, MessageKey>> = {
   KYC_DECISION: 'backoffice.action.KYC_DECISION',
   HOST_VERIFICATION_DECISION: 'backoffice.action.HOST_VERIFICATION_DECISION',
   PUBLISH_LISTING: 'backoffice.action.PUBLISH_LISTING',
-  ESCALATE_OVERDUE: 'backoffice.action.ESCALATE_OVERDUE',
   CREATE_HOST_ACCOUNT: 'backoffice.action.CREATE_HOST_ACCOUNT',
   RECORD_CLAIM: 'backoffice.action.RECORD_CLAIM',
   ISSUE_DECISION: 'backoffice.action.ISSUE_DECISION',
@@ -340,6 +342,7 @@ export function ConsoleView({
   cancel,
   refunds,
   claims,
+  overdue,
 }: {
   readonly i18n: Translator;
   readonly state: ConsoleState;
@@ -355,6 +358,9 @@ export function ConsoleView({
     { readonly state: RefundsState; readonly handlers: RefundsHandlers } | undefined;
   /** US-309 : déclarations de dommage et d'incident, décisions motivées par gabarit. */
   readonly claims?: { readonly state: ClaimsState; readonly handlers: ClaimsHandlers } | undefined;
+  /** US-306 : vue des retards et escalade de non-restitution. */
+  readonly overdue?:
+    { readonly state: OverdueState; readonly handlers: OverdueHandlers } | undefined;
 }) {
   switch (state.kind) {
     case 'loading':
@@ -580,6 +586,15 @@ export function ConsoleView({
               i18n={i18n}
               state={refunds.state}
               handlers={refunds.handlers}
+              busy={busy}
+            />
+          )}
+
+          {overdue !== undefined && state.roles.some((r) => OVERDUE_ROLES.has(r.role)) && (
+            <OverduePanel
+              i18n={i18n}
+              state={overdue.state}
+              handlers={overdue.handlers}
               busy={busy}
             />
           )}

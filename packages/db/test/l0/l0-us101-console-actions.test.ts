@@ -187,6 +187,10 @@ const REVIEW_FLAGGED_HANDLER =
 // travailleur trip_lifecycle) ; saisies fermées du sous-motif et du motif plateforme
 const CANCEL_TRIP_HANDLER =
   'core.booking_manual_action_cancel_trip(bytea,uuid,text,uuid,jsonb,text,uuid,text)';
+// US-306 (0173, ADR-193) : escalade de non-restitution liée à sa commande (étape suivante du
+// dossier de retard) ; saisie fermée de l'étape
+const ESCALATE_OVERDUE_HANDLER =
+  'core.trip_manual_action_escalate_overdue(bytea,uuid,text,uuid,jsonb,text,uuid,text)';
 // US-307 (0171, ADR-191) : no-show et refus du véhicule liés à leur commande (demande réglée par
 // le travailleur trip_lifecycle) ; saisies fermées de la partie absente et du motif du refus
 const NO_SHOW_HANDLER =
@@ -409,10 +413,12 @@ const MATRIX: Readonly<Record<string, Expected>> = {
     permission: 'ops.force_terminate_trip',
     subject: 'TRIP',
     mode: 'DOMAIN_COMMAND',
-    keys: [],
-    values: {},
+    // US-306 : étape demandée (CONTACT T2H, FORMAL_NOTICE T6H, POLICE_REPORT T24H), mots seulement
+    keys: ['escalationStep'],
+    values: { escalationStep: ['CONTACT', 'FORMAL_NOTICE', 'POLICE_REPORT'] },
     approval: false,
-    source: 'ADR-092 §1 (PROPOSÉ ; 17 §2.3 « ops.force_terminate_trip »)',
+    handler: ESCALATE_OVERDUE_HANDLER,
+    source: 'ADR-092 §1 (PROPOSÉ ; 17 §2.3 « ops.force_terminate_trip ») ; 19 US-306, ADR-193',
   },
   REVIEW_FLAGGED_BOOKING: {
     permission: 'kyc.decide',
@@ -986,7 +992,8 @@ describe('critère 1 — action d’état : commande de domaine liée, dans la m
       }
       // une action d'état sans clé déclarée n'admet aucune saisie (US-215 : CANCEL_TRIP_PLATFORM
       // déclare désormais platformReason ; US-307 : DECLARE_NO_SHOW déclare absentParty ; la
-      // propriété est prouvée sur ESCALATE_OVERDUE, action de trip sans clé) ; même assertion
+      // propriété est prouvée sur ESCALATE_OVERDUE, action de trip dont la seule clé déclarée est
+      // escalationStep (US-306) : `cause` n'est pas déclarée ; même assertion
       await expect(
         act(client, ops, 'ESCALATE_OVERDUE', subject, { input: { cause: 'x' } }),
       ).rejects.toMatchObject({ code: '22023' });
@@ -1034,7 +1041,8 @@ describe('critère 1 — action d’état : commande de domaine liée, dans la m
       // KYC_DECISION (US-106, l0-us106-kyc-decision), HOST_VERIFICATION_DECISION (US-123,
       // l0-us123-host-verification), REVIEW_FLAGGED_BOOKING (US-209, l0-us209-risk-checkout) et
       // les trois annulations (US-215, l0-us215-trip-cancellation) sont liées ; no-show et refus
-      // du véhicule aussi (US-307, l0-us307-no-show)
+      // du véhicule aussi (US-307, l0-us307-no-show) ; l'escalade de non-restitution aussi (US-306,
+      // l0-us306-escalation)
       for (const a of STATE_ACTIONS.filter(
         (x) =>
           x !== 'KYC_DECISION' &&
@@ -1044,7 +1052,8 @@ describe('critère 1 — action d’état : commande de domaine liée, dans la m
           x !== 'CANCEL_TRIP_HOST' &&
           x !== 'CANCEL_TRIP_PLATFORM' &&
           x !== 'DECLARE_NO_SHOW' &&
-          x !== 'REFUSE_AT_PICKUP',
+          x !== 'REFUSE_AT_PICKUP' &&
+          x !== 'ESCALATE_OVERDUE',
       )) {
         const input = {};
         const subject = subjects[a] ?? trip(0);

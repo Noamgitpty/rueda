@@ -3681,6 +3681,87 @@ export const ES_MESSAGES = {
   'web.a13.reviews': 'Opiniones recibidas',
   'web.a13.link': 'Tu perfil público',
   'web.listing.hostReviews': 'Opiniones sobre {name}',
+  'backoffice.overdue.heading': 'Retrasos y autos no devueltos',
+  'backoffice.overdue.lead':
+    'Viajes con retraso en tu cobertura, leídos en directo (la detección corre cada minuto). La escalada avanza una etapa a la vez, a la hora fijada en la configuración: contacto, intimación y luego denuncia prellenada. Los contactos del viajero y del anfitrión están en la ficha 360°.',
+  'backoffice.overdue.truncated':
+    'Más de 500 viajes con retraso: solo se muestran los 500 más antiguos. Atiéndelos primero y luego actualiza.',
+  'backoffice.overdue.refresh': 'Actualizar',
+  'backoffice.overdue.readAt': 'Leído a las {at} · cobertura: {countries}',
+  'backoffice.overdue.none': 'Ningún viaje con retraso en tu cobertura.',
+  'backoffice.overdue.caption': 'Viajes con retraso',
+  'backoffice.overdue.tripColumn': 'Viaje',
+  'backoffice.overdue.stageColumn': 'Etapa',
+  'backoffice.overdue.nextColumn': 'Etapa siguiente',
+  'backoffice.overdue.lateMinutes': '{m} min de retraso',
+  'backoffice.overdue.lateHours': '{h} h {m} min de retraso',
+  'backoffice.overdue.end': 'Fin prevista: {at}',
+  'backoffice.overdue.nextTripAtRisk': 'El viaje siguiente de este auto está en riesgo.',
+  'backoffice.overdue.stage.T30M': 'Retraso detectado',
+  'backoffice.overdue.stage.T2H': 'Contacto hecho',
+  'backoffice.overdue.stage.T6H': 'Intimación entregada',
+  'backoffice.overdue.stage.T24H': 'No devuelto: denuncia entregada',
+  'backoffice.overdue.stage.RESOLVED': 'Expediente cerrado',
+  'backoffice.overdue.stage.none': 'Expediente en apertura',
+  'backoffice.overdue.escalated': '{stage} el {at}: {documents}',
+  'backoffice.overdue.document.CONTACT_SCRIPT': 'mensaje modelo para el viajero',
+  'backoffice.overdue.document.DEMAND_LETTER': 'modelo de carta de intimación',
+  'backoffice.overdue.document.GPS_REQUEST': 'ubicación GPS pedida al anfitrión',
+  'backoffice.overdue.document.POLICE_REPORT_DRAFT':
+    'denuncia prellenada que presenta el anfitrión',
+  'backoffice.overdue.step.CONTACT': 'Contacto con el viajero y el anfitrión',
+  'backoffice.overdue.step.FORMAL_NOTICE': 'Intimación',
+  'backoffice.overdue.step.POLICE_REPORT': 'Denuncia prellenada',
+  'backoffice.overdue.from': 'Posible desde {at}',
+  'backoffice.overdue.prepare': 'Preparar etapa',
+  'backoffice.overdue.prepareFor': 'Preparar etapa «{step}» del viaje {tripId}',
+  'backoffice.overdue.paramMissing':
+    'Faltan las horas de escalada configuradas: ninguna etapa es posible. Avisa a la administración.',
+  'backoffice.overdue.allDone': 'Todas las etapas están hechas: seguimiento con el anfitrión.',
+  'backoffice.overdue.confirmHeading': '{step} · viaje {tripId}',
+  'backoffice.overdue.effect.CONTACT':
+    'Llama al viajero y escríbele por WhatsApp; luego avisa al anfitrión. Al confirmar, la etapa queda en el expediente y el anfitrión recibe por correo un mensaje modelo para enviar al viajero.',
+  'backoffice.overdue.effect.FORMAL_NOTICE':
+    'Al confirmar, la etapa queda en el expediente y el anfitrión recibe por correo un modelo de carta de intimación para enviar a su nombre, y el pedido de anotar la ubicación GPS si su auto tiene uno.',
+  'backoffice.overdue.effect.POLICE_REPORT':
+    'Al confirmar, la etapa queda en el expediente y el anfitrión recibe por correo una denuncia prellenada, que él mismo presenta ante la policía.',
+  'backoffice.overdue.never':
+    'La plataforma no presenta ninguna denuncia, no recupera ningún auto y nunca actúa sobre él a distancia.',
+  'backoffice.overdue.reasonHint':
+    'Lo que se hizo: llamadas, mensajes, respuestas. Entre 10 y 1000 caracteres, queda en el registro.',
+  'backoffice.overdue.reasonTooShort': 'Escribe un motivo de al menos 10 caracteres.',
+  'backoffice.overdue.confirm': 'Confirmar: {step}',
+  'backoffice.overdue.cancel': 'Ahora no',
+  'backoffice.overdue.done':
+    'Etapa registrada en el expediente. El anfitrión recibe el aviso por correo.',
+  'backoffice.overdue.refused.OVERDUE_STEP_TOO_EARLY':
+    'Demasiado pronto: esta etapa solo es posible desde la hora indicada.',
+  'backoffice.overdue.refused.OVERDUE_STEP_OUT_OF_ORDER':
+    'Esta etapa ya está hecha o no es la siguiente. La lista se actualizó.',
+  'backoffice.overdue.refused.TRIP_NOT_OVERDUE':
+    'Este viaje ya no tiene retraso: el auto fue devuelto o el viaje está cerrado.',
+  'backoffice.overdue.refused.OVERDUE_CASE_MISSING':
+    'El expediente de retraso todavía no está abierto. Vuelve a intentarlo en un minuto.',
+  'backoffice.overdue.refused.PARAM_MISSING':
+    'Faltan las horas de escalada configuradas: ninguna etapa es posible.',
+  'backoffice.overdue.refused.SELF_FORBIDDEN':
+    'Este viaje te concierne: otro agente debe ocuparse.',
+  'ntf.unreturnedContact.email.subject': 'Reserva {booking_ref}: el auto no fue devuelto',
+  'ntf.unreturnedContact.email.body':
+    'Hola, {first_name}. El auto de la reserva {booking_ref} debía devolverse el {end_at} y todavía no fue devuelto. Nuestro equipo intenta comunicarse con el viajero por llamada y por WhatsApp. Tú también puedes escribirle desde la reserva en la app, por ejemplo: «Hola, el auto de la reserva {booking_ref} debía devolverse el {end_at}. Por favor, dime cuándo y dónde lo devuelves.» {brand} no recupera el auto y no actúa sobre él a distancia.',
+  'ntf.unreturnedContact.sms.body':
+    '{brand}: el auto de la reserva {booking_ref} no fue devuelto. Contactamos al viajero; detalles por correo.',
+  'ntf.unreturnedFormalNotice.email.subject':
+    'Reserva {booking_ref}: modelo de carta de intimación',
+  'ntf.unreturnedFormalNotice.email.body':
+    'Hola, {first_name}. El auto de la reserva {booking_ref} todavía no fue devuelto. Este es un modelo de carta de intimación para enviar a tu nombre al viajero, por la mensajería de la reserva o por escrito: «Yo, anfitrión que puso en alquiler el vehículo de la reserva {booking_ref} (marca, modelo y placa indicados en el contrato de alquiler), dejo constancia de que este vehículo debía serme devuelto el {end_at} y no lo fue. Le intimo a devolverlo en el lugar acordado a la brevedad. De lo contrario, me reservo el derecho de presentar una denuncia ante las autoridades competentes. Fecha y firma.» Si tu auto tiene GPS, anota su última ubicación y la hora, sin ir a buscarlo solo. {brand} no envía esta carta en tu lugar, no recupera el auto y no actúa sobre él a distancia.',
+  'ntf.unreturnedFormalNotice.sms.body':
+    '{brand}: modelo de carta de intimación de la reserva {booking_ref} enviado por correo. Anota la ubicación GPS si tu auto tiene uno.',
+  'ntf.unreturnedPoliceReport.email.subject': 'Reserva {booking_ref}: denuncia prellenada',
+  'ntf.unreturnedPoliceReport.email.body':
+    'Hola, {first_name}. El auto de la reserva {booking_ref} lleva más de un día sin ser devuelto. Esta es una denuncia prellenada que puedes presentar tú mismo ante la policía o el Ministerio Público, con tu contrato de alquiler y tu documento de identidad: «Yo, anfitrión que puso en alquiler el vehículo indicado en el contrato de alquiler adjunto (marca, modelo y placa), declaro que este vehículo, alquilado con la reserva {booking_ref} en {brand}, debía serme devuelto el {end_at} y no lo fue pese a mis reclamos. La identidad del arrendatario figura en el contrato adjunto. Presento denuncia por no devolución del vehículo.» Guarda el número de la denuncia. {brand} no presenta la denuncia en tu lugar, no recupera el auto y no actúa sobre él a distancia; tu pago no queda bloqueado por este procedimiento.',
+  'ntf.unreturnedPoliceReport.sms.body':
+    '{brand}: denuncia prellenada de la reserva {booking_ref} enviada por correo. Tú la presentas ante la policía.',
 } as const satisfies Catalog;
 
 export type MessageKey = keyof typeof ES_MESSAGES;

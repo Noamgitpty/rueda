@@ -13,9 +13,6 @@
  *   n'est démarrée ; le contrat réel est prouvé par les tests de l'API.
  * - Les comportements de la console (actions, files, fiche 360°) restent prouvés par ses tests
  *   unitaires (apps/backoffice) ; ici, seulement le rendu et l'accessibilité de chaque écran.
- * - US-309 : déclaration de dommage enregistrée depuis le dossier de support, puis aperçu du gabarit
- *   de la décision (parts explicites, parking de récupération exclu, voies de recours citées) ;
- *   textes lus dans le catalogue de la langue.
  * - US-215b : parcours d'annulation d'un voyage (demandeur, motif fermé, confirmation, envoi), puis
  *   état RÉEL de la demande lu dans l'API (ici, en revue FINANCE : jamais « C'est fait ») ; textes
  *   lus dans le catalogue de la langue.
@@ -87,6 +84,11 @@ const CONSOLE: Api = {
     body: {
       gaps: [{ key: 'web.s01.title', country: null, editable: true, missing: ['pt'], invalid: [] }],
     },
+  },
+  // US-306 : vue des retards (OPS_AGENT, ADMIN) : aucun voyage en retard dans ce jeu
+  '/console/overdue': {
+    status: 200,
+    body: { countries: [COUNTRY], readAt: AT, truncated: false, trips: [] },
   },
   '/console/finance/approvals': {
     status: 200,
@@ -401,6 +403,147 @@ for (const language of LANGUAGES) {
         await expectAccessible(page, { include: null });
         if (captured(info, language, scheme))
           await expectScreen(page, 'console-remboursements', language, scheme);
+      }
+    });
+  });
+}
+
+/**
+ * US-306 : vue des retards et escalade de non-restitution par l'ops (16 ADM-022, TRP-038 ; 08
+ * BR-RETURN-04 ; OQ-BR-17). Un voyage en retard détecté (étape T30M, contact possible) et un voyage
+ * déjà mis en demeure (T6H, plainte pré-remplie à venir) ; l'agent prépare le contact, lit ce que
+ * la plateforme fait et ne fait jamais, saisit son motif et confirme : l'action ESCALATE_OVERDUE part
+ * avec l'étape demandée (liste fermée), l'étape est inscrite et l'hôte prévenu. Données fictives
+ * (pays « ZZ »).
+ */
+const LATE_TRIP = '04400000-0000-4000-8000-0000000000e9';
+const OVERDUE: Api = {
+  ...CONSOLE,
+  '/staff/me': me('ELEVATED', ['OPS_AGENT']),
+  '/console/overdue': {
+    status: 200,
+    body: {
+      countries: [COUNTRY],
+      readAt: '2026-11-03T14:31:00.000Z',
+      truncated: false,
+      trips: [
+        {
+          tripId: LATE_TRIP,
+          country: COUNTRY,
+          status: 'OVERDUE',
+          stage: 'T30M',
+          scheduledEnd: '2026-11-03T14:00:00.000Z',
+          detectedAt: '2026-11-03T14:30:00.000Z',
+          lateMinutes: 31,
+          nextStep: 'CONTACT',
+          nextStepAt: '2026-11-03T16:00:00.000Z',
+          paramMissing: false,
+          nextTripAtRisk: true,
+          escalations: [],
+        },
+        {
+          tripId: '04400000-0000-4000-8000-0000000000ea',
+          country: COUNTRY,
+          status: 'OVERDUE',
+          stage: 'T6H',
+          scheduledEnd: '2026-11-03T08:00:00.000Z',
+          detectedAt: '2026-11-03T08:30:00.000Z',
+          lateMinutes: 391,
+          nextStep: 'POLICE_REPORT',
+          nextStepAt: '2026-11-04T08:00:00.000Z',
+          paramMissing: false,
+          nextTripAtRisk: false,
+          escalations: [
+            {
+              stage: 'T2H',
+              escalatedAt: '2026-11-03T10:05:00.000Z',
+              documents: ['CONTACT_SCRIPT'],
+            },
+            {
+              stage: 'T6H',
+              escalatedAt: '2026-11-03T14:02:00.000Z',
+              documents: ['DEMAND_LETTER', 'GPS_REQUEST'],
+            },
+          ],
+        },
+      ],
+    },
+  },
+  '/console/actions': {
+    status: 201,
+    body: {
+      code: 'STAFF_ACTION_DONE',
+      messageKey: 'common.auth.actionDone',
+      actionId: '04400000-0000-4000-8000-0000000000fa',
+    },
+  },
+};
+
+for (const language of LANGUAGES) {
+  test.describe(`écran console-retards · ${language}`, () => {
+    test.use({ locale: tagOf(language) });
+
+    test('vue des retards, étape suivante préparée, ce que la plateforme ne fait jamais, motif, envoi ; axe, mobile d’abord et capture', async ({
+      page,
+    }, info) => {
+      const t = createTranslator(getProfile(LOCALE_CONFIG, tagOf(language)));
+      await serve(page, OVERDUE);
+      const sent: unknown[] = [];
+      page.on('request', (r) => {
+        if (r.method() === 'POST' && r.url().endsWith('/api/console/actions')) {
+          sent.push(r.postDataJSON());
+        }
+      });
+      await page.goto('/');
+      await expect(page.locator('#roles-heading')).toBeFocused();
+      await expect(page).toHaveTitle(/\S/);
+      const panel = page.locator('section[aria-labelledby="overdue-heading"]');
+      await expect(page.locator('#overdue-heading')).toHaveText(t.t('backoffice.overdue.heading'));
+      const table = page.locator('#overdue-table');
+      await expect(table).toContainText(t.t('backoffice.overdue.stage.T30M'));
+      await expect(table).toContainText(t.t('backoffice.overdue.stage.T6H'));
+      await expect(table).toContainText(t.t('backoffice.overdue.lateMinutes', { m: 31 }));
+      await expect(table).toContainText(t.t('backoffice.overdue.document.DEMAND_LETTER'));
+      await expect(table).toContainText(t.t('backoffice.overdue.nextTripAtRisk'));
+      const step = t.t('backoffice.overdue.step.CONTACT');
+      await page
+        .getByRole('button', {
+          name: t.t('backoffice.overdue.prepareFor', { step, tripId: LATE_TRIP }),
+          exact: true,
+        })
+        .click();
+      await expect(page.locator('#overdue-confirm-heading')).toBeFocused();
+      await expect(panel).toContainText(t.t('backoffice.overdue.effect.CONTACT'));
+      await expect(panel).toContainText(t.t('backoffice.overdue.never'));
+      // motif trop court : refusé par le champ (minLength 10, 10b UX-50) et par le client, rien
+      // n'est envoyé ; l'explication est prouvée par overdue-view.test.tsx
+      await expect(page.locator('#overdue-reason')).toHaveAttribute('minlength', '10');
+      expect(sent).toEqual([]);
+      await page.locator('#overdue-reason').fill('Appel et WhatsApp sans réponse, hôte prévenu');
+      const done = panel.getByText(t.t('backoffice.overdue.done'), { exact: true });
+      await submitAndSettle(
+        page,
+        page.getByRole('button', {
+          name: t.t('backoffice.overdue.confirm', { step }),
+          exact: true,
+        }),
+        undefined,
+        { api: /\/api\/console\/actions$/, settled: done },
+      );
+      expect(sent).toHaveLength(1);
+      expect(sent[0]).toMatchObject({
+        action: 'ESCALATE_OVERDUE',
+        subjectId: LATE_TRIP,
+        input: { escalationStep: 'CONTACT' },
+      });
+      await expect(page.locator('#overdue-confirm-heading')).toHaveCount(0);
+      await page.waitForLoadState('networkidle');
+      await expectMobileFriendly(page);
+      for (const scheme of ['light', 'dark'] as const) {
+        await page.emulateMedia({ colorScheme: scheme });
+        await expectAccessible(page, { include: null });
+        if (captured(info, language, scheme))
+          await expectScreen(page, 'console-retards', language, scheme);
       }
     });
   });

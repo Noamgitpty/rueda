@@ -203,6 +203,30 @@ const OPS_BODIES: Readonly<Record<string, Record<string, unknown>>> = {
       refunds: [{ status: 'PLANNED', amountMinor: '18744' }],
     },
   },
+  // US-306 : vue des retards (forme de 0173)
+  overdueBoard: {
+    countries: [FIRST_COUNTRY],
+    readAt: '2031-07-02T10:31:00.000Z',
+    truncated: false,
+    trips: [
+      {
+        tripId: ID,
+        country: FIRST_COUNTRY,
+        status: 'OVERDUE',
+        stage: 'T2H',
+        scheduledEnd: '2031-07-02T08:00:00.000Z',
+        detectedAt: '2031-07-02T08:30:00.000Z',
+        lateMinutes: 151,
+        nextStep: 'FORMAL_NOTICE',
+        nextStepAt: '2031-07-02T14:00:00.000Z',
+        paramMissing: false,
+        nextTripAtRisk: false,
+        escalations: [
+          { stage: 'T2H', escalatedAt: '2031-07-02T10:05:00.000Z', documents: ['CONTACT_SCRIPT'] },
+        ],
+      },
+    ],
+  },
   // US-224d : remboursements SM-8 d'un trip (forme de 0130, exposant joint par le magasin)
   tripRefunds: {
     tripId: ID,
@@ -485,6 +509,9 @@ class TunableOpsStore implements OpsConsoleStore {
   }
   tripRefunds() {
     return this.#r('tripRefunds', 'OK');
+  }
+  overdueBoard() {
+    return this.#r('overdueBoard', 'OK');
   }
   findUser() {
     return this.#r('findUser', 'FOUND');
@@ -1508,6 +1535,17 @@ describe('contrat HTTP — /console', () => {
     expect((await a.api.request('GET', rfd, { headers: a.cookie('staff') })).status).toBe(403);
     delete ops.outcome['tripRefunds'];
     await refusals(a, 'GET', rfd);
+
+    // vue des retards (US-306) : 200 (étape, prochaine étape, escalades), 403 sans le droit
+    const overdue = await a.api.request('GET', '/console/overdue', { headers: a.cookie('staff') });
+    expect(overdue.status).toBe(200);
+    expect(overdue.json).toEqual(OPS_BODIES['overdueBoard']);
+    ops.outcome['overdueBoard'] = 'FORBIDDEN';
+    expect(
+      (await a.api.request('GET', '/console/overdue', { headers: a.cookie('staff') })).json,
+    ).toMatchObject({ code: 'FORBIDDEN' });
+    delete ops.outcome['overdueBoard'];
+    await refusals(a, 'GET', '/console/overdue');
 
     // file d'ajout au catalogue (US-114) : lecture 200, 400, 403, 409 ; décision 200, 400, 403,
     // 409, 422
