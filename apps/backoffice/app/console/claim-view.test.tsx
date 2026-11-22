@@ -11,7 +11,13 @@ import { findForeignStrings } from '@rueda/i18n/testing';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import { LOCALE_CONFIG } from '../../locale-config.ts';
-import { ClaimsPanel, minorOf, recordProblem, withoutPreview } from './claim-view.tsx';
+import {
+  ClaimsPanel,
+  minorOf,
+  previewGuard,
+  recordProblem,
+  withoutPreview,
+} from './claim-view.tsx';
 import type { ClaimPreviewView, ClaimsState, ClaimView, DecisionDraft } from './claim-view.tsx';
 
 const ID = '0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b';
@@ -113,12 +119,17 @@ const profileOf = (tag: string) => {
 const esTag = LOCALE_CONFIG.locales.find((p) => p.language === 'es')?.tag ?? '';
 const es = CATALOGS.es.messages;
 const noop = () => undefined;
-const text = (state: ClaimsState, tag = esTag, isAdmin = true): string =>
+// ADMIN dans le pays de la déclaration par défaut ; [] : OPS ; ['XB'] : ADMIN d'un autre pays
+const markup = (
+  state: ClaimsState,
+  tag = esTag,
+  adminCountries: readonly string[] = [CLAIM.country],
+): string =>
   renderToStaticMarkup(
     <ClaimsPanel
       i18n={createTranslator(profileOf(tag))}
       state={state}
-      isAdmin={isAdmin}
+      adminCountries={adminCountries}
       handlers={{
         onClaimRecord: noop,
         onClaimRead: noop,
@@ -127,7 +138,13 @@ const text = (state: ClaimsState, tag = esTag, isAdmin = true): string =>
         onDecisionEdit: noop,
       }}
     />,
-  )
+  );
+const text = (
+  state: ClaimsState,
+  tag = esTag,
+  adminCountries: readonly string[] = [CLAIM.country],
+): string =>
+  markup(state, tag, adminCountries)
     .replace(/<[^>]+>/g, ' ')
     .replaceAll('&#x27;', "'")
     .replaceAll('&quot;', '"')
@@ -235,14 +252,76 @@ describe('sinistres (US-309) : déclaration, preuves, gabarit', () => {
   it('ux n° 3 et n° 6 : ADMIN voit l’effet (montant débité, franchise retenue, irréversible) et un bouton nommé par le débit ; OPS voit « réservé à un administrateur » sans bouton', () => {
     const t = createTranslator(profileOf(esTag));
     const money = (minor: bigint) => t.money({ amountMinor: minor, currency: 'XTA', exponent: 2 });
-    const admin = text(STATES[3] as ClaimsState, esTag, true);
+    const admin = text(STATES[3] as ClaimsState, esTag);
     expect(admin).toContain(
-      t.t('backoffice.claim.confirm', { amount: money(45350n), retained: money(25000n) }),
+      [
+        t.t('backoffice.claim.confirmCharge', { amount: money(45350n) }),
+        t.t('backoffice.claim.confirmRetain', { retained: money(25000n) }),
+        es['backoffice.claim.confirmFinal'],
+      ].join(' '),
     );
     expect(admin).toContain(t.t('backoffice.claim.issueCharge', { amount: money(45350n) }));
     expect(admin).not.toContain(ID);
-    const ops = text(STATES[3] as ClaimsState, esTag, false);
+    const ops = text(STATES[3] as ClaimsState, esTag, []);
     expect(ops).toContain(es['backoffice.claim.adminOnly']);
     expect(ops).not.toContain(t.t('backoffice.claim.issueCharge', { amount: money(45350n) }));
+    // ADMIN d'un autre pays seulement : traité comme OPS pour cette déclaration
+    const elsewhere = text(STATES[3] as ClaimsState, esTag, ['XB']);
+    expect(elsewhere).toContain(es['backoffice.claim.adminOnly']);
+    expect(elsewhere).not.toContain(t.t('backoffice.claim.issueCharge', { amount: money(45350n) }));
+  });
+
+  it('revue delta : la confirmation n’annonce que les volets non nuls (aucun « 0,00 »)', () => {
+    const t = createTranslator(profileOf(esTag));
+    const money = (minor: bigint) => t.money({ amountMinor: minor, currency: 'XTA', exponent: 2 });
+    const state = STATES[3] as ClaimsState;
+    const withView = (amountMinor: string, hostDeductibleMinor: string): ClaimsState => ({
+      ...state,
+      preview: {
+        draft: DRAFT,
+        requestId: ID,
+        view: { ...PREVIEW, amountMinor, hostDeductibleMinor, adminRequired: true },
+      },
+    });
+    const retainOnly = text(withView('0', '25000'));
+    expect(retainOnly).toContain(
+      `${t.t('backoffice.claim.confirmRetain', { retained: money(25000n) })} ${es['backoffice.claim.confirmFinal']}`,
+    );
+    expect(retainOnly).not.toContain(t.t('backoffice.claim.confirmCharge', { amount: money(0n) }));
+    const chargeOnly = text(withView('45350', '0'));
+    expect(chargeOnly).toContain(
+      `${t.t('backoffice.claim.confirmCharge', { amount: money(45350n) })} ${es['backoffice.claim.confirmFinal']}`,
+    );
+    expect(chargeOnly).not.toContain(
+      t.t('backoffice.claim.confirmRetain', { retained: money(0n) }),
+    );
+  });
+
+  it('revue delta : faits de la décision bornés (20 à 2000) avec un compteur de caractères', () => {
+    const html = markup(STATES[2] as ClaimsState);
+    const area = /<textarea[^>]*id="claims-facts"[^>]*>/i.exec(html)?.[0] ?? '';
+    expect(area).toMatch(/minLength="20"/i);
+    expect(area).toMatch(/maxLength="2000"/i);
+    expect(area).toContain('aria-describedby="claims-facts-hint claims-facts-count"');
+    expect(text(STATES[2] as ClaimsState)).toContain(
+      createTranslator(profileOf(esTag)).t('backoffice.claim.factsCount', { n: '0' }),
+    );
+    // reprise d'un aperçu : le compteur part de la longueur des faits repris
+    const resumed = text(STATES[3] as ClaimsState);
+    expect(resumed).toContain(
+      createTranslator(profileOf(esTag)).t('backoffice.claim.factsCount', {
+        n: String(DRAFT.facts.length),
+      }),
+    );
+  });
+
+  it('revue delta ux / code n° 1 : un aperçu demandé avant une modification est périmé', () => {
+    const guard = previewGuard();
+    const first = guard.begin();
+    expect(guard.current(first)).toBe(true);
+    guard.edit(); // saisie modifiée pendant la requête
+    expect(guard.current(first)).toBe(false);
+    const second = guard.begin();
+    expect(guard.current(second)).toBe(true);
   });
 });

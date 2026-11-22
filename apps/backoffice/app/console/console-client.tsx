@@ -19,7 +19,7 @@ import type {
   MeBody,
 } from './api.ts';
 import { CANCEL_ACTION, CANCEL_REFUSAL_KEYS, draftProblem } from './cancel-view.tsx';
-import { recordProblem, withoutPreview } from './claim-view.tsx';
+import { previewGuard, recordProblem, withoutPreview } from './claim-view.tsx';
 import type { ClaimPreviewView, ClaimsHandlers, ClaimsState, ClaimView } from './claim-view.tsx';
 import type { CancelHandlers, CancelState, CancellationView } from './cancel-view.tsx';
 import type { RefundsHandlers, RefundsState, TripRefundsView } from './refund-view.tsx';
@@ -110,6 +110,8 @@ export function ConsoleClient({ localeTag }: { readonly localeTag: string }) {
   // identifiant de la déclaration en cours d'envoi ; titre à focaliser après un changement d'écran
   const claimIntent = useRef<{ key: string; id: string } | null>(null);
   const claimFocus = useRef<string | null>(null);
+  // revue delta ux / code n° 1 : version de la saisie de la décision ; un aperçu périmé est ignoré
+  const claimPreviewGuard = useRef(previewGuard());
   useEffect(() => {
     if (claimFocus.current === null) return;
     document.getElementById(claimFocus.current)?.focus();
@@ -497,6 +499,7 @@ export function ConsoleClient({ localeTag }: { readonly localeTag: string }) {
   // US-309 : déclarations et décisions ; la base juge chaque droit, délai, preuve et montant
   const claimsHandlers: ClaimsHandlers = {
     onDecisionEdit: () => {
+      claimPreviewGuard.current.edit();
       if (claims.preview !== null) setClaims(withoutPreview);
     },
     onClaimRecord: (draft) => {
@@ -572,12 +575,15 @@ export function ConsoleClient({ localeTag }: { readonly localeTag: string }) {
         }));
         return;
       }
+      const version = claimPreviewGuard.current.begin();
       once(async () => {
         const r = await call<{ preview: ClaimPreviewView }>(
           'POST',
           `/console/claims/${claim.claimId}/decision`,
           { requestId: crypto.randomUUID(), preview: true, ...draft },
         );
+        // saisie modifiée pendant la requête : l'aperçu n'est pas celui de la saisie affichée
+        if (!claimPreviewGuard.current.current(version)) return;
         setClaims((prev) =>
           r.ok
             ? {

@@ -15,6 +15,7 @@
  * Montants saisis dans la devise du trip (exposant de la configuration), envoyés en unités mineures
  * (texte d'un entier) ; la base reste seule juge des sommes, des plafonds et des droits.
  */
+import { useState } from 'react';
 import type { FormEvent } from 'react';
 import type { MessageKey, Translator } from '@rueda/i18n';
 import { Badge, Banner, Button, Checkbox, DataTable, TextField } from '@rueda/ui';
@@ -271,6 +272,32 @@ export function withoutPreview(state: ClaimsState): ClaimsState {
   return state.preview === null ? state : { ...state, preview: null };
 }
 
+/**
+ * Version de la saisie de la décision (revue delta ux / code n° 1) : chaque modification la fait
+ * avancer ; un aperçu demandé à la version v n'est affiché que si la saisie est encore à v (une
+ * modification faite pendant la requête rend sa réponse périmée, ignorée).
+ */
+export interface PreviewGuard {
+  readonly edit: () => void;
+  readonly begin: () => number;
+  readonly current: (version: number) => boolean;
+}
+
+export function previewGuard(): PreviewGuard {
+  let version = 0;
+  return {
+    edit: () => {
+      version += 1;
+    },
+    begin: () => version,
+    current: (v) => v === version,
+  };
+}
+
+/** Bornes des faits de la décision (0175 : 20 à 2000 caractères). */
+export const FACTS_MIN = 20;
+export const FACTS_MAX = 2000;
+
 /** Aide d'un champ de montant selon l'exposant de la devise (ux n° 7). */
 function amountHint(i18n: Translator, exponent: number): string {
   return exponent === 0
@@ -293,7 +320,11 @@ function TextArea({
   readonly minLength?: number;
   readonly rows?: number;
   readonly defaultValue?: string | undefined;
+  /** Compteur de caractères (faits de la décision), relu à chaque saisie. */
+  readonly counter?: (count: number) => string;
 }) {
+  const [count, setCount] = useState(rest.defaultValue?.length ?? 0);
+  const counter = rest.counter;
   return (
     <div className={styles['group']}>
       <label className={styles['label']} htmlFor={id}>
@@ -302,16 +333,22 @@ function TextArea({
       <textarea
         id={id}
         className={styles['select']}
-        aria-describedby={`${id}-hint`}
+        aria-describedby={counter === undefined ? `${id}-hint` : `${id}-hint ${id}-count`}
         rows={rest.rows ?? 4}
         name={rest.name}
         maxLength={rest.maxLength}
         minLength={rest.minLength}
         defaultValue={rest.defaultValue}
+        onInput={counter === undefined ? undefined : (e) => setCount(e.currentTarget.value.length)}
       />
       <p id={`${id}-hint`} className={styles['muted']}>
         {hint}
       </p>
+      {counter !== undefined && (
+        <p id={`${id}-count`} className={styles['muted']} data-testid={`${id}-count`}>
+          {counter(count)}
+        </p>
+      )}
     </div>
   );
 }
@@ -321,14 +358,14 @@ export function ClaimsPanel({
   state,
   handlers,
   busy = false,
-  isAdmin = false,
+  adminCountries = [],
 }: {
   readonly i18n: Translator;
   readonly state: ClaimsState;
   readonly handlers: ClaimsHandlers;
   readonly busy?: boolean;
-  /** L'agent tient ADMIN dans un pays (la base reste juge du pays). */
-  readonly isAdmin?: boolean;
+  /** Pays où l'agent tient ADMIN : comparés au pays de la déclaration (la base reste juge). */
+  readonly adminCountries?: readonly string[];
 }) {
   return (
     <section className={styles['panel']} aria-labelledby="claims-heading" data-testid="claims">
@@ -380,7 +417,7 @@ export function ClaimsPanel({
           claim={state.claim}
           handlers={handlers}
           busy={busy}
-          isAdmin={isAdmin}
+          isAdmin={adminCountries.includes(state.claim.country)}
         />
       )}
     </section>
@@ -784,8 +821,10 @@ function DecisionForm({
       <TextArea
         id="claims-facts"
         name="facts"
-        maxLength={2000}
+        minLength={FACTS_MIN}
+        maxLength={FACTS_MAX}
         rows={6}
+        counter={(n) => i18n.t('backoffice.claim.factsCount', { n: String(n) })}
         defaultValue={d?.facts}
         label={i18n.t('backoffice.claim.facts')}
         hint={i18n.t('backoffice.claim.factsHint')}
@@ -872,10 +911,19 @@ function PreviewBlock({
           {/* ux n° 3 : confirmation explicite de l'effet, juste au-dessus du bouton */}
           {v.adminRequired && (
             <Banner tone="warning" live="polite">
-              {i18n.t('backoffice.claim.confirm', {
-                amount: money(i18n, v, v.amountMinor),
-                retained: money(i18n, v, v.hostDeductibleMinor),
-              })}
+              {[
+                v.amountMinor !== '0' &&
+                  i18n.t('backoffice.claim.confirmCharge', {
+                    amount: money(i18n, v, v.amountMinor),
+                  }),
+                v.hostDeductibleMinor !== '0' &&
+                  i18n.t('backoffice.claim.confirmRetain', {
+                    retained: money(i18n, v, v.hostDeductibleMinor),
+                  }),
+                i18n.t('backoffice.claim.confirmFinal'),
+              ]
+                .filter((s): s is string => typeof s === 'string')
+                .join(' ')}
             </Banner>
           )}
           <p className={styles['muted']}>{i18n.t('backoffice.claim.executionNote')}</p>

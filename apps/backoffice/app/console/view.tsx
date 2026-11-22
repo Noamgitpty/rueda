@@ -569,7 +569,9 @@ export function ConsoleView({
               state={claims.state}
               handlers={claims.handlers}
               busy={busy}
-              isAdmin={state.roles.some((r) => r.role === 'ADMIN')}
+              adminCountries={state.roles
+                .filter((r) => r.role === 'ADMIN')
+                .flatMap((r) => r.countries)}
             />
           )}
 

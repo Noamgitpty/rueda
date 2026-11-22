@@ -1251,7 +1251,7 @@ Migration `0165_payout_payout_batch`. Fixtures `9921_test_us708_payout_batch_fix
 
 - Trois tables `core.claim_*` (0175) : déclaration, décision, déclaration à l'assureur ; RLS `ENABLE` + `FORCE`, aucun droit applicatif, garde `claim_record_guard` (registres figés, transitions bornées). Portes de la console sous `iam_staff_owner` (EXECUTE `app_api`) ; commandes et vue sous `cmd_money_owner` ; faits du trip (`core.claim_trip_facts` : fin, délai, photos, franchise du contrat signé) sous `cmd_hold_owner` ; travailleur `payment_command` (file, exécution, report, déclarations à l'assureur, EXECUTE `app_worker`).
 - host_ledger : motif `CLAIM_HOST_DEDUCTIBLE` (débit, colonne `claim_decision_id`, une écriture par décision, sans règlement ni trip) ; contraintes `host_ledger_reason_valid`, `host_ledger_link_shape` et uniques d'idempotence recréées sous leur nom, élargies.
-- `core.payout_batch_hold_reasons` (0167, même signature) : motif `CLAIM` tant qu'une déclaration du trip n'a pas de décision exécutée.
+- `core.payout_batch_hold_reasons` (même signature) : 0172 (US-314) l'avait reprise (corps de 0167, motif `CLAIM` d'un dossier de support CLAIM ouvert) ; 0175 la reprend à son tour sur le corps de **0172** et réunit les deux sources dans **un seul bloc `CLAIM`** : dossier CLAIM ouvert **ou** déclaration du trip sans décision exécutée. `core.payout_release_hold_reasons` (0172) la relit : la garde de libération voit les deux sources. Une migration suivante qui la remplace part du corps de 0175.
 - Preuves : `test/l0/l0-us309-claims.test.ts` (PA / USD et PY / PYG).
 
 ## Débits post-trip par MIT (US-703 ; 16 PAY-015 / PAY-037 ; 08 BR-PAY-09 bis, E4, E7 règle 4 ; ADR-189)

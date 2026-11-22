@@ -507,8 +507,10 @@ export const FR_MESSAGES = {
   'backoffice.claim.detailHeading': 'Déclaration enregistrée',
   'backoffice.claim.adminOnly':
     'Cette décision débite le voyageur ou l’hôte : seul un administrateur peut l’enregistrer. Transmets-lui le dossier.',
-  'backoffice.claim.confirm':
-    'Tu vas débiter {amount} sur la carte du voyageur et retenir {retained} sur les versements de l’hôte. Une fois exécutée par Kmino, la décision ne s’annule pas ici : seule une contestation peut la réviser.',
+  'backoffice.claim.confirmCharge': 'Tu vas débiter {amount} sur la carte du voyageur.',
+  'backoffice.claim.confirmRetain': 'Tu vas retenir {retained} sur les versements de l’hôte.',
+  'backoffice.claim.confirmFinal':
+    'Une fois exécutée par Kmino, la décision ne s’annule pas ici : seule une contestation peut la réviser.',
   'backoffice.claim.issueCharge': 'Débiter {amount} et enregistrer la décision',
   'backoffice.claim.amountHint': 'Exemple : 450 ou 450,50',
   'backoffice.claim.amountHintWhole': 'Sans décimale, exemple : 450000',
@@ -578,6 +580,7 @@ export const FR_MESSAGES = {
   'backoffice.claim.hostDeductibleHint':
     'Elle est retenue sur les prochains versements de l’hôte ; jamais débitée au voyageur.',
   'backoffice.claim.facts': 'Faits de la décision',
+  'backoffice.claim.factsCount': '{n} sur 2000 caractères (20 au moins)',
   'backoffice.claim.factsHint':
     'Ce que montrent les pièces, en 20 caractères au moins. Ni nom ni coordonnées.',
   'backoffice.claim.preview': 'Voir le gabarit',

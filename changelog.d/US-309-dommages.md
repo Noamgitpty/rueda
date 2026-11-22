@@ -6,3 +6,4 @@ module: Sinistres
 - Ajouté : la décision est exécutée par Kmino : débit séparé sur la carte du voyageur, part par part, dans la limite de la franchise qu'il a acceptée (jamais sur la caution) ; franchise de l'hôte retenue sur ses versements suivants ; déclaration à l'assureur partenaire enregistrée (US-309)
 - Sécurité : aucune retenue sans photos de départ et de retour ; un membre de l'équipe partie au voyage ou lié ne peut ni déclarer ni décider ; toute décision qui débite est réservée à un administrateur ; chaque décision et chaque refus sont journalisés (US-309)
 - Modifié : le versement de l'hôte d'un voyage reste retenu tant qu'une déclaration n'a pas de décision exécutée (US-309)
+- Modifié : dans la console, l'aperçu de la décision n'est plus affiché s'il ne correspond plus à la saisie ; la confirmation n'annonce que les montants réellement débités ou retenus ; un compteur de caractères accompagne les faits de la décision (US-309)

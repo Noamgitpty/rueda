@@ -477,8 +477,11 @@ export const EN_MESSAGES = {
   'backoffice.claim.detailHeading': 'Recorded claim',
   'backoffice.claim.adminOnly':
     'This decision charges the guest or the host: only an administrator can record it. Hand the case over.',
-  'backoffice.claim.confirm':
-    'You are about to charge {amount} to the guest’s card and hold back {retained} from the host’s payouts. Once Kmino carries it out, the decision cannot be undone here: only a dispute can review it.',
+  'backoffice.claim.confirmCharge': 'You are about to charge {amount} to the guest’s card.',
+  'backoffice.claim.confirmRetain':
+    'You are about to hold back {retained} from the host’s payouts.',
+  'backoffice.claim.confirmFinal':
+    'Once Kmino carries it out, the decision cannot be undone here: only a dispute can review it.',
   'backoffice.claim.issueCharge': 'Charge {amount} and record the decision',
   'backoffice.claim.amountHint': 'Example: 450 or 450.50',
   'backoffice.claim.amountHintWhole': 'No decimals, example: 450000',
@@ -545,6 +548,7 @@ export const EN_MESSAGES = {
   'backoffice.claim.hostDeductibleHint':
     'It is deducted from the host’s next payouts; it is never charged to the guest.',
   'backoffice.claim.facts': 'Facts of the decision',
+  'backoffice.claim.factsCount': '{n} of 2000 characters (at least 20)',
   'backoffice.claim.factsHint':
     'What the evidence shows, in at least 20 characters. No names or contact details.',
   'backoffice.claim.preview': 'Preview the template',

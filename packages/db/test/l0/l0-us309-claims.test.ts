@@ -17,8 +17,10 @@
  * (16 CLM-006 bêta : « montants par jambe saisis par l'ops et contrôlés ») : le test vérifie qu'ils
  * sont portés tels quels, jambe par jambe, sans prorata.
  *
- * Aucun interrupteur de mise en service n'est écrit (`insurer_contract_active` reste faux : la
- * déclaration à l'assureur est journalisée, jamais envoyée). Aucun compte PSP ACTIVE n'est validé :
+ * Aucun interrupteur n'est écrit par une écriture directe : `insurer_contract_active` reste faux,
+ * sauf dans le test « assureur », où `openSwitchWindow` (support/golive.ts) l'ouvre par la commande
+ * à deux personnes dans une fenêtre lointaine (3100+), refermée puis vérifiée fermée ; hors de
+ * cette fenêtre, la déclaration à l'assureur est journalisée, jamais envoyée. Aucun compte PSP ACTIVE n'est validé :
  * le moyen débité est l'opération de carte du loyer sur le compte FAKE de fixture du pays.
  */
 import { describe, expect, it } from 'vitest';

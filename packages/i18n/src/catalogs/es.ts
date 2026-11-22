@@ -496,8 +496,10 @@ export const ES_MESSAGES = {
   'backoffice.claim.detailHeading': 'Declaración registrada',
   'backoffice.claim.adminOnly':
     'Esta decisión cobra al viajero o al anfitrión: solo un administrador puede registrarla. Pásale el caso.',
-  'backoffice.claim.confirm':
-    'Vas a cobrar {amount} en la tarjeta del viajero y a retener {retained} de los pagos del anfitrión. Una vez ejecutada por Kmino, la decisión no se deshace aquí: solo una impugnación puede revisarla.',
+  'backoffice.claim.confirmCharge': 'Vas a cobrar {amount} en la tarjeta del viajero.',
+  'backoffice.claim.confirmRetain': 'Vas a retener {retained} de los pagos del anfitrión.',
+  'backoffice.claim.confirmFinal':
+    'Una vez ejecutada por Kmino, la decisión no se deshace aquí: solo una impugnación puede revisarla.',
   'backoffice.claim.issueCharge': 'Cobrar {amount} y registrar la decisión',
   'backoffice.claim.amountHint': 'Ejemplo: 450 o 450,50',
   'backoffice.claim.amountHintWhole': 'Sin decimales, ejemplo: 450000',
@@ -566,6 +568,7 @@ export const ES_MESSAGES = {
   'backoffice.claim.hostDeductibleHint':
     'Se descuenta de los próximos pagos del anfitrión; nunca se cobra al viajero.',
   'backoffice.claim.facts': 'Hechos de la decisión',
+  'backoffice.claim.factsCount': '{n} de 2000 caracteres (mínimo 20)',
   'backoffice.claim.factsHint':
     'Lo que muestran las pruebas, en 20 caracteres como mínimo. Sin nombres ni datos de contacto.',
   'backoffice.claim.preview': 'Ver la plantilla',
