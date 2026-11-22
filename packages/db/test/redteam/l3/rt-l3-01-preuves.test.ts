@@ -4,7 +4,7 @@
  * (`withRole` : assertion L0-05 en tête de chaque test), USD (PA) et PYG sans décimale (PY),
  * transactions ANNULÉES, horloge virtuelle 2090 (aucune autre preuve ne l'utilise). TESTS SEULEMENT :
  * aucun correctif, aucune migration, aucune fixture (la passe de correctifs est une autre PR, sur
- * une autre famille d'auteurs). Rapport : docs/team/redteam/L3-preuves.md.
+ * une autre famille d'auteurs). Rapport : docs/team/redteam/L3-preuves-versements.md.
  *
  * Règles de jeu : un test vert prouve que l'attaque est BLOQUÉE. Un défaut est prouvé par un
  * `it.fails` nommé par son constat (`F-L3-PRE-nn`), doublé d'un test vert « observation » qui
@@ -345,6 +345,25 @@ describe.each(COUNTRIES)('RT-L3 preuves de la remise ($country, $currency)', (c:
       await setVirtualNow(tx, OPENS);
       const w = await bookedWorld(tx, c, START, END);
       await tx.query('SELECT test_fixture.us315_birth($1, $2::date)', [w.guest, '1990-04-12']);
+      // la pièce du voyageur existe : dossier d'identité APPROUVÉ, date de naissance du sujet, permis
+      // lu (nom du titulaire) ; sans cela « aucune ligne pour l'hôte » ne prouverait rien
+      const verification = (
+        await tx.query<{ id: string }>(
+          `SELECT test_fixture.us127_verified_identity($1, $2, 'Ana', 'Pérez', $3::date) AS id`,
+          [w.guest, c.country, '1990-04-12'],
+        )
+      ).rows[0]!.id;
+      await tx.query('SELECT test_fixture.us103_license_name($1, $2, $3)', [
+        verification,
+        'Ana',
+        'Pérez',
+      ]);
+      expect(
+        (await tx.query('SELECT * FROM test_fixture.us105_verification($1)', [w.guest])).rowCount,
+      ).toBe(1);
+      expect(
+        (await tx.query('SELECT * FROM test_fixture.us105_documents($1)', [w.guest])).rowCount,
+      ).toBe(1);
       await subjectKeys(tx, w);
       expect((await open(tx, w.h, w.trip))['outcome']).toBe('DONE');
 
@@ -373,13 +392,20 @@ describe.each(COUNTRIES)('RT-L3 preuves de la remise ($country, $currency)', (c:
         }
       }
 
+      // le contrôle du permis est écrit (la table lue n'est pas vide), puis lu par l'hôte lui-même
+      // via la commande : le contrôle existe pour le trip
+      expect(await identity(tx, w.h, w.trip, ALL_OK)).toMatchObject({ outcome: 'DONE' });
+      expect((await records(tx, w.trip))['identity']).toMatchObject({ status: 'TRIP_ID_OK' });
+
       // lecture directe sous le contexte de l'hôte : refus (aucun droit) ou aucune ligne du voyageur
       await setActor(tx, { kind: 'HOST', actorId: w.holder });
       const reads: readonly [string, readonly unknown[]][] = [
         ['SELECT 1 FROM core.kyc_identity_document WHERE user_id = $1', [w.guest]],
         ['SELECT 1 FROM core.kyc_identity_verification WHERE user_id = $1', [w.guest]],
         ['SELECT 1 FROM core.trip_ops_identity_check WHERE trip_id = $1', [w.trip]],
+        ['SELECT date_of_birth FROM core.kyc_identity_subject WHERE user_id = $1', [w.guest]],
         ['SELECT date_of_birth FROM core.iam_user_account WHERE id = $1', [w.guest]],
+        ['SELECT legal_last_name FROM core.iam_user_account WHERE id = $1', [w.guest]],
       ];
       for (const [sql, args] of reads) {
         await tx.query('SAVEPOINT rt_l3_read');

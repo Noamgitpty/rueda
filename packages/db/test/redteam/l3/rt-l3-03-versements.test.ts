@@ -5,7 +5,12 @@
  * test), travailleur `payment_command`, USD (PA) et PYG sans décimale (PY) ; chaque transaction est
  * ANNULÉE ; aucun interrupteur n'est écrit (`payouts_enabled` reste à `false`, état de production).
  * TESTS SEULEMENT : aucun correctif, aucune migration, aucune fixture. Rapport :
- * docs/team/redteam/L3-versements.md.
+ * docs/team/redteam/L3-preuves-versements.md. Horloge virtuelle 2095 (chargebacks) et 2096 (lot de versement,
+ * vendredi 13 janvier), plage propre à cette passe ; compte PSP FAKE partagé du pays (fixture 9800).
+ *
+ * NON JOUÉS ICI (raisons au rapport) : RT-L3-V08 « deux travailleurs » (course d'imputation) ;
+ * contournements LOGIQUES de V09 (nouveau compte de versement, second compte d'hôte, dette du
+ * voyageur compensée sur l'hôte) : le rapport les liste avec leur renvoi ou leur raison.
  *
  * Attendus (jamais le code testé) :
  * - T53 (USD : reprise 45,00 et non 166,85 ; créance du voyageur 187,44 ; perte 24,22) et T55 (PYG :
@@ -29,16 +34,10 @@ import { describe, expect, it } from 'vitest';
 import { withRole } from '../../../src/testing/index.ts';
 import { COUNTRIES } from '../../support/avl.ts';
 import type { CountryCase } from '../../support/avl.ts';
-import {
-  applySignedStatus,
-  caught,
-  insertTrip,
-  payTx,
-  recordOperation,
-  uuid,
-} from '../../support/pay.ts';
+import { applySignedStatus, caught, payTx, recordOperation, uuid } from '../../support/pay.ts';
 import type { Legs } from '../../support/pay.ts';
 import { golden } from '../../support/settlement.ts';
+import { failure } from './support-l3.ts';
 
 type Tx = pg.ClientBase;
 const LEGS = ['HOST', 'INSURER', 'TAX_THIRD_PARTY', 'PLATFORM'] as const;
@@ -87,7 +86,11 @@ const journeyOf = (c: CountryCase): Journey => {
 
 const asPayments = <T>(fn: (tx: Tx) => Promise<T>): Promise<T> =>
   withRole('app_worker', (client) =>
-    payTx(client, { worker: 'payment_command', deploymentEnv: 'test' }, fn),
+    payTx(
+      client,
+      { worker: 'payment_command', deploymentEnv: 'test', virtualNow: '2095-02-01T12:00:00.000Z' },
+      fn,
+    ),
   );
 
 /**
@@ -150,6 +153,23 @@ async function stateOf(tx: Tx, trip: string): Promise<State[]> {
     [trip],
   );
   return rows;
+}
+
+/** Trip de fixture dans la plage virtuelle propre à cette passe (2095), jamais celle d'US-708 / 709. */
+async function insertTrip(tx: Tx, c: CountryCase): Promise<string> {
+  const id = uuid();
+  await tx.query('SELECT test_fixture.rls_insert_trip($1, $2, $3, $4, $5, $6, $7, $8, $9)', [
+    id,
+    uuid(),
+    uuid(),
+    uuid(),
+    c.country,
+    c.currency,
+    c.timezone,
+    '2095-02-20T10:00:00Z',
+    '2095-02-23T10:00:00Z',
+  ]);
+  return id;
 }
 
 interface World {
@@ -247,32 +267,49 @@ describe.each(COUNTRIES)('RT-L3 chargeback et grand livre ($country, $currency)'
       expect(await stateOf(tx, w.trip)).toEqual(state);
 
       // attaque : le PSP notifie un AUTRE chargeback (autre événement, autre clé) du montant payé en
-      // entier : plus que ce qu'il reste d'encaissé après la première perte
-      let cb2 = '';
-      const registered = await caught(tx, async () => {
-        cb2 = await chargeback(tx, w, total, c.currency);
-      });
-      let applied: { code?: string } | null = null;
-      if (registered === null) {
-        applied = await caught(tx, async () => {
-          await applySignedStatus(tx, cb2, 'SUCCEEDED');
-        });
-        // jamais une seconde imputation, quelle que soit l'issue de l'application du statut
-        expect(await imputationOf(tx, cb2)).toBeNull();
-      }
+      // entier : plus que ce qu'il reste d'encaissé après la première perte. Issue déterministe :
+      // enregistré et appliqué SANS erreur, aucune imputation (`LOST_EXCEEDS_COLLECTED`)
+      const cb2 = await chargeback(tx, w, total, c.currency);
+      expect(await applySignedStatus(tx, cb2, 'SUCCEEDED')).toBe('APPLIED');
+      expect(await imputationOf(tx, cb2)).toBeNull();
       // grand livre et solde inchangés : une seule reprise, aucune écriture entre devises
       expect(await ledgerOf(tx, w.trip)).toEqual(ledger);
       expect(await stateOf(tx, w.trip)).toEqual(state);
-      if (registered === null && applied === null) {
-        // le chargeback non imputé gèle HOST (le contrôle FIN CHARGEBACK_UNIMPUTED le rend visible ;
-        // son compte est global, il est prouvé par les preuves L0 d'US-709, pas ici : leçon du lot 2)
-        expect(await freezeOf(tx, w.trip, 'HOST')).toEqual(FROZEN);
-      }
+      // CONSTAT F-L3-PRE-03 (observation) : le déclencheur regèle HOST ET INSURER, l'imputation sort
+      // avant le dégel ; le chargeback reste ouvert (gel CHARGEBACK) sans issue (voir l'it.fails)
+      for (const leg of ['HOST', 'INSURER'])
+        expect(await freezeOf(tx, w.trip, leg)).toEqual(FROZEN);
       // rejeu du premier chargeback (webhook rejoué) : aucune seconde reprise
       await caught(tx, () => applySignedStatus(tx, cb1, 'SUCCEEDED'));
       expect(await ledgerOf(tx, w.trip)).toEqual(ledger);
     });
   });
+
+  // CONSTAT F-L3-PRE-03 → suite (US-709) : décision FINANCE à deux personnes qui solde un chargeback
+  // non imputable (`LOST_EXCEEDS_COLLECTED`) et dégèle HOST et INSURER ; aujourd'hui les actions
+  // FINANCE sont ISSUE_BORDEREAU, DECIDE_ADVANCE, WRITE_OFF_RECEIVABLE : aucune issue
+  const FINANCE_ACTIONS = `SELECT pg_catalog.pg_get_constraintdef(k.oid) AS def
+       FROM pg_catalog.pg_constraint AS k
+      WHERE k.conrelid = 'core.settlement_finance_approval'::regclass AND k.contype = 'c'
+        AND pg_catalog.pg_get_constraintdef(k.oid) LIKE '%ISSUE_BORDEREAU%'`;
+  const financeActions = () =>
+    asPayments(async (tx) => (await tx.query<{ def: string }>(FINANCE_ACTIONS)).rows);
+
+  it('RT-L3-V08 — observation F-L3-PRE-03 : les actions de la décision FINANCE sont celles de 0036 / 0123, aucune ne solde un chargeback', async () => {
+    const rows = await financeActions();
+    expect(rows.length).toBeGreaterThan(0);
+    expect(rows.some((r) => r.def.includes('WRITE_OFF_RECEIVABLE'))).toBe(true);
+    expect(rows.some((r) => r.def.includes('CHARGEBACK'))).toBe(false);
+  });
+
+  it.fails(
+    'RT-L3-V08 — CONSTAT F-L3-PRE-03 : une décision FINANCE existe pour solder un chargeback non imputable',
+    async () => {
+      const rows = await financeActions();
+      expect(rows.length).toBeGreaterThan(0);
+      expect(rows.some((r) => r.def.includes('CHARGEBACK'))).toBe(true);
+    },
+  );
 
   it('RT-L3-V09 (L3-PM-42) : solde négatif contourné par écriture directe — aucun rôle applicatif n’écrit le grand livre, son état, les imputations, les lots ni les items', async () => {
     const attacks: readonly string[] = [
@@ -297,10 +334,16 @@ describe.each(COUNTRIES)('RT-L3 chargeback et grand livre ($country, $currency)'
     ];
     for (const role of ['app_api', 'app_worker', 'app_anon'] as const) {
       await withRole(role, async (client) => {
-        for (const sql of attacks) {
-          await expect(client.query(sql), `${role} : ${sql.slice(0, 60)}`).rejects.toMatchObject({
-            code: '42501',
-          });
+        // transaction ANNULÉE : si une écriture passait, elle ne serait jamais validée (aucun
+        // autocommit) ; chaque refus attendu est jugé par son SQLSTATE
+        await client.query('BEGIN');
+        try {
+          for (const sql of attacks) {
+            const refused = await failure(client, sql);
+            expect(refused?.code, `${role} : ${sql.slice(0, 60)}`).toBe('42501');
+          }
+        } finally {
+          await client.query('ROLLBACK');
         }
       });
     }
@@ -330,12 +373,12 @@ describe.each(COUNTRIES)('RT-L3 chargeback et grand livre ($country, $currency)'
       });
       expect(await applySignedStatus(tx, op.operation_id, 'SUCCEEDED')).toBe('APPLIED');
       await tx.query('SELECT core.settlement_cmd_apply_leg_movement($1)', [op.operation_id]);
-      await tx.query('SELECT test_fixture.us708_holiday($1, $2::date)', [c.country, '2032-01-01']);
+      await tx.query('SELECT test_fixture.us708_holiday($1, $2::date)', [c.country, '2096-01-01']);
       await tx.query('SELECT test_fixture.us708_verified_account($1, NULL)', [trip]);
       const friday = await tx.query<{ at: string }>(
         `SELECT pg_catalog.to_char(($1::timestamp AT TIME ZONE $2) AT TIME ZONE 'UTC',
                                    'YYYY-MM-DD"T"HH24:MI:SS"Z"') AS at`,
-        ['2032-01-16 15:00', c.timezone],
+        ['2096-01-13 15:00', c.timezone],
       );
       await tx.query(`SELECT pg_catalog.set_config('app.virtual_now', $1, true)`, [
         friday.rows[0]?.at ?? '',

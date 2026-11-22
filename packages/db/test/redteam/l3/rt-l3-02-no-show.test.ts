@@ -4,7 +4,7 @@
  * de chaque test), USD (PA) et PYG sans décimale (PY). Préparation (trip capturé, remise ouverte)
  * VALIDÉE sur un trip neuf par test ; toutes les déclarations jouées dans des transactions ANNULÉES.
  * Horloge virtuelle 2091 (aucune autre preuve ne l'utilise). TESTS SEULEMENT : aucun correctif.
- * Rapport : docs/team/redteam/L3-remise.md.
+ * Rapport : docs/team/redteam/L3-preuves-versements.md.
  *
  * Attendus (jamais le code testé) :
  * - 19 US-307 critère 1 (« T+50 min, grâce 60 ⇒ NO_SHOW_TOO_EARLY ») et pré-mortem L3-PM-18

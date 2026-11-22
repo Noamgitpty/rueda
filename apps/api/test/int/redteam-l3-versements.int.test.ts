@@ -4,7 +4,7 @@
  * réel, rôles de PRODUCTION (`open` : assertion L0-05 en tête, une connexion par transaction), PSP
  * `FAKE` de `@rueda/fake-adapters` aux compteurs d'appels réels, dans chaque pays configuré : USD
  * (deux décimales) et PYG (sans décimale). TESTS SEULEMENT : aucun correctif, aucune migration,
- * aucune fixture. Rapport : docs/team/redteam/L3-versements.md.
+ * aucune fixture. Rapport : docs/team/redteam/L3-preuves-versements.md.
  *
  * Ce que les preuves existantes ne couvrent pas : l'ordonnanceur de versement (`PayoutScheduler`,
  * US-708) est éprouvé contre une MÉMOIRE (`pyo/testing/payout-scheduler.test.ts`) et la base contre
@@ -42,10 +42,12 @@ import {
   ALL_CLOSED,
   CASES,
   DAY,
+  gate,
   capturedTripIn,
   inTx,
   legsOf,
   iso,
+  lockedOrDone,
   open,
   sum,
   switches,
@@ -261,7 +263,7 @@ async function legInvariant(trip: string, captured: bigint): Promise<void> {
   });
 }
 
-function rig(atMs: number) {
+function rig(atMs: number, transactions: TestTransactions = new TestTransactions(atMs)) {
   const psp = new FakePsp({
     secret: 'whsec_fake_test_only',
     clock: () => atMs,
@@ -272,7 +274,7 @@ function rig(atMs: number) {
     get: (p) => (p === PROVIDER ? connector : undefined),
   };
   const scheduler = new PayoutScheduler({
-    transactions: new TestTransactions(atMs),
+    transactions,
     connectors,
   });
   return { psp, scheduler };
@@ -329,12 +331,36 @@ describe.each(CASES)('RT-L3 versements contre le FAKE ($country, $currency)', (c
     await legInvariant(trip, sum(capture));
   });
 
-  it('RT-L3-V03 (L3-PM-33) : versement doublé — deux préparations CONCURRENTES du même trip (deux travailleurs, deux connexions) ⇒ un seul lot, un seul item ; rejeu ⇒ ALREADY_PREPARED ; compteurs du FAKE à zéro', async () => {
+  it('RT-L3-V03 (L3-PM-33) : versement doublé — COURSE OBSERVÉE : deux préparations du même trip sur deux connexions ; la première tient ses verrous, la seconde est vue BLOQUÉE (pg_stat_activity, attente sur verrou) puis rend ALREADY_PREPARED ; un lot, un item ; rejeu ; compteurs du FAKE à zéro', async () => {
     const { trip, end } = await completedTrip(2093, c);
-    const a = rig(end + 14 * DAY);
-    const b = rig(end + 14 * DAY);
-    const outcomes = await Promise.all([a.scheduler.prepare(trip), b.scheduler.prepare(trip)]);
-    expect([...outcomes].sort()).toEqual(['ALREADY_PREPARED', 'PREPARED']);
+    const at = end + 14 * DAY;
+    const open1 = gate();
+    const txA = new TestTransactions(at, open1.wait); // garde ses verrous jusqu'à la porte
+    const txB = new TestTransactions(at);
+    const a = rig(at, txA);
+    const b = rig(at, txB);
+    const observer = await open('app_worker');
+    const pa = a.scheduler.prepare(trip);
+    let pb: Promise<string> | undefined;
+    try {
+      await txA.reached; // la première a écrit le lot et tient le verrou du trip
+      let done = false;
+      pb = b.scheduler.prepare(trip).finally(() => {
+        done = true;
+      });
+      // la seconde est BLOQUÉE sur le verrou (observé), jamais « terminée sans attendre »
+      expect(
+        await lockedOrDone(
+          observer,
+          () => txB.pids,
+          () => done,
+        ),
+      ).toBe('LOCKED');
+    } finally {
+      open1.open();
+    }
+    expect(await pa).toBe('PREPARED');
+    expect(await pb).toBe('ALREADY_PREPARED');
     // rejeu plus tard, par un troisième ordonnanceur
     expect(await rig(end + 15 * DAY).scheduler.prepare(trip)).toBe('ALREADY_PREPARED');
     expect(await batchesOf(trip)).toHaveLength(1);
