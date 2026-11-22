@@ -31,21 +31,40 @@
  *    ordre REFUND = −variation, `host_ledger` vide, NO_SHOW_GUEST, aucun lot de versement.
  * 5. Refus du véhicule au départ (propreté, console) : remboursement intégral (TJ06 / FULL de D),
  *    pénalité `cleanliness` au `host_ledger` (08 : 5 000 cents / 400 000 PYG), REFUSED_AT_PICKUP.
- * 6. Annulations tardives : du voyageur à T−10 h (T03 / T27 : TJ02b / TJ08b, EVT_BOOKING_CANCELLED
- *    aux deux parties) et de l'hôte (T15 à T−24 h pile / D à T−10 h : remboursement intégral,
- *    pénalité `cxlLate` au `host_ledger`).
+ * 6. Annulations tardives : du voyageur à T−10 h (T03 / T27 : TJ02b / TJ08b ; notification
+ *    EVT_BOOKING_CANCELLED PRODUITE pour les deux parties : la vraie ligne d'outbox passe par le
+ *    vrai répartiteur de NTF, `ntf_notification_dispatch` relu) et de l'hôte (T15 à T−24 h pile /
+ *    D à T−10 h : remboursement intégral, pénalité `cxlLate` au `host_ledger`).
  *
  * Coutures assumées (passation US-312) : la remise exige `insurer_contract_active`, ouvert
  * seulement en transaction annulée sous app_api ; le versement et le chargeback sont des commandes
  * d'app_worker : le trip de la variante 2 est terminé par la fixture 9921 (`us708_complete_trip`,
  * même ligne RETURNED que la remise) ; le trip de la variante 3 est mis en cours par la fixture
- * 9997 (le départ réel exige l'interrupteur). Les écarts connus (notifications non encore émises)
- * sont des tests `it.fails` : ils passent au vert le jour où la suite est livrée, et doivent alors
- * devenir des tests ordinaires.
+ * 9997 (le départ réel exige l'interrupteur).
  *
- * Horloges virtuelles : années 2081 à 2086 (une par variante), décalées de 30 jours par pays ;
- * aucune autre série de la base ne les utilise. Aucun compte global : chaque lecture est bornée au
- * trip, au lot ou à l'opération du test.
+ * ÉCARTS CONNUS (passation US-312 ; `docs/qa/STRATEGIE_TESTS.md` §5) — chaque assertion qui fige
+ * le comportement actuel porte « ÉCART CONNU n° X → suite » :
+ * - n° 1 : gains d'annulation de l'hôte jamais mis en lot (`payout_cmd_prepare_trip` ⇒
+ *   NOT_COMPLETED après no-show, refus, annulation ; aucun lot `CXL_EARNINGS`, renvoi d'US-709) ;
+ * - n° 2 : `payout.batch.status_changed` jamais émis ⇒ EVT_PAYOUT_ON_HOLD jamais reçu (US-708) ;
+ * - n° 3 : no-show et refus réglés sans notification (EVT_NO_SHOW_DECLARED, EVT_VEHICLE_REFUSED
+ *   absents, suites d'ADR-191) ;
+ * - n° 4 : retard sans frais (aucun débit MIT `DELAYED_CHARGES` produit, renvoi d'US-305 à US-703).
+ * Les n° 2 et 3 sont des `it.fails` : ils passent au vert le jour où la suite est livrée et doivent
+ * alors devenir des tests ordinaires ; chacun a une garde (état de sa variante absent ⇒ la fonction
+ * rend sans erreur ⇒ `it.fails` ROUGE), jamais vert pour une mauvaise raison.
+ *
+ * `support/fake-account.ts` (`onlyFakeActive` / `onFakeAccount`) n'est pas utilisé : il protège
+ * T1 (`booking_cmd_checkout_pay`), qui retient le PREMIER compte ACTIVE du pays et peut tomber sur
+ * un compte BAC ou EBANX ouvert un instant par un autre fichier (constat C-1 d'US-221). Ce fichier
+ * n'appelle jamais T1 : chaque capture est enregistrée directement sur le compte FAKE partagé
+ * (`us024_psp_account`, fixture 9800), et le processeur, l'ordonnanceur des remboursements et la
+ * préparation du versement relisent le compte de la capture, pas « le premier compte actif ».
+ *
+ * Horloges virtuelles : années 2081 à 2086 (une par variante ; 6a et 6b partagent 2085, à 10 jours
+ * d'écart), décalées de 30 jours par pays ; aucune autre série de la base ne les utilise. Aucun
+ * compte global : chaque lecture est bornée au trip, au lot ou à l'opération du test ; les
+ * événements d'un agrégat sont ordonnés par version d'agrégat, heure, puis identifiant.
  */
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
@@ -57,10 +76,18 @@ import { legVector, settlementVector } from '@rueda/money/golden-vectors';
 import { toTrip } from '@rueda/money/testing';
 import type pg from 'pg';
 import { describe, expect, it } from 'vitest';
-import type { AlertChannel, OpsAlert, WorkerTransactions } from '../../src/modules/bus/index.js';
-import { RULES } from '../../src/modules/ntf/index.js';
+import type {
+  AlertChannel,
+  DomainEvent,
+  JsonObject,
+  OpsAlert,
+  WorkerTransactions,
+} from '../../src/modules/bus/index.js';
+import { postgresNotificationParties } from '../../src/modules/avl/index.js';
+import { dispatchEvent, RULES } from '../../src/modules/ntf/index.js';
 import { TripCancellationProcessor, type CancellationFacts } from '../../src/modules/stl/index.js';
 import { countryCases } from '../support/countries.js';
+import { openSwitch } from '../support/go-live.js';
 import {
   ALL_CLOSED,
   DAY,
@@ -74,7 +101,6 @@ import {
   legsOf,
   negate,
   open,
-  openSwitch,
   recordOperation,
   signedStatus,
   sqlOf,
@@ -330,6 +356,32 @@ class Alerts implements AlertChannel {
   }
 }
 
+/**
+ * Étapes nommées d'une longue transaction : un échec est rapporté avec le nom de l'étape en cours
+ * (« variante 1, étape « retour » : … »), sans couper la transaction (une seule transaction annulée
+ * porte l'interrupteur de l'assureur de bout en bout).
+ */
+async function phased<T>(
+  label: string,
+  fn: (step: (name: string) => void) => Promise<T>,
+): Promise<T> {
+  let phase = 'mise en place';
+  try {
+    return await fn((name) => {
+      phase = name;
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(`${label}, étape « ${phase} » : ${message}`, { cause: error });
+  }
+}
+
+/** Le trip est sorti vers `to` par UNE transition, la dernière (ordre : version d'agrégat). */
+function expectFinal(statuses: readonly string[], to: string): void {
+  expect(statuses.filter((x) => x === to)).toHaveLength(1);
+  expect(statuses[statuses.length - 1]).toBe(to);
+}
+
 /** Règles du catalogue de NTF qui reçoivent cet événement : gabarit et destinataires. */
 function routed(type: string, payload: Json): { template: string; recipients: string[] }[] {
   return RULES.filter(
@@ -348,11 +400,79 @@ async function events(aggregate: string): Promise<{ type: string; payload: Json 
     async (tx) =>
       (
         await tx.query<{ type: string; payload: Json }>(
-          'SELECT type, payload FROM core.outbox_outbox_event WHERE aggregate_id = $1::uuid ORDER BY id',
+          `SELECT type, payload FROM core.outbox_outbox_event
+            WHERE aggregate_id = $1::uuid ORDER BY aggregate_version, occurred_at, id`,
           [aggregate],
         )
       ).rows,
   );
+}
+
+/**
+ * Notification PRODUITE, pas seulement routée en mémoire : la vraie ligne d'outbox du changement
+ * d'état vers `to` passe par le vrai répartiteur de NTF (`dispatchEvent`, parties lues en base par
+ * l'adaptateur d'AVL) sous `ntf_dispatcher`, puis les envois planifiés de CET événement sont relus
+ * sous `ntf_sender`. Transaction ANNULÉE : rien n'est écrit.
+ */
+async function produced(
+  trip: string,
+  to: string,
+): Promise<{ role: string; uid: string; template: string }[]> {
+  const client = await open('app_worker');
+  return inTx(client, { worker: 'outbox_relay' }, async (tx) => {
+    const { rows } = await tx.query<{
+      id: string;
+      type: string;
+      schema_version: number;
+      aggregate_type: string;
+      aggregate_id: string;
+      aggregate_version: string;
+      country_code: string | null;
+      actor_user_id: string | null;
+      actor_role: string;
+      correlation_id: string;
+      causation_id: string | null;
+      payload: JsonObject;
+      partition_key: string | null;
+      occurred_at: Date;
+    }>(
+      `SELECT id::text, type, schema_version, aggregate_type, aggregate_id::text,
+              aggregate_version::text, country_code, actor_user_id::text, actor_role,
+              correlation_id::text, causation_id::text, payload, partition_key, occurred_at
+         FROM core.outbox_outbox_event
+        WHERE aggregate_id = $1::uuid AND type = 'trip.status_changed' AND payload ->> 'to' = $2`,
+      [trip, to],
+    );
+    expect(rows).toHaveLength(1);
+    const r = rows[0]!;
+    const event: DomainEvent = {
+      eventId: r.id,
+      type: r.type,
+      schemaVersion: r.schema_version,
+      aggregateType: r.aggregate_type,
+      aggregateId: r.aggregate_id,
+      aggregateVersion: BigInt(r.aggregate_version),
+      countryCode: r.country_code,
+      actor: r.actor_user_id === null ? 'SYSTEM' : { userId: r.actor_user_id, role: r.actor_role },
+      correlationId: r.correlation_id,
+      causationId: r.causation_id,
+      payload: r.payload,
+      partitionKey: r.partition_key,
+      occurredAt: r.occurred_at.toISOString(),
+    };
+    await asWorker(tx, 'ntf_dispatcher');
+    await dispatchEvent(event, sqlOf(tx), RULES, postgresNotificationParties);
+    await asWorker(tx, 'ntf_sender');
+    return (
+      await tx.query<{ role: string; uid: string; template: string }>(
+        `SELECT DISTINCT recipient_role AS role, recipient_user_id::text AS uid,
+                template_key AS template
+           FROM core.ntf_notification_dispatch WHERE event_id = $1::uuid
+          ORDER BY 1, 2, 3`,
+        [r.id],
+      )
+    ).rows;
+  });
 }
 
 /** Lecture sous un travailleur (transaction annulée). */
@@ -553,200 +673,209 @@ describe.each(CASES)(
     const total = sum(capture);
 
     // ---------------------------------------------------------------------------------------------
-    it('1. trip normal — remise en personne, départ et retour à l’heure serveur, avis en double aveugle, dossier de preuve ; interrupteurs fermés après', async () => {
+    it('1. trip normal : remise, retour, avis, dossier de preuve', async () => {
       const START = base(2081, c);
       const END = START + 3 * DAY;
       const OPENS = START - DAY;
       const RETURN_AT = END - 40 * MINUTE;
       const api = await open('app_api');
-      await inTx(api, { at: iso(OPENS) }, async (tx) => {
-        // assureur partenaire (fixture 9976) puis interrupteur par la procédure à deux personnes
-        // (même ordre que l0-us315-handover : contrat, puis audit et verrou consultatif)
-        await tx.query('SELECT test_fixture.us108_insurer_contract($1, $2, $3)', [
-          c.country,
-          50,
-          ['STANDARD', 'PREMIUM', 'LUXE'],
-        ]);
-        await openSwitch(tx, 'insurer_contract_active', c.country);
-        await at(tx, OPENS);
-        const w = await bookedTrip(tx, c, START, END);
-        await tx.query('SELECT test_fixture.us315_payment($1, $2, $3::bigint)', [
-          w.trip,
-          'WEBHOOK_SIGNED',
-          w.amount,
-        ]);
-        await tx.query('SELECT test_fixture.us315_deposit($1, $2, $3::bigint)', [
-          w.trip,
-          'NOT_REQUIRED',
-          w.amount,
-        ]);
-        await tx.query('SELECT test_fixture.us211_sign($1)', [w.trip]);
-        await subjectKey(tx, 'GUEST', w.guest);
-        await subjectKey(tx, 'HOST', w.holder);
-        const g = await session(tx, w.guest);
-        const h = await session(tx, w.holder);
-
-        // messagerie du trip (US-316) : l'hôte écrit, le voyageur lit (prénom de l'hôte seulement)
-        const posted = await tx.query<Json>(
-          'SELECT * FROM core.messaging_cmd_post_message($1, $2::uuid, $3::uuid, $4)',
-          [h, w.trip, randomUUID(), 'Te espero en el punto de entrega a la hora acordada.'],
-        );
-        expect(posted.rows[0]?.['outcome']).toBe('DONE');
-        const thread = (
-          await tx.query<Json>('SELECT * FROM core.messaging_thread_read($1, $2::uuid, $3)', [
-            g,
-            w.trip,
+      await inTx(api, { at: iso(OPENS) }, (tx) =>
+        phased('variante 1', async (step) => {
+          step('assureur et interrupteur');
+          // assureur partenaire (fixture 9976) puis interrupteur par la procédure à deux personnes
+          // (même ordre que l0-us315-handover : contrat, puis audit et verrou consultatif)
+          await tx.query('SELECT test_fixture.us108_insurer_contract($1, $2, $3)', [
+            c.country,
             50,
-          ])
-        ).rows;
-        expect(thread[0]).toMatchObject({ viewer_role: 'GUEST', counterpart_name: 'María' });
-        expect(thread.filter((m) => m['message_id'] !== null)).toEqual([
-          expect.objectContaining({ mine: false, author_role: 'HOST' }),
-        ]);
-        expect(JSON.stringify(thread)).not.toContain('Gómez');
-
-        // départ : ouverture 24 h avant, photos des deux parties, permis (hôte), deux validations
-        const opened = await tx.query<Json>(
-          'SELECT * FROM core.trip_cmd_open_checkin($1, $2::uuid)',
-          [h, w.trip],
-        );
-        expect(opened.rows[0]?.['outcome']).toBe('DONE');
-        await at(tx, START - 10 * MINUTE);
-        await series(tx, h, w.trip, 'CHECKIN');
-        await series(tx, g, w.trip, 'CHECKIN');
-        const identity = await tx.query<Json>(
-          'SELECT * FROM core.trip_cmd_identity_check($1, $2::uuid, $3::jsonb, $4)',
-          [
-            h,
+            ['STANDARD', 'PREMIUM', 'LUXE'],
+          ]);
+          await openSwitch(tx, 'insurer_contract_active', c.country);
+          step('trip réservé, paiement prouvé, contrat signé');
+          await at(tx, OPENS);
+          const w = await bookedTrip(tx, c, START, END);
+          await tx.query('SELECT test_fixture.us315_payment($1, $2, $3::bigint)', [
             w.trip,
-            JSON.stringify({
-              face: true,
-              name: true,
-              birthYear: true,
-              valid: true,
-              provisional: true,
-              restrictions: true,
-            }),
-            null,
-          ],
-        );
-        expect(identity.rows[0]).toMatchObject({ outcome: 'DONE', status: 'TRIP_ID_OK' });
-        expect(await validate(tx, h, w.trip, 'CHECKIN', 42000, 8)).toMatchObject({
-          outcome: 'DONE',
-          completed_at: null,
-          trip_status: 'CHECKIN_OPEN',
-        });
-        const departed = START - 5 * MINUTE;
-        await at(tx, departed);
-        const go = await validate(tx, g, w.trip, 'CHECKIN', 42000, 8);
-        expect(go).toMatchObject({ outcome: 'DONE', trip_status: 'IN_PROGRESS' });
-        expect(isoOf(go['completed_at'])).toBe(iso(departed));
+            'WEBHOOK_SIGNED',
+            w.amount,
+          ]);
+          await tx.query('SELECT test_fixture.us315_deposit($1, $2, $3::bigint)', [
+            w.trip,
+            'NOT_REQUIRED',
+            w.amount,
+          ]);
+          await tx.query('SELECT test_fixture.us211_sign($1)', [w.trip]);
+          await subjectKey(tx, 'GUEST', w.guest);
+          await subjectKey(tx, 'HOST', w.holder);
+          const g = await session(tx, w.guest);
+          const h = await session(tx, w.holder);
 
-        // retour : photos des deux parties, deux validations ⇒ RETURNED à l'heure serveur
-        await at(tx, RETURN_AT - 20 * MINUTE);
-        await series(tx, h, w.trip, 'CHECKOUT');
-        await series(tx, g, w.trip, 'CHECKOUT');
-        expect(await validate(tx, h, w.trip, 'CHECKOUT', 42350, 6)).toMatchObject({
-          outcome: 'DONE',
-          completed_at: null,
-          trip_status: 'IN_PROGRESS',
-        });
-        await at(tx, RETURN_AT);
-        const back = await validate(tx, g, w.trip, 'CHECKOUT', 42351, 6);
-        expect(back).toMatchObject({ outcome: 'DONE', trip_status: 'RETURNED' });
-        expect(isoOf(back['completed_at'])).toBe(iso(RETURN_AT));
-        const records = (
-          await tx.query<{ r: Json }>('SELECT test_fixture.us315_records($1) AS r', [w.trip])
-        ).rows[0]!.r;
-        expect(records).toMatchObject({
-          status: 'RETURNED',
-          transitions: 2,
-          vehicleOccupancyActive: 0,
-          guestOccupancyActive: 0,
-        });
-        expect(isoOf(records['returnedAt'])).toBe(iso(RETURN_AT));
-        expect(isoOf(records['checkinValidatedAt'])).toBe(iso(departed));
-        expect((records['keys'] as Json[]).map((k) => [k['direction'], k['method']])).toEqual([
-          ['OUT', 'IN_PERSON'],
-          ['IN', 'IN_PERSON'],
-        ]);
+          step('messagerie');
+          // messagerie du trip (US-316) : l'hôte écrit, le voyageur lit (prénom de l'hôte seulement)
+          const posted = await tx.query<Json>(
+            'SELECT * FROM core.messaging_cmd_post_message($1, $2::uuid, $3::uuid, $4)',
+            [h, w.trip, randomUUID(), 'Te espero en el punto de entrega a la hora acordada.'],
+          );
+          expect(posted.rows[0]?.['outcome']).toBe('DONE');
+          const thread = (
+            await tx.query<Json>('SELECT * FROM core.messaging_thread_read($1, $2::uuid, $3)', [
+              g,
+              w.trip,
+              50,
+            ])
+          ).rows;
+          expect(thread[0]).toMatchObject({ viewer_role: 'GUEST', counterpart_name: 'María' });
+          expect(thread.filter((m) => m['message_id'] !== null)).toEqual([
+            expect.objectContaining({ mine: false, author_role: 'HOST' }),
+          ]);
+          expect(JSON.stringify(thread)).not.toContain('Gómez');
 
-        // avis (US-317) : double aveugle, publiés à la seconde soumission
-        await at(tx, RETURN_AT + 2 * DAY);
-        const h2 = await session(tx, w.holder);
-        const g2 = await session(tx, w.guest);
-        const SUBMIT = 'SELECT * FROM core.review_cmd_submit($1, $2::uuid, $3, $4::jsonb, $5)';
-        expect((await tx.query<Json>(SUBMIT, [h2, w.trip, 5, null, null])).rows[0]).toMatchObject({
-          outcome: 'DONE',
-          status: 'SUBMITTED',
-        });
-        const blind = (
-          await tx.query<{ view: Json }>('SELECT * FROM core.review_trip_read($1, $2::uuid)', [
+          step('départ');
+          // départ : ouverture 24 h avant, photos des deux parties, permis (hôte), deux validations
+          const opened = await tx.query<Json>(
+            'SELECT * FROM core.trip_cmd_open_checkin($1, $2::uuid)',
+            [h, w.trip],
+          );
+          expect(opened.rows[0]?.['outcome']).toBe('DONE');
+          await at(tx, START - 10 * MINUTE);
+          await series(tx, h, w.trip, 'CHECKIN');
+          await series(tx, g, w.trip, 'CHECKIN');
+          const identity = await tx.query<Json>(
+            'SELECT * FROM core.trip_cmd_identity_check($1, $2::uuid, $3::jsonb, $4)',
+            [
+              h,
+              w.trip,
+              JSON.stringify({
+                face: true,
+                name: true,
+                birthYear: true,
+                valid: true,
+                provisional: true,
+                restrictions: true,
+              }),
+              null,
+            ],
+          );
+          expect(identity.rows[0]).toMatchObject({ outcome: 'DONE', status: 'TRIP_ID_OK' });
+          expect(await validate(tx, h, w.trip, 'CHECKIN', 42000, 8)).toMatchObject({
+            outcome: 'DONE',
+            completed_at: null,
+            trip_status: 'CHECKIN_OPEN',
+          });
+          const departed = START - 5 * MINUTE;
+          await at(tx, departed);
+          const go = await validate(tx, g, w.trip, 'CHECKIN', 42000, 8);
+          expect(go).toMatchObject({ outcome: 'DONE', trip_status: 'IN_PROGRESS' });
+          expect(isoOf(go['completed_at'])).toBe(iso(departed));
+
+          step('retour');
+          // retour : photos des deux parties, deux validations ⇒ RETURNED à l'heure serveur
+          await at(tx, RETURN_AT - 20 * MINUTE);
+          await series(tx, h, w.trip, 'CHECKOUT');
+          await series(tx, g, w.trip, 'CHECKOUT');
+          expect(await validate(tx, h, w.trip, 'CHECKOUT', 42350, 6)).toMatchObject({
+            outcome: 'DONE',
+            completed_at: null,
+            trip_status: 'IN_PROGRESS',
+          });
+          await at(tx, RETURN_AT);
+          const back = await validate(tx, g, w.trip, 'CHECKOUT', 42351, 6);
+          expect(back).toMatchObject({ outcome: 'DONE', trip_status: 'RETURNED' });
+          expect(isoOf(back['completed_at'])).toBe(iso(RETURN_AT));
+          const records = (
+            await tx.query<{ r: Json }>('SELECT test_fixture.us315_records($1) AS r', [w.trip])
+          ).rows[0]!.r;
+          expect(records).toMatchObject({
+            status: 'RETURNED',
+            transitions: 2,
+            vehicleOccupancyActive: 0,
+            guestOccupancyActive: 0,
+          });
+          expect(isoOf(records['returnedAt'])).toBe(iso(RETURN_AT));
+          expect(isoOf(records['checkinValidatedAt'])).toBe(iso(departed));
+          expect((records['keys'] as Json[]).map((k) => [k['direction'], k['method']])).toEqual([
+            ['OUT', 'IN_PERSON'],
+            ['IN', 'IN_PERSON'],
+          ]);
+
+          step('avis');
+          // avis (US-317) : double aveugle, publiés à la seconde soumission
+          await at(tx, RETURN_AT + 2 * DAY);
+          const h2 = await session(tx, w.holder);
+          const g2 = await session(tx, w.guest);
+          const SUBMIT = 'SELECT * FROM core.review_cmd_submit($1, $2::uuid, $3, $4::jsonb, $5)';
+          expect((await tx.query<Json>(SUBMIT, [h2, w.trip, 5, null, null])).rows[0]).toMatchObject(
+            {
+              outcome: 'DONE',
+              status: 'SUBMITTED',
+            },
+          );
+          const blind = (
+            await tx.query<{ view: Json }>('SELECT * FROM core.review_trip_read($1, $2::uuid)', [
+              g2,
+              w.trip,
+            ])
+          ).rows[0]!.view;
+          expect(blind['published']).toEqual([]);
+          await at(tx, RETURN_AT + 3 * DAY);
+          const guestReview = await tx.query<Json>(SUBMIT, [
             g2,
             w.trip,
-          ])
-        ).rows[0]!.view;
-        expect(blind['published']).toEqual([]);
-        await at(tx, RETURN_AT + 3 * DAY);
-        const guestReview = await tx.query<Json>(SUBMIT, [
-          g2,
-          w.trip,
-          4,
-          null,
-          'Auto limpio, entrega puntual y anfitrión muy atento durante todo el viaje.',
-        ]);
-        expect(guestReview.rows[0]).toMatchObject({ outcome: 'DONE', status: 'PUBLISHED' });
-        const reviews = (
-          await tx.query<Json>('SELECT * FROM test_fixture.us317_reviews($1)', [w.trip])
-        ).rows;
-        expect(reviews).toHaveLength(3);
-        for (const r of reviews) expect(r).toMatchObject({ status: 'PUBLISHED' });
+            4,
+            null,
+            'Auto limpio, entrega puntual y anfitrión muy atento durante todo el viaje.',
+          ]);
+          expect(guestReview.rows[0]).toMatchObject({ outcome: 'DONE', status: 'PUBLISHED' });
+          const reviews = (
+            await tx.query<Json>('SELECT * FROM test_fixture.us317_reviews($1)', [w.trip])
+          ).rows;
+          expect(reviews).toHaveLength(3);
+          for (const r of reviews) expect(r).toMatchObject({ status: 'PUBLISHED' });
 
-        // dossier de preuve (US-308) : agent OPS du pays, dossier de support assigné, manifeste scellé
-        const ops = await staffMember(tx, 'OPS_AGENT', c.country);
-        const caseId = randomUUID();
-        await tx.query('SELECT test_fixture.rls_insert_support_case($1, $2, $3, $4, $5, $6, $7)', [
-          caseId,
-          c.country,
-          w.trip,
-          ops,
-          'OPEN',
-          'CLAIM',
-          null,
-        ]);
-        await subjectKey(tx, 'STAFF', ops);
-        const staff = await asStaff(tx, ops, c.country);
-        const bundle = (
-          await tx.query<Json>(
-            `SELECT outcome, bundle_id::text AS bundle_id, status
+          step('dossier de preuve');
+          // dossier de preuve (US-308) : agent OPS du pays, dossier de support assigné, manifeste scellé
+          const ops = await staffMember(tx, 'OPS_AGENT', c.country);
+          const caseId = randomUUID();
+          await tx.query(
+            'SELECT test_fixture.rls_insert_support_case($1, $2, $3, $4, $5, $6, $7)',
+            [caseId, c.country, w.trip, ops, 'OPEN', 'CLAIM', null],
+          );
+          await subjectKey(tx, 'STAFF', ops);
+          const staff = await asStaff(tx, ops, c.country);
+          const bundle = (
+            await tx.query<Json>(
+              `SELECT outcome, bundle_id::text AS bundle_id, status
              FROM core.support_staff_request_evidence_bundle($1, $2::uuid, $3::uuid, $4::uuid, $5,
                                                              $6)`,
-            [staff.hash, randomUUID(), w.trip, caseId, 'INSURER', 'Parcours doré US-312'],
-          )
-        ).rows[0]!;
-        expect(bundle).toMatchObject({ outcome: 'REQUESTED', status: 'REQUESTED' });
-        const sealed = (
-          await tx.query<Json>('SELECT * FROM test_fixture.us308_bundle($1)', [bundle['bundle_id']])
-        ).rows[0]!;
-        const manifest = sealed['manifest'] as Json;
-        expect(manifest).toMatchObject({
-          schema: 'clm.evidence/1',
-          trip: { id: w.trip, country: c.country, currency: c.currency, status: 'RETURNED' },
-          messages: { count: 1 },
-        });
-        const files = manifest['files'] as Json[];
-        expect(files.filter((f) => f['kind'] === 'PHOTO')).toHaveLength(4 * SLOTS.length);
-        expect((manifest['inspections'] as Json[]).length).toBeGreaterThanOrEqual(4);
-        expect(
-          createHash('sha256')
-            .update(String(sealed['manifest_text']))
-            .digest()
-            .equals(sealed['manifest_sha256'] as Buffer),
-        ).toBe(true);
-        for (const secret of ['Pérez', 'Gómez', 'Te espero', 'license', 'latitude']) {
-          expect(String(sealed['manifest_text'])).not.toContain(secret);
-        }
-      });
+              [staff.hash, randomUUID(), w.trip, caseId, 'INSURER', 'Parcours doré US-312'],
+            )
+          ).rows[0]!;
+          expect(bundle).toMatchObject({ outcome: 'REQUESTED', status: 'REQUESTED' });
+          const sealed = (
+            await tx.query<Json>('SELECT * FROM test_fixture.us308_bundle($1)', [
+              bundle['bundle_id'],
+            ])
+          ).rows[0]!;
+          const manifest = sealed['manifest'] as Json;
+          expect(manifest).toMatchObject({
+            schema: 'clm.evidence/1',
+            trip: { id: w.trip, country: c.country, currency: c.currency, status: 'RETURNED' },
+            messages: { count: 1 },
+          });
+          const files = manifest['files'] as Json[];
+          expect(files.filter((f) => f['kind'] === 'PHOTO')).toHaveLength(4 * SLOTS.length);
+          // une inspection par sens (départ, retour) et par partie (hôte, voyageur)
+          expect(manifest['inspections'] as Json[]).toHaveLength(4);
+          expect(
+            createHash('sha256')
+              .update(String(sealed['manifest_text']))
+              .digest()
+              .equals(sealed['manifest_sha256'] as Buffer),
+          ).toBe(true);
+          for (const secret of ['Pérez', 'Gómez', 'Te espero', 'license', 'latitude']) {
+            expect(String(sealed['manifest_text'])).not.toContain(secret);
+          }
+        }),
+      );
       // transaction annulée : l'interrupteur ouvert pour la remise n'existe plus
       await inTx(api, { at: iso(START) }, async (tx) => {
         expect(await switches(tx, c.country)).toEqual(ALL_CLOSED);
@@ -757,7 +886,7 @@ describe.each(CASES)(
     /** Instantané de la variante 2 (transaction annulée), affirmé par les tests qui suivent. */
     const money: { payoutEvents?: { type: string; payload: Json }[] } = {};
 
-    it('2. trip normal — capture par jambe, versement ON_HOLD (PAYOUTS_DISABLED, J+5 ouvrés, jambe HOST), chargeback : jambes gelées, lot retenu en litige, perdu ⇒ TJ14b sans reprise sur l’hôte', async () => {
+    it('2. trip normal : versement ON_HOLD, chargeback perdu (TJ14b)', async () => {
       const worker = await open('app_worker');
       // fin effective : vendredi 15:00 locale (année 2086) ; premier versement ⇒ J+5 ouvrés,
       // 10:00 locale (08 BR-PAYOUT, ADR-185) ; seul férié du calendrier de test : 1er janvier
@@ -885,7 +1014,7 @@ describe.each(CASES)(
           money.payoutEvents = (
             await tx.query<{ type: string; payload: Json }>(
               `SELECT type, payload FROM core.outbox_outbox_event
-            WHERE aggregate_id = $1::uuid ORDER BY id`,
+                WHERE aggregate_id = $1::uuid ORDER BY aggregate_version, occurred_at, id`,
               [prepared.batch_id],
             )
           ).rows;
@@ -960,22 +1089,22 @@ describe.each(CASES)(
       );
     });
 
-    // Écart connu (US-708 « suites », passation US-312) : `payout.batch.status_changed` n'est pas
-    // encore émis ; la règle EVT_PAYOUT_ON_HOLD de NTF ne reçoit donc rien et l'hôte n'est pas
-    // prévenu de son versement retenu. Passe au vert quand l'événement est livré.
+    // ÉCART CONNU n° 2 → suite d'US-708 : `payout.batch.status_changed` n'est pas émis ; la règle
+    // EVT_PAYOUT_ON_HOLD de NTF ne reçoit rien et l'hôte n'est pas prévenu de son versement retenu.
+    // Passe au vert quand l'événement est livré (il devient alors un test ordinaire).
     it.fails(
-      '2b. écart : l’hôte est notifié du versement retenu (EVT_PAYOUT_ON_HOLD)',
+      '2b. ÉCART n° 2 : versement retenu notifié à l’hôte (EVT_PAYOUT_ON_HOLD)',
       async () => {
         await open('app_api'); // L0-05
-        const templates = (money.payoutEvents ?? []).flatMap((e) =>
-          routed(e.type, e.payload).map((r) => r.template),
-        );
-        expect(templates).toContain('EVT_PAYOUT_ON_HOLD');
+        // garde : sans l'état de la variante 2, la fonction rend sans erreur ⇒ it.fails ROUGE
+        if (money.payoutEvents === undefined) return;
+        const notices = money.payoutEvents.flatMap((e) => routed(e.type, e.payload));
+        expect(notices).toContainEqual({ template: 'EVT_PAYOUT_ON_HOLD', recipients: ['HOST'] });
       },
     );
 
     // ---------------------------------------------------------------------------------------------
-    it('3. retard — fin + 29 min : rien ; fin + 30 min : OVERDUE, un seul `trip.overdue.detected` routé vers EVT_TRIP_OVERDUE (voyageur, hôte) ; retour par la remise ⇒ RETURNED ; détection rejouée ⇒ SKIPPED', async () => {
+    it('3. retard : OVERDUE à fin + 30 min, EVT_TRIP_OVERDUE, retour', async () => {
       const START = base(2082, c);
       const END = START + 2 * DAY;
       const api = await open('app_api');
@@ -1060,12 +1189,25 @@ describe.each(CASES)(
           (e) => e['type'] === 'trip.overdue.detected',
         ),
       ).toHaveLength(1);
+      // ÉCART CONNU n° 4 → suite (frais de retard, renvoi d'US-305 à US-703) : aucun débit MIT
+      // n'est produit pour le retard ; fige le comportement actuel
+      const charges = await read<{ n: number }>(
+        'payment_command',
+        `SELECT pg_catalog.count(*)::int AS n FROM core.payment_payment_operation
+          WHERE trip_id = $1 AND kind = 'MIT_CHARGE'`,
+        [w.trip],
+      );
+      expect(charges[0]!.n).toBe(0);
     });
 
     // ---------------------------------------------------------------------------------------------
-    const noShow: { statuses?: string[]; routedTemplates?: string[] } = {};
+    /** Notifications routées des événements du trip réglé (variantes 4 et 5), pour 4b et 5b. */
+    const routedOf: {
+      noShow?: { template: string; recipients: string[] }[];
+      refusal?: { template: string; recipients: string[] }[];
+    } = {};
 
-    it('4. no-show du voyageur déclaré par l’hôte à T+70 min, message tracé : vrai processeur ⇒ variation de l’oracle, REFUND = −variation, host_ledger vide, NO_SHOW_GUEST, aucun versement préparé', async () => {
+    it('4. no-show déclaré par l’hôte (T+70 min, message tracé)', async () => {
       const START = base(2083, c);
       const w = await capturedWorld(c, c.e.noShow.vector, START, true);
       const declaredAt = START + 70 * MINUTE;
@@ -1109,24 +1251,27 @@ describe.each(CASES)(
       expect(capture.HOST + s.variation.HOST).toBe(v.expected.hostEarningsMinor);
       expect(s.refund).toEqual(negate(c.e.noShow.variation));
       expect(s.ledger).toEqual([]);
-      expect(s.statuses.at(-1)).toBe('NO_SHOW_GUEST');
-      // gains d'annulation de l'hôte : aucun lot construit (renvoi d'US-709, passation US-312)
+      expectFinal(s.statuses, 'NO_SHOW_GUEST');
+      // ÉCART CONNU n° 1 → suite (lot CXL_EARNINGS, renvoi d'US-709) : la part de l'hôte retenue
+      // n'est jamais mise en lot ; fige le comportement actuel
       expect(await preparePayout(w.trip)).toBe('NOT_COMPLETED');
-      noShow.statuses = s.statuses;
-      noShow.routedTemplates = (await events(w.trip)).flatMap((e) =>
-        routed(e.type, e.payload).map((r) => r.template),
-      );
+      routedOf.noShow = (await events(w.trip)).flatMap((e) => routed(e.type, e.payload));
     });
 
-    // Écart connu (ADR-191, suites d'US-307) : EVT_NO_SHOW_DECLARED n'existe pas ; ni le voyageur
+    // ÉCART CONNU n° 3 → suite d'ADR-191 : EVT_NO_SHOW_DECLARED n'existe pas ; ni le voyageur
     // déclaré absent ni l'hôte ne sont notifiés du no-show réglé.
-    it.fails('4b. écart : le no-show réglé est notifié aux parties', async () => {
+    it.fails('4b. ÉCART n° 3 : no-show réglé notifié (EVT_NO_SHOW_DECLARED)', async () => {
       await open('app_api'); // L0-05
-      expect(noShow.routedTemplates ?? []).not.toEqual([]);
+      // garde : sans l'état de la variante 4, la fonction rend sans erreur ⇒ it.fails ROUGE
+      if (routedOf.noShow === undefined) return;
+      expect(routedOf.noShow).toContainEqual({
+        template: 'EVT_NO_SHOW_DECLARED',
+        recipients: ['GUEST', 'HOST'],
+      });
     });
 
     // ---------------------------------------------------------------------------------------------
-    it('5. refus du véhicule au départ (propreté, console) : remboursement intégral, pénalité `cleanliness` au host_ledger, coût à l’hôte, REFUSED_AT_PICKUP', async () => {
+    it('5. refus au départ (propreté) : remboursement intégral, pénalité', async () => {
       const START = base(2084, c);
       const w = await capturedWorld(c, c.e.refusal.vector, START, true);
       const refusedAt = START + 10 * MINUTE;
@@ -1151,12 +1296,26 @@ describe.each(CASES)(
       expect(s.ledger).toEqual([
         { reason: 'HOST_CANCELLATION_PENALTY', amount: -c.e.refusal.penalty, currency: c.currency },
       ]);
-      expect(s.statuses.at(-1)).toBe('REFUSED_AT_PICKUP');
+      expectFinal(s.statuses, 'REFUSED_AT_PICKUP');
+      // ÉCART CONNU n° 1 → suite (lot CXL_EARNINGS) : aucun lot ; fige le comportement actuel
       expect(await preparePayout(w.trip)).toBe('NOT_COMPLETED');
+      routedOf.refusal = (await events(w.trip)).flatMap((e) => routed(e.type, e.payload));
+    });
+
+    // ÉCART CONNU n° 3 → suite d'ADR-191 : EVT_VEHICLE_REFUSED n'existe pas ; le refus réglé n'est
+    // notifié à aucune des parties.
+    it.fails('5b. ÉCART n° 3 : refus réglé notifié (EVT_VEHICLE_REFUSED)', async () => {
+      await open('app_api'); // L0-05
+      // garde : sans l'état de la variante 5, la fonction rend sans erreur ⇒ it.fails ROUGE
+      if (routedOf.refusal === undefined) return;
+      expect(routedOf.refusal).toContainEqual({
+        template: 'EVT_VEHICLE_REFUSED',
+        recipients: ['GUEST', 'HOST'],
+      });
     });
 
     // ---------------------------------------------------------------------------------------------
-    it('6a. annulation tardive du voyageur (T−10 h) : variation de l’oracle, REFUND = −variation, host_ledger vide, CANCELLED_BY_GUEST routé vers EVT_BOOKING_CANCELLED (voyageur, hôte)', async () => {
+    it('6a. annulation tardive du voyageur (T−10 h), notification produite', async () => {
       const START = base(2085, c);
       const v = settlementVector(golden, c.e.guestLate.vector);
       const w = await capturedWorld(c, c.e.guestLate.vector, START, false);
@@ -1172,7 +1331,7 @@ describe.each(CASES)(
       expect(s.refund).toEqual(negate(c.e.guestLate.variation));
       expect(capture.HOST + s.variation.HOST).toBe(v.expected.hostFromGuestMinor);
       expect(s.ledger).toEqual([]);
-      expect(s.statuses.at(-1)).toBe('CANCELLED_BY_GUEST');
+      expectFinal(s.statuses, 'CANCELLED_BY_GUEST');
       const changed = (await events(w.trip)).filter(
         (e) => e.type === 'trip.status_changed' && e.payload['to'] === 'CANCELLED_BY_GUEST',
       );
@@ -1186,10 +1345,16 @@ describe.each(CASES)(
         ['TRIP', w.trip],
       );
       expect(parties[0]!.p).toEqual({ guestUserId: w.guest, hostUserId: w.holder });
+      // notification produite : envois planifiés de CET événement, un par partie
+      expect(await produced(w.trip, 'CANCELLED_BY_GUEST')).toEqual([
+        { role: 'GUEST', uid: w.guest, template: 'EVT_BOOKING_CANCELLED' },
+        { role: 'HOST', uid: w.holder, template: 'EVT_BOOKING_CANCELLED' },
+      ]);
+      // ÉCART CONNU n° 1 → suite (lot CXL_EARNINGS) : aucun lot ; fige le comportement actuel
       expect(await preparePayout(w.trip)).toBe('NOT_COMPLETED');
     });
 
-    it('6b. annulation tardive de l’hôte : remboursement intégral, pénalité `cxlLate` au host_ledger, CANCELLED_BY_HOST routé vers EVT_BOOKING_CANCELLED', async () => {
+    it('6b. annulation tardive de l’hôte : remboursement intégral, `cxlLate`', async () => {
       const START = base(2085, c) + 10 * DAY;
       const w = await capturedWorld(c, c.e.hostLate.vector, START, false);
       const requestedAt = START + c.e.hostLate.requestedAtMinutes * MINUTE;
@@ -1212,11 +1377,12 @@ describe.each(CASES)(
           currency: c.currency,
         },
       ]);
-      expect(s.statuses.at(-1)).toBe('CANCELLED_BY_HOST');
-      const changed = (await events(w.trip))
-        .filter((e) => e.type === 'trip.status_changed')
-        .at(-1)!;
-      expect(routed(changed.type, changed.payload)).toEqual([
+      expectFinal(s.statuses, 'CANCELLED_BY_HOST');
+      const changed = (await events(w.trip)).filter(
+        (e) => e.type === 'trip.status_changed' && e.payload['to'] === 'CANCELLED_BY_HOST',
+      );
+      expect(changed).toHaveLength(1);
+      expect(routed(changed[0]!.type, changed[0]!.payload)).toEqual([
         { template: 'EVT_BOOKING_CANCELLED', recipients: ['GUEST', 'HOST'] },
       ]);
       for (const k of LEGS) expect(s.refund[k] >= 0n, k).toBe(true);

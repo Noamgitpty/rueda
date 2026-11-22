@@ -302,25 +302,9 @@ export async function asStaff(
 
 /**
  * Interrupteur ouvert par la procédure à deux personnes d'US-125, dans la transaction ANNULÉE de
- * l'appelant : tête de chaîne d'audit AVANT le verrou consultatif (ordre de golive.ts, PR #200).
+ * l'appelant : support unique `go-live.ts` (US-312).
  */
-export async function openSwitch(tx: pg.ClientBase, key: string, country: string): Promise<void> {
-  const requester = await staffMember(tx, 'ADMIN', country);
-  const approver = await staffMember(tx, 'SUPERADMIN', country);
-  await tx.query('SELECT test_fixture.audit_chain_head_lock()');
-  const r1 = await asStaff(tx, requester, country);
-  const r = await tx.query<{ outcome: string; request_id: string | null }>(
-    'SELECT outcome, request_id FROM core.config_cmd_request_go_live_switch($1, $2, $3, $4, $5, $6)',
-    [r1.hash, randomUUID(), key, country, true, 'DEC-FONDATEUR-15'],
-  );
-  if (r.rows[0]?.outcome !== 'REQUESTED') throw new Error(`demande : ${r.rows[0]?.outcome}`);
-  const a1 = await asStaff(tx, approver, country);
-  const a = await tx.query<{ outcome: string }>(
-    'SELECT outcome FROM core.config_cmd_approve_go_live_switch($1, $2)',
-    [a1.hash, r.rows[0].request_id],
-  );
-  if (a.rows[0]?.outcome !== 'APPLIED') throw new Error(`approbation : ${a.rows[0]?.outcome}`);
-}
+export { openSwitch } from './go-live.js';
 
 /** Valeur lue de chaque interrupteur de mise en service du pays (fail-closed : false). */
 export async function switches(

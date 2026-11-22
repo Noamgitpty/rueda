@@ -128,8 +128,9 @@ test('remise puis retour du véhicule, hôte et voyageur, d’une main à 360 px
   await as(context, guest);
   await page.goto(`/trips/${trip}/handover/checkout`);
   await page.locator('#handover-odometer').fill('41790');
-  const fuel = page.locator('#handover-fuel');
-  if ((await fuel.count()) > 0) await fuel.selectOption('6');
+  // relevé du carburant au retour, demandé aussi au voyageur (10b S09 · check-out)
+  await expect(page.locator('#handover-fuel')).toBeVisible();
+  await page.locator('#handover-fuel').selectOption('6');
   await expect(submit).toHaveText(t('web.handover.validate.GUEST.checkout'));
   await oneHanded(page, submit);
   await submit.click();

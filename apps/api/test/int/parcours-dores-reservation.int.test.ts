@@ -89,6 +89,8 @@ import {
 } from '../../src/modules/stl/index.js';
 import { countryCases } from '../support/countries.js';
 import { onFakeAccount as onFakeAccountSafely } from '../support/fake-account.js';
+// interrupteurs : procédure à deux personnes d'US-125, support unique (US-312)
+import { openSwitch } from '../support/go-live.js';
 
 const golden = loadGoldenVectors();
 const LEGS = ['HOST', 'INSURER', 'TAX_THIRD_PARTY', 'PLATFORM'] as const;
@@ -296,44 +298,6 @@ async function elevated(tx: pg.ClientBase, id: string): Promise<{ id: string; ha
   const hash = sha();
   await tx.query('SELECT test_fixture.iam_open_elevated_session($1, $2)', [id, hash]);
   return { id, hash };
-}
-
-async function staffOf(
-  tx: pg.ClientBase,
-  role: string,
-  country: string,
-): Promise<{ id: string; hash: Buffer }> {
-  return elevated(tx, await staffMember(tx, role, country));
-}
-
-/**
- * Interrupteur ouvert par la procédure à deux personnes d'US-125, dans la transaction ANNULÉE de
- * l'appelant : tête de chaîne d'audit AVANT le verrou consultatif (même ordre que
- * packages/db/test/support/golive.ts, PR #200 ; jamais l'ordre inverse : 40P01).
- */
-async function openSwitch(tx: pg.ClientBase, key: string, country: string): Promise<void> {
-  const as = async (who: { id: string; hash: Buffer }) =>
-    setSessionContext(tx, {
-      kind: 'STAFF',
-      actorId: who.id,
-      countryScope: [country],
-      sessionTokenHash: who.hash.toString('hex'),
-    });
-  const requester = await staffOf(tx, 'ADMIN', country);
-  const approver = await staffOf(tx, 'SUPERADMIN', country);
-  await tx.query('SELECT test_fixture.audit_chain_head_lock()');
-  await as(requester);
-  const r = await tx.query<{ outcome: string; request_id: string | null }>(
-    'SELECT outcome, request_id FROM core.config_cmd_request_go_live_switch($1, $2, $3, $4, $5, $6)',
-    [requester.hash, randomUUID(), key, country, true, 'DEC-FONDATEUR-15'],
-  );
-  if (r.rows[0]?.outcome !== 'REQUESTED') throw new Error(`demande : ${r.rows[0]?.outcome}`);
-  await as(approver);
-  const a = await tx.query<{ outcome: string }>(
-    'SELECT outcome FROM core.config_cmd_approve_go_live_switch($1, $2)',
-    [approver.hash, r.rows[0].request_id],
-  );
-  if (a.rows[0]?.outcome !== 'APPLIED') throw new Error(`approbation : ${a.rows[0]?.outcome}`);
 }
 
 /** Valeur lue de chaque interrupteur de mise en service du pays (fail-closed : false). */
