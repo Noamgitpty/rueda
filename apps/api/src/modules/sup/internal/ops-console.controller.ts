@@ -38,6 +38,8 @@
  * |      (US-215b)                          | demande d'annulation ou null     |                                  |
  * | GET /console/refunds/:id                | 200 remboursements SM-8 du trip  | 403 STAFF_SELF_FORBIDDEN         |
  * |      (US-224d)                          | (jambes, ordre, blocage, alerte) |                                  |
+ * | GET /console/overdue (US-306)           | 200 vue des retards : trips      | —                                |
+ * |                                         | OVERDUE / UNRETURNED, étape      |                                  |
  *
  * Toutes : StaffGuard (401 AUTH_REQUIRED, 403 FORBIDDEN / 2FA_REQUIRED), 400 REQUEST_INVALID. La
  * base juge chaque droit (permission EN COURS dans le pays du sujet, couverture) et journalise
@@ -218,8 +220,9 @@ function actorOf(request: object): StaffActor {
 // US-209b : instants du dossier d'une réservation signalée (flaggedAt, reviewedAt, expiresAt,
 // declaredAt ; la date d'entrée déclarée reste une date) ; US-215b : heure de la demande d'annulation
 // (requestedAt ; decidedAt déjà là) ; US-310 : première réponse d'une demande d'aide (firstResponseAt)
+// US-306 : vue des retards (detectedAt, nextStepAt, escalatedAt, readAt)
 const DATE_FIELD =
-  /^(createdAt|slaDueAt|liftedAt|scheduledStart|scheduledEnd|updatedAt|startsAt|endsAt|screenedAt|decidedAt|activatedAt|flaggedAt|reviewedAt|expiresAt|declaredAt|requestedAt|firstResponseAt)$/;
+  /^(createdAt|slaDueAt|liftedAt|scheduledStart|scheduledEnd|updatedAt|startsAt|endsAt|screenedAt|decidedAt|activatedAt|flaggedAt|reviewedAt|expiresAt|declaredAt|requestedAt|firstResponseAt|detectedAt|nextStepAt|escalatedAt|readAt)$/;
 
 /** Décision de la file d'ajout (US-114) : la forme est jugée ici, les valeurs par la base. */
 function resolutionOf(b: Record<string, unknown>): CatalogResolution {
@@ -707,6 +710,18 @@ export class OpsConsoleController {
     const actor = actorOf(request);
     const tripId = uuidOf(id);
     const r = await run(() => this.store.tripRefunds(actor, randomUUID(), tripId), ['OK']);
+    return r.body;
+  }
+
+  // US-306 (ADR-193) : vue des retards (16 ADM-022) : trips OVERDUE / UNRETURNED des pays où l'agent
+  // détient ops.force_terminate_trip, étape d'escalade, prochaine étape et son heure ; lue en direct
+  // (aucun cache) ; trips qui concernent l'agent écartés ; aucune donnée personnelle ; refus
+  // journalisés (403 si l'agent n'a ce droit dans aucun pays)
+  @Get('overdue')
+  @UseGuards(StaffGuard)
+  async overdueBoard(@Req() request: object) {
+    const actor = actorOf(request);
+    const r = await run(() => this.store.overdueBoard(actor, randomUUID()), ['OK']);
     return r.body;
   }
 

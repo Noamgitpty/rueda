@@ -3448,4 +3448,84 @@ export const EN_MESSAGES = {
   'web.a13.reviews': 'Reviews received',
   'web.a13.link': 'Your public profile',
   'web.listing.hostReviews': 'Reviews of {name}',
+  'backoffice.overdue.heading': 'Late returns and unreturned cars',
+  'backoffice.overdue.lead':
+    'Late trips in your countries, read live (detection runs every minute). The escalation moves one step at a time, at the time set by the country: contact, formal demand, then a pre-filled police report. Guest and host contacts are in the 360° profile.',
+  'backoffice.overdue.truncated':
+    'More than 500 late trips: only the 500 oldest are shown. Handle them first, then refresh.',
+  'backoffice.overdue.refresh': 'Refresh',
+  'backoffice.overdue.readAt': 'Read at {at} · countries: {countries}',
+  'backoffice.overdue.none': 'No late trip in your countries.',
+  'backoffice.overdue.caption': 'Late trips',
+  'backoffice.overdue.tripColumn': 'Trip',
+  'backoffice.overdue.stageColumn': 'Step',
+  'backoffice.overdue.nextColumn': 'Next step',
+  'backoffice.overdue.lateMinutes': '{m} min late',
+  'backoffice.overdue.lateHours': '{h} h {m} min late',
+  'backoffice.overdue.end': 'Scheduled end: {at}',
+  'backoffice.overdue.nextTripAtRisk': 'The next trip with this car is at risk.',
+  'backoffice.overdue.stage.T30M': 'Late return detected',
+  'backoffice.overdue.stage.T2H': 'Contact made',
+  'backoffice.overdue.stage.T6H': 'Formal demand handed over',
+  'backoffice.overdue.stage.T24H': 'Not returned: police report handed over',
+  'backoffice.overdue.stage.RESOLVED': 'Case closed',
+  'backoffice.overdue.stage.none': 'Case being opened',
+  'backoffice.overdue.escalated': '{stage} on {at}: {documents}',
+  'backoffice.overdue.document.CONTACT_SCRIPT': 'sample message to the guest',
+  'backoffice.overdue.document.DEMAND_LETTER': 'formal demand letter template',
+  'backoffice.overdue.document.GPS_REQUEST': 'GPS location asked from the host',
+  'backoffice.overdue.document.POLICE_REPORT_DRAFT':
+    'pre-filled police report for the host to file',
+  'backoffice.overdue.step.CONTACT': 'Contact the guest and the host',
+  'backoffice.overdue.step.FORMAL_NOTICE': 'Formal demand',
+  'backoffice.overdue.step.POLICE_REPORT': 'Pre-filled police report',
+  'backoffice.overdue.from': 'Possible from {at}',
+  'backoffice.overdue.prepare': 'Set up step',
+  'backoffice.overdue.prepareFor': 'Set up step “{step}” for trip {tripId}',
+  'backoffice.overdue.paramMissing':
+    'The country’s escalation hours are missing: no step is possible. Tell the administration.',
+  'backoffice.overdue.allDone': 'All steps are done: follow up with the host.',
+  'backoffice.overdue.confirmHeading': '{step} · trip {tripId}',
+  'backoffice.overdue.effect.CONTACT':
+    'Call the guest and write to them on WhatsApp, then tell the host. When you confirm, the step is added to the case and the host gets an email with a sample message to send to the guest.',
+  'backoffice.overdue.effect.FORMAL_NOTICE':
+    'When you confirm, the step is added to the case and the host gets an email with a formal demand letter template to send in their own name, and a request to note the GPS location if their car has one.',
+  'backoffice.overdue.effect.POLICE_REPORT':
+    'When you confirm, the step is added to the case and the host gets an email with a pre-filled police report, which they file themselves with the police.',
+  'backoffice.overdue.never':
+    'The platform files no police report, recovers no car and never acts on it remotely.',
+  'backoffice.overdue.reasonHint':
+    'What was done: calls, messages, answers. Between 10 and 1,000 characters, kept in the log.',
+  'backoffice.overdue.reasonTooShort': 'Write a reason of at least 10 characters.',
+  'backoffice.overdue.confirm': 'Confirm: {step}',
+  'backoffice.overdue.cancel': 'Not now',
+  'backoffice.overdue.done': 'Step added to the case. The host is notified by email.',
+  'backoffice.overdue.refused.OVERDUE_STEP_TOO_EARLY':
+    'Too early: this step is only possible from the time shown.',
+  'backoffice.overdue.refused.OVERDUE_STEP_OUT_OF_ORDER':
+    'This step is already done or is not the next one. The list has been refreshed.',
+  'backoffice.overdue.refused.TRIP_NOT_OVERDUE':
+    'This trip is no longer late: the car was returned or the trip is closed.',
+  'backoffice.overdue.refused.OVERDUE_CASE_MISSING':
+    'The late-return case is not open yet. Try again in a minute.',
+  'backoffice.overdue.refused.PARAM_MISSING':
+    'The country’s escalation hours are missing: no step is possible.',
+  'backoffice.overdue.refused.SELF_FORBIDDEN':
+    'This trip concerns you: another agent must handle it.',
+  'ntf.unreturnedContact.email.subject': 'Booking {booking_ref}: the car has not been returned',
+  'ntf.unreturnedContact.email.body':
+    'Hi {first_name}. The car for booking {booking_ref} was due back on {end_at} and has still not been returned. Our team is trying to reach the guest by phone and WhatsApp. You can also write to them from the booking in the app, for example: “Hello, the car for booking {booking_ref} was due back on {end_at}. Please tell me when and where you will return it.” {brand} does not recover the car and does not act on it remotely.',
+  'ntf.unreturnedContact.sms.body':
+    '{brand}: the car for booking {booking_ref} has not been returned. We are contacting the guest; details by email.',
+  'ntf.unreturnedFormalNotice.email.subject':
+    'Booking {booking_ref}: formal demand letter template',
+  'ntf.unreturnedFormalNotice.email.body':
+    'Hi {first_name}. The car for booking {booking_ref} has still not been returned. Here is a formal demand letter template to send to the guest in your own name, through the booking messages or in writing: “I, the host who rented out the vehicle of booking {booking_ref} (make, model and plate as stated in the rental contract), note that this vehicle was due back to me on {end_at} and has not been returned. I demand that you return it to the agreed place as soon as possible. Otherwise, I reserve the right to file a complaint with the competent authorities. Date and signature.” If your car has GPS, note its last location and the time, without going to get it alone. {brand} does not send this letter for you, does not recover the car and does not act on it remotely.',
+  'ntf.unreturnedFormalNotice.sms.body':
+    '{brand}: formal demand letter template for booking {booking_ref} sent by email. Note the GPS location if your car has one.',
+  'ntf.unreturnedPoliceReport.email.subject': 'Booking {booking_ref}: pre-filled police report',
+  'ntf.unreturnedPoliceReport.email.body':
+    'Hi {first_name}. The car for booking {booking_ref} has not been returned for more than a day. Here is a pre-filled police report that you can file yourself with the police or the public prosecutor, with your rental contract and your ID: “I, the host who rented out the vehicle stated in the attached rental contract (make, model and plate), declare that this vehicle, rented through booking {booking_ref} on {brand}, was due back to me on {end_at} and has not been returned despite my reminders. The renter’s identity is in the attached contract. I am filing a complaint for failure to return the vehicle.” Keep the report number. {brand} does not file the report for you, does not recover the car and does not act on it remotely; your payout is not blocked by this procedure.',
+  'ntf.unreturnedPoliceReport.sms.body':
+    '{brand}: pre-filled police report for booking {booking_ref} sent by email. You file it with the police yourself.',
 } as const satisfies Readonly<Record<MessageKey, Message>>;

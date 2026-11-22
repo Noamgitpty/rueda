@@ -3790,6 +3790,39 @@
         }
       }
     },
+    "/console/overdue": {
+      "get": {
+        "operationId": "consoleOverdueBoard",
+        "tags": ["sup"],
+        "summary": "Vue des retards de la console (16 ADM-022) : trips OVERDUE / UNRETURNED des pays où l'agent détient ops.force_terminate_trip, lus en direct (≤ 1 min après la détection), étape d'escalade (T30M, T2H, T6H, T24H), prochaine étape et son heure, escalades et gabarits produits ; trips qui concernent l'agent écartés (ADR-122), refus journalisés, aucune donnée personnelle (US-306)",
+        "responses": {
+          "200": {
+            "description": "Vue des retards (liste vide si aucun trip en retard)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StaffOverdueBoard"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/StaffAuthRequired"
+          },
+          "403": {
+            "$ref": "#/components/responses/StaffForbidden"
+          },
+          "429": {
+            "$ref": "#/components/responses/StaffRateLimited"
+          }
+        }
+      }
+    },
     "/console/cancellations/{id}": {
       "get": {
         "operationId": "consoleTripCancellation",
@@ -20498,6 +20531,147 @@
                       "type": "null"
                     }
                   ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "StaffOverdueBoard": {
+        "type": "object",
+        "required": ["countries", "readAt", "truncated", "trips"],
+        "additionalProperties": false,
+        "description": "US-306 (ADR-193) : vue des retards de la console (0173) ; identifiants techniques, codes et heures seulement, aucune donnée personnelle.",
+        "properties": {
+          "countries": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CountryCode"
+            }
+          },
+          "readAt": {
+            "$ref": "#/components/schemas/DateTime"
+          },
+          "truncated": {
+            "type": "boolean",
+            "description": "plus de 500 trips après le filtre de séparation des tâches : seuls les 500 plus anciens sont rendus"
+          },
+          "trips": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "tripId",
+                "country",
+                "status",
+                "stage",
+                "scheduledEnd",
+                "detectedAt",
+                "lateMinutes",
+                "nextStep",
+                "nextStepAt",
+                "paramMissing",
+                "nextTripAtRisk",
+                "escalations"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "tripId": {
+                  "$ref": "#/components/schemas/Uuid"
+                },
+                "country": {
+                  "$ref": "#/components/schemas/CountryCode"
+                },
+                "status": {
+                  "type": "string",
+                  "enum": ["OVERDUE", "UNRETURNED"]
+                },
+                "stage": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "enum": ["T30M", "T2H", "T6H", "T24H", "RESOLVED"]
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "description": "étape du dossier de retard ; null tant que le dossier n'est pas ouvert"
+                },
+                "scheduledEnd": {
+                  "$ref": "#/components/schemas/DateTime"
+                },
+                "detectedAt": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/DateTime"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "lateMinutes": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "nextStep": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "enum": ["CONTACT", "FORMAL_NOTICE", "POLICE_REPORT"]
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "description": "saisie escalationStep de l'action ESCALATE_OVERDUE ; null après T24H"
+                },
+                "nextStepAt": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/DateTime"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "paramMissing": {
+                  "type": "boolean",
+                  "description": "heures d'escalade du pays absentes ou mal formées : aucune étape possible (PARAM_MISSING)"
+                },
+                "nextTripAtRisk": {
+                  "type": "boolean"
+                },
+                "escalations": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": ["stage", "escalatedAt", "documents"],
+                    "additionalProperties": false,
+                    "properties": {
+                      "stage": {
+                        "type": "string",
+                        "enum": ["T2H", "T6H", "T24H"]
+                      },
+                      "escalatedAt": {
+                        "$ref": "#/components/schemas/DateTime"
+                      },
+                      "documents": {
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "enum": [
+                            "CONTACT_SCRIPT",
+                            "DEMAND_LETTER",
+                            "GPS_REQUEST",
+                            "POLICE_REPORT_DRAFT"
+                          ]
+                        }
+                      }
+                    }
+                  }
                 }
               }
             }
