@@ -289,6 +289,11 @@ describe('configuration pays : structure et droits', () => {
             ...(t === 'config_param_value'
               ? [{ t, pol: 'cmd_hold_risk_read', cmd: 'r', roles: 'cmd_hold_owner' }]
               : []),
+            // sinistres entre particuliers (US-318, 0178) : délai et frais de gestion d'une
+            // refacturation (traffic_charge_*) seulement
+            ...(t === 'config_param_value'
+              ? [{ t, pol: 'cmd_hold_traffic_param_read', cmd: 'r', roles: 'cmd_hold_owner' }]
+              : []),
             // avance de Kmino (US-224b, 0123) : plafond par hôte host_advance_cap_minor seulement
             ...(t === 'config_param_value'
               ? [{ t, pol: 'cmd_money_advance_cap_read', cmd: 'r', roles: 'cmd_money_owner' }]
