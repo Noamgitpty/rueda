@@ -129,7 +129,7 @@ flowchart LR
 | RISK | Fraud / Risk | `risk` (PROPOSÉ) | règles de risque, évaluation à la réservation, file de revue, journal explicable | IAM, KYC, CFG, AUD, BUS | IAM, CFG | — | construit |
 | CFG | Country configuration | `config` (17) | pays, devises, fuseaux, locales, paramètres versionnés, fériés, entités juridiques | BUS | — | `GET /brand`<br>`GET /brand/assets/{id}`<br>`GET /brand/content`<br>`GET /regulatory-notices` | construit |
 | AUD | Audit & Evidence store | `audit` (PROPOSÉ) | journal d'audit chaîné, accès aux données, fichiers, clés par sujet, incidents | BUS | BUS | — | construit |
-| RPT | Reporting | `reporting` (PROPOSÉ) | vues de lecture (tableaux de bord, KPI), exports CSV | IAM, KYC, CAT, AVL, PRC, CTR, PAY, STL, PYO, TRP, CLM, MSG, NTF, REV, SUP, FIN, RISK, CFG, AUD, BUS | — | — | coquille |
+| RPT | Reporting | `reporting` (PROPOSÉ) | vues de lecture (tableaux de bord, KPI), exports CSV | IAM, KYC, CAT, AVL, PRC, CTR, PAY, STL, PYO, TRP, CLM, MSG, NTF, REV, SUP, FIN, RISK, CFG, AUD, BUS | IAM | `GET /console/beta-views/{view}`<br>`GET /console/reconciliation/runs`<br>`GET /console/reconciliation/runs/{runId}`<br>`POST /console/reconciliation/items/{itemId}/resolution`<br>`POST /console/reconciliation/runs`<br>`POST /console/reconciliation/runs/{runId}/signature`<br>`POST /console/reports/exports` | construit |
 | BUS | Outbox et bus d'événements | `outbox` (PROPOSÉ) | outbox transactionnelle et diffusion des événements de domaine (17 §4) | — | — | — | construit |
 
 ## Applications et paquets

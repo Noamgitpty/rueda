@@ -65,6 +65,7 @@ import {
   unavailableEvidence,
 } from '../modules/sup/index.js';
 import type { SqlPool } from '../modules/sup/index.js';
+import { PgReportStore } from '../modules/rpt/index.js';
 import { ROUTE_MATRIX } from './route-matrix.js';
 
 const STAFF_ROLES = ['SUPPORT_AGENT', 'OPS_AGENT', 'FINANCE', 'ADMIN', 'SUPERADMIN'] as const;
@@ -155,6 +156,40 @@ async function claimOf(country: string): Promise<string> {
   const id = rows[0]?.id ?? randomUUID();
   claimByCountry.set(country, id);
   return id;
+}
+
+/** Devise du pays (configuration pays, jamais une constante). */
+async function currencyOf(country: string): Promise<string> {
+  const { rows } = await client.query<{ currency: string }>(
+    'SELECT currency::text AS currency FROM core.config_country WHERE code = $1',
+    [country],
+  );
+  return rows[0]?.currency ?? 'XXX';
+}
+
+/** Passage de rapprochement du pays (vraie porte de 0174, ADMIN du pays) et un élément en écart. */
+async function reconRunOf(country: string): Promise<{ runId: string; itemId: string }> {
+  const admin = await elevatedStaff('ADMIN', [country]);
+  const hash = sha(admin.cookie.slice('__Host-session='.length));
+  const month = await client.query<{ m: string }>(
+    `SELECT pg_catalog.to_char(platform.now() AT TIME ZONE k.time_zone, 'YYYY-MM-01') AS m
+       FROM core.config_country AS k WHERE k.code = $1`,
+    [country],
+  );
+  const lines = [
+    { reference: `us043-${randomUUID()}`, amountMinor: '1', currency: await currencyOf(country) },
+  ];
+  const r = await client.query<{ outcome: string; run_id: string }>(
+    `SELECT outcome, run_id FROM core.finance_staff_record_reconciliation($1, $2, $3, $4::date,
+       'OPERATIONS', $5::jsonb, 'Matrice US-043 : passage de test')`,
+    [hash, randomUUID(), country, month.rows[0]?.m, JSON.stringify(lines)],
+  );
+  if (r.rows[0]?.outcome !== 'RECORDED') throw new Error(`passage de test : ${r.rows[0]?.outcome}`);
+  const run = await client.query<{ body: { items: { itemId: string }[] } }>(
+    'SELECT body FROM core.finance_staff_reconciliation_run($1, $2, $3, false, NULL)',
+    [hash, randomUUID(), r.rows[0].run_id],
+  );
+  return { runId: r.rows[0].run_id, itemId: run.rows[0]?.body.items[0]?.itemId ?? randomUUID() };
 }
 
 /** Élément de file KYC neuf du pays (vraie mise en file, fixture 9990). */
@@ -347,6 +382,65 @@ async function requestOf(
       };
     case 'GET /console/help-requests':
       return { method: 'GET', path: `/console/help-requests?country=${country}&limit=5` };
+    // US-311 : vues de la bêta (KPI de sortie : OPS, FINANCE et ADMIN du pays), export journalisé,
+    // rapprochement (FINANCE et ADMIN du pays) ; autre pays : FORBIDDEN
+    case 'GET /console/beta-views/{view}':
+      return { method: 'GET', path: `/console/beta-views/exit-kpi?country=${country}` };
+    case 'POST /console/reports/exports':
+      return {
+        method: 'POST',
+        path: '/console/reports/exports',
+        body: { source: 'EXIT_KPI', country, reason: 'Matrice US-043 : export de test' },
+      };
+    case 'POST /console/reconciliation/runs':
+      return {
+        method: 'POST',
+        path: '/console/reconciliation/runs',
+        body: {
+          requestId: id,
+          country,
+          month: (
+            await client.query<{ m: string }>(
+              `SELECT pg_catalog.to_char(platform.now() AT TIME ZONE k.time_zone, 'YYYY-MM') AS m
+                 FROM core.config_country AS k WHERE k.code = $1`,
+              [country],
+            )
+          ).rows[0]?.m,
+          kind: 'OPERATIONS',
+          reason: 'Matrice US-043 : passage de test',
+          lines: [
+            { reference: `us043-${id}`, amountMinor: '1', currency: await currencyOf(country) },
+          ],
+        },
+      };
+    case 'GET /console/reconciliation/runs':
+      return { method: 'GET', path: `/console/reconciliation/runs?country=${country}` };
+    case 'GET /console/reconciliation/runs/{runId}':
+      return {
+        method: 'GET',
+        path: `/console/reconciliation/runs/${(await reconRunOf(country)).runId}`,
+      };
+    case 'POST /console/reconciliation/items/{itemId}/resolution':
+      return {
+        method: 'POST',
+        path: `/console/reconciliation/items/${(await reconRunOf(country)).itemId}/resolution`,
+        body: { requestId: id, resolution: 'OTHER', note: 'Matrice US-043 : résolution de test' },
+      };
+    case 'POST /console/reconciliation/runs/{runId}/signature':
+      return {
+        method: 'POST',
+        path: `/console/reconciliation/runs/${(await reconRunOf(country)).runId}/signature`,
+        body: {
+          requestId: id,
+          checklist: {
+            PSP_STATEMENT_COMPLETE: true,
+            OPERATIONS_RECONCILED: true,
+            LEGS_RECONCILED: true,
+            DISCREPANCIES_EXPLAINED_OR_ESCALATED: true,
+            THRESHOLD_REVIEWED: true,
+          },
+        },
+      };
     case 'POST /auth/signup':
       return {
         method: 'POST',
@@ -1412,6 +1506,8 @@ beforeAll(async () => {
       postgresRevAdapters(client),
       // déclarations de dommage et décisions (US-309) : portes réelles de 0175 sous app_api
       postgresClaims(singlePool as unknown as Parameters<typeof postgresClaims>[0]),
+      // US-311 : portes réelles de 0174 (vues de la bêta, rapprochement), même connexion de test
+      new PgReportStore(client),
     ),
     { rawBody: true, logger: false },
   );

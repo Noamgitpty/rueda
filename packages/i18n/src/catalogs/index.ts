@@ -385,7 +385,13 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  son heure, confirmation qui dit ce que la plateforme fait et ne fait pas, refus expliqués) et les
  gabarits remis à l’hôte `ntf.unreturnedContact.*`, `ntf.unreturnedFormalNotice.*` (mise en demeure
  au nom de l’hôte) et `ntf.unreturnedPoliceReport.*` (plainte pré-remplie que l’hôte dépose).
- Version 110 (la 106 est celle d’US-307, la 107 celle d’US-314, la 108 celle d’US-306 ; la 109 est réservée à US-311) : dommages,
+ Version 109 (réservée à US-311 par l’orchestrateur ; les 104 à 108 sont celles d’US-703,
+ US-317, US-307, US-314 et US-306 ; le numéro ne redescend jamais) : vues de la bêta et
+ rapprochement par jambe assisté (US-311, ADR-194) : réponses de la console
+ `common.reconciliation.*` (relevé du PSP absent, mal formé, trop lourd ou proche du plafond de
+ 400 lignes, checklist mensuelle incomplète,
+ passage clôturé, écart déjà expliqué, base indisponible : rien n’est lu ni enregistré).
+ Version 110 (la 106 est celle d’US-307, la 107 celle d’US-314, la 108 celle d’US-306, la 109 celle d’US-311) : dommages,
  incidents et décisions (US-309, ADR-195) : `common.claim.*` (réponses des routes
  `/console/claims…` : délai de déclaration dépassé, preuves de départ et de retour absentes, motif
  exigé, décision « définitive » refusée, somme des parts, plafonds, ADMIN pour tout débit) et

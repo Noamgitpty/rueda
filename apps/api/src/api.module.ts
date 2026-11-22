@@ -22,6 +22,8 @@ import type { PayWebhookOptions } from './modules/pay/index.js';
 import { RevReviewsModule } from './modules/rev/index.js';
 import type { RevReviewsOptions } from './modules/rev/index.js';
 import { RiskHttpModule } from './modules/risk/index.js';
+import { RptConsoleModule } from './modules/rpt/index.js';
+import type { ReportStore } from './modules/rpt/index.js';
 import type { RiskHttpOptions } from './modules/risk/index.js';
 import {
   SupBrandConsoleModule,
@@ -72,6 +74,7 @@ export class ApiModule {
     evidence?: SupEvidenceBundleOptions,
     rev?: RevReviewsOptions,
     claims?: SupClaimsOptions,
+    report?: ReportStore,
   ): DynamicModule {
     return {
       module: ApiModule,
@@ -120,6 +123,9 @@ export class ApiModule {
         // US-309 : déclarations de dommage et décisions /console/claims… (StaffGuard) ; sans
         // magasin, 503
         SupClaimsModule.register(claims),
+        // US-311 : vues de la bêta /console/beta-views/{view}, exports CSV /console/reports/exports
+        // et rapprochement assisté /console/reconciliation/… (StaffGuard) ; sans magasin, 503
+        RptConsoleModule.register(report),
       ],
     };
   }

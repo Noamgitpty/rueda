@@ -335,9 +335,17 @@ describe('configuration pays : structure et droits', () => {
             ...(t === 'config_param_value'
               ? [{ t, pol: 'iam_staff_incident_read', cmd: 'r', roles: 'iam_staff_owner' }]
               : []),
+            // rapprochement assisté (US-311, 0174) : seuil J-ADM-031 seulement ; jours ouvrés du
+            // pays pour l'échéance de traitement (5 jours ouvrés), en lecture
+            ...(t === 'config_param_value'
+              ? [{ t, pol: 'iam_staff_recon_threshold_read', cmd: 'r', roles: 'iam_staff_owner' }]
+              : []),
             // files de revue (US-109, 0064) : délais des files déclarées seulement
             ...(t === 'config_param_value'
               ? [{ t, pol: 'iam_staff_sla_read', cmd: 'r', roles: 'iam_staff_owner' }]
+              : []),
+            ...(t === 'config_holiday_calendar'
+              ? [{ t, pol: 'iam_staff_rpt_read', cmd: 'r', roles: 'iam_staff_owner' }]
               : []),
             // inscription (US-102, 0059) : codes pays, pour refuser un pays inconnu avant l'écriture
             ...(t === 'config_country'

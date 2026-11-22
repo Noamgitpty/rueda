@@ -98,6 +98,14 @@ describe('schéma STL (US-018, 0027)', () => {
           label,
         ).toContain(r.cmd);
         if (r.cmd === 'a' || r.cmd === 'w') expect(r.roles, label).toBe('cmd_money_owner');
+        // US-311 (0174, ADR-194) : lecture seule des soldes par jambe par les portes de la console
+        // (rapprochement assisté, finance.reconciliation) ; SELECT seulement, jamais d'écriture
+        if (r.pol === 'iam_staff_rpt_read') {
+          expect(`${r.t}:${r.cmd}:${r.roles}`, label).toBe(
+            'settlement_trip_leg_balance:r:iam_staff_owner',
+          );
+          continue;
+        }
         expect(['app_api', 'app_worker', 'cmd_money_owner'], label).toContain(r.roles);
       }
       // trip_leg_balance : écrivains cmd_apply_leg_movement (US-061, 0039) et, depuis US-221b

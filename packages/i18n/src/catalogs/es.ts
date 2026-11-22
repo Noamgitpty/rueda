@@ -609,6 +609,22 @@ export const ES_MESSAGES = {
   'backoffice.claim.execution.BLOCKED': 'Bloqueada: sin tarjeta del alquiler, revisión del equipo',
   'backoffice.claim.insurer.PENDING': 'Registrada, pendiente de envío',
   'backoffice.claim.insurer.SENT': 'Enviada a la aseguradora',
+  'common.reconciliation.statementTooLarge':
+    'El extracto es demasiado grande para un solo envío (400 líneas como máximo). No se registró nada.',
+  'common.reconciliation.statementNearLimit':
+    'Este extracto tiene {lines} líneas, cerca del máximo de {max}. Prepara la conciliación automática antes del próximo mes.',
+  'common.reconciliation.statementMissing':
+    'Falta el extracto del PSP: agrega al menos una línea. No se registró nada.',
+  'common.reconciliation.formatInvalid':
+    'El extracto no es válido: línea mal formada, duplicada, en otra moneda o de un mes futuro. No se registró nada.',
+  'common.reconciliation.checklistIncomplete':
+    'La lista de control del mes no está completa: marca los cinco puntos para cerrar la conciliación.',
+  'common.reconciliation.runClosed':
+    'Esta conciliación ya está cerrada y firmada. No admite más cambios.',
+  'common.reconciliation.itemSettled':
+    'Esta diferencia ya está explicada, o la línea ya cuadra. No hay nada más que resolver.',
+  'common.reconciliation.unavailable':
+    'Las vistas y la conciliación no están disponibles por ahora. No se leyó ni se registró nada.',
   'backoffice.action.RESTRICT_ACCOUNT': 'Restringir la cuenta',
   'backoffice.action.LIFT_RESTRICTION': 'Levantar la restricción',
   'backoffice.queues.current': 'Cola mostrada',

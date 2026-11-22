@@ -1,0 +1,6 @@
+lot: L3
+module: Rapprochement et vues de la bêta
+
+- Ajouté : la console montre, pour chaque pays, les remises et retours du jour de chaque hôte, les retards en cours et les indicateurs de sortie de la bêta (S1 à S4), calculés à chaque lecture depuis les données, sans aucune saisie ; S3 (sinistres) est affiché « non mesurable » tant que sa source n'existe pas (US-311)
+- Ajouté : rapprochement mensuel assisté des opérations du PSP et des jambes des trips : export CSV de la plateforme, relevé du PSP apparié par la base à l'unité mineure près, écarts visibles (opération sans trip, ligne absente du PSP, montant ou versement en écart), résolution motivée et checklist mensuelle signée ; deux mois d'écart inexpliqué rendent le rapprochement quotidien préalable ; runbook `docs/ops/RAPPROCHEMENT_MENSUEL.md` (US-311)
+- Sécurité : accès par rôle et pays (ops pour les remises et les retards, finance pour le rapprochement), session élevée, refus journalisés ; aucune donnée personnelle dans les vues ni dans les exports ; chaque export est inscrit au journal d'accès (BULK_EXPORT) avec son motif ; aucune tolérance automatique : seuil J-ADM-031 absent = 0 ; registre du rapprochement jamais supprimé ni réécrit (US-311)

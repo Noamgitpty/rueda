@@ -53,6 +53,7 @@ import {
   UnavailableBotChallenge,
 } from '../modules/risk/index.js';
 import type { RateLimitPolicy, RiskHttpOptions } from '../modules/risk/index.js';
+import type { ReportStore } from '../modules/rpt/index.js';
 import type {
   SupClaimsOptions,
   SupConsoleOptions,
@@ -153,6 +154,8 @@ export interface ApiHarnessOverrides {
   readonly rev?: Partial<RevReviewsOptions>;
   /** US-309 : déclarations de dommage et décisions (absent : magasin indisponible, 503). */
   readonly claims?: SupClaimsOptions;
+  /** US-311 : vues de la bêta et rapprochement (absent : magasin indisponible, routes 503). */
+  readonly report?: ReportStore;
 }
 
 export async function startApiHarness(overrides: ApiHarnessOverrides = {}): Promise<ApiHarness> {
@@ -408,6 +411,7 @@ export async function startApiHarness(overrides: ApiHarnessOverrides = {}): Prom
       { ...overrides.evidence },
       { ...unavailableRevOptions(), ...overrides.rev },
       { ...overrides.claims },
+      overrides.report,
     ),
     {
       rawBody: true,

@@ -2831,6 +2831,55 @@
       "owner": "iam_staff_owner",
       "execute": ["app_api"],
       "story": "US-306"
+    },
+    {
+      "signature": "core.report_staff_beta_view(bytea,uuid,text,text,boolean,text)",
+      "family": "iam_staff",
+      "owner": "iam_staff_owner",
+      "execute": ["app_api"],
+      "story": "US-311"
+    },
+    {
+      "signature": "core.finance_staff_reconciliation_export(bytea,uuid,text,date,text,text)",
+      "family": "iam_staff",
+      "owner": "iam_staff_owner",
+      "execute": ["app_api"],
+      "story": "US-311"
+    },
+    {
+      "signature": "core.finance_staff_record_reconciliation(bytea,uuid,text,date,text,jsonb,text)",
+      "family": "iam_staff",
+      "owner": "iam_staff_owner",
+      "execute": ["app_api"],
+      "story": "US-311"
+    },
+    {
+      "signature": "core.finance_staff_reconciliation_run(bytea,uuid,uuid,boolean,text)",
+      "family": "iam_staff",
+      "owner": "iam_staff_owner",
+      "execute": ["app_api"],
+      "story": "US-311"
+    },
+    {
+      "signature": "core.finance_staff_reconciliation_runs(bytea,text)",
+      "family": "iam_staff",
+      "owner": "iam_staff_owner",
+      "execute": ["app_api"],
+      "story": "US-311"
+    },
+    {
+      "signature": "core.finance_staff_resolve_reconciliation_item(bytea,uuid,uuid,text,text)",
+      "family": "iam_staff",
+      "owner": "iam_staff_owner",
+      "execute": ["app_api"],
+      "story": "US-311"
+    },
+    {
+      "signature": "core.finance_staff_sign_reconciliation(bytea,uuid,uuid,jsonb)",
+      "family": "iam_staff",
+      "owner": "iam_staff_owner",
+      "execute": ["app_api"],
+      "story": "US-311"
     }
   ]
 }
