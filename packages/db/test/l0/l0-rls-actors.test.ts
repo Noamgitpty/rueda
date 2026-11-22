@@ -694,6 +694,11 @@ describe('RLS-5, RLS-12, RLS-18', () => {
           // de catalog_cmd_owner, hôte désigné par son jeton)
           'catalog_vehicle_earnings_plan',
           'catalog_vehicle_eligibility_check',
+          // US-318 (0178, ADR-198) : AUCUN droit ni politique d'app_api ; dossier de vol et
+          // refacturations écrits par les commandes SECURITY DEFINER de cmd_hold_owner (titulaire
+          // désigné par son jeton) et du travailleur payment_command (cmd_money_owner)
+          'claim_theft_case',
+          'claim_traffic_charge',
           'iam_membership',
           // US-123 (0075, ADR-105) : AUCUN droit ni politique d'app_api ; accès par les seules
           // fonctions SECURITY DEFINER de kyc_cmd_owner (hôte désigné par son jeton)

@@ -25,7 +25,9 @@ import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { legVector, loadGoldenVectors } from '@rueda/money/golden-vectors';
 import type pg from 'pg';
 import { describe, expect, it } from 'vitest';
-import { withRole, withTestTransaction } from '../../src/testing/index.ts';
+import { SubjectKeyStore } from '../../src/audit/index.ts';
+import { FakeKeyWrapper, withRole, withTestTransaction } from '../../src/testing/index.ts';
+import { setActor } from '../support/audit.ts';
 import { COUNTRIES } from '../support/avl.ts';
 import type { CountryCase } from '../support/avl.ts';
 import { goLive } from '../support/golive.ts';
@@ -101,6 +103,17 @@ async function world(tx: Tx, c: CountryCase, status: string): Promise<World> {
     await tx.query<{ h: string }>('SELECT test_fixture.us309_holder($1)::text AS h', [trip])
   ).rows[0]!.h;
   return { trip, guest, holder };
+}
+
+/**
+ * Clé USER de la personne (coffre de l'application, sous app_api, contexte de la personne) : une
+ * photo est chiffrée par la clé du sujet (`file_asset_enc_key_fk`), comme dans l0-us303.
+ */
+async function subjectKey(tx: Tx, userId: string): Promise<void> {
+  const keys = new SubjectKeyStore(new FakeKeyWrapper());
+  await setActor(tx, { kind: 'GUEST', actorId: userId });
+  const k = await keys.dekFor(tx, { type: 'USER', id: userId }, 'create');
+  if (k.status !== 'OK') throw new Error(`clé du sujet : ${k.status}`);
 }
 
 /** Photo prise par la chaîne d'US-303 (jeton de capture puis envoi) : identifiant du fichier. */
@@ -297,6 +310,7 @@ describe.each(COUNTRIES)('US-318 — sinistres entre particuliers ($country, $cu
         const g = (await openSession(tx, w.guest)).hash;
         const h = (await openSession(tx, w.holder)).hash;
         const stranger = (await openSession(tx, done.guest)).hash;
+        await subjectKey(tx, w.guest);
 
         // sans demande d'aide de ce voyageur : refus, rien d'écrit
         const req = uuid();
@@ -391,6 +405,8 @@ describe.each(COUNTRIES)('US-318 — sinistres entre particuliers ($country, $cu
         const hNoCard = (await openSession(tx, noCard.holder)).hash;
         const g = (await openSession(tx, w.guest)).hash;
         const hOngoing = (await openSession(tx, ongoing.holder)).hash;
+        await subjectKey(tx, w.holder);
+        await subjectKey(tx, noCard.holder);
 
         // pièces photographiées par le titulaire (chaîne d'US-303, série TRAFFIC) ; le voyageur
         // n'a pas de série TRAFFIC
