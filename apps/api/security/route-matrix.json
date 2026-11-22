@@ -843,6 +843,13 @@
       "portee": "pays",
       "idor": "frais inconnu ou de l’autre pays : 403 FORBIDDEN journalisé (aucune existence révélée) ; trip qui concerne l’agent : 403 STAFF_SELF_FORBIDDEN (preuve L0 l0-us706-incidental-fees)"
     },
+    "GET /console/incidental-reviews": {
+      "acces": "staff",
+      "permission": "dispute.decide (OPS_AGENT, ADMIN) ; pays de la vue : ceux où l’agent détient ce droit, refus journalisés (US-706, 0177, ADR-197 n° 18)",
+      "roles": ["OPS_AGENT", "ADMIN"],
+      "portee": "sans_pays",
+      "idor": "frais des pays hors de la portée de l’agent : jamais rendus ; trips qui concernent l’agent écartés ; aucune donnée nominative (preuve L0 l0-us706-incidental-fees)"
+    },
     "POST /console/incidental-fees/{invoiceId}/decision": {
       "acces": "staff",
       "permission": "dispute.decide (OPS_AGENT, ADMIN) dans le pays du frais annexe, garde ADR-122 ; débiter réservé à ADMIN (seuil non fixé, PROPOSÉ) ; frais CONTESTÉ seulement ; motif jugé par la base ; aucun montant reçu ; décision et refus journalisés (US-706, 0177)",

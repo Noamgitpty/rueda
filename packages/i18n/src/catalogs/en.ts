@@ -3794,9 +3794,10 @@ export const EN_MESSAGES = {
     'Hi {first_name}. The host of booking {booking_ref} requested a cost of {amount}. You can pay it or dispute it with a photo on {brand} until {due_at}. Without an answer, {brand} decides and may charge your saved card.',
   'ntf.invoiceToGuest.sms.body':
     '{brand}: the host requested {amount} ({booking_ref}). Pay or dispute in the app before {due_at}.',
-  'web.incidental.evidence': 'Pickup and return photos chosen by the host',
+  'web.incidental.evidence':
+    'Proof chosen by the host: pickup and return photos, and files sent during this trip',
   'web.incidental.evidenceItem': '{side} · {slot} · {by} · received {date}',
-  'web.incidental.evidenceUpload': 'Plus a file sent by the host',
+  'web.incidental.evidenceUpload': 'Files sent by the host during this trip: {count}',
   'web.incidental.statusGuest.AWAITING_GUEST': 'Answer before {date}',
   'web.incidental.expired.AWAITING_GUEST':
     'The answer deadline ended on {date}: {brand} will charge the saved card.',

@@ -3783,6 +3783,23 @@
         "findings": "C1"
       }
     },
+    "core.claim_incidental_host_file": {
+      "lifecycle": "A",
+      "subjects": [
+        {
+          "column": "uploader_user_id",
+          "type": "USER"
+        }
+      ],
+      "export": "controller",
+      "columns": {
+        "file_id": "C1",
+        "trip_id": "C1",
+        "uploader_user_id": "C1",
+        "sha256": "C1",
+        "received_at": "C1"
+      }
+    },
     "core.claim_incidental_invoice": {
       "lifecycle": "A",
       "subjects": [

@@ -2497,6 +2497,19 @@ Déclencheurs :
 - `claim_evidence_no_truncate` : `CREATE TRIGGER claim_evidence_no_truncate BEFORE TRUNCATE ON core.claim_evidence_bundle FOR EACH STATEMENT EXECUTE FUNCTION core.audit_append_only('claim_evidence_sealed')`
 - `claim_evidence_sealed` : `CREATE TRIGGER claim_evidence_sealed BEFORE DELETE OR UPDATE ON core.claim_evidence_bundle FOR EACH ROW EXECUTE FUNCTION core.claim_evidence_guard()`
 
+### `core.claim_incidental_host_file`
+
+- RLS : ENABLE + FORCE ; propriétaire `migrator`
+- Droits : cmd_hold_owner: INSERT, SELECT ; migrator: DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE
+
+| Colonne | Type | NOT NULL | Défaut |
+| ------- | ---- | -------- | ------ |
+| `file_id` | `uuid` | oui | — |
+| `trip_id` | `uuid` | oui | — |
+| `uploader_user_id` | `uuid` | oui | — |
+| `sha256` | `bytea` | oui | — |
+| `received_at` | `timestamp with time zone` | oui | `platform.now()` |
+
 ### `core.claim_incidental_invoice`
 
 - RLS : ENABLE + FORCE ; propriétaire `migrator`

@@ -3,6 +3,7 @@
  * connexions) : trip rendu, photos des séries, validations, loyer par carte, appels des commandes.
  * Les attendus restent dans les tests (19 US-706, 16 CLM-021, 08), jamais dans ces aides.
  */
+import { randomBytes } from 'node:crypto';
 import type pg from 'pg';
 import { withRole } from '../../src/testing/index.ts';
 import { setActor } from './audit.ts';
@@ -246,6 +247,31 @@ export async function decide(
 ): Promise<Row> {
   const hash = await elevated(tx, who);
   return (await tx.query<Row>(DECIDE, [hash, requestId, invoice, outcome, rationale])).rows[0]!;
+}
+
+export const ATTACH =
+  'SELECT core.claim_cmd_attach_incidental_file($1, $2::uuid, $3::uuid, $4, $5::bigint, $6) AS r';
+
+/** Dépôt d'un fichier de preuve par une personne (session neuve) ; octets tirés au hasard. */
+export async function attach(
+  tx: Tx,
+  user: string,
+  trip: string,
+  o: { readonly id?: string; readonly sha?: Buffer; readonly bytes?: number } = {},
+): Promise<{ readonly r: string; readonly id: string }> {
+  const id = o.id ?? uuid();
+  const hash = await session(tx, user);
+  const r = (
+    await tx.query<{ r: string }>(ATTACH, [
+      hash,
+      trip,
+      id,
+      'image/jpeg',
+      String(o.bytes ?? 2048),
+      o.sha ?? randomBytes(32),
+    ])
+  ).rows[0]!.r;
+  return { r, id };
 }
 
 export const asPayments = <T>(virtualNow: string, fn: (tx: Tx) => Promise<T>): Promise<T> =>

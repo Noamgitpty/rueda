@@ -180,7 +180,13 @@ export async function IncidentalScreen({
             })}
           </li>
         ))}
-        {inv.evidenceCount > inv.evidence.length && <li>{t('web.incidental.evidenceUpload')}</li>}
+        {inv.evidenceCount > inv.evidence.length && (
+          <li>
+            {t('web.incidental.evidenceUpload', {
+              count: String(inv.evidenceCount - inv.evidence.length),
+            })}
+          </li>
+        )}
       </ul>
       {/* état : texte long, bandeau qui passe à la ligne à 360 px */}
       <Banner tone={STATUS_TONE[inv.status]} live="off">

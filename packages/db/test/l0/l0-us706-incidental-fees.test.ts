@@ -25,17 +25,20 @@
  * les versions de paramètres ne vivent que dans des transactions ANNULÉES. Aucun compte PSP ACTIVE
  * n'est validé : le moyen débité est l'opération de carte du loyer sur le compte FAKE de fixture.
  */
+import { createHash, randomBytes } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import { withRole, withTestTransaction } from '../../src/testing/index.ts';
 import { COUNTRIES } from '../support/avl.ts';
 import type { CountryCase } from '../support/avl.ts';
-import { caught } from '../support/pay.ts';
+import { caught, payTx } from '../support/pay.ts';
 import { elevated, staff, uuid } from '../support/claims.ts';
+import type { Staff } from '../support/claims.ts';
 import {
   ACCEPT,
   amountsOf,
   asPayments,
   at,
+  attach,
   CANCEL,
   CHARGE,
   charges,
@@ -703,14 +706,15 @@ describe.each(COUNTRIES)('US-706 — frais annexes ($country, $currency)', (c: C
     });
   });
 
-  it('DEC-FONDATEUR-22 (comme Turo, défauts faux) : carburant demandable malgré un Extra vendu ou une fin anticipée (le voyageur conteste) ; fichiers de l’hôte admis comme pièces, mais seulement ceux déposés dans la fenêtre de CE trip — jamais une photo d’état ni la pièce d’un autre trip, jamais un fichier du voyageur ; nettoyage toujours avec au moins une preuve valide ; incidental_evidence_trip_photos_only à vrai ⇒ photos du trip seulement', async () => {
+  it('DEC-FONDATEUR-22 (comme Turo, défauts faux) : carburant demandable malgré un Extra vendu ou une fin anticipée (le voyageur conteste) ; fichiers de l’hôte admis comme pièces, mais seulement ceux RATTACHÉS à CE trip dès l’envoi — jamais un fichier non rattaché (même envoyé pendant le trip jumeau), ni rattaché à l’autre voiture, ni une photo d’état, ni des octets déjà vus ; nettoyage toujours avec au moins une preuve valide ; incidental_evidence_trip_photos_only à vrai ⇒ photos du trip seulement', async () => {
     await withRole('app_api', async (api) => {
       await withTestTransaction(api, { virtualNow: START }, async (tx) => {
         const prepaid = await world(tx, c, { extras: true });
         const early = await world(tx, c, { terminatedEarly: true });
         const loose = await world(tx, c);
-        const sibling = await world(tx, c, { org: loose.org });
-        expect(sibling.holder).toBe(loose.holder);
+        // trip jumeau : même hôte, autre voiture, mêmes dates (revue sécurité delta 2 n° 1)
+        const twin = await world(tx, c, { org: loose.org });
+        expect(twin.holder).toBe(loose.holder);
         await param(tx, 'fuel_refill_max', c.country, a['fuelCap']!.toString());
         await now(tx, J0);
         for (const x of [prepaid, early]) {
@@ -719,38 +723,56 @@ describe.each(COUNTRIES)('US-706 — frais annexes ($country, $currency)', (c: C
             (await submit(tx, h, x.trip, 'FUEL', a['fuel']!, [x.fuelOut, x.fuelIn]))['outcome'],
           ).toBe('SUBMITTED');
         }
-        // fichiers déposés : un de l'hôte avant le début prévu, un de l'hôte après, un du voyageur
+        // dépôt rattaché au trip : fenêtre, partie, rejeu, empreinte déjà vue
         await now(tx, at(START, -HOUR));
-        const before = (
-          await tx.query<{ id: string }>('SELECT test_fixture.us706_loose_file($1)::text AS id', [
-            loose.holder,
-          ])
-        ).rows[0]!.id;
+        expect((await attach(tx, loose.holder, loose.trip)).r).toBe('INCIDENTAL_WINDOW_CLOSED');
         await now(tx, J0);
+        const mine = await attach(tx, loose.holder, loose.trip);
+        expect(mine.r).toBe('ATTACHED');
+        const sha = randomBytes(32);
+        const onTwin = await attach(tx, loose.holder, twin.trip, { sha });
+        expect(onTwin.r).toBe('ATTACHED');
+        expect((await attach(tx, loose.holder, twin.trip, { id: onTwin.id, sha })).r).toBe(
+          'ALREADY_ATTACHED',
+        );
+        // mêmes octets sous un autre identifiant, ou octets d'une photo d'état : refusés
+        expect((await attach(tx, loose.holder, loose.trip, { sha })).r).toBe('PHOTO_DUPLICATE');
+        const photoSha = createHash('sha256').update(twin.inner, 'utf8').digest();
+        expect((await attach(tx, loose.holder, loose.trip, { sha: photoSha })).r).toBe(
+          'PHOTO_DUPLICATE',
+        );
+        // le voyageur, ou une autre personne, ne dépose rien pour l'hôte
+        expect((await attach(tx, loose.guest, loose.trip)).r).toBe('NOT_FOUND');
+        expect((await attach(tx, prepaid.holder, loose.trip)).r).toBe('NOT_FOUND');
+        expect((await attach(tx, loose.holder, loose.trip, { bytes: 0 })).r).toBe(
+          'REQUEST_INVALID',
+        );
+        // fichier NON rattaché envoyé pendant le trip jumeau (seau des preuves, même hôte) ; fichier
+        // du voyageur ; fichier antérieur au trip
         const file = async (user: string): Promise<string> =>
           (
             await tx.query<{ id: string }>('SELECT test_fixture.us706_loose_file($1)::text AS id', [
               user,
             ])
           ).rows[0]!.id;
-        const mine = await file(loose.holder);
+        const unattached = await file(loose.holder);
         const guests = await file(loose.guest);
         // défaut PROPOSÉ comme Turo (DEC-FONDATEUR-22) : incidental_evidence_trip_photos_only = faux
         const h = await session(tx, loose.holder);
-        // fichier d'un autre trip refusé (revue sécurité delta n° 3) : même hôte, autre voiture ;
-        // une photo d'état de l'autre trip, ou une pièce déjà jointe à une demande de l'autre trip
-        const shared = await file(loose.holder);
         expect(
-          (await submit(tx, h, sibling.trip, 'CLEANING', a['cleaning']!, [shared, sibling.outer]))[
+          (await submit(tx, h, twin.trip, 'CLEANING', a['cleaning']!, [onTwin.id, twin.outer]))[
             'outcome'
           ],
         ).toBe('SUBMITTED');
-        for (const evidence of [[sibling.inner], [sibling.outer, mine], [shared]]) {
-          expect(
-            (await submit(tx, h, loose.trip, 'CLEANING', a['cleaning']!, evidence))['outcome'],
-          ).toBe('CLAIM_EVIDENCE_MISSING');
-        }
-        for (const evidence of [[guests], [before], [mine, guests], [mine, uuid()]]) {
+        for (const evidence of [
+          [unattached],
+          [onTwin.id],
+          [twin.inner],
+          [twin.outer, mine.id],
+          [guests],
+          [mine.id, guests],
+          [mine.id, uuid()],
+        ]) {
           expect(
             (await submit(tx, h, loose.trip, 'CLEANING', a['cleaning']!, evidence))['outcome'],
           ).toBe('CLAIM_EVIDENCE_MISSING');
@@ -760,7 +782,7 @@ describe.each(COUNTRIES)('US-706 — frais annexes ($country, $currency)', (c: C
           (await submit(tx, h, loose.trip, 'CLEANING', a['cleaning']!, [loose.outer]))['outcome'],
         ).toBe('INCIDENTAL_NOT_BILLABLE');
         expect(
-          (await submit(tx, h, loose.trip, 'CLEANING', a['cleaning']!, [mine, loose.outer]))[
+          (await submit(tx, h, loose.trip, 'CLEANING', a['cleaning']!, [mine.id, loose.outer]))[
             'outcome'
           ],
         ).toBe('SUBMITTED');
@@ -768,10 +790,14 @@ describe.each(COUNTRIES)('US-706 — frais annexes ($country, $currency)', (c: C
           fee_type: 'CLEANING',
           status: 'AWAITING_GUEST',
         });
+        // après la fenêtre de l'hôte (fin effective + 72 h) : plus aucun dépôt
+        await now(tx, at(END, 72 * HOUR + 1));
+        expect((await attach(tx, loose.holder, loose.trip)).r).toBe('INCIDENTAL_WINDOW_CLOSED');
         // paramètre posé à vrai : photos du trip seulement (un fichier de l'hôte ne suffit plus)
+        await now(tx, J0);
         const strict = await world(tx, c);
         await now(tx, at(J0, MINUTE));
-        const strictFile = await file(strict.holder);
+        const strictFile = (await attach(tx, strict.holder, strict.trip)).id;
         await param(tx, 'incidental_evidence_trip_photos_only', c.country, true);
         await now(tx, at(J0, 2 * MINUTE));
         const hs = await session(tx, strict.holder);
@@ -813,8 +839,10 @@ describe.each(COUNTRIES)('US-706 — frais annexes ($country, $currency)', (c: C
         const payLast = await world(tx, c);
         await now(tx, J0);
         let h = await session(tx, w.holder);
-        const first = await submit(tx, h, w.trip, 'CLEANING', a['cleaning']!, [w.inner]);
-        const smoke = await submit(tx, h, w.trip, 'SMOKING', a['cleaning']!, [w.inner]);
+        const firstReq = uuid();
+        const smokeReq = uuid();
+        const first = await submit(tx, h, w.trip, 'CLEANING', a['cleaning']!, [w.inner], firstReq);
+        const smoke = await submit(tx, h, w.trip, 'SMOKING', a['cleaning']!, [w.inner], smokeReq);
         const l = await submit(
           tx,
           await session(tx, last.holder),
@@ -862,6 +890,20 @@ describe.each(COUNTRIES)('US-706 — frais annexes ($country, $currency)', (c: C
         ).toBe('CANCELLED');
         await now(tx, at(J0, 3 * HOUR));
         h = await session(tx, w.holder);
+        // rejeu après rejet et après annulation : la même demande, aucun second avis (qa)
+        for (const [req, inv, fee] of [
+          [firstReq, first, 'CLEANING'],
+          [smokeReq, smoke, 'SMOKING'],
+        ] as const) {
+          expect(await submit(tx, h, w.trip, fee, a['cleaning']!, [w.inner], req)).toMatchObject({
+            outcome: 'ALREADY_SUBMITTED',
+            invoice_id: inv['invoice_id'],
+          });
+          expect(
+            (await tx.query('SELECT * FROM test_fixture.us706_events($1)', [inv['invoice_id']]))
+              .rows,
+          ).toHaveLength(1);
+        }
         expect(
           (await submit(tx, h, w.trip, 'CLEANING', a['cleaning']!, [w.inner]))['outcome'],
         ).toBe('INCIDENTAL_DUPLICATE');
@@ -965,6 +1007,15 @@ describe.each(COUNTRIES)('US-706 — frais annexes ($country, $currency)', (c: C
         const paid = await view(w.guest);
         expect(paid['photos']).toEqual([]);
         expect((paid['invoices'] as Row[])[0]).toMatchObject({ status: 'ACCEPTED', evidence });
+        // plafond illisible (décimal) : non rendu, la vue reste lisible (qa delta 2)
+        await now(tx, at(J0, 2 * HOUR));
+        await param(tx, 'incidental_cleaning_max_minor', c.country, '15000.5');
+        await now(tx, at(J0, 3 * HOUR));
+        expect((await view(w.holder))['caps']).toEqual({
+          FUEL: null,
+          CLEANING: null,
+          SMOKING: null,
+        });
         // délai de l'hôte passé : plus de demande possible, plus aucun identifiant pour l'hôte
         await now(tx, at(END, 72 * HOUR + 1));
         const late = await view(w.holder);
@@ -979,12 +1030,25 @@ describe.each(COUNTRIES)('US-706 — frais annexes ($country, $currency)', (c: C
       withTestTransaction(api, { virtualNow: START, commit: true }, async (tx) => {
         const none = await world(tx, c, { rent: false });
         const deposit = await world(tx, c, { rent: false });
+        const older = await world(tx, c);
         await tx.query('SELECT test_fixture.us309_deposit_auth($1, $2)', [
           deposit.trip,
           a['rent']!.toString(),
         ]);
-        await now(tx, J0);
         const out: Record<string, string> = {};
+        // demande plus ancienne d'une heure : due avant les autres (filtre avant la limite, qa)
+        await now(tx, at(J0, -HOUR));
+        const o = await submit(
+          tx,
+          await session(tx, older.holder),
+          older.trip,
+          'CLEANING',
+          a['cleaning']!,
+          [older.inner],
+        );
+        expect(o['outcome']).toBe('SUBMITTED');
+        out['older'] = String(o['invoice_id']);
+        await now(tx, J0);
         for (const [name, x] of [
           ['none', none],
           ['deposit', deposit],
@@ -1005,6 +1069,15 @@ describe.each(COUNTRIES)('US-706 — frais annexes ($country, $currency)', (c: C
       }),
     );
     await asPayments(DUE, async (tx) => {
+      // file à UNE place, filtrée dans la requête : la demande ciblée, jamais la plus ancienne
+      const one =
+        'SELECT invoice_id::text AS id FROM core.claim_incidental_invoices_due(1, $1::uuid[])';
+      expect((await tx.query<{ id: string }>(one, [[ids['deposit']]])).rows).toEqual([
+        { id: ids['deposit'] },
+      ]);
+      expect((await tx.query<{ id: string }>(one, [[ids['older'], ids['deposit']]])).rows).toEqual([
+        { id: ids['older'] },
+      ]);
       for (const name of ['none', 'deposit']) {
         expect((await tx.query<Row>(CHARGE, [ids[name], uuid()])).rows[0]).toEqual({
           outcome: 'BLOCKED',
@@ -1027,33 +1100,71 @@ describe.each(COUNTRIES)('US-706 — frais annexes ($country, $currency)', (c: C
     });
     // report plafonné (revue code delta) : 11 reports ⇒ DEFERRED ; le 12e ⇒ REVIEW_REQUIRED, hors de
     // la file pour de bon, jamais débité par le travailleur ; un report de plus ⇒ NOT_DUE
-    await asPayments(DUE, async (tx) => {
-      const DEFER = 'SELECT core.claim_cmd_defer_incidental($1::uuid, $2) AS r';
-      const id = ids['none']!;
-      for (let n = 1; n <= 11; n += 1) {
-        expect((await tx.query<{ r: string }>(DEFER, [id, 'NOT_FOUND'])).rows[0]!.r).toBe(
-          'DEFERRED',
+    await withRole('app_worker', (w) =>
+      payTx(w, { worker: 'payment_command', virtualNow: DUE, commit: true }, async (tx) => {
+        const DEFER = 'SELECT core.claim_cmd_defer_incidental($1::uuid, $2) AS r';
+        const id = ids['none']!;
+        for (let n = 1; n <= 11; n += 1) {
+          expect((await tx.query<{ r: string }>(DEFER, [id, 'NOT_FOUND'])).rows[0]!.r).toBe(
+            'DEFERRED',
+          );
+        }
+        expect((await tx.query<{ r: string }>(DEFER, [id, 'EXECUTION_FAILED'])).rows[0]!.r).toBe(
+          'REVIEW_REQUIRED',
         );
-      }
-      expect((await tx.query<{ r: string }>(DEFER, [id, 'EXECUTION_FAILED'])).rows[0]!.r).toBe(
-        'REVIEW_REQUIRED',
-      );
-      const inv = (await invoices(tx, ids['noneTrip']!))[0]!;
-      expect(inv).toMatchObject({
-        status: 'AWAITING_GUEST',
-        defer_count: 12,
-        execution_code: 'EXECUTION_FAILED',
+        const inv = (await invoices(tx, ids['noneTrip']!))[0]!;
+        expect(inv).toMatchObject({
+          status: 'AWAITING_GUEST',
+          defer_count: 12,
+          execution_code: 'EXECUTION_FAILED',
+        });
+        expect((inv['review_required_at'] as Date).toISOString()).toBe(DUE);
+        expect((await tx.query<{ r: string }>(DEFER, [id, 'NOT_FOUND'])).rows[0]!.r).toBe(
+          'NOT_DUE',
+        );
+        expect((await tx.query<Row>(CHARGE, [id, uuid()])).rows[0]).toEqual({
+          outcome: 'BLOCKED',
+          code: 'REVIEW_REQUIRED',
+        });
+        expect(await charges(tx, id)).toEqual([]);
+        // jamais relue par la file, même 30 jours plus tard
+        await now(tx, at(DUE, 30 * 24 * HOUR));
+        expect((await tx.query<{ id: string }>(DUE_LIST, [[id]])).rows).toEqual([]);
+      }),
+    );
+    // vue de la console (revue argent delta 2 n° 7) : l'ops du pays la retrouve ; l'ops d'un
+    // autre pays ne la voit pas ; un agent partie au trip non plus (ADR-122)
+    await withRole('app_api', async (api) => {
+      await withTestTransaction(api, { virtualNow: at(DUE, HOUR) }, async (tx) => {
+        const REVIEW =
+          'SELECT outcome, body FROM core.support_staff_incidental_review($1, $2::uuid)';
+        const list = async (who: Staff): Promise<Row> =>
+          (await tx.query<Row>(REVIEW, [await elevated(tx, who), uuid()])).rows[0]!;
+        const mine = await list(await staff(tx, 'OPS_AGENT', [c.country]));
+        expect(mine['outcome']).toBe('OK');
+        const found = ((mine['body'] as Row)['invoices'] as Row[]).filter(
+          (x) => x['id'] === ids['none'],
+        );
+        expect(found).toEqual([
+          {
+            id: ids['none'],
+            tripId: ids['noneTrip'],
+            country: c.country,
+            currency: c.currency,
+            feeType: 'CLEANING',
+            amountMinor: a['cleaning']!.toString(),
+            status: 'AWAITING_GUEST',
+            executionCode: 'EXECUTION_FAILED',
+            deferCount: 12,
+            reviewRequiredAt: DUE,
+          },
+        ]);
+        const other = COUNTRIES.find((x) => x.country !== c.country)!;
+        const theirs = await list(await staff(tx, 'OPS_AGENT', [other.country]));
+        expect(((theirs['body'] as Row)['invoices'] as Row[]).map((x) => x['id'])).not.toContain(
+          ids['none'],
+        );
       });
-      expect((inv['review_required_at'] as Date).toISOString()).toBe(DUE);
-      expect((await tx.query<{ r: string }>(DEFER, [id, 'NOT_FOUND'])).rows[0]!.r).toBe('NOT_DUE');
-      expect((await tx.query<Row>(CHARGE, [id, uuid()])).rows[0]).toEqual({
-        outcome: 'BLOCKED',
-        code: 'REVIEW_REQUIRED',
-      });
-      expect(await charges(tx, id)).toEqual([]);
-      // jamais relue par la file, même 30 jours plus tard
-      await now(tx, at(DUE, 30 * 24 * HOUR));
-      expect((await tx.query<{ id: string }>(DUE_LIST, [[id]])).rows).toEqual([]);
     });
   });
 

@@ -125,6 +125,21 @@ for (const language of LANGUAGES) {
       await expect(
         page.locator('[data-testid="incidental-type"] option[value="CLEANING"]'),
       ).toHaveCount(1);
+      // un second type demandé : retiré à son tour, les autres restent (revue qa delta 2)
+      await page.locator('[data-testid="incidental-type"]').selectOption('SMOKING');
+      await page.locator('[data-testid="incidental-amount"]').fill(`45${decimal}00`);
+      await page
+        .locator('[data-testid="incidental-description"]')
+        .fill('Odeur de tabac dans tout l’habitacle');
+      await page.locator('[data-testid="incidental-photo-CHECKOUT-INT_01-HOST"]').check();
+      await page.locator('[data-testid="incidental-submit"]').click();
+      await expect(page.locator('[data-testid="incidental-done"]')).toHaveText(
+        t('web.incidental.done.submitted'),
+      );
+      await expect(page.locator('[data-testid="incidental-type"] option')).toHaveCount(2);
+      await expect(
+        page.locator('[data-testid="incidental-type"] option[value="SMOKING"]'),
+      ).toHaveCount(0);
 
       // IDOR : les frais (et leurs preuves) d'un autre trip ⇒ même message que l'inconnu
       const other = await newTrip(token('G0st'), token('H0st'), true);

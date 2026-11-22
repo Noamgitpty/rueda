@@ -86,14 +86,18 @@
 --     core.claim_incidental_staff_view(uuid), core.claim_incidental_invoices_due(integer, uuid[]),
 --     core.claim_cmd_charge_incidental(uuid, uuid), core.claim_cmd_defer_incidental(uuid, text),
 --     core.claim_incidental_param(text, text), core.claim_incidental_bool(text, text),
---     core.claim_incidental_party(bytea, uuid), core.claim_incidental_host_files(uuid, uuid, timestamptz),
+--     core.claim_incidental_party(bytea, uuid), core.claim_incidental_host_files(uuid, uuid),
+--     core.claim_incidental_store_host_file(uuid, uuid, uuid, text, bigint, bytea),
+--     core.claim_cmd_attach_incidental_file(bytea, uuid, uuid, text, bigint, bytea),
+--     core.claim_incidental_review_list(text[]), core.support_staff_incidental_review(bytea, uuid),
 --     core.claim_incidental_trip_facts(uuid), core.claim_incidental_trip_photos(uuid),
 --     core.claim_incidental_guard() ;
 --   DROP POLICY cmd_money_incidental_param_read ON core.config_param_value ;
 --   DROP POLICY cmd_money_incidental_event ON core.outbox_outbox_event ; révoquer les droits
 --     d'insertion d'outbox et d'EXECUTE platform.uuid_v7() de cmd_money_owner, et les colonnes de
 --     core.audit_file_asset accordées à cmd_hold_owner ;
---   DROP TABLE core.claim_incidental_invoice ;
+--   DROP POLICY cmd_hold_incidental_asset_ins ON core.audit_file_asset ;
+--   DROP TABLE core.claim_incidental_host_file ; DROP TABLE core.claim_incidental_invoice ;
 --   REVOKE EXECUTE ON FUNCTION app.actor_id() FROM cmd_money_owner ;
 --   DELETE des valeurs puis des définitions des paramètres du bloc généré (section 5).
 
@@ -345,6 +349,52 @@ GRANT SELECT (id, trip_id, country_code, status) ON core.claim_incidental_invoic
 CREATE POLICY iam_staff_incidental_sel ON core.claim_incidental_invoice FOR SELECT
   TO iam_staff_owner USING (true);
 
+-- 1.4 Fichiers de preuve déposés par l'hôte, rattachés à UN trip dès l'envoi (revue sécurité delta 2
+-- n° 1 : jamais une simple plage d'heures, un hôte à deux voitures ne cite pas pour le trip A un
+-- fichier du trip B). Empreinte unique (mêmes octets sous un autre identifiant : refusés, comme les
+-- photos d'état d'US-303 / #291). Registre en ajout seul, aucun droit applicatif : écrit et lu par
+-- les seules fonctions de cmd_hold_owner (commande de l'hôte de cmd_money_owner).
+CREATE TABLE core.claim_incidental_host_file (
+  file_id          uuid        CONSTRAINT claim_incidental_host_file_pkey PRIMARY KEY
+    CONSTRAINT claim_incidental_host_file_asset_fk REFERENCES core.audit_file_asset (id),
+  trip_id          uuid        NOT NULL
+    CONSTRAINT claim_incidental_host_file_trip_fk REFERENCES core.booking_trip (id),
+  uploader_user_id uuid        NOT NULL
+    CONSTRAINT claim_incidental_host_file_user_fk REFERENCES core.iam_user_account (id),
+  sha256           bytea       NOT NULL
+    CONSTRAINT claim_incidental_host_file_sha_length CHECK (pg_catalog.length(sha256) = 32),
+  received_at      timestamptz NOT NULL DEFAULT platform.now()
+);
+CREATE UNIQUE INDEX claim_incidental_host_file_sha_unique
+  ON core.claim_incidental_host_file (sha256);
+CREATE INDEX claim_incidental_host_file_trip_idx ON core.claim_incidental_host_file (trip_id);
+COMMENT ON TABLE core.claim_incidental_host_file IS
+  'CLM : fichier de preuve déposé par l''hôte, rattaché à un trip dès l''envoi (pièce d''un frais '
+  'annexe de CE trip seulement), empreinte unique. Ajout seul. US-706 (ADR-197 n° 19).';
+CREATE TRIGGER claim_incidental_host_file_immutable
+  BEFORE UPDATE OR DELETE ON core.claim_incidental_host_file
+  FOR EACH ROW EXECUTE FUNCTION core.audit_append_only('claim_incidental_host_file_immutable');
+CREATE TRIGGER claim_incidental_host_file_no_truncate
+  BEFORE TRUNCATE ON core.claim_incidental_host_file
+  FOR EACH STATEMENT EXECUTE FUNCTION core.audit_append_only('claim_incidental_host_file_immutable');
+ALTER TABLE core.claim_incidental_host_file ENABLE ROW LEVEL SECURITY;
+ALTER TABLE core.claim_incidental_host_file FORCE ROW LEVEL SECURITY;
+CREATE POLICY migrator_all ON core.claim_incidental_host_file TO migrator USING (true)
+  WITH CHECK (true);
+REVOKE ALL ON core.claim_incidental_host_file FROM PUBLIC;
+GRANT SELECT, INSERT ON core.claim_incidental_host_file TO cmd_hold_owner;
+CREATE POLICY cmd_hold_incidental_file_sel ON core.claim_incidental_host_file FOR SELECT
+  TO cmd_hold_owner USING (true);
+CREATE POLICY cmd_hold_incidental_file_ins ON core.claim_incidental_host_file FOR INSERT
+  TO cmd_hold_owner WITH CHECK (true);
+-- fichier du seau des preuves déposé par l'hôte (C2, chiffré par la clé USER du déposant) ; colonnes
+-- d'insertion déjà accordées à cmd_hold_owner par 0158
+CREATE POLICY cmd_hold_incidental_asset_ins ON core.audit_file_asset FOR INSERT TO cmd_hold_owner
+  WITH CHECK (bucket = 'PRIVATE_EVIDENCE' AND classification = 'C2' AND source = 'HOST_UPLOAD'
+              AND retention_class = 'TRIP_INSPECTION' AND enc_subject_type = 'USER'
+              AND enc_subject_id IS NOT NULL AND enc_subject_id = uploader_user_id
+              AND mime IN ('image/jpeg', 'image/webp'));
+
 -- 2. Faits du trip (cmd_hold_owner) --------------------------------------------------------------
 GRANT SELECT (id, country_code, currency, org_id, guest_user_id, status, scheduled_start, scheduled_end,
               timezone, source_hold_id)
@@ -448,34 +498,96 @@ COMMENT ON FUNCTION core.claim_incidental_trip_photos(uuid) IS
 REVOKE ALL ON FUNCTION core.claim_incidental_trip_photos(uuid) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION core.claim_incidental_trip_photos(uuid) TO cmd_money_owner;
 
--- 2.3 Fichiers du seau des preuves déposés par l'hôte PENDANT la fenêtre du trip (pièces admises
--- quand `incidental_evidence_trip_photos_only[pays]` vaut faux, DEC-FONDATEUR-22 ; revue sécurité
--- delta n° 3) : reçus entre le début prévu du trip et `p_until` (fin effective + délai de l'hôte,
--- calculé par la commande), jamais une photo d'état d'une série (de ce trip : comptée comme photo du
--- trip ; d'un autre trip : refusée). Lecture au plus juste (politique cmd_hold_evidence_file_sel de
--- 0164 : seau PRIVATE_EVIDENCE seulement). Les pièces d'une demande d'un autre trip sont écartées par
--- la commande (registre de cmd_money_owner).
-CREATE FUNCTION core.claim_incidental_host_files(p_trip_id uuid, p_user uuid, p_until timestamptz)
+-- 2.3 Fichiers de preuve de l'hôte rattachés à CE trip (pièces admises quand
+-- `incidental_evidence_trip_photos_only[pays]` vaut faux, défaut comme Turo, DEC-FONDATEUR-22 ;
+-- revue sécurité delta 2 n° 1) : jamais un fichier rattaché à un autre trip, ni un fichier non
+-- rattaché, ni un fichier supprimé.
+CREATE FUNCTION core.claim_incidental_host_files(p_trip_id uuid, p_user uuid)
   RETURNS TABLE (file_id uuid)
   LANGUAGE sql
   STABLE
   SECURITY DEFINER
   SET search_path = pg_catalog, pg_temp
 AS $fn$
-  SELECT f.id
-    FROM core.audit_file_asset AS f
-    JOIN core.booking_trip AS t ON t.id = p_trip_id
-   WHERE f.bucket = 'PRIVATE_EVIDENCE' AND f.uploader_user_id = p_user AND f.deleted_at IS NULL
-     AND f.source IN ('IN_APP_CAMERA', 'HOST_UPLOAD') AND f.server_received_at >= t.scheduled_start
-     AND p_until IS NOT NULL AND f.server_received_at <= p_until
-     AND NOT EXISTS (SELECT 1 FROM core.trip_ops_inspection_photo AS ph WHERE ph.file_id = f.id)
+  SELECT h.file_id
+    FROM core.claim_incidental_host_file AS h
+    JOIN core.audit_file_asset AS f ON f.id = h.file_id
+   WHERE h.trip_id = p_trip_id AND h.uploader_user_id = p_user AND f.deleted_at IS NULL
 $fn$;
-COMMENT ON FUNCTION core.claim_incidental_host_files(uuid, uuid, timestamptz) IS
-  'Interne (US-706, ADR-197) : fichiers du seau des preuves déposés par l''hôte dans la fenêtre du '
-  'trip, jamais une photo d''état d''une série (pièces hors photos du trip, selon le paramètre du '
-  'pays). EXECUTE cmd_money_owner.';
-REVOKE ALL ON FUNCTION core.claim_incidental_host_files(uuid, uuid, timestamptz) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION core.claim_incidental_host_files(uuid, uuid, timestamptz) TO cmd_money_owner;
+COMMENT ON FUNCTION core.claim_incidental_host_files(uuid, uuid) IS
+  'Interne (US-706, ADR-197 n° 19) : fichiers de preuve de l''hôte rattachés à ce trip dès '
+  'l''envoi. EXECUTE cmd_money_owner.';
+REVOKE ALL ON FUNCTION core.claim_incidental_host_files(uuid, uuid) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION core.claim_incidental_host_files(uuid, uuid) TO cmd_money_owner;
+
+-- 2.4 Dépôt d'un fichier de preuve de l'hôte, rattaché au trip (appelé par la commande de l'hôte,
+-- qui a jugé la session et la fenêtre). Issues : ATTACHED, ALREADY_ATTACHED (rejeu du même fichier
+-- pour le même trip), PHOTO_DUPLICATE (empreinte déjà vue : photo d'état de tout trip, photo
+-- d'annonce, fichier de l'hôte ; aucune existence révélée au-delà), REQUEST_INVALID (format, taille,
+-- identifiant déjà pris), PARAM_MISSING (`photo_max_kb` absent ou mal formé).
+CREATE FUNCTION core.claim_incidental_store_host_file(p_trip_id uuid, p_user uuid, p_file_id uuid,
+                                                      p_mime text, p_bytes bigint,
+                                                      p_sha256 bytea)
+  RETURNS text
+  LANGUAGE plpgsql
+  VOLATILE
+  SECURITY DEFINER
+  SET search_path = pg_catalog, pg_temp
+AS $fn$
+DECLARE
+  v_country text;
+  v_kb      integer;
+  h         record;
+BEGIN
+  IF p_trip_id IS NULL OR p_user IS NULL OR p_file_id IS NULL OR p_sha256 IS NULL
+     OR pg_catalog.length(p_sha256) <> 32 OR p_mime IS NULL
+     OR p_mime NOT IN ('image/jpeg', 'image/webp') OR p_bytes IS NULL OR p_bytes <= 0 THEN
+    RETURN 'REQUEST_INVALID';
+  END IF;
+  SELECT t.country_code INTO v_country FROM core.booking_trip AS t WHERE t.id = p_trip_id;
+  v_kb := core.booking_param_int('photo_max_kb', v_country);
+  IF v_kb IS NULL OR v_kb <= 0 THEN
+    RETURN 'PARAM_MISSING';
+  END IF;
+  IF p_bytes > v_kb::bigint * 1024 THEN
+    RETURN 'REQUEST_INVALID';
+  END IF;
+  SELECT x.trip_id, x.uploader_user_id, x.sha256 INTO h
+    FROM core.claim_incidental_host_file AS x WHERE x.file_id = p_file_id;
+  IF h.trip_id IS NOT NULL THEN
+    RETURN CASE WHEN h.trip_id = p_trip_id AND h.uploader_user_id = p_user AND h.sha256 = p_sha256
+                THEN 'ALREADY_ATTACHED' ELSE 'REQUEST_INVALID' END;
+  END IF;
+  IF EXISTS (SELECT 1 FROM core.trip_ops_inspection_photo AS ph WHERE ph.sha256 = p_sha256)
+     OR EXISTS (SELECT 1 FROM core.audit_file_asset AS f
+                 WHERE f.bucket = 'PUBLIC_LISTING' AND f.sha256 = p_sha256)
+     OR EXISTS (SELECT 1 FROM core.claim_incidental_host_file AS x WHERE x.sha256 = p_sha256) THEN
+    RETURN 'PHOTO_DUPLICATE';
+  END IF;
+  -- deux écritures sous point de sauvegarde : un envoi concurrent des mêmes octets, validé pendant
+  -- l'attente sur l'index unique, les annule toutes deux
+  BEGIN
+    INSERT INTO core.audit_file_asset (id, bucket, storage_key, mime, bytes, sha256,
+                                       uploader_user_id, source, classification, retention_class,
+                                       enc_subject_type, enc_subject_id)
+    VALUES (p_file_id, 'PRIVATE_EVIDENCE',
+            pg_catalog.format('trips/%s/incidental/%s', p_trip_id, p_file_id), p_mime, p_bytes,
+            p_sha256, p_user, 'HOST_UPLOAD', 'C2', 'TRIP_INSPECTION', 'USER', p_user);
+    INSERT INTO core.claim_incidental_host_file (file_id, trip_id, uploader_user_id, sha256)
+    VALUES (p_file_id, p_trip_id, p_user, p_sha256);
+  EXCEPTION WHEN unique_violation THEN
+    RETURN 'PHOTO_DUPLICATE';
+  END;
+  RETURN 'ATTACHED';
+END
+$fn$;
+COMMENT ON FUNCTION core.claim_incidental_store_host_file(uuid, uuid, uuid, text, bigint, bytea) IS
+  'Interne (US-706, ADR-197 n° 19) : fichier de preuve de l''hôte écrit et rattaché au trip, '
+  'empreinte unique. EXECUTE cmd_money_owner.';
+REVOKE ALL ON FUNCTION core.claim_incidental_store_host_file(uuid, uuid, uuid, text, bigint, bytea)
+  FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION core.claim_incidental_store_host_file(uuid, uuid, uuid, text, bigint, bytea)
+  TO cmd_money_owner;
 
 RESET ROLE;
 REVOKE CREATE ON SCHEMA core FROM cmd_hold_owner;
@@ -701,13 +813,10 @@ BEGIN
    WHERE ph.file_id = ANY (COALESCE(v_ev, '{}'::uuid[]));
   -- photos du trip seulement (vrai) ; sinon aussi les fichiers déposés par l'hôte depuis le début
   IF NOT v_only THEN
+    -- fichiers de l'hôte rattachés à CE trip dès l'envoi (jamais un autre trip)
     SELECT pg_catalog.count(DISTINCT hf.file_id)::integer INTO v_files
-      FROM core.claim_incidental_host_files(
-             p_trip_id, p.user_id, f.end_at + pg_catalog.make_interval(hours => v_win_h)) AS hf
-     WHERE hf.file_id = ANY (COALESCE(v_ev, '{}'::uuid[]))
-       -- jamais la pièce d'une demande d'un autre trip
-       AND NOT EXISTS (SELECT 1 FROM core.claim_incidental_invoice AS x
-                        WHERE x.trip_id <> p_trip_id AND hf.file_id = ANY (x.evidence_file_ids));
+      FROM core.claim_incidental_host_files(p_trip_id, p.user_id) AS hf
+     WHERE hf.file_id = ANY (COALESCE(v_ev, '{}'::uuid[]));
   END IF;
   IF v_n = 0 OR v_n > 10 OR v_known + v_files <> v_n
      OR (p_fee_type = 'FUEL' AND NOT (v_fuel_o AND v_fuel_i)) THEN
@@ -1085,6 +1194,52 @@ COMMENT ON FUNCTION core.claim_incidental_view(bytea, uuid) IS
   'Vue des frais annexes d''un trip pour l''hôte titulaire ou le voyageur (demandes, échéance, '
   'état du débit, photos du trip utilisables comme pièces). EXECUTE app_api. US-706 (ADR-197).';
 
+-- 3.7 bis Dépôt d'un fichier de preuve par l'hôte titulaire, rattaché au trip, entre le début
+-- prévu du trip et la fin effective + `incidental_host_window_h` (trip en cours : admis). Issues :
+-- celles de core.claim_incidental_store_host_file, NOT_FOUND (session absente, autre personne,
+-- voyageur), INCIDENTAL_WINDOW_CLOSED, PARAM_MISSING. La route d'envoi des octets (stockage) est
+-- une suite : la commande reçoit l'empreinte et la taille calculées par le serveur.
+CREATE FUNCTION core.claim_cmd_attach_incidental_file(p_token_hash bytea, p_trip_id uuid,
+                                                      p_file_id uuid, p_mime text, p_bytes bigint,
+                                                      p_sha256 bytea)
+  RETURNS text
+  LANGUAGE plpgsql
+  VOLATILE
+  SECURITY DEFINER
+  SET search_path = pg_catalog, pg_temp
+AS $fn$
+DECLARE
+  p       record;
+  f       record;
+  v_now   timestamptz;
+  v_win   jsonb;
+  v_win_h integer;
+BEGIN
+  SELECT * INTO p FROM core.claim_incidental_party(p_token_hash, p_trip_id);
+  IF p.user_id IS NULL OR p.role <> 'HOST' THEN
+    RETURN 'NOT_FOUND';
+  END IF;
+  SELECT * INTO f FROM core.claim_incidental_trip_facts(p_trip_id);
+  v_now := platform.now();
+  v_win := core.claim_incidental_param('incidental_host_window_h', f.country_code);
+  IF pg_catalog.jsonb_typeof(v_win) = 'number' AND (v_win #>> '{}') ~ '^[1-9][0-9]{0,3}$' THEN
+    v_win_h := (v_win #>> '{}')::integer;
+  END IF;
+  IF v_win_h IS NULL THEN
+    RETURN 'PARAM_MISSING';
+  END IF;
+  IF v_now < f.start_at
+     OR (f.end_at IS NOT NULL AND v_now > f.end_at + pg_catalog.make_interval(hours => v_win_h)) THEN
+    RETURN 'INCIDENTAL_WINDOW_CLOSED';
+  END IF;
+  RETURN core.claim_incidental_store_host_file(p_trip_id, p.user_id, p_file_id, p_mime, p_bytes,
+                                               p_sha256);
+END
+$fn$;
+COMMENT ON FUNCTION core.claim_cmd_attach_incidental_file(bytea, uuid, uuid, text, bigint, bytea) IS
+  'Dépôt d''un fichier de preuve par l''hôte, rattaché au trip dans sa fenêtre, empreinte unique. '
+  'EXECUTE app_api. US-706 (ADR-197 n° 19).';
+
 -- 3.8 Décision de l'ops après contestation (appelée par la porte du staff, qui a jugé la session,
 -- la permission, le pays et la séparation des tâches). Issues : DECIDED, ALREADY_DECIDED (rejeu
 -- de la même requête), NOT_FOUND, INCIDENTAL_NOT_DISPUTED, DECISION_RATIONALE_REQUIRED,
@@ -1196,6 +1351,33 @@ $fn$;
 COMMENT ON FUNCTION core.claim_incidental_staff_view(uuid) IS
   'Console : vue d''un frais annexe (montant, jambes, pièces, contestation, décision). EXECUTE '
   'iam_staff_owner. US-706 (ADR-197).';
+
+-- 3.9 bis Demandes « à revoir par l'ops » (report plafonné, ADR-197 n° 18) des pays donnés, plus
+-- anciennes d'abord (500 au plus) ; aucune donnée nominative ni texte. Appelée par la porte du staff.
+CREATE FUNCTION core.claim_incidental_review_list(p_countries text[])
+  RETURNS jsonb
+  LANGUAGE sql
+  STABLE
+  SECURITY DEFINER
+  SET search_path = pg_catalog, pg_temp
+AS $fn$
+  SELECT COALESCE(pg_catalog.jsonb_agg(pg_catalog.jsonb_build_object(
+           'id', k.id, 'tripId', k.trip_id, 'country', k.country_code, 'currency', k.currency,
+           'feeType', k.fee_type, 'amountMinor', k.amount_minor::text, 'status', k.status,
+           'executionCode', k.execution_code, 'deferCount', k.defer_count,
+           'reviewRequiredAt', pg_catalog.to_char(k.review_required_at AT TIME ZONE 'UTC',
+                                                  'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'))
+           ORDER BY k.review_required_at, k.id), '[]'::jsonb)
+    FROM (SELECT i.* FROM core.claim_incidental_invoice AS i
+           WHERE i.review_required_at IS NOT NULL AND i.country_code = ANY (p_countries)
+           ORDER BY i.review_required_at, i.id
+           LIMIT 501) AS k
+$fn$;
+COMMENT ON FUNCTION core.claim_incidental_review_list(text[]) IS
+  'Console : frais annexes « à revoir par l''ops » (débit reporté 12 fois) des pays donnés. '
+  'EXECUTE iam_staff_owner. US-706 (ADR-197 n° 18).';
+REVOKE ALL ON FUNCTION core.claim_incidental_review_list(text[]) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION core.claim_incidental_review_list(text[]) TO iam_staff_owner;
 
 -- 3.10 File du travailleur payment_command : demandes à débiter (payées, décidées, ou sans réponse
 -- dont l'échéance est passée à l'heure de la base), plus anciennes d'abord
@@ -1338,7 +1520,11 @@ COMMENT ON FUNCTION core.claim_cmd_charge_incidental(uuid, uuid) IS
   'débit séparé d''US-703 aux jambes explicites, jamais la caution, jamais une demande contestée '
   'avant la décision. Travailleur payment_command. EXECUTE app_worker. US-706 (ADR-197).';
 
--- 3.12 Report d'un débit en échec (erreur de la base attrapée par le travailleur) : +15 min
+-- 3.12 Report d'un débit en échec (erreur de la base attrapée par le travailleur) : +15 min. Ne
+-- prend que le verrou de LA ligne de la demande (UPDATE seul, aucun verrou du trip ni d'une autre
+-- table) : aucun cycle avec les commandes (trip puis demande). Le compteur est CUMULÉ et jamais remis
+-- à zéro : une demande qui échoue par intermittence finit à revoir par l'ops au lieu de boucler ;
+-- un succès du débit la sort de la file (CHARGED), un NOT_DUE ou un BLOCKED n'est pas un report.
 CREATE FUNCTION core.claim_cmd_defer_incidental(p_invoice_id uuid, p_code text)
   RETURNS text
   LANGUAGE plpgsql
@@ -1387,8 +1573,10 @@ REVOKE ALL ON FUNCTION
   core.claim_incidental_staff_view(uuid),
   core.claim_incidental_invoices_due(integer, uuid[]),
   core.claim_cmd_charge_incidental(uuid, uuid),
-  core.claim_cmd_defer_incidental(uuid, text) FROM PUBLIC;
+  core.claim_cmd_defer_incidental(uuid, text),
+  core.claim_cmd_attach_incidental_file(bytea, uuid, uuid, text, bigint, bytea) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION
+  core.claim_cmd_attach_incidental_file(bytea, uuid, uuid, text, bigint, bytea),
   core.claim_cmd_submit_incidental(bytea, uuid, uuid, text, bigint, text, uuid[]),
   core.claim_cmd_cancel_incidental(bytea, uuid),
   core.claim_cmd_accept_incidental(bytea, uuid),
@@ -1569,10 +1757,86 @@ COMMENT ON FUNCTION core.support_staff_decide_incidental(bytea, uuid, uuid, text
   'dispute.decide dans le pays, garde ADR-122, débit réservé à ADMIN ; décision et refus '
   'journalisés. EXECUTE app_api. US-706 (ADR-197).';
 
+-- 4.3 Frais annexes « à revoir par l'ops » (report plafonné, ADR-197 n° 18 ; revue argent delta 2
+-- n° 7) : ceux des pays où l'agent détient dispute.decide, trips qui le concernent écartés
+-- (ADR-122), 500 au plus (troncature signalée). Issues : OK, AUTH_REQUIRED, MFA_REQUIRED, FORBIDDEN
+-- (aucun pays). Refus journalisés ; aucune donnée nominative. La reprise (relancer ou clore) est
+-- une suite, AVANT payouts_enabled = vrai.
+CREATE FUNCTION core.support_staff_incidental_review(p_token_hash bytea, p_request_id uuid)
+  RETURNS TABLE (outcome text, body jsonb)
+  LANGUAGE plpgsql
+  VOLATILE
+  SECURITY DEFINER
+  SET search_path = pg_catalog, pg_temp
+AS $fn$
+#variable_conflict use_column
+DECLARE
+  v_s         record;
+  v_countries text[];
+  v_all       jsonb;
+  v_rows      jsonb;
+  v_kept      integer;
+BEGIN
+  IF p_request_id IS NULL THEN
+    RAISE EXCEPTION 'frais annexes à revoir : entrée invalide'
+      USING ERRCODE = 'invalid_parameter_value';
+  END IF;
+  SELECT * INTO v_s FROM core.iam_staff_session(p_token_hash);
+  IF v_s.user_id IS NULL THEN
+    RETURN QUERY SELECT 'AUTH_REQUIRED'::text, NULL::jsonb;
+    RETURN;
+  END IF;
+  IF v_s.mfa_level <> 'TOTP' THEN
+    PERFORM core.iam_staff_audit(v_s.user_id, 'STAFF', 'STAFF_ACCESS_DENIED', 'USER', v_s.user_id,
+                                 NULL,
+                                 pg_catalog.jsonb_build_object('reason', '2FA_REQUIRED',
+                                   'attempted', 'READ', 'permission', 'dispute.decide',
+                                   'field_or_file', 'incidental_review'),
+                                 NULL, p_request_id);
+    RETURN QUERY SELECT 'MFA_REQUIRED'::text, NULL::jsonb;
+    RETURN;
+  END IF;
+  SELECT pg_catalog.array_agg(cc.code::text ORDER BY cc.code) INTO v_countries
+    FROM core.config_country AS cc
+   WHERE core.iam_staff_permitted(v_s.user_id, 'dispute.decide', ARRAY[cc.code::text], NULL)
+         IS NOT NULL;
+  IF v_countries IS NULL THEN
+    PERFORM core.iam_staff_audit(v_s.user_id, 'STAFF', 'STAFF_FORBIDDEN', 'USER', v_s.user_id, NULL,
+                                 pg_catalog.jsonb_build_object('reason', 'PERMISSION',
+                                   'attempted', 'READ', 'permission', 'dispute.decide',
+                                   'field_or_file', 'incidental_review'),
+                                 NULL, p_request_id);
+    RETURN QUERY SELECT 'FORBIDDEN'::text, NULL::jsonb;
+    RETURN;
+  END IF;
+  v_all := core.claim_incidental_review_list(v_countries);
+  SELECT COALESCE(pg_catalog.jsonb_agg(k.item ORDER BY k.n) FILTER (WHERE k.rn <= 500),
+                  '[]'::jsonb),
+         pg_catalog.count(*)
+    INTO v_rows, v_kept
+    FROM (SELECT x.item, x.n, pg_catalog.row_number() OVER (ORDER BY x.n) AS rn
+            FROM pg_catalog.jsonb_array_elements(v_all) WITH ORDINALITY AS x(item, n)
+           WHERE NOT core.support_actor_conflict(v_s.user_id, 'TRIP',
+                                                 (x.item ->> 'tripId')::uuid)) AS k;
+  RETURN QUERY SELECT 'OK'::text,
+                      pg_catalog.jsonb_build_object('countries', pg_catalog.to_jsonb(v_countries),
+                                                    'truncated',
+                                                      v_kept > 500
+                                                      OR pg_catalog.jsonb_array_length(v_all) > 500,
+                                                    'invoices', v_rows);
+END
+$fn$;
+COMMENT ON FUNCTION core.support_staff_incidental_review(bytea, uuid) IS
+  'Console : frais annexes à revoir par l''ops (débit reporté 12 fois) des pays où l''agent détient '
+  'dispute.decide ; trips qui le concernent écartés (ADR-122) ; refus journalisés ; aucune donnée '
+  'nominative. EXECUTE app_api. US-706 (ADR-197 n° 18).';
+
 REVOKE ALL ON FUNCTION core.support_staff_incidental(bytea, uuid, uuid),
-  core.support_staff_decide_incidental(bytea, uuid, uuid, text, text) FROM PUBLIC;
+  core.support_staff_decide_incidental(bytea, uuid, uuid, text, text),
+  core.support_staff_incidental_review(bytea, uuid) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION core.support_staff_incidental(bytea, uuid, uuid),
-  core.support_staff_decide_incidental(bytea, uuid, uuid, text, text) TO app_api;
+  core.support_staff_decide_incidental(bytea, uuid, uuid, text, text),
+  core.support_staff_incidental_review(bytea, uuid) TO app_api;
 
 RESET ROLE;
 REVOKE CREATE ON SCHEMA core FROM iam_staff_owner;

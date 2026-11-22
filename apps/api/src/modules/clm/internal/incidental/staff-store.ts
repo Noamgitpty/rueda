@@ -37,6 +37,8 @@ export interface IncidentalStaffStore {
     outcome: IncidentalDecisionOutcome,
     rationale: string,
   ): Promise<ClaimResult>;
+  /** Frais « à revoir par l'ops » des pays de l'agent (report plafonné, ADR-197 n° 18). */
+  review(tx: EvidenceSqlExecutor, staff: ClaimStaff, requestId: string): Promise<ClaimResult>;
 }
 
 /** L'exposant de la devise (config, lisible par app_api) est joint pour l'affichage du montant. */
@@ -50,6 +52,9 @@ const VIEW_SQL = withExponent('core.support_staff_incidental($1, $2::uuid, $3::u
 const DECIDE_SQL = withExponent(
   'core.support_staff_decide_incidental($1, $2::uuid, $3::uuid, $4, $5)',
 );
+
+const REVIEW_SQL = `SELECT r.outcome, NULL::text AS id, r.body
+  FROM core.support_staff_incidental_review($1, $2::uuid) AS r`;
 
 type Row = { outcome: string; id: string | null; body: Record<string, unknown> | null };
 
@@ -101,6 +106,15 @@ export class PgIncidentalStaffStore implements IncidentalStaffStore {
     ]);
     return resultOf(rows);
   }
+
+  async review(
+    tx: EvidenceSqlExecutor,
+    staff: ClaimStaff,
+    requestId: string,
+  ): Promise<ClaimResult> {
+    const { rows } = await tx.query<Row>(REVIEW_SQL, [staff.tokenHash, requestId]);
+    return resultOf(rows);
+  }
 }
 
 /** Magasin absent : toute transaction échoue (503, fail-closed). */
@@ -108,4 +122,5 @@ export const UNAVAILABLE_INCIDENTAL_STAFF_STORE: IncidentalStaffStore = {
   transaction: () => Promise.reject(new ClaimStoreError(null)),
   view: () => Promise.reject(new ClaimStoreError(null)),
   decide: () => Promise.reject(new ClaimStoreError(null)),
+  review: () => Promise.reject(new ClaimStoreError(null)),
 };

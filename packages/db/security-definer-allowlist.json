@@ -2812,10 +2812,24 @@
       "story": "US-706"
     },
     {
-      "signature": "core.claim_incidental_host_files(uuid,uuid,timestamp with time zone)",
+      "signature": "core.claim_incidental_host_files(uuid,uuid)",
       "family": "cmd_hold",
       "owner": "cmd_hold_owner",
       "execute": ["cmd_money_owner"],
+      "story": "US-706"
+    },
+    {
+      "signature": "core.claim_incidental_store_host_file(uuid,uuid,uuid,text,bigint,bytea)",
+      "family": "cmd_hold",
+      "owner": "cmd_hold_owner",
+      "execute": ["cmd_money_owner"],
+      "story": "US-706"
+    },
+    {
+      "signature": "core.claim_cmd_attach_incidental_file(bytea,uuid,uuid,text,bigint,bytea)",
+      "family": "cmd_money",
+      "owner": "cmd_money_owner",
+      "execute": ["app_api"],
       "story": "US-706"
     },
     {
@@ -2868,6 +2882,13 @@
       "story": "US-706"
     },
     {
+      "signature": "core.claim_incidental_review_list(text[])",
+      "family": "cmd_money",
+      "owner": "cmd_money_owner",
+      "execute": ["iam_staff_owner"],
+      "story": "US-706"
+    },
+    {
       "signature": "core.claim_incidental_invoices_due(integer,uuid[])",
       "family": "cmd_money",
       "owner": "cmd_money_owner",
@@ -2897,6 +2918,13 @@
     },
     {
       "signature": "core.support_staff_decide_incidental(bytea,uuid,uuid,text,text)",
+      "family": "iam_staff",
+      "owner": "iam_staff_owner",
+      "execute": ["app_api"],
+      "story": "US-706"
+    },
+    {
+      "signature": "core.support_staff_incidental_review(bytea,uuid)",
       "family": "iam_staff",
       "owner": "iam_staff_owner",
       "execute": ["app_api"],

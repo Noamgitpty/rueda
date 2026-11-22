@@ -3888,9 +3888,10 @@ export const PT_MESSAGES = {
     'Olá, {first_name}. O anfitrião da reserva {booking_ref} pediu um custo de {amount}. Você pode pagar ou contestar com uma foto em {brand} até {due_at}. Sem resposta, {brand} decide e pode cobrar o seu cartão salvo.',
   'ntf.invoiceToGuest.sms.body':
     '{brand}: o anfitrião pediu {amount} ({booking_ref}). Pague ou conteste no app antes de {due_at}.',
-  'web.incidental.evidence': 'Fotos da entrega e da devolução escolhidas pelo anfitrião',
+  'web.incidental.evidence':
+    'Provas escolhidas pelo anfitrião: fotos da entrega e da devolução, e arquivos enviados durante esta viagem',
   'web.incidental.evidenceItem': '{side} · {slot} · {by} · recebida em {date}',
-  'web.incidental.evidenceUpload': 'Mais um arquivo enviado pelo anfitrião',
+  'web.incidental.evidenceUpload': 'Arquivos enviados pelo anfitrião durante esta viagem: {count}',
   'web.incidental.statusGuest.AWAITING_GUEST': 'Responda antes de {date}',
   'web.incidental.expired.AWAITING_GUEST':
     'O prazo de resposta terminou em {date}: {brand} vai cobrar o cartão salvo.',

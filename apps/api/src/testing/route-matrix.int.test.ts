@@ -713,6 +713,9 @@ async function requestOf(
       };
     // US-706 : frais annexe du pays ; décision d'un frais NON contesté ⇒ OPS et ADMIN du pays :
     // 409 INCIDENTAL_NOT_DISPUTED, rien n'est décidé ; autre pays : FORBIDDEN
+    // US-706 : frais à revoir des pays de l'agent (aucun ⇒ 200, liste vide)
+    case 'GET /console/incidental-reviews':
+      return { method: 'GET', path: '/console/incidental-reviews' };
     case 'GET /console/incidental-fees/{invoiceId}':
       return { method: 'GET', path: `/console/incidental-fees/${await invoiceOf(country)}` };
     case 'POST /console/incidental-fees/{invoiceId}/decision':

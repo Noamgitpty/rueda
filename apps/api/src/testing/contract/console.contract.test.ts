@@ -808,7 +808,25 @@ describe('contrat HTTP — /console', () => {
     deferCount: 0,
     reviewRequiredAt: null,
   };
-  const incidentalState = { down: false, view: 'OK', decide: 'DECIDED' };
+  const incidentalState = { down: false, view: 'OK', decide: 'DECIDED', review: 'OK' };
+  const INCIDENTAL_REVIEW = {
+    countries: ['XA'],
+    truncated: false,
+    invoices: [
+      {
+        id: ID,
+        tripId: ID,
+        country: 'XA',
+        currency: 'XTA',
+        feeType: 'CLEANING',
+        amountMinor: '4500',
+        status: 'AWAITING_GUEST',
+        executionCode: 'EXECUTION_FAILED',
+        deferCount: 12,
+        reviewRequiredAt: '2097-03-13T10:00:00.000Z',
+      },
+    ],
+  };
   const incidentalStore: IncidentalStaffStore = {
     transaction: async (_staff, fn) => {
       if (incidentalState.down) throw new ClaimStoreError('08006');
@@ -817,6 +835,7 @@ describe('contrat HTTP — /console', () => {
     },
     view: () => Promise.resolve(claimResult(incidentalState.view, INCIDENTAL_VIEW)),
     decide: () => Promise.resolve(claimResult(incidentalState.decide, INCIDENTAL_VIEW)),
+    review: () => Promise.resolve(claimResult(incidentalState.review, INCIDENTAL_REVIEW)),
   };
   afterAll(closeContractApps);
 
@@ -1502,6 +1521,17 @@ describe('contrat HTTP — /console', () => {
     expect((await a.api.request('POST', decide, { headers, body: decision })).status).toBe(503);
     incidentalState.down = false;
     await refusals(a, 'POST', decide);
+
+    // frais « à revoir par l'ops » (ADR-197 n° 18) : 200, 403, 503
+    const reviews = '/console/incidental-reviews';
+    expect((await a.api.request('GET', reviews, { headers })).json).toEqual(INCIDENTAL_REVIEW);
+    incidentalState.review = 'FORBIDDEN';
+    expect((await a.api.request('GET', reviews, { headers })).status).toBe(403);
+    incidentalState.review = 'OK';
+    incidentalState.down = true;
+    expect((await a.api.request('GET', reviews, { headers })).status).toBe(503);
+    incidentalState.down = false;
+    await refusals(a, 'GET', reviews);
   });
 
   it('files de revue, fiche 360°, notes, dossiers, pièces (US-109) : chaque statut déclaré', async () => {

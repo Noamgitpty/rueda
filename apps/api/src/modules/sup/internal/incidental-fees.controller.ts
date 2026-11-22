@@ -8,6 +8,8 @@
  * |                                                | pièces, contestation)        | inconnu : aucune existence)|
  * | POST /console/incidental-fees/:invoiceId/      | 201 décision ; 200 rejeu     | 422 DECISION_RATIONALE_…,  |
  * |      decision                                  |                              | FINALITY ; 403 ADMIN ; 409 |
+ * | GET  /console/incidental-reviews               | 200 frais « à revoir par     | 403 FORBIDDEN (aucun pays) |
+ * |                                                | l'ops » (ADR-197 n° 18)      |                            |
  *
  * Toutes : StaffGuard (401 AUTH_REQUIRED, 403 FORBIDDEN / 2FA_REQUIRED), 400 REQUEST_INVALID, 403
  * STAFF_SELF_FORBIDDEN. La base juge chaque droit (session élevée, `dispute.decide` dans le pays,
@@ -94,6 +96,16 @@ export class IncidentalFeesController {
     } catch (error) {
       unavailable(error);
     }
+  }
+
+  /** Frais dont le débit a été reporté 12 fois : à revoir par l'ops (reprise : suite). */
+  @Get('incidental-reviews')
+  @UseGuards(StaffGuard)
+  async review(@Req() request: object) {
+    const staff = this.#staff(request);
+    const r = await this.#run(staff, (tx) => this.fees.review(tx, staff, randomUUID()));
+    if (r.outcome !== 'OK' || r.body === null) refusal(r);
+    return r.body;
   }
 
   @Get('incidental-fees/:invoiceId')
