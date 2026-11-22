@@ -181,9 +181,10 @@ describe('US-303 — routes des photos d’état du véhicule (contrat OpenAPI)'
   it('critère 1 : 24 angles sur 25 ⇒ PHOTO_TEMPLATE_INCOMPLETE (une intérieure manquante) ; la série de l’hôte ne remplace pas celle du voyageur ; complète ⇒ validée, heure serveur', async () => {
     const w = await world();
     apps.push(w.app);
-    const photo = jpeg(1600, 1200);
-    for (const slot of REQUIRED.filter((s) => s !== 'INT_08')) {
-      expect((await send(w, host(w), w.trip, slot, photo)).status, slot).toBe(201);
+    // une photo DIFFÉRENTE par angle : une empreinte déjà vue est refusée (0176, ADR-196)
+    const photo = (i: number) => jpeg(1600, 1200, 64 + i);
+    for (const [i, slot] of REQUIRED.filter((s) => s !== 'INT_08').entries()) {
+      expect((await send(w, host(w), w.trip, slot, photo(i))).status, slot).toBe(201);
     }
     const incomplete = await w.app.api.request(
       'POST',
@@ -199,7 +200,7 @@ describe('US-303 — routes des photos d’état du véhicule (contrat OpenAPI)'
       messageKey: 'common.inspection.templateIncomplete',
       missing: ['INT_08'],
     });
-    expect((await send(w, host(w), w.trip, 'INT_08', photo)).status).toBe(201);
+    expect((await send(w, host(w), w.trip, 'INT_08', photo(REQUIRED.length))).status).toBe(201);
     const done = await w.app.api.request('POST', `/trips/${w.trip}/inspections/checkin/submit`, {
       headers: host(w),
       body: {},
@@ -246,6 +247,87 @@ describe('US-303 — routes des photos d’état du véhicule (contrat OpenAPI)'
     const raw = w.files.raw('PRIVATE_EVIDENCE', key);
     expect(raw).toBeDefined();
     expect(raw?.includes(retake)).toBe(false);
+  });
+
+  it('suite (F-L3-PRE-02, ADR-196) : photo portant un EXIF ⇒ empreinte de transport jugée sur l’original, empreinte rendue, taille et objet déposé = copie nettoyée (sans EXIF)', async () => {
+    const w = await world();
+    apps.push(w.app);
+    const plain = jpeg(800, 600, 30);
+    // même image, segment APP1 EXIF inséré après SOI (position fictive, reconnaissable)
+    const exif = Buffer.from('Exif  GPSLatitude=00.0000N;contract', 'latin1');
+    const app1 = Buffer.concat([Buffer.from([0xff, 0xe1, 0, exif.length + 2]), exif]);
+    const tagged = Buffer.concat([plain.subarray(0, 2), app1, plain.subarray(2)]);
+    const r = await send(w, guest(w), w.trip, 'EXT_05', tagged);
+    expect(r.status).toBe(201);
+    const body = r.json as { fileId: string; sha256: string; bytes: number };
+    expect(body.sha256).toBe(sha(plain));
+    expect(body.bytes).toBe(plain.length);
+    const raw = w.files.raw(
+      'PRIVATE_EVIDENCE',
+      `trips/${w.trip}/inspections/CHECKIN-GUEST/${body.fileId}`,
+    );
+    expect(raw).toBeDefined();
+    const opened = Buffer.from(raw!.subarray('sealed:'.length).map((b) => b ^ 0xff));
+    expect(opened.equals(plain)).toBe(true);
+    expect(opened.includes('GPSLatitude')).toBe(false);
+  });
+
+  it('suite (F-L3-PRE-01, ADR-196) : même fichier, ou même image dont seul l’EXIF change, déjà enregistré (autre angle, autre partie) ⇒ 409 PHOTO_DUPLICATE ; rien n’est reçu ; le jeton sert encore', async () => {
+    const w = await world();
+    apps.push(w.app);
+    const photo = jpeg(640, 480, 40);
+    expect((await send(w, guest(w), w.trip, 'EXT_06', photo)).status).toBe(201);
+    const exif = (tag: string) => {
+      const data = Buffer.from(`Exif  ${tag}`, 'latin1');
+      const app1 = Buffer.concat([Buffer.from([0xff, 0xe1, 0, data.length + 2]), data]);
+      return Buffer.concat([photo.subarray(0, 2), app1, photo.subarray(2)]);
+    };
+    for (const [label, who, body] of [
+      ['même fichier, autre angle', guest(w), photo],
+      ['un octet d’EXIF changé', guest(w), exif('A')],
+      ['autre octet d’EXIF, autre partie', host(w), exif('B')],
+    ] as const) {
+      const r = await send(w, who, w.trip, 'EXT_07', body);
+      expect(r.status, label).toBe(409);
+      expect(r.json, label).toEqual({
+        code: 'PHOTO_DUPLICATE',
+        messageKey: 'common.inspection.photoDuplicate',
+      });
+    }
+    // rien n'est reçu : une seule photo ; le jeton refusé reste utilisable avec une autre prise
+    const c = (await capture(w, guest(w), w.trip, 'EXT_07')).json as { captureId: string };
+    const dup = await w.app.api.request('POST', `/trips/${w.trip}/inspections/checkin/photos`, {
+      headers: guest(w),
+      body: {
+        captureId: c.captureId,
+        slot: 'EXT_07',
+        source: 'CAMERA',
+        sha256: sha(photo),
+        dataBase64: photo.toString('base64'),
+      },
+    });
+    expect(dup.status).toBe(409);
+    const fresh = jpeg(640, 480, 41);
+    const ok = await w.app.api.request('POST', `/trips/${w.trip}/inspections/checkin/photos`, {
+      headers: guest(w),
+      body: {
+        captureId: c.captureId,
+        slot: 'EXT_07',
+        source: 'CAMERA',
+        sha256: sha(fresh),
+        dataBase64: fresh.toString('base64'),
+      },
+    });
+    expect(ok.status).toBe(201);
+    const v = await w.app.api.request('GET', `/trips/${w.trip}/inspections/checkin`, {
+      headers: guest(w),
+    });
+    const sides = (v.json as { sides: { role: string; photos: { sha256: string }[] }[] }).sides;
+    expect(sides.find((x) => x.role === 'GUEST')?.photos.map((p) => p.sha256)).toEqual([
+      sha(photo),
+      sha(fresh),
+    ]);
+    expect(sides.find((x) => x.role === 'HOST')?.photos).toEqual([]);
   });
 
   it('critère 3 : photo de la galerie refusée (source, jeton absent, consommé, d’un autre angle ou d’une autre personne)', async () => {

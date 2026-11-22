@@ -172,12 +172,15 @@ describe('schéma d’audit (US-009)', () => {
           // US-308 (0164, ADR-184) : archive du dossier de preuve (PRIVATE_EVIDENCE, C2, GENERATED,
           // clé USER du demandeur), INSERT ; lecture des colonnes non chiffrées du seul bucket
           // PRIVATE_EVIDENCE (type, taille, empreinte, emplacement) pour le manifeste, SELECT ;
+          // US-303 suite (0176, ADR-196) : empreinte des photos d'annonce (bucket PUBLIC_LISTING,
+          // C0) lue par la commande d'ajout d'une photo d'état (PHOTO_DUPLICATE), SELECT ;
           // toujours aucune UPDATE / DELETE / ALL (la règle de ce test reste entière)
           expect(
             [
               'audit_file_asset.cmd_hold_evidence_export_ins',
               'audit_file_asset.cmd_hold_evidence_file_sel',
               'audit_file_asset.cmd_hold_inspection_file_ins',
+              'audit_file_asset.cmd_hold_inspection_listing_sha_sel',
             ],
             where,
           ).toContain(where);
