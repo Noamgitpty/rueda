@@ -2774,6 +2774,36 @@
         "PA": 120,
         "PY": 120
       }
+    },
+    {
+      "key": "incidental_host_window_h",
+      "type": "DURATION",
+      "unit": "h",
+      "scopes": ["COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "08 BR-REIMB-01 (échéances exécutables, R09 : `deadline = end_effective + 72 h` pour le carburant, le nettoyage et le tabac) ; 16 CLM-021 ; ADR-197 : délai de l’hôte pour demander un frais annexe après la fin effective du trip ; au-delà, la demande est refusée (EXPIRED_WINDOW de SM-5) ; absent ou mal formé : aucune demande (fail-closed)",
+      "status": "PROPOSÉ comme Turo (ADR-197) : 72 h après la fin du trip, comme la règle de Turo la plus récente (08 BR-FUEL-01, H59)",
+      "decision": "PROPOSED",
+      "decisionRef": "ADR-197 ; COMME_TURO (US-706)",
+      "values": {
+        "PA": 72,
+        "PY": 72
+      }
+    },
+    {
+      "key": "incidental_cleaning_max_minor",
+      "type": "MONEY",
+      "scopes": ["COUNTRY"],
+      "currencyBound": true,
+      "failMode": "BLOCK",
+      "source": "08 BR-REIMB-01 (nettoyage / tabac : 150 $ chez Turo) ; 16 CLM-021 ; ADR-197 : plafond d’un frais annexe de nettoyage ou de tabac demandé par l’hôte, en unités mineures de la devise du pays ; au-delà, la demande est refusée ; absent ou mal formé : aucune demande de nettoyage ni de tabac (fail-closed)",
+      "status": "PROPOSÉ comme Turo (ADR-197) : 150,00 USD au Panama ; 1 125 000 PYG au Paraguay (même conversion que price_ceiling_extra_km_minor, à confirmer par le fondateur)",
+      "decision": "PROPOSED",
+      "decisionRef": "ADR-197 ; COMME_TURO (US-706)",
+      "values": {
+        "PA": "15000",
+        "PY": "1125000"
+      }
     }
   ]
 }

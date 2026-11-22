@@ -1,8 +1,9 @@
 /**
  * Module Nest des photos d'état du véhicule (US-303, ADR-179) et de la remise et du retour entre
- * particuliers (US-315, ADR-183) et du no-show déclaré par une partie (US-307, ADR-191) : routes
- * `/trips/{tripId}/inspections/{kind}`, `/trips/{tripId}/handover/{direction}` et
- * `/trips/{tripId}/no-show`. Module DYNAMIQUE, importé par le seul processus API
+ * particuliers (US-315, ADR-183), du no-show déclaré par une partie (US-307, ADR-191) et des frais
+ * annexes (US-706, ADR-197) : routes `/trips/{tripId}/inspections/{kind}`,
+ * `/trips/{tripId}/handover/{direction}`, `/trips/{tripId}/no-show` et
+ * `/trips/{tripId}/incidental-fees`. Module DYNAMIQUE, importé par le seul processus API
  * (`api.module.ts`), après `IamAuthModule` (`SessionGuard`) et `CtrLegalModule` (`TermsGuard`).
  *
  * Adaptateurs choisis par l'appelant : production `postgresTrpAdapters(pool)` (magasin PostgreSQL,
@@ -15,6 +16,10 @@ import { TripHandoverController } from './handover/handover.controller.js';
 import { HandoverService } from './handover/handover.service.js';
 import { PgHandoverStore, UnavailableHandoverStore } from './handover/store.js';
 import type { HandoverStore } from './handover/store.js';
+import { TripIncidentalController } from './incidental/incidental.controller.js';
+import { IncidentalService } from './incidental/incidental.service.js';
+import { PgIncidentalStore, UnavailableIncidentalStore } from './incidental/store.js';
+import type { IncidentalStore } from './incidental/store.js';
 import { TripInspectionController } from './inspection/inspection.controller.js';
 import { TripNoShowController } from './no-show/no-show.controller.js';
 import { NoShowService } from './no-show/no-show.service.js';
@@ -30,6 +35,7 @@ import type { MitConsentPort } from '../../pay/index.js';
 import {
   TRP_EVIDENCE_PIPELINE,
   TRP_HANDOVER_STORE,
+  TRP_INCIDENTAL_STORE,
   TRP_INSPECTION_STORE,
   TRP_MIT_REMINDERS,
   TRP_NO_SHOW_STORE,
@@ -46,6 +52,8 @@ export interface TrpInspectionOptions {
   readonly mitReminders?: MitConsentPort;
   /** No-show déclaré par une partie (US-307) ; absent : 503. */
   readonly noShow?: NoShowStore;
+  /** Frais annexes (US-706) ; absent : 503. */
+  readonly incidental?: IncidentalStore;
 }
 
 @Module({})
@@ -53,7 +61,12 @@ export class TrpInspectionModule {
   static register(options: TrpInspectionOptions = {}): DynamicModule {
     return {
       module: TrpInspectionModule,
-      controllers: [TripInspectionController, TripHandoverController, TripNoShowController],
+      controllers: [
+        TripInspectionController,
+        TripHandoverController,
+        TripNoShowController,
+        TripIncidentalController,
+      ],
       providers: [
         {
           provide: TRP_INSPECTION_STORE,
@@ -75,6 +88,11 @@ export class TrpInspectionModule {
           useValue: options.noShow ?? new UnavailableNoShowStore(),
         },
         NoShowService,
+        {
+          provide: TRP_INCIDENTAL_STORE,
+          useValue: options.incidental ?? new UnavailableIncidentalStore(),
+        },
+        IncidentalService,
       ],
     };
   }
@@ -95,5 +113,7 @@ export function postgresTrpAdapters(pool: SqlPool): TrpInspectionOptions {
     mitReminders: new PgMitConsentStore(pool),
     // US-307 : core.trip_cmd_report_no_show et core.trip_no_show_view sous app_api
     noShow: new PgNoShowStore(pool),
+    // US-706 : core.claim_cmd_*_incidental et core.claim_incidental_view sous app_api
+    incidental: new PgIncidentalStore(pool),
   };
 }

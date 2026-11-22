@@ -11,6 +11,7 @@ import { getRequestI18n } from '../../../../../i18n.ts';
 import accountStyles from '../../../_account/account.module.css';
 import { RefundPhaseLines } from '../../../_refund/refund-phase.tsx';
 import { REVIEWABLE_TRIP_STATUSES } from '../../../../../account/trip-reviews.ts';
+import { incidentalHref, incidentalOffered } from '../../../../../account/trip-incidental.ts';
 import { MAIN_ID } from '../../../_shell/main-id.ts';
 import styles from '../../host.module.css';
 import { TripCard } from '../trip-card.tsx';
@@ -152,6 +153,16 @@ export default async function HostTripPage({
           data-testid="a05-review"
         >
           {t('web.review.link')}
+        </a>
+      )}
+      {/* frais annexes demandés par l'hôte avec justificatif (US-706, 10b A04) : après le retour */}
+      {incidentalOffered(read.trip.status) && (
+        <a
+          className={styles['link']}
+          href={incidentalHref('HOST', tripId, account.orgId)}
+          data-testid="a05-incidental"
+        >
+          {t('web.a04.addFee')}
         </a>
       )}
       {/* no-show du voyageur déclaré par l'hôte (US-307) : remise ouverte, pas encore commencée */}

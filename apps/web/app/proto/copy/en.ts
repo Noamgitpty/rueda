@@ -293,7 +293,6 @@ export const EN_PROTO = {
   'web.a02.cars.inReview': 'In review',
   'web.a02.cars.add': 'List another car',
   'web.a02.noShow': "The guest didn't show up",
-  'web.a04.addFee': 'Add a cost with proof',
   'web.a04.claimUntil': 'You can report damage until {date}',
   'web.a05.cancel': 'Cancel booking',
   'web.a05.cancelWarning':

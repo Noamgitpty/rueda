@@ -78,7 +78,10 @@ import {
 } from './modules/ntf/index.js';
 import { resolveCancellationParams } from './modules/prc/index.js';
 import { ntfSmsBudget } from './modules/risk/index.js';
-import { registerClaimDecisionExecutor } from './modules/clm/index.js';
+import {
+  registerClaimDecisionExecutor,
+  registerIncidentalInvoiceExecutor,
+} from './modules/clm/index.js';
 import { registerPayoutScheduler } from './modules/pyo/index.js';
 import { registerOverdueDetection } from './modules/trp/index.js';
 import {
@@ -373,6 +376,12 @@ export function registerWorkerTasks(registry: BusRegistry, deps: WorkerTaskDeps)
   // l'hôte au host_ledger, déclaration à l'assureur journalisée ; AUCUN port d'assureur en
   // production avant le lot C (`null` : rien n'est envoyé, l'ops transmet la déclaration)
   registerClaimDecisionExecutor(registry, deps.transactions, deps.log, null);
+
+  // Frais annexes (US-706, ADR-197) : débités par Kmino sous `payment_command` — payés par le
+  // voyageur, décidés par l'ops après contestation, ou sans réponse après l'échéance relue en base
+  // (`invoice_guest_response_h`) ; débit séparé NOTIFIÉ d'US-703 (débité par mit_charge_scheduler,
+  // jamais la caution) ; jamais une demande contestée sans décision
+  registerIncidentalInvoiceExecutor(registry, deps.transactions, deps.log);
 
   // US-701 (ADR-169) : ré-autorisation de la caution avant l'échéance (rail a) ; refusée ⇒ ops,
   // sans débit. Aucun connecteur en production avant le lot C : rien n'est envoyé

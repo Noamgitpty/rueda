@@ -100,3 +100,27 @@ export type {
   InsurerClaimResult,
   InsurerClaimsPort,
 } from './internal/claims/executor.js';
+
+// Frais annexes (US-706, ADR-197) : travailleur `incidental_invoice_executor` (sous
+// `payment_command`) qui débite par US-703 les frais payés, décidés ou sans réponse à l'échéance.
+export {
+  INCIDENTAL_BATCH,
+  INCIDENTAL_PERIOD_SECONDS,
+  INCIDENTAL_WORKER,
+  IncidentalInvoiceExecutor,
+  registerIncidentalInvoiceExecutor,
+} from './internal/incidental/executor.js';
+export type {
+  IncidentalChargeOutcome,
+  IncidentalExecutorDeps,
+  IncidentalPass,
+} from './internal/incidental/executor.js';
+export {
+  INCIDENTAL_DECISION_OUTCOMES,
+  PgIncidentalStaffStore,
+  UNAVAILABLE_INCIDENTAL_STAFF_STORE,
+} from './internal/incidental/staff-store.js';
+export type {
+  IncidentalDecisionOutcome,
+  IncidentalStaffStore,
+} from './internal/incidental/staff-store.js';

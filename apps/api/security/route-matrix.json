@@ -775,6 +775,26 @@
       "acces": "session",
       "idor": "trip d'une autre personne (ni son voyageur ni le titulaire de son compte d'hôte), inconnu ou identifiant mal formé : 404 NO_SHOW_NOT_FOUND, même réponse (17 §2.3 point 5) ; la partie est celle de la session, jugée en base (core.trip_no_show_view, core.trip_cmd_report_no_show, 0171) ; le motif est déduit de la partie (l'hôte déclare le voyageur absent, le voyageur l'hôte), jamais reçu ; aucune heure ni aucun montant reçu du client ; rejeu par requestId de la même personne seulement (sinon 400) ; preuves base : l0-us307"
     },
+    "GET /trips/{tripId}/incidental-fees": {
+      "acces": "session",
+      "idor": "trip ou frais d'une autre personne (ni son voyageur ni le titulaire de son compte d'hôte), inconnu, frais d'un autre trip ou identifiant mal formé : 404 INCIDENTAL_NOT_FOUND, même réponse (17 §2.3 point 5) ; la partie est celle de la session, jugée en base (core.claim_incidental_view, core.claim_cmd_submit_incidental, core.claim_cmd_accept_incidental, core.claim_cmd_dispute_incidental, core.claim_cmd_cancel_incidental, 0177) ; seul l'hôte titulaire demande et annule, seul le voyageur paie et conteste ; aucune heure ni aucune jambe reçue du client, montant plafonné par la base ; rejeu par requestId de la même personne seulement (sinon 400) ; preuves base : l0-us706-incidental-fees"
+    },
+    "POST /trips/{tripId}/incidental-fees": {
+      "acces": "session",
+      "idor": "trip ou frais d'une autre personne (ni son voyageur ni le titulaire de son compte d'hôte), inconnu, frais d'un autre trip ou identifiant mal formé : 404 INCIDENTAL_NOT_FOUND, même réponse (17 §2.3 point 5) ; la partie est celle de la session, jugée en base (core.claim_incidental_view, core.claim_cmd_submit_incidental, core.claim_cmd_accept_incidental, core.claim_cmd_dispute_incidental, core.claim_cmd_cancel_incidental, 0177) ; seul l'hôte titulaire demande et annule, seul le voyageur paie et conteste ; aucune heure ni aucune jambe reçue du client, montant plafonné par la base ; rejeu par requestId de la même personne seulement (sinon 400) ; preuves base : l0-us706-incidental-fees"
+    },
+    "POST /trips/{tripId}/incidental-fees/{invoiceId}/accept": {
+      "acces": "session",
+      "idor": "trip ou frais d'une autre personne (ni son voyageur ni le titulaire de son compte d'hôte), inconnu, frais d'un autre trip ou identifiant mal formé : 404 INCIDENTAL_NOT_FOUND, même réponse (17 §2.3 point 5) ; la partie est celle de la session, jugée en base (core.claim_incidental_view, core.claim_cmd_submit_incidental, core.claim_cmd_accept_incidental, core.claim_cmd_dispute_incidental, core.claim_cmd_cancel_incidental, 0177) ; seul l'hôte titulaire demande et annule, seul le voyageur paie et conteste ; aucune heure ni aucune jambe reçue du client, montant plafonné par la base ; rejeu par requestId de la même personne seulement (sinon 400) ; preuves base : l0-us706-incidental-fees"
+    },
+    "POST /trips/{tripId}/incidental-fees/{invoiceId}/dispute": {
+      "acces": "session",
+      "idor": "trip ou frais d'une autre personne (ni son voyageur ni le titulaire de son compte d'hôte), inconnu, frais d'un autre trip ou identifiant mal formé : 404 INCIDENTAL_NOT_FOUND, même réponse (17 §2.3 point 5) ; la partie est celle de la session, jugée en base (core.claim_incidental_view, core.claim_cmd_submit_incidental, core.claim_cmd_accept_incidental, core.claim_cmd_dispute_incidental, core.claim_cmd_cancel_incidental, 0177) ; seul l'hôte titulaire demande et annule, seul le voyageur paie et conteste ; aucune heure ni aucune jambe reçue du client, montant plafonné par la base ; rejeu par requestId de la même personne seulement (sinon 400) ; preuves base : l0-us706-incidental-fees"
+    },
+    "POST /trips/{tripId}/incidental-fees/{invoiceId}/cancel": {
+      "acces": "session",
+      "idor": "trip ou frais d'une autre personne (ni son voyageur ni le titulaire de son compte d'hôte), inconnu, frais d'un autre trip ou identifiant mal formé : 404 INCIDENTAL_NOT_FOUND, même réponse (17 §2.3 point 5) ; la partie est celle de la session, jugée en base (core.claim_incidental_view, core.claim_cmd_submit_incidental, core.claim_cmd_accept_incidental, core.claim_cmd_dispute_incidental, core.claim_cmd_cancel_incidental, 0177) ; seul l'hôte titulaire demande et annule, seul le voyageur paie et conteste ; aucune heure ni aucune jambe reçue du client, montant plafonné par la base ; rejeu par requestId de la même personne seulement (sinon 400) ; preuves base : l0-us706-incidental-fees"
+    },
     "POST /trips/{tripId}/handover/{direction}/validate": {
       "acces": "session",
       "idor": "trip d'une autre personne (ni son voyageur ni le titulaire de son compte d'hôte), inconnu, sens ou identifiant mal formé : 404 HANDOVER_NOT_FOUND, même réponse (17 §2.3 point 5) ; la partie est celle de la session, jugée en base (core.trip_handover_view, core.trip_cmd_open_checkin, core.trip_cmd_identity_check, core.trip_cmd_validate_handover, 0163) ; chaque partie écrit SA validation seulement ; le contrôle du permis est celui du seul hôte (403 HANDOVER_HOST_ONLY au voyageur) ; l'hôte ne lit du voyageur que le prénom, l'initiale du nom et l'année de naissance, au départ ; aucune heure reçue du client ; preuves base : l0-us315"
@@ -815,6 +835,20 @@
       "roles": ["OPS_AGENT", "ADMIN"],
       "portee": "pays",
       "idor": "déclaration inconnue ou de l’autre pays : 403 FORBIDDEN journalisé ; dossier d’un collègue : 403 STAFF_CASE_REQUIRED ; trip qui concerne l’agent (ADMIN compris) : 403 STAFF_SELF_FORBIDDEN, rien n’est décidé (preuve L0 l0-us309-claims, RT-L3-H09)"
+    },
+    "GET /console/incidental-fees/{invoiceId}": {
+      "acces": "staff",
+      "permission": "dispute.decide dans le pays du frais annexe, garde ADR-122 (US-706, 0177) ; aucune donnée nominative rendue",
+      "roles": ["OPS_AGENT", "ADMIN"],
+      "portee": "pays",
+      "idor": "frais inconnu ou de l’autre pays : 403 FORBIDDEN journalisé (aucune existence révélée) ; trip qui concerne l’agent : 403 STAFF_SELF_FORBIDDEN (preuve L0 l0-us706-incidental-fees)"
+    },
+    "POST /console/incidental-fees/{invoiceId}/decision": {
+      "acces": "staff",
+      "permission": "dispute.decide (OPS_AGENT, ADMIN) dans le pays du frais annexe, garde ADR-122 ; débiter réservé à ADMIN (seuil non fixé, PROPOSÉ) ; frais CONTESTÉ seulement ; motif jugé par la base ; aucun montant reçu ; décision et refus journalisés (US-706, 0177)",
+      "roles": ["OPS_AGENT", "ADMIN"],
+      "portee": "pays",
+      "idor": "frais inconnu ou de l’autre pays : 403 FORBIDDEN journalisé ; trip qui concerne l’agent (ADMIN compris) : 403 STAFF_SELF_FORBIDDEN, rien n’est décidé (preuve L0 l0-us706-incidental-fees, RT-L3-H09)"
     }
   }
 }

@@ -2798,6 +2798,104 @@
       "story": "US-309"
     },
     {
+      "signature": "core.claim_incidental_trip_facts(uuid)",
+      "family": "cmd_hold",
+      "owner": "cmd_hold_owner",
+      "execute": ["cmd_money_owner"],
+      "story": "US-706"
+    },
+    {
+      "signature": "core.claim_incidental_trip_photos(uuid)",
+      "family": "cmd_hold",
+      "owner": "cmd_hold_owner",
+      "execute": ["cmd_money_owner"],
+      "story": "US-706"
+    },
+    {
+      "signature": "core.claim_cmd_submit_incidental(bytea,uuid,uuid,text,bigint,text,uuid[])",
+      "family": "cmd_money",
+      "owner": "cmd_money_owner",
+      "execute": ["app_api"],
+      "story": "US-706"
+    },
+    {
+      "signature": "core.claim_cmd_cancel_incidental(bytea,uuid)",
+      "family": "cmd_money",
+      "owner": "cmd_money_owner",
+      "execute": ["app_api"],
+      "story": "US-706"
+    },
+    {
+      "signature": "core.claim_cmd_accept_incidental(bytea,uuid)",
+      "family": "cmd_money",
+      "owner": "cmd_money_owner",
+      "execute": ["app_api"],
+      "story": "US-706"
+    },
+    {
+      "signature": "core.claim_cmd_dispute_incidental(bytea,uuid,text,uuid[])",
+      "family": "cmd_money",
+      "owner": "cmd_money_owner",
+      "execute": ["app_api"],
+      "story": "US-706"
+    },
+    {
+      "signature": "core.claim_incidental_view(bytea,uuid)",
+      "family": "cmd_money",
+      "owner": "cmd_money_owner",
+      "execute": ["app_api"],
+      "story": "US-706"
+    },
+    {
+      "signature": "core.claim_cmd_decide_incidental(uuid,uuid,text,uuid,text,text)",
+      "family": "cmd_money",
+      "owner": "cmd_money_owner",
+      "execute": ["iam_staff_owner"],
+      "story": "US-706"
+    },
+    {
+      "signature": "core.claim_incidental_staff_view(uuid)",
+      "family": "cmd_money",
+      "owner": "cmd_money_owner",
+      "execute": ["iam_staff_owner"],
+      "story": "US-706"
+    },
+    {
+      "signature": "core.claim_incidental_invoices_due(integer)",
+      "family": "cmd_money",
+      "owner": "cmd_money_owner",
+      "execute": ["app_worker"],
+      "story": "US-706"
+    },
+    {
+      "signature": "core.claim_cmd_charge_incidental(uuid,uuid)",
+      "family": "cmd_money",
+      "owner": "cmd_money_owner",
+      "execute": ["app_worker"],
+      "story": "US-706"
+    },
+    {
+      "signature": "core.claim_cmd_defer_incidental(uuid,text)",
+      "family": "cmd_money",
+      "owner": "cmd_money_owner",
+      "execute": ["app_worker"],
+      "story": "US-706"
+    },
+    {
+      "signature": "core.support_staff_incidental(bytea,uuid,uuid)",
+      "family": "iam_staff",
+      "owner": "iam_staff_owner",
+      "execute": ["app_api"],
+      "story": "US-706"
+    },
+    {
+      "signature": "core.support_staff_decide_incidental(bytea,uuid,uuid,text,text)",
+      "family": "iam_staff",
+      "owner": "iam_staff_owner",
+      "execute": ["app_api"],
+      "story": "US-706"
+    },
+    {
       "signature": "core.payout_host_payouts(bytea,uuid)",
       "family": "cmd_money",
       "owner": "cmd_money_owner",

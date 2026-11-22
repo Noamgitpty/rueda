@@ -36,6 +36,8 @@ export const CLAIM_MESSAGES = {
   // 16 CLM-006 « décision au-delà d'un seuil » : aucun seuil fixé ⇒ tout débit (PROPOSÉ)
   DECISION_ADMIN_REQUIRED: { status: 403, messageKey: 'common.claim.adminRequired' },
   AGREEMENT_FILE_INVALID: { status: 422, messageKey: 'common.claim.agreementFileInvalid' },
+  // US-706 (ADR-197) : seule une demande de frais annexe CONTESTÉE est décidée par l'ops
+  INCIDENTAL_NOT_DISPUTED: { status: 409, messageKey: 'common.claim.incidentalNotDisputed' },
   CLAIMS_UNAVAILABLE: { status: 503, messageKey: 'common.claim.unavailable' },
 } as const;
 

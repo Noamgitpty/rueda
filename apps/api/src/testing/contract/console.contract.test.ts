@@ -14,7 +14,12 @@ import {
   EvidenceBundleService,
   EvidenceStoreError,
 } from '../../modules/clm/index.js';
-import type { ClaimResult, ClaimStore, EvidenceBundleStore } from '../../modules/clm/index.js';
+import type {
+  ClaimResult,
+  ClaimStore,
+  EvidenceBundleStore,
+  IncidentalStaffStore,
+} from '../../modules/clm/index.js';
 import { AbuseBoardAccessError } from '../../modules/risk/index.js';
 import type { BrandStore, StaffVersion } from '../../modules/cfg/index.js';
 import type { StaffOptions } from '../../modules/iam/index.js';
@@ -778,13 +783,45 @@ describe('contrat HTTP — /console', () => {
           : claimResult(claimState.decide, CLAIM_VIEW),
       ),
   };
+  // US-706 : frais annexe contesté vu et décidé par l'ops (double du magasin)
+  const INCIDENTAL_VIEW = {
+    id: ID,
+    tripId: ID,
+    country: 'XA',
+    currency: 'XTA',
+    exponent: 2,
+    feeType: 'CLEANING',
+    amountMinor: '4500',
+    legs: { HOST: '4500', INSURER: '0', TAX_THIRD_PARTY: '0', PLATFORM: '0' },
+    status: 'DISPUTED',
+    description: 'Sièges arrière couverts de sable au retour',
+    evidence: [{ kind: 'CHECKOUT', slotCode: 'INT_01', takenBy: 'HOST' }],
+    disputeEvidence: [{ kind: 'CHECKOUT', slotCode: 'INT_02', takenBy: 'GUEST' }],
+    notifiedAt: '2097-03-10T10:00:00.000Z',
+    responseDueAt: '2097-03-13T10:00:00.000Z',
+    disputedAt: '2097-03-13T09:58:00.000Z',
+    disputeReason: 'Le véhicule a été rendu propre, voir ma photo.',
+    decidedRole: null,
+    decisionRationale: null,
+    chargeBasis: null,
+  };
+  const incidentalState = { down: false, view: 'OK', decide: 'DECIDED' };
+  const incidentalStore: IncidentalStaffStore = {
+    transaction: async (_staff, fn) => {
+      if (incidentalState.down) throw new ClaimStoreError('08006');
+      const tx = { query: () => Promise.resolve({ rows: [] }) };
+      return (await fn(tx)).value;
+    },
+    view: () => Promise.resolve(claimResult(incidentalState.view, INCIDENTAL_VIEW)),
+    decide: () => Promise.resolve(claimResult(incidentalState.decide, INCIDENTAL_VIEW)),
+  };
   afterAll(closeContractApps);
 
   async function app(limits?: StaffOptions['limits']): Promise<ContractApp> {
     const ref: { self?: ContractApp } = {};
     const a = await startContractApp({
       evidence: { service: evidenceService },
-      claims: { store: claimStore },
+      claims: { store: claimStore, incidental: incidentalStore },
       staff: { store: staffStore(() => ref.self), ...(limits !== undefined ? { limits } : {}) },
       sup: {
         store: {
@@ -1397,6 +1434,70 @@ describe('contrat HTTP — /console', () => {
     claimState.down = true;
     expect((await a.api.request('POST', decide, { headers, body: decision })).status).toBe(503);
     claimState.down = false;
+    await refusals(a, 'POST', decide);
+  });
+
+  it('frais annexes contestés (US-706) : vue 200, 400, 403, 503 ; décision 201, 200 (rejeu), 400, 403, 409, 422, 503', async () => {
+    const a = await app();
+    const headers = a.cookie('staff');
+    const read = `/console/incidental-fees/${ID}`;
+    expect((await a.api.request('GET', read, { headers })).json).toEqual({
+      incidental: INCIDENTAL_VIEW,
+    });
+    expect((await a.api.request('GET', '/console/incidental-fees/x', { headers })).status).toBe(
+      400,
+    );
+    for (const [outcome, code] of [
+      ['FORBIDDEN', 'FORBIDDEN'],
+      ['SELF_FORBIDDEN', 'STAFF_SELF_FORBIDDEN'],
+    ] as const) {
+      incidentalState.view = outcome;
+      const r = await a.api.request('GET', read, { headers });
+      expect(r.status, outcome).toBe(403);
+      expect(r.json).toMatchObject({ code });
+    }
+    incidentalState.view = 'OK';
+    incidentalState.down = true;
+    expect((await a.api.request('GET', read, { headers })).json).toMatchObject({
+      code: 'CLAIMS_UNAVAILABLE',
+    });
+    incidentalState.down = false;
+    await refusals(a, 'GET', read);
+
+    const decide = `/console/incidental-fees/${ID}/decision`;
+    const decision = {
+      requestId: randomUUID(),
+      outcome: 'CHARGE',
+      rationale: 'Photos de retour de l’hôte : sable visible sur la banquette.',
+    };
+    expect((await a.api.request('POST', decide, { headers, body: decision })).status).toBe(201);
+    incidentalState.decide = 'ALREADY_DECIDED';
+    expect((await a.api.request('POST', decide, { headers, body: decision })).status).toBe(200);
+    for (const bad of [
+      { ...decision, outcome: 'FINAL' },
+      { ...decision, requestId: 'x' },
+      { ...decision, amountMinor: '4500' },
+      { requestId: decision.requestId, outcome: 'REJECT' },
+    ]) {
+      expect((await a.api.request('POST', decide, { headers, body: bad })).status).toBe(400);
+    }
+    for (const [outcome, status, code] of [
+      ['FORBIDDEN', 403, 'FORBIDDEN'],
+      ['SELF_FORBIDDEN', 403, 'STAFF_SELF_FORBIDDEN'],
+      ['DECISION_ADMIN_REQUIRED', 403, 'DECISION_ADMIN_REQUIRED'],
+      ['INCIDENTAL_NOT_DISPUTED', 409, 'INCIDENTAL_NOT_DISPUTED'],
+      ['DECISION_RATIONALE_REQUIRED', 422, 'DECISION_RATIONALE_REQUIRED'],
+      ['DECISION_FINALITY_FORBIDDEN', 422, 'DECISION_FINALITY_FORBIDDEN'],
+    ] as const) {
+      incidentalState.decide = outcome;
+      const r = await a.api.request('POST', decide, { headers, body: decision });
+      expect(r.status, outcome).toBe(status);
+      expect(r.json).toMatchObject({ code });
+    }
+    incidentalState.decide = 'DECIDED';
+    incidentalState.down = true;
+    expect((await a.api.request('POST', decide, { headers, body: decision })).status).toBe(503);
+    incidentalState.down = false;
     await refusals(a, 'POST', decide);
   });
 
