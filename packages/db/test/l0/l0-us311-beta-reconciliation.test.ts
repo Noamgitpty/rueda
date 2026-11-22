@@ -20,8 +20,8 @@
  *
  * Isolement des comptages (#281) : aucune assertion ne porte sur un total global. Les éléments
  * vérifiés sont ceux des références créées ici ; les comptes du passage qui ne dépendent que des
- * lignes fournies (appariées, « sans trip ») sont exacts ; les KPI sont comparés avant / après dans
- * UN seul instantané (`REPEATABLE READ`). Transactions ANNULÉES ; aucun interrupteur ni paramètre.
+ * lignes fournies (appariées, « sans trip ») sont exacts ; les KPI sont comparés à une lecture
+ * indépendante dans UN seul instantané (`REPEATABLE READ READ ONLY`, écritures validées avant). Transactions ANNULÉES ; aucun interrupteur ni paramètre.
  */
 import { randomUUID } from 'node:crypto';
 import { FakePsp } from '@rueda/fake-adapters/psp';
@@ -201,27 +201,31 @@ async function rejects(tx: Tx, sql: string, values: readonly unknown[], code: st
   await tx.query('ROLLBACK TO SAVEPOINT us311');
 }
 
-/** Transaction annulée en REPEATABLE READ : un seul instantané (correction #281). */
+/**
+ * Instantané de LECTURE (correction #281 ; 40001 instable sur main) : transaction annulée en
+ * `REPEATABLE READ READ ONLY`. Toute écriture (élévation du staff et son audit chaîné, données
+ * préparées) est validée AVANT, dans ses propres transactions : l'instantané ne fait que lire, donc
+ * aucune écriture concurrente (tête de la chaîne d'audit) ne peut l'annuler, et aucun nouvel essai
+ * n'est nécessaire. Une écriture dans l'instantané échouerait (25006).
+ */
 async function inSnapshot<T>(fn: (tx: Tx) => Promise<T>): Promise<T> {
   return withRole('app_api', async (client) => {
-    // REPEATABLE READ : une écriture concurrente de la tête de la chaîne d'audit (élévation du
-    // staff) peut annuler la transaction (40001, échec de sérialisation attendu à ce niveau) ;
-    // la transaction, toujours annulée, est alors rejouée entière, au plus 5 fois
-    for (let attempt = 1; ; attempt += 1) {
-      await client.query(`SET default_transaction_isolation = 'repeatable read'`);
-      try {
-        return await withTestTransaction(client, {}, async (tx) => {
-          const { rows } = await tx.query<{ level: string }>(
-            `SELECT pg_catalog.current_setting('transaction_isolation') AS level`,
-          );
-          if (rows[0]?.level !== 'repeatable read') throw new Error('isolement attendu');
-          return fn(tx);
-        });
-      } catch (error) {
-        if ((error as { code?: unknown }).code !== '40001' || attempt >= 5) throw error;
-      } finally {
-        await client.query('RESET default_transaction_isolation');
-      }
+    await client.query(`SET default_transaction_isolation = 'repeatable read'`);
+    await client.query('SET default_transaction_read_only = on');
+    try {
+      return await withTestTransaction(client, {}, async (tx) => {
+        const { rows } = await tx.query<{ level: string; ro: string }>(
+          `SELECT pg_catalog.current_setting('transaction_isolation') AS level,
+                  pg_catalog.current_setting('transaction_read_only') AS ro`,
+        );
+        if (rows[0]?.level !== 'repeatable read' || rows[0]?.ro !== 'on') {
+          throw new Error('instantané attendu : repeatable read, lecture seule');
+        }
+        return fn(tx);
+      });
+    } finally {
+      await client.query('RESET default_transaction_isolation');
+      await client.query('RESET default_transaction_read_only');
     }
   });
 }
@@ -1009,43 +1013,52 @@ describe.each(byCountry)('US-311 — vues de la bêta (%s, %s)', (_k, _cur, c) =
     });
   });
 
-  it('KPI de sortie : calculés depuis les données (un trip terminé et des clés sans paiement prouvé changent S2, dans un seul instantané) ; S3 non mesurable ; aucune saisie', async () => {
+  it('KPI de sortie : calculés depuis les données (un trip terminé et des clés sans paiement prouvé comptent dans S2, relus indépendamment dans un seul instantané) ; S3 non mesurable ; aucune saisie', async () => {
+    // écritures validées AVANT l'instantané : élévation du staff (audit chaîné), trips préparés
+    const fin = await committedFinance(c.country);
+    const { done, keys } = await withRole('app_api', async (client) => {
+      const d = await futureTrip(client, c);
+      await client.query('SELECT test_fixture.us311_state($1, $2)', [d, 'COMPLETED']);
+      const k = await futureTrip(client, c);
+      await client.query('SELECT test_fixture.us311_state($1, $2)', [k, 'KEYS_OUT']);
+      return { done: d, keys: k };
+    });
+    // instantané de lecture seule : la vue et la lecture indépendante voient les mêmes lignes
     await inSnapshot(async (tx) => {
-      const fin = await ops(tx, 'FINANCE', [c.country]);
-      const read = async (): Promise<Row[]> => {
-        const r = await first<{ outcome: string; body: Row }>(tx, VIEW, [
-          fin.hash,
-          uuid(),
-          'EXIT_KPI',
+      const r = await first<{ outcome: string; body: Row }>(tx, VIEW, [
+        fin.hash,
+        uuid(),
+        'EXIT_KPI',
+        c.country,
+        false,
+        null,
+      ]);
+      expect(r.outcome).toBe('OK');
+      const rows = r.body['rows'] as Row[];
+      expect(rows.map((k) => k['code'])).toEqual(['S1', 'S2', 'S3', 'S4']);
+      const oracle = (
+        await first<{ o: Row }>(tx, 'SELECT test_fixture.us311_kpi_oracle($1, $2::uuid[]) AS o', [
           c.country,
-          false,
-          null,
-        ]);
-        expect(r.outcome).toBe('OK');
-        return r.body['rows'] as Row[];
-      };
-      const before = await read();
-      expect(before.map((k) => k['code'])).toEqual(['S1', 'S2', 'S3', 'S4']);
-      const s2 = (rows: Row[]) => rows.find((k) => k['code'] === 'S2')!;
-      const done = await futureTrip(tx, c);
-      await tx.query('SELECT test_fixture.us311_state($1, $2)', [done, 'COMPLETED']);
-      const keys = await futureTrip(tx, c);
-      await tx.query('SELECT test_fixture.us311_state($1, $2)', [keys, 'KEYS_OUT']);
-      const after = await read();
-      expect(Number(s2(after)['value'])).toBe(Number(s2(before)['value']) + 1);
-      expect(Number(s2(after)['keysWithoutPayment'])).toBe(
-        Number(s2(before)['keysWithoutPayment']) + 1,
-      );
-      expect(s2(after)['met']).toBe(false);
-      expect(after.find((k) => k['code'] === 'S3')).toEqual({
+          [done, keys],
+        ])
+      ).o;
+      // nos objets comptent : le trip terminé dans S2, les clés sans paiement prouvé aussi
+      expect(oracle['completedTrips']).toEqual([done]);
+      expect(oracle['unpaidTrips']).toEqual([keys]);
+      const s2 = rows.find((k) => k['code'] === 'S2')!;
+      expect(Number(s2['value'])).toBe(Number(oracle['completed']));
+      expect(Number(s2['keysWithoutPayment'])).toBe(Number(oracle['keysWithoutPayment']));
+      expect(Number(s2['keysWithoutPayment'])).toBeGreaterThanOrEqual(1);
+      expect(s2['met']).toBe(false);
+      expect(rows.find((k) => k['code'] === 'S3')).toEqual({
         code: 'S3',
         measurable: false,
         value: null,
         threshold: 100,
         met: null,
       });
-      expect(after.find((k) => k['code'] === 'S1')).toMatchObject({ threshold: null, met: null });
-      expect(after.find((k) => k['code'] === 'S4')).toMatchObject({ threshold: 0 });
+      expect(rows.find((k) => k['code'] === 'S1')).toMatchObject({ threshold: null, met: null });
+      expect(rows.find((k) => k['code'] === 'S4')).toMatchObject({ threshold: 0 });
     });
   });
 });

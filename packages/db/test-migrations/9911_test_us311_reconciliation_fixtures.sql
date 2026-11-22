@@ -13,6 +13,8 @@
 --      clés remises (états écrits par TRP, US-305 et US-315) ;
 --   3. `us311_records` (migrator) : relecture des passages, éléments, journal d'accès et audit
 --      qu'aucun rôle applicatif ne lit ;
+--   3 bis. `us311_kpi_oracle` (migrator, lecture seule) : S2 relu indépendamment de la vue, dans
+--      l'instantané de l'appelant ;
 --   4. `us311_probe` (iam_staff_owner, garde active) : réécriture d'un passage ou d'un élément,
 --      ou suppression, sous les seuls droits et politiques d'iam_staff_owner.
 -- AUCUNE fixture n'écrit un interrupteur de mise en service (17 §0.1) ni un paramètre : le seuil
@@ -20,6 +22,7 @@
 --
 -- Retour arrière : DROP FUNCTION test_fixture.us311_operation(uuid, bigint, text, text),
 --   test_fixture.us311_hold_of(uuid), test_fixture.us311_access(uuid),
+--   test_fixture.us311_kpi_oracle(text, uuid[]),
 --   test_fixture.us311_state(uuid, text), test_fixture.us311_records(uuid),
 --   test_fixture.us311_probe(uuid, text).
 
@@ -136,6 +139,37 @@ AS $fn$
                       '[]'::jsonb))
 $fn$;
 
+-- Lecture indépendante de S2 (18 §1.1, ADR-194 point 5), dans l'instantané de l'appelant : trips
+-- terminés (RETURNED, POST_TRIP, COMPLETED) du pays et clés remises (OUT) sans autorisation ni
+-- capture réussie et prouvée ; rend aussi lesquels des trips donnés y figurent. Lecture seule.
+CREATE FUNCTION test_fixture.us311_kpi_oracle(p_country text, p_trips uuid[])
+  RETURNS jsonb
+  LANGUAGE sql
+  STABLE
+  SECURITY DEFINER
+  SET search_path = pg_catalog, pg_temp
+AS $fn$
+  WITH done AS (
+    SELECT t.id FROM core.booking_trip AS t
+     WHERE t.country_code = p_country AND t.status IN ('RETURNED', 'POST_TRIP', 'COMPLETED')
+  ), unpaid AS (
+    SELECT t.id
+      FROM core.trip_ops_key_handover AS k
+      JOIN core.booking_trip AS t ON t.id = k.trip_id
+     WHERE k.direction = 'OUT' AND t.country_code = p_country
+       AND NOT EXISTS (SELECT 1 FROM core.payment_payment_operation AS op
+                        WHERE op.hold_id = t.source_hold_id AND op.kind IN ('AUTH', 'CAPTURE')
+                          AND op.status = 'SUCCEEDED' AND op.proof_type IS NOT NULL)
+  )
+  SELECT pg_catalog.jsonb_build_object(
+    'completed', (SELECT pg_catalog.count(*) FROM done),
+    'keysWithoutPayment', (SELECT pg_catalog.count(*) FROM unpaid),
+    'completedTrips', COALESCE((SELECT pg_catalog.jsonb_agg(d.id ORDER BY d.id) FROM done AS d
+                                 WHERE d.id = ANY (p_trips)), '[]'::jsonb),
+    'unpaidTrips', COALESCE((SELECT pg_catalog.jsonb_agg(u.id ORDER BY u.id) FROM unpaid AS u
+                              WHERE u.id = ANY (p_trips)), '[]'::jsonb))
+$fn$;
+
 CREATE FUNCTION test_fixture.us311_probe(p_run uuid, p_op text)
   RETURNS integer
   LANGUAGE plpgsql
@@ -165,10 +199,12 @@ END
 $fn$;
 
 REVOKE ALL ON FUNCTION test_fixture.us311_operation(uuid, bigint, text, text),
+  test_fixture.us311_kpi_oracle(text, uuid[]),
   test_fixture.us311_hold_of(uuid),
   test_fixture.us311_state(uuid, text), test_fixture.us311_records(uuid),
   test_fixture.us311_access(uuid), test_fixture.us311_probe(uuid, text) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION test_fixture.us311_operation(uuid, bigint, text, text),
+  test_fixture.us311_kpi_oracle(text, uuid[]),
   test_fixture.us311_hold_of(uuid),
   test_fixture.us311_state(uuid, text), test_fixture.us311_records(uuid),
   test_fixture.us311_access(uuid), test_fixture.us311_probe(uuid, text) TO app_api;
