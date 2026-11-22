@@ -1007,15 +1007,14 @@ describe.each(COUNTRIES)('US-706 — frais annexes ($country, $currency)', (c: C
         const paid = await view(w.guest);
         expect(paid['photos']).toEqual([]);
         expect((paid['invoices'] as Row[])[0]).toMatchObject({ status: 'ACCEPTED', evidence });
-        // plafond illisible (décimal) : non rendu, la vue reste lisible (qa delta 2)
+        // plafond illisible : la garde des paramètres (config_param_value_guard, type MONEY) le
+        // refuse à l'écriture ; la vue n'en reçoit donc jamais (filtre de la vue : défense en
+        // profondeur ; lecture de l'API prouvée par store.test.ts)
         await now(tx, at(J0, 2 * HOUR));
-        await param(tx, 'incidental_cleaning_max_minor', c.country, '15000.5');
-        await now(tx, at(J0, 3 * HOUR));
-        expect((await view(w.holder))['caps']).toEqual({
-          FUEL: null,
-          CLEANING: null,
-          SMOKING: null,
-        });
+        expect(
+          (await caught(tx, () => param(tx, 'incidental_cleaning_max_minor', c.country, '15000.5')))
+            ?.code,
+        ).toBe('23514');
         // délai de l'hôte passé : plus de demande possible, plus aucun identifiant pour l'hôte
         await now(tx, at(END, 72 * HOUR + 1));
         const late = await view(w.holder);

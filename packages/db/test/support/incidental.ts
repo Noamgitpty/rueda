@@ -5,7 +5,8 @@
  */
 import { randomBytes } from 'node:crypto';
 import type pg from 'pg';
-import { withRole } from '../../src/testing/index.ts';
+import { SubjectKeyStore } from '../../src/audit/index.ts';
+import { FakeKeyWrapper, withRole } from '../../src/testing/index.ts';
 import { setActor } from './audit.ts';
 import { COUNTRIES } from './avl.ts';
 import type { CountryCase } from './avl.ts';
@@ -249,6 +250,8 @@ export async function decide(
   return (await tx.query<Row>(DECIDE, [hash, requestId, invoice, outcome, rationale])).rows[0]!;
 }
 
+const KEYS = new SubjectKeyStore(new FakeKeyWrapper());
+
 export const ATTACH =
   'SELECT core.claim_cmd_attach_incidental_file($1, $2::uuid, $3::uuid, $4, $5::bigint, $6) AS r';
 
@@ -260,6 +263,10 @@ export async function attach(
   o: { readonly id?: string; readonly sha?: Buffer; readonly bytes?: number } = {},
 ): Promise<{ readonly r: string; readonly id: string }> {
   const id = o.id ?? uuid();
+  // clé USER du déposant (le fichier est chiffré par elle, comme les photos d'état d'US-303)
+  await setActor(tx, { kind: 'GUEST', actorId: user });
+  const k = await KEYS.dekFor(tx, { type: 'USER', id: user }, 'create');
+  if (k.status !== 'OK') throw new Error(`clé du sujet : ${k.status}`);
   const hash = await session(tx, user);
   const r = (
     await tx.query<{ r: string }>(ATTACH, [
