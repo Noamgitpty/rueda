@@ -501,6 +501,31 @@ async function openGuestHandover(
   await expect(page.locator('[data-testid="handover-mit-reminder"]')).toBeVisible();
 }
 
+/**
+ * US-312 : retour du véhicule (A04 de l'hôte, S09 · check-out du voyageur), trip en cours créé par
+ * le double, photos des deux parties déjà déposées : relevés et validation de sa part.
+ */
+async function openReturn(
+  page: Page,
+  context: BrowserContext,
+  role: 'HOST' | 'GUEST',
+  language: Language,
+): Promise<void> {
+  if (role === 'HOST') await signInHost(context);
+  else await signInGuest(context, language);
+  const token = (await context.cookies()).find((c) => c.name === '__Host-session')?.value ?? '';
+  const who = role === 'HOST' ? `guest=&host=${token}` : `guest=${token}&host=`;
+  const r = await fetch(`${API}/__e2e/handover/new?${who}&status=IN_PROGRESS`);
+  expect(r.status).toBe(200);
+  const { tripId } = (await r.json()) as { tripId: string };
+  await page.goto(
+    role === 'HOST'
+      ? `/host/trips/${tripId}/handover/checkout`
+      : `/trips/${tripId}/handover/checkout`,
+  );
+  await expect(page.locator('[data-testid="handover-validate-submit"]')).toBeVisible();
+}
+
 /** US-307 : écran du no-show de l'hôte (message tracé, déclaration possible). */
 async function openNoShow(page: Page, context: BrowserContext): Promise<void> {
   await signInHost(context);
@@ -900,6 +925,17 @@ export const SCREENS: readonly Screen[] = [
     name: 'remise-voyageur',
     source: 'S09 · check-in, US-315, US-703',
     open: (page, context, language) => openGuestHandover(page, context, language),
+  },
+  // US-312 : retour du véhicule par l'hôte (A04) et par le voyageur (S09 · check-out)
+  {
+    name: 'retour-hote',
+    source: 'A04, US-315, US-312',
+    open: (page, context, language) => openReturn(page, context, 'HOST', language),
+  },
+  {
+    name: 'retour-voyageur',
+    source: 'S09 · check-out, US-315, US-312',
+    open: (page, context, language) => openReturn(page, context, 'GUEST', language),
   },
   // US-307 : no-show du voyageur déclaré par l'hôte (A05 · no-show)
   {

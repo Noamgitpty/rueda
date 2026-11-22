@@ -95,10 +95,11 @@ const DEPOSIT_NOTICE = /deposit-notice\.spec\.ts$/;
  */
 const HELP = /help\.spec\.ts$/;
 /**
- * Parcours doré « réservation » S01 → S06 (US-221) : 360 px et espagnol seulement, un test (durée
- * du job e2e ; chaque écran est éprouvé en quatre langues par sa spec propre).
+ * Parcours dorés « réservation » S01 → S06 (US-221) et « trip complet » remise puis retour d'une
+ * main (US-312) : 360 px et espagnol seulement, un test chacun (durée du job e2e ; chaque écran est
+ * éprouvé en quatre langues par sa spec propre).
  */
-const GOLDEN = /parcours-dore\.spec\.ts$/;
+const GOLDEN = /parcours-dore(-trip)?\.spec\.ts$/;
 /** Balayage axe + captures de chaque écran du site (US-044). */
 const SCREENS = /screens\.spec\.ts$/;
 /** Balayage des écrans de la console interne (US-044). */
