@@ -8,7 +8,9 @@
  *    `X-Powered-By` est retiré.
  * 2. Corps de requête bornés : JSON et formulaire à `API_BODY_LIMIT_BYTES` (100 Kio, PROPOSÉ :
  *    la valeur implicite d'Express, désormais explicite et testée ; l'actif de marque le plus lourd
- *    tient en 64 Kio, soit environ 88 Kio en base64). Au-delà : 413.
+ *    tient en 64 Kio, soit environ 88 Kio en base64). Au-delà : 413. Seule exception, bornée et
+ *    documentée : `ROUTE_BODY_LIMITS` (route-body-limits.ts ; dépôt d'un relevé du PSP, 128 Kio,
+ *    US-311).
  * 3. CORS : aucun. L'API ne sert que des clients de même origine (site et back-office passent par
  *    leur mandataire `/api`) ; aucune en-tête `Access-Control-Allow-*` n'est jamais émise, même
  *    pour une requête préliminaire (`OPTIONS`) venue d'une autre origine (fail-closed, PROPOSÉ).
@@ -23,6 +25,7 @@ import { Catch, HttpException, Logger } from '@nestjs/common';
 import type { ArgumentsHost, HttpServer } from '@nestjs/common';
 import { BaseExceptionFilter } from '@nestjs/core';
 import type { NestExpressApplication } from '@nestjs/platform-express';
+import { routeBodyLimitMiddleware } from './route-body-limits.js';
 
 /** Taille maximale d'un corps JSON ou formulaire (octets, PROPOSÉ). */
 export const API_BODY_LIMIT_BYTES = 100 * 1024;
@@ -124,6 +127,9 @@ export function applyHttpHardening(app: NestExpressApplication): void {
     for (const [name, value] of Object.entries(SECURITY_HEADERS)) response.setHeader(name, value);
     next();
   });
+  // limites propres à une route (dépôt d'un relevé du PSP, US-311) : AVANT l'analyseur global,
+  // qui garde 100 Kio pour toutes les autres routes
+  app.use(routeBodyLimitMiddleware());
   app.useBodyParser('json', { limit: API_BODY_LIMIT_BYTES });
   app.useBodyParser('urlencoded', { limit: API_BODY_LIMIT_BYTES, extended: false });
   app.useGlobalFilters(new ErrorHygieneFilter(app.getHttpAdapter()));

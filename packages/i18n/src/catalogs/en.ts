@@ -443,6 +443,22 @@ export const EN_MESSAGES = {
     'The bundle could not be delivered: a piece of evidence is missing or does not match its fingerprint. The finding was recorded.',
   'common.evidenceBundle.unavailable':
     'Evidence bundles are not available right now. Nothing was requested or delivered.',
+  'common.reconciliation.statementTooLarge':
+    'The statement is too large for one upload (400 lines at most). Nothing was recorded.',
+  'common.reconciliation.statementNearLimit':
+    'This statement has {lines} lines, close to the {max}-line limit. Plan the automatic reconciliation before next month.',
+  'common.reconciliation.statementMissing':
+    'The PSP statement is missing: add at least one line. Nothing was recorded.',
+  'common.reconciliation.formatInvalid':
+    'The statement is invalid: a line is malformed, duplicated, in another currency or for a future month. Nothing was recorded.',
+  'common.reconciliation.checklistIncomplete':
+    'The monthly checklist is incomplete: tick all five items to close the reconciliation.',
+  'common.reconciliation.runClosed':
+    'This reconciliation is already closed and signed. It can no longer be changed.',
+  'common.reconciliation.itemSettled':
+    'This difference is already explained, or the line already matches. There is nothing left to resolve.',
+  'common.reconciliation.unavailable':
+    'Reports and reconciliation are not available right now. Nothing was read or recorded.',
   'backoffice.action.RESTRICT_ACCOUNT': 'Restrict the account',
   'backoffice.action.LIFT_RESTRICTION': 'Lift the restriction',
   'backoffice.queues.current': 'Queue shown',

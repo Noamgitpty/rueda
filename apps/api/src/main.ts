@@ -49,6 +49,7 @@ import {
 import { QuoteService, searchQuotePricer } from './modules/prc/index.js';
 import { PgListingRatingStore, postgresRevAdapters } from './modules/rev/index.js';
 import { availabilityProbeLimiter, postgresRiskAdapters } from './modules/risk/index.js';
+import { PgReportStore } from './modules/rpt/index.js';
 import {
   PgFinanceApprovalStore,
   PgHelpStore,
@@ -198,6 +199,9 @@ async function bootstrap(): Promise<void> {
       postgresEvidenceBundle(pool),
       // US-317 : avis réciproques en double aveugle (fonctions de 0170 sous app_api)
       postgresRevAdapters(pool),
+      // US-311 : vues de la bêta et rapprochement assisté (portes core.report_staff_beta_view et
+      // core.finance_staff_* de 0174 sous app_api)
+      new PgReportStore(pool),
     ),
     { rawBody: true },
   );

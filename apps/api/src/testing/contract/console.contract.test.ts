@@ -1740,8 +1740,16 @@ describe('contrat HTTP — /console', () => {
   it('couverture : chaque statut déclaré pour /console est exercé', () => {
     expect(
       missingCoverage(contract, '/console', coverageOf(...apps)).filter(
-        // demandes d'aide (US-310) : leur suite (sup/testing/help.contract) ; le 429 est exercé ici
-        (d) => !d.includes(' /console/help-requests ') || d.endsWith(' 429'),
+        // demandes d'aide (US-310) : leur suite (sup/testing/help.contract) ; vues de la bêta,
+        // exports et rapprochement (US-311) : leur suite (rpt/testing/report.contract) ; le 429
+        // est exercé ici
+        (d) =>
+          !(
+            d.includes(' /console/help-requests ') ||
+            d.includes(' /console/beta-views/') ||
+            d.includes(' /console/reports/') ||
+            d.includes(' /console/reconciliation/')
+          ) || d.endsWith(' 429'),
       ),
     ).toEqual([]);
   });

@@ -463,6 +463,22 @@ export const PT_MESSAGES = {
     'Não foi possível entregar o dossiê: uma prova está faltando ou não corresponde à sua impressão digital. A constatação foi registrada.',
   'common.evidenceBundle.unavailable':
     'O dossiê de provas não está disponível agora. Nada foi pedido nem entregue.',
+  'common.reconciliation.statementTooLarge':
+    'O extrato é grande demais para um único envio (400 linhas no máximo). Nada foi registrado.',
+  'common.reconciliation.statementNearLimit':
+    'Este extrato tem {lines} linhas, perto do máximo de {max}. Prepare a conciliação automática antes do próximo mês.',
+  'common.reconciliation.statementMissing':
+    'Falta o extrato do PSP: adicione pelo menos uma linha. Nada foi registrado.',
+  'common.reconciliation.formatInvalid':
+    'O extrato não é válido: linha malformada, duplicada, em outra moeda ou de um mês futuro. Nada foi registrado.',
+  'common.reconciliation.checklistIncomplete':
+    'A checklist do mês não está completa: marque os cinco itens para fechar a conciliação.',
+  'common.reconciliation.runClosed':
+    'Esta conciliação já está fechada e assinada. Não pode mais ser alterada.',
+  'common.reconciliation.itemSettled':
+    'Esta diferença já está explicada, ou a linha já confere. Não há mais nada a resolver.',
+  'common.reconciliation.unavailable':
+    'As visões e a conciliação não estão disponíveis agora. Nada foi lido nem registrado.',
   'backoffice.action.RESTRICT_ACCOUNT': 'Restringir a conta',
   'backoffice.action.LIFT_RESTRICTION': 'Suspender a restrição',
   'backoffice.queues.current': 'Fila exibida',

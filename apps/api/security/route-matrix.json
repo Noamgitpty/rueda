@@ -131,6 +131,55 @@
       "portee": "pays",
       "idor": "demande de l'autre pays : 403 journalisé ; demandeur : 409 STAFF_SELF_APPROVAL"
     },
+    "GET /console/beta-views/{view}": {
+      "acces": "staff",
+      "permission": "report.exit_kpi (exit-kpi : OPS_AGENT, FINANCE, ADMIN) ; report.ops_views (handovers-today, overdue : OPS_AGENT, ADMIN)",
+      "roles": ["OPS_AGENT", "FINANCE", "ADMIN"],
+      "portee": "pays",
+      "idor": "pays sans la permission : 403 journalisé (core.report_staff_beta_view, 0174) ; lignes du seul pays demandé ; aucune donnée personnelle (ni nom, ni contact, ni pièce) ; FINANCE ne lit que exit-kpi ; preuve L0 l0-us311-beta-reconciliation"
+    },
+    "POST /console/reports/exports": {
+      "acces": "staff",
+      "permission": "report.exit_kpi (EXIT_KPI : OPS_AGENT, FINANCE, ADMIN), report.ops_views (HANDOVERS_TODAY, OVERDUE : OPS_AGENT, ADMIN) ou finance.reconciliation (OPERATIONS, LEGS, RUN_ITEMS : FINANCE, ADMIN), selon la source",
+      "roles": ["OPS_AGENT", "FINANCE", "ADMIN"],
+      "portee": "pays",
+      "idor": "pays ou passage sans la permission : 403 journalisé ; chaque export inscrit au journal d'accès (BULK_EXPORT) avec son motif et à l'audit chaîné ; aucune donnée personnelle ; preuve L0 l0-us311-beta-reconciliation"
+    },
+    "POST /console/reconciliation/runs": {
+      "acces": "staff",
+      "permission": "finance.reconciliation",
+      "roles": ["FINANCE", "ADMIN"],
+      "portee": "pays",
+      "idor": "pays sans la permission : 403 journalisé ; appariement à l'unité mineure par la base (core.finance_staff_record_reconciliation, 0174), sans tolérance ; idempotent par requestId ; preuve L0 l0-us311-beta-reconciliation"
+    },
+    "GET /console/reconciliation/runs": {
+      "acces": "staff",
+      "permission": "finance.reconciliation",
+      "roles": ["FINANCE", "ADMIN"],
+      "portee": "pays",
+      "idor": "pays sans la permission : 403 journalisé ; passages du seul pays demandé ; preuve L0 l0-us311-beta-reconciliation"
+    },
+    "GET /console/reconciliation/runs/{runId}": {
+      "acces": "staff",
+      "permission": "finance.reconciliation",
+      "roles": ["FINANCE", "ADMIN"],
+      "portee": "pays",
+      "idor": "passage d'un autre pays ou inconnu : 403, même réponse, journalisée (aucun oracle d'existence) ; preuve L0 l0-us311-beta-reconciliation"
+    },
+    "POST /console/reconciliation/items/{itemId}/resolution": {
+      "acces": "staff",
+      "permission": "finance.reconciliation",
+      "roles": ["FINANCE", "ADMIN"],
+      "portee": "pays",
+      "idor": "élément d'un autre pays ou inconnu : 403, même réponse, journalisée ; résolution une fois, passage ouvert seulement ; preuve L0 l0-us311-beta-reconciliation"
+    },
+    "POST /console/reconciliation/runs/{runId}/signature": {
+      "acces": "staff",
+      "permission": "finance.reconciliation",
+      "roles": ["FINANCE", "ADMIN"],
+      "portee": "pays",
+      "idor": "passage d'un autre pays ou inconnu : 403, même réponse, journalisée ; checklist des cinq points, clôture une fois ; preuve L0 l0-us311-beta-reconciliation"
+    },
     "GET /console/help-requests": {
       "acces": "staff",
       "permission": "support.case_write",

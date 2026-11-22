@@ -141,6 +141,10 @@ const PAY_PORT_TABLES = [
 
 // Compte de versement de l'hôte (US-707, 0159) : même socle RLS ; aucun droit applicatif,
 // commandes de cmd_money_owner, preuves par test/l0/l0-us707-payout-account.test.ts.
+// Rapprochement assisté (US-311, 0174) : passages et éléments, aucun droit applicatif, écrits et
+// lus par les portes d'iam_staff_owner seulement ; preuves : test/l0/l0-us311-beta-reconciliation
+const FIN_RECON_TABLES = ['finance_reconciliation_item', 'finance_reconciliation_run'] as const;
+
 const PYO_TABLES = [
   'payout_payout_account',
   'payout_payout_batch',
@@ -207,6 +211,7 @@ describe('schéma core (US-006)', () => {
           ...PAY_PORT_TABLES,
           ...BRAND_TABLES,
           ...PYO_TABLES,
+          ...FIN_RECON_TABLES,
         ].sort(),
       );
       for (const r of rows) {

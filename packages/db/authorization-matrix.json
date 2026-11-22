@@ -3857,6 +3857,71 @@
         "app_worker": [],
         "app_anon": []
       }
+    },
+    "core.finance_reconciliation_run": {
+      "type": "table",
+      "droits": {
+        "app_api": {},
+        "app_worker": {},
+        "app_anon": {}
+      },
+      "politiques": {
+        "app_api": [],
+        "app_worker": [],
+        "app_anon": []
+      }
+    },
+    "core.finance_reconciliation_item": {
+      "type": "table",
+      "droits": {
+        "app_api": {},
+        "app_worker": {},
+        "app_anon": {}
+      },
+      "politiques": {
+        "app_api": [],
+        "app_worker": [],
+        "app_anon": []
+      }
+    },
+    "core.report_handover_day_v": {
+      "type": "view",
+      "droits": {
+        "app_api": {},
+        "app_worker": {},
+        "app_anon": {}
+      },
+      "politiques": {
+        "app_api": [],
+        "app_worker": [],
+        "app_anon": []
+      }
+    },
+    "core.report_overdue_v": {
+      "type": "view",
+      "droits": {
+        "app_api": {},
+        "app_worker": {},
+        "app_anon": {}
+      },
+      "politiques": {
+        "app_api": [],
+        "app_worker": [],
+        "app_anon": []
+      }
+    },
+    "core.report_exit_kpi_v": {
+      "type": "view",
+      "droits": {
+        "app_api": {},
+        "app_worker": {},
+        "app_anon": {}
+      },
+      "politiques": {
+        "app_api": [],
+        "app_worker": [],
+        "app_anon": []
+      }
     }
   }
 }
