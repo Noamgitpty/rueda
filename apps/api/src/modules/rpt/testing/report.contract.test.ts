@@ -342,7 +342,24 @@ describe('US-311 — vues de la bêta, exports et rapprochement (console)', () =
     });
     expect(invalid.status).toBe(400);
     expect(invalid.json).toMatchObject({ code: 'RECON_FORMAT_INVALID' });
+    // 400 lignes au plus (un relevé tient dans le corps de 100 Kio) : 401 refusées avant la base
     w.store.failing = null;
+    const before = w.store.calls.length;
+    const tooMany = await w.app.api.request('POST', '/console/reconciliation/runs', {
+      headers: staff,
+      body: {
+        ...base,
+        kind: 'OPERATIONS',
+        lines: Array.from({ length: 401 }, (_, n) => ({
+          reference: `p${n}`,
+          amountMinor: '1',
+          currency: 'XTS',
+        })),
+      },
+    });
+    expect(tooMany.status).toBe(400);
+    expect(tooMany.json).toMatchObject({ code: 'RECON_FORMAT_INVALID' });
+    expect(w.store.calls.length).toBe(before);
     w.store.outcome = 'ALREADY_RECORDED';
     const replay = await w.app.api.request('POST', '/console/reconciliation/runs', {
       headers: staff,

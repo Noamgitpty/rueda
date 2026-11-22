@@ -6,8 +6,9 @@
 --
 -- Rôle (SECURITY DEFINER, search_path figé ; aucun SQL dynamique ; la transaction appelante reste
 -- sous un rôle de production) :
---   1. `us311_operation` (migrator) : opération réussie et prouvée d'un trip, avec la référence
---      du PSP (état écrit en production par PAY) ; le montant est une ENTRÉE recopiée du vecteur ;
+--   1. `us311_operation` (migrator) : opération réussie et prouvée d'un trip (AUTH ou CAPTURE),
+--      avec la référence du PSP (état écrit en production par PAY) ; le montant est une ENTRÉE
+--      recopiée du vecteur ; `us311_hold_of` : hold d'origine d'un trip ;
 --   2. `us311_state` (migrator) : trip en cours, en retard (dossier T30M de 0168) ou terminé, et
 --      clés remises (états écrits par TRP, US-305 et US-315) ;
 --   3. `us311_records` (migrator) : relecture des passages, éléments, journal d'accès et audit
@@ -17,11 +18,13 @@
 -- AUCUNE fixture n'écrit un interrupteur de mise en service (17 §0.1) ni un paramètre : le seuil
 -- J-ADM-031 reste absent (fail-closed : 0).
 --
--- Retour arrière : DROP FUNCTION test_fixture.us311_operation(uuid, bigint, text),
+-- Retour arrière : DROP FUNCTION test_fixture.us311_operation(uuid, bigint, text, text),
+--   test_fixture.us311_hold_of(uuid), test_fixture.us311_access(uuid),
 --   test_fixture.us311_state(uuid, text), test_fixture.us311_records(uuid),
 --   test_fixture.us311_probe(uuid, text).
 
-CREATE FUNCTION test_fixture.us311_operation(p_trip uuid, p_amount bigint, p_ref text)
+CREATE FUNCTION test_fixture.us311_operation(p_trip uuid, p_amount bigint, p_ref text,
+                                             p_kind text)
   RETURNS uuid
   LANGUAGE plpgsql
   SECURITY DEFINER
@@ -31,20 +34,33 @@ DECLARE
   t    record;
   v_op uuid := pg_catalog.gen_random_uuid();
 BEGIN
+  IF p_kind NOT IN ('AUTH', 'CAPTURE') THEN
+    RAISE EXCEPTION 'us311_operation: nature hors liste' USING ERRCODE = 'invalid_parameter_value';
+  END IF;
   SELECT tr.source_hold_id, tr.country_code, tr.currency, tr.org_id INTO t
     FROM core.booking_trip AS tr WHERE tr.id = p_trip;
   INSERT INTO core.payment_payment_operation
          (id, hold_id, psp_account_id, country_code, provider, kind, purpose, amount_minor, currency,
           attempt_no, status, idem_plain, idem_sent, proof_type, provider_reference)
   VALUES (v_op, t.source_hold_id, test_fixture.fixture_psp_account(t.country_code),
-          t.country_code, 'FAKE', 'AUTH', 'RENT', p_amount, t.currency, 1, 'SUCCEEDED',
-          pg_catalog.format('hold:%s:AUTH:op:%s', t.source_hold_id, v_op),
+          t.country_code, 'FAKE', p_kind, 'RENT', p_amount, t.currency, 1, 'SUCCEEDED',
+          pg_catalog.format('hold:%s:%s:op:%s', t.source_hold_id, p_kind, v_op),
           pg_catalog.format('test:%s', v_op), 'WEBHOOK_SIGNED', p_ref);
   -- jambes de l'opération (contrainte différée payment_operation_legs_complete : forme de 9001)
-  PERFORM test_fixture.fixture_operation_legs(v_op, 'AUTH', t.org_id, NULL, t.country_code,
+  PERFORM test_fixture.fixture_operation_legs(v_op, p_kind, t.org_id, NULL, t.country_code,
                                               p_amount);
   RETURN v_op;
 END
+$fn$;
+
+-- Hold d'origine d'un trip (référence possible d'une ligne du relevé du PSP)
+CREATE FUNCTION test_fixture.us311_hold_of(p_trip uuid)
+  RETURNS uuid
+  LANGUAGE sql
+  SECURITY DEFINER
+  SET search_path = pg_catalog, pg_temp
+AS $fn$
+  SELECT t.source_hold_id FROM core.booking_trip AS t WHERE t.id = p_trip
 $fn$;
 
 CREATE FUNCTION test_fixture.us311_state(p_trip uuid, p_state text)
@@ -148,10 +164,12 @@ BEGIN
 END
 $fn$;
 
-REVOKE ALL ON FUNCTION test_fixture.us311_operation(uuid, bigint, text),
+REVOKE ALL ON FUNCTION test_fixture.us311_operation(uuid, bigint, text, text),
+  test_fixture.us311_hold_of(uuid),
   test_fixture.us311_state(uuid, text), test_fixture.us311_records(uuid),
   test_fixture.us311_access(uuid), test_fixture.us311_probe(uuid, text) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION test_fixture.us311_operation(uuid, bigint, text),
+GRANT EXECUTE ON FUNCTION test_fixture.us311_operation(uuid, bigint, text, text),
+  test_fixture.us311_hold_of(uuid),
   test_fixture.us311_state(uuid, text), test_fixture.us311_records(uuid),
   test_fixture.us311_access(uuid), test_fixture.us311_probe(uuid, text) TO app_api;
 

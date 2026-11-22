@@ -133,15 +133,15 @@
     },
     "GET /console/beta-views/{view}": {
       "acces": "staff",
-      "permission": "report.ops_views (handovers-today, overdue) ou report.exit_kpi (exit-kpi)",
-      "roles": ["OPS_AGENT", "ADMIN"],
+      "permission": "report.exit_kpi (exit-kpi : OPS_AGENT, FINANCE, ADMIN) ; report.ops_views (handovers-today, overdue : OPS_AGENT, ADMIN)",
+      "roles": ["OPS_AGENT", "FINANCE", "ADMIN"],
       "portee": "pays",
       "idor": "pays sans la permission : 403 journalisé (core.report_staff_beta_view, 0174) ; lignes du seul pays demandé ; aucune donnée personnelle (ni nom, ni contact, ni pièce) ; FINANCE ne lit que exit-kpi ; preuve L0 l0-us311-beta-reconciliation"
     },
     "POST /console/reports/exports": {
       "acces": "staff",
-      "permission": "report.ops_views / report.exit_kpi (vues) ou finance.reconciliation (OPERATIONS, LEGS, RUN_ITEMS)",
-      "roles": ["OPS_AGENT", "ADMIN"],
+      "permission": "report.exit_kpi (EXIT_KPI : OPS_AGENT, FINANCE, ADMIN), report.ops_views (HANDOVERS_TODAY, OVERDUE : OPS_AGENT, ADMIN) ou finance.reconciliation (OPERATIONS, LEGS, RUN_ITEMS : FINANCE, ADMIN), selon la source",
+      "roles": ["OPS_AGENT", "FINANCE", "ADMIN"],
       "portee": "pays",
       "idor": "pays ou passage sans la permission : 403 journalisé ; chaque export inscrit au journal d'accès (BULK_EXPORT) avec son motif et à l'audit chaîné ; aucune donnée personnelle ; preuve L0 l0-us311-beta-reconciliation"
     },

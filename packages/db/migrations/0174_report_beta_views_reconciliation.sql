@@ -43,7 +43,7 @@
 --     core.finance_staff_resolve_reconciliation_item(bytea, uuid, uuid, text, text),
 --     core.finance_staff_sign_reconciliation(bytea, uuid, uuid, jsonb),
 --     core.report_staff_gate(bytea, text, text, text, uuid), core.report_staff_not_found(bytea, text,
---     uuid, uuid), core.finance_recon_threshold_bps(text),
+--     uuid, uuid), core.finance_recon_operation_kinds(), core.finance_recon_threshold_bps(text),
 --     core.finance_recon_month_state(text);
 --   DROP VIEW core.report_handover_day_v, core.report_overdue_v, core.report_exit_kpi_v ;
 --   DROP TABLE core.finance_reconciliation_item, core.finance_reconciliation_run ;
@@ -490,6 +490,20 @@ BEGIN
 END
 $fn$;
 
+-- 6.1 ter Natures d'opération rapprochées : celles qui déplacent des fonds au PSP (encaissement,
+-- remboursement, débit post-trip, recouvrement, capture de caution, chargeback et son retour,
+-- libération d'une jambe). Jamais une autorisation, une annulation ni un crédit interne
+-- (AUTH, VOID, DEPOSIT_AUTH, DEPOSIT_VOID, CREDIT_*, LEG_REALLOCATION) : ni appariées ni sommées.
+CREATE FUNCTION core.finance_recon_operation_kinds()
+  RETURNS text[]
+  LANGUAGE sql
+  IMMUTABLE
+  SET search_path = pg_catalog, pg_temp
+AS $fn$
+  SELECT ARRAY['CAPTURE', 'REFUND', 'MIT_CHARGE', 'DEBT_COLLECTION', 'DEPOSIT_CAPTURE',
+               'CHARGEBACK', 'CHARGEBACK_REVERSAL', 'LEG_RELEASE']::text[]
+$fn$;
+
 -- 6.2 Seuil J-ADM-031 en vigueur (bps) ; absent ou mal formé ⇒ NULL (l'appelant applique 0)
 CREATE FUNCTION core.finance_recon_threshold_bps(p_country text)
   RETURNS integer
@@ -696,9 +710,14 @@ BEGIN
              ORDER BY op.created_at, op.id), '[]'::jsonb)
       INTO v_rows
       FROM core.payment_payment_operation AS op
-      LEFT JOIN core.booking_trip AS t
-        ON t.id = op.trip_id OR (op.trip_id IS NULL AND t.source_hold_id = op.hold_id)
+      -- un seul trip par opération : le sien, sinon celui de son hold (jamais deux lignes)
+      LEFT JOIN LATERAL (
+        SELECT q.id, q.public_ref FROM core.booking_trip AS q
+         WHERE q.id = op.trip_id OR (op.trip_id IS NULL AND q.source_hold_id = op.hold_id)
+         ORDER BY (q.id = op.trip_id) DESC, q.id
+         LIMIT 1) AS t ON true
      WHERE op.country_code = p_country AND op.status = 'SUCCEEDED'
+       AND op.kind = ANY (core.finance_recon_operation_kinds())
        AND op.provider_reference IS NOT NULL
        AND pg_catalog.date_trunc('month', op.created_at AT TIME ZONE v_tz)::date = p_month;
   ELSE
@@ -774,12 +793,14 @@ DECLARE
   v_treat    date;
   v_today    date;
   v_reason   text := pg_catalog.btrim(p_reason);
+  v_con      text;
 BEGIN
   IF p_request_id IS NULL OR p_country IS NULL OR p_country !~ '^[A-Z]{2}$' OR p_month IS NULL
      OR p_month <> pg_catalog.date_trunc('month', p_month)::date
      OR p_kind IS NULL OR p_kind NOT IN ('OPERATIONS', 'LEGS')
      OR p_lines IS NULL OR pg_catalog.jsonb_typeof(p_lines) <> 'array'
-     OR pg_catalog.jsonb_array_length(p_lines) NOT BETWEEN 1 AND 5000
+     -- 400 lignes au plus : un relevé tient dans le corps de 100 Kio de l'API (API_BODY_LIMIT_BYTES)
+     OR pg_catalog.jsonb_array_length(p_lines) NOT BETWEEN 1 AND 400
      OR v_reason IS NULL OR pg_catalog.char_length(v_reason) NOT BETWEEN 10 AND 500 THEN
     RAISE EXCEPTION 'rapprochement : relevé absent ou entrée invalide'
       USING ERRCODE = 'invalid_parameter_value';
@@ -833,8 +854,9 @@ BEGIN
   END IF;
 
   IF p_kind = 'OPERATIONS' THEN
-    -- plateforme : opérations réussies du pays portant une référence du PSP ; « sans trip » quand
-    -- ni l'opération ni son hold ne mènent à un trip
+    -- plateforme : opérations réussies du pays, des seules natures rapprochées
+    -- (finance_recon_operation_kinds, appariées ET sommées), portant une référence du PSP ;
+    -- « sans trip » quand ni l'opération ni son hold ne mènent à un trip
     WITH plat AS (
       SELECT DISTINCT ON (op.provider_reference)
              op.provider_reference AS ref, op.amount_minor AS amt, op.created_at,
@@ -843,6 +865,7 @@ BEGIN
                AS has_trip
         FROM core.payment_payment_operation AS op
        WHERE op.country_code = p_country AND op.status = 'SUCCEEDED'
+         AND op.kind = ANY (core.finance_recon_operation_kinds())
          AND op.provider_reference IS NOT NULL
        ORDER BY op.provider_reference, op.created_at, op.id
     ), psp AS (
@@ -892,8 +915,13 @@ BEGIN
     ), pair AS (
       SELECT p.*, pl.trip_id, pl.c AS pc, pl.r AS pr, pl.ri AS pri, pl.ro AS pro, pl.rel AS prel
         FROM psp AS p
-        LEFT JOIN plat AS pl
-          ON pl.leg = p.leg AND (pl.trip_id::text = p.ref OR pl.source_hold_id::text = p.ref)
+        -- au plus une jambe de la plateforme par ligne : l'identifiant du trip d'abord, sinon son
+        -- hold d'origine (jamais une double correspondance)
+        LEFT JOIN LATERAL (
+          SELECT q.* FROM plat AS q
+           WHERE q.leg = p.leg AND (q.trip_id::text = p.ref OR q.source_hold_id::text = p.ref)
+           ORDER BY (q.trip_id::text = p.ref) DESC, q.trip_id
+           LIMIT 1) AS pl ON true
     ), items AS (
       SELECT 'PSP'::text AS side, COALESCE(x.trip_id::text, x.ref) AS ref, x.leg,
              CASE WHEN x.trip_id IS NULL THEN NULL
@@ -936,6 +964,17 @@ BEGIN
       FROM items AS i;
   END IF;
 
+  -- deux lignes du PSP appariées à la même jambe (le trip cité par son identifiant ET par son
+  -- hold, par exemple) : relevé refusé (RECON_FORMAT_INVALID), jamais une double correspondance
+  IF EXISTS (SELECT 1
+               FROM pg_catalog.jsonb_to_recordset(v_items) AS x(side text, ref text, leg text,
+                                                               status text)
+              WHERE x.side = 'PSP' AND x.status <> 'MISSING_PLATFORM'
+              GROUP BY x.ref, x.leg HAVING pg_catalog.count(*) > 1) THEN
+    RAISE EXCEPTION 'rapprochement : deux lignes du relevé pour la même ligne de la plateforme'
+      USING ERRCODE = 'invalid_parameter_value';
+  END IF;
+
   -- une ligne du PSP appariée à deux jambes ne peut pas exister (clé trip, segment, jambe) ;
   -- un élément « en écart » sans écart chiffré est compté au minimum d'une unité (jamais absorbé)
   SELECT pg_catalog.count(*) FILTER (WHERE x.status = 'MATCHED') AS matched,
@@ -963,6 +1002,7 @@ BEGIN
   END IF;
 
   v_run := platform.uuid_v7();
+  BEGIN
   INSERT INTO core.finance_reconciliation_run
          (id, country_code, currency, kind, period_month, psp_lines, matched, unmatched_platform,
           unmatched_psp, amount_mismatches, platform_total_minor, delta_minor, delta_pct_bps,
@@ -974,6 +1014,23 @@ BEGIN
           CASE WHEN a.unmatched_platform + a.unmatched_psp + a.mismatches = 0 THEN 'MATCHED'
                ELSE 'DISCREPANCIES' END,
           g.user_id, g.role, p_request_id);
+  EXCEPTION WHEN unique_violation THEN
+    -- même requête enregistrée par une transaction concurrente (attendue, puis validée) : réponse
+    -- rejouée, rien de plus n'est écrit
+    GET STACKED DIAGNOSTICS v_con = CONSTRAINT_NAME;
+    IF v_con IS DISTINCT FROM 'finance_recon_run_request_unique' THEN
+      RAISE;
+    END IF;
+    SELECT r.id, r.country_code, r.kind, r.period_month INTO v_existing
+      FROM core.finance_reconciliation_run AS r WHERE r.request_id = p_request_id;
+    IF v_existing.country_code <> p_country OR v_existing.kind <> p_kind
+       OR v_existing.period_month <> p_month THEN
+      RAISE EXCEPTION 'rapprochement : identifiant de requête déjà pris'
+        USING ERRCODE = 'invalid_parameter_value';
+    END IF;
+    RETURN QUERY SELECT 'ALREADY_RECORDED'::text, v_existing.id;
+    RETURN;
+  END;
   INSERT INTO core.finance_reconciliation_item
          (run_id, side, ref, leg, component, expected_minor, observed_minor, delta_minor, status,
           finding)
@@ -1188,6 +1245,18 @@ BEGIN
     RETURN QUERY SELECT 'CLOSED'::text;
     RETURN;
   END IF;
+  -- verrous de ligne : le passage (sérialise avec la signature), puis l'élément ; relus après
+  -- l'attente sous la politique UPDATE (passage ouvert, élément non résolu)
+  PERFORM 1 FROM core.finance_reconciliation_run AS q WHERE q.id = i.run_id FOR UPDATE;
+  IF NOT FOUND THEN
+    RETURN QUERY SELECT 'CLOSED'::text;
+    RETURN;
+  END IF;
+  PERFORM 1 FROM core.finance_reconciliation_item AS q WHERE q.id = p_item_id FOR UPDATE;
+  IF NOT FOUND THEN
+    RETURN QUERY SELECT 'ALREADY_RESOLVED'::text;
+    RETURN;
+  END IF;
   UPDATE core.finance_reconciliation_item AS x
      SET resolution = p_resolution, resolution_note = v_note, resolved_by = g.user_id,
          resolved_at = platform.now()
@@ -1257,6 +1326,13 @@ BEGIN
     RETURN QUERY SELECT 'CHECKLIST_INCOMPLETE'::text, NULL::integer;
     RETURN;
   END IF;
+  -- verrou de ligne du passage (sérialise avec une résolution ou une seconde signature) ; relu
+  -- après l'attente sous la politique UPDATE : clôturé entre-temps ⇒ ALREADY_CLOSED
+  PERFORM 1 FROM core.finance_reconciliation_run AS q WHERE q.id = r.id FOR UPDATE;
+  IF NOT FOUND THEN
+    RETURN QUERY SELECT 'ALREADY_CLOSED'::text, NULL::integer;
+    RETURN;
+  END IF;
   SELECT pg_catalog.count(*)::integer INTO v_open
     FROM core.finance_reconciliation_item AS i
    WHERE i.run_id = r.id AND i.status <> 'MATCHED' AND i.resolution IS NULL;
@@ -1278,6 +1354,7 @@ COMMENT ON FUNCTION core.finance_staff_sign_reconciliation(bytea, uuid, uuid, js
   'app_api. US-311 (ADR-194).';
 
 REVOKE ALL ON FUNCTION core.report_staff_gate(bytea, text, text, text, uuid),
+  core.finance_recon_operation_kinds(),
   core.report_staff_not_found(bytea, text, uuid, uuid),
   core.finance_recon_threshold_bps(text), core.finance_recon_month_state(text),
   core.report_staff_beta_view(bytea, uuid, text, text, boolean, text),

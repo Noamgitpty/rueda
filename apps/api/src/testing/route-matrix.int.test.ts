@@ -358,15 +358,15 @@ async function requestOf(
       };
     case 'GET /console/help-requests':
       return { method: 'GET', path: `/console/help-requests?country=${country}&limit=5` };
-    // US-311 : vues de la bêta (retards : OPS et ADMIN du pays), export journalisé, rapprochement
-    // (FINANCE et ADMIN du pays) ; autre pays : FORBIDDEN
+    // US-311 : vues de la bêta (KPI de sortie : OPS, FINANCE et ADMIN du pays), export journalisé,
+    // rapprochement (FINANCE et ADMIN du pays) ; autre pays : FORBIDDEN
     case 'GET /console/beta-views/{view}':
-      return { method: 'GET', path: `/console/beta-views/overdue?country=${country}` };
+      return { method: 'GET', path: `/console/beta-views/exit-kpi?country=${country}` };
     case 'POST /console/reports/exports':
       return {
         method: 'POST',
         path: '/console/reports/exports',
-        body: { source: 'OVERDUE', country, reason: 'Matrice US-043 : export de test' },
+        body: { source: 'EXIT_KPI', country, reason: 'Matrice US-043 : export de test' },
       };
     case 'POST /console/reconciliation/runs':
       return {

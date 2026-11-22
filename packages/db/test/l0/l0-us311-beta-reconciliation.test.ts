@@ -30,7 +30,12 @@ import { legVector, loadGoldenVectors } from '@rueda/money/golden-vectors';
 import type { GoldenLegVector } from '@rueda/money/golden-vectors';
 import type pg from 'pg';
 import { describe, expect, it } from 'vitest';
-import { withRole, withTestTransaction } from '../../src/testing/index.ts';
+import {
+  connectAs,
+  releaseClient,
+  withRole,
+  withTestTransaction,
+} from '../../src/testing/index.ts';
 import { first } from '../redteam/l1/support-host.ts';
 import { byCountry, ops, otherOf, paramValues, rolledBack, uuid } from '../redteam/l1/support.ts';
 import type { CountryCase } from '../redteam/l1/support.ts';
@@ -234,7 +239,7 @@ describe.each(byCountry)('US-311 — rapprochement par jambe assisté (%s, %s)',
       for (let n = 0; n < 10; n += 1) {
         const trip = await futureTrip(tx, c);
         const ref = `us311-${randomUUID()}`;
-        await tx.query('SELECT test_fixture.us311_operation($1, $2, $3)', [
+        await tx.query("SELECT test_fixture.us311_operation($1, $2, $3, 'CAPTURE')", [
           trip,
           state.totalMinor.toString(),
           ref,
@@ -244,7 +249,7 @@ describe.each(byCountry)('US-311 — rapprochement par jambe assisté (%s, %s)',
       // onzième opération de la plateforme, absente de l'export du PSP
       const extraTrip = await futureTrip(tx, c);
       const extraRef = `us311-${randomUUID()}`;
-      await tx.query('SELECT test_fixture.us311_operation($1, $2, $3)', [
+      await tx.query("SELECT test_fixture.us311_operation($1, $2, $3, 'CAPTURE')", [
         extraTrip,
         state.totalMinor.toString(),
         extraRef,
@@ -510,7 +515,7 @@ describe.each(byCountry)('US-311 — rapprochement par jambe assisté (%s, %s)',
       // élément apparié : jamais « résolu » pour masquer (politique UPDATE : 0 ligne)
       const matchedTrip = await futureTrip(tx, c);
       const matchedRef = `us311-${randomUUID()}`;
-      await tx.query('SELECT test_fixture.us311_operation($1, $2, $3)', [
+      await tx.query("SELECT test_fixture.us311_operation($1, $2, $3, 'CAPTURE')", [
         matchedTrip,
         '7',
         matchedRef,
@@ -645,6 +650,235 @@ describe.each(byCountry)('US-311 — rapprochement par jambe assisté (%s, %s)',
         expect.objectContaining({ action: 'STAFF_FORBIDDEN', role: 'STAFF' }),
       ]);
     });
+  });
+});
+
+describe.each(byCountry)('US-311 — réserves des revues (%s, %s)', (_k, _cur, c) => {
+  it('natures rapprochées : une autorisation (AUTH) n’est ni appariée ni sommée ni réclamée au PSP ; une capture l’est', async () => {
+    await rolledBack(async (tx) => {
+      const fin = await ops(tx, 'FINANCE', [c.country]);
+      const trip = await futureTrip(tx, c);
+      const authRef = `us311-${randomUUID()}`;
+      const captureRef = `us311-${randomUUID()}`;
+      await tx.query("SELECT test_fixture.us311_operation($1, '500', $2, 'AUTH')", [trip, authRef]);
+      await tx.query("SELECT test_fixture.us311_operation($1, '500', $2, 'CAPTURE')", [
+        trip,
+        captureRef,
+      ]);
+      // relevé qui ne cite aucune des deux : la capture manque au PSP, l'autorisation n'est rien
+      const r = await record(tx, fin.hash, c, 'OPERATIONS', [
+        { reference: `us311-${randomUUID()}`, amountMinor: '1', currency: c.currency },
+      ]);
+      const items = itemsOf(await runOf(tx, fin.hash, r.run_id!));
+      expect(items.find((i) => i['ref'] === captureRef)).toMatchObject({
+        side: 'PLATFORM',
+        status: 'MISSING_PSP',
+        deltaMinor: '500',
+      });
+      expect(items.some((i) => i['ref'] === authRef)).toBe(false);
+      // le PSP cite l'autorisation comme un mouvement : inconnue des natures rapprochées
+      const r2 = await record(tx, fin.hash, c, 'OPERATIONS', [
+        { reference: authRef, amountMinor: '500', currency: c.currency },
+      ]);
+      expect(
+        itemsOf(await runOf(tx, fin.hash, r2.run_id!)).find((i) => i['ref'] === authRef),
+      ).toMatchObject({ status: 'MISSING_PLATFORM', finding: 'OPERATION_WITHOUT_TRIP' });
+      // l'export de la plateforme ne rend que les natures rapprochées
+      const ex = await first<{ outcome: string; body: Row }>(tx, EXPORT, [
+        fin.hash,
+        uuid(),
+        c.country,
+        monthOf(c.timezone),
+        'OPERATIONS',
+        REASON,
+      ]);
+      const refs = (ex.body['rows'] as Row[]).map((x) => x['reference']);
+      expect(refs).toContain(captureRef);
+      expect(refs).not.toContain(authRef);
+    });
+  });
+
+  it('aucune double correspondance : un trip cité par son identifiant ET par son hold est refusé (22023) ; par son hold seul, apparié', async () => {
+    await rolledBack(async (tx) => {
+      const fin = await ops(tx, 'FINANCE', [c.country]);
+      const state = stateOf(c);
+      const trip = await futureTrip(tx, c);
+      await platformLegs(tx, trip, state);
+      const hold = (
+        await first<{ h: string }>(tx, 'SELECT test_fixture.us311_hold_of($1) AS h', [trip])
+      ).h;
+      const line = (ref: string, leg: string) => ({
+        tripReference: ref,
+        leg,
+        currency: c.currency,
+        capturedMinor: state.legsMinor[leg as (typeof LEGS)[number]].toString(),
+        refundedMinor: '0',
+        reallocatedInMinor: '0',
+        reallocatedOutMinor: '0',
+        releasedMinor: '0',
+      });
+      await rejects(
+        tx,
+        RECORD,
+        [
+          fin.hash,
+          uuid(),
+          c.country,
+          monthOf(c.timezone),
+          'LEGS',
+          JSON.stringify([line(trip, 'HOST'), line(hold, 'HOST')]),
+          REASON,
+        ],
+        '22023',
+      );
+      const r = await record(
+        tx,
+        fin.hash,
+        c,
+        'LEGS',
+        LEGS.map((l) => line(hold, l)),
+      );
+      expect(r.outcome).toBe('RECORDED');
+      const items = itemsOf(await runOf(tx, fin.hash, r.run_id!)).filter(
+        (i) => i['ref'] === trip && i['side'] === 'PSP',
+      );
+      expect(items.map((i) => [i['leg'], i['status']]).sort()).toEqual(
+        LEGS.map((l) => [l, 'MATCHED']).sort(),
+      );
+    });
+  });
+
+  it('taille du relevé : 400 lignes au plus (corps de 100 Kio de l’API) ; 401 ⇒ 22023, rien n’est écrit', async () => {
+    await rolledBack(async (tx) => {
+      const fin = await ops(tx, 'FINANCE', [c.country]);
+      const lines = (n: number) =>
+        Array.from({ length: n }, () => ({
+          reference: `us311-${randomUUID()}`,
+          amountMinor: '1',
+          currency: c.currency,
+        }));
+      const id = uuid();
+      await rejects(
+        tx,
+        RECORD,
+        [
+          fin.hash,
+          id,
+          c.country,
+          monthOf(c.timezone),
+          'OPERATIONS',
+          JSON.stringify(lines(401)),
+          REASON,
+        ],
+        '22023',
+      );
+      const ok = await record(tx, fin.hash, c, 'OPERATIONS', lines(400));
+      expect(ok.outcome).toBe('RECORDED');
+      expect((await runOf(tx, fin.hash, ok.run_id!))['pspLines']).toBe(400);
+    });
+  });
+});
+
+/** Personnel FINANCE validé (élévation TOTP) pour les preuves à deux connexions. */
+async function committedFinance(country: string) {
+  return withRole('app_api', (client) => ops(client, 'FINANCE', [country]));
+}
+
+describe.each(byCountry)('US-311 — concurrence, deux connexions (%s, %s)', (_k, _cur, c) => {
+  it('même requestId enregistré deux fois en parallèle : un seul passage, la seconde réponse est rejouée (23505 ⇒ ALREADY_RECORDED)', async () => {
+    const fin = await committedFinance(c.country);
+    const a = await connectAs('app_api');
+    const b = await connectAs('app_api');
+    const requestId = uuid();
+    const lines = JSON.stringify([
+      { reference: `us311-${randomUUID()}`, amountMinor: '3', currency: c.currency },
+    ]);
+    const args = [fin.hash, requestId, c.country, monthOf(c.timezone), 'OPERATIONS', lines, REASON];
+    try {
+      await a.query('BEGIN');
+      const first1 = (await a.query<{ outcome: string; run_id: string }>(RECORD, args)).rows[0]!;
+      expect(first1.outcome).toBe('RECORDED');
+      // B attend l'index unique tant que A n'est pas validée
+      let settled = false;
+      const pending = b.query<{ outcome: string; run_id: string }>(RECORD, args).then((r) => {
+        settled = true;
+        return r.rows[0]!;
+      });
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      expect(settled).toBe(false);
+      await a.query('COMMIT');
+      expect(await pending).toEqual({ outcome: 'ALREADY_RECORDED', run_id: first1.run_id });
+    } finally {
+      await a.query('ROLLBACK').catch(() => undefined);
+      await releaseClient(a);
+      await releaseClient(b);
+    }
+  });
+
+  it('signature et résolution en parallèle : verrou de ligne du passage ; la résolution qui attend voit le passage clôturé (CLOSED), rien n’est résolu après la signature', async () => {
+    const fin = await committedFinance(c.country);
+    const a = await connectAs('app_api');
+    const b = await connectAs('app_api');
+    try {
+      const rec = (
+        await a.query<{ outcome: string; run_id: string }>(RECORD, [
+          fin.hash,
+          uuid(),
+          c.country,
+          monthOf(c.timezone),
+          'OPERATIONS',
+          JSON.stringify([
+            { reference: `us311-${randomUUID()}`, amountMinor: '3', currency: c.currency },
+          ]),
+          REASON,
+        ])
+      ).rows[0]!;
+      expect(rec.outcome).toBe('RECORDED');
+      const run = await first<{ outcome: string; body: Row }>(a, RUN, [
+        fin.hash,
+        uuid(),
+        rec.run_id,
+        false,
+        null,
+      ]);
+      const item = (run.body['items'] as Row[]).find((i) => i['side'] === 'PSP')!;
+      await a.query('BEGIN');
+      expect(
+        (await a.query(SIGN, [fin.hash, uuid(), rec.run_id, JSON.stringify(CHECKLIST)])).rows[0],
+      ).toMatchObject({ outcome: 'CLOSED' });
+      let settled = false;
+      const pending = b
+        .query<{ outcome: string }>(RESOLVE, [
+          fin.hash,
+          uuid(),
+          item['itemId'],
+          'OTHER',
+          'Résolution concurrente de la signature',
+        ])
+        .then((r) => {
+          settled = true;
+          return r.rows[0]!;
+        });
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      expect(settled).toBe(false);
+      await a.query('COMMIT');
+      expect(await pending).toEqual({ outcome: 'CLOSED' });
+      const after = await first<{ outcome: string; body: Row }>(b, RUN, [
+        fin.hash,
+        uuid(),
+        rec.run_id,
+        false,
+        null,
+      ]);
+      expect(after.body['status']).toBe('CLOSED');
+      expect(
+        (after.body['items'] as Row[]).find((i) => i['itemId'] === item['itemId']),
+      ).toMatchObject({ resolution: null });
+    } finally {
+      await a.query('ROLLBACK').catch(() => undefined);
+      await releaseClient(a);
+      await releaseClient(b);
+    }
   });
 });
 

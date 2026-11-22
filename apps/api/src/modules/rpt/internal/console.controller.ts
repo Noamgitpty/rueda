@@ -45,7 +45,8 @@ import { REPORT_STORE } from './tokens.js';
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const COUNTRY = /^[A-Z]{2}$/;
 const MONTH = /^(\d{4})-(0[1-9]|1[0-2])$/;
-const MAX_LINES = 5000;
+/** 400 lignes au plus : un relevé tient dans le corps de 100 Kio (API_BODY_LIMIT_BYTES ; 0174). */
+const MAX_LINES = 400;
 /** Sources d'un export CSV (une route, une ligne au journal d'accès par export). */
 const EXPORT_SOURCES = [
   'HANDOVERS_TODAY',
