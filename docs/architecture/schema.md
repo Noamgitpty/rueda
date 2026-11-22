@@ -7,7 +7,7 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 
 ## Synthèse
 
-- 177 migrations ; 169 tables ; 6 vues ; 954 politiques RLS ; 420 fonctions `SECURITY DEFINER` ; 327 autres fonctions.
+- 177 migrations ; 169 tables ; 6 vues ; 954 politiques RLS ; 421 fonctions `SECURITY DEFINER` ; 327 autres fonctions.
 - Tables sans RLS `ENABLE` + `FORCE` : aucune.
 - Rôles applicatifs avec `SUPERUSER` ou `BYPASSRLS` : aucun.
 
@@ -2660,10 +2660,12 @@ Déclencheurs :
 | `charge_id` | `uuid` | non | — |
 | `executed_at` | `timestamp with time zone` | non | — |
 | `next_check_at` | `timestamp with time zone` | oui | `platform.now()` |
+| `failed_attempts` | `integer` | oui | `0` |
 
 Contraintes :
 
 - `claim_traffic_charge_amount_positive` : `CHECK (amount_minor > 0)`
+- `claim_traffic_charge_attempts_range` : `CHECK (failed_attempts >= 0 AND failed_attempts <= 5)`
 - `claim_traffic_charge_charge_fk` : `FOREIGN KEY (charge_id) REFERENCES core.payment_post_trip_charge(id)`
 - `claim_traffic_charge_code_format` : `CHECK (execution_code IS NULL OR execution_code ~ '^[A-Z][A-Z0-9_]{1,63}$'::text)`
 - `claim_traffic_charge_country_format` : `CHECK (country_code ~ '^[A-Z]{2}$'::text)`
@@ -2691,7 +2693,7 @@ Index :
 
 Politiques RLS :
 
-- `cmd_hold_traffic_ins` (INSERT, PERMISSIVE, cmd_hold_owner) WITH CHECK `((execution_status = 'PENDING'::text) AND (charge_id IS NULL) AND (executed_at IS NULL))`
+- `cmd_hold_traffic_ins` (INSERT, PERMISSIVE, cmd_hold_owner) WITH CHECK `((execution_status = 'PENDING'::text) AND (charge_id IS NULL) AND (executed_at IS NULL) AND (failed_attempts = 0))`
 - `cmd_hold_traffic_sel` (SELECT, PERMISSIVE, cmd_hold_owner) USING `true`
 - `cmd_money_traffic_sel` (SELECT, PERMISSIVE, cmd_money_owner) USING `true`
 - `cmd_money_traffic_upd` (UPDATE, PERMISSIVE, cmd_money_owner) USING `((app.actor_kind() = 'WORKER'::text) AND (app.worker_name() = 'payment_command'::text))` WITH CHECK `((app.actor_kind() = 'WORKER'::text) AND (app.worker_name() = 'payment_command'::text))`
@@ -8861,12 +8863,13 @@ Chacune a un propriétaire `NOLOGIN` dédié (ADR-053) et un `search_path` figé
 | `core.cfg_content_cmd_save_draft(p_token_hash bytea, p_request_id uuid, p_block_key text, p_country text, p_bodies jsonb, p_asset_id uuid)` | `TABLE(outcome text, version_no integer)` | `iam_staff_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; iam_staff_owner: EXECUTE |
 | `core.claim_claim_view(p_claim_id uuid)` | `jsonb` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | cmd_money_owner: EXECUTE ; iam_staff_owner: EXECUTE |
 | `core.claim_cmd_close_theft_case(p_trip_id uuid)` | `text` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; cmd_money_owner: EXECUTE |
-| `core.claim_cmd_declare_traffic_charge(p_token_hash bytea, p_request_id uuid, p_trip_id uuid, p_kind text, p_occurred_at timestamp with time zone, p_amount_minor bigint, p_file_id uuid)` | `TABLE(outcome text, charge_id uuid, body jsonb)` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; cmd_hold_owner: EXECUTE |
+| `core.claim_cmd_declare_traffic_charge(p_token_hash bytea, p_request_id uuid, p_trip_id uuid, p_kind text, p_occurred_at timestamp with time zone, p_amount_minor bigint, p_file_id uuid, p_preview boolean)` | `TABLE(outcome text, charge_id uuid, body jsonb)` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; cmd_hold_owner: EXECUTE |
 | `core.claim_cmd_defer_decision(p_decision_id uuid, p_code text)` | `text` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; cmd_money_owner: EXECUTE |
 | `core.claim_cmd_defer_traffic_charge(p_traffic_charge_id uuid, p_code text)` | `text` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; cmd_money_owner: EXECUTE |
 | `core.claim_cmd_execute_decision(p_decision_id uuid, p_charge_id uuid)` | `TABLE(outcome text, code text)` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; cmd_money_owner: EXECUTE |
 | `core.claim_cmd_execute_traffic_charge(p_traffic_charge_id uuid, p_charge_id uuid)` | `TABLE(outcome text, code text)` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; cmd_money_owner: EXECUTE |
 | `core.claim_cmd_issue_decision(p_decision_id uuid, p_claim_id uuid, p_agent uuid, p_role text, p_request_id uuid, p_input jsonb, p_preview boolean)` | `TABLE(outcome text, decision_id uuid, body jsonb)` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | cmd_money_owner: EXECUTE ; iam_staff_owner: EXECUTE |
+| `core.claim_cmd_lock_theft_declaration(p_theft_case_id uuid)` | `text` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; cmd_money_owner: EXECUTE |
 | `core.claim_cmd_open_theft_case(p_trip_id uuid)` | `text` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; cmd_money_owner: EXECUTE |
 | `core.claim_cmd_record_claim(p_claim_id uuid, p_trip_id uuid, p_case_id uuid, p_declared_by text, p_kind text, p_description text, p_agent uuid, p_role text, p_request_id uuid)` | `TABLE(outcome text, claim_id uuid, deadline_at timestamp with time zone)` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | cmd_money_owner: EXECUTE ; iam_staff_owner: EXECUTE |
 | `core.claim_cmd_record_insurer_declaration(p_declaration_id uuid, p_provider_ref text)` | `text` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; cmd_money_owner: EXECUTE |
