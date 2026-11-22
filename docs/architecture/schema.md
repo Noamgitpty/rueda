@@ -7,7 +7,7 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 
 ## Synthèse
 
-- 177 migrations ; 166 tables ; 6 vues ; 939 politiques RLS ; 409 fonctions `SECURITY DEFINER` ; 323 autres fonctions.
+- 178 migrations ; 166 tables ; 6 vues ; 939 politiques RLS ; 409 fonctions `SECURITY DEFINER` ; 323 autres fonctions.
 - Tables sans RLS `ENABLE` + `FORCE` : aucune.
 - Rôles applicatifs avec `SUPERUSER` ou `BYPASSRLS` : aucun.
 
@@ -192,6 +192,7 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 | `0174_report_beta_views_reconciliation` | RPT / FIN : vues de la bêta (remises du jour, retards, KPI de sortie) et rapprochement |
 | `0175_claim_damage_claims_decisions` | CLM : déclarations de dommage de l'hôte et d'incident du voyageur, décisions motivées par |
 | `0176_trip_inspection_photo_fingerprint` | TRP : empreinte de photo d'état unique, tous trips, photos d'annonce comprises (bêta). |
+| `0179_booking_hold_fast_refusal` | AVL : refus rapide de la pose perdante sous le verrou du véhicule, et paramètres de pays |
 
 ## Rôles
 
