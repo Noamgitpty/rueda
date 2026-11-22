@@ -22,3 +22,4 @@ export type {
   ReportResult,
   ReportStore,
 } from './internal/store.js';
+export { RECON_LINES_WARNING, RECON_MAX_LINES } from './internal/console.controller.js';

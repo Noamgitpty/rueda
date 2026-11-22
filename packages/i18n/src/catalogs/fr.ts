@@ -472,6 +472,10 @@ export const FR_MESSAGES = {
     'Le dossier n’a pas pu être remis : une preuve manque ou ne correspond plus à son empreinte. Le constat est enregistré.',
   'common.evidenceBundle.unavailable':
     'Le dossier de preuve n’est pas disponible pour le moment. Rien n’a été demandé ni remis.',
+  'common.reconciliation.statementTooLarge':
+    'Le relevé est trop lourd pour un seul envoi (400 lignes au plus). Rien n’a été enregistré.',
+  'common.reconciliation.statementNearLimit':
+    'Ce relevé compte {lines} lignes, près du plafond de {max}. Prévois le rapprochement automatique avant le mois prochain.',
   'common.reconciliation.statementMissing':
     'Le relevé du PSP manque : ajoute au moins une ligne. Rien n’a été enregistré.',
   'common.reconciliation.formatInvalid':

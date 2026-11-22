@@ -28,6 +28,7 @@ import {
   Get,
   HttpCode,
   Inject,
+  Logger,
   Param,
   Post,
   Query,
@@ -45,8 +46,20 @@ import { REPORT_STORE } from './tokens.js';
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const COUNTRY = /^[A-Z]{2}$/;
 const MONTH = /^(\d{4})-(0[1-9]|1[0-2])$/;
-/** 400 lignes au plus : un relevé tient dans le corps de 100 Kio (API_BODY_LIMIT_BYTES ; 0174). */
-const MAX_LINES = 400;
+/**
+ * Plafond d'un relevé (lignes) : même valeur que la base (0174) et l'OpenAPI (`maxItems`) ; 400
+ * lignes LEGS au pire cas tiennent dans la limite de corps propre de la route (128 Kio,
+ * route-body-limits.ts). Parité figée par report-limits.test.ts.
+ */
+export const RECON_MAX_LINES = 400;
+/**
+ * Seuil d'avertissement (lignes, PROPOSÉ ; constante sans lien avec un pays) : au-delà, la réponse
+ * porte `RECON_STATEMENT_NEAR_LIMIT` et le journal un avertissement ; le rapprochement automatisé
+ * (US-711) doit être préparé avant que le volume n'atteigne le plafond (runbook).
+ */
+export const RECON_LINES_WARNING = 300;
+const MAX_LINES = RECON_MAX_LINES;
+const LOG = new Logger('Reconciliation');
 /** Sources d'un export CSV (une route, une ligne au journal d'accès par export). */
 const EXPORT_SOURCES = [
   'HANDOVERS_TODAY',
@@ -242,6 +255,22 @@ export class ReportConsoleController {
     }
     if (r.outcome !== 'RECORDED' && r.outcome !== 'ALREADY_RECORDED') refusal(r.outcome);
     reply.status(r.outcome === 'RECORDED' ? 201 : 200);
+    if (lines.length > RECON_LINES_WARNING) {
+      // aucune donnée personnelle : pays, nature, mois et nombre de lignes
+      LOG.warn(
+        `relevé ${kind} ${cc} ${month.slice(0, 7)} : ${lines.length} lignes (avertissement au-delà de ${RECON_LINES_WARNING}, plafond ${RECON_MAX_LINES})`,
+      );
+      return {
+        runId: r.runId,
+        warnings: [
+          {
+            code: 'RECON_STATEMENT_NEAR_LIMIT',
+            messageKey: 'common.reconciliation.statementNearLimit',
+            values: { lines: lines.length, max: RECON_MAX_LINES },
+          },
+        ],
+      };
+    }
     return { runId: r.runId };
   }
 

@@ -460,6 +460,10 @@ export const ES_MESSAGES = {
     'No se pudo entregar el expediente: una prueba no coincide con su huella o falta. El hallazgo quedó registrado.',
   'common.evidenceBundle.unavailable':
     'El expediente de pruebas no está disponible por ahora. No se pidió ni se entregó nada.',
+  'common.reconciliation.statementTooLarge':
+    'El extracto es demasiado grande para un solo envío (400 líneas como máximo). No se registró nada.',
+  'common.reconciliation.statementNearLimit':
+    'Este extracto tiene {lines} líneas, cerca del máximo de {max}. Prepara la conciliación automática antes del próximo mes.',
   'common.reconciliation.statementMissing':
     'Falta el extracto del PSP: agrega al menos una línea. No se registró nada.',
   'common.reconciliation.formatInvalid':

@@ -11,6 +11,11 @@ import { HttpException } from '@nestjs/common';
 export const REPORT_MESSAGES = {
   // relevé du PSP absent (aucune ligne) : rien n'est enregistré
   RECON_STATEMENT_MISSING: { status: 400, messageKey: 'common.reconciliation.statementMissing' },
+  // corps du relevé au-delà de sa limite propre (128 Kio, route-body-limits.ts) : rien n'est lu
+  RECON_STATEMENT_TOO_LARGE: {
+    status: 413,
+    messageKey: 'common.reconciliation.statementTooLarge',
+  },
   // ligne mal formée, doublon, autre devise que celle du pays, mois à venir : rien n'est enregistré
   RECON_FORMAT_INVALID: { status: 400, messageKey: 'common.reconciliation.formatInvalid' },
   // checklist mensuelle : un point n'est pas coché, le passage reste ouvert

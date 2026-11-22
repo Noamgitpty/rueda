@@ -610,7 +610,7 @@
                   },
                   "lines": {
                     "type": "array",
-                    "maxItems": 5000,
+                    "maxItems": 400,
                     "items": {
                       "type": "object"
                     }
@@ -626,28 +626,6 @@
           }
         },
         "responses": {
-          "201": {
-            "description": "Passage enregistré",
-            "headers": {
-              "Cache-Control": {
-                "$ref": "#/components/headers/NoStore"
-              }
-            },
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "required": ["runId"],
-                  "additionalProperties": false,
-                  "properties": {
-                    "runId": {
-                      "$ref": "#/components/schemas/Uuid"
-                    }
-                  }
-                }
-              }
-            }
-          },
           "200": {
             "description": "Rejeu de la même requête : même passage",
             "headers": {
@@ -664,6 +642,88 @@
                   "properties": {
                     "runId": {
                       "$ref": "#/components/schemas/Uuid"
+                    },
+                    "warnings": {
+                      "type": "array",
+                      "description": "RECON_STATEMENT_NEAR_LIMIT : relevé de plus de 300 lignes (plafond 400)",
+                      "items": {
+                        "type": "object",
+                        "required": ["code", "messageKey", "values"],
+                        "additionalProperties": false,
+                        "properties": {
+                          "code": {
+                            "const": "RECON_STATEMENT_NEAR_LIMIT"
+                          },
+                          "messageKey": {
+                            "$ref": "#/components/schemas/MessageKey"
+                          },
+                          "values": {
+                            "type": "object",
+                            "required": ["lines", "max"],
+                            "additionalProperties": false,
+                            "properties": {
+                              "lines": {
+                                "type": "integer"
+                              },
+                              "max": {
+                                "type": "integer"
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Passage enregistré",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["runId"],
+                  "additionalProperties": false,
+                  "properties": {
+                    "runId": {
+                      "$ref": "#/components/schemas/Uuid"
+                    },
+                    "warnings": {
+                      "type": "array",
+                      "description": "RECON_STATEMENT_NEAR_LIMIT : relevé de plus de 300 lignes (plafond 400)",
+                      "items": {
+                        "type": "object",
+                        "required": ["code", "messageKey", "values"],
+                        "additionalProperties": false,
+                        "properties": {
+                          "code": {
+                            "const": "RECON_STATEMENT_NEAR_LIMIT"
+                          },
+                          "messageKey": {
+                            "$ref": "#/components/schemas/MessageKey"
+                          },
+                          "values": {
+                            "type": "object",
+                            "required": ["lines", "max"],
+                            "additionalProperties": false,
+                            "properties": {
+                              "lines": {
+                                "type": "integer"
+                              },
+                              "max": {
+                                "type": "integer"
+                              }
+                            }
+                          }
+                        }
+                      }
                     }
                   }
                 }
@@ -696,6 +756,29 @@
           "403": {
             "$ref": "#/components/responses/StaffForbidden"
           },
+          "413": {
+            "description": "Corps au-delà de la limite propre du dépôt d'un relevé (128 Kio, 400 lignes LEGS au pire cas) : rien n'est lu",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "RECON_STATEMENT_TOO_LARGE"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "$ref": "#/components/responses/StaffRateLimited"
+          },
           "503": {
             "description": "Base indisponible : rien n'est lu ni enregistré",
             "headers": {
@@ -715,9 +798,6 @@
                 }
               }
             }
-          },
-          "429": {
-            "$ref": "#/components/responses/StaffRateLimited"
           }
         }
       },

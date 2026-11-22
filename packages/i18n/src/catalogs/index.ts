@@ -382,7 +382,8 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  Version 109 (réservée à US-311 par l’orchestrateur ; les 104 à 107 sont celles d’US-703,
  US-317, US-307 et US-314, la 108 est réservée à US-306 ; le numéro ne redescend jamais) : vues de la bêta et
  rapprochement par jambe assisté (US-311, ADR-194) : réponses de la console
- `common.reconciliation.*` (relevé du PSP absent ou mal formé, checklist mensuelle incomplète,
+ `common.reconciliation.*` (relevé du PSP absent, mal formé, trop lourd ou proche du plafond de
+ 400 lignes, checklist mensuelle incomplète,
  passage clôturé, écart déjà expliqué, base indisponible : rien n’est lu ni enregistré).
  */
 export const CATALOG_VERSION = 109;

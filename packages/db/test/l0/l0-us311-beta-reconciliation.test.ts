@@ -784,6 +784,31 @@ async function committedFinance(country: string) {
   return withRole('app_api', (client) => ops(client, 'FINANCE', [country]));
 }
 
+/** Bornes de chaque connexion des preuves à deux connexions : jamais d'attente infinie. */
+async function bounded(client: pg.ClientBase): Promise<number> {
+  await client.query(`SET lock_timeout = '15s'`);
+  await client.query(`SET statement_timeout = '30s'`);
+  return (await client.query<{ pid: number }>('SELECT pg_catalog.pg_backend_pid() AS pid')).rows[0]!
+    .pid;
+}
+
+/**
+ * Attend, sans pause arbitraire, que la connexion `waiter` soit bloquée par `holder`
+ * (`pg_blocking_pids`), lu depuis `observer` ; échoue après 10 s.
+ */
+async function blockedBy(observer: pg.ClientBase, waiter: number, holder: number): Promise<void> {
+  const deadline = Date.now() + 10_000;
+  for (;;) {
+    const { rows } = await observer.query<{ blocked: boolean }>(
+      'SELECT $2::integer = ANY (pg_catalog.pg_blocking_pids($1::integer)) AS blocked',
+      [waiter, holder],
+    );
+    if (rows[0]?.blocked === true) return;
+    if (Date.now() > deadline) throw new Error(`connexion ${waiter} jamais bloquée par ${holder}`);
+    await new Promise((resolve) => setImmediate(resolve));
+  }
+}
+
 describe.each(byCountry)('US-311 — concurrence, deux connexions (%s, %s)', (_k, _cur, c) => {
   it('même requestId enregistré deux fois en parallèle : un seul passage, la seconde réponse est rejouée (23505 ⇒ ALREADY_RECORDED)', async () => {
     const fin = await committedFinance(c.country);
@@ -795,21 +820,22 @@ describe.each(byCountry)('US-311 — concurrence, deux connexions (%s, %s)', (_k
     ]);
     const args = [fin.hash, requestId, c.country, monthOf(c.timezone), 'OPERATIONS', lines, REASON];
     try {
+      const pidA = await bounded(a);
+      const pidB = await bounded(b);
       await a.query('BEGIN');
       const first1 = (await a.query<{ outcome: string; run_id: string }>(RECORD, args)).rows[0]!;
       expect(first1.outcome).toBe('RECORDED');
-      // B attend l'index unique tant que A n'est pas validée
-      let settled = false;
-      const pending = b.query<{ outcome: string; run_id: string }>(RECORD, args).then((r) => {
-        settled = true;
-        return r.rows[0]!;
-      });
-      await new Promise((resolve) => setTimeout(resolve, 500));
-      expect(settled).toBe(false);
+      // B attend l'index unique tant que A n'est pas validée (bloquée par A, lu dans le catalogue)
+      const pending = b.query<{ outcome: string; run_id: string }>(RECORD, args);
+      await blockedBy(a, pidB, pidA);
       await a.query('COMMIT');
-      expect(await pending).toEqual({ outcome: 'ALREADY_RECORDED', run_id: first1.run_id });
+      expect((await pending).rows[0]).toEqual({
+        outcome: 'ALREADY_RECORDED',
+        run_id: first1.run_id,
+      });
     } finally {
       await a.query('ROLLBACK').catch(() => undefined);
+      await b.query('ROLLBACK').catch(() => undefined);
       await releaseClient(a);
       await releaseClient(b);
     }
@@ -820,6 +846,8 @@ describe.each(byCountry)('US-311 — concurrence, deux connexions (%s, %s)', (_k
     const a = await connectAs('app_api');
     const b = await connectAs('app_api');
     try {
+      const pidA = await bounded(a);
+      const pidB = await bounded(b);
       const rec = (
         await a.query<{ outcome: string; run_id: string }>(RECORD, [
           fin.hash,
@@ -846,23 +874,17 @@ describe.each(byCountry)('US-311 — concurrence, deux connexions (%s, %s)', (_k
       expect(
         (await a.query(SIGN, [fin.hash, uuid(), rec.run_id, JSON.stringify(CHECKLIST)])).rows[0],
       ).toMatchObject({ outcome: 'CLOSED' });
-      let settled = false;
-      const pending = b
-        .query<{ outcome: string }>(RESOLVE, [
-          fin.hash,
-          uuid(),
-          item['itemId'],
-          'OTHER',
-          'Résolution concurrente de la signature',
-        ])
-        .then((r) => {
-          settled = true;
-          return r.rows[0]!;
-        });
-      await new Promise((resolve) => setTimeout(resolve, 500));
-      expect(settled).toBe(false);
+      // B attend le verrou de ligne du passage tenu par la signature de A
+      const pending = b.query<{ outcome: string }>(RESOLVE, [
+        fin.hash,
+        uuid(),
+        item['itemId'],
+        'OTHER',
+        'Résolution concurrente de la signature',
+      ]);
+      await blockedBy(a, pidB, pidA);
       await a.query('COMMIT');
-      expect(await pending).toEqual({ outcome: 'CLOSED' });
+      expect((await pending).rows[0]).toEqual({ outcome: 'CLOSED' });
       const after = await first<{ outcome: string; body: Row }>(b, RUN, [
         fin.hash,
         uuid(),
@@ -876,6 +898,7 @@ describe.each(byCountry)('US-311 — concurrence, deux connexions (%s, %s)', (_k
       ).toMatchObject({ resolution: null });
     } finally {
       await a.query('ROLLBACK').catch(() => undefined);
+      await b.query('ROLLBACK').catch(() => undefined);
       await releaseClient(a);
       await releaseClient(b);
     }

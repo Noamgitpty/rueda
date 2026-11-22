@@ -463,6 +463,10 @@ export const PT_MESSAGES = {
     'Não foi possível entregar o dossiê: uma prova está faltando ou não corresponde à sua impressão digital. A constatação foi registrada.',
   'common.evidenceBundle.unavailable':
     'O dossiê de provas não está disponível agora. Nada foi pedido nem entregue.',
+  'common.reconciliation.statementTooLarge':
+    'O extrato é grande demais para um único envio (400 linhas no máximo). Nada foi registrado.',
+  'common.reconciliation.statementNearLimit':
+    'Este extrato tem {lines} linhas, perto do máximo de {max}. Prepare a conciliação automática antes do próximo mês.',
   'common.reconciliation.statementMissing':
     'Falta o extrato do PSP: adicione pelo menos uma linha. Nada foi registrado.',
   'common.reconciliation.formatInvalid':

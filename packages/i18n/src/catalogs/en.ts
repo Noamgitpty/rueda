@@ -443,6 +443,10 @@ export const EN_MESSAGES = {
     'The bundle could not be delivered: a piece of evidence is missing or does not match its fingerprint. The finding was recorded.',
   'common.evidenceBundle.unavailable':
     'Evidence bundles are not available right now. Nothing was requested or delivered.',
+  'common.reconciliation.statementTooLarge':
+    'The statement is too large for one upload (400 lines at most). Nothing was recorded.',
+  'common.reconciliation.statementNearLimit':
+    'This statement has {lines} lines, close to the {max}-line limit. Plan the automatic reconciliation before next month.',
   'common.reconciliation.statementMissing':
     'The PSP statement is missing: add at least one line. Nothing was recorded.',
   'common.reconciliation.formatInvalid':

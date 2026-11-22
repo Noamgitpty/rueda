@@ -837,7 +837,10 @@ BEGIN
               COALESCE(e.x ->> 'reference', '') !~ '^[A-Za-z0-9_.:-]{1,128}$'
               OR COALESCE(e.x ->> 'amountMinor', '') !~ '^[0-9]{1,18}$'))
         OR (p_kind = 'LEGS' AND (
-              COALESCE(e.x ->> 'tripReference', '') !~ '^[A-Za-z0-9_.:-]{1,128}$'
+              -- identifiant du trip ou de son hold : un UUID (le corps de 400 lignes au pire cas
+              -- tient alors dans la limite de la route, 128 Kio)
+              COALESCE(e.x ->> 'tripReference', '')
+                !~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
               OR COALESCE(e.x ->> 'leg', '') NOT IN ('HOST', 'INSURER', 'TAX_THIRD_PARTY', 'PLATFORM')
               OR COALESCE(e.x ->> 'capturedMinor', '') !~ '^[0-9]{1,18}$'
               OR COALESCE(e.x ->> 'refundedMinor', '') !~ '^[0-9]{1,18}$'
@@ -1023,6 +1026,12 @@ BEGIN
     END IF;
     SELECT r.id, r.country_code, r.kind, r.period_month INTO v_existing
       FROM core.finance_reconciliation_run AS r WHERE r.request_id = p_request_id;
+    -- passage concurrent invisible (impossible après la violation d'unicité validée) : erreur
+    -- explicite, jamais une réponse vide ; le client peut rejouer la requête
+    IF v_existing.id IS NULL THEN
+      RAISE EXCEPTION 'rapprochement : passage concurrent de la même requête introuvable'
+        USING ERRCODE = 'serialization_failure';
+    END IF;
     IF v_existing.country_code <> p_country OR v_existing.kind <> p_kind
        OR v_existing.period_month <> p_month THEN
       RAISE EXCEPTION 'rapprochement : identifiant de requête déjà pris'

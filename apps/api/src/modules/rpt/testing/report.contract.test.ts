@@ -403,6 +403,80 @@ describe('US-311 — vues de la bêta, exports et rapprochement (console)', () =
   });
 });
 
+describe('US-311 — taille du relevé : limite de corps propre de la route, avertissement', () => {
+  const worst = (n: number) =>
+    Array.from({ length: n }, (_, i) => ({
+      tripReference: `00000000-0000-4000-8000-${String(i).padStart(12, '0')}`,
+      leg: 'TAX_THIRD_PARTY',
+      currency: 'XTS',
+      capturedMinor: '9'.repeat(18),
+      refundedMinor: '9'.repeat(18),
+      reallocatedInMinor: '9'.repeat(18),
+      reallocatedOutMinor: '9'.repeat(18),
+      releasedMinor: '9'.repeat(18),
+    }));
+  const body = (lines: unknown[]) => ({
+    requestId: randomUUID(),
+    country: FIRST_COUNTRY,
+    month: '2026-11',
+    kind: 'LEGS',
+    reason: 'x'.repeat(500),
+    lines,
+  });
+
+  it('400 lignes LEGS au pire cas (plus de 100 Kio) : admises par la route, avertissement RECON_STATEMENT_NEAR_LIMIT', async () => {
+    const w = await world();
+    const payload = body(worst(400));
+    expect(Buffer.byteLength(JSON.stringify(payload))).toBeGreaterThan(100 * 1024);
+    const r = await w.app.api.request('POST', '/console/reconciliation/runs', {
+      headers: w.app.cookie('staff'),
+      body: payload,
+    });
+    expect(r.status).toBe(201);
+    expect(r.json).toEqual({
+      runId: payload.requestId,
+      warnings: [
+        {
+          code: 'RECON_STATEMENT_NEAR_LIMIT',
+          messageKey: 'common.reconciliation.statementNearLimit',
+          values: { lines: 400, max: 400 },
+        },
+      ],
+    });
+    // au plus 300 lignes : aucun avertissement
+    const quiet = await w.app.api.request('POST', '/console/reconciliation/runs', {
+      headers: w.app.cookie('staff'),
+      body: body(worst(300)),
+    });
+    expect(quiet.status).toBe(201);
+    expect(quiet.json).not.toHaveProperty('warnings');
+  });
+
+  it('corps au-delà de la limite de la route (128 Kio) : 413 RECON_STATEMENT_TOO_LARGE, rien n’est lu ; une autre route garde 100 Kio', async () => {
+    const w = await world();
+    const payload = body(worst(500));
+    expect(Buffer.byteLength(JSON.stringify(payload))).toBeGreaterThan(128 * 1024);
+    const r = await w.app.api.request('POST', '/console/reconciliation/runs', {
+      headers: w.app.cookie('staff'),
+      body: payload,
+    });
+    expect(r.status).toBe(413);
+    expect(r.json).toEqual({
+      code: 'RECON_STATEMENT_TOO_LARGE',
+      messageKey: 'common.reconciliation.statementTooLarge',
+    });
+    expect(r.headers.get('x-content-type-options')).toBe('nosniff');
+    expect(w.store.calls).toEqual([]);
+    // la limite globale n'est pas relâchée : 110 Kio sur une autre route du rapprochement ⇒ 413
+    const other = await w.app.api.request('POST', `/console/reconciliation/runs/${RUN}/signature`, {
+      headers: w.app.cookie('staff'),
+      body: { requestId: randomUUID(), checklist: CHECKLIST, pad: 'x'.repeat(110 * 1024) },
+    });
+    expect(other.status).toBe(413);
+    expect(other.json).toMatchObject({ code: 'PAYLOAD_TOO_LARGE' });
+  });
+});
+
 describe('US-311 — couverture du contrat', () => {
   // 429 (limite de débit de la console) : exercé par la suite /console sur chaque route /console
   it('couverture : chaque statut déclaré pour /console/beta-views est exercé', () => {
