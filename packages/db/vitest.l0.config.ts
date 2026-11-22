@@ -21,6 +21,8 @@ import { databaseTestOptions } from './vitest.shared.ts';
 // (fixture 9962) et lance la tâche d'expiration sur toute la base : elle tourne seule, après.
 const ISOLATED = [
   'test/l0/l0-02-concurrency.test.ts',
+  // DIAGNOSTIC TEMPORAIRE (US-007, N-468) : retiré avant la fusion
+  'test/l0/l0-us007-diag-planning.test.ts',
   'test/l0/l0-06-real-clock.test.ts',
   'test/l0/l0-us024-conversion.test.ts',
   'test/l0/l0-us118-listing-publication.test.ts',
