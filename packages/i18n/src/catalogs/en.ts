@@ -3725,7 +3725,7 @@ export const EN_MESSAGES = {
   'web.incident.no': 'No',
   'web.incident.answerRequired': 'Choose an answer.',
   'web.incident.serverTime':
-    'We record the server time when you send. Your host and our support team will see the incident and the photos.',
+    'We record the server time when you send. The photos are kept in the trip’s file for our support team.',
   'web.incident.submit': 'Send the report',
   'web.incident.sent': 'Incident recorded',
   'web.incident.sentAt': 'Server time: {time}',

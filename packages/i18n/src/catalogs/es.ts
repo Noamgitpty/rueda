@@ -3813,7 +3813,7 @@ export const ES_MESSAGES = {
   'web.incident.no': 'No',
   'web.incident.answerRequired': 'Elige una respuesta.',
   'web.incident.serverTime':
-    'Registramos la hora del servidor al enviar. Tu anfitrión y nuestro equipo de soporte verán el incidente y las fotos.',
+    'Registramos la hora del servidor al enviar. Las fotos quedan en el expediente del viaje para nuestro equipo de soporte.',
   'web.incident.submit': 'Enviar la declaración',
   'web.incident.sent': 'Incidente registrado',
   'web.incident.sentAt': 'Hora del servidor: {time}',

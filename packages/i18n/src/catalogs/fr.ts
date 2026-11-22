@@ -3891,7 +3891,7 @@ export const FR_MESSAGES = {
   'web.incident.no': 'Non',
   'web.incident.answerRequired': 'Choisis une réponse.',
   'web.incident.serverTime':
-    'Nous enregistrons l’heure du serveur à l’envoi. Ton hôte et notre équipe de support verront l’incident et les photos.',
+    'Nous enregistrons l’heure du serveur à l’envoi. Les photos restent dans le dossier du trajet pour notre équipe de support.',
   'web.incident.submit': 'Envoyer la déclaration',
   'web.incident.sent': 'Incident enregistré',
   'web.incident.sentAt': 'Heure du serveur : {time}',
