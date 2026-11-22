@@ -69,3 +69,7 @@ export {
 } from './internal/sup-evidence-bundle.module.js';
 export type { SupEvidenceBundleOptions } from './internal/sup-evidence-bundle.module.js';
 export { ctrEvidenceContractRenderer } from './internal/evidence-contract-renderer.js';
+
+// Déclarations de dommage et décisions motivées (US-309) : montage par le processus API seulement.
+export { postgresClaims, SupClaimsModule } from './internal/sup-claims.module.js';
+export type { SupClaimsOptions } from './internal/sup-claims.module.js';

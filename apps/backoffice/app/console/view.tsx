@@ -24,6 +24,8 @@ import {
 } from '@rueda/ui';
 import styles from './console.module.css';
 import { CancelPanel } from './cancel-view.tsx';
+import { CLAIM_ROLES, ClaimsPanel } from './claim-view.tsx';
+import type { ClaimsHandlers, ClaimsState } from './claim-view.tsx';
 import type { CancelHandlers, CancelState } from './cancel-view.tsx';
 import { REFUND_ROLES, RefundsPanel } from './refund-view.tsx';
 import type { RefundsHandlers, RefundsState } from './refund-view.tsx';
@@ -339,6 +341,7 @@ export function ConsoleView({
   ops,
   cancel,
   refunds,
+  claims,
   overdue,
 }: {
   readonly i18n: Translator;
@@ -353,6 +356,8 @@ export function ConsoleView({
   /** US-224d : remboursements d'un voyage (lecture seule). */
   readonly refunds?:
     { readonly state: RefundsState; readonly handlers: RefundsHandlers } | undefined;
+  /** US-309 : déclarations de dommage et d'incident, décisions motivées par gabarit. */
+  readonly claims?: { readonly state: ClaimsState; readonly handlers: ClaimsHandlers } | undefined;
   /** US-306 : vue des retards et escalade de non-restitution. */
   readonly overdue?:
     { readonly state: OverdueState; readonly handlers: OverdueHandlers } | undefined;
@@ -562,6 +567,18 @@ export function ConsoleView({
 
           {cancel !== undefined && state.roles.some((r) => CANCEL_ROLES.has(r.role)) && (
             <CancelPanel i18n={i18n} state={cancel.state} handlers={cancel.handlers} busy={busy} />
+          )}
+
+          {claims !== undefined && state.roles.some((r) => CLAIM_ROLES.has(r.role)) && (
+            <ClaimsPanel
+              i18n={i18n}
+              state={claims.state}
+              handlers={claims.handlers}
+              busy={busy}
+              adminCountries={state.roles
+                .filter((r) => r.role === 'ADMIN')
+                .flatMap((r) => r.countries)}
+            />
           )}
 
           {refunds !== undefined && state.roles.some((r) => REFUND_ROLES.has(r.role)) && (

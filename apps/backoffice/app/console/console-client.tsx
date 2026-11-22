@@ -19,6 +19,8 @@ import type {
   MeBody,
 } from './api.ts';
 import { CANCEL_ACTION, CANCEL_REFUSAL_KEYS, draftProblem } from './cancel-view.tsx';
+import { previewGuard, recordProblem, withoutPreview } from './claim-view.tsx';
+import type { ClaimPreviewView, ClaimsHandlers, ClaimsState, ClaimView } from './claim-view.tsx';
 import type { CancelHandlers, CancelState, CancellationView } from './cancel-view.tsx';
 import type { RefundsHandlers, RefundsState, TripRefundsView } from './refund-view.tsx';
 import { OVERDUE_REFUSAL_KEYS, OVERDUE_ROLES } from './overdue-view.tsx';
@@ -113,6 +115,18 @@ export function ConsoleClient({ localeTag }: { readonly localeTag: string }) {
   const [refunds, setRefunds] = useState<RefundsState>({ step: 'form' });
   // US-306 : vue des retards et escalade de non-restitution
   const [overdue, setOverdue] = useState<OverdueState>({});
+  // US-309 : déclaration ouverte, aperçu du gabarit pour la saisie courante
+  const [claims, setClaims] = useState<ClaimsState>({ claim: null, preview: null });
+  // identifiant de la déclaration en cours d'envoi ; titre à focaliser après un changement d'écran
+  const claimIntent = useRef<{ key: string; id: string } | null>(null);
+  const claimFocus = useRef<string | null>(null);
+  // revue delta ux / code n° 1 : version de la saisie de la décision ; un aperçu périmé est ignoré
+  const claimPreviewGuard = useRef(previewGuard());
+  useEffect(() => {
+    if (claimFocus.current === null) return;
+    document.getElementById(claimFocus.current)?.focus();
+    claimFocus.current = null;
+  }, [claims]);
   const cancelStep = useRef<CancelState['step']>('form');
   useEffect(() => {
     // focus sur le titre du panneau à chaque changement d'étape (clavier, lecteur d'écran)
@@ -507,6 +521,137 @@ export function ConsoleClient({ localeTag }: { readonly localeTag: string }) {
                 step: 'result',
                 tripId,
                 view: 'error',
+                notice: { tone: r.status === 0 ? 'danger' : 'warning', key: r.messageKey },
+              },
+        );
+      });
+    },
+  };
+
+  // US-309 : déclarations et décisions ; la base juge chaque droit, délai, preuve et montant
+  const claimsHandlers: ClaimsHandlers = {
+    onDecisionEdit: () => {
+      claimPreviewGuard.current.edit();
+      if (claims.preview !== null) setClaims(withoutPreview);
+    },
+    onClaimRecord: (draft) => {
+      const problem = recordProblem(draft);
+      if (problem !== null) {
+        setClaims({ claim: null, preview: null, notice: { tone: 'danger', key: problem } });
+        return;
+      }
+      // revue code n° 7 : même saisie renvoyée (réponse perdue) ⇒ même identifiant, rejeu exact
+      const key = JSON.stringify(draft);
+      if (claimIntent.current?.key !== key) {
+        claimIntent.current = { key, id: crypto.randomUUID() };
+      }
+      const requestId = claimIntent.current.id;
+      once(async () => {
+        const r = await call<{ claim: ClaimView }>('POST', '/console/claims', {
+          requestId,
+          tripId: draft.tripId,
+          caseId: draft.caseId,
+          declaredBy: draft.declaredBy,
+          kind: draft.kind,
+          description: draft.description.trim(),
+        });
+        if (r.ok) {
+          claimIntent.current = null;
+          claimFocus.current = 'claims-detail-heading';
+        }
+        setClaims(
+          r.ok
+            ? {
+                claim: r.body.claim,
+                preview: null,
+                notice: { tone: 'success', key: 'backoffice.claim.recorded' },
+              }
+            : {
+                claim: null,
+                preview: null,
+                notice: { tone: r.status === 0 ? 'danger' : 'warning', key: r.messageKey },
+              },
+        );
+      });
+    },
+    onClaimRead: (claimId) => {
+      if (!TRIP_ID.test(claimId)) {
+        setClaims({
+          claim: null,
+          preview: null,
+          notice: { tone: 'danger', key: 'backoffice.claim.error.claim' },
+        });
+        return;
+      }
+      once(async () => {
+        const r = await call<{ claim: ClaimView }>('GET', `/console/claims/${claimId}`);
+        setClaims(
+          r.ok
+            ? { claim: r.body.claim, preview: null }
+            : {
+                claim: null,
+                preview: null,
+                notice: { tone: r.status === 0 ? 'danger' : 'warning', key: r.messageKey },
+              },
+        );
+      });
+    },
+    onDecisionPreview: (draft) => {
+      const claim = claims.claim;
+      if (claim === null) return;
+      if (draft === null) {
+        setClaims((prev) => ({
+          ...prev,
+          preview: null,
+          notice: { tone: 'danger', key: 'backoffice.claim.error.amount' },
+        }));
+        return;
+      }
+      const version = claimPreviewGuard.current.begin();
+      once(async () => {
+        const r = await call<{ preview: ClaimPreviewView }>(
+          'POST',
+          `/console/claims/${claim.claimId}/decision`,
+          { requestId: crypto.randomUUID(), preview: true, ...draft },
+        );
+        // saisie modifiée pendant la requête : l'aperçu n'est pas celui de la saisie affichée
+        if (!claimPreviewGuard.current.current(version)) return;
+        setClaims((prev) =>
+          r.ok
+            ? {
+                ...prev,
+                preview: { draft, view: r.body.preview, requestId: crypto.randomUUID() },
+                notice: undefined,
+              }
+            : {
+                ...prev,
+                preview: null,
+                notice: { tone: r.status === 0 ? 'danger' : 'warning', key: r.messageKey },
+              },
+        );
+        if (r.ok) claimFocus.current = 'claims-template-heading';
+      });
+    },
+    onDecisionIssue: () => {
+      const claim = claims.claim;
+      const preview = claims.preview;
+      if (claim === null || preview === null) return;
+      once(async () => {
+        const r = await call<{ claim: ClaimView }>(
+          'POST',
+          `/console/claims/${claim.claimId}/decision`,
+          { requestId: preview.requestId, ...preview.draft },
+        );
+        if (r.ok) claimFocus.current = 'claims-decided-heading';
+        setClaims((prev) =>
+          r.ok
+            ? {
+                claim: r.body.claim,
+                preview: null,
+                notice: { tone: 'success', key: 'backoffice.claim.decided' },
+              }
+            : {
+                ...prev,
                 notice: { tone: r.status === 0 ? 'danger' : 'warning', key: r.messageKey },
               },
         );
@@ -1006,6 +1151,7 @@ export function ConsoleClient({ localeTag }: { readonly localeTag: string }) {
       ops={{ state: ops, handlers: opsHandlers }}
       cancel={{ state: cancel, handlers: cancelHandlers }}
       refunds={{ state: refunds, handlers: refundsHandlers }}
+      claims={{ state: claims, handlers: claimsHandlers }}
       overdue={{ state: overdue, handlers: overdueHandlers }}
     />
   );

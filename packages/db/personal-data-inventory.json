@@ -2383,7 +2383,8 @@
         "advance_id": "C1",
         "chargeback_operation_id": "C1",
         "payout_batch_id": "C1",
-        "write_off_approval_id": "C1"
+        "write_off_approval_id": "C1",
+        "claim_decision_id": "C1"
       }
     },
     "core.settlement_host_ledger_state": {
@@ -3926,6 +3927,106 @@
         },
         "resolved_by": "C1",
         "resolved_at": "C1"
+      }
+    },
+    "core.claim_damage_claim": {
+      "lifecycle": "A",
+      "subjects": [
+        {
+          "column": "declarant_user_id",
+          "type": "USER"
+        },
+        {
+          "column": "recorded_by",
+          "type": "USER"
+        }
+      ],
+      "export": "controller",
+      "columns": {
+        "id": "C1",
+        "trip_id": "C1",
+        "country_code": "C1",
+        "currency": "C1",
+        "case_id": "C1",
+        "declared_by": "C1",
+        "kind": "C1",
+        "declarant_user_id": "C1",
+        "recorded_by": "C1",
+        "recorded_role": "C1",
+        "request_id": "C1",
+        "description": {
+          "class": "C2",
+          "erasure": "derogation",
+          "justification": "résumé de la déclaration écrit par l'agent dans un registre immuable (garde claim_record_guard : ni UPDATE ni clé de sujet), preuve d'un sinistre entre particuliers (ACODECO / SEDECO, 08 REQ-PAY-DMG-11) ; consigne : aucun nom, contact ni identifiant de personne ; aucun droit applicatif, lu par la seule console sous iam_staff_owner",
+          "report": "US-536"
+        },
+        "trip_end_at": "C1",
+        "deadline_at": "C1",
+        "reported_at": "C1",
+        "status": "C1",
+        "decided_at": "C1"
+      }
+    },
+    "core.claim_decision": {
+      "lifecycle": "A",
+      "subjects": [
+        {
+          "column": "decided_by",
+          "type": "USER"
+        }
+      ],
+      "export": "controller",
+      "columns": {
+        "id": "C1",
+        "claim_id": "C1",
+        "trip_id": "C1",
+        "country_code": "C1",
+        "currency": "C1",
+        "outcome": "C1",
+        "covered": "C1",
+        "repair_cost_minor": "C1",
+        "charge_amount_minor": "C1",
+        "leg_host_minor": "C1",
+        "leg_insurer_minor": "C1",
+        "leg_tax_third_party_minor": "C1",
+        "leg_platform_minor": "C1",
+        "host_deductible_minor": "C1",
+        "guest_cap_minor": "C1",
+        "lines": "C1",
+        "excluded": "C1",
+        "evidence": "C1",
+        "facts": {
+          "class": "C2",
+          "erasure": "derogation",
+          "justification": "faits du gabarit de décision écrits par l'agent dans un registre immuable (garde claim_record_guard : ni UPDATE ni clé de sujet), décision motivée exigée (16 ADM-008, LEG-024) et conservée comme preuve (08 REQ-PAY-DMG-11) ; consigne : aucun nom, contact ni identifiant de personne ; aucun droit applicatif",
+          "report": "US-536"
+        },
+        "guest_agreement_file_id": "C1",
+        "decided_by": "C1",
+        "decided_role": "C1",
+        "request_id": "C1",
+        "decided_at": "C1",
+        "execution_status": "C1",
+        "execution_code": "C1",
+        "charge_id": "C1",
+        "executed_at": "C1",
+        "next_check_at": "C1"
+      }
+    },
+    "core.claim_insurer_declaration": {
+      "lifecycle": "A",
+      "subjects": [],
+      "export": "none",
+      "columns": {
+        "id": "C1",
+        "decision_id": "C1",
+        "claim_id": "C1",
+        "trip_id": "C1",
+        "country_code": "C1",
+        "status": "C1",
+        "recorded_at": "C1",
+        "sent_at": "C1",
+        "provider_ref": "C1"
       }
     }
   }

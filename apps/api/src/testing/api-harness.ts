@@ -54,7 +54,11 @@ import {
 } from '../modules/risk/index.js';
 import type { RateLimitPolicy, RiskHttpOptions } from '../modules/risk/index.js';
 import type { ReportStore } from '../modules/rpt/index.js';
-import type { SupConsoleOptions, SupEvidenceBundleOptions } from '../modules/sup/index.js';
+import type {
+  SupClaimsOptions,
+  SupConsoleOptions,
+  SupEvidenceBundleOptions,
+} from '../modules/sup/index.js';
 import type { TrpInspectionOptions } from '../modules/trp/index.js';
 import { CountryConfigService } from '../modules/cfg/index.js';
 
@@ -148,6 +152,8 @@ export interface ApiHarnessOverrides {
   readonly evidence?: SupEvidenceBundleOptions;
   /** Avis réciproques (US-317) ; absent : magasin indisponible (503). */
   readonly rev?: Partial<RevReviewsOptions>;
+  /** US-309 : déclarations de dommage et décisions (absent : magasin indisponible, 503). */
+  readonly claims?: SupClaimsOptions;
   /** US-311 : vues de la bêta et rapprochement (absent : magasin indisponible, routes 503). */
   readonly report?: ReportStore;
 }
@@ -404,6 +410,7 @@ export async function startApiHarness(overrides: ApiHarnessOverrides = {}): Prom
       { ...unavailableMsgOptions(), ...overrides.msg },
       { ...overrides.evidence },
       { ...unavailableRevOptions(), ...overrides.rev },
+      { ...overrides.claims },
       overrides.report,
     ),
     {

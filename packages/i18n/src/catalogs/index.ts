@@ -391,8 +391,14 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  `common.reconciliation.*` (relevé du PSP absent, mal formé, trop lourd ou proche du plafond de
  400 lignes, checklist mensuelle incomplète,
  passage clôturé, écart déjà expliqué, base indisponible : rien n’est lu ni enregistré).
+ Version 110 (la 106 est celle d’US-307, la 107 celle d’US-314, la 108 celle d’US-306, la 109 celle d’US-311) : dommages,
+ incidents et décisions (US-309, ADR-195) : `common.claim.*` (réponses des routes
+ `/console/claims…` : délai de déclaration dépassé, preuves de départ et de retour absentes, motif
+ exigé, décision « définitive » refusée, somme des parts, plafonds, ADMIN pour tout débit) et
+ `backoffice.claim.*` (A09 dans la console : déclaration, preuves, gabarit de la décision avec ses
+ lignes exclues comme non refacturables, voies de recours, exécution par Kmino).
  */
-export const CATALOG_VERSION = 109;
+export const CATALOG_VERSION = 110;
 
 /** Catalogues de base par langue ; la langue d'un profil de locale choisit le sien. */
 export const CATALOGS: Readonly<Record<CatalogLanguage, VersionedCatalog<MessageKey>>> = {

@@ -402,6 +402,13 @@ export const CONSTRAINT_CODES: Readonly<Record<string, readonly [string, DbBusin
   chargeback_imputation_shape: [SQLSTATE.checkViolation, 'INVARIANT_VIOLATION'],
   payout_batch_adjustment_required: [SQLSTATE.objectNotInPrerequisiteState, 'INVALID_TRANSITION'],
   payout_batch_adjustment_guard: [SQLSTATE.integrityConstraintViolation, 'INVARIANT_VIOLATION'],
+  // déclarations de dommage et décisions (0175, US-309, ADR-195) : commandes réservées à la console
+  // ou au travailleur payment_command, registres immuables, identifiant de requête repris par une
+  // autre décision, une franchise de l'hôte par décision
+  claim_command_forbidden: [SQLSTATE.insufficientPrivilege, 'FORBIDDEN'],
+  claim_record_immutable: [SQLSTATE.integrityConstraintViolation, 'IMMUTABLE_RECORD'],
+  claim_decision_conflict: [SQLSTATE.integrityConstraintViolation, 'IDEMPOTENCY_CONFLICT'],
+  host_ledger_claim_decision_unique: [SQLSTATE.uniqueViolation, 'INVARIANT_VIOLATION'],
   // intention de paiement, conversion gardée et compensation (0040, 0041, US-024)
   hold_not_payable: [SQLSTATE.objectNotInPrerequisiteState, 'HOLD_EXPIRED'],
   hold_payment_terminal: [SQLSTATE.objectNotInPrerequisiteState, 'INVALID_TRANSITION'],

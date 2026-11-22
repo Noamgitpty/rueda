@@ -794,6 +794,27 @@
     "GET /listings/{listingId}/host-profile": {
       "acces": "public",
       "idor": "annonce non publiée, inconnue ou identifiant mal formé : 404 LISTING_NOT_FOUND ; prénom, ancienneté au mois, trips réalisés, note et avis publiés seulement, jamais un nom de famille, un contact ni un identifiant de compte (core.review_listing_host_profile, 0170 ; 16 LST-020) ; preuves base : l0-us317-reviews"
+    },
+    "POST /console/claims": {
+      "acces": "staff",
+      "permission": "claim.declare (OPS_AGENT, ADMIN) dans le pays du dossier de support CLAIM OUVERT de ce trip assigné à l’agent (ADMIN : tout dossier de son pays), garde ADR-122 ; délai claim_deadline jugé à l’heure de la base ; déclaration et refus journalisés (US-309, 0175)",
+      "roles": ["OPS_AGENT", "ADMIN"],
+      "portee": "pays",
+      "idor": "dossier ou trip de l’autre pays : 403 FORBIDDEN journalisé ; dossier d’un collègue, clos, d’une autre catégorie ou d’un autre trip : 403 STAFF_CASE_REQUIRED journalisé, rien n’est écrit ; trip qui concerne l’agent : 403 STAFF_SELF_FORBIDDEN ; hôte, voyageur, co-hôte : aucune route (preuve L0 l0-us309-claims)"
+    },
+    "GET /console/claims/{claimId}": {
+      "acces": "staff",
+      "permission": "claim.declare, dossier de support de la déclaration assigné à l’agent (ADMIN : tout dossier de son pays), garde ADR-122 (US-309, 0175) ; aucune donnée nominative rendue",
+      "roles": ["OPS_AGENT", "ADMIN"],
+      "portee": "pays",
+      "idor": "déclaration inconnue ou de l’autre pays : 403 FORBIDDEN journalisé (aucune existence révélée) ; dossier d’un collègue : 403 STAFF_CASE_REQUIRED ; trip qui concerne l’agent : 403 STAFF_SELF_FORBIDDEN (preuve L0 l0-us309-claims)"
+    },
+    "POST /console/claims/{claimId}/decision": {
+      "acces": "staff",
+      "permission": "dispute.decide (OPS_AGENT, ADMIN) dans le pays de la déclaration, dossier assigné (ADMIN : tout dossier), garde ADR-122 ; tout débit du voyageur ou de l’hôte réservé à ADMIN (seuil non fixé, PROPOSÉ) ; preuves, motif, jambes et plafonds jugés par la base ; décision et refus journalisés ; aperçu sans écriture (US-309, 0175)",
+      "roles": ["OPS_AGENT", "ADMIN"],
+      "portee": "pays",
+      "idor": "déclaration inconnue ou de l’autre pays : 403 FORBIDDEN journalisé ; dossier d’un collègue : 403 STAFF_CASE_REQUIRED ; trip qui concerne l’agent (ADMIN compris) : 403 STAFF_SELF_FORBIDDEN, rien n’est décidé (preuve L0 l0-us309-claims, RT-L3-H09)"
     }
   }
 }

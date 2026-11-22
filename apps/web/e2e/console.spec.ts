@@ -548,3 +548,255 @@ for (const language of LANGUAGES) {
     });
   });
 }
+
+/**
+ * US-309 : dommages et décisions. La déclaration de l'hôte est enregistrée (201) depuis le dossier
+ * de support ; l'aperçu du gabarit (200, rien n'est écrit) montre les parts explicites, le parking
+ * de récupération exclu comme non refacturable (08 BR-TT-05) et les voies de recours, jamais une
+ * décision « définitive ». Données fictives (pays « ZZ », devise fictive).
+ */
+const CLAIM_ID = '04400000-0000-4000-8000-0000000000c9';
+const CLAIM_TRIP = '04400000-0000-4000-8000-0000000000e9';
+const CLAIM_VIEW = {
+  claimId: CLAIM_ID,
+  tripId: CLAIM_TRIP,
+  caseId: '04400000-0000-4000-8000-0000000000ca',
+  country: COUNTRY,
+  currency: 'XTS',
+  exponent: 2,
+  declaredBy: 'HOST',
+  kind: 'DAMAGE',
+  description: 'Ref 4242 zz 0001',
+  status: 'REPORTED',
+  reportedAt: AT,
+  tripEndAt: AT,
+  deadlineAt: '2026-11-04T14:00:00.000Z',
+  evidence: { checkinPhotos: true, checkoutPhotos: true },
+  guestCapMinor: '50000',
+  decision: null,
+};
+const CLAIMS: Api = {
+  ...CONSOLE,
+  '/console/claims': { status: 201, body: { claim: CLAIM_VIEW } },
+  [`/console/claims/${CLAIM_ID}/decision`]: {
+    status: 200,
+    body: {
+      preview: {
+        claimId: CLAIM_ID,
+        tripId: CLAIM_TRIP,
+        currency: 'XTS',
+        exponent: 2,
+        outcome: 'GUEST_LIABLE',
+        covered: true,
+        repairCostMinor: '120000',
+        amountMinor: '45350',
+        legs: { HOST: '40000', INSURER: '0', TAX_THIRD_PARTY: '350', PLATFORM: '5000' },
+        lines: [
+          { category: 'REPAIR', leg: 'HOST', amountMinor: '40000' },
+          { category: 'PROCESSING_FEE', leg: 'PLATFORM', amountMinor: '5000' },
+          { category: 'PROCESSING_FEE_TAX', leg: 'TAX_THIRD_PARTY', amountMinor: '350' },
+        ],
+        excluded: [
+          {
+            category: 'RECOVERY_PARKING',
+            amountMinor: '1500',
+            code: 'NOT_RECHARGEABLE',
+            rule: 'BR-TT-05',
+          },
+        ],
+        hostDeductibleMinor: '25000',
+        guestCapMinor: '50000',
+        alreadyChargedMinor: '0',
+        evidence: { checkinPhotos: true, checkoutPhotos: true, guestAgreement: false },
+        adminRequired: true,
+      },
+    },
+  },
+};
+
+for (const language of LANGUAGES) {
+  test.describe(`écran console-sinistre · ${language}`, () => {
+    test.use({ locale: tagOf(language) });
+
+    test('déclaration depuis le dossier, preuves, aperçu du gabarit (parts, exclusion, recours) ; axe, mobile d’abord et capture', async ({
+      page,
+    }, info) => {
+      const t = createTranslator(getProfile(LOCALE_CONFIG, tagOf(language)));
+      await serve(page, CLAIMS);
+      await page.goto('/');
+      await expect(page.locator('#roles-heading')).toBeFocused();
+      await expect(page.locator('#claims-heading')).toHaveText(t.t('backoffice.claim.heading'));
+      const form = page.getByTestId('claims-record');
+      await form.locator('#claims-trip').fill(CLAIM_TRIP);
+      await form.locator('#claims-case').fill(CLAIM_VIEW.caseId);
+      await form.locator('#claims-declared-by').selectOption('HOST');
+      await form.locator('#claims-kind').selectOption('DAMAGE');
+      await form.locator('#claims-description').fill('Ref 4242 zz 0001');
+      await submitAndSettle(page, page.getByTestId('claims-record-submit'), undefined, {
+        api: /\/api\/console\/claims$/,
+        settled: page.getByTestId('claims-detail'),
+      });
+      await expect(page.getByTestId('claims')).toContainText(t.t('backoffice.claim.recorded'));
+      await expect(page.getByTestId('claims-evidence')).toContainText(
+        t.t('backoffice.claim.evidence.checkout'),
+      );
+      const decision = page.getByTestId('claims-decision');
+      await decision.locator('#claims-outcome').selectOption('GUEST_LIABLE');
+      await decision.locator('#claims-covered').check();
+      await decision.locator('#claims-repair').fill('1200');
+      await decision.locator('#claims-line-REPAIR').fill('400');
+      await decision.locator('#claims-line-PROCESSING_FEE').fill('50');
+      await decision.locator('#claims-line-PROCESSING_FEE_TAX').fill('3.50');
+      await decision.locator('#claims-line-RECOVERY_PARKING').fill('15');
+      await decision.locator('#claims-deductible').fill('250');
+      await decision.locator('#claims-facts').fill('EXT_01 · EXT_02 · 2026-11-03 14:00');
+      await submitAndSettle(page, page.getByTestId('claims-preview'), undefined, {
+        api: /\/api\/console\/claims\/[0-9a-f-]+\/decision$/,
+        settled: page.getByTestId('claims-template'),
+      });
+      // ux n° 1 : une saisie modifiée retire l'aperçu ; un nouvel aperçu est exigé
+      await decision.locator('#claims-facts').fill('EXT_01 · EXT_02 · 2026-11-03 14:05');
+      await expect(page.getByTestId('claims-template')).toHaveCount(0);
+      await expect(page.getByTestId('claims-issue')).toHaveCount(0);
+      await submitAndSettle(page, page.getByTestId('claims-preview'), undefined, {
+        api: /\/api\/console\/claims\/[0-9a-f-]+\/decision$/,
+        settled: page.getByTestId('claims-template'),
+      });
+      const template = page.getByTestId('claims-template');
+      await expect(template).toContainText(t.t('backoffice.claim.excluded.parking'));
+      await expect(template).toContainText(
+        t.t('backoffice.claim.confirmCharge', {
+          amount: t.money({ amountMinor: 45350n, currency: 'XTS', exponent: 2 }),
+        }),
+      );
+      await expect(template).toContainText(
+        t.t('backoffice.claim.confirmRetain', {
+          retained: t.money({ amountMinor: 25000n, currency: 'XTS', exponent: 2 }),
+        }),
+      );
+      await expect(template).toContainText(t.t('backoffice.claim.template.recourse'));
+      await expect(template).toContainText(
+        t.money({ amountMinor: 45350n, currency: 'XTS', exponent: 2 }),
+      );
+      await page.waitForLoadState('networkidle');
+      await expectMobileFriendly(page);
+      for (const scheme of ['light', 'dark'] as const) {
+        await page.emulateMedia({ colorScheme: scheme });
+        await expectAccessible(page, { include: null });
+        if (captured(info, language, scheme))
+          await expectScreen(page, 'console-sinistre', language, scheme);
+      }
+    });
+  });
+}
+
+/**
+ * Revue delta d'US-309 : un aperçu dont la réponse arrive après une modification de la saisie est
+ * ignoré (version de la saisie) ; focus sur le titre de la déclaration après l'enregistrement, puis
+ * sur celui de la décision enregistrée. Sans capture.
+ */
+test.describe('console-sinistre · revue delta', () => {
+  test.use({ locale: tagOf('es') });
+
+  test('aperçu périmé ignoré ; focus après la déclaration et après la décision', async ({
+    page,
+  }) => {
+    await serve(page, CLAIMS);
+    const preview = (CLAIMS[`/console/claims/${CLAIM_ID}/decision`] as { body: Body }).body;
+    const decided = {
+      claim: {
+        ...CLAIM_VIEW,
+        status: 'DECIDED',
+        decision: {
+          decisionId: '04400000-0000-4000-8000-0000000000cb',
+          outcome: 'GUEST_LIABLE',
+          covered: true,
+          repairCostMinor: '120000',
+          amountMinor: '45350',
+          legs: { HOST: '40000', INSURER: '0', TAX_THIRD_PARTY: '350', PLATFORM: '5000' },
+          lines: [
+            { category: 'REPAIR', leg: 'HOST', amountMinor: '40000' },
+            { category: 'PROCESSING_FEE', leg: 'PLATFORM', amountMinor: '5000' },
+            { category: 'PROCESSING_FEE_TAX', leg: 'TAX_THIRD_PARTY', amountMinor: '350' },
+          ],
+          excluded: [],
+          hostDeductibleMinor: '25000',
+          evidence: { checkinPhotos: true, checkoutPhotos: true, guestAgreement: false },
+          facts: 'EXT_01 · EXT_02 · 2026-11-03 14:05',
+          decidedRole: 'ADMIN',
+          decidedAt: AT,
+          execution: 'PENDING',
+          executionCode: null,
+          insurerDeclaration: 'PENDING',
+        },
+      },
+    };
+    // premier aperçu retenu jusqu'à la modification de la saisie ; les suivants répondent aussitôt
+    let release: () => void = () => undefined;
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let previews = 0;
+    await page.route(`**/api/console/claims/${CLAIM_ID}/decision`, async (route: Route) => {
+      const body = route.request().postDataJSON() as { preview?: boolean };
+      if (body.preview === true) {
+        previews += 1;
+        if (previews === 1) await held;
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify(preview),
+        });
+        return;
+      }
+      await route.fulfill({
+        status: 201,
+        contentType: 'application/json',
+        body: JSON.stringify(decided),
+      });
+    });
+    await page.goto('/');
+    await expect(page.locator('#roles-heading')).toBeFocused();
+    const form = page.getByTestId('claims-record');
+    await form.locator('#claims-trip').fill(CLAIM_TRIP);
+    await form.locator('#claims-case').fill(CLAIM_VIEW.caseId);
+    await form.locator('#claims-declared-by').selectOption('HOST');
+    await form.locator('#claims-kind').selectOption('DAMAGE');
+    await form.locator('#claims-description').fill('Ref 4242 zz 0001');
+    await submitAndSettle(page, page.getByTestId('claims-record-submit'), undefined, {
+      api: /\/api\/console\/claims$/,
+      settled: page.getByTestId('claims-detail'),
+    });
+    await expect(page.locator('#claims-detail-heading')).toBeFocused();
+
+    const decision = page.getByTestId('claims-decision');
+    await decision.locator('#claims-outcome').selectOption('GUEST_LIABLE');
+    await decision.locator('#claims-line-REPAIR').fill('400');
+    await decision.locator('#claims-deductible').fill('250');
+    await decision.locator('#claims-facts').fill('EXT_01 · EXT_02 · 2026-11-03 14:00');
+    const first = page.waitForResponse(
+      (r) => r.request().method() === 'POST' && r.url().endsWith(`/decision`),
+    );
+    await page.getByTestId('claims-preview').click();
+    // modification pendant la requête, puis réponse : l'aperçu périmé n'est pas affiché
+    await expect.poll(() => previews).toBe(1);
+    await decision.locator('#claims-facts').fill('EXT_01 · EXT_02 · 2026-11-03 14:05');
+    release();
+    await first;
+    await expect(page.getByTestId('claims-preview')).not.toHaveAttribute('aria-busy', 'true');
+    await expect(page.getByTestId('claims-template')).toHaveCount(0);
+    await expect(page.getByTestId('claims-issue')).toHaveCount(0);
+
+    // nouvel aperçu de la saisie affichée, puis décision : focus sur la décision enregistrée
+    await submitAndSettle(page, page.getByTestId('claims-preview'), undefined, {
+      api: /\/api\/console\/claims\/[0-9a-f-]+\/decision$/,
+      settled: page.getByTestId('claims-template'),
+    });
+    await expect(page.locator('#claims-template-heading')).toBeFocused();
+    await submitAndSettle(page, page.getByTestId('claims-issue'), undefined, {
+      api: /\/api\/console\/claims\/[0-9a-f-]+\/decision$/,
+      settled: page.getByTestId('claims-decided'),
+    });
+    await expect(page.locator('#claims-decided-heading')).toBeFocused();
+  });
+});
