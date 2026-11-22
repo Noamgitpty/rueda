@@ -2812,7 +2812,7 @@
       "story": "US-706"
     },
     {
-      "signature": "core.claim_incidental_host_files(uuid,uuid,timestamptz)",
+      "signature": "core.claim_incidental_host_files(uuid,uuid,timestamp with time zone)",
       "family": "cmd_hold",
       "owner": "cmd_hold_owner",
       "execute": ["cmd_money_owner"],
