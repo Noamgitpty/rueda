@@ -2722,6 +2722,69 @@ function receiptRoute(req, res, url) {
   });
 }
 
+// `GET /host/accounts/{orgId}/payouts` (US-314) : versements du compte de la session (compte d'un
+// autre ⇒ 404 HOST_ACCOUNT_NOT_FOUND). Données FIXES (trips et lots fictifs) : un premier versement
+// PAYÉ dont la pénalité de l'hôte est compensée, puis un lot RETENU (réclamation ouverte,
+// versements fermés dans le pays). Montants des vecteurs de 08 (jambe HOST de TJ01, pénalité de
+// T14 en exposant 2 ; TJ08a, T48 sans décimale) ; calendrier : J+2 / J+5 ouvrés à 10:00 (forme de
+// 17 §7.2, fuseau UTC du double).
+function payoutsRoute(req, res, url) {
+  const m = /^\/host\/accounts\/([0-9a-f-]{36})\/payouts$/.exec(url.pathname);
+  if (m === null || req.method !== 'GET') return false;
+  const owner = hostOf(req);
+  if (owner === undefined) return err(res, 401, 'AUTH_REQUIRED', 'common.auth.sessionRequired');
+  const a = owner === null ? undefined : owner.accounts.find((x) => x.orgId === m[1]);
+  if (a === undefined)
+    return err(res, 404, 'HOST_ACCOUNT_NOT_FOUND', 'common.listing.hostNotFound');
+  const z = a.market.currencyExponent === 0;
+  const leg = z ? '787500' : '13125';
+  const netted = z ? '200000' : '2500';
+  const paidNet = z ? '587500' : '10625';
+  const batch = (id, trip, over) => ({
+    batchId: id,
+    kind: 'FINAL',
+    currency: a.market.currency,
+    grossMinor: leg,
+    nettedMinor: '0',
+    netMinor: leg,
+    holdReasons: [],
+    initiatedAt: null,
+    paidAt: null,
+    trips: [{ tripId: trip, amountMinor: leg }],
+    ...over,
+  });
+  return json(res, 200, {
+    orgId: m[1],
+    country: a.market.country,
+    currency: a.market.currency,
+    currencyExponent: a.market.currencyExponent,
+    schedule: {
+      businessDayOffset: 2,
+      firstPayoutBusinessDay: 5,
+      localTimeMinutes: 600,
+      timeZone: 'UTC',
+      payoutsOpen: false,
+    },
+    payouts: [
+      batch('31400000-0000-4000-8000-000000000002', '31400000-0000-4000-8000-0000000000b2', {
+        status: 'ON_HOLD',
+        scheduledFor: '2036-12-16T10:00:00.000Z',
+        firstPayout: false,
+        holdReasons: ['CLAIM', 'PAYOUTS_DISABLED'],
+      }),
+      batch('31400000-0000-4000-8000-000000000001', '31400000-0000-4000-8000-0000000000b1', {
+        status: 'PAID',
+        scheduledFor: '2036-12-05T10:00:00.000Z',
+        firstPayout: true,
+        nettedMinor: netted,
+        netMinor: paidNet,
+        initiatedAt: '2036-12-05T10:01:00.000Z',
+        paidAt: '2036-12-06T10:00:00.000Z',
+      }),
+    ],
+  });
+}
+
 // `GET /host/accounts/{orgId}/earnings/{month}` : relevé du compte de la session (compte d'un autre
 // ⇒ 404 EARNINGS_NOT_FOUND ; mois mal formé ⇒ 400). Seul le mois EARNINGS_MONTH porte des lignes
 // FIXES (trips fictifs) : un trip à venir capturé (à liquider), un trip annulé par le voyageur et
@@ -3373,6 +3436,7 @@ createServer(async (req, res) => {
   if (refundRoute(req, res, url) !== false) return;
   if (receiptRoute(req, res, url) !== false) return;
   if (earningsRoute(req, res, url) !== false) return;
+  if (payoutsRoute(req, res, url) !== false) return;
   if ((await messagesRoute(req, res, url)) !== false) return;
   if ((await meetingsRoute(req, res, url)) !== false) return;
   if ((await reviewsRoute(req, res, url)) !== false) return;

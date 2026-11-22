@@ -599,6 +599,10 @@
       "acces": "session",
       "idor": "compte d'hôte {orgId} d'un autre hôte, ou dont la personne n'est que co-hôte : 404 HOST_ACCOUNT_NOT_FOUND comme un compte inconnu, rien n'est révélé (17 §2.3 point 5 ; payout.manage_account du seul titulaire ; preuves base : l0-us707)"
     },
+    "GET /host/accounts/{orgId}/payouts": {
+      "acces": "session",
+      "idor": "compte d'hôte {orgId} d'un autre hôte, dont la personne n'est que co-hôte (même dotée de finance.read_org_statements, RLS-28), inconnu ou mal formé : 404 HOST_ACCOUNT_NOT_FOUND, même réponse, rien n'est révélé (core.payout_host_payouts, 0172, titulaire par core.iam_host_accounts) ; aucun identifiant du personnel, du PSP ni du compte de versement (RLS-26) ; montants lus, jamais recalculés ; lecture seule ; preuves base : l0-us314-host-payouts"
+    },
     "POST /host/accounts/{orgId}/payout-account": {
       "acces": "session",
       "idor": "compte d'hôte {orgId} d'un autre hôte ou d'un co-hôte : 404 HOST_ACCOUNT_NOT_FOUND, aucun compte écrit (17 §2.3 point 5 ; preuves base : l0-us707)"
