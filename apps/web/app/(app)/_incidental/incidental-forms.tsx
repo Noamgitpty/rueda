@@ -108,7 +108,10 @@ export function IncidentalFeeForm(p: {
         <label className={styles['label']} htmlFor={`${id}-type`}>
           {t('web.incidental.form.type')}
         </label>
+        {/* clé = type renvoyé par l'action : après un refus, React remet le formulaire à zéro ; le
+            type choisi est rendu, jamais remplacé par le premier de la liste */}
         <select
+          key={`type-${v['feeType'] ?? ''}`}
           id={`${id}-type`}
           name="feeType"
           className={hostStyles['select']}

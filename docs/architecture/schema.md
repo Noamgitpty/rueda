@@ -7,7 +7,7 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 
 ## Synthèse
 
-- 177 migrations ; 167 tables ; 6 vues ; 945 politiques RLS ; 424 fonctions `SECURITY DEFINER` ; 328 autres fonctions.
+- 178 migrations ; 167 tables ; 6 vues ; 946 politiques RLS ; 424 fonctions `SECURITY DEFINER` ; 328 autres fonctions.
 - Tables sans RLS `ENABLE` + `FORCE` : aucune.
 - Rôles applicatifs avec `SUPERUSER` ou `BYPASSRLS` : aucun.
 
@@ -2558,6 +2558,7 @@ Contraintes :
 - `claim_incidental_decided_role_valid` : `CHECK (decided_role IS NULL OR (decided_role = ANY (ARRAY['OPS_AGENT'::text, 'ADMIN'::text])))`
 - `claim_incidental_decision_request_unique` : `UNIQUE (decision_request_id)`
 - `claim_incidental_decision_shape` : `CHECK ((decided_at IS NULL) = (decided_by IS NULL) AND (decided_at IS NULL) = (decided_role IS NULL) AND (decided_at IS NULL) = (decision_request_id IS NULL) AND (decided_at IS NULL) = (decision_rationale IS NULL) AND (decided_at IS NULL OR disputed_at IS NOT NULL AND decided_at >= disputed_at))`
+- `claim_incidental_defer_count_range` : `CHECK (defer_count >= 0 AND defer_count <= 12)`
 - `claim_incidental_description_length` : `CHECK (char_length(description) >= 10 AND char_length(description) <= 500)`
 - `claim_incidental_dispute_evidence_shape` : `CHECK (dispute_evidence_file_ids IS NULL OR cardinality(dispute_evidence_file_ids) >= 1 AND cardinality(dispute_evidence_file_ids) <= 10 AND array_position(dispute_evidence_file_ids, NULL::uuid) IS NULL)`
 - `claim_incidental_dispute_reason_length` : `CHECK (dispute_reason IS NULL OR char_length(dispute_reason) >= 20 AND char_length(dispute_reason) <= 1000)`
@@ -2573,13 +2574,14 @@ Contraintes :
 - `claim_incidental_request_unique` : `UNIQUE (request_id)`
 - `claim_incidental_response_hours_range` : `CHECK (response_hours >= 1 AND response_hours <= 720)`
 - `claim_incidental_response_in_window` : `CHECK ((accepted_at IS NULL OR accepted_at >= notified_at AND accepted_at < response_due_at) AND (disputed_at IS NULL OR disputed_at >= notified_at AND disputed_at < response_due_at) AND (accepted_at IS NULL OR disputed_at IS NULL))`
+- `claim_incidental_review_shape` : `CHECK (review_required_at IS NULL OR defer_count = 12)`
 - `claim_incidental_status_shape` : `CHECK ((status <> 'ACCEPTED'::text OR accepted_at IS NOT NULL) AND (status <> 'DISPUTED'::text OR disputed_at IS NOT NULL AND decided_at IS NULL) AND ((status <> ALL (ARRAY['DECIDED_CHARGE'::text, 'REJECTED'::text])) OR decided_at IS NOT NULL) AND (status = 'CANCELLED_BY_HOST'::text) = (cancelled_at IS NOT NULL) AND (status = 'CHARGED'::text) = (charge_id IS NOT NULL) AND (status = 'CHARGED'::text) = (charged_at IS NOT NULL) AND (status = 'CHARGED'::text) = (charge_basis IS NOT NULL))`
 - `claim_incidental_status_valid` : `CHECK (status = ANY (ARRAY['AWAITING_GUEST'::text, 'ACCEPTED'::text, 'DISPUTED'::text, 'DECIDED_CHARGE'::text, 'CHARGED'::text, 'REJECTED'::text, 'CANCELLED_BY_HOST'::text]))`
 - `claim_incidental_trip_country_fk` : `FOREIGN KEY (trip_id, country_code) REFERENCES core.booking_trip(id, country_code)`
 
 Index :
 
-- `claim_incidental_due_idx` : `CREATE INDEX claim_incidental_due_idx ON core.claim_incidental_invoice USING btree (next_check_at) WHERE (status = ANY (ARRAY['AWAITING_GUEST'::text, 'ACCEPTED'::text, 'DECIDED_CHARGE'::text]))`
+- `claim_incidental_due_idx` : `CREATE INDEX claim_incidental_due_idx ON core.claim_incidental_invoice USING btree (next_check_at) WHERE ((status = ANY (ARRAY['AWAITING_GUEST'::text, 'ACCEPTED'::text, 'DECIDED_CHARGE'::text])) AND (review_required_at IS NULL))`
 - `claim_incidental_live_unique` : `CREATE UNIQUE INDEX claim_incidental_live_unique ON core.claim_incidental_invoice USING btree (trip_id, fee_type) WHERE (status <> 'CANCELLED_BY_HOST'::text)`
 - `claim_incidental_trip_idx` : `CREATE INDEX claim_incidental_trip_idx ON core.claim_incidental_invoice USING btree (trip_id)`
 
@@ -8812,8 +8814,8 @@ Chacune a un propriétaire `NOLOGIN` dédié (ADR-053) et un `search_path` figé
 | `core.claim_decisions_due(p_limit integer)` | `TABLE(decision_id uuid)` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; cmd_money_owner: EXECUTE |
 | `core.claim_evidence_export_file(p_bundle_id uuid)` | `TABLE(file_id uuid, storage_key text, sha256 text, bytes bigint, enc_subject_id uuid)` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | cmd_hold_owner: EXECUTE ; iam_staff_owner: EXECUTE |
 | `core.claim_evidence_record(p_trip_id uuid, p_country text, p_case_id uuid, p_purpose text, p_requested_by uuid, p_requested_role text, p_request_id uuid)` | `TABLE(outcome text, bundle_id uuid, status text, manifest_sha256 text)` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | cmd_hold_owner: EXECUTE ; iam_staff_owner: EXECUTE |
-| `core.claim_incidental_host_files(p_trip_id uuid, p_user uuid)` | `TABLE(file_id uuid)` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | cmd_hold_owner: EXECUTE ; cmd_money_owner: EXECUTE |
-| `core.claim_incidental_invoices_due(p_limit integer)` | `TABLE(invoice_id uuid)` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; cmd_money_owner: EXECUTE |
+| `core.claim_incidental_host_files(p_trip_id uuid, p_user uuid, p_until timestamp with time zone)` | `TABLE(file_id uuid)` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | cmd_hold_owner: EXECUTE ; cmd_money_owner: EXECUTE |
+| `core.claim_incidental_invoices_due(p_limit integer, p_only uuid[])` | `TABLE(invoice_id uuid)` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; cmd_money_owner: EXECUTE |
 | `core.claim_incidental_staff_view(p_invoice_id uuid)` | `jsonb` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | cmd_money_owner: EXECUTE ; iam_staff_owner: EXECUTE |
 | `core.claim_incidental_trip_facts(p_trip_id uuid)` | `TABLE(trip_id uuid, country_code text, currency text, org_id uuid, guest_user_id uuid, holder_user_id uuid, status text, timezone text, start_at timestamp with time zone, end_at timestamp with time zone, terminated_early boolean, fuel_out smallint, fuel_in smallint, extras_sold boolean)` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | cmd_hold_owner: EXECUTE ; cmd_money_owner: EXECUTE |
 | `core.claim_incidental_trip_photos(p_trip_id uuid)` | `TABLE(file_id uuid, kind text, slot_code text, slot_group text, taken_by_role text, received_at timestamp with time zone)` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | cmd_hold_owner: EXECUTE ; cmd_money_owner: EXECUTE |
