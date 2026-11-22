@@ -65,6 +65,7 @@ import {
   unavailableEvidence,
 } from '../modules/sup/index.js';
 import type { SqlPool } from '../modules/sup/index.js';
+import { postgresClmTripAdapters } from '../modules/clm/index.js';
 import { PgReportStore } from '../modules/rpt/index.js';
 import { ROUTE_MATRIX } from './route-matrix.js';
 
@@ -1129,6 +1130,32 @@ async function requestOf(
         path: `/trips/${randomUUID()}/no-show`,
         body: { requestId: randomUUID() },
       };
+    // sinistres d'un trip (US-318) : trip inconnu de l'acteur ⇒ 404 (rien n'est écrit)
+    case 'POST /trips/{tripId}/incidents':
+      return {
+        method: 'POST',
+        path: `/trips/${randomUUID()}/incidents`,
+        body: {
+          requestId: randomUUID(),
+          caseId: randomUUID(),
+          thirdParty: false,
+          policeReport: false,
+        },
+      };
+    case 'GET /trips/{tripId}/claims':
+      return { method: 'GET', path: `/trips/${randomUUID()}/claims` };
+    case 'POST /trips/{tripId}/traffic-charges':
+      return {
+        method: 'POST',
+        path: `/trips/${randomUUID()}/traffic-charges`,
+        body: {
+          requestId: randomUUID(),
+          kind: 'TOLL',
+          occurredAt: '2030-01-01T10:00:00.000Z',
+          amountMinor: '100',
+          fileId: randomUUID(),
+        },
+      };
     // constancia d'arrendamiento (US-212) : trip inconnu de l'acteur ⇒ 404 ; recherche de l'hôte :
     // plaque dans le corps, aucun trip d'un autre compte
     case 'GET /trips/{tripId}/constancia':
@@ -1508,6 +1535,8 @@ beforeAll(async () => {
       postgresClaims(singlePool as unknown as Parameters<typeof postgresClaims>[0]),
       // US-311 : portes réelles de 0174 (vues de la bêta, rapprochement), même connexion de test
       new PgReportStore(client),
+      // US-318 : commandes réelles de 0178 (sinistres d'un trip) sous app_api
+      postgresClmTripAdapters(client),
     ),
     { rawBody: true, logger: false },
   );

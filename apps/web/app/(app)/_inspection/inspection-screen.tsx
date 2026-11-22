@@ -141,7 +141,7 @@ export async function InspectionScreen({ role, tripId, kind, org, done }: Inspec
       <InspectionCapture
         localeTag={localeTag}
         tripId={view.tripId}
-        kind={view.kind}
+        kind={segment}
         role={role}
         org={org}
         timezone={view.timezone}

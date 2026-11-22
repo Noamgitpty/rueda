@@ -1,7 +1,7 @@
 /**
  * US-318 — sinistres entre particuliers : vol présumé après la non-restitution, incident ou
  * accident du voyageur, amendes, péages et fourrière refacturés (migration 0178, ADR-198 ; fixture
- * 9906, et 9300, 9909, 9708 réutilisées). Rôles de PRODUCTION seulement (assertion L0-05 par
+ * 9906, et 9300, 9909 et celles d’US-708 réutilisées). Rôles de PRODUCTION seulement (assertion L0-05 par
  * `withRole`), au Panama (USD) et au Paraguay (PYG sans décimale).
  *
  * Attendus tirés de 19 US-318 (critère 1 : trip OVERDUE, escalade à l'étape « vol présumé » ⇒

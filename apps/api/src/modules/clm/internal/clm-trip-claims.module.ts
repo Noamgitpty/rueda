@@ -8,7 +8,7 @@
 import { Module } from '@nestjs/common';
 import type { DynamicModule } from '@nestjs/common';
 import type { EvidenceSqlExecutor } from './evidence/ports.js';
-import { TripClaimsController } from './p2p/controller.js';
+import { TripClaimsController } from './p2p/trip-claims.controller.js';
 import { TripClaimsService } from './p2p/service.js';
 import { PgTripClaimsStore, UnavailableTripClaimsStore } from './p2p/store.js';
 import type { TripClaimsStore } from './p2p/store.js';

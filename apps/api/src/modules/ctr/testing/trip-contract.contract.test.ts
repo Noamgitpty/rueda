@@ -454,7 +454,11 @@ describe('US-211 partie 211b — routes du contrat de location d’un trip', () 
           // aide d'un trip et demande d'aide (US-310) : leur suite (sup/testing/help.contract)
           !d.includes(' /trips/{tripId}/help') &&
           // avis réciproques (US-317) : leur propre suite (rev/testing/reviews.contract)
-          !d.includes(' /trips/{tripId}/reviews '),
+          !d.includes(' /trips/{tripId}/reviews ') &&
+          // sinistres d'un trip (US-318) : leur propre suite (clm/testing/trip-claims.contract)
+          !d.includes(' /trips/{tripId}/incidents ') &&
+          !d.includes(' /trips/{tripId}/claims ') &&
+          !d.includes(' /trips/{tripId}/traffic-charges '),
       ),
       'statuts',
     ).toEqual([]);

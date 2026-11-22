@@ -20,6 +20,9 @@ export interface HelpRequestState {
   readonly sent?: {
     readonly outcome: 'OPENED' | 'DUPLICATE' | 'EXISTS';
     readonly offHours: boolean;
+    /** US-318 : dossier du support et motif, pour déclarer l'incident (accident, panne). */
+    readonly caseId: string;
+    readonly topic: string;
   };
 }
 
@@ -52,5 +55,5 @@ export async function requestHelpAction(
   if (reply.status === 404) return error(HELP_FORM_ID, 'common.trips.notFound');
   const sent = helpRequestOf(reply);
   if (sent === null) return error(HELP_FORM_ID, 'web.help.request.error');
-  return { errors: [], sent };
+  return { errors: [], sent: { ...sent, topic } };
 }

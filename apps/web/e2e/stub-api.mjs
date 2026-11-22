@@ -3423,9 +3423,317 @@ async function noShowRoute(req, res, url) {
   });
 }
 
+// ---- Sinistres entre particuliers (US-318) ------------------------------------------------------
+// `GET /__e2e/p2p/new?guest=&host=&status=&theft=` crée un trip (statut SM-1 donné) dont le voyageur
+// et le titulaire sont ces deux jetons ; `theft=yes` : dossier de vol présumé ouvert, déclaration à
+// l'assureur PENDING (interrupteur faux). `GET /__e2e/p2p/photo?trip=&kind=incident|traffic` dépose
+// une photo dans la série libre (le navigateur de la CI n'a pas de caméra). Routes du double :
+// aide du trip et demande d'aide (voyageur), séries `incident` (voyageur, IN_PROGRESS / OVERDUE) et
+// `traffic` (titulaire, trip rendu), `POST /trips/{id}/incidents`, `GET /trips/{id}/claims` et
+// `POST /trips/{id}/traffic-charges` (titulaire ; délai du double : fin + 120 j ; frais de gestion
+// de 500 bps arrondis comme 08 BR-PRICE-14, montants rendus en chaînes), trip vu par l'hôte
+// (`GET /host/accounts/{orgId}/trips/{tripId}`). Toute autre session ⇒ 404 (comme l'API).
+const p2pTrips = new Map();
+const P2P_START = '2036-12-10T14:00:00.000Z';
+const P2P_END = '2036-12-13T14:00:00.000Z';
+const P2P_DEADLINE = '2037-04-12T14:00:00.000Z';
+const P2P_AT = '2036-12-14T09:30:00.000Z';
+const P2P_FREE_SLOTS = Array.from({ length: 10 }, (_, i) => ({
+  code: `DAMAGE_${String(i + 1).padStart(2, '0')}`,
+  group: 'DAMAGE',
+  required: false,
+}));
+
+function p2pPhoto(t, kind) {
+  const series = t.series[kind];
+  const slot = P2P_FREE_SLOTS.find((s) => !series.has(s.code))?.code;
+  if (slot === undefined) return null;
+  const bytes = Buffer.from(`${kind}:${slot}`);
+  const photo = {
+    slot,
+    fileId: uuid(),
+    sha256: sha256hex(bytes),
+    bytes: bytes.length,
+    receivedAt: P2P_AT,
+    clockSkew: false,
+  };
+  series.set(slot, photo);
+  return photo;
+}
+
+async function p2pRoute(req, res, url) {
+  const path = url.pathname;
+  if (req.method === 'GET' && path === '/__e2e/p2p/new') {
+    const tripId = uuid();
+    p2pTrips.set(tripId, {
+      guest: url.searchParams.get('guest') ?? '',
+      host: url.searchParams.get('host') ?? '',
+      status: url.searchParams.get('status') ?? 'IN_PROGRESS',
+      theft: url.searchParams.get('theft') === 'yes',
+      series: { incident: new Map(), traffic: new Map() },
+      captures: new Map(),
+      cases: new Map(),
+      incidents: new Map(),
+      charges: [],
+    });
+    return json(res, 200, { tripId });
+  }
+  if (req.method === 'GET' && path === '/__e2e/p2p/photo') {
+    const t = p2pTrips.get(url.searchParams.get('trip') ?? '');
+    const kind = url.searchParams.get('kind');
+    if (t === undefined || (kind !== 'incident' && kind !== 'traffic')) return json(res, 404, {});
+    return json(res, 200, p2pPhoto(t, kind));
+  }
+  const host = /^\/host\/accounts\/([0-9a-f-]{36})\/trips\/([0-9a-f-]{36})$/.exec(path);
+  if (host !== null && req.method === 'GET' && p2pTrips.has(host[2])) {
+    const t = p2pTrips.get(host[2]);
+    const owner = hostOf(req);
+    const a = owner?.accounts.find((x) => x.orgId === host[1]);
+    if (a === undefined || tokenOf(req) !== t.host) {
+      return err(res, 404, 'TRIP_NOT_FOUND', 'common.hostTrips.notFound');
+    }
+    return json(res, 200, {
+      market: { currency: a.market.currency, currencyExponent: a.market.currencyExponent },
+      trip: {
+        tripId: host[2],
+        reference: 'KM-318',
+        tab: t.status === 'COMPLETED' ? 'DONE' : 'IN_PROGRESS',
+        status: t.status,
+        vehicle: {
+          id: uuid(),
+          makeText: 'Toyota',
+          modelText: 'Yaris',
+          year: 2021,
+          plate: 'AB-318',
+        },
+        handoverPlace: null,
+        startsAt: P2P_START,
+        endsAt: P2P_END,
+        timezone: INSPECTION_TZ,
+        bookedAt: '2036-12-01T15:00:00.000Z',
+        paymentStatus: 'CONFIRMED',
+        currency: a.market.currency,
+        hostEarningsMinor: a.market.currencyExponent === 0 ? '850000' : '12000',
+        guest: { firstName: 'Lucía', ageYears: 29, rating: null, verified: true },
+      },
+    });
+  }
+  const m =
+    /^\/trips\/([0-9a-f-]{36})\/(help|help-requests|incidents|claims|traffic-charges|inspections\/(incident|traffic)(\/captures|\/photos|\/submit)?)$/.exec(
+      path,
+    );
+  if (m === null || !p2pTrips.has(m[1])) return false;
+  const t = p2pTrips.get(m[1]);
+  const token = tokenOf(req);
+  if (token === undefined) return err(res, 401, 'AUTH_REQUIRED', 'common.auth.sessionRequired');
+  const role = token === t.guest ? 'GUEST' : token === t.host ? 'HOST' : null;
+  const what = m[2];
+  if (what === 'help' || what === 'help-requests') {
+    if (role !== 'GUEST') return err(res, 404, 'TRIP_NOT_FOUND', 'common.trips.notFound');
+    if (what === 'help' && req.method === 'GET') {
+      return json(res, 200, { tripId: m[1], role: 'GUEST', help: helpView() });
+    }
+    if (what !== 'help-requests' || req.method !== 'POST') return false;
+    const b = await readBody(req);
+    if (b === null || typeof b.requestId !== 'string' || !HELP_TOPICS.includes(b.topic)) {
+      return err(res, 400, 'REQUEST_INVALID', 'common.auth.requestInvalid');
+    }
+    if (t.cases.has(b.requestId)) {
+      return json(res, 200, { caseId: b.requestId, outcome: 'DUPLICATE', offHours: true });
+    }
+    t.cases.set(b.requestId, b.topic);
+    return json(res, 201, { caseId: b.requestId, outcome: 'OPENED', offHours: true });
+  }
+  if (what.startsWith('inspections/')) {
+    const kind = m[3];
+    const owner = kind === 'incident' ? 'GUEST' : 'HOST';
+    if (role !== owner) return err(res, 404, 'INSPECTION_NOT_FOUND', 'common.inspection.notFound');
+    const open =
+      kind === 'incident'
+        ? t.status === 'IN_PROGRESS' || t.status === 'OVERDUE'
+        : ['RETURNED', 'POST_TRIP', 'COMPLETED', 'IN_DISPUTE'].includes(t.status);
+    const series = t.series[kind];
+    if (m[4] === undefined && req.method === 'GET') {
+      const side = (r) => ({
+        role: r,
+        status: r === owner && series.size > 0 ? 'DRAFT' : 'NONE',
+        submittedAt: null,
+        photos: r === owner ? [...series.values()] : [],
+      });
+      return json(res, 200, {
+        tripId: m[1],
+        kind,
+        viewerRole: role,
+        timezone: INSPECTION_TZ,
+        open,
+        uploads: {
+          open,
+          maxBytes: 76032,
+          maxLongSidePx: 1600,
+          mimeTypes: ['image/jpeg', 'image/webp'],
+        },
+        slots: INSPECTION_SLOTS,
+        sides: [side('HOST'), side('GUEST')],
+      });
+    }
+    if (req.method !== 'POST' || m[4] === undefined) return false;
+    if (m[4] === '/submit')
+      return err(res, 404, 'INSPECTION_NOT_FOUND', 'common.inspection.notFound');
+    if (!open) return err(res, 409, 'INSPECTION_NOT_OPEN', 'common.inspection.notOpen');
+    const b = (await readBody(req)) ?? {};
+    if (!P2P_FREE_SLOTS.some((s) => s.code === b.slot)) {
+      return err(res, 400, 'REQUEST_INVALID', 'common.auth.requestInvalid');
+    }
+    if (m[4] === '/captures') {
+      const captureId = uuid();
+      t.captures.set(captureId, { slot: b.slot });
+      return json(res, 201, { captureId, slot: b.slot, expiresAt: '2036-12-14T09:32:00.000Z' });
+    }
+    const c = t.captures.get(b.captureId);
+    if (b.source !== 'CAMERA' || c === undefined || c.slot !== b.slot) {
+      return err(res, 422, 'PHOTO_GALLERY_FORBIDDEN', 'common.inspection.galleryForbidden');
+    }
+    t.captures.delete(b.captureId);
+    const photo = p2pPhoto(t, kind);
+    return json(res, 201, {
+      fileId: photo.fileId,
+      slot: photo.slot,
+      sha256: photo.sha256,
+      bytes: photo.bytes,
+      receivedAt: photo.receivedAt,
+    });
+  }
+  if (what === 'incidents' && req.method === 'POST') {
+    if (role !== 'GUEST')
+      return err(res, 404, 'TRIP_CLAIM_NOT_FOUND', 'common.tripClaims.notFound');
+    const b = await readBody(req);
+    if (
+      b === null ||
+      typeof b.requestId !== 'string' ||
+      typeof b.caseId !== 'string' ||
+      typeof b.thirdParty !== 'boolean' ||
+      typeof b.policeReport !== 'boolean'
+    ) {
+      return err(res, 400, 'REQUEST_INVALID', 'common.auth.requestInvalid');
+    }
+    if (t.status !== 'IN_PROGRESS' && t.status !== 'OVERDUE') {
+      return err(res, 409, 'INCIDENT_NOT_OPEN', 'common.tripClaims.incidentNotOpen');
+    }
+    const topic = t.cases.get(b.caseId);
+    if (topic !== 'ACCIDENT' && topic !== 'BREAKDOWN') {
+      return err(res, 409, 'INCIDENT_CASE_REQUIRED', 'common.tripClaims.incidentCaseRequired');
+    }
+    if (t.series.incident.size === 0) {
+      return err(res, 422, 'INCIDENT_PHOTOS_REQUIRED', 'common.tripClaims.incidentPhotosRequired');
+    }
+    const done = t.incidents.get(b.caseId) ?? {
+      incidentId: uuid(),
+      reportedAt: P2P_AT,
+      photoCount: t.series.incident.size,
+    };
+    const replayed = t.incidents.has(b.caseId);
+    t.incidents.set(b.caseId, done);
+    return json(res, 201, { ...done, replayed });
+  }
+  if (role !== 'HOST') return err(res, 404, 'TRIP_CLAIM_NOT_FOUND', 'common.tripClaims.notFound');
+  const ended = ['RETURNED', 'POST_TRIP', 'COMPLETED', 'IN_DISPUTE'].includes(t.status);
+  const used = new Set(t.charges.map((c) => c.fileId));
+  if (what === 'claims' && req.method === 'GET') {
+    return json(res, 200, {
+      tripId: m[1],
+      country: MARKET.country,
+      currency: 'XTS',
+      open: ended,
+      tripStartAt: P2P_START,
+      tripEndAt: ended ? P2P_END : null,
+      deadlineAt: ended ? P2P_DEADLINE : null,
+      feeBps: 500,
+      theft: t.theft
+        ? {
+            status: 'THEFT_INVESTIGATION',
+            openedAt: '2036-12-14T14:01:00.000Z',
+            closedAt: null,
+            insurerStatus: 'PENDING',
+          }
+        : null,
+      charges: t.charges.map((c) => ({
+        id: c.id,
+        kind: c.kind,
+        occurredAt: c.occurredAt,
+        amountMinor: c.amountMinor,
+        adminFeeMinor: c.adminFeeMinor,
+        totalMinor: c.totalMinor,
+        declaredAt: c.declaredAt,
+        status: c.status,
+      })),
+      evidence: [...t.series.traffic.values()].map((p) => ({
+        fileId: p.fileId,
+        slot: p.slot,
+        receivedAt: p.receivedAt,
+        used: used.has(p.fileId),
+      })),
+    });
+  }
+  if (what === 'traffic-charges' && req.method === 'POST') {
+    const b = await readBody(req);
+    if (
+      b === null ||
+      typeof b.requestId !== 'string' ||
+      !['TOLL', 'FINE', 'IMPOUND'].includes(b.kind) ||
+      typeof b.occurredAt !== 'string' ||
+      typeof b.amountMinor !== 'string' ||
+      !/^[1-9][0-9]{0,12}$/.test(b.amountMinor) ||
+      typeof b.fileId !== 'string'
+    ) {
+      return err(res, 400, 'REQUEST_INVALID', 'common.auth.requestInvalid');
+    }
+    if (!ended)
+      return err(res, 409, 'TRAFFIC_TRIP_NOT_ENDED', 'common.tripClaims.trafficTripNotEnded');
+    const at = Date.parse(b.occurredAt);
+    if (!(at >= Date.parse(P2P_START) && at <= Date.parse(P2P_END))) {
+      return err(res, 422, 'TRAFFIC_OUTSIDE_TRIP', 'common.tripClaims.trafficOutsideTrip');
+    }
+    const evidence = [...t.series.traffic.values()].some((p) => p.fileId === b.fileId);
+    if (!evidence || used.has(b.fileId)) {
+      return err(
+        res,
+        422,
+        'TRAFFIC_EVIDENCE_REQUIRED',
+        'common.tripClaims.trafficEvidenceRequired',
+      );
+    }
+    const amount = BigInt(b.amountMinor);
+    // frais du double : roundHalfUp(montant × 500 / 10 000) (08 BR-PRICE-15, BR-PRICE-14)
+    const fee = (2n * amount * 500n + 10000n) / 20000n;
+    const charge = {
+      id: uuid(),
+      kind: b.kind,
+      occurredAt: new Date(at).toISOString(),
+      amountMinor: amount.toString(),
+      adminFeeMinor: fee.toString(),
+      totalMinor: (amount + fee).toString(),
+      declaredAt: P2P_AT,
+      status: 'PENDING',
+      fileId: b.fileId,
+    };
+    t.charges.push(charge);
+    return json(res, 201, {
+      chargeId: charge.id,
+      amountMinor: charge.amountMinor,
+      adminFeeMinor: charge.adminFeeMinor,
+      totalMinor: charge.totalMinor,
+      deadlineAt: P2P_DEADLINE,
+      replayed: false,
+    });
+  }
+  return false;
+}
+
 createServer(async (req, res) => {
   const url = new URL(req.url ?? '/', 'http://127.0.0.1');
   const path = url.pathname;
+  // US-318 : avant les routes de l'aide, des photos et des trips de l'hôte (trips du double p2p)
+  if ((await p2pRoute(req, res, url)) !== false) return;
   if ((await paymentRoute(req, res, url)) !== false) return;
   if ((await hostRequestRoute(req, res, url)) !== false) return;
   if ((await contractRoute(req, res, url)) !== false) return;

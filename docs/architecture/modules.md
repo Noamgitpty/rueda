@@ -60,6 +60,8 @@ flowchart LR
   CLM --> TRP
   CLM --> STL
   CLM --> PAY
+  CLM --> IAM
+  CLM --> CTR
   MSG --> IAM
   MSG --> AVL
   MSG --> CTR
@@ -120,7 +122,7 @@ flowchart LR
 | STL | Settlement engine & Ledger | `settlement` (PROPOSÉ) | règlement économique pur, jambes, grand livre en partie double, host_ledger, insurer_ledger et bordereaux, avances de Kmino | PRC, PAY, CFG, AUD, BUS | PRC, PAY, BUS | — | construit |
 | PYO | Payouts | `payout` (PROPOSÉ) | compte de versement vérifié de l'hôte, lots depuis la jambe HOST, compensation des débits (NETTING), gel et reprise | IAM, KYC, PAY, STL, CFG, AUD, BUS | IAM, PAY, BUS | `GET /host/accounts/{orgId}/payout-account`<br>`GET /host/accounts/{orgId}/payouts`<br>`POST /host/accounts/{orgId}/payout-account` | construit |
 | TRP | Trip operations | `trip_ops` (PROPOSÉ) | check-in et check-out par l'hôte et le voyageur, hors ligne, retards et non-restitution, refus du véhicule, remises du jour | IAM, KYC, AVL, CTR, PAY, CFG, AUD, BUS | IAM, CTR, PAY, AUD, BUS | `GET /trips/{tripId}/handover/{direction}`<br>`GET /trips/{tripId}/inspections/{kind}`<br>`GET /trips/{tripId}/no-show`<br>`POST /trips/{tripId}/handover/checkin/identity`<br>`POST /trips/{tripId}/handover/checkin/open`<br>`POST /trips/{tripId}/handover/{direction}/validate`<br>`POST /trips/{tripId}/inspections/{kind}/captures`<br>`POST /trips/{tripId}/inspections/{kind}/photos`<br>`POST /trips/{tripId}/inspections/{kind}/submit`<br>`POST /trips/{tripId}/no-show` | construit |
-| CLM | Claims & Disputes | `claim` (PROPOSÉ) | dommages et incidents, factures annexes, débits de dommage par jambe, litiges, dossiers de preuve, décisions | PAY, STL, TRP, CFG, AUD, BUS | BUS | — | construit |
+| CLM | Claims & Disputes | `claim` (PROPOSÉ) | dommages et incidents, factures annexes, débits de dommage par jambe, litiges, dossiers de preuve, décisions | IAM, CTR, PAY, STL, TRP, CFG, AUD, BUS | IAM, CTR, BUS | `GET /trips/{tripId}/claims`<br>`POST /trips/{tripId}/incidents`<br>`POST /trips/{tripId}/traffic-charges` | construit |
 | MSG | Messaging | `messaging` (PROPOSÉ) | fil par trip, masquage des coordonnées, détection du marché gris | IAM, AVL, CTR, CFG, AUD, BUS | IAM, CTR | `GET /trips/{tripId}/meetings`<br>`GET /trips/{tripId}/messages`<br>`POST /trips/{tripId}/meetings`<br>`POST /trips/{tripId}/meetings/{meetingId}/answer`<br>`POST /trips/{tripId}/messages` | construit |
 | NTF | Notifications | `notification` (PROPOSÉ) | règles événement → destinataires → canaux → gabarit, repli, idempotence, préférences | CFG, AUD, BUS | CFG, BUS | — | construit |
 | REV | Reviews | `review` (PROPOSÉ) | avis guest, avis hôte (P1), agrégats | IAM, AVL, CTR, CFG, AUD, BUS | IAM, CTR | `GET /listings/{listingId}/host-profile`<br>`GET /reviews/received`<br>`GET /trips/{tripId}/reviews`<br>`POST /trips/{tripId}/reviews` | construit |

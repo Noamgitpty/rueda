@@ -1,0 +1,240 @@
+/**
+ * FAKE du magasin des sinistres d'un trip (US-318) — TESTS SEULEMENT (répertoire `testing`, absent
+ * de la compilation de production). Mémoire du processus ; reprend les règles de la base (migration
+ * 0178) que les routes exposent : partie de la session (empreinte du jeton), fenêtre du trip,
+ * demande d'aide, photos, délai, période du trip, pièce, frais du pays, rejeu par requestId. Les
+ * règles elles-mêmes sont prouvées sur PostgreSQL (`packages/db/test/l0/l0-us318-p2p-claims.test.ts`) ;
+ * ce FAKE ne fait pas foi (les montants attendus des tests viennent de 08, pas d'ici).
+ */
+import { randomUUID } from 'node:crypto';
+import { TripClaimStoreError } from '../internal/p2p/store.js';
+import type {
+  IncidentInput,
+  IncidentResult,
+  TrafficChargeInput,
+  TrafficChargeResult,
+  TripClaimsStore,
+} from '../internal/p2p/store.js';
+
+const DAY = 86_400_000;
+
+export interface FakeClaimsTrip {
+  readonly hostProof: string;
+  readonly guestProof: string;
+  status: string;
+  country: string;
+  currency: string;
+  start: Date;
+  /** Retour effectif ; `null` : trip non rendu. */
+  end: Date | null;
+  deadlineDays: number | null;
+  feeBps: number | null;
+  /** Demandes d'aide vivantes du voyageur. */
+  cases: Set<string>;
+  incidentPhotos: number;
+  /** Pièces de la série TRAFFIC du titulaire. */
+  evidence: Map<string, { slot: string; receivedAt: Date }>;
+  theft: {
+    status: 'THEFT_INVESTIGATION' | 'RETURNED';
+    openedAt: Date;
+    closedAt: Date | null;
+    insurerStatus: 'PENDING' | 'SENT' | 'WITHDRAWN';
+  } | null;
+}
+
+export function fakeClaimsTrip(hostProof: string, guestProof: string, start: Date): FakeClaimsTrip {
+  return {
+    hostProof,
+    guestProof,
+    status: 'IN_PROGRESS',
+    country: 'XA',
+    currency: 'XTA',
+    start,
+    end: null,
+    deadlineDays: 120,
+    feeBps: 500,
+    cases: new Set(),
+    incidentPhotos: 0,
+    evidence: new Map(),
+    theft: null,
+  };
+}
+
+interface Incident {
+  readonly id: string;
+  readonly requestId: string;
+  readonly caseId: string;
+  readonly proof: string;
+  readonly at: Date;
+  readonly photos: number;
+}
+
+interface Charge {
+  readonly id: string;
+  readonly tripId: string;
+  readonly requestId: string;
+  readonly proof: string;
+  readonly input: TrafficChargeInput;
+  readonly fee: bigint;
+  readonly deadline: Date;
+  readonly at: Date;
+}
+
+export class FakeTripClaimsStore implements TripClaimsStore {
+  readonly trips = new Map<string, FakeClaimsTrip>();
+  readonly incidents: Incident[] = [];
+  readonly charges: Charge[] = [];
+  now: () => Date = () => new Date();
+
+  reportIncident(proof: Buffer, tripId: string, input: IncidentInput): Promise<IncidentResult> {
+    const t = this.trips.get(tripId);
+    const hex = proof.toString('hex');
+    const none = (outcome: string): Promise<IncidentResult> =>
+      Promise.resolve({ outcome, incidentId: null, reportedAt: null, photoCount: null });
+    if (t === undefined || hex !== t.guestProof) return none('NOT_FOUND');
+    const old = this.incidents.find((i) => i.requestId === input.requestId);
+    if (old !== undefined) {
+      if (old.proof !== hex || old.caseId !== input.caseId) {
+        return Promise.reject(new TripClaimStoreError('rejeu', '22023'));
+      }
+      return Promise.resolve({
+        outcome: 'DUPLICATE',
+        incidentId: old.id,
+        reportedAt: old.at,
+        photoCount: old.photos,
+      });
+    }
+    if (t.status !== 'IN_PROGRESS' && t.status !== 'OVERDUE') return none('INCIDENT_NOT_OPEN');
+    if (!t.cases.has(input.caseId)) return none('INCIDENT_CASE_REQUIRED');
+    const existing = this.incidents.find((i) => i.caseId === input.caseId);
+    if (existing !== undefined) {
+      return Promise.resolve({
+        outcome: 'EXISTS',
+        incidentId: existing.id,
+        reportedAt: existing.at,
+        photoCount: existing.photos,
+      });
+    }
+    if (t.incidentPhotos < 1) return none('INCIDENT_PHOTOS_REQUIRED');
+    const i: Incident = {
+      id: randomUUID(),
+      requestId: input.requestId,
+      caseId: input.caseId,
+      proof: hex,
+      at: this.now(),
+      photos: t.incidentPhotos,
+    };
+    this.incidents.push(i);
+    return Promise.resolve({
+      outcome: 'REPORTED',
+      incidentId: i.id,
+      reportedAt: i.at,
+      photoCount: i.photos,
+    });
+  }
+
+  declareTrafficCharge(
+    proof: Buffer,
+    tripId: string,
+    input: TrafficChargeInput,
+  ): Promise<TrafficChargeResult> {
+    const t = this.trips.get(tripId);
+    const hex = proof.toString('hex');
+    const none = (outcome: string, body: Record<string, unknown> | null = null) =>
+      Promise.resolve({ outcome, chargeId: null, body });
+    if (t === undefined || hex !== t.hostProof) return none('NOT_FOUND');
+    const body = (c: Charge): Record<string, unknown> => ({
+      amountMinor: c.input.amountMinor.toString(),
+      adminFeeMinor: c.fee.toString(),
+      totalMinor: (c.input.amountMinor + c.fee).toString(),
+      deadlineAt: c.deadline.toISOString(),
+    });
+    const old = this.charges.find((c) => c.requestId === input.requestId);
+    if (old !== undefined) {
+      if (old.proof !== hex || old.tripId !== tripId || old.input.fileId !== input.fileId) {
+        return Promise.reject(new TripClaimStoreError('rejeu', '22023'));
+      }
+      return Promise.resolve({ outcome: 'DUPLICATE', chargeId: old.id, body: body(old) });
+    }
+    if (t.end === null) return none('TRAFFIC_TRIP_NOT_ENDED');
+    if (t.deadlineDays === null) return none('TRAFFIC_WINDOW_UNKNOWN');
+    if (t.feeBps === null) return none('TRAFFIC_FEE_UNKNOWN');
+    const deadline = new Date(t.end.getTime() + t.deadlineDays * DAY);
+    const now = this.now();
+    if (now > deadline) {
+      return none('TRAFFIC_CHARGE_DEADLINE_PASSED', { deadlineAt: deadline.toISOString() });
+    }
+    if (input.occurredAt < t.start || input.occurredAt > t.end || input.occurredAt > now) {
+      return none('TRAFFIC_OUTSIDE_TRIP');
+    }
+    if (
+      !t.evidence.has(input.fileId) ||
+      this.charges.some((c) => c.input.fileId === input.fileId)
+    ) {
+      return none('TRAFFIC_EVIDENCE_REQUIRED');
+    }
+    const bps = BigInt(t.feeBps);
+    const fee = (2n * input.amountMinor * bps + 10_000n) / 20_000n;
+    const c: Charge = {
+      id: randomUUID(),
+      tripId,
+      requestId: input.requestId,
+      proof: hex,
+      input,
+      fee,
+      deadline,
+      at: now,
+    };
+    this.charges.push(c);
+    return Promise.resolve({ outcome: 'DECLARED', chargeId: c.id, body: body(c) });
+  }
+
+  hostClaims(proof: Buffer, tripId: string): Promise<Readonly<Record<string, unknown>> | null> {
+    const t = this.trips.get(tripId);
+    if (t === undefined || proof.toString('hex') !== t.hostProof) return Promise.resolve(null);
+    const deadline =
+      t.end !== null && t.deadlineDays !== null
+        ? new Date(t.end.getTime() + t.deadlineDays * DAY)
+        : null;
+    const used = new Set(
+      this.charges.filter((c) => c.tripId === tripId).map((c) => c.input.fileId),
+    );
+    return Promise.resolve({
+      tripId,
+      country: t.country,
+      currency: t.currency,
+      open: deadline !== null && t.feeBps !== null && this.now() <= deadline,
+      tripStartAt: t.start.toISOString(),
+      tripEndAt: t.end?.toISOString() ?? null,
+      deadlineAt: deadline?.toISOString() ?? null,
+      feeBps: t.feeBps,
+      theft:
+        t.theft === null
+          ? null
+          : {
+              status: t.theft.status,
+              openedAt: t.theft.openedAt.toISOString(),
+              closedAt: t.theft.closedAt?.toISOString() ?? null,
+              insurerStatus: t.theft.insurerStatus,
+            },
+      charges: this.charges
+        .filter((c) => c.tripId === tripId)
+        .map((c) => ({
+          id: c.id,
+          kind: c.input.kind,
+          occurredAt: c.input.occurredAt.toISOString(),
+          amountMinor: c.input.amountMinor.toString(),
+          adminFeeMinor: c.fee.toString(),
+          totalMinor: (c.input.amountMinor + c.fee).toString(),
+          declaredAt: c.at.toISOString(),
+          status: 'PENDING',
+        })),
+      evidence: [...t.evidence].map(([fileId, e]) => ({
+        fileId,
+        slot: e.slot,
+        receivedAt: e.receivedAt.toISOString(),
+        used: used.has(fileId),
+      })),
+    });
+  }
+}

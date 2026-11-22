@@ -3740,7 +3740,7 @@ export const ES_MESSAGES = {
   'backoffice.overdue.effect.FORMAL_NOTICE':
     'Al confirmar, la etapa queda en el expediente y el anfitrión recibe por correo un modelo de carta de intimación para enviar a su nombre, y el pedido de anotar la ubicación GPS si su auto tiene uno.',
   'backoffice.overdue.effect.POLICE_REPORT':
-    'Al confirmar, la etapa queda en el expediente y el anfitrión recibe por correo una denuncia prellenada, que él mismo presenta ante la policía.',
+    'Al confirmar, la etapa queda en el expediente y el anfitrión recibe por correo una denuncia prellenada, que él mismo presenta ante la policía. Se abre el expediente de robo presunto: la declaración al asegurador queda registrada y el pago del anfitrión de este viaje queda retenido hasta que el auto vuelva.',
   'backoffice.overdue.never':
     'La plataforma no presenta ninguna denuncia, no recupera ningún auto y nunca actúa sobre él a distancia.',
   'backoffice.overdue.reasonHint':
@@ -3775,7 +3775,7 @@ export const ES_MESSAGES = {
     '{brand}: modelo de carta de intimación de la reserva {booking_ref} enviado por correo. Anota la ubicación GPS si tu auto tiene uno.',
   'ntf.unreturnedPoliceReport.email.subject': 'Reserva {booking_ref}: denuncia prellenada',
   'ntf.unreturnedPoliceReport.email.body':
-    'Hola, {first_name}. El auto de la reserva {booking_ref} lleva más de un día sin ser devuelto. Esta es una denuncia prellenada que puedes presentar tú mismo ante la policía o el Ministerio Público, con tu contrato de alquiler y tu documento de identidad: «Yo, anfitrión que puso en alquiler el vehículo indicado en el contrato de alquiler adjunto (marca, modelo y placa), declaro que este vehículo, alquilado con la reserva {booking_ref} en {brand}, debía serme devuelto el {end_at} y no lo fue pese a mis reclamos. La identidad del arrendatario figura en el contrato adjunto. Presento denuncia por no devolución del vehículo.» Guarda el número de la denuncia. {brand} no presenta la denuncia en tu lugar, no recupera el auto y no actúa sobre él a distancia; tu pago no queda bloqueado por este procedimiento.',
+    'Hola, {first_name}. El auto de la reserva {booking_ref} lleva más de un día sin ser devuelto. Esta es una denuncia prellenada que puedes presentar tú mismo ante la policía o el Ministerio Público, con tu contrato de alquiler y tu documento de identidad: «Yo, anfitrión que puso en alquiler el vehículo indicado en el contrato de alquiler adjunto (marca, modelo y placa), declaro que este vehículo, alquilado con la reserva {booking_ref} en {brand}, debía serme devuelto el {end_at} y no lo fue pese a mis reclamos. La identidad del arrendatario figura en el contrato adjunto. Presento denuncia por no devolución del vehículo.» Guarda el número de la denuncia. {brand} no presenta la denuncia en tu lugar, no recupera el auto y no actúa sobre él a distancia; tu pago de este viaje queda retenido mientras se presume el robo y se libera cuando el auto vuelve.',
   'ntf.unreturnedPoliceReport.sms.body':
     '{brand}: denuncia prellenada de la reserva {booking_ref} enviada por correo. Tú la presentas ante la policía.',
   // US-318 (ADR-198) : réponses des routes des sinistres d’un trip (incident, amendes, péages, fourrière)
@@ -3794,9 +3794,95 @@ export const ES_MESSAGES = {
   'common.tripClaims.trafficEvidenceRequired':
     'Toma una foto del comprobante con la cámara de la app; cada foto sirve para un solo cargo.',
   'common.tripClaims.trafficTermsUnknown':
-    'Por ahora no podemos registrar cargos en este país. Inténtalo más tarde.',
+    'Por ahora no podemos registrar cargos para este viaje. Inténtalo más tarde.',
   'common.tripClaims.unavailable':
     'No pudimos registrarlo. Revisa tu conexión y vuelve a intentarlo.',
+  'web.incident.open': 'Declarar el incidente con fotos',
+  'web.incident.title': 'Declarar un accidente o una avería',
+  'web.incident.back': 'Volver a la ayuda del viaje',
+  'web.incident.stopDriving':
+    'Si el auto tiene más que un daño menor, no sigas manejando: espera la asistencia o las indicaciones del asegurador.',
+  'web.incident.askHelp': 'Pedir ayuda por un accidente o una avería',
+  'web.incident.photos.title': 'Fotos del incidente',
+  'web.incident.photos.lead':
+    'Fotografía el auto, los daños y, si hay otro vehículo, su placa. La hora que cuenta es la del servidor.',
+  'web.incident.form.title': 'Lo que pasó',
+  'web.incident.thirdParty': '¿Hay otro vehículo o una persona involucrada?',
+  'web.incident.police': '¿Llamaste a la policía o a la autoridad de tránsito?',
+  'web.incident.yes': 'Sí',
+  'web.incident.no': 'No',
+  'web.incident.answerRequired': 'Elige una respuesta.',
+  'web.incident.serverTime':
+    'Registramos la hora del servidor al enviar. Tu anfitrión y nuestro equipo de soporte verán el incidente y las fotos.',
+  'web.incident.submit': 'Enviar la declaración',
+  'web.incident.sent': 'Incidente registrado',
+  'web.incident.sentAt': 'Hora del servidor: {time}',
+  'web.incident.sentPhotos': 'Fotos adjuntas: {count}',
+  'web.incident.next':
+    'Nuestro equipo de soporte te contactará. Si hay peligro, llama primero a emergencias.',
+  'web.freePhotos.sent': 'Foto recibida.',
+  'web.freePhotos.none': 'Todavía no hay fotos.',
+  'web.freePhotos.list': 'Fotos recibidas',
+  'web.freePhotos.item': 'Foto {n} · recibida a las {time}',
+  'web.freePhotos.camera': 'Cámara',
+  'web.freePhotos.take': 'Tomar una foto',
+  'web.freePhotos.full': 'Llegaste al máximo de 10 fotos.',
+  'web.freePhotos.cameraOnly':
+    'Solo se aceptan fotos tomadas con la cámara de la app, en el momento.',
+  'web.traffic.link': 'Multas, peajes y grúa',
+  'web.traffic.title': 'Multas, peajes y grúa del viaje',
+  'web.traffic.back': 'Volver al viaje',
+  'web.traffic.rules.title': 'Cómo funciona',
+  'web.traffic.deadline': 'Puedes declarar un cargo hasta el {time}.',
+  'web.traffic.feeRule':
+    'Le cobramos al viajero el monto que pagaste más una comisión de gestión del {pct} %. Recibes el 100 % de lo que pagaste.',
+  'web.traffic.rules.lead':
+    'Solo cargos que pagaste por hechos ocurridos durante el viaje, con su comprobante. El cobro al viajero es aparte del alquiler, después de un aviso.',
+  'web.traffic.photos.title': 'Comprobantes',
+  'web.traffic.closed': 'El plazo para declarar cargos de este viaje terminó.',
+  'web.traffic.list.title': 'Cargos declarados',
+  'web.traffic.list.empty': 'Aún no declaraste ningún cargo.',
+  'web.traffic.list.amounts': 'Pagaste {amount} · comisión {fee} · total al viajero {total}',
+  'web.traffic.kind.TOLL': 'Peaje',
+  'web.traffic.kind.FINE': 'Multa',
+  'web.traffic.kind.IMPOUND': 'Grúa o depósito',
+  'web.traffic.status.PENDING': 'En preparación',
+  'web.traffic.status.DONE': 'Aviso enviado al viajero',
+  'web.traffic.status.BLOCKED': 'Revisión por el soporte',
+  'web.traffic.form.title': 'Declarar una multa, un peaje o una grúa',
+  'web.traffic.sent': 'Cargo registrado',
+  'web.traffic.sent.amount': 'Monto que pagaste: {amount}',
+  'web.traffic.sent.fee': 'Comisión de gestión: {amount}',
+  'web.traffic.sent.total': 'Total cobrado al viajero: {amount}',
+  'web.traffic.kind': 'Tipo de cargo',
+  'web.traffic.at': 'Fecha y hora del hecho',
+  'web.traffic.atHint': 'Hora local del viaje, entre la entrega y la devolución.',
+  'web.traffic.amount': 'Monto que pagaste',
+  'web.traffic.amountHint': 'Ejemplo: {example}',
+  'web.traffic.file': 'Comprobante',
+  'web.traffic.fileItem': 'Foto recibida a las {time}',
+  'web.traffic.fileNone': 'Primero toma una foto del comprobante.',
+  'web.traffic.notTransferred':
+    'Le cobramos el monto al viajero; la multa sigue a tu nombre ante la autoridad.',
+  'web.traffic.noParking':
+    'El estacionamiento que pagues para recuperar tu auto no se le cobra al viajero.',
+  'web.traffic.submit': 'Declarar el cargo',
+  'web.traffic.kindRequired': 'Elige el tipo de cargo.',
+  'web.traffic.atRequired': 'Indica la fecha y la hora del hecho.',
+  'web.traffic.amountInvalid': 'Escribe el monto que pagaste, como en el ejemplo.',
+  'web.traffic.fileRequired': 'Elige la foto del comprobante.',
+  'web.theft.title': 'Auto no devuelto',
+  'web.theft.status.THEFT_INVESTIGATION': 'Robo presunto desde el {time}: expediente abierto.',
+  'web.theft.status.RETURNED': 'El auto volvió: expediente cerrado el {time}.',
+  'web.theft.insurer.PENDING':
+    'Declaración al asegurador registrada: se enviará cuando el contrato con el asegurador esté activo.',
+  'web.theft.insurer.SENT': 'Declaración enviada al asegurador.',
+  'web.theft.insurer.WITHDRAWN':
+    'El auto volvió antes del envío: la declaración al asegurador se retiró.',
+  'web.theft.payoutHeld':
+    'Tu pago de este viaje queda retenido mientras se presume el robo; se libera cuando el auto vuelve.',
+  'web.theft.noRecovery':
+    'Tú presentas la denuncia. {brand} no recupera el auto ni lo inmoviliza a distancia.',
 } as const satisfies Catalog;
 
 export type MessageKey = keyof typeof ES_MESSAGES;
