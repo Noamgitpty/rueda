@@ -64,6 +64,7 @@ De 2 politiques (état du 2026-11-16) à 10 (2026-11-22), chaque lecture coûte 
 | ----------- | ------------- | -------------- | --------- | -------------------- | ------------------------ |
 | 45072316133 | AMD EPYC 9V74 | 92 / 90        | 201       | 206 / 228            | 2,2 / 2,2 (avant : 5,0)  |
 | 45074060780 | AMD EPYC 7763 | 98 / 92        | 261 – 267 | 218 / 235            | 2,2 / 2,2 (avant : 6,4)  |
+| 45075917836 | AMD EPYC 9V45 | 70 / 67        | 144       | 143 / 151            | 1,5 / 1,5 (avant : 3,7)  |
 
 Le p95 en autocommit baisse de 55 à 65 %. Sur le processeur le plus lent, il passe de 304 ms (échec sur `main`, be5e1026) à 98 ms. La forme transactionnelle repasse sous 300 ms, alors qu'elle était à 614–700 ms. Toutes les courses restent exactes (1 hold, 99 `VEHICLE_UNAVAILABLE`, 0 `40P01`, 0 rejeu), et les 3 069 à 3 070 tests L0 du job passent.
 
