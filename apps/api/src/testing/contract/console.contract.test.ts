@@ -804,6 +804,9 @@ describe('contrat HTTP — /console', () => {
     decidedRole: null,
     decisionRationale: null,
     chargeBasis: null,
+    executionCode: null,
+    deferCount: 0,
+    reviewRequiredAt: null,
   };
   const incidentalState = { down: false, view: 'OK', decide: 'DECIDED' };
   const incidentalStore: IncidentalStaffStore = {

@@ -122,15 +122,14 @@ function evidenceOf(e: unknown): IncidentalEvidence | null {
 }
 
 const CAP = /^(0|[1-9][0-9]{0,17})$/;
-function capsOf(v: unknown): TripIncidentalView['caps'] | undefined {
-  if (v === null) return null;
-  if (!isObj(v)) return undefined;
+/** Plafonds (aide du montant seulement : la commande les applique) ; illisible ⇒ non affiché, jamais
+ * toute la vue en échec (revue delta, mineur). */
+function capsOf(v: unknown): TripIncidentalView['caps'] {
+  if (!isObj(v)) return null;
   const out: Record<string, string | null> = {};
   for (const f of FEE_TYPES) {
     const c = v[f];
-    if (c === null) out[f] = null;
-    else if (typeof c === 'string' && CAP.test(c)) out[f] = c;
-    else return undefined;
+    out[f] = typeof c === 'string' && CAP.test(c) ? c : null;
   }
   return out as Record<FeeType, string | null>;
 }
@@ -233,7 +232,6 @@ export function tripIncidentalOf(reply: ApiResult): TripIncidentalView | null {
     return null;
   }
   const caps = capsOf(j['caps']);
-  if (caps === undefined) return null;
   const invoices = rawInvoices.map(invoiceOf);
   const photos = rawPhotos.map(photoOf);
   if (invoices.some((i) => i === null) || photos.some((p) => p === null)) return null;
@@ -322,13 +320,6 @@ export function incidentalHref(
   const base =
     role === 'HOST' ? `/host/trips/${tripId}/incidental-fees` : `/trips/${tripId}/incidental-fees`;
   return query === '' ? base : `${base}?${query}`;
-}
-
-/** Photos du trip (séries de départ et de retour), reconstruites. */
-export function tripPhotosHref(role: IncidentalRole, tripId: string, org: string | null): string {
-  return role === 'HOST'
-    ? `/host/trips/${tripId}/inspection/checkout${org !== null && UUID.test(org) ? `?org=${org}` : ''}`
-    : `/trips/${tripId}/inspection/checkout`;
 }
 
 /**

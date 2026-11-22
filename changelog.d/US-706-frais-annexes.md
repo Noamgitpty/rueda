@@ -7,3 +7,4 @@ module: Sinistres
 - Sécurité : aucune demande sans photo du voyage ; frais hors de la liste, voiture seulement non lavée, carburant au même niveau ou prépayé : refus avec le motif ; délais à l'heure du serveur ; un membre de l'équipe partie au voyage ne décide pas (US-706)
 - Ajouté : le voyageur reçoit un e-mail (ou un SMS) quand l'hôte demande un frais, et voit les photos retenues avant de payer ; l'hôte voit le plafond du pays (US-706)
 - Modifié : un frais rejeté par l'équipe ne peut plus être redemandé ; trois contrôles plus stricts que Turo deviennent des réglages par pays (US-706)
+- Sécurité : un débit de frais qui échoue 12 fois est confié à l'équipe et alerté ; les fichiers de l'hôte ne servent que pour le voyage où ils ont été déposés (US-706)

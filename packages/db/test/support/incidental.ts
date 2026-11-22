@@ -60,9 +60,9 @@ export const STAFF_VIEW =
   'SELECT outcome, body FROM core.support_staff_incidental($1, $2::uuid, $3::uuid)';
 export const CHARGE =
   'SELECT outcome, code FROM core.claim_cmd_charge_incidental($1::uuid, $2::uuid)';
-/** File du travailleur, filtrée sur les demandes du test (jamais un compte global de la base). */
-export const DUE_LIST = `SELECT invoice_id::text AS id FROM core.claim_incidental_invoices_due(100)
-  WHERE invoice_id = ANY ($1::uuid[])`;
+/** File du travailleur, filtrée DANS la requête (avant la limite) sur les demandes du test. */
+export const DUE_LIST =
+  'SELECT invoice_id::text AS id FROM core.claim_incidental_invoices_due(100, $1::uuid[])';
 export const DESCRIPTION = 'Sièges arrière couverts de sable et de boue au retour';
 export const DISPUTE_REASON =
   'Le véhicule a été rendu propre, voir ma photo de l’intérieur au retour.';
@@ -73,6 +73,7 @@ export interface World {
   readonly trip: string;
   readonly guest: string;
   readonly holder: string;
+  readonly org: string;
   readonly rent: string | null;
   /** Photos des séries : départ jauge (hôte), retour jauge (hôte), retour intérieur (hôte et
    * voyageur), retour extérieur (hôte). */
@@ -92,6 +93,8 @@ export interface WorldOptions {
   /** Trip avec devis et Extra vendu (fixture 9948, ligne EXTRAS). */
   readonly extras?: boolean;
   readonly guest?: string;
+  /** Compte d'hôte existant (même titulaire pour deux trips). */
+  readonly org?: string;
 }
 
 export async function photo(tx: Tx, trip: string, kind: string, slot: string, role = 'HOST') {
@@ -130,7 +133,7 @@ export async function world(tx: Tx, c: CountryCase, o: WorldOptions = {}): Promi
     await tx.query(`SELECT test_fixture.rls_insert_trip($1, $2, $3, $4, $5, $6, $7, $8, $9)`, [
       trip,
       guest,
-      uuid(),
+      o.org ?? uuid(),
       uuid(),
       c.country,
       c.currency,
@@ -180,7 +183,10 @@ export async function world(tx: Tx, c: CountryCase, o: WorldOptions = {}): Promi
   const holder = (
     await tx.query<{ h: string }>('SELECT test_fixture.us309_holder($1)::text AS h', [trip])
   ).rows[0]!.h;
-  return { trip, guest, holder, rent, fuelOut, fuelIn, inner, guestInner, outer };
+  const org = (
+    await tx.query<{ o: string }>('SELECT test_fixture.us309_trip_org($1)::text AS o', [trip])
+  ).rows[0]!.o;
+  return { trip, guest, holder, org, rent, fuelOut, fuelIn, inner, guestInner, outer };
 }
 
 export async function now(tx: Tx, iso: string): Promise<void> {

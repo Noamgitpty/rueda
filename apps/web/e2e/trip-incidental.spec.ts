@@ -108,6 +108,10 @@ for (const language of LANGUAGES) {
         t('web.incidental.status.AWAITING_GUEST', { date: i18n.dateTime(DUE, TZ) }),
       );
       await expectAccessible(page, { include: null });
+      // type déjà demandé : retiré du formulaire (INCIDENTAL_DUPLICATE évité à la source)
+      await expect(
+        page.locator('[data-testid="incidental-type"] option[value="CLEANING"]'),
+      ).toHaveCount(0);
 
       // annulation par l'hôte
       await page.locator('[data-testid="incidental-cancel"]').click();
@@ -117,6 +121,10 @@ for (const language of LANGUAGES) {
       await expect(page.locator('[data-testid="incidental-status"]')).toHaveText(
         t('web.incidental.status.CANCELLED_BY_HOST'),
       );
+      // annulée : le type se redemande
+      await expect(
+        page.locator('[data-testid="incidental-type"] option[value="CLEANING"]'),
+      ).toHaveCount(1);
 
       // IDOR : les frais (et leurs preuves) d'un autre trip ⇒ même message que l'inconnu
       const other = await newTrip(token('G0st'), token('H0st'), true);
@@ -146,7 +154,7 @@ for (const language of LANGUAGES) {
       );
       await expect(page.locator('[data-testid="incidental-amount-shown"]')).toHaveText(amount);
       await expect(page.getByText(t('web.incidental.payNotice'))).toBeVisible();
-      // preuves retenues visibles AVANT de payer (revue ux n° 1) et lien vers les photos du trip
+      // preuves retenues visibles AVANT de payer (revue ux n° 1)
       await expect(page.locator('[data-testid="incidental-evidence"] li')).toHaveText([
         t('web.incidental.evidenceItem', {
           side: t('web.incidental.side.CHECKOUT'),
@@ -155,10 +163,8 @@ for (const language of LANGUAGES) {
           date: i18n.dateTime('2097-03-10T08:00:00.000Z', TZ),
         }),
       ]);
-      await expect(page.locator('[data-testid="incidental-photos-link"]')).toHaveAttribute(
-        'href',
-        `/trips/${trip}/incidental-fees`.replace('incidental-fees', 'inspection/checkout'),
-      );
+      // aucun lien vers l'écran de prise de photos (revue ux delta) : la liste fait foi
+      await expect(page.locator('[data-testid="incidental-photos-link"]')).toHaveCount(0);
       await expect(page.locator('[data-testid="incidental-status"]')).toHaveText(
         t('web.incidental.statusGuest.AWAITING_GUEST', { date: i18n.dateTime(DUE, TZ) }),
       );

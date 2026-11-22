@@ -155,16 +155,13 @@ const CAP = /^(0|[1-9][0-9]{0,17})$/;
 
 /** Plafonds rendus à l'hôte ; absent pour le voyageur ; forme inattendue ⇒ erreur. */
 function capsOf(v: unknown): IncidentalCaps | null {
-  if (v === null || v === undefined) return null;
-  if (!isObj(v))
-    throw new IncidentalStoreError('lecture des frais annexes : plafonds illisibles', undefined);
+  // aide du montant seulement (la commande applique le plafond) : un plafond illisible n'est pas
+  // affiché, jamais toute la vue en échec (revue delta, mineur)
+  if (!isObj(v)) return null;
   const out: Record<string, string | null> = {};
   for (const fee of INCIDENTAL_FEE_TYPES) {
     const c = v[fee];
-    if (c === null || c === undefined) out[fee] = null;
-    else if (typeof c === 'string' && CAP.test(c)) out[fee] = c;
-    else
-      throw new IncidentalStoreError('lecture des frais annexes : plafonds illisibles', undefined);
+    out[fee] = typeof c === 'string' && CAP.test(c) ? c : null;
   }
   return out as IncidentalCaps;
 }

@@ -11,13 +11,21 @@
  *    DELAYED_CHARGES, montant explicite de chaque jambe, jamais la caution) ; le débit lui-même est
  *    planifié et envoyé par `mit_charge_scheduler` (préavis et accord des réseaux). Avant l'échéance
  *    ou contesté sans décision : rien (`GUEST_RESPONSE_WINDOW_OPEN`, `INCIDENTAL_DISPUTED`). Une
- *    erreur de la base repousse le frais de 15 min (`core.claim_cmd_defer_incidental`) et n'empêche
- *    jamais les suivants.
+ *    erreur de la base ou une issue inconnue (`NOT_FOUND` compris) repousse le frais de 15 min
+ *    (`core.claim_cmd_defer_incidental`) et n'empêche jamais les suivants ; au 12e report (constante
+ *    de la base, sans lien avec un pays), le frais sort de la file, « à revoir par l'ops »
+ *    (`REVIEW_REQUIRED`, visible dans la console) : alerte `CLAIM_INCIDENTAL_REVIEW_REQUIRED` (P2,
+ *    une fois par frais ; revue code delta).
  *
  * Seuls des comptes sont journalisés, jamais un identifiant ni une donnée personnelle (17 §6.3).
  */
 import { randomUUID } from 'node:crypto';
-import type { BusRegistry, SqlClient, WorkerTransactions } from '../../../bus/index.js';
+import type {
+  AlertChannel,
+  BusRegistry,
+  SqlClient,
+  WorkerTransactions,
+} from '../../../bus/index.js';
 
 export const INCIDENTAL_WORKER = 'incidental_invoice_executor';
 /** Nom de travailleur exigé par la base pour les commandes d'argent. */
@@ -28,9 +36,11 @@ export const INCIDENTAL_BATCH = 50;
 export interface IncidentalExecutorDeps {
   readonly transactions: WorkerTransactions;
   readonly log?: (line: string) => void;
+  readonly alerts?: AlertChannel;
 }
 
-export type IncidentalChargeOutcome = 'CHARGED' | 'NOT_DUE' | 'BLOCKED' | 'DONE' | 'DEFERRED';
+export type IncidentalChargeOutcome =
+  'CHARGED' | 'NOT_DUE' | 'BLOCKED' | 'DONE' | 'DEFERRED' | 'REVIEW_REQUIRED';
 
 export interface IncidentalPass {
   readonly due: number;
@@ -39,6 +49,7 @@ export interface IncidentalPass {
   readonly blocked: number;
   readonly done: number;
   readonly deferred: number;
+  readonly reviewRequired: number;
 }
 
 const OUTCOMES: readonly string[] = ['CHARGED', 'NOT_DUE', 'BLOCKED', 'DONE'];
@@ -73,25 +84,38 @@ export class IncidentalInvoiceExecutor {
         },
       );
       if (OUTCOMES.includes(outcome)) return outcome as IncidentalChargeOutcome;
-      // issue inconnue (NOT_FOUND…) : repoussée et codée, jamais relue en boucle (revue code)
-      await this.#defer(
+      // issue inconnue (NOT_FOUND…) : repoussée et codée, jamais relue sans fin (revue code)
+      return await this.#defer(
         invoiceId,
         /^[A-Z][A-Z0-9_]{1,63}$/.test(outcome) ? outcome : 'UNKNOWN_OUTCOME',
       );
-      return 'DEFERRED';
     } catch {
       // erreur de la base (invariant du débit, panne) : le frais est repoussé, jamais perdu
-      await this.#defer(invoiceId, 'EXECUTION_FAILED');
-      return 'DEFERRED';
+      return this.#defer(invoiceId, 'EXECUTION_FAILED');
     }
   }
 
-  async #defer(invoiceId: string, code: string): Promise<void> {
-    await this.#deps.transactions
-      .run(INCIDENTAL_PAYMENT_COMMAND_WORKER, (tx) =>
-        tx.query('SELECT core.claim_cmd_defer_incidental($1::uuid, $2)', [invoiceId, code]),
-      )
+  /** Report plafonné par la base : `REVIEW_REQUIRED` au 12e, alerté une fois. Ne lève jamais. */
+  async #defer(invoiceId: string, code: string): Promise<IncidentalChargeOutcome> {
+    const r = await this.#deps.transactions
+      .run(INCIDENTAL_PAYMENT_COMMAND_WORKER, async (tx) => {
+        const { rows } = await tx.query<{ r: string }>(
+          'SELECT core.claim_cmd_defer_incidental($1::uuid, $2) AS r',
+          [invoiceId, code],
+        );
+        return rows[0]?.r ?? 'DEFERRED';
+      })
+      .catch(() => 'DEFERRED');
+    if (r !== 'REVIEW_REQUIRED') return 'DEFERRED';
+    await this.#deps.alerts
+      ?.send({
+        code: 'CLAIM_INCIDENTAL_REVIEW_REQUIRED',
+        severity: 'P2',
+        counts: { invoices: 1 },
+        labels: { error_code: code },
+      })
       .catch(() => undefined);
+    return 'REVIEW_REQUIRED';
   }
 
   async process(invoiceIds: readonly string[]): Promise<IncidentalPass> {
@@ -101,6 +125,7 @@ export class IncidentalInvoiceExecutor {
       BLOCKED: 0,
       DONE: 0,
       DEFERRED: 0,
+      REVIEW_REQUIRED: 0,
     };
     for (const id of invoiceIds) count[await this.charge(id)] += 1;
     const pass: IncidentalPass = {
@@ -110,6 +135,7 @@ export class IncidentalInvoiceExecutor {
       blocked: count.BLOCKED,
       done: count.DONE,
       deferred: count.DEFERRED,
+      reviewRequired: count.REVIEW_REQUIRED,
     };
     this.#deps.log?.(JSON.stringify({ level: 'info', worker: INCIDENTAL_WORKER, ...pass }));
     return pass;
@@ -124,8 +150,13 @@ export function registerIncidentalInvoiceExecutor(
   registry: BusRegistry,
   transactions: WorkerTransactions,
   log: (line: string) => void,
+  alerts?: AlertChannel,
 ): void {
-  const executor = new IncidentalInvoiceExecutor({ transactions, log });
+  const executor = new IncidentalInvoiceExecutor({
+    transactions,
+    log,
+    ...(alerts !== undefined ? { alerts } : {}),
+  });
   registry.registerPeriodic(INCIDENTAL_WORKER, INCIDENTAL_PERIOD_SECONDS, async (_payload, tx) => {
     await tx.query(`SELECT pg_catalog.set_config('app.worker_name', $1, true)`, [
       INCIDENTAL_PAYMENT_COMMAND_WORKER,

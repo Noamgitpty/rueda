@@ -3888,15 +3888,15 @@ export const PT_MESSAGES = {
     'Olá, {first_name}. O anfitrião da reserva {booking_ref} pediu um custo de {amount}. Você pode pagar ou contestar com uma foto em {brand} até {due_at}. Sem resposta, {brand} decide e pode cobrar o seu cartão salvo.',
   'ntf.invoiceToGuest.sms.body':
     '{brand}: o anfitrião pediu {amount} ({booking_ref}). Pague ou conteste no app antes de {due_at}.',
-  'web.incidental.evidence': 'Provas do anfitrião',
+  'web.incidental.evidence': 'Fotos da entrega e da devolução escolhidas pelo anfitrião',
   'web.incidental.evidenceItem': '{side} · {slot} · {by} · recebida em {date}',
   'web.incidental.evidenceUpload': 'Mais um arquivo enviado pelo anfitrião',
-  'web.incidental.photosLink': 'Ver as fotos da entrega e da devolução',
   'web.incidental.statusGuest.AWAITING_GUEST': 'Responda antes de {date}',
   'web.incidental.expired.AWAITING_GUEST':
     'O prazo de resposta terminou em {date}: {brand} vai cobrar o cartão salvo.',
   'web.incidental.expired.DISPUTED':
     'Contestado a tempo: {brand} analisa as provas e decide; nada é cobrado antes.',
   'web.incidental.form.cap': 'Máximo para {fee}: {amount}.',
+  'web.incidental.form.allRequested': 'Você já pediu cada tipo de custo para esta viagem.',
   'web.incidental.form.capMissing': '{fee}: ainda não pode ser pedido aqui.',
 } as const satisfies Readonly<Record<MessageKey, Message>>;

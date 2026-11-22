@@ -2541,6 +2541,8 @@ Déclencheurs :
 | `charged_at` | `timestamp with time zone` | non | — |
 | `next_check_at` | `timestamp with time zone` | oui | — |
 | `execution_code` | `text` | non | — |
+| `defer_count` | `integer` | oui | `0` |
+| `review_required_at` | `timestamp with time zone` | non | — |
 
 Contraintes :
 

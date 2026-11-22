@@ -381,7 +381,7 @@ export function registerWorkerTasks(registry: BusRegistry, deps: WorkerTaskDeps)
   // voyageur, décidés par l'ops après contestation, ou sans réponse après l'échéance relue en base
   // (`invoice_guest_response_h`) ; débit séparé NOTIFIÉ d'US-703 (débité par mit_charge_scheduler,
   // jamais la caution) ; jamais une demande contestée sans décision
-  registerIncidentalInvoiceExecutor(registry, deps.transactions, deps.log);
+  registerIncidentalInvoiceExecutor(registry, deps.transactions, deps.log, alerts);
 
   // US-701 (ADR-169) : ré-autorisation de la caution avant l'échéance (rail a) ; refusée ⇒ ops,
   // sans débit. Aucun connecteur en production avant le lot C : rien n'est envoyé

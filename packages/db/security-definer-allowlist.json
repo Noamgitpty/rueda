@@ -2812,7 +2812,7 @@
       "story": "US-706"
     },
     {
-      "signature": "core.claim_incidental_host_files(uuid,uuid)",
+      "signature": "core.claim_incidental_host_files(uuid,uuid,timestamptz)",
       "family": "cmd_hold",
       "owner": "cmd_hold_owner",
       "execute": ["cmd_money_owner"],
@@ -2868,7 +2868,7 @@
       "story": "US-706"
     },
     {
-      "signature": "core.claim_incidental_invoices_due(integer)",
+      "signature": "core.claim_incidental_invoices_due(integer,uuid[])",
       "family": "cmd_money",
       "owner": "cmd_money_owner",
       "execute": ["app_worker"],

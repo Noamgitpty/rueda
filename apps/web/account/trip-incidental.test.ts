@@ -64,6 +64,18 @@ describe('vue des frais annexes (US-706)', () => {
     expect(tripIncidentalOf({ status: 200, json: VIEW, headers: {} } as never)).toEqual(VIEW);
   });
 
+  it('plafond illisible ⇒ non affiché, la vue reste lisible (aide du montant seulement)', () => {
+    const json = { ...VIEW, caps: { FUEL: '45.00', CLEANING: '15000', SMOKING: 7 } };
+    expect(tripIncidentalOf({ status: 200, json, headers: {} } as never)?.caps).toEqual({
+      FUEL: null,
+      CLEANING: '15000',
+      SMOKING: null,
+    });
+    expect(
+      tripIncidentalOf({ status: 200, json: { ...VIEW, caps: 'x' }, headers: {} } as never)?.caps,
+    ).toBeNull();
+  });
+
   it('forme inattendue ⇒ null (jamais un état partiel)', () => {
     const bad = [
       { ...VIEW, viewerRole: 'COHOST' },
@@ -74,7 +86,6 @@ describe('vue des frais annexes (US-706)', () => {
       { ...VIEW, invoices: [{ ...VIEW.invoices[0], responseDueAt: '2097-03-13' }] },
       { ...VIEW, photos: [{ ...VIEW.photos[0], slotCode: 'ROOF' }] },
       { ...VIEW, endedAt: 'hier' },
-      { ...VIEW, caps: { FUEL: '45.00', CLEANING: null, SMOKING: null } },
       { ...VIEW, invoices: [{ ...VIEW.invoices[0], evidence: [{ kind: 'ROOF' }] }] },
     ];
     for (const json of bad) {

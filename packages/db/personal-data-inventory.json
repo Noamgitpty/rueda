@@ -3852,7 +3852,9 @@
         "charge_id": "C1",
         "charged_at": "C1",
         "next_check_at": "C1",
-        "execution_code": "C1"
+        "execution_code": "C1",
+        "defer_count": "C1",
+        "review_required_at": "C1"
       }
     },
     "core.messaging_meeting_proposal": {

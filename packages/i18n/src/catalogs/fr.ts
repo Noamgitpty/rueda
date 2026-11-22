@@ -3963,15 +3963,15 @@ export const FR_MESSAGES = {
     'Bonjour {first_name}. L’hôte de la réservation {booking_ref} demande des frais de {amount}. Vous pouvez les payer ou les contester avec une photo sur {brand} jusqu’au {due_at}. Sans réponse, {brand} tranche et peut débiter votre carte enregistrée.',
   'ntf.invoiceToGuest.sms.body':
     '{brand} : l’hôte demande {amount} ({booking_ref}). Payez ou contestez dans l’appli avant le {due_at}.',
-  'web.incidental.evidence': 'Preuves de l’hôte',
+  'web.incidental.evidence': 'Photos de la remise et du retour retenues par l’hôte',
   'web.incidental.evidenceItem': '{side} · {slot} · {by} · reçue le {date}',
   'web.incidental.evidenceUpload': 'Plus un fichier envoyé par l’hôte',
-  'web.incidental.photosLink': 'Voir les photos de la remise et du retour',
   'web.incidental.statusGuest.AWAITING_GUEST': 'Répondez avant le {date}',
   'web.incidental.expired.AWAITING_GUEST':
     'Le délai de réponse s’est terminé le {date} : {brand} va débiter la carte enregistrée.',
   'web.incidental.expired.DISPUTED':
     'Contesté à temps : {brand} examine les preuves et tranche ; rien n’est débité avant.',
   'web.incidental.form.cap': 'Maximum pour {fee} : {amount}.',
+  'web.incidental.form.allRequested': 'Vous avez déjà demandé chaque type de frais pour ce voyage.',
   'web.incidental.form.capMissing': '{fee} : pas encore demandable dans ce pays.',
 } as const satisfies Readonly<Record<MessageKey, Message>>;

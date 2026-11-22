@@ -30445,7 +30445,10 @@
           "disputeReason",
           "decidedRole",
           "decisionRationale",
-          "chargeBasis"
+          "chargeBasis",
+          "executionCode",
+          "deferCount",
+          "reviewRequiredAt"
         ],
         "properties": {
           "id": {
@@ -30605,6 +30608,36 @@
               },
               {
                 "enum": ["GUEST_ACCEPTED", "NO_RESPONSE", "OPS_DECISION"]
+              }
+            ]
+          },
+          "executionCode": {
+            "description": "Dernier code d'un report du débit (jamais un message)",
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string",
+                "pattern": "^[A-Z][A-Z0-9_]{1,63}$"
+              }
+            ]
+          },
+          "deferCount": {
+            "description": "Reports du débit par le travailleur (12 au plus)",
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 12
+          },
+          "reviewRequiredAt": {
+            "description": "Sorti de la file au 12e report : à revoir par l'ops (alerte CLAIM_INCIDENTAL_REVIEW_REQUIRED)",
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string",
+                "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}[.][0-9]{3}Z$"
               }
             ]
           }

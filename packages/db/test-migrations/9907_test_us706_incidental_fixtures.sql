@@ -144,7 +144,8 @@ CREATE FUNCTION test_fixture.us706_invoices(p_trip uuid)
                  notified_at timestamptz, response_due_at timestamptz,
                  host_deadline_at timestamptz, accepted_at timestamptz, disputed_at timestamptz,
                  decided_role text, charge_basis text, charge_id uuid, charged_at timestamptz,
-                 execution_code text, next_check_at timestamptz)
+                 execution_code text, next_check_at timestamptz, defer_count integer,
+                 review_required_at timestamptz)
   LANGUAGE sql
   STABLE
   SECURITY DEFINER
@@ -154,7 +155,7 @@ AS $fn$
          i.leg_tax_third_party_minor, i.leg_platform_minor, i.host_user_id, i.guest_user_id,
          i.notified_at, i.response_due_at, i.host_deadline_at, i.accepted_at, i.disputed_at,
          i.decided_role, i.charge_basis, i.charge_id, i.charged_at, i.execution_code,
-         i.next_check_at
+         i.next_check_at, i.defer_count, i.review_required_at
     FROM core.claim_incidental_invoice AS i WHERE i.trip_id = p_trip
    ORDER BY i.notified_at, i.fee_type
 $fn$;

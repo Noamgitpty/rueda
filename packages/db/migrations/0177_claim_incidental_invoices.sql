@@ -83,10 +83,10 @@
 --     text, bigint, text, uuid[]), core.claim_cmd_cancel_incidental(bytea, uuid),
 --     core.claim_cmd_accept_incidental(bytea, uuid), core.claim_cmd_dispute_incidental(bytea, uuid,
 --     text, uuid[]), core.claim_cmd_decide_incidental(uuid, uuid, text, uuid, text, text),
---     core.claim_incidental_staff_view(uuid), core.claim_incidental_invoices_due(integer),
+--     core.claim_incidental_staff_view(uuid), core.claim_incidental_invoices_due(integer, uuid[]),
 --     core.claim_cmd_charge_incidental(uuid, uuid), core.claim_cmd_defer_incidental(uuid, text),
 --     core.claim_incidental_param(text, text), core.claim_incidental_bool(text, text),
---     core.claim_incidental_party(bytea, uuid), core.claim_incidental_host_files(uuid, uuid),
+--     core.claim_incidental_party(bytea, uuid), core.claim_incidental_host_files(uuid, uuid, timestamptz),
 --     core.claim_incidental_trip_facts(uuid), core.claim_incidental_trip_photos(uuid),
 --     core.claim_incidental_guard() ;
 --   DROP POLICY cmd_money_incidental_param_read ON core.config_param_value ;
@@ -182,6 +182,13 @@ CREATE TABLE core.claim_incidental_invoice (
   execution_code            text
     CONSTRAINT claim_incidental_execution_code_format CHECK (
       execution_code IS NULL OR execution_code ~ '^[A-Z][A-Z0-9_]{1,63}$'),
+  -- reports du travailleur (erreur, issue inconnue) ; au 12e : à revoir par l'ops, hors de la file,
+  -- alerté (revue code delta : jamais relu sans fin)
+  defer_count               integer     NOT NULL DEFAULT 0
+    CONSTRAINT claim_incidental_defer_count_range CHECK (defer_count BETWEEN 0 AND 12),
+  review_required_at        timestamptz,
+  CONSTRAINT claim_incidental_review_shape CHECK (
+    review_required_at IS NULL OR defer_count = 12),
   CONSTRAINT claim_incidental_trip_country_fk FOREIGN KEY (trip_id, country_code)
     REFERENCES core.booking_trip (id, country_code),
   -- jambes figées à la demande : part de l'hôte 100 % (BR-PROT-08, T69), aucun prorata
@@ -228,7 +235,7 @@ CREATE UNIQUE INDEX claim_incidental_live_unique ON core.claim_incidental_invoic
   WHERE (status <> 'CANCELLED_BY_HOST');
 CREATE INDEX claim_incidental_trip_idx ON core.claim_incidental_invoice (trip_id);
 CREATE INDEX claim_incidental_due_idx ON core.claim_incidental_invoice (next_check_at)
-  WHERE (status IN ('AWAITING_GUEST', 'ACCEPTED', 'DECIDED_CHARGE'));
+  WHERE (status IN ('AWAITING_GUEST', 'ACCEPTED', 'DECIDED_CHARGE') AND review_required_at IS NULL);
 COMMENT ON TABLE core.claim_incidental_invoice IS
   'CLM : frais annexe demandé par l''hôte (facture SM-5, 16 CLM-021) dans la liste fermée, avec '
   'photos du trip, réponse du voyageur sous invoice_guest_response_h (payer ou contester), décision '
@@ -265,6 +272,9 @@ BEGIN
              IS NOT DISTINCT FROM (OLD.decided_at, OLD.decided_by, OLD.decided_role,
                                    OLD.decision_request_id, OLD.decision_rationale))
      AND (OLD.cancelled_at IS NULL OR NEW.cancelled_at IS NOT DISTINCT FROM OLD.cancelled_at)
+     AND NEW.defer_count >= OLD.defer_count
+     AND (OLD.review_required_at IS NULL
+          OR NEW.review_required_at IS NOT DISTINCT FROM OLD.review_required_at)
      AND (OLD.charge_id IS NULL
           OR (NEW.charge_id, NEW.charged_at, NEW.charge_basis)
              IS NOT DISTINCT FROM (OLD.charge_id, OLD.charged_at, OLD.charge_basis))
@@ -304,7 +314,8 @@ GRANT EXECUTE ON FUNCTION app.actor_id() TO cmd_money_owner;
 GRANT SELECT, INSERT ON core.claim_incidental_invoice TO cmd_money_owner;
 GRANT UPDATE (status, accepted_at, disputed_at, dispute_reason, dispute_evidence_file_ids,
               decided_at, decided_by, decided_role, decision_request_id, decision_rationale,
-              cancelled_at, charge_basis, charge_id, charged_at, next_check_at, execution_code)
+              cancelled_at, charge_basis, charge_id, charged_at, next_check_at, execution_code,
+              defer_count, review_required_at)
   ON core.claim_incidental_invoice TO cmd_money_owner;
 CREATE POLICY cmd_money_incidental_sel ON core.claim_incidental_invoice FOR SELECT
   TO cmd_money_owner USING (true);
@@ -437,10 +448,14 @@ COMMENT ON FUNCTION core.claim_incidental_trip_photos(uuid) IS
 REVOKE ALL ON FUNCTION core.claim_incidental_trip_photos(uuid) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION core.claim_incidental_trip_photos(uuid) TO cmd_money_owner;
 
--- 2.3 Fichiers du seau des preuves déposés par l'hôte depuis le début prévu du trip (pièces admises
--- quand `incidental_evidence_trip_photos_only[pays]` vaut faux, DEC-FONDATEUR-22). Lecture au plus
--- juste (politique cmd_hold_evidence_file_sel de 0164 : seau PRIVATE_EVIDENCE seulement).
-CREATE FUNCTION core.claim_incidental_host_files(p_trip_id uuid, p_user uuid)
+-- 2.3 Fichiers du seau des preuves déposés par l'hôte PENDANT la fenêtre du trip (pièces admises
+-- quand `incidental_evidence_trip_photos_only[pays]` vaut faux, DEC-FONDATEUR-22 ; revue sécurité
+-- delta n° 3) : reçus entre le début prévu du trip et `p_until` (fin effective + délai de l'hôte,
+-- calculé par la commande), jamais une photo d'état d'une série (de ce trip : comptée comme photo du
+-- trip ; d'un autre trip : refusée). Lecture au plus juste (politique cmd_hold_evidence_file_sel de
+-- 0164 : seau PRIVATE_EVIDENCE seulement). Les pièces d'une demande d'un autre trip sont écartées par
+-- la commande (registre de cmd_money_owner).
+CREATE FUNCTION core.claim_incidental_host_files(p_trip_id uuid, p_user uuid, p_until timestamptz)
   RETURNS TABLE (file_id uuid)
   LANGUAGE sql
   STABLE
@@ -452,12 +467,15 @@ AS $fn$
     JOIN core.booking_trip AS t ON t.id = p_trip_id
    WHERE f.bucket = 'PRIVATE_EVIDENCE' AND f.uploader_user_id = p_user AND f.deleted_at IS NULL
      AND f.source IN ('IN_APP_CAMERA', 'HOST_UPLOAD') AND f.server_received_at >= t.scheduled_start
+     AND p_until IS NOT NULL AND f.server_received_at <= p_until
+     AND NOT EXISTS (SELECT 1 FROM core.trip_ops_inspection_photo AS ph WHERE ph.file_id = f.id)
 $fn$;
-COMMENT ON FUNCTION core.claim_incidental_host_files(uuid, uuid) IS
-  'Interne (US-706, ADR-197) : fichiers du seau des preuves déposés par l''hôte depuis le début '
-  'prévu du trip (pièces hors photos du trip, selon le paramètre du pays). EXECUTE cmd_money_owner.';
-REVOKE ALL ON FUNCTION core.claim_incidental_host_files(uuid, uuid) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION core.claim_incidental_host_files(uuid, uuid) TO cmd_money_owner;
+COMMENT ON FUNCTION core.claim_incidental_host_files(uuid, uuid, timestamptz) IS
+  'Interne (US-706, ADR-197) : fichiers du seau des preuves déposés par l''hôte dans la fenêtre du '
+  'trip, jamais une photo d''état d''une série (pièces hors photos du trip, selon le paramètre du '
+  'pays). EXECUTE cmd_money_owner.';
+REVOKE ALL ON FUNCTION core.claim_incidental_host_files(uuid, uuid, timestamptz) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION core.claim_incidental_host_files(uuid, uuid, timestamptz) TO cmd_money_owner;
 
 RESET ROLE;
 REVOKE CREATE ON SCHEMA core FROM cmd_hold_owner;
@@ -684,10 +702,12 @@ BEGIN
   -- photos du trip seulement (vrai) ; sinon aussi les fichiers déposés par l'hôte depuis le début
   IF NOT v_only THEN
     SELECT pg_catalog.count(DISTINCT hf.file_id)::integer INTO v_files
-      FROM core.claim_incidental_host_files(p_trip_id, p.user_id) AS hf
+      FROM core.claim_incidental_host_files(
+             p_trip_id, p.user_id, f.end_at + pg_catalog.make_interval(hours => v_win_h)) AS hf
      WHERE hf.file_id = ANY (COALESCE(v_ev, '{}'::uuid[]))
-       AND NOT EXISTS (SELECT 1 FROM core.claim_incidental_trip_photos(p_trip_id) AS ph
-                        WHERE ph.file_id = hf.file_id);
+       -- jamais la pièce d'une demande d'un autre trip
+       AND NOT EXISTS (SELECT 1 FROM core.claim_incidental_invoice AS x
+                        WHERE x.trip_id <> p_trip_id AND hf.file_id = ANY (x.evidence_file_ids));
   END IF;
   IF v_n = 0 OR v_n > 10 OR v_known + v_files <> v_n
      OR (p_fee_type = 'FUEL' AND NOT (v_fuel_o AND v_fuel_i)) THEN
@@ -1037,10 +1057,16 @@ BEGIN
    WHERE v_can OR v_open;
   -- plafonds du pays (aide du montant de l'hôte ; revue ux n° 3) ; NULL : non fixé
   IF p.role = 'HOST' THEN
-    v_caps := pg_catalog.jsonb_build_object(
-      'FUEL', core.claim_incidental_param('fuel_refill_max', f.country_code) #>> '{}',
-      'CLEANING', core.claim_incidental_param('incidental_cleaning_max_minor', f.country_code) #>> '{}',
-      'SMOKING', core.claim_incidental_param('incidental_cleaning_max_minor', f.country_code) #>> '{}');
+    -- valeur illisible : non rendue (aide seulement ; la commande refuse PARAM_MISSING)
+    SELECT pg_catalog.jsonb_object_agg(k.fee, CASE WHEN k.v ~ '^(0|[1-9][0-9]{0,14})$' THEN k.v END)
+      INTO v_caps
+      FROM (VALUES
+              ('FUEL', core.claim_incidental_param('fuel_refill_max', f.country_code) #>> '{}'),
+              ('CLEANING',
+               core.claim_incidental_param('incidental_cleaning_max_minor', f.country_code) #>> '{}'),
+              ('SMOKING',
+               core.claim_incidental_param('incidental_cleaning_max_minor', f.country_code) #>> '{}'))
+           AS k(fee, v);
   END IF;
   RETURN pg_catalog.jsonb_build_object(
     'outcome', 'OK', 'viewerRole', p.role, 'currency', f.currency, 'timezone', f.timezone,
@@ -1161,7 +1187,10 @@ AS $fn$
                                             'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),
            'disputeReason', i.dispute_reason,
            'decidedRole', i.decided_role, 'decisionRationale', i.decision_rationale,
-           'chargeBasis', i.charge_basis)
+           'chargeBasis', i.charge_basis, 'executionCode', i.execution_code,
+           'deferCount', i.defer_count,
+           'reviewRequiredAt', pg_catalog.to_char(i.review_required_at AT TIME ZONE 'UTC',
+                                                  'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'))
     FROM core.claim_incidental_invoice AS i WHERE i.id = p_invoice_id
 $fn$;
 COMMENT ON FUNCTION core.claim_incidental_staff_view(uuid) IS
@@ -1170,7 +1199,7 @@ COMMENT ON FUNCTION core.claim_incidental_staff_view(uuid) IS
 
 -- 3.10 File du travailleur payment_command : demandes à débiter (payées, décidées, ou sans réponse
 -- dont l'échéance est passée à l'heure de la base), plus anciennes d'abord
-CREATE FUNCTION core.claim_incidental_invoices_due(p_limit integer)
+CREATE FUNCTION core.claim_incidental_invoices_due(p_limit integer, p_only uuid[] DEFAULT NULL)
   RETURNS TABLE (invoice_id uuid)
   LANGUAGE plpgsql
   STABLE
@@ -1188,16 +1217,18 @@ BEGIN
   END IF;
   RETURN QUERY
   SELECT i.id FROM core.claim_incidental_invoice AS i
-   WHERE i.next_check_at <= v_now
+   WHERE i.next_check_at <= v_now AND i.review_required_at IS NULL
+     AND (p_only IS NULL OR i.id = ANY (p_only))
      AND (i.status IN ('ACCEPTED', 'DECIDED_CHARGE')
           OR (i.status = 'AWAITING_GUEST' AND i.response_due_at <= v_now))
    ORDER BY i.next_check_at, i.notified_at, i.id
    LIMIT LEAST(GREATEST(COALESCE(p_limit, 0), 0), 100);
 END
 $fn$;
-COMMENT ON FUNCTION core.claim_incidental_invoices_due(integer) IS
+COMMENT ON FUNCTION core.claim_incidental_invoices_due(integer, uuid[]) IS
   'Travailleur payment_command : frais annexes à débiter (payés, décidés, ou échéance passée sans '
-  'réponse). EXECUTE app_worker. US-706 (ADR-197).';
+  'réponse), jamais ceux à revoir par l''ops ; p_only : relecture ciblée (filtre avant la limite). '
+  'EXECUTE app_worker. US-706 (ADR-197).';
 
 -- 3.11 Débit d'un frais annexe par Kmino (travailleur payment_command), sous le verrou du trip puis
 -- de la demande, à l'heure de la base lue APRÈS les verrous. Issues : CHARGED (ordre de débit
@@ -1242,6 +1273,10 @@ BEGIN
   v_now := platform.now();
   IF i.status = 'CHARGED' THEN
     RETURN QUERY SELECT 'CHARGED'::text, i.charge_basis;
+    RETURN;
+  END IF;
+  IF i.review_required_at IS NOT NULL THEN
+    RETURN QUERY SELECT 'BLOCKED'::text, 'REVIEW_REQUIRED'::text;
     RETURN;
   END IF;
   IF i.status IN ('REJECTED', 'CANCELLED_BY_HOST') THEN
@@ -1311,6 +1346,8 @@ CREATE FUNCTION core.claim_cmd_defer_incidental(p_invoice_id uuid, p_code text)
   SECURITY DEFINER
   SET search_path = pg_catalog, pg_temp
 AS $fn$
+DECLARE
+  v_review boolean;
 BEGIN
   IF app.actor_kind() IS DISTINCT FROM 'WORKER'
      OR app.worker_name() IS DISTINCT FROM 'payment_command' THEN
@@ -1320,14 +1357,24 @@ BEGIN
   IF p_code IS NULL OR p_code !~ '^[A-Z][A-Z0-9_]{1,63}$' THEN
     RAISE EXCEPTION 'claim: invalid code' USING ERRCODE = 'invalid_parameter_value';
   END IF;
+  -- 12 reports au plus (soit environ 3 h à 15 min) : au 12e, état terminal « à revoir par l'ops »
+  -- (hors de la file, alerté par le travailleur, visible dans la console) ; constante documentée,
+  -- sans lien avec un pays (ADR-197 n° 18)
   UPDATE core.claim_incidental_invoice AS x
-     SET next_check_at = platform.now() + interval '15 minutes', execution_code = p_code
-   WHERE x.id = p_invoice_id AND x.status IN ('AWAITING_GUEST', 'ACCEPTED', 'DECIDED_CHARGE');
-  RETURN CASE WHEN FOUND THEN 'DEFERRED' ELSE 'NOT_DUE' END;
+     SET defer_count = x.defer_count + 1, execution_code = p_code,
+         next_check_at = CASE WHEN x.defer_count + 1 >= 12 THEN x.next_check_at
+                              ELSE platform.now() + interval '15 minutes' END,
+         review_required_at = CASE WHEN x.defer_count + 1 >= 12 THEN platform.now() END
+   WHERE x.id = p_invoice_id AND x.status IN ('AWAITING_GUEST', 'ACCEPTED', 'DECIDED_CHARGE')
+     AND x.review_required_at IS NULL
+  RETURNING x.review_required_at IS NOT NULL INTO v_review;
+  RETURN CASE WHEN NOT FOUND THEN 'NOT_DUE' WHEN v_review THEN 'REVIEW_REQUIRED'
+              ELSE 'DEFERRED' END;
 END
 $fn$;
 COMMENT ON FUNCTION core.claim_cmd_defer_incidental(uuid, text) IS
   'Travailleur payment_command : débit d''un frais annexe en échec repoussé de 15 min (PROPOSÉ), '
+  'au 12e report à revoir par l''ops (REVIEW_REQUIRED), '
   'code seulement. EXECUTE app_worker. US-706 (ADR-197).';
 
 REVOKE ALL ON FUNCTION
@@ -1338,7 +1385,7 @@ REVOKE ALL ON FUNCTION
   core.claim_incidental_view(bytea, uuid),
   core.claim_cmd_decide_incidental(uuid, uuid, text, uuid, text, text),
   core.claim_incidental_staff_view(uuid),
-  core.claim_incidental_invoices_due(integer),
+  core.claim_incidental_invoices_due(integer, uuid[]),
   core.claim_cmd_charge_incidental(uuid, uuid),
   core.claim_cmd_defer_incidental(uuid, text) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION
@@ -1351,7 +1398,7 @@ GRANT EXECUTE ON FUNCTION
   core.claim_cmd_decide_incidental(uuid, uuid, text, uuid, text, text),
   core.claim_incidental_staff_view(uuid) TO iam_staff_owner;
 GRANT EXECUTE ON FUNCTION
-  core.claim_incidental_invoices_due(integer),
+  core.claim_incidental_invoices_due(integer, uuid[]),
   core.claim_cmd_charge_incidental(uuid, uuid),
   core.claim_cmd_defer_incidental(uuid, text) TO app_worker;
 

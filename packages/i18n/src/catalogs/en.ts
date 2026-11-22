@@ -3794,15 +3794,15 @@ export const EN_MESSAGES = {
     'Hi {first_name}. The host of booking {booking_ref} requested a cost of {amount}. You can pay it or dispute it with a photo on {brand} until {due_at}. Without an answer, {brand} decides and may charge your saved card.',
   'ntf.invoiceToGuest.sms.body':
     '{brand}: the host requested {amount} ({booking_ref}). Pay or dispute in the app before {due_at}.',
-  'web.incidental.evidence': 'Host’s proof',
+  'web.incidental.evidence': 'Pickup and return photos chosen by the host',
   'web.incidental.evidenceItem': '{side} · {slot} · {by} · received {date}',
   'web.incidental.evidenceUpload': 'Plus a file sent by the host',
-  'web.incidental.photosLink': 'See the pickup and return photos',
   'web.incidental.statusGuest.AWAITING_GUEST': 'Answer before {date}',
   'web.incidental.expired.AWAITING_GUEST':
     'The answer deadline ended on {date}: {brand} will charge the saved card.',
   'web.incidental.expired.DISPUTED':
     'Disputed in time: {brand} reviews the proof and decides; nothing is charged before then.',
   'web.incidental.form.cap': 'Maximum for {fee}: {amount}.',
+  'web.incidental.form.allRequested': 'You already requested every type of cost for this trip.',
   'web.incidental.form.capMissing': '{fee}: can’t be requested in this country yet.',
 } as const satisfies Readonly<Record<MessageKey, Message>>;

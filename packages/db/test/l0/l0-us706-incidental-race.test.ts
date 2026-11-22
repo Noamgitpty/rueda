@@ -157,6 +157,8 @@ describe.each(COUNTRIES)('US-706 — courses à deux connexions ($country, $curr
             const pid = await backendPid(pay);
             await worker(pay, DUE);
             const pending = pay.query<Row>(CHARGE, [s.paid.id, uuid()]);
+            // attente en échec : la promesse est toujours traitée (aucun rejet orphelin)
+            void pending.catch(() => undefined);
             await blockedBy(observer, pid, holder);
             await guest.query('COMMIT');
             expect((await pending).rows[0]).toEqual({ outcome: 'CHARGED', code: 'GUEST_ACCEPTED' });
@@ -181,6 +183,8 @@ describe.each(COUNTRIES)('US-706 — courses à deux connexions ($country, $curr
               DISPUTE_REASON,
               [s.late.w.guestInner],
             ]);
+            // attente en échec : la promesse est toujours traitée (aucun rejet orphelin)
+            void pending.catch(() => undefined);
             await blockedBy(observer, pid, holder);
             await pay.query('COMMIT');
             expect((await pending).rows[0]!.r).toBe('INCIDENTAL_NOT_OPEN');
@@ -206,6 +210,8 @@ describe.each(COUNTRIES)('US-706 — courses à deux connexions ($country, $curr
             const pid = await backendPid(pay);
             await worker(pay, DUE);
             const pending = pay.query<Row>(CHARGE, [s.disputed.id, uuid()]);
+            // attente en échec : la promesse est toujours traitée (aucun rejet orphelin)
+            void pending.catch(() => undefined);
             await blockedBy(observer, pid, holder);
             await guest.query('COMMIT');
             expect((await pending).rows[0]).toEqual({
@@ -258,6 +264,8 @@ describe.each(COUNTRIES)('US-706 — courses à deux connexions ($country, $curr
             const pid = await backendPid(pay);
             await worker(pay, RACE_AT);
             const pending = pay.query<Row>(CHARGE, [s.toCharge.id, uuid()]);
+            // attente en échec : la promesse est toujours traitée (aucun rejet orphelin)
+            void pending.catch(() => undefined);
             await blockedBy(observer, pid, holder);
             await staffSide.query('COMMIT');
             expect((await pending).rows[0]).toEqual({ outcome: 'CHARGED', code: 'OPS_DECISION' });
@@ -283,6 +291,8 @@ describe.each(COUNTRIES)('US-706 — courses à deux connexions ($country, $curr
               'REJECT',
               RATIONALE,
             ]);
+            // attente en échec : la promesse est toujours traitée (aucun rejet orphelin)
+            void pending.catch(() => undefined);
             await blockedBy(observer, pid, holder);
             await pay.query('COMMIT');
             expect((await pending).rows[0]!['outcome']).toBe('DECIDED');

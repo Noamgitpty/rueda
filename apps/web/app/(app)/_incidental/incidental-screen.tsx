@@ -25,7 +25,6 @@ import {
   SLOT_KEYS,
   STATUS_TONE,
   statusKeyOf,
-  tripPhotosHref,
   tripIncidentalOf,
   UUID,
 } from '../../../account/trip-incidental.ts';
@@ -143,6 +142,12 @@ export async function IncidentalScreen({
       : t('web.incidental.form.cap', { fee: t(FEE_KEYS[fee]), amount: money(cap) });
   };
 
+  // un type déjà demandé ou rejeté ne se redemande pas (INCIDENTAL_DUPLICATE) : masqué ; seule une
+  // annulation par l'hôte le libère (revue code delta, mineur)
+  const openTypes = view.feeTypes.filter(
+    (f) => !view.invoices.some((i) => i.feeType === f && i.status !== 'CANCELLED_BY_HOST'),
+  );
+
   const invoice = (inv: IncidentalInvoice) => (
     <li
       key={inv.id}
@@ -157,7 +162,8 @@ export async function IncidentalScreen({
       </div>
       <p className={accountStyles['muted']}>{t('web.incidental.reason')}</p>
       <p className={styles['quote']}>{inv.description}</p>
-      {/* preuves retenues, visibles avant de payer (revue ux n° 1) ; vignettes : suite */}
+      {/* preuves retenues, visibles avant de payer (revue ux n° 1) ; aucun lien vers l'écran de
+          prise de photos (revue ux delta) : vue des photos en lecture seule et vignettes : suite */}
       <p className={accountStyles['muted']}>{t('web.incidental.evidence')}</p>
       <ul className={styles['evidence']} data-testid="incidental-evidence">
         {inv.evidence.map((e) => (
@@ -176,13 +182,6 @@ export async function IncidentalScreen({
         ))}
         {inv.evidenceCount > inv.evidence.length && <li>{t('web.incidental.evidenceUpload')}</li>}
       </ul>
-      <a
-        className={hostStyles['link']}
-        href={tripPhotosHref(role, view.tripId, org)}
-        data-testid="incidental-photos-link"
-      >
-        {t('web.incidental.photosLink')}
-      </a>
       {/* état : texte long, bandeau qui passe à la ligne à 360 px */}
       <Banner tone={STATUS_TONE[inv.status]} live="off">
         <span data-testid="incidental-status">
@@ -298,7 +297,13 @@ export async function IncidentalScreen({
           <h2 id="incidental-add" className={accountStyles['h2']}>
             {t('web.a04.addFee')}
           </h2>
-          {view.photos.length === 0 ? (
+          {openTypes.length === 0 ? (
+            <Banner tone="info" live="off">
+              <span data-testid="incidental-all-requested">
+                {t('web.incidental.form.allRequested')}
+              </span>
+            </Banner>
+          ) : view.photos.length === 0 ? (
             <Banner tone="warning" live="off">
               {t('web.incidental.form.noPhotos')}
             </Banner>
@@ -311,8 +316,8 @@ export async function IncidentalScreen({
               currency={view.currency}
               exponent={view.currencyExponent}
               example={priceExample(view.currencyExponent, number)}
-              feeTypes={view.feeTypes}
-              caps={view.feeTypes.map(capHint)}
+              feeTypes={openTypes}
+              caps={openTypes.map(capHint)}
               photos={view.photos}
             />
           )}

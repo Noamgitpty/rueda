@@ -7,7 +7,7 @@
  * sous les rôles de production par `l0-us706-incidental-fees`.
  */
 import { describe, expect, it } from 'vitest';
-import type { SqlClient, WorkerTransactions } from '../../../bus/index.js';
+import type { OpsAlert, SqlClient, WorkerTransactions } from '../../../bus/index.js';
 import {
   INCIDENTAL_PAYMENT_COMMAND_WORKER,
   INCIDENTAL_WORKER,
@@ -20,7 +20,10 @@ interface Call {
   readonly values: readonly unknown[];
 }
 
-function fakeDb(outcomes: Readonly<Record<string, string | Error>>) {
+function fakeDb(
+  outcomes: Readonly<Record<string, string | Error>>,
+  deferResult: Readonly<Record<string, string>> = {},
+) {
   const calls: Call[] = [];
   const transactions: WorkerTransactions = {
     run: async (worker, fn) => {
@@ -31,6 +34,10 @@ function fakeDb(outcomes: Readonly<Record<string, string | Error>>) {
             const r = outcomes[String(values[0])];
             if (r instanceof Error) return Promise.reject(r);
             return Promise.resolve({ rows: [{ outcome: r ?? 'NOT_FOUND' }] as R[], rowCount: 1 });
+          }
+          if (text.includes('claim_cmd_defer_incidental')) {
+            const r = deferResult[String(values[0])] ?? 'DEFERRED';
+            return Promise.resolve({ rows: [{ r }] as R[], rowCount: 1 });
           }
           return Promise.resolve({ rows: [] as R[], rowCount: 0 });
         },
@@ -56,7 +63,15 @@ describe('incidental_invoice_executor (US-706)', () => {
       transactions: db.transactions,
       log: (l) => lines.push(l),
     }).process(['a', 'b', 'c', 'd', 'e', 'f']);
-    expect(pass).toEqual({ due: 6, charged: 1, notDue: 1, blocked: 1, done: 1, deferred: 2 });
+    expect(pass).toEqual({
+      due: 6,
+      charged: 1,
+      notDue: 1,
+      blocked: 1,
+      done: 1,
+      deferred: 2,
+      reviewRequired: 0,
+    });
     expect(db.calls.every((c) => c.worker === INCIDENTAL_PAYMENT_COMMAND_WORKER)).toBe(true);
     // un identifiant de débit neuf par tentative (clé de l'ordre d'US-703 rejouée par la base)
     const charges = db.calls.filter((c) => c.text.includes('claim_cmd_charge_incidental'));
@@ -78,8 +93,50 @@ describe('incidental_invoice_executor (US-706)', () => {
       blocked: 1,
       done: 1,
       deferred: 2,
+      reviewRequired: 0,
     });
     expect(lines[0]).not.toMatch(/"a"|"b"|"c"/);
+  });
+
+  it('report plafonné (revue code delta) : au 12e report la base rend REVIEW_REQUIRED ⇒ frais compté à revoir, alerte CLAIM_INCIDENTAL_REVIEW_REQUIRED (P2, comptes et code seulement, jamais un identifiant) ; alerte en panne ⇒ la passe continue', async () => {
+    const db = fakeDb(
+      { a: new Error('23514'), b: 'NOT_FOUND', c: 'MYSTERY' },
+      { a: 'REVIEW_REQUIRED', b: 'REVIEW_REQUIRED' },
+    );
+    const sent: OpsAlert[] = [];
+    let fail = false;
+    const alerts = {
+      send: (a: OpsAlert) => {
+        sent.push(a);
+        return fail ? Promise.reject(new Error('canal')) : Promise.resolve();
+      },
+    };
+    const exec = new IncidentalInvoiceExecutor({ transactions: db.transactions, alerts });
+    const pass = await exec.process(['a', 'b', 'c']);
+    expect(pass).toMatchObject({ due: 3, deferred: 1, reviewRequired: 2 });
+    expect(sent).toEqual([
+      {
+        code: 'CLAIM_INCIDENTAL_REVIEW_REQUIRED',
+        severity: 'P2',
+        counts: { invoices: 1 },
+        labels: { error_code: 'EXECUTION_FAILED' },
+      },
+      {
+        code: 'CLAIM_INCIDENTAL_REVIEW_REQUIRED',
+        severity: 'P2',
+        counts: { invoices: 1 },
+        labels: { error_code: 'NOT_FOUND' },
+      },
+    ]);
+    expect(
+      db.calls.filter((c) => c.text.includes('claim_cmd_defer_incidental')).map((c) => c.values),
+    ).toEqual([
+      ['a', 'EXECUTION_FAILED'],
+      ['b', 'NOT_FOUND'],
+      ['c', 'MYSTERY'],
+    ]);
+    fail = true;
+    expect(await exec.charge('a')).toBe('REVIEW_REQUIRED');
   });
 
   it('la file est lue par la base (aucune heure envoyée par le travailleur)', async () => {
