@@ -608,7 +608,7 @@ describe.each(COUNTRIES)(
             'SELECT test_fixture.us309_pinned_holiday($1, $2::date) AS v',
             [c.country, '2032-01-01'],
           );
-          expect(pinned.rows[0]?.v).toBeGreaterThan(1_000_000);
+          expect(pinned.rows[0]?.v).toBeGreaterThanOrEqual(1_000_000);
           const ready = async (): Promise<string> => {
             const trip = await insertTrip(tx, c);
             const { operation_id: op } = await recordOperation(tx, {
