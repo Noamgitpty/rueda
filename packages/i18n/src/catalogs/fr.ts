@@ -3245,6 +3245,8 @@ export const FR_MESSAGES = {
   'common.inspection.galleryForbidden':
     'Prends la photo avec l’appareil de l’application : les photos de la galerie ne sont pas acceptées.',
   'common.inspection.photoInvalid': 'Nous n’avons pas pu accepter cette photo. Reprends-la.',
+  'common.inspection.photoDuplicate':
+    'Cette photo a déjà été envoyée. Prends une nouvelle photo du véhicule, maintenant.',
   'common.inspection.uploadUnavailable':
     'L’envoi des photos n’est pas disponible pour le moment. Réessaie plus tard.',
   'common.inspection.unavailable':

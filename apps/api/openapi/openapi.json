@@ -14086,7 +14086,7 @@
       "post": {
         "operationId": "addInspectionPhoto",
         "tags": ["trp"],
-        "summary": "Photo d'un angle prise par la caméra de l'application : jeton consommé, empreinte SHA-256 des octets reçus, heure serveur (16 TRP-004)",
+        "summary": "Photo d'un angle prise par la caméra de l'application : jeton consommé, métadonnées retirées (EXIF dont GPS), empreinte SHA-256 de la copie nettoyée, unique tous trips, heure serveur (16 TRP-004, ADR-196)",
         "parameters": [
           {
             "name": "tripId",
@@ -14176,7 +14176,7 @@
             }
           },
           "409": {
-            "description": "Série hors de sa fenêtre, déjà validée, ou plafond de photos atteint",
+            "description": "Série hors de sa fenêtre, déjà validée, plafond de photos atteint, ou photo déjà envoyée (empreinte de la copie nettoyée déjà enregistrée pour une photo d'état de tout trip ou une photo d'annonce : PHOTO_DUPLICATE, ADR-196)",
             "headers": {
               "Cache-Control": {
                 "$ref": "#/components/headers/NoStore"
@@ -14188,7 +14188,12 @@
                   "$ref": "#/components/schemas/AuthBody",
                   "properties": {
                     "code": {
-                      "enum": ["INSPECTION_NOT_OPEN", "INSPECTION_SUBMITTED", "PHOTO_LIMIT_REACHED"]
+                      "enum": [
+                        "INSPECTION_NOT_OPEN",
+                        "INSPECTION_SUBMITTED",
+                        "PHOTO_LIMIT_REACHED",
+                        "PHOTO_DUPLICATE"
+                      ]
                     }
                   }
                 }

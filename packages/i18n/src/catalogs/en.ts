@@ -3100,6 +3100,8 @@ export const EN_MESSAGES = {
   'common.inspection.galleryForbidden':
     'Take the photo with the app camera: gallery photos are not accepted.',
   'common.inspection.photoInvalid': "We couldn't accept this photo. Please take it again.",
+  'common.inspection.photoDuplicate':
+    'This photo was already sent. Take a new photo of the vehicle now.',
   'common.inspection.uploadUnavailable':
     "Photo upload isn't available right now. Please try again later.",
   'common.inspection.unavailable': "Photos aren't available right now. Please try again later.",
