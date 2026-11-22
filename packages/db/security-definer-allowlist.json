@@ -2882,7 +2882,7 @@
       "story": "US-706"
     },
     {
-      "signature": "core.claim_incidental_review_list(text[])",
+      "signature": "core.claim_incidental_review_list(uuid[])",
       "family": "cmd_money",
       "owner": "cmd_money_owner",
       "execute": ["iam_staff_owner"],

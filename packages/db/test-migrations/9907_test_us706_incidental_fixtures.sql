@@ -272,6 +272,61 @@ BEGIN
 END
 $fn$;
 
+-- Photo d'annonce (bucket PUBLIC_LISTING) aux octets donnés : empreinte déjà vue pour un dépôt
+CREATE FUNCTION test_fixture.us706_listing_file(p_user uuid, p_sha256 bytea)
+  RETURNS uuid
+  LANGUAGE plpgsql
+  SECURITY DEFINER
+  SET search_path = pg_catalog, pg_temp
+AS $fn$
+DECLARE
+  v_id uuid := pg_catalog.gen_random_uuid();
+BEGIN
+  INSERT INTO core.audit_file_asset (id, bucket, storage_key, mime, bytes, sha256, source,
+                                     classification, retention_class, uploader_user_id)
+  VALUES (v_id, 'PUBLIC_LISTING', 'us706/listing/' || v_id::text, 'image/jpeg', 2048, p_sha256,
+          'HOST_UPLOAD', 'C0', 'LISTING_PHOTO', p_user);
+  RETURN v_id;
+END
+$fn$;
+
+-- Demandes « à revoir par l'ops » en nombre (troncature de la liste de la console à 500) : un trip
+-- par demande, état de revue posé directement. Transaction ANNULÉE seulement.
+CREATE FUNCTION test_fixture.us706_review_bulk(p_country text, p_currency text, p_n integer)
+  RETURNS integer
+  LANGUAGE plpgsql
+  SECURITY DEFINER
+  SET search_path = pg_catalog, pg_temp
+AS $fn$
+DECLARE
+  v_trip uuid;
+  v_now  timestamptz := platform.now();
+BEGIN
+  FOR k IN 1 .. p_n LOOP
+    v_trip := pg_catalog.gen_random_uuid();
+    PERFORM test_fixture.rls_insert_trip(v_trip, pg_catalog.gen_random_uuid(),
+                                         pg_catalog.gen_random_uuid(), pg_catalog.gen_random_uuid(),
+                                         p_country, p_currency, 'UTC', v_now - interval '10 days',
+                                         v_now - interval '7 days');
+    INSERT INTO core.claim_incidental_invoice
+           (id, trip_id, country_code, currency, org_id, host_user_id, guest_user_id, request_id,
+            fee_type, amount_minor, leg_host_minor, leg_insurer_minor, leg_tax_third_party_minor,
+            leg_platform_minor, description, evidence_file_ids, trip_end_at, host_deadline_at,
+            notified_at, response_hours, response_due_at, next_check_at, execution_code,
+            defer_count, review_required_at)
+    SELECT pg_catalog.gen_random_uuid(), t.id, t.country_code, t.currency, t.org_id,
+           o.holder_user_id, t.guest_user_id, pg_catalog.gen_random_uuid(), 'CLEANING', 100, 100, 0,
+           0, 0, 'Demande de fixture US-706', ARRAY[pg_catalog.gen_random_uuid()],
+           v_now - interval '7 days', v_now - interval '4 days', v_now - interval '7 days', 72,
+           v_now - interval '4 days', v_now - interval '4 days', 'EXECUTION_FAILED', 12,
+           v_now - interval '1 day'
+      FROM core.booking_trip AS t JOIN core.iam_organization AS o ON o.id = t.org_id
+     WHERE t.id = v_trip;
+  END LOOP;
+  RETURN p_n;
+END
+$fn$;
+
 REVOKE ALL ON FUNCTION
   test_fixture.us706_photo(uuid, text, text, text),
   test_fixture.us706_loose_file(uuid),
@@ -284,7 +339,9 @@ REVOKE ALL ON FUNCTION
   test_fixture.us706_try_write(text, uuid),
   test_fixture.us706_insert_invoice(uuid),
   test_fixture.us706_events(uuid),
-  test_fixture.us706_forbid_updates()
+  test_fixture.us706_forbid_updates(),
+  test_fixture.us706_listing_file(uuid, bytea),
+  test_fixture.us706_review_bulk(text, text, integer)
 FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION
   test_fixture.us706_photo(uuid, text, text, text),
@@ -298,5 +355,7 @@ GRANT EXECUTE ON FUNCTION
   test_fixture.us706_try_write(text, uuid),
   test_fixture.us706_insert_invoice(uuid),
   test_fixture.us706_events(uuid),
-  test_fixture.us706_forbid_updates()
+  test_fixture.us706_forbid_updates(),
+  test_fixture.us706_listing_file(uuid, bytea),
+  test_fixture.us706_review_bulk(text, text, integer)
 TO app_worker, app_api;

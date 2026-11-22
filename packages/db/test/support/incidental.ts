@@ -260,7 +260,12 @@ export async function attach(
   tx: Tx,
   user: string,
   trip: string,
-  o: { readonly id?: string; readonly sha?: Buffer; readonly bytes?: number } = {},
+  o: {
+    readonly id?: string;
+    readonly sha?: Buffer;
+    readonly bytes?: number;
+    readonly mime?: string;
+  } = {},
 ): Promise<{ readonly r: string; readonly id: string }> {
   const id = o.id ?? uuid();
   // clé USER du déposant (le fichier est chiffré par elle, comme les photos d'état d'US-303)
@@ -273,7 +278,7 @@ export async function attach(
       hash,
       trip,
       id,
-      'image/jpeg',
+      o.mime ?? 'image/jpeg',
       String(o.bytes ?? 2048),
       o.sha ?? randomBytes(32),
     ])

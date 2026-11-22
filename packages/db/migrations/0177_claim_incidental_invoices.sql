@@ -27,8 +27,8 @@
 --      photo de l'intérieur au retour (un véhicule seulement non lavé mais rangé n'est pas
 --      facturable, BR-RETURN-05 ⇒ `INCIDENTAL_NOT_BILLABLE`).
 --   3. Contrôles plus stricts que Turo en paramètres du pays (DEC-FONDATEUR-22 ; revue architecture
---      n° 2) : `incidental_evidence_trip_photos_only` (faux, comme Turo : fichiers déposés par
---      l'hôte dans la fenêtre du trip admis aussi ; vrai ⇒ photos des séries seulement) ; `incidental_fuel_extras_block` (faux : vrai ⇒
+--      n° 2) : `incidental_evidence_trip_photos_only` (faux, comme Turo : fichiers de l'hôte
+--      rattachés au trip dès l'envoi admis aussi ; vrai ⇒ photos des séries seulement) ; `incidental_fuel_extras_block` (faux : vrai ⇒
 --      carburant refusé si un Extra est vendu au devis, BR-FUEL-02, `INCIDENTAL_FUEL_PREPAID`) ;
 --      `incidental_fuel_early_end_block` (faux : vrai ⇒ carburant refusé après une fin anticipée,
 --      BR-FUEL-03). Absents ⇒ `PARAM_MISSING`. Une demande rejetée par l'ops n'est jamais redemandée
@@ -89,7 +89,7 @@
 --     core.claim_incidental_party(bytea, uuid), core.claim_incidental_host_files(uuid, uuid),
 --     core.claim_incidental_store_host_file(uuid, uuid, uuid, text, bigint, bytea),
 --     core.claim_cmd_attach_incidental_file(bytea, uuid, uuid, text, bigint, bytea),
---     core.claim_incidental_review_list(text[]), core.support_staff_incidental_review(bytea, uuid),
+--     core.claim_incidental_review_list(uuid[]), core.support_staff_incidental_review(bytea, uuid),
 --     core.claim_incidental_trip_facts(uuid), core.claim_incidental_trip_photos(uuid),
 --     core.claim_incidental_guard() ;
 --   DROP POLICY cmd_money_incidental_param_read ON core.config_param_value ;
@@ -344,8 +344,8 @@ CREATE POLICY cmd_money_incidental_upd ON core.claim_incidental_invoice FOR UPDA
                   AND status IN ('AWAITING_GUEST', 'ACCEPTED', 'DECIDED_CHARGE', 'CHARGED')));
 
 -- en-tête (pays, trip, état) pour la porte du staff ; jamais les textes
-GRANT SELECT (id, trip_id, country_code, status) ON core.claim_incidental_invoice
-  TO iam_staff_owner;
+GRANT SELECT (id, trip_id, country_code, status, review_required_at)
+  ON core.claim_incidental_invoice TO iam_staff_owner;
 CREATE POLICY iam_staff_incidental_sel ON core.claim_incidental_invoice FOR SELECT
   TO iam_staff_owner USING (true);
 
@@ -523,8 +523,9 @@ GRANT EXECUTE ON FUNCTION core.claim_incidental_host_files(uuid, uuid) TO cmd_mo
 -- 2.4 Dépôt d'un fichier de preuve de l'hôte, rattaché au trip (appelé par la commande de l'hôte,
 -- qui a jugé la session et la fenêtre). Issues : ATTACHED, ALREADY_ATTACHED (rejeu du même fichier
 -- pour le même trip), PHOTO_DUPLICATE (empreinte déjà vue : photo d'état de tout trip, photo
--- d'annonce, fichier de l'hôte ; aucune existence révélée au-delà), REQUEST_INVALID (format, taille,
--- identifiant déjà pris), PARAM_MISSING (`photo_max_kb` absent ou mal formé).
+-- d'annonce, fichier de l'hôte ; aussi un identifiant de fichier déjà pris par un autre fichier :
+-- conflit d'unicité, aucune existence révélée au-delà), REQUEST_INVALID (format, taille, identifiant
+-- déjà rattaché autrement), PARAM_MISSING (`photo_max_kb` absent ou mal formé).
 CREATE FUNCTION core.claim_incidental_store_host_file(p_trip_id uuid, p_user uuid, p_file_id uuid,
                                                       p_mime text, p_bytes bigint,
                                                       p_sha256 bytea)
@@ -1352,9 +1353,10 @@ COMMENT ON FUNCTION core.claim_incidental_staff_view(uuid) IS
   'Console : vue d''un frais annexe (montant, jambes, pièces, contestation, décision). EXECUTE '
   'iam_staff_owner. US-706 (ADR-197).';
 
--- 3.9 bis Demandes « à revoir par l'ops » (report plafonné, ADR-197 n° 18) des pays donnés, plus
--- anciennes d'abord (500 au plus) ; aucune donnée nominative ni texte. Appelée par la porte du staff.
-CREATE FUNCTION core.claim_incidental_review_list(p_countries text[])
+-- 3.9 bis Détail des demandes « à revoir par l'ops » (report plafonné, ADR-197 n° 18) choisies par la
+-- porte du staff (pays, conflit d'intérêts ADR-122 et limite déjà appliqués par la porte), dans
+-- l'ordre reçu ; aucune donnée nominative ni texte.
+CREATE FUNCTION core.claim_incidental_review_list(p_ids uuid[])
   RETURNS jsonb
   LANGUAGE sql
   STABLE
@@ -1362,22 +1364,21 @@ CREATE FUNCTION core.claim_incidental_review_list(p_countries text[])
   SET search_path = pg_catalog, pg_temp
 AS $fn$
   SELECT COALESCE(pg_catalog.jsonb_agg(pg_catalog.jsonb_build_object(
-           'id', k.id, 'tripId', k.trip_id, 'country', k.country_code, 'currency', k.currency,
-           'feeType', k.fee_type, 'amountMinor', k.amount_minor::text, 'status', k.status,
-           'executionCode', k.execution_code, 'deferCount', k.defer_count,
-           'reviewRequiredAt', pg_catalog.to_char(k.review_required_at AT TIME ZONE 'UTC',
+           'id', i.id, 'tripId', i.trip_id, 'country', i.country_code, 'currency', i.currency,
+           'feeType', i.fee_type, 'amountMinor', i.amount_minor::text, 'status', i.status,
+           'executionCode', i.execution_code, 'deferCount', i.defer_count,
+           'reviewRequiredAt', pg_catalog.to_char(i.review_required_at AT TIME ZONE 'UTC',
                                                   'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'))
-           ORDER BY k.review_required_at, k.id), '[]'::jsonb)
-    FROM (SELECT i.* FROM core.claim_incidental_invoice AS i
-           WHERE i.review_required_at IS NOT NULL AND i.country_code = ANY (p_countries)
-           ORDER BY i.review_required_at, i.id
-           LIMIT 501) AS k
+           ORDER BY k.n), '[]'::jsonb)
+    FROM pg_catalog.unnest(p_ids) WITH ORDINALITY AS k(id, n)
+    JOIN core.claim_incidental_invoice AS i ON i.id = k.id
+   WHERE i.review_required_at IS NOT NULL
 $fn$;
-COMMENT ON FUNCTION core.claim_incidental_review_list(text[]) IS
-  'Console : frais annexes « à revoir par l''ops » (débit reporté 12 fois) des pays donnés. '
+COMMENT ON FUNCTION core.claim_incidental_review_list(uuid[]) IS
+  'Console : détail des frais annexes « à revoir par l''ops » choisis par la porte du staff. '
   'EXECUTE iam_staff_owner. US-706 (ADR-197 n° 18).';
-REVOKE ALL ON FUNCTION core.claim_incidental_review_list(text[]) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION core.claim_incidental_review_list(text[]) TO iam_staff_owner;
+REVOKE ALL ON FUNCTION core.claim_incidental_review_list(uuid[]) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION core.claim_incidental_review_list(uuid[]) TO iam_staff_owner;
 
 -- 3.10 File du travailleur payment_command : demandes à débiter (payées, décidées, ou sans réponse
 -- dont l'échéance est passée à l'heure de la base), plus anciennes d'abord
@@ -1773,9 +1774,7 @@ AS $fn$
 DECLARE
   v_s         record;
   v_countries text[];
-  v_all       jsonb;
-  v_rows      jsonb;
-  v_kept      integer;
+  v_ids       uuid[];
 BEGIN
   IF p_request_id IS NULL THEN
     RAISE EXCEPTION 'frais annexes à revoir : entrée invalide'
@@ -1809,21 +1808,21 @@ BEGIN
     RETURN QUERY SELECT 'FORBIDDEN'::text, NULL::jsonb;
     RETURN;
   END IF;
-  v_all := core.claim_incidental_review_list(v_countries);
-  SELECT COALESCE(pg_catalog.jsonb_agg(k.item ORDER BY k.n) FILTER (WHERE k.rn <= 500),
-                  '[]'::jsonb),
-         pg_catalog.count(*)
-    INTO v_rows, v_kept
-    FROM (SELECT x.item, x.n, pg_catalog.row_number() OVER (ORDER BY x.n) AS rn
-            FROM pg_catalog.jsonb_array_elements(v_all) WITH ORDINALITY AS x(item, n)
-           WHERE NOT core.support_actor_conflict(v_s.user_id, 'TRIP',
-                                                 (x.item ->> 'tripId')::uuid)) AS k;
+  -- séparation des tâches D'ABORD (ADR-122), puis la limite : un trip écarté ne prend jamais la
+  -- place d'un autre ; 501 lus pour signaler la troncature (`truncated`), jamais silencieuse
+  SELECT pg_catalog.array_agg(k.id ORDER BY k.review_required_at, k.id) INTO v_ids
+    FROM (SELECT i.id, i.review_required_at
+            FROM core.claim_incidental_invoice AS i
+           WHERE i.review_required_at IS NOT NULL AND i.country_code = ANY (v_countries)
+             AND NOT core.support_actor_conflict(v_s.user_id, 'TRIP', i.trip_id)
+           ORDER BY i.review_required_at, i.id
+           LIMIT 501) AS k;
   RETURN QUERY SELECT 'OK'::text,
-                      pg_catalog.jsonb_build_object('countries', pg_catalog.to_jsonb(v_countries),
-                                                    'truncated',
-                                                      v_kept > 500
-                                                      OR pg_catalog.jsonb_array_length(v_all) > 500,
-                                                    'invoices', v_rows);
+                      pg_catalog.jsonb_build_object(
+                        'countries', pg_catalog.to_jsonb(v_countries),
+                        'truncated', COALESCE(pg_catalog.cardinality(v_ids), 0) > 500,
+                        'invoices', core.claim_incidental_review_list(
+                                      COALESCE(v_ids[1:500], '{}'::uuid[])));
 END
 $fn$;
 COMMENT ON FUNCTION core.support_staff_incidental_review(bytea, uuid) IS
@@ -1857,7 +1856,7 @@ REVOKE CREATE ON SCHEMA core FROM iam_staff_owner;
 -- jamais en production : nouvelle migration à la place.
 INSERT INTO core.config_param_definition (key, type, unit, allowed_scopes, currency_bound, fail_mode, optional, go_live_switch, not_applicable_in, allowed_values, source_ref, status) VALUES
   ('incidental_cleaning_max_minor', 'MONEY', NULL, ARRAY['COUNTRY']::text[], true, 'BLOCK', false, false, '{}'::text[], NULL, '08 BR-REIMB-01 (nettoyage / tabac : 150 $ chez Turo) ; 16 CLM-021 ; ADR-197 : plafond d’un frais annexe de nettoyage ou de tabac demandé par l’hôte, en unités mineures de la devise du pays ; au-delà, la demande est refusée ; absent ou mal formé : aucune demande de nettoyage ni de tabac (fail-closed)', 'PROPOSÉ comme Turo (ADR-197) : 150,00 USD au Panama ; 1 125 000 PYG au Paraguay (même conversion que price_ceiling_extra_km_minor, à confirmer par le fondateur)'),
-  ('incidental_evidence_trip_photos_only', 'BOOL', NULL, ARRAY['COUNTRY']::text[], false, 'BLOCK', false, false, '{}'::text[], NULL, '08 BR-REIMB-01, BR-PICKUP-03 ; 16 CLM-021 ; DEC-FONDATEUR-22 ; ADR-197 : vrai : les pièces d’un frais annexe sont seulement des photos des séries de départ ou de retour du trip (heure serveur, empreinte) ; faux : aussi les fichiers du seau des preuves déposés par l’hôte dans la fenêtre du trip, jamais une photo d’état ni la pièce d’un autre trip ; absent : aucune demande (fail-closed)', 'PROPOSÉ comme Turo (ADR-197, DEC-FONDATEUR-22) : faux ; Turo accepte les photos fournies par l’hôte ; vrai serait plus lourd que Turo'),
+  ('incidental_evidence_trip_photos_only', 'BOOL', NULL, ARRAY['COUNTRY']::text[], false, 'BLOCK', false, false, '{}'::text[], NULL, '08 BR-REIMB-01, BR-PICKUP-03 ; 16 CLM-021 ; DEC-FONDATEUR-22 ; ADR-197 : vrai : les pièces d’un frais annexe sont seulement des photos des séries de départ ou de retour du trip (heure serveur, empreinte) ; faux : aussi les fichiers de preuve de l’hôte rattachés à CE trip dès l’envoi (empreinte unique), jamais un fichier d’un autre trip ni une photo d’état ; absent : aucune demande (fail-closed)', 'PROPOSÉ comme Turo (ADR-197, DEC-FONDATEUR-22) : faux ; Turo accepte les photos fournies par l’hôte ; vrai serait plus lourd que Turo'),
   ('incidental_fuel_early_end_block', 'BOOL', NULL, ARRAY['COUNTRY']::text[], false, 'BLOCK', false, false, '{}'::text[], NULL, '08 BR-FUEL-03 ; 16 CLM-021 ; DEC-FONDATEUR-22 ; ADR-197 : vrai : carburant refusé après une fin anticipée du trip (la cause n’est pas en base) ; faux : le voyageur conteste si la fin anticipée vient de l’hôte ou du véhicule ; absent : aucune demande (fail-closed)', 'PROPOSÉ comme Turo (ADR-197) : faux ; Turo ne refuse que la fin anticipée causée par l’hôte ou le véhicule'),
   ('incidental_fuel_extras_block', 'BOOL', NULL, ARRAY['COUNTRY']::text[], false, 'BLOCK', false, false, '{}'::text[], NULL, '08 BR-FUEL-02 ; 16 CLM-021 ; DEC-FONDATEUR-22 ; ADR-197 : vrai : carburant refusé dès qu’un Extra est vendu au devis du trip (l’Extra « carburant prépayé » n’est pas distingué) ; faux : seul le voyageur conteste ; absent : aucune demande (fail-closed)', 'PROPOSÉ comme Turo (ADR-197) : faux ; Turo ne refuse que l’Extra carburant prépayé, qui n’existe pas encore ici'),
   ('incidental_host_window_h', 'DURATION', 'h', ARRAY['COUNTRY']::text[], false, 'BLOCK', false, false, '{}'::text[], NULL, '08 BR-REIMB-01 (échéances exécutables, R09 : `deadline = end_effective + 72 h` pour le carburant, le nettoyage et le tabac) ; 16 CLM-021 ; ADR-197 : délai de l’hôte pour demander un frais annexe après la fin effective du trip ; au-delà, la demande est refusée (EXPIRED_WINDOW de SM-5) ; absent ou mal formé : aucune demande (fail-closed)', 'PROPOSÉ comme Turo (ADR-197) : 72 h après la fin du trip, comme la règle de Turo la plus récente (08 BR-FUEL-01, H59)');

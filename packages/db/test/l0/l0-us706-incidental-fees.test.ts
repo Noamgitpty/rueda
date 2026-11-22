@@ -33,6 +33,8 @@ import type { CountryCase } from '../support/avl.ts';
 import { caught, payTx } from '../support/pay.ts';
 import { elevated, staff, uuid } from '../support/claims.ts';
 import type { Staff } from '../support/claims.ts';
+import { newHash } from '../support/golive.ts';
+import { auditOf, login } from '../support/staff.ts';
 import {
   ACCEPT,
   amountsOf,
@@ -747,6 +749,19 @@ describe.each(COUNTRIES)('US-706 — frais annexes ($country, $currency)', (c: C
         expect((await attach(tx, loose.holder, loose.trip, { bytes: 0 })).r).toBe(
           'REQUEST_INVALID',
         );
+        // branches du dépôt : format refusé, taille au-delà de photo_max_kb, octets d'une photo
+        // d'annonce (revue qa delta 3)
+        for (const o of [{ mime: 'application/pdf' }, { mime: 'image/png' }, { bytes: 1e9 }]) {
+          expect((await attach(tx, loose.holder, loose.trip, o)).r).toBe('REQUEST_INVALID');
+        }
+        const listingSha = randomBytes(32);
+        await tx.query('SELECT test_fixture.us706_listing_file($1, $2)', [
+          loose.holder,
+          listingSha,
+        ]);
+        expect((await attach(tx, loose.holder, loose.trip, { sha: listingSha })).r).toBe(
+          'PHOTO_DUPLICATE',
+        );
         // fichier NON rattaché envoyé pendant le trip jumeau (seau des preuves, même hôte) ; fichier
         // du voyageur ; fichier antérieur au trip
         const file = async (user: string): Promise<string> =>
@@ -811,6 +826,11 @@ describe.each(COUNTRIES)('US-706 — frais annexes ($country, $currency)', (c: C
             'outcome'
           ],
         ).toBe('SUBMITTED');
+        // délai de l'hôte illisible (hors bornes) : aucun dépôt (PARAM_MISSING, fail-closed)
+        await now(tx, at(J0, 3 * MINUTE));
+        await param(tx, 'incidental_host_window_h', c.country, 0);
+        await now(tx, at(J0, 4 * MINUTE));
+        expect((await attach(tx, strict.holder, strict.trip)).r).toBe('PARAM_MISSING');
         // la vue ne liste que les photos du trip ; le fichier déposé est compté
         const g = await session(tx, loose.guest);
         const inv = (
@@ -1163,6 +1183,98 @@ describe.each(COUNTRIES)('US-706 — frais annexes ($country, $currency)', (c: C
         expect(((theirs['body'] as Row)['invoices'] as Row[]).map((x) => x['id'])).not.toContain(
           ids['none'],
         );
+      });
+    });
+  });
+
+  it('liste « à revoir par l’ops » de la console (revue qa delta 3) : séparation des tâches AVANT la limite (l’agent partie au trip ne voit pas sa demande, un autre agent la voit) ; sans droit ⇒ FORBIDDEN journalisé ; session sans TOTP ⇒ MFA_REQUIRED journalisé ; sans session ⇒ AUTH_REQUIRED ; plus de 500 ⇒ 500 rendues, troncature signalée', async () => {
+    const ids = await withRole('app_api', async (api) =>
+      withTestTransaction(api, { virtualNow: START, commit: true }, async (tx) => {
+        const party = await staff(tx, 'ADMIN', [c.country]);
+        const w = await world(tx, c);
+        const self = await world(tx, c, { guest: party.id });
+        await now(tx, J0);
+        const out: Record<string, string> = { party: party.id };
+        for (const [name, x] of [
+          ['plain', w],
+          ['self', self],
+        ] as const) {
+          const r = await submit(
+            tx,
+            await session(tx, x.holder),
+            x.trip,
+            'CLEANING',
+            a['cleaning']!,
+            [x.inner],
+          );
+          expect(r['outcome']).toBe('SUBMITTED');
+          out[name] = String(r['invoice_id']);
+        }
+        return out;
+      }),
+    );
+    await withRole('app_worker', (w) =>
+      payTx(w, { worker: 'payment_command', virtualNow: DUE, commit: true }, async (tx) => {
+        for (const id of [ids['plain'], ids['self']]) {
+          for (let n = 1; n <= 12; n += 1) {
+            await tx.query('SELECT core.claim_cmd_defer_incidental($1::uuid, $2)', [
+              id,
+              'EXECUTION_FAILED',
+            ]);
+          }
+        }
+      }),
+    );
+    const REVIEW = 'SELECT outcome, body FROM core.support_staff_incidental_review($1, $2::uuid)';
+    const idsOf = (r: Row): unknown[] =>
+      ((r['body'] as Row)['invoices'] as Row[]).map((x) => x['id']);
+    await withRole('app_api', async (api) => {
+      await withTestTransaction(api, { virtualNow: at(DUE, HOUR) }, async (tx) => {
+        const list = async (who: Staff): Promise<Row> =>
+          (await tx.query<Row>(REVIEW, [await elevated(tx, who), uuid()])).rows[0]!;
+        // ADR-122 : l'agent voyageur du trip ne voit pas sa demande ; un autre agent, si
+        const mine = await list({ id: ids['party']! });
+        expect(mine['outcome']).toBe('OK');
+        expect(idsOf(mine)).toContain(ids['plain']);
+        expect(idsOf(mine)).not.toContain(ids['self']);
+        const neutral = await list(await staff(tx, 'OPS_AGENT', [c.country]));
+        expect(idsOf(neutral)).toEqual(expect.arrayContaining([ids['plain'], ids['self']]));
+        expect((neutral['body'] as Row)['truncated']).toBe(false);
+        // sans dispute.decide dans aucun pays : FORBIDDEN, refus journalisé
+        const finance = await staff(tx, 'FINANCE', [c.country]);
+        expect((await list(finance))['outcome']).toBe('FORBIDDEN');
+        expect((await auditOf(tx, finance.id)).at(-1)).toMatchObject({
+          action_code: 'STAFF_FORBIDDEN',
+          after: {
+            reason: 'PERMISSION',
+            permission: 'dispute.decide',
+            field_or_file: 'incidental_review',
+          },
+        });
+        // session ouverte par la vraie commande, sans TOTP : MFA_REQUIRED, refus journalisé
+        const ops = await staff(tx, 'OPS_AGENT', [c.country]);
+        const plainHash = await login(tx, ops.id);
+        expect((await tx.query<Row>(REVIEW, [plainHash, uuid()])).rows[0]!['outcome']).toBe(
+          'MFA_REQUIRED',
+        );
+        expect((await auditOf(tx, ops.id)).at(-1)).toMatchObject({
+          action_code: 'STAFF_ACCESS_DENIED',
+          after: { reason: '2FA_REQUIRED', field_or_file: 'incidental_review' },
+        });
+        // sans session : AUTH_REQUIRED, rien n'est journalisé
+        const before = (await auditOf(tx, ops.id)).length;
+        expect((await tx.query<Row>(REVIEW, [newHash(), uuid()])).rows[0]!['outcome']).toBe(
+          'AUTH_REQUIRED',
+        );
+        expect(await auditOf(tx, ops.id)).toHaveLength(before);
+        // plus de 500 demandes à revoir : 500 rendues, troncature signalée (transaction annulée)
+        await tx.query('SELECT test_fixture.us706_review_bulk($1, $2, 501)', [
+          c.country,
+          c.currency,
+        ]);
+        const many = await list(await staff(tx, 'OPS_AGENT', [c.country]));
+        expect(((many['body'] as Row)['invoices'] as Row[]).length).toBe(500);
+        expect((many['body'] as Row)['truncated']).toBe(true);
       });
     });
   });
