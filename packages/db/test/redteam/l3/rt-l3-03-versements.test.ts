@@ -32,7 +32,6 @@ import type { CountryCase } from '../../support/avl.ts';
 import {
   applySignedStatus,
   caught,
-  insertAccount,
   insertTrip,
   payTx,
   recordOperation,
@@ -90,6 +89,18 @@ const asPayments = <T>(fn: (tx: Tx) => Promise<T>): Promise<T> =>
   withRole('app_worker', (client) =>
     payTx(client, { worker: 'payment_command', deploymentEnv: 'test' }, fn),
   );
+
+/**
+ * Compte PSP FAKE ACTIVE du pays (fixture 9800), partagé : un seul compte ACTIVE par pays
+ * (`psp_account_one_active`) et le groupe `l0-redteam` en voit déjà un, validé par un autre fichier.
+ */
+async function pspAccount(tx: Tx, country: string): Promise<string> {
+  const { rows } = await tx.query<{ id: string }>(
+    'SELECT test_fixture.us024_psp_account($1) AS id',
+    [country],
+  );
+  return rows[0]!.id;
+}
 
 interface Freeze {
   readonly frozen: boolean;
@@ -210,7 +221,7 @@ describe.each(COUNTRIES)('RT-L3 chargeback et grand livre ($country, $currency)'
 
   it('RT-L3-V07 / V08 (L3-PM-39, L3-PM-40) : T53 / T55 — reprise de l’oracle (jamais 166,85) ; un SECOND chargeback perdu, distinct, pour le même trip ne rouvre pas l’imputation : une seule reprise au grand livre, solde inchangé', async () => {
     await asPayments(async (tx) => {
-      const psp = await insertAccount(tx, { country: c.country });
+      const psp = await pspAccount(tx, c.country);
       const w = await cancelledTrip(tx, c, psp);
       const claw = j.clawOf();
       const total = settlementVector(golden, j.settlement).trip.totalPaidMinor;
@@ -297,7 +308,7 @@ describe.each(COUNTRIES)('RT-L3 chargeback et grand livre ($country, $currency)'
 
   it('RT-L3-V01 / V03 (L3-PM-30, L3-PM-33) : payouts_enabled = false — la préparation retient le lot ; un résultat de versement FORGÉ ne le marque pas payé ; envoi direct refusé ; un trip, un lot, un item ; commandes fermées sous un autre travailleur et sous l’API', async () => {
     await asPayments(async (tx) => {
-      const psp = await insertAccount(tx, { country: c.country });
+      const psp = await pspAccount(tx, c.country);
       // l'interrupteur est lu en base, fermé (état de production)
       const sw = await tx.query<{ on: boolean }>(
         `SELECT core.config_go_live('payouts_enabled', $1) AS on`,
