@@ -63,7 +63,10 @@ describe('incidental_invoice_executor (US-706)', () => {
     expect(charges).toHaveLength(6);
     expect(new Set(charges.map((c) => String(c.values[1]))).size).toBe(6);
     const deferred = db.calls.filter((c) => c.text.includes('claim_cmd_defer_incidental'));
-    expect(deferred.map((c) => c.values)).toEqual([['c', 'EXECUTION_FAILED']]);
+    expect(deferred.map((c) => c.values)).toEqual([
+      ['c', 'EXECUTION_FAILED'],
+      ['f', 'NOT_FOUND'],
+    ]);
     // journal : des comptes seulement, jamais un identifiant
     expect(lines).toHaveLength(1);
     expect(JSON.parse(lines[0]!)).toEqual({

@@ -25,239 +25,41 @@
  * les versions de paramètres ne vivent que dans des transactions ANNULÉES. Aucun compte PSP ACTIVE
  * n'est validé : le moyen débité est l'opération de carte du loyer sur le compte FAKE de fixture.
  */
-import type pg from 'pg';
 import { describe, expect, it } from 'vitest';
 import { withRole, withTestTransaction } from '../../src/testing/index.ts';
-import { setActor } from '../support/audit.ts';
 import { COUNTRIES } from '../support/avl.ts';
 import type { CountryCase } from '../support/avl.ts';
-import { openSession } from '../support/iam.ts';
-import { caught, payTx } from '../support/pay.ts';
+import { caught } from '../support/pay.ts';
 import { elevated, staff, uuid } from '../support/claims.ts';
-import type { Staff } from '../support/claims.ts';
-
-type Tx = pg.ClientBase;
-type Row = Record<string, unknown>;
-
-const MINUTE = 60_000;
-const HOUR = 60 * MINUTE;
-const at = (iso: string, ms: number): string => new Date(Date.parse(iso) + ms).toISOString();
-
-/** Trip du 7 au 10 mars 2097, rendu à 08:00 ; demande notifiée à J0 10:00 (heure de la base). */
-const START = '2097-03-07T08:00:00.000Z';
-const END = '2097-03-10T08:00:00.000Z';
-const J0 = '2097-03-10T10:00:00.000Z';
-/** J0 + `invoice_guest_response_h` (72 h, 08 BR-REIMB-02) : J+3 10:00. */
-const DUE = '2097-03-13T10:00:00.000Z';
-
-/**
- * Montants par devise (unités mineures) : nettoyage demandé, sous le plafond PROPOSÉ
- * `incidental_cleaning_max_minor` ; carburant de T69 (12,00 USD) et son équivalent PYG ; plafond
- * de carburant posé par le test (`fuel_refill_max` est « à fixer », 0009). PYG sans décimale.
- */
-const AMOUNTS: Readonly<Record<string, Readonly<Record<string, bigint>>>> = {
-  USD: { cleaning: 4500n, cleaningCap: 15000n, fuel: 1200n, fuelCap: 10000n, rent: 30000n },
-  PYG: {
-    cleaning: 300000n,
-    cleaningCap: 1125000n,
-    fuel: 90000n,
-    fuelCap: 750000n,
-    rent: 2000000n,
-  },
-};
-const amountsOf = (c: CountryCase): Readonly<Record<string, bigint>> => AMOUNTS[c.currency] ?? {};
-
-const SUBMIT = `SELECT outcome, invoice_id::text AS invoice_id, response_due_at
-  FROM core.claim_cmd_submit_incidental($1, $2::uuid, $3::uuid, $4, $5::bigint, $6, $7::uuid[])`;
-const ACCEPT = 'SELECT core.claim_cmd_accept_incidental($1, $2::uuid) AS r';
-const DISPUTE = 'SELECT core.claim_cmd_dispute_incidental($1, $2::uuid, $3, $4::uuid[]) AS r';
-const CANCEL = 'SELECT core.claim_cmd_cancel_incidental($1, $2::uuid) AS r';
-const VIEW = 'SELECT core.claim_incidental_view($1, $2::uuid) AS v';
-const DECIDE = `SELECT outcome, body
-  FROM core.support_staff_decide_incidental($1, $2::uuid, $3::uuid, $4, $5)`;
-const STAFF_VIEW =
-  'SELECT outcome, body FROM core.support_staff_incidental($1, $2::uuid, $3::uuid)';
-const CHARGE = 'SELECT outcome, code FROM core.claim_cmd_charge_incidental($1::uuid, $2::uuid)';
-const DUE_LIST = 'SELECT invoice_id::text AS id FROM core.claim_incidental_invoices_due(100)';
-const DESCRIPTION = 'Sièges arrière couverts de sable et de boue au retour';
-const DISPUTE_REASON = 'Le véhicule a été rendu propre, voir ma photo de l’intérieur au retour.';
-const RATIONALE = 'Photos de retour de l’hôte : sable visible sur la banquette ; frais justifié.';
-
-interface World {
-  readonly trip: string;
-  readonly guest: string;
-  readonly holder: string;
-  readonly rent: string | null;
-  /** Photos des séries : départ jauge (hôte), retour jauge (hôte), retour intérieur (hôte et
-   * voyageur), retour extérieur (hôte). */
-  readonly fuelOut: string;
-  readonly fuelIn: string;
-  readonly inner: string;
-  readonly guestInner: string;
-  readonly outer: string;
-}
-
-interface WorldOptions {
-  readonly rent?: boolean;
-  /** Niveaux de carburant (huitièmes) : départ, retour (les deux parties). */
-  readonly fuel?: readonly [number, number];
-  readonly returned?: boolean;
-  readonly terminatedEarly?: boolean;
-  /** Trip avec devis et Extra vendu (fixture 9948, ligne EXTRAS). */
-  readonly extras?: boolean;
-  readonly guest?: string;
-}
-
-async function photo(tx: Tx, trip: string, kind: string, slot: string, role = 'HOST') {
-  return (
-    await tx.query<{ id: string }>('SELECT test_fixture.us706_photo($1, $2, $3, $4)::text AS id', [
-      trip,
-      kind,
-      slot,
-      role,
-    ])
-  ).rows[0]!.id;
-}
-
-/** Trip rendu à END (heure de la base), photos des deux séries, validations, loyer par carte. */
-async function world(tx: Tx, c: CountryCase, o: WorldOptions = {}): Promise<World> {
-  let trip = uuid();
-  const guest = o.guest ?? uuid();
-  if (o.extras === true) {
-    trip = (
-      await tx.query<{ trip_id: string }>(
-        `SELECT trip_id::text AS trip_id FROM test_fixture.us214_trip($1, $2, 'Ana', 'Ruiz',
-                'Luis', 'Paz', $3::timestamptz, $4::timestamptz, $5::jsonb)`,
-        [
-          c.country,
-          guest,
-          START,
-          END,
-          JSON.stringify([
-            { type: 'TRIP_PRICE', amountMinor: '20000' },
-            { type: 'EXTRAS', amountMinor: '1000' },
-          ]),
-        ],
-      )
-    ).rows[0]!.trip_id;
-  } else {
-    await tx.query(`SELECT test_fixture.rls_insert_trip($1, $2, $3, $4, $5, $6, $7, $8, $9)`, [
-      trip,
-      guest,
-      uuid(),
-      uuid(),
-      c.country,
-      c.currency,
-      c.timezone,
-      START,
-      END,
-    ]);
-  }
-  await tx.query(`SELECT pg_catalog.set_config('app.virtual_now', $1, true)`, [START]);
-  const fuelOut = await photo(tx, trip, 'CHECKIN', 'FUEL');
-  const [out, back] = o.fuel ?? [8, 5];
-  for (const role of ['HOST', 'GUEST']) {
-    await tx.query('SELECT test_fixture.us706_validation($1, $2, $3, $4::smallint)', [
-      trip,
-      'CHECKIN',
-      role,
-      out,
-    ]);
-  }
-  if (o.terminatedEarly === true) {
-    await tx.query('SELECT test_fixture.us706_terminated_early($1)', [trip]);
-  }
-  await tx.query(`SELECT pg_catalog.set_config('app.virtual_now', $1, true)`, [END]);
-  const fuelIn = await photo(tx, trip, 'CHECKOUT', 'FUEL');
-  const inner = await photo(tx, trip, 'CHECKOUT', 'INT_01');
-  const guestInner = await photo(tx, trip, 'CHECKOUT', 'INT_02', 'GUEST');
-  const outer = await photo(tx, trip, 'CHECKOUT', 'EXT_01');
-  for (const role of ['HOST', 'GUEST']) {
-    await tx.query('SELECT test_fixture.us706_validation($1, $2, $3, $4::smallint)', [
-      trip,
-      'CHECKOUT',
-      role,
-      back,
-    ]);
-  }
-  if (o.returned !== false) await tx.query('SELECT test_fixture.us309_returned($1)', [trip]);
-  let rent: string | null = null;
-  if (o.rent !== false) {
-    rent =
-      (
-        await tx.query<{ id: string }>('SELECT test_fixture.us309_card_rent($1, $2)::text AS id', [
-          trip,
-          amountsOf(c)['rent']!.toString(),
-        ])
-      ).rows[0]?.id ?? null;
-  }
-  const holder = (
-    await tx.query<{ h: string }>('SELECT test_fixture.us309_holder($1)::text AS h', [trip])
-  ).rows[0]!.h;
-  return { trip, guest, holder, rent, fuelOut, fuelIn, inner, guestInner, outer };
-}
-
-async function now(tx: Tx, iso: string): Promise<void> {
-  await tx.query(`SELECT pg_catalog.set_config('app.virtual_now', $1, true)`, [iso]);
-}
-
-async function session(tx: Tx, user: string): Promise<Buffer> {
-  await setActor(tx, { kind: 'NONE' });
-  return (await openSession(tx, user)).hash;
-}
-
-async function submit(
-  tx: Tx,
-  hash: Buffer,
-  trip: string,
-  feeType: string,
-  amount: bigint,
-  evidence: readonly string[],
-  requestId = uuid(),
-): Promise<Row> {
-  return (
-    await tx.query<Row>(SUBMIT, [
-      hash,
-      trip,
-      requestId,
-      feeType,
-      amount.toString(),
-      DESCRIPTION,
-      evidence,
-    ])
-  ).rows[0]!;
-}
-
-async function invoices(tx: Tx, trip: string): Promise<Row[]> {
-  return (await tx.query<Row>('SELECT * FROM test_fixture.us706_invoices($1)', [trip])).rows;
-}
-
-async function charges(tx: Tx, invoice: string): Promise<Row[]> {
-  return (await tx.query<Row>('SELECT * FROM test_fixture.us706_charges($1)', [invoice])).rows;
-}
-
-async function param(tx: Tx, key: string, country: string, value: unknown): Promise<void> {
-  await tx.query('SELECT test_fixture.us706_param_version($1, $2, $3::jsonb)', [
-    key,
-    country,
-    JSON.stringify(value),
-  ]);
-}
-
-async function decide(
-  tx: Tx,
-  who: Staff,
-  invoice: string,
-  outcome: string,
-  rationale = RATIONALE,
-  requestId = uuid(),
-): Promise<Row> {
-  const hash = await elevated(tx, who);
-  return (await tx.query<Row>(DECIDE, [hash, requestId, invoice, outcome, rationale])).rows[0]!;
-}
-
-const asPayments = <T>(virtualNow: string, fn: (tx: Tx) => Promise<T>): Promise<T> =>
-  withRole('app_worker', (worker) => payTx(worker, { worker: 'payment_command', virtualNow }, fn));
+import {
+  ACCEPT,
+  amountsOf,
+  asPayments,
+  at,
+  CANCEL,
+  CHARGE,
+  charges,
+  decide,
+  DISPUTE,
+  DISPUTE_REASON,
+  DUE,
+  DUE_LIST,
+  END,
+  HOUR,
+  invoices,
+  J0,
+  MINUTE,
+  now,
+  param,
+  RATIONALE,
+  session,
+  START,
+  STAFF_VIEW,
+  submit,
+  VIEW,
+  world,
+} from '../support/incidental.ts';
+import type { Row } from '../support/incidental.ts';
 
 describe.each(COUNTRIES)('US-706 — frais annexes ($country, $currency)', (c: CountryCase) => {
   const a = amountsOf(c);
@@ -290,15 +92,39 @@ describe.each(COUNTRIES)('US-706 — frais annexes ($country, $currency)', (c: C
         expect((rows[0]!['notified_at'] as Date).toISOString()).toBe(J0);
         // BR-REIMB-01 R09 : délai de l'hôte = fin effective + 72 h
         expect((rows[0]!['host_deadline_at'] as Date).toISOString()).toBe(at(END, 72 * HOUR));
+        // « notifié à J0 » (19 US-706 ; 16 CLM-021 EVT_INVOICE_TO_GUEST) : un événement dans la même
+        // transaction, routé vers le voyageur par NTF ; ni motif ni texte de l'hôte dans le contenu
+        const events = (
+          await tx.query<Row>('SELECT * FROM test_fixture.us706_events($1)', [r['invoice_id']])
+        ).rows;
+        expect(events).toEqual([
+          {
+            type: 'invoice.status_changed',
+            aggregate_type: 'incidental_invoice',
+            actor_role: 'HOST',
+            actor_user_id: w.holder,
+            country_code: c.country,
+            partition_key: w.trip,
+            payload: {
+              invoice_id: r['invoice_id'],
+              trip_id: w.trip,
+              status: 'AWAITING_GUEST',
+              fee_type: 'CLEANING',
+              amount_minor: a['cleaning']!.toString(),
+              currency: c.currency,
+              response_due_at: DUE,
+            },
+          },
+        ]);
         return { trip: w.trip, rent: w.rent, invoice: String(r['invoice_id']) };
       }),
     );
 
     // J+3 09:59 (une minute avant l'échéance) : aucun débit, rien n'est écrit
     await asPayments(at(DUE, -MINUTE), async (tx) => {
-      expect((await tx.query<{ id: string }>(DUE_LIST)).rows.map((x) => x.id)).not.toContain(
-        ids.invoice,
-      );
+      expect(
+        (await tx.query<{ id: string }>(DUE_LIST, [[ids.invoice]])).rows.map((x) => x.id),
+      ).not.toContain(ids.invoice);
       expect((await tx.query<Row>(CHARGE, [ids.invoice, uuid()])).rows[0]).toEqual({
         outcome: 'NOT_DUE',
         code: 'GUEST_RESPONSE_WINDOW_OPEN',
@@ -316,9 +142,9 @@ describe.each(COUNTRIES)('US-706 — frais annexes ($country, $currency)', (c: C
 
     // J+3 10:00 : échéance passée sans réponse ⇒ ordre de débit d'US-703, jambes explicites
     await asPayments(DUE, async (tx) => {
-      expect((await tx.query<{ id: string }>(DUE_LIST)).rows.map((x) => x.id)).toContain(
-        ids.invoice,
-      );
+      expect(
+        (await tx.query<{ id: string }>(DUE_LIST, [[ids.invoice]])).rows.map((x) => x.id),
+      ).toContain(ids.invoice);
       const chargeId = uuid();
       expect((await tx.query<Row>(CHARGE, [ids.invoice, chargeId])).rows[0]).toEqual({
         outcome: 'CHARGED',
@@ -760,6 +586,9 @@ describe.each(COUNTRIES)('US-706 — frais annexes ($country, $currency)', (c: C
           (await submit(tx, h, w.trip, 'FUEL', a['fuel']!, [w.fuelOut, w.fuelIn]))['outcome'],
         ).toBe('PARAM_MISSING');
         await param(tx, 'fuel_refill_max', c.country, a['fuelCap']!.toString());
+        // contrôles plus stricts que Turo (DEC-FONDATEUR-22) : faux par défaut, posés ici à vrai
+        await param(tx, 'incidental_fuel_extras_block', c.country, true);
+        await param(tx, 'incidental_fuel_early_end_block', c.country, true);
         h = await session(tx, prepaid.holder);
         expect(
           (
@@ -864,6 +693,345 @@ describe.each(COUNTRIES)('US-706 — frais annexes ($country, $currency)', (c: C
             ])
           )['outcome'],
         ).toBe('PARAM_MISSING');
+      });
+    });
+  });
+
+  it('DEC-FONDATEUR-22 (comme Turo) : par défaut, carburant demandable malgré un Extra vendu ou une fin anticipée (le voyageur conteste) ; pièces hors des photos du trip admises si incidental_evidence_trip_photos_only est faux — fichiers déposés par l’hôte depuis le début du trip seulement', async () => {
+    await withRole('app_api', async (api) => {
+      await withTestTransaction(api, { virtualNow: START }, async (tx) => {
+        const prepaid = await world(tx, c, { extras: true });
+        const early = await world(tx, c, { terminatedEarly: true });
+        const loose = await world(tx, c);
+        await param(tx, 'fuel_refill_max', c.country, a['fuelCap']!.toString());
+        await now(tx, J0);
+        for (const x of [prepaid, early]) {
+          const h = await session(tx, x.holder);
+          expect(
+            (await submit(tx, h, x.trip, 'FUEL', a['fuel']!, [x.fuelOut, x.fuelIn]))['outcome'],
+          ).toBe('SUBMITTED');
+        }
+        // fichiers déposés : un de l'hôte avant le début prévu, un de l'hôte après, un du voyageur
+        await now(tx, at(START, -HOUR));
+        const before = (
+          await tx.query<{ id: string }>('SELECT test_fixture.us706_loose_file($1)::text AS id', [
+            loose.holder,
+          ])
+        ).rows[0]!.id;
+        await now(tx, J0);
+        const file = async (user: string): Promise<string> =>
+          (
+            await tx.query<{ id: string }>('SELECT test_fixture.us706_loose_file($1)::text AS id', [
+              user,
+            ])
+          ).rows[0]!.id;
+        const mine = await file(loose.holder);
+        const guests = await file(loose.guest);
+        let h = await session(tx, loose.holder);
+        // défaut PROPOSÉ vrai (contrôle contre la fraude évidente) : photos du trip seulement
+        expect(
+          (await submit(tx, h, loose.trip, 'CLEANING', a['cleaning']!, [mine]))['outcome'],
+        ).toBe('CLAIM_EVIDENCE_MISSING');
+        await now(tx, at(J0, MINUTE));
+        await param(tx, 'incidental_evidence_trip_photos_only', c.country, false);
+        await now(tx, at(J0, 2 * MINUTE));
+        h = await session(tx, loose.holder);
+        for (const evidence of [[guests], [before], [mine, guests], [mine, uuid()]]) {
+          expect(
+            (await submit(tx, h, loose.trip, 'CLEANING', a['cleaning']!, evidence))['outcome'],
+          ).toBe('CLAIM_EVIDENCE_MISSING');
+        }
+        // photo du trip sans l'intérieur et aucun fichier : toujours non facturable (BR-RETURN-05)
+        expect(
+          (await submit(tx, h, loose.trip, 'CLEANING', a['cleaning']!, [loose.outer]))['outcome'],
+        ).toBe('INCIDENTAL_NOT_BILLABLE');
+        expect(
+          (await submit(tx, h, loose.trip, 'CLEANING', a['cleaning']!, [mine, loose.outer]))[
+            'outcome'
+          ],
+        ).toBe('SUBMITTED');
+        expect((await invoices(tx, loose.trip))[0]).toMatchObject({
+          fee_type: 'CLEANING',
+          status: 'AWAITING_GUEST',
+        });
+        // la vue ne liste que les photos du trip ; le fichier déposé est compté
+        const g = await session(tx, loose.guest);
+        const inv = (
+          (await tx.query<{ v: Row }>(VIEW, [g, loose.trip])).rows[0]!.v['invoices'] as Row[]
+        )[0]!;
+        expect(inv['evidenceCount']).toBe(2);
+        expect(inv['evidence']).toEqual([
+          {
+            kind: 'CHECKOUT',
+            slotCode: 'EXT_01',
+            slotGroup: 'EXTERIOR',
+            takenBy: 'HOST',
+            receivedAt: END,
+          },
+        ]);
+      });
+    });
+  });
+
+  it('doublon après rejet (revue code n° 1) : une demande REJETÉE par l’ops ne se redemande pas (INCIDENTAL_DUPLICATE) ; une demande annulée par l’hôte, si ; contestation à 1 ms de l’échéance acceptée', async () => {
+    await withRole('app_api', async (api) => {
+      await withTestTransaction(api, { virtualNow: START }, async (tx) => {
+        const ops = await staff(tx, 'OPS_AGENT', [c.country]);
+        const w = await world(tx, c);
+        const last = await world(tx, c);
+        await now(tx, J0);
+        let h = await session(tx, w.holder);
+        const first = await submit(tx, h, w.trip, 'CLEANING', a['cleaning']!, [w.inner]);
+        const smoke = await submit(tx, h, w.trip, 'SMOKING', a['cleaning']!, [w.inner]);
+        const l = await submit(
+          tx,
+          await session(tx, last.holder),
+          last.trip,
+          'CLEANING',
+          a['cleaning']!,
+          [last.inner],
+        );
+        expect([first['outcome'], smoke['outcome'], l['outcome']]).toEqual([
+          'SUBMITTED',
+          'SUBMITTED',
+          'SUBMITTED',
+        ]);
+        await now(tx, at(J0, HOUR));
+        expect(
+          (
+            await tx.query<{ r: string }>(DISPUTE, [
+              await session(tx, w.guest),
+              first['invoice_id'],
+              DISPUTE_REASON,
+              [w.guestInner],
+            ])
+          ).rows[0]!.r,
+        ).toBe('DISPUTED');
+        await now(tx, at(J0, 2 * HOUR));
+        expect((await decide(tx, ops, String(first['invoice_id']), 'REJECT'))['outcome']).toBe(
+          'DECIDED',
+        );
+        expect(
+          (
+            await tx.query<{ r: string }>(CANCEL, [
+              await session(tx, w.holder),
+              smoke['invoice_id'],
+            ])
+          ).rows[0]!.r,
+        ).toBe('CANCELLED');
+        await now(tx, at(J0, 3 * HOUR));
+        h = await session(tx, w.holder);
+        expect(
+          (await submit(tx, h, w.trip, 'CLEANING', a['cleaning']!, [w.inner]))['outcome'],
+        ).toBe('INCIDENTAL_DUPLICATE');
+        expect((await submit(tx, h, w.trip, 'SMOKING', a['cleaning']!, [w.inner]))['outcome']).toBe(
+          'SUBMITTED',
+        );
+        expect((await invoices(tx, w.trip)).map((x) => [x['fee_type'], x['status']])).toEqual([
+          ['CLEANING', 'REJECTED'],
+          ['SMOKING', 'CANCELLED_BY_HOST'],
+          ['SMOKING', 'AWAITING_GUEST'],
+        ]);
+        // borne de l'échéance : 1 ms avant J+3 10:00, la contestation passe encore
+        await now(tx, at(DUE, -1));
+        expect(
+          (
+            await tx.query<{ r: string }>(DISPUTE, [
+              await session(tx, last.guest),
+              l['invoice_id'],
+              DISPUTE_REASON,
+              [last.guestInner],
+            ])
+          ).rows[0]!.r,
+        ).toBe('DISPUTED');
+      });
+    });
+  });
+
+  it('preuves visibles avant de payer (revue ux n° 1) : le voyageur et l’hôte du trip voient chaque pièce retenue (côté, emplacement, auteur, heure serveur) ; aucune autre personne ; identifiants des photos seulement quand ils servent ; plafonds du pays à l’hôte seulement', async () => {
+    await withRole('app_api', async (api) => {
+      await withTestTransaction(api, { virtualNow: START }, async (tx) => {
+        const w = await world(tx, c);
+        const other = await world(tx, c);
+        await now(tx, J0);
+        const r = await submit(
+          tx,
+          await session(tx, w.holder),
+          w.trip,
+          'CLEANING',
+          a['cleaning']!,
+          [w.inner, w.outer],
+        );
+        expect(r['outcome']).toBe('SUBMITTED');
+        const evidence = [
+          {
+            kind: 'CHECKOUT',
+            slotCode: 'EXT_01',
+            slotGroup: 'EXTERIOR',
+            takenBy: 'HOST',
+            receivedAt: END,
+          },
+          {
+            kind: 'CHECKOUT',
+            slotCode: 'INT_01',
+            slotGroup: 'INTERIOR',
+            takenBy: 'HOST',
+            receivedAt: END,
+          },
+        ];
+        const view = async (user: string, trip = w.trip): Promise<Row> =>
+          (await tx.query<{ v: Row }>(VIEW, [await session(tx, user), trip])).rows[0]!.v;
+        const gv = await view(w.guest);
+        expect(gv).toMatchObject({
+          outcome: 'OK',
+          viewerRole: 'GUEST',
+          canSubmit: false,
+          caps: null,
+        });
+        expect((gv['invoices'] as Row[])[0]).toMatchObject({ evidenceCount: 2, evidence });
+        // fenêtre de contestation ouverte : les photos du trip servent à contester
+        expect((gv['photos'] as Row[]).map((x) => x['fileId'])).toContain(w.guestInner);
+        const hv = await view(w.holder);
+        expect(hv).toMatchObject({ outcome: 'OK', viewerRole: 'HOST', canSubmit: true });
+        expect((hv['invoices'] as Row[])[0]).toMatchObject({ evidenceCount: 2, evidence });
+        // plafonds PROPOSÉS du pays (0177) ; carburant « à fixer » (0009) : null
+        expect(hv['caps']).toEqual({
+          FUEL: null,
+          CLEANING: a['cleaningCap']!.toString(),
+          SMOKING: a['cleaningCap']!.toString(),
+        });
+        // le voyageur et l'hôte d'un autre trip : même réponse qu'un trip inconnu
+        for (const user of [other.guest, other.holder]) {
+          expect(await view(user)).toEqual({ outcome: 'NOT_FOUND' });
+        }
+        // payé : plus rien à contester, les pièces restent lisibles, plus aucun identifiant
+        expect(
+          (await tx.query<{ r: string }>(ACCEPT, [await session(tx, w.guest), r['invoice_id']]))
+            .rows[0]!.r,
+        ).toBe('ACCEPTED');
+        const paid = await view(w.guest);
+        expect(paid['photos']).toEqual([]);
+        expect((paid['invoices'] as Row[])[0]).toMatchObject({ status: 'ACCEPTED', evidence });
+        // délai de l'hôte passé : plus de demande possible, plus aucun identifiant pour l'hôte
+        await now(tx, at(END, 72 * HOUR + 1));
+        const late = await view(w.holder);
+        expect(late).toMatchObject({ canSubmit: false, photos: [] });
+        expect((late['invoices'] as Row[])[0]).toMatchObject({ evidence });
+      });
+    });
+  });
+
+  it('débit bloqué (revue qa n° 6) : trip sans opération de carte du loyer, ou seulement une caution ⇒ BLOCKED NO_CARD_TENDER, aucun débit, relu dans 24 h, jamais la caution', async () => {
+    const ids = await withRole('app_api', async (api) =>
+      withTestTransaction(api, { virtualNow: START, commit: true }, async (tx) => {
+        const none = await world(tx, c, { rent: false });
+        const deposit = await world(tx, c, { rent: false });
+        await tx.query('SELECT test_fixture.us309_deposit_auth($1, $2)', [
+          deposit.trip,
+          a['rent']!.toString(),
+        ]);
+        await now(tx, J0);
+        const out: Record<string, string> = {};
+        for (const [name, x] of [
+          ['none', none],
+          ['deposit', deposit],
+        ] as const) {
+          const r = await submit(
+            tx,
+            await session(tx, x.holder),
+            x.trip,
+            'CLEANING',
+            a['cleaning']!,
+            [x.inner],
+          );
+          expect(r['outcome']).toBe('SUBMITTED');
+          out[name] = String(r['invoice_id']);
+          out[`${name}Trip`] = x.trip;
+        }
+        return out;
+      }),
+    );
+    await asPayments(DUE, async (tx) => {
+      for (const name of ['none', 'deposit']) {
+        expect((await tx.query<Row>(CHARGE, [ids[name], uuid()])).rows[0]).toEqual({
+          outcome: 'BLOCKED',
+          code: 'NO_CARD_TENDER',
+        });
+        expect(await charges(tx, ids[name]!)).toEqual([]);
+        const inv = (await invoices(tx, ids[`${name}Trip`]!))[0]!;
+        expect(inv).toMatchObject({ status: 'AWAITING_GUEST', execution_code: 'NO_CARD_TENDER' });
+        expect((inv['next_check_at'] as Date).toISOString()).toBe(at(DUE, 24 * HOUR));
+        // relu dans 24 h : hors de la file d'ici là
+        expect((await tx.query<{ id: string }>(DUE_LIST, [[ids[name]]])).rows).toEqual([]);
+      }
+      expect(
+        (
+          await tx.query<{ n: number }>('SELECT test_fixture.us706_trip_charges($1) AS n', [
+            ids['depositTrip'],
+          ])
+        ).rows[0]!.n,
+      ).toBe(0);
+    });
+  });
+
+  it('garde claim_incidental_forbidden (revue qa n° 6) : une commande dont l’UPDATE ne touche aucune ligne lève une erreur, jamais un succès sans écriture (payer, contester, annuler, décider)', async () => {
+    await withRole('app_api', async (api) => {
+      await withTestTransaction(api, { virtualNow: START }, async (tx) => {
+        const admin = await staff(tx, 'ADMIN', [c.country]);
+        const w = await world(tx, c);
+        const d = await world(tx, c);
+        await now(tx, J0);
+        const r = await submit(
+          tx,
+          await session(tx, w.holder),
+          w.trip,
+          'CLEANING',
+          a['cleaning']!,
+          [w.inner],
+        );
+        const k = await submit(
+          tx,
+          await session(tx, d.holder),
+          d.trip,
+          'CLEANING',
+          a['cleaning']!,
+          [d.inner],
+        );
+        await now(tx, at(J0, HOUR));
+        expect(
+          (
+            await tx.query<{ r: string }>(DISPUTE, [
+              await session(tx, d.guest),
+              k['invoice_id'],
+              DISPUTE_REASON,
+              [d.guestInner],
+            ])
+          ).rows[0]!.r,
+        ).toBe('DISPUTED');
+        // transaction ANNULÉE : la politique UPDATE ne voit plus aucune ligne
+        await tx.query('SELECT test_fixture.us706_forbid_updates()');
+        const forbidden = { code: '42501', constraint: 'claim_incidental_forbidden' };
+        const g = await session(tx, w.guest);
+        expect(await caught(tx, () => tx.query(ACCEPT, [g, r['invoice_id']]))).toMatchObject(
+          forbidden,
+        );
+        expect(
+          await caught(tx, () =>
+            tx.query(DISPUTE, [g, r['invoice_id'], DISPUTE_REASON, [w.guestInner]]),
+          ),
+        ).toMatchObject(forbidden);
+        const hw = await session(tx, w.holder);
+        expect(await caught(tx, () => tx.query(CANCEL, [hw, r['invoice_id']]))).toMatchObject(
+          forbidden,
+        );
+        expect(
+          await caught(tx, () => decide(tx, admin, String(k['invoice_id']), 'CHARGE')),
+        ).toMatchObject(forbidden);
+        expect((await invoices(tx, w.trip))[0]).toMatchObject({ status: 'AWAITING_GUEST' });
+        expect((await invoices(tx, d.trip))[0]).toMatchObject({
+          status: 'DISPUTED',
+          decided_role: null,
+        });
       });
     });
   });

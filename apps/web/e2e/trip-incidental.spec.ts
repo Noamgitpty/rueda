@@ -118,10 +118,14 @@ for (const language of LANGUAGES) {
         t('web.incidental.status.CANCELLED_BY_HOST'),
       );
 
-      // IDOR : les frais d'un autre trip ⇒ même message que l'inconnu
+      // IDOR : les frais (et leurs preuves) d'un autre trip ⇒ même message que l'inconnu
       const other = await newTrip(token('G0st'), token('H0st'), true);
       await page.goto(`/host/trips/${other}/incidental-fees`);
       await expect(page.getByText(t('common.incidental.notFound'))).toBeVisible();
+      await expect(page.locator('[data-testid="incidental-evidence"]')).toHaveCount(0);
+      await page.goto(`/trips/${other}/incidental-fees`);
+      await expect(page.getByText(t('common.incidental.notFound'))).toBeVisible();
+      await expect(page.locator('[data-testid="incidental-evidence"]')).toHaveCount(0);
     });
 
     test('voyageur : payer (montant au bouton) ; contester avec motif et photo', async ({
@@ -142,6 +146,22 @@ for (const language of LANGUAGES) {
       );
       await expect(page.locator('[data-testid="incidental-amount-shown"]')).toHaveText(amount);
       await expect(page.getByText(t('web.incidental.payNotice'))).toBeVisible();
+      // preuves retenues visibles AVANT de payer (revue ux n° 1) et lien vers les photos du trip
+      await expect(page.locator('[data-testid="incidental-evidence"] li')).toHaveText([
+        t('web.incidental.evidenceItem', {
+          side: t('web.incidental.side.CHECKOUT'),
+          slot: t('web.incidental.slot.INTERIOR'),
+          by: t('web.incidental.by.HOST'),
+          date: i18n.dateTime('2097-03-10T08:00:00.000Z', TZ),
+        }),
+      ]);
+      await expect(page.locator('[data-testid="incidental-photos-link"]')).toHaveAttribute(
+        'href',
+        `/trips/${trip}/incidental-fees`.replace('incidental-fees', 'inspection/checkout'),
+      );
+      await expect(page.locator('[data-testid="incidental-status"]')).toHaveText(
+        t('web.incidental.statusGuest.AWAITING_GUEST', { date: i18n.dateTime(DUE, TZ) }),
+      );
       await expectMobileFriendly(page);
       await expectAccessible(page, { include: null });
       await expect(page.locator('[data-testid="incidental-accept"]')).toHaveText(

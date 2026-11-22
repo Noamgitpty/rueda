@@ -126,7 +126,9 @@ CREATE FUNCTION test_fixture.us706_param_version(p_key text, p_country text, p_v
 AS $fn$
 BEGIN
   IF p_key NOT IN ('incidental_host_window_h', 'invoice_guest_response_h',
-                   'incidental_cleaning_max_minor', 'fuel_refill_max') THEN
+                   'incidental_cleaning_max_minor', 'fuel_refill_max',
+                   'incidental_evidence_trip_photos_only', 'incidental_fuel_extras_block',
+                   'incidental_fuel_early_end_block') THEN
     RAISE EXCEPTION 'clé hors liste : %', p_key USING ERRCODE = 'invalid_parameter_value';
   END IF;
   INSERT INTO core.config_param_value (key, country_code, scope_type, value, change_reason)
@@ -237,6 +239,38 @@ BEGIN
 END
 $fn$;
 
+-- Événements de l'outbox nés d'une demande (avis au voyageur, revue argent n° 2) : type, acteur,
+-- pays, clé de partition, contenu
+CREATE FUNCTION test_fixture.us706_events(p_invoice uuid)
+  RETURNS TABLE (type text, aggregate_type text, actor_role text, actor_user_id uuid,
+                 country_code text, partition_key text, payload jsonb)
+  LANGUAGE sql
+  STABLE
+  SECURITY DEFINER
+  SET search_path = pg_catalog, pg_temp
+AS $fn$
+  SELECT e.type, e.aggregate_type, e.actor_role, e.actor_user_id, e.country_code,
+         e.partition_key::text, e.payload
+    FROM core.outbox_outbox_event AS e
+   WHERE e.aggregate_id = p_invoice
+   ORDER BY e.occurred_at, e.type
+$fn$;
+
+-- Branche `claim_incidental_forbidden` (revue qa n° 6) : la politique UPDATE de cmd_money_owner ne
+-- voit plus aucune ligne, le temps de la transaction ANNULÉE du test (verrou de la table tenu
+-- jusqu'au retour arrière) ; une commande dont l'UPDATE ne touche aucune ligne doit lever, jamais
+-- rendre un succès sans écriture
+CREATE FUNCTION test_fixture.us706_forbid_updates()
+  RETURNS void
+  LANGUAGE plpgsql
+  SECURITY DEFINER
+  SET search_path = pg_catalog, pg_temp
+AS $fn$
+BEGIN
+  ALTER POLICY cmd_money_incidental_upd ON core.claim_incidental_invoice USING (false);
+END
+$fn$;
+
 REVOKE ALL ON FUNCTION
   test_fixture.us706_photo(uuid, text, text, text),
   test_fixture.us706_loose_file(uuid),
@@ -247,7 +281,9 @@ REVOKE ALL ON FUNCTION
   test_fixture.us706_charges(uuid),
   test_fixture.us706_trip_charges(uuid),
   test_fixture.us706_try_write(text, uuid),
-  test_fixture.us706_insert_invoice(uuid)
+  test_fixture.us706_insert_invoice(uuid),
+  test_fixture.us706_events(uuid),
+  test_fixture.us706_forbid_updates()
 FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION
   test_fixture.us706_photo(uuid, text, text, text),
@@ -259,5 +295,7 @@ GRANT EXECUTE ON FUNCTION
   test_fixture.us706_charges(uuid),
   test_fixture.us706_trip_charges(uuid),
   test_fixture.us706_try_write(text, uuid),
-  test_fixture.us706_insert_invoice(uuid)
+  test_fixture.us706_insert_invoice(uuid),
+  test_fixture.us706_events(uuid),
+  test_fixture.us706_forbid_updates()
 TO app_worker, app_api;

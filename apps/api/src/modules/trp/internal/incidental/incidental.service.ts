@@ -95,6 +95,7 @@ export interface IncidentalView {
   readonly endedAt: string | null;
   readonly hostDeadlineAt: string | null;
   readonly canSubmit: boolean;
+  readonly caps: Readonly<Record<string, string | null>> | null;
   readonly feeTypes: readonly string[];
   readonly invoices: readonly {
     readonly id: string;
@@ -106,6 +107,13 @@ export interface IncidentalView {
     readonly windowOpen: boolean;
     readonly description: string;
     readonly evidenceCount: number;
+    readonly evidence: readonly {
+      readonly kind: string;
+      readonly slotCode: string;
+      readonly slotGroup: string;
+      readonly takenBy: IncidentalRole;
+      readonly receivedAt: string;
+    }[];
     readonly disputeReason: string | null;
     readonly decision: string | null;
     readonly decisionRationale: string | null;
@@ -152,6 +160,7 @@ export class IncidentalService {
       endedAt: isoOrNull(v.endedAt),
       hostDeadlineAt: isoOrNull(v.hostDeadlineAt),
       canSubmit: v.canSubmit,
+      caps: v.caps,
       feeTypes: v.feeTypes,
       invoices: v.invoices.map((i) => ({
         id: i.id,
@@ -163,6 +172,7 @@ export class IncidentalService {
         windowOpen: i.windowOpen,
         description: i.description,
         evidenceCount: i.evidenceCount,
+        evidence: i.evidence.map((e) => ({ ...e, receivedAt: iso(e.receivedAt) })),
         disputeReason: i.disputeReason,
         decision: i.decision,
         decisionRationale: i.decisionRationale,

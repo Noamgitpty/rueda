@@ -72,19 +72,26 @@ export class IncidentalInvoiceExecutor {
           return rows[0]?.outcome ?? 'NOT_FOUND';
         },
       );
-      return OUTCOMES.includes(outcome) ? (outcome as IncidentalChargeOutcome) : 'DEFERRED';
+      if (OUTCOMES.includes(outcome)) return outcome as IncidentalChargeOutcome;
+      // issue inconnue (NOT_FOUND…) : repoussée et codée, jamais relue en boucle (revue code)
+      await this.#defer(
+        invoiceId,
+        /^[A-Z][A-Z0-9_]{1,63}$/.test(outcome) ? outcome : 'UNKNOWN_OUTCOME',
+      );
+      return 'DEFERRED';
     } catch {
       // erreur de la base (invariant du débit, panne) : le frais est repoussé, jamais perdu
-      await this.#deps.transactions
-        .run(INCIDENTAL_PAYMENT_COMMAND_WORKER, (tx) =>
-          tx.query('SELECT core.claim_cmd_defer_incidental($1::uuid, $2)', [
-            invoiceId,
-            'EXECUTION_FAILED',
-          ]),
-        )
-        .catch(() => undefined);
+      await this.#defer(invoiceId, 'EXECUTION_FAILED');
       return 'DEFERRED';
     }
+  }
+
+  async #defer(invoiceId: string, code: string): Promise<void> {
+    await this.#deps.transactions
+      .run(INCIDENTAL_PAYMENT_COMMAND_WORKER, (tx) =>
+        tx.query('SELECT core.claim_cmd_defer_incidental($1::uuid, $2)', [invoiceId, code]),
+      )
+      .catch(() => undefined);
   }
 
   async process(invoiceIds: readonly string[]): Promise<IncidentalPass> {

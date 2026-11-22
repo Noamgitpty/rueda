@@ -22,12 +22,19 @@ import {
   DONE_KEYS,
   FEE_KEYS,
   incidentalHref,
-  STATUS_KEYS,
+  SLOT_KEYS,
   STATUS_TONE,
+  statusKeyOf,
+  tripPhotosHref,
   tripIncidentalOf,
   UUID,
 } from '../../../account/trip-incidental.ts';
-import type { Done, IncidentalInvoice, IncidentalRole } from '../../../account/trip-incidental.ts';
+import type {
+  Done,
+  FeeType,
+  IncidentalInvoice,
+  IncidentalRole,
+} from '../../../account/trip-incidental.ts';
 import { getRequestBrand } from '../../../brand-source.ts';
 import { getRequestI18n, getRequestLocaleTag } from '../../../i18n.ts';
 import { LOCALE_CONFIG } from '../../../locale-config.ts';
@@ -127,6 +134,14 @@ export async function IncidentalScreen({
     });
   const number = getProfile(LOCALE_CONFIG, localeTag).number;
   const values = { brand: brand.name };
+  // heure du rendu (serveur) : seulement pour dire si l'échéance est passée ; la base fait foi
+  const now = Date.now();
+  const capHint = (fee: FeeType): string => {
+    const cap = view.caps?.[fee] ?? null;
+    return cap === null
+      ? t('web.incidental.form.capMissing', { fee: t(FEE_KEYS[fee]) })
+      : t('web.incidental.form.cap', { fee: t(FEE_KEYS[fee]), amount: money(cap) });
+  };
 
   const invoice = (inv: IncidentalInvoice) => (
     <li
@@ -135,20 +150,43 @@ export async function IncidentalScreen({
       data-testid="incidental-invoice"
     >
       <div className={hostStyles['between']}>
-        <h2 className={accountStyles['h2']}>{t(FEE_KEYS[inv.feeType])}</h2>
+        <h3 className={accountStyles['h2']}>{t(FEE_KEYS[inv.feeType])}</h3>
         <span className={styles['amount']} data-testid="incidental-amount-shown">
           {money(inv.amountMinor)}
         </span>
       </div>
       <p className={accountStyles['muted']}>{t('web.incidental.reason')}</p>
       <p className={styles['quote']}>{inv.description}</p>
-      <p className={accountStyles['muted']}>
-        {t('web.incidental.evidenceCount', { count: String(inv.evidenceCount) })}
-      </p>
+      {/* preuves retenues, visibles avant de payer (revue ux n° 1) ; vignettes : suite */}
+      <p className={accountStyles['muted']}>{t('web.incidental.evidence')}</p>
+      <ul className={styles['evidence']} data-testid="incidental-evidence">
+        {inv.evidence.map((e) => (
+          <li key={`${e.kind}-${e.slotCode}-${e.takenBy}-${e.receivedAt}`}>
+            {t('web.incidental.evidenceItem', {
+              side: t(
+                e.kind === 'CHECKIN'
+                  ? 'web.incidental.side.CHECKIN'
+                  : 'web.incidental.side.CHECKOUT',
+              ),
+              slot: t(SLOT_KEYS[e.slotGroup]),
+              by: t(e.takenBy === 'HOST' ? 'web.incidental.by.HOST' : 'web.incidental.by.GUEST'),
+              date: date(e.receivedAt),
+            })}
+          </li>
+        ))}
+        {inv.evidenceCount > inv.evidence.length && <li>{t('web.incidental.evidenceUpload')}</li>}
+      </ul>
+      <a
+        className={hostStyles['link']}
+        href={tripPhotosHref(role, view.tripId, org)}
+        data-testid="incidental-photos-link"
+      >
+        {t('web.incidental.photosLink')}
+      </a>
       {/* état : texte long, bandeau qui passe à la ligne à 360 px */}
       <Banner tone={STATUS_TONE[inv.status]} live="off">
         <span data-testid="incidental-status">
-          {t(STATUS_KEYS[inv.status], { ...values, date: date(inv.responseDueAt) })}
+          {t(statusKeyOf(inv, role, now), { ...values, date: date(inv.responseDueAt) })}
         </span>
       </Banner>
       {inv.chargeStatus !== null && (
@@ -274,6 +312,7 @@ export async function IncidentalScreen({
               exponent={view.currencyExponent}
               example={priceExample(view.currencyExponent, number)}
               feeTypes={view.feeTypes}
+              caps={view.feeTypes.map(capHint)}
               photos={view.photos}
             />
           )}

@@ -3873,6 +3873,23 @@ export const ES_MESSAGES = {
   'web.incidental.done.cancelled': 'Solicitud cancelada.',
   'web.incidental.loadError': 'No pudimos cargar esta página.',
   'web.incidental.retry': 'Reintentar',
+  // US-706 (revues) : avis au voyageur, preuves, échéance passée, plafonds
+  'ntf.invoiceToGuest.email.subject': 'Reserva {booking_ref}: el anfitrión pidió un gasto',
+  'ntf.invoiceToGuest.email.body':
+    'Hola, {first_name}. El anfitrión de la reserva {booking_ref} pidió un gasto de {amount}. Puedes pagarlo o impugnarlo con una foto en {brand} hasta el {due_at}. Sin respuesta, {brand} decide y puede cobrar tu tarjeta guardada.',
+  'ntf.invoiceToGuest.sms.body':
+    '{brand}: el anfitrión pidió {amount} ({booking_ref}). Págalo o impúgnalo en la app antes del {due_at}.',
+  'web.incidental.evidence': 'Pruebas del anfitrión',
+  'web.incidental.evidenceItem': '{side} · {slot} · {by} · recibida el {date}',
+  'web.incidental.evidenceUpload': 'Más un archivo enviado por el anfitrión',
+  'web.incidental.photosLink': 'Ver las fotos de entrega y devolución',
+  'web.incidental.statusGuest.AWAITING_GUEST': 'Responde antes del {date}',
+  'web.incidental.expired.AWAITING_GUEST':
+    'El plazo para responder terminó el {date}: {brand} cobrará la tarjeta guardada.',
+  'web.incidental.expired.DISPUTED':
+    'Impugnado a tiempo: {brand} revisa las pruebas y decide; no se cobra nada antes.',
+  'web.incidental.form.cap': 'Máximo para {fee}: {amount}.',
+  'web.incidental.form.capMissing': '{fee}: todavía no se puede pedir aquí.',
 } as const satisfies Catalog;
 
 export type MessageKey = keyof typeof ES_MESSAGES;

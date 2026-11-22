@@ -194,7 +194,12 @@ export const POST_SEED_PARAMS: readonly {
     file: '0177_claim_incidental_invoices.sql',
     story: 'US-706',
     refs: '08 BR-REIMB-01 ; 16 CLM-021 ; ADR-197',
-    extraKeys: ['incidental_cleaning_max_minor'],
+    extraKeys: [
+      'incidental_cleaning_max_minor',
+      'incidental_evidence_trip_photos_only',
+      'incidental_fuel_early_end_block',
+      'incidental_fuel_extras_block',
+    ],
     embedded: true,
   },
 ];

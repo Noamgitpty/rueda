@@ -3496,6 +3496,7 @@ async function incidentalRoute(req, res, url) {
       endedAt: INC_END,
       hostDeadlineAt: INC_DEADLINE,
       canSubmit: role === 'HOST',
+      caps: role === 'HOST' ? { FUEL: null, CLEANING: '15000', SMOKING: '15000' } : null,
       feeTypes: ['FUEL', 'CLEANING', 'SMOKING'],
       invoices: t.invoices.map((i) => ({
         id: i.id,
@@ -3507,12 +3508,23 @@ async function incidentalRoute(req, res, url) {
         windowOpen: i.status === 'AWAITING_GUEST',
         description: i.description,
         evidenceCount: i.evidence.length,
+        evidence: t.photos
+          .filter((p) => i.evidence.includes(p.fileId))
+          .map((p) => ({
+            kind: p.kind,
+            slotCode: p.slotCode,
+            slotGroup: p.slotGroup,
+            takenBy: p.takenBy,
+            receivedAt: INC_END,
+          })),
         disputeReason: i.disputeReason,
         decision: null,
         decisionRationale: null,
         chargeStatus: null,
       })),
-      photos: t.photos,
+      // identifiants des photos : à l'hôte qui peut demander, au voyageur qui peut contester
+      photos:
+        role === 'HOST' || t.invoices.some((i) => i.status === 'AWAITING_GUEST') ? t.photos : [],
     });
   }
   if (req.method !== 'POST') return false;

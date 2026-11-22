@@ -2804,6 +2804,48 @@
         "PA": "15000",
         "PY": "1125000"
       }
+    },
+    {
+      "key": "incidental_evidence_trip_photos_only",
+      "type": "BOOL",
+      "scopes": ["COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "08 BR-REIMB-01, BR-PICKUP-03 ; 16 CLM-021 ; DEC-FONDATEUR-22 ; ADR-197 : vrai : les pièces d’un frais annexe sont des photos des séries de départ ou de retour du trip (heure serveur, empreinte) ; faux : aussi les fichiers du seau des preuves déposés par l’hôte depuis le début du trip ; absent : aucune demande (fail-closed)",
+      "status": "PROPOSÉ (ADR-197) : vrai, contrôle gardé contre une fraude évidente (photo antidatée ou d’un autre véhicule, L3-PM-02) ; Turo demande aussi des photos à métadonnées",
+      "decision": "PROPOSED",
+      "decisionRef": "ADR-197 ; COMME_TURO (US-706) ; DEC-FONDATEUR-22",
+      "values": {
+        "PA": true,
+        "PY": true
+      }
+    },
+    {
+      "key": "incidental_fuel_extras_block",
+      "type": "BOOL",
+      "scopes": ["COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "08 BR-FUEL-02 ; 16 CLM-021 ; DEC-FONDATEUR-22 ; ADR-197 : vrai : carburant refusé dès qu’un Extra est vendu au devis du trip (l’Extra « carburant prépayé » n’est pas distingué) ; faux : seul le voyageur conteste ; absent : aucune demande (fail-closed)",
+      "status": "PROPOSÉ comme Turo (ADR-197) : faux ; Turo ne refuse que l’Extra carburant prépayé, qui n’existe pas encore ici",
+      "decision": "PROPOSED",
+      "decisionRef": "ADR-197 ; COMME_TURO (US-706) ; DEC-FONDATEUR-22",
+      "values": {
+        "PA": false,
+        "PY": false
+      }
+    },
+    {
+      "key": "incidental_fuel_early_end_block",
+      "type": "BOOL",
+      "scopes": ["COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "08 BR-FUEL-03 ; 16 CLM-021 ; DEC-FONDATEUR-22 ; ADR-197 : vrai : carburant refusé après une fin anticipée du trip (la cause n’est pas en base) ; faux : le voyageur conteste si la fin anticipée vient de l’hôte ou du véhicule ; absent : aucune demande (fail-closed)",
+      "status": "PROPOSÉ comme Turo (ADR-197) : faux ; Turo ne refuse que la fin anticipée causée par l’hôte ou le véhicule",
+      "decision": "PROPOSED",
+      "decisionRef": "ADR-197 ; COMME_TURO (US-706) ; DEC-FONDATEUR-22",
+      "values": {
+        "PA": false,
+        "PY": false
+      }
     }
   ]
 }

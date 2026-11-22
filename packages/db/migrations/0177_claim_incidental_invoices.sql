@@ -26,10 +26,14 @@
 --      remise et du retour des DEUX parties, au plus favorable au voyageur ; nettoyage et tabac :
 --      photo de l'intérieur au retour (un véhicule seulement non lavé mais rangé n'est pas
 --      facturable, BR-RETURN-05 ⇒ `INCIDENTAL_NOT_BILLABLE`).
---   3. Règles de non-facturation : carburant refusé si un Extra est vendu au devis du trip (Extra
---      « carburant prépayé » non distingué des autres : fail-closed, BR-FUEL-02 ⇒
---      `INCIDENTAL_FUEL_PREPAID`) ou si le trip a pris fin de façon anticipée (cause inconnue de la
---      base : fail-closed, BR-FUEL-03 ⇒ `INCIDENTAL_NOT_BILLABLE`).
+--   3. Contrôles plus stricts que Turo en paramètres du pays (DEC-FONDATEUR-22 ; revue architecture
+--      n° 2) : `incidental_evidence_trip_photos_only` (vrai, PROPOSÉ : fraude évidente ; faux :
+--      fichiers déposés par l'hôte admis aussi) ; `incidental_fuel_extras_block` (faux : vrai ⇒
+--      carburant refusé si un Extra est vendu au devis, BR-FUEL-02, `INCIDENTAL_FUEL_PREPAID`) ;
+--      `incidental_fuel_early_end_block` (faux : vrai ⇒ carburant refusé après une fin anticipée,
+--      BR-FUEL-03). Absents ⇒ `PARAM_MISSING`. Une demande rejetée par l'ops n'est jamais redemandée
+--      (doublon hors annulation de l'hôte). La demande émet `invoice.status_changed` (outbox) :
+--      NTF avise le voyageur (`EVT_INVOICE_TO_GUEST`, 16 CLM-021).
 --   4. Montant : saisi par l'hôte, plafonné par paramètre du pays (carburant : `fuel_refill_max`,
 --      0009, à fixer ; nettoyage et tabac : `incidental_cleaning_max_minor`) ; plafond absent ou
 --      illisible ⇒ `PARAM_MISSING` (aucune demande). Jambes figées à la demande (BR-PROT-08,
@@ -81,10 +85,14 @@
 --     text, uuid[]), core.claim_cmd_decide_incidental(uuid, uuid, text, uuid, text, text),
 --     core.claim_incidental_staff_view(uuid), core.claim_incidental_invoices_due(integer),
 --     core.claim_cmd_charge_incidental(uuid, uuid), core.claim_cmd_defer_incidental(uuid, text),
---     core.claim_incidental_param(text, text), core.claim_incidental_party(bytea, uuid),
+--     core.claim_incidental_param(text, text), core.claim_incidental_bool(text, text),
+--     core.claim_incidental_party(bytea, uuid), core.claim_incidental_host_files(uuid, uuid),
 --     core.claim_incidental_trip_facts(uuid), core.claim_incidental_trip_photos(uuid),
 --     core.claim_incidental_guard() ;
 --   DROP POLICY cmd_money_incidental_param_read ON core.config_param_value ;
+--   DROP POLICY cmd_money_incidental_event ON core.outbox_outbox_event ; révoquer les droits
+--     d'insertion d'outbox et d'EXECUTE platform.uuid_v7() de cmd_money_owner, et les colonnes de
+--     core.audit_file_asset accordées à cmd_hold_owner ;
 --   DROP TABLE core.claim_incidental_invoice ;
 --   REVOKE EXECUTE ON FUNCTION app.actor_id() FROM cmd_money_owner ;
 --   DELETE des valeurs puis des définitions des paramètres du bloc généré (section 5).
@@ -214,9 +222,10 @@ CREATE TABLE core.claim_incidental_invoice (
     OR (charge_basis = 'OPS_DECISION' AND decided_at IS NOT NULL AND decided_role = 'ADMIN'
         AND charged_at >= decided_at))
 );
--- une demande vivante par (trip, type) (doublon, BR-REIMB-05)
+-- une demande par (trip, type) hors annulation de l'hôte (doublon, BR-REIMB-05) : un rejet de l'ops
+-- est définitif, l'hôte ne redemande pas le même frais (revue code n° 1)
 CREATE UNIQUE INDEX claim_incidental_live_unique ON core.claim_incidental_invoice (trip_id, fee_type)
-  WHERE (status NOT IN ('REJECTED', 'CANCELLED_BY_HOST'));
+  WHERE (status <> 'CANCELLED_BY_HOST');
 CREATE INDEX claim_incidental_trip_idx ON core.claim_incidental_invoice (trip_id);
 CREATE INDEX claim_incidental_due_idx ON core.claim_incidental_invoice (next_check_at)
   WHERE (status IN ('AWAITING_GUEST', 'ACCEPTED', 'DECIDED_CHARGE'));
@@ -326,10 +335,13 @@ CREATE POLICY iam_staff_incidental_sel ON core.claim_incidental_invoice FOR SELE
   TO iam_staff_owner USING (true);
 
 -- 2. Faits du trip (cmd_hold_owner) --------------------------------------------------------------
-GRANT SELECT (id, country_code, currency, org_id, guest_user_id, status, scheduled_end,
+GRANT SELECT (id, country_code, currency, org_id, guest_user_id, status, scheduled_start, scheduled_end,
               timezone, source_hold_id)
   ON core.booking_trip TO cmd_hold_owner;
 
+-- fichiers déposés par l'hôte (2.3) : déposant, suppression, réception, source
+GRANT SELECT (uploader_user_id, deleted_at, server_received_at, source)
+  ON core.audit_file_asset TO cmd_hold_owner;
 GRANT CREATE ON SCHEMA core TO cmd_hold_owner;
 SET LOCAL ROLE cmd_hold_owner;
 
@@ -341,7 +353,8 @@ SET LOCAL ROLE cmd_hold_owner;
 -- aucune ligne. SECURITY DEFINER, EXECUTE cmd_money_owner.
 CREATE FUNCTION core.claim_incidental_trip_facts(p_trip_id uuid)
   RETURNS TABLE (trip_id uuid, country_code text, currency text, org_id uuid, guest_user_id uuid,
-                 holder_user_id uuid, status text, timezone text, end_at timestamptz,
+                 holder_user_id uuid, status text, timezone text, start_at timestamptz,
+                 end_at timestamptz,
                  terminated_early boolean, fuel_out smallint, fuel_in smallint,
                  extras_sold boolean)
   LANGUAGE plpgsql
@@ -361,7 +374,7 @@ DECLARE
   v_extra boolean;
 BEGIN
   SELECT x.id, x.country_code, x.currency, x.org_id, x.guest_user_id, x.status, x.timezone,
-         x.source_hold_id, o.holder_user_id
+         x.scheduled_start, x.source_hold_id, o.holder_user_id
     INTO t
     FROM core.booking_trip AS x
     LEFT JOIN core.iam_organization AS o ON o.id = x.org_id
@@ -389,7 +402,7 @@ BEGIN
                           WHERE h.id = t.source_hold_id AND q.line_type = 'EXTRAS');
   RETURN QUERY
   SELECT t.id, t.country_code, t.currency, t.org_id, t.guest_user_id, t.holder_user_id, t.status,
-         t.timezone, v_end, v_early,
+         t.timezone, t.scheduled_start, v_end, v_early,
          CASE WHEN v_n_out > 0 THEN v_out END, CASE WHEN v_n_in > 0 THEN v_in END, v_extra;
 END
 $fn$;
@@ -424,6 +437,28 @@ COMMENT ON FUNCTION core.claim_incidental_trip_photos(uuid) IS
 REVOKE ALL ON FUNCTION core.claim_incidental_trip_photos(uuid) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION core.claim_incidental_trip_photos(uuid) TO cmd_money_owner;
 
+-- 2.3 Fichiers du seau des preuves déposés par l'hôte depuis le début prévu du trip (pièces admises
+-- quand `incidental_evidence_trip_photos_only[pays]` vaut faux, DEC-FONDATEUR-22). Lecture au plus
+-- juste (politique cmd_hold_evidence_file_sel de 0164 : seau PRIVATE_EVIDENCE seulement).
+CREATE FUNCTION core.claim_incidental_host_files(p_trip_id uuid, p_user uuid)
+  RETURNS TABLE (file_id uuid)
+  LANGUAGE sql
+  STABLE
+  SECURITY DEFINER
+  SET search_path = pg_catalog, pg_temp
+AS $fn$
+  SELECT f.id
+    FROM core.audit_file_asset AS f
+    JOIN core.booking_trip AS t ON t.id = p_trip_id
+   WHERE f.bucket = 'PRIVATE_EVIDENCE' AND f.uploader_user_id = p_user AND f.deleted_at IS NULL
+     AND f.source IN ('IN_APP_CAMERA', 'HOST_UPLOAD') AND f.server_received_at >= t.scheduled_start
+$fn$;
+COMMENT ON FUNCTION core.claim_incidental_host_files(uuid, uuid) IS
+  'Interne (US-706, ADR-197) : fichiers du seau des preuves déposés par l''hôte depuis le début '
+  'prévu du trip (pièces hors photos du trip, selon le paramètre du pays). EXECUTE cmd_money_owner.';
+REVOKE ALL ON FUNCTION core.claim_incidental_host_files(uuid, uuid) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION core.claim_incidental_host_files(uuid, uuid) TO cmd_money_owner;
+
 RESET ROLE;
 REVOKE CREATE ON SCHEMA core FROM cmd_hold_owner;
 
@@ -432,7 +467,19 @@ REVOKE CREATE ON SCHEMA core FROM cmd_hold_owner;
 CREATE POLICY cmd_money_incidental_param_read ON core.config_param_value FOR SELECT
   TO cmd_money_owner
   USING (key IN ('incidental_host_window_h', 'invoice_guest_response_h',
-                 'incidental_cleaning_max_minor', 'fuel_refill_max'));
+                 'incidental_cleaning_max_minor', 'fuel_refill_max',
+                 'incidental_evidence_trip_photos_only', 'incidental_fuel_extras_block',
+                 'incidental_fuel_early_end_block'));
+-- avis au voyageur (NTF, 16 CLM-021 `EVT_INVOICE_TO_GUEST`) : invoice.status_changed seulement,
+-- agrégat incidental_invoice, acteur HOST (le titulaire de la session)
+GRANT INSERT (type, schema_version, aggregate_type, aggregate_id, aggregate_version, country_code,
+              actor_user_id, actor_role, correlation_id, payload, partition_key)
+  ON core.outbox_outbox_event TO cmd_money_owner;
+GRANT EXECUTE ON FUNCTION platform.uuid_v7() TO cmd_money_owner;
+CREATE POLICY cmd_money_incidental_event ON core.outbox_outbox_event FOR INSERT
+  TO cmd_money_owner
+  WITH CHECK (type = 'invoice.status_changed' AND aggregate_type = 'incidental_invoice'
+              AND actor_role = 'HOST' AND actor_user_id IS NOT NULL);
 -- moyen débité : opération de carte du loyer (lecture de 0175, rappelée)
 GRANT SELECT (id, trip_id, hold_id, kind, method, purpose, status, currency, created_at)
   ON core.payment_payment_operation TO cmd_money_owner;
@@ -459,6 +506,20 @@ $fn$;
 COMMENT ON FUNCTION core.claim_incidental_param(text, text) IS
   'Interne (US-706) : valeur en vigueur d''un paramètre du pays lu par les frais annexes.';
 REVOKE ALL ON FUNCTION core.claim_incidental_param(text, text) FROM PUBLIC;
+
+-- Paramètre booléen du pays en vigueur (NULL : absent ou illisible, l'appelant refuse).
+CREATE FUNCTION core.claim_incidental_bool(p_key text, p_country text)
+  RETURNS boolean
+  LANGUAGE sql
+  STABLE
+  SET search_path = pg_catalog, pg_temp
+AS $fn$
+  SELECT CASE WHEN pg_catalog.jsonb_typeof(v) = 'boolean' THEN (v #>> '{}')::boolean END
+    FROM (SELECT core.claim_incidental_param(p_key, p_country) AS v) AS x
+$fn$;
+COMMENT ON FUNCTION core.claim_incidental_bool(text, text) IS
+  'Interne (US-706) : paramètre booléen du pays lu par les frais annexes ; NULL si absent.';
+REVOKE ALL ON FUNCTION core.claim_incidental_bool(text, text) FROM PUBLIC;
 
 -- 3.2 Partie de la session sur un trip : GUEST (voyageur) ou HOST (titulaire du compte d'hôte) ;
 -- aucune ligne pour toute autre personne ou un trip inconnu. SECURITY INVOKER, interne.
@@ -538,6 +599,10 @@ DECLARE
   v_actor  text := pg_catalog.current_setting('app.actor_id', true);
   v_desc   text := pg_catalog.btrim(p_description);
   v_due    timestamptz;
+  v_only   boolean;
+  v_extras boolean;
+  v_early  boolean;
+  v_files  integer := 0;
 BEGIN
   SELECT * INTO p FROM core.claim_incidental_party(p_token_hash, p_trip_id);
   IF p.user_id IS NULL OR p.role <> 'HOST' THEN
@@ -591,7 +656,12 @@ BEGIN
      AND (v_resp #>> '{}')::integer <= 720 THEN
     v_resp_h := (v_resp #>> '{}')::integer;
   END IF;
-  IF v_win_h IS NULL OR v_resp_h IS NULL THEN
+  -- contrôles plus stricts que Turo en paramètres du pays (DEC-FONDATEUR-22, ADR-197 n° 4)
+  v_only := core.claim_incidental_bool('incidental_evidence_trip_photos_only', f.country_code);
+  v_extras := core.claim_incidental_bool('incidental_fuel_extras_block', f.country_code);
+  v_early := core.claim_incidental_bool('incidental_fuel_early_end_block', f.country_code);
+  IF v_win_h IS NULL OR v_resp_h IS NULL OR v_only IS NULL OR v_extras IS NULL
+     OR v_early IS NULL THEN
     RETURN QUERY SELECT 'PARAM_MISSING'::text, NULL::uuid, NULL::timestamptz;
     RETURN;
   END IF;
@@ -611,7 +681,15 @@ BEGIN
     INTO v_known, v_fuel_o, v_fuel_i, v_inner
     FROM core.claim_incidental_trip_photos(p_trip_id) AS ph
    WHERE ph.file_id = ANY (COALESCE(v_ev, '{}'::uuid[]));
-  IF v_n = 0 OR v_n > 10 OR v_known <> v_n
+  -- photos du trip seulement (vrai) ; sinon aussi les fichiers déposés par l'hôte depuis le début
+  IF NOT v_only THEN
+    SELECT pg_catalog.count(DISTINCT hf.file_id)::integer INTO v_files
+      FROM core.claim_incidental_host_files(p_trip_id, p.user_id) AS hf
+     WHERE hf.file_id = ANY (COALESCE(v_ev, '{}'::uuid[]))
+       AND NOT EXISTS (SELECT 1 FROM core.claim_incidental_trip_photos(p_trip_id) AS ph
+                        WHERE ph.file_id = hf.file_id);
+  END IF;
+  IF v_n = 0 OR v_n > 10 OR v_known + v_files <> v_n
      OR (p_fee_type = 'FUEL' AND NOT (v_fuel_o AND v_fuel_i)) THEN
     RETURN QUERY SELECT 'CLAIM_EVIDENCE_MISSING'::text, NULL::uuid, NULL::timestamptz;
     RETURN;
@@ -619,15 +697,16 @@ BEGIN
 
   -- règles de non-facturation (BR-FUEL-01 à 03, BR-RETURN-05)
   IF p_fee_type = 'FUEL' THEN
-    IF f.extras_sold THEN
+    IF v_extras AND f.extras_sold THEN
       RETURN QUERY SELECT 'INCIDENTAL_FUEL_PREPAID'::text, NULL::uuid, NULL::timestamptz;
       RETURN;
     END IF;
-    IF f.terminated_early OR f.fuel_out IS NULL OR f.fuel_in IS NULL OR f.fuel_in >= f.fuel_out THEN
+    IF (v_early AND f.terminated_early) OR f.fuel_out IS NULL OR f.fuel_in IS NULL OR f.fuel_in >= f.fuel_out THEN
       RETURN QUERY SELECT 'INCIDENTAL_NOT_BILLABLE'::text, NULL::uuid, NULL::timestamptz;
       RETURN;
     END IF;
-  ELSIF NOT v_inner THEN
+  -- nettoyage : photo de l'intérieur au retour, ou (photos du trip non exigées) fichier de l'hôte
+  ELSIF NOT v_inner AND (v_only OR v_files = 0) THEN
     RETURN QUERY SELECT 'INCIDENTAL_NOT_BILLABLE'::text, NULL::uuid, NULL::timestamptz;
     RETURN;
   END IF;
@@ -650,7 +729,7 @@ BEGIN
   END IF;
   IF EXISTS (SELECT 1 FROM core.claim_incidental_invoice AS x
               WHERE x.trip_id = p_trip_id AND x.fee_type = p_fee_type
-                AND x.status NOT IN ('REJECTED', 'CANCELLED_BY_HOST')) THEN
+                AND x.status <> 'CANCELLED_BY_HOST') THEN
     RETURN QUERY SELECT 'INCIDENTAL_DUPLICATE'::text, NULL::uuid, NULL::timestamptz;
     RETURN;
   END IF;
@@ -667,6 +746,18 @@ BEGIN
           p_request_id, p_fee_type, p_amount_minor, p_amount_minor, 0, 0, 0, v_desc, v_ev,
           f.end_at, f.end_at + pg_catalog.make_interval(hours => v_win_h), v_now, v_resp_h, v_due,
           v_due);
+  -- avis au voyageur (NTF : parties du trip lues en base ; aucun texte de l'hôte dans l'avis)
+  INSERT INTO core.outbox_outbox_event
+         (type, schema_version, aggregate_type, aggregate_id, aggregate_version, country_code,
+          actor_user_id, actor_role, correlation_id, payload, partition_key)
+  VALUES ('invoice.status_changed', 1, 'incidental_invoice', v_id, 0, f.country_code, p.user_id,
+          'HOST', pg_catalog.gen_random_uuid(),
+          pg_catalog.jsonb_build_object(
+            'invoice_id', v_id, 'trip_id', f.trip_id, 'status', 'AWAITING_GUEST',
+            'fee_type', p_fee_type, 'amount_minor', p_amount_minor::text, 'currency', f.currency,
+            'response_due_at', pg_catalog.to_char(v_due AT TIME ZONE 'UTC',
+                                                  'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')),
+          f.trip_id::text);
   PERFORM pg_catalog.set_config('app.actor_kind', COALESCE(v_kind, ''), true);
   PERFORM pg_catalog.set_config('app.actor_id', COALESCE(v_actor, ''), true);
   RETURN QUERY SELECT 'SUBMITTED'::text, v_id, v_due;
@@ -867,7 +958,10 @@ COMMENT ON FUNCTION core.claim_cmd_dispute_incidental(bytea, uuid, text, uuid[])
   'aucun débit avant la décision de l''ops. EXECUTE app_api. US-706 (ADR-197).';
 
 -- 3.7 Vue des frais annexes d'un trip pour une partie (hôte titulaire ou voyageur) : demandes,
--- état, échéance, état du débit d'US-703, photos du trip utilisables comme pièces. Aucune donnée
+-- état, échéance, état du débit d'US-703, pièces de CHAQUE demande (côté, emplacement, auteur,
+-- heure serveur : revue ux n° 1, le voyageur voit les preuves avant de payer), plafonds du pays
+-- (hôte) ; identifiants des photos du trip seulement quand ils servent (hôte qui peut demander,
+-- voyageur qui peut contester ; revue sécurité). Aucune donnée
 -- nominative de l'autre partie ; le motif de la contestation n'est rendu qu'au voyageur qui l'a
 -- écrit et à l'hôte du trip (BR-REIMB-03 : l'hôte peut annuler au vu de la contestation).
 -- `{ "outcome": "NOT_FOUND" }` pour toute autre personne.
@@ -887,6 +981,9 @@ DECLARE
   v_list  jsonb;
   v_ph    jsonb;
   v_iso   text := 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"';
+  v_can   boolean;
+  v_open  boolean;
+  v_caps  jsonb;
 BEGIN
   SELECT * INTO p FROM core.claim_incidental_party(p_token_hash, p_trip_id);
   IF p.user_id IS NULL THEN
@@ -905,6 +1002,13 @@ BEGIN
            'windowOpen', i.status = 'AWAITING_GUEST' AND v_now < i.response_due_at,
            'description', i.description,
            'evidenceCount', pg_catalog.cardinality(i.evidence_file_ids),
+           'evidence', COALESCE((SELECT pg_catalog.jsonb_agg(pg_catalog.jsonb_build_object(
+                         'kind', ph.kind, 'slotCode', ph.slot_code, 'slotGroup', ph.slot_group,
+                         'takenBy', ph.taken_by_role,
+                         'receivedAt', pg_catalog.to_char(ph.received_at AT TIME ZONE 'UTC', v_iso))
+                         ORDER BY ph.kind, ph.received_at, ph.slot_code)
+                         FROM core.claim_incidental_trip_photos(p_trip_id) AS ph
+                        WHERE ph.file_id = ANY (i.evidence_file_ids)), '[]'::jsonb),
            'disputeReason', i.dispute_reason,
            'decision', CASE WHEN i.decided_at IS NULL THEN NULL
                             WHEN i.status = 'REJECTED' THEN 'REJECTED' ELSE 'CHARGE' END,
@@ -918,11 +1022,26 @@ BEGIN
     FROM core.claim_incidental_invoice AS i
     LEFT JOIN core.payment_post_trip_charge AS c ON c.id = i.charge_id
    WHERE i.trip_id = p_trip_id;
+  v_can := p.role = 'HOST' AND f.end_at IS NOT NULL AND v_win_h IS NOT NULL
+           AND v_now <= f.end_at + pg_catalog.make_interval(hours => v_win_h);
+  v_open := p.role = 'GUEST'
+            AND EXISTS (SELECT 1 FROM core.claim_incidental_invoice AS i
+                         WHERE i.trip_id = p_trip_id AND i.status = 'AWAITING_GUEST'
+                           AND v_now < i.response_due_at);
+  -- identifiants des photos : à l'hôte qui peut demander, au voyageur qui peut contester
   SELECT COALESCE(pg_catalog.jsonb_agg(pg_catalog.jsonb_build_object(
            'fileId', ph.file_id, 'kind', ph.kind, 'slotCode', ph.slot_code,
            'slotGroup', ph.slot_group, 'takenBy', ph.taken_by_role)), '[]'::jsonb)
     INTO v_ph
-    FROM core.claim_incidental_trip_photos(p_trip_id) AS ph;
+    FROM core.claim_incidental_trip_photos(p_trip_id) AS ph
+   WHERE v_can OR v_open;
+  -- plafonds du pays (aide du montant de l'hôte ; revue ux n° 3) ; NULL : non fixé
+  IF p.role = 'HOST' THEN
+    v_caps := pg_catalog.jsonb_build_object(
+      'FUEL', core.claim_incidental_param('fuel_refill_max', f.country_code) #>> '{}',
+      'CLEANING', core.claim_incidental_param('incidental_cleaning_max_minor', f.country_code) #>> '{}',
+      'SMOKING', core.claim_incidental_param('incidental_cleaning_max_minor', f.country_code) #>> '{}');
+  END IF;
   RETURN pg_catalog.jsonb_build_object(
     'outcome', 'OK', 'viewerRole', p.role, 'currency', f.currency, 'timezone', f.timezone,
     'endedAt', CASE WHEN f.end_at IS NULL THEN NULL
@@ -930,9 +1049,9 @@ BEGIN
     'hostDeadlineAt', CASE WHEN f.end_at IS NULL OR v_win_h IS NULL THEN NULL
                            ELSE pg_catalog.to_char((f.end_at + pg_catalog.make_interval(
                                   hours => v_win_h)) AT TIME ZONE 'UTC', v_iso) END,
-    'canSubmit', p.role = 'HOST' AND f.end_at IS NOT NULL AND v_win_h IS NOT NULL
-                 AND v_now <= f.end_at + pg_catalog.make_interval(hours => v_win_h),
+    'canSubmit', v_can,
     'feeTypes', '["FUEL", "CLEANING", "SMOKING"]'::jsonb,
+    'caps', v_caps,
     'invoices', v_list, 'photos', v_ph);
 END
 $fn$;
@@ -998,6 +1117,10 @@ BEGIN
          decision_request_id = p_request_id, decision_rationale = v_rat,
          next_check_at = v_now, execution_code = NULL
    WHERE x.id = i.id;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'claim: incidental update refused' USING ERRCODE = 'insufficient_privilege',
+      CONSTRAINT = 'claim_incidental_forbidden';
+  END IF;
   RETURN 'DECIDED';
 END
 $fn$;
@@ -1148,6 +1271,10 @@ BEGIN
     UPDATE core.claim_incidental_invoice AS x
        SET next_check_at = v_now + interval '1 day', execution_code = 'NO_CARD_TENDER'
      WHERE x.id = i.id;
+    IF NOT FOUND THEN
+      RAISE EXCEPTION 'claim: incidental update refused' USING ERRCODE = 'insufficient_privilege',
+        CONSTRAINT = 'claim_incidental_forbidden';
+    END IF;
     RETURN QUERY SELECT 'BLOCKED'::text, 'NO_CARD_TENDER'::text;
     RETURN;
   END IF;
@@ -1164,6 +1291,10 @@ BEGIN
      SET status = 'CHARGED', charge_id = r.charge_id, charged_at = v_now, charge_basis = v_basis,
          execution_code = NULL
    WHERE x.id = i.id;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'claim: incidental update refused' USING ERRCODE = 'insufficient_privilege',
+      CONSTRAINT = 'claim_incidental_forbidden';
+  END IF;
   RETURN QUERY SELECT 'CHARGED'::text, v_basis;
 END
 $fn$;
@@ -1399,7 +1530,9 @@ GRANT EXECUTE ON FUNCTION core.support_staff_incidental(bytea, uuid, uuid),
 RESET ROLE;
 REVOKE CREATE ON SCHEMA core FROM iam_staff_owner;
 
--- 5. Paramètres `incidental_host_window_h` et `incidental_cleaning_max_minor` : bloc GÉNÉRÉ depuis
+-- 5. Paramètres `incidental_host_window_h`, `incidental_cleaning_max_minor` et des trois contrôles
+-- de DEC-FONDATEUR-22 (`incidental_evidence_trip_photos_only`, `incidental_fuel_extras_block`,
+-- `incidental_fuel_early_end_block`) : bloc GÉNÉRÉ depuis
 -- apps/api/src/modules/cfg/data/params.json (`renderParamSeedSql`, groupe `embedded` de
 -- POST_SEED_PARAMS) ; seed-sql.test.ts exige ce bloc à l'identique. Ne pas l'éditer à la main.
 -- 0177 — graine complémentaire : paramètres « incidental_host_window_h* » (US-706 ; 17 §7.2).
@@ -1409,15 +1542,24 @@ REVOKE CREATE ON SCHEMA core FROM iam_staff_owner;
 -- Valeurs PROPOSÉES ; valid_from posé par la garde (platform.now()).
 --
 -- Retour arrière (base sans dépendance) : DELETE des valeurs puis des définitions dont la clé
--- commence par « incidental_host_window_h » ou vaut incidental_cleaning_max_minor ;
+-- commence par « incidental_host_window_h » ou vaut incidental_cleaning_max_minor, incidental_evidence_trip_photos_only, incidental_fuel_early_end_block, incidental_fuel_extras_block ;
 -- jamais en production : nouvelle migration à la place.
 INSERT INTO core.config_param_definition (key, type, unit, allowed_scopes, currency_bound, fail_mode, optional, go_live_switch, not_applicable_in, allowed_values, source_ref, status) VALUES
   ('incidental_cleaning_max_minor', 'MONEY', NULL, ARRAY['COUNTRY']::text[], true, 'BLOCK', false, false, '{}'::text[], NULL, '08 BR-REIMB-01 (nettoyage / tabac : 150 $ chez Turo) ; 16 CLM-021 ; ADR-197 : plafond d’un frais annexe de nettoyage ou de tabac demandé par l’hôte, en unités mineures de la devise du pays ; au-delà, la demande est refusée ; absent ou mal formé : aucune demande de nettoyage ni de tabac (fail-closed)', 'PROPOSÉ comme Turo (ADR-197) : 150,00 USD au Panama ; 1 125 000 PYG au Paraguay (même conversion que price_ceiling_extra_km_minor, à confirmer par le fondateur)'),
+  ('incidental_evidence_trip_photos_only', 'BOOL', NULL, ARRAY['COUNTRY']::text[], false, 'BLOCK', false, false, '{}'::text[], NULL, '08 BR-REIMB-01, BR-PICKUP-03 ; 16 CLM-021 ; DEC-FONDATEUR-22 ; ADR-197 : vrai : les pièces d’un frais annexe sont des photos des séries de départ ou de retour du trip (heure serveur, empreinte) ; faux : aussi les fichiers du seau des preuves déposés par l’hôte depuis le début du trip ; absent : aucune demande (fail-closed)', 'PROPOSÉ (ADR-197) : vrai, contrôle gardé contre une fraude évidente (photo antidatée ou d’un autre véhicule, L3-PM-02) ; Turo demande aussi des photos à métadonnées'),
+  ('incidental_fuel_early_end_block', 'BOOL', NULL, ARRAY['COUNTRY']::text[], false, 'BLOCK', false, false, '{}'::text[], NULL, '08 BR-FUEL-03 ; 16 CLM-021 ; DEC-FONDATEUR-22 ; ADR-197 : vrai : carburant refusé après une fin anticipée du trip (la cause n’est pas en base) ; faux : le voyageur conteste si la fin anticipée vient de l’hôte ou du véhicule ; absent : aucune demande (fail-closed)', 'PROPOSÉ comme Turo (ADR-197) : faux ; Turo ne refuse que la fin anticipée causée par l’hôte ou le véhicule'),
+  ('incidental_fuel_extras_block', 'BOOL', NULL, ARRAY['COUNTRY']::text[], false, 'BLOCK', false, false, '{}'::text[], NULL, '08 BR-FUEL-02 ; 16 CLM-021 ; DEC-FONDATEUR-22 ; ADR-197 : vrai : carburant refusé dès qu’un Extra est vendu au devis du trip (l’Extra « carburant prépayé » n’est pas distingué) ; faux : seul le voyageur conteste ; absent : aucune demande (fail-closed)', 'PROPOSÉ comme Turo (ADR-197) : faux ; Turo ne refuse que l’Extra carburant prépayé, qui n’existe pas encore ici'),
   ('incidental_host_window_h', 'DURATION', 'h', ARRAY['COUNTRY']::text[], false, 'BLOCK', false, false, '{}'::text[], NULL, '08 BR-REIMB-01 (échéances exécutables, R09 : `deadline = end_effective + 72 h` pour le carburant, le nettoyage et le tabac) ; 16 CLM-021 ; ADR-197 : délai de l’hôte pour demander un frais annexe après la fin effective du trip ; au-delà, la demande est refusée (EXPIRED_WINDOW de SM-5) ; absent ou mal formé : aucune demande (fail-closed)', 'PROPOSÉ comme Turo (ADR-197) : 72 h après la fin du trip, comme la règle de Turo la plus récente (08 BR-FUEL-01, H59)');
 
 INSERT INTO core.config_param_value (key, country_code, scope_type, scope_id, network, value, change_reason) VALUES
   ('incidental_cleaning_max_minor', 'PA', 'COUNTRY', NULL, NULL, '"15000"'::jsonb, 'graine US-706 : défauts PROPOSÉS (08 BR-REIMB-01 ; 16 CLM-021 ; ADR-197)'),
   ('incidental_cleaning_max_minor', 'PY', 'COUNTRY', NULL, NULL, '"1125000"'::jsonb, 'graine US-706 : défauts PROPOSÉS (08 BR-REIMB-01 ; 16 CLM-021 ; ADR-197)'),
+  ('incidental_evidence_trip_photos_only', 'PA', 'COUNTRY', NULL, NULL, 'true'::jsonb, 'graine US-706 : défauts PROPOSÉS (08 BR-REIMB-01 ; 16 CLM-021 ; ADR-197)'),
+  ('incidental_evidence_trip_photos_only', 'PY', 'COUNTRY', NULL, NULL, 'true'::jsonb, 'graine US-706 : défauts PROPOSÉS (08 BR-REIMB-01 ; 16 CLM-021 ; ADR-197)'),
+  ('incidental_fuel_early_end_block', 'PA', 'COUNTRY', NULL, NULL, 'false'::jsonb, 'graine US-706 : défauts PROPOSÉS (08 BR-REIMB-01 ; 16 CLM-021 ; ADR-197)'),
+  ('incidental_fuel_early_end_block', 'PY', 'COUNTRY', NULL, NULL, 'false'::jsonb, 'graine US-706 : défauts PROPOSÉS (08 BR-REIMB-01 ; 16 CLM-021 ; ADR-197)'),
+  ('incidental_fuel_extras_block', 'PA', 'COUNTRY', NULL, NULL, 'false'::jsonb, 'graine US-706 : défauts PROPOSÉS (08 BR-REIMB-01 ; 16 CLM-021 ; ADR-197)'),
+  ('incidental_fuel_extras_block', 'PY', 'COUNTRY', NULL, NULL, 'false'::jsonb, 'graine US-706 : défauts PROPOSÉS (08 BR-REIMB-01 ; 16 CLM-021 ; ADR-197)'),
   ('incidental_host_window_h', 'PA', 'COUNTRY', NULL, NULL, '72'::jsonb, 'graine US-706 : défauts PROPOSÉS (08 BR-REIMB-01 ; 16 CLM-021 ; ADR-197)'),
   ('incidental_host_window_h', 'PY', 'COUNTRY', NULL, NULL, '72'::jsonb, 'graine US-706 : défauts PROPOSÉS (08 BR-REIMB-01 ; 16 CLM-021 ; ADR-197)');
 
@@ -1426,7 +1568,7 @@ DO $check$
 BEGIN
   IF EXISTS (SELECT 1 FROM core.config_param_definition AS d
               CROSS JOIN core.config_country AS c
-             WHERE (d.key LIKE 'incidental\_host\_window\_h%' OR d.key = ANY (ARRAY['incidental_cleaning_max_minor']::text[]))
+             WHERE (d.key LIKE 'incidental\_host\_window\_h%' OR d.key = ANY (ARRAY['incidental_cleaning_max_minor', 'incidental_evidence_trip_photos_only', 'incidental_fuel_early_end_block', 'incidental_fuel_extras_block']::text[]))
                AND NOT EXISTS (SELECT 1 FROM core.config_param_value AS v
                                 WHERE v.key = d.key AND v.country_code = c.code)) THEN
     RAISE EXCEPTION 'graine : paramètre incidental_host_window_h* sans valeur pour un pays' USING ERRCODE = 'check_violation';

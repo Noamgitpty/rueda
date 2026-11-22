@@ -121,6 +121,15 @@ export class FakeIncidentalStore implements IncidentalStore {
       windowOpen: i.status === 'AWAITING_GUEST' && now < i.responseDueAt,
       description: i.description,
       evidenceCount: i.evidence.length,
+      evidence: t.photos
+        .filter((ph) => i.evidence.includes(ph.fileId))
+        .map((ph) => ({
+          kind: ph.kind,
+          slotCode: ph.slotCode,
+          slotGroup: ph.slotGroup,
+          takenBy: ph.takenBy,
+          receivedAt: t.endedAt ?? now,
+        })),
       disputeReason: i.disputeReason,
       decision: null,
       decisionRationale: null,
@@ -134,6 +143,14 @@ export class FakeIncidentalStore implements IncidentalStore {
       endedAt: t.endedAt,
       hostDeadlineAt: deadline,
       canSubmit: p.role === 'HOST' && deadline !== null && now <= deadline,
+      caps:
+        p.role === 'HOST'
+          ? {
+              FUEL: null,
+              CLEANING: t.capMinor === null ? null : t.capMinor.toString(),
+              SMOKING: t.capMinor === null ? null : t.capMinor.toString(),
+            }
+          : null,
       feeTypes: ['FUEL', 'CLEANING', 'SMOKING'],
       invoices,
       photos: t.photos,

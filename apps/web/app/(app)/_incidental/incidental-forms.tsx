@@ -84,6 +84,8 @@ export function IncidentalFeeForm(p: {
   readonly exponent: number;
   readonly example: string;
   readonly feeTypes: readonly FeeType[];
+  /** Plafond du pays par type, déjà rendu (revue ux n° 3). */
+  readonly caps: readonly string[];
   readonly photos: readonly IncidentalPhoto[];
 }) {
   const { i18n, t } = useT(p.localeTag);
@@ -125,7 +127,7 @@ export function IncidentalFeeForm(p: {
         id={`${id}-amount`}
         name="amount"
         label={t('web.incidental.form.amount', { currency: p.currency })}
-        hint={t('web.incidental.form.amountHint', { example: p.example })}
+        hint={[t('web.incidental.form.amountHint', { example: p.example }), ...p.caps].join(' ')}
         inputMode={p.exponent === 0 ? 'numeric' : 'decimal'}
         autoComplete="off"
         maxLength={24}

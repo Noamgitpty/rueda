@@ -50,10 +50,20 @@ export interface IncidentalInvoice {
   readonly windowOpen: boolean;
   readonly description: string;
   readonly evidenceCount: number;
+  /** Photos du trip retenues comme pièces (le voyageur les voit avant de payer). */
+  readonly evidence: readonly IncidentalEvidence[];
   readonly disputeReason: string | null;
   readonly decision: 'CHARGE' | 'REJECTED' | null;
   readonly decisionRationale: string | null;
   readonly chargeStatus: ChargeStatus | null;
+}
+
+export interface IncidentalEvidence {
+  readonly kind: 'CHECKIN' | 'CHECKOUT';
+  readonly slotCode: string;
+  readonly slotGroup: SlotGroup;
+  readonly takenBy: IncidentalRole;
+  readonly receivedAt: string;
 }
 
 export interface IncidentalPhoto {
@@ -74,6 +84,8 @@ export interface TripIncidentalView {
   readonly endedAt: string | null;
   readonly hostDeadlineAt: string | null;
   readonly canSubmit: boolean;
+  /** Plafonds du pays (unités mineures) ; hôte seulement, `null` pour le voyageur. */
+  readonly caps: Readonly<Record<FeeType, string | null>> | null;
   readonly feeTypes: readonly FeeType[];
   readonly invoices: readonly IncidentalInvoice[];
   readonly photos: readonly IncidentalPhoto[];
@@ -88,8 +100,47 @@ const isTextOrNull = (v: unknown): v is string | null => v === null || typeof v 
 const has = <T extends string>(list: readonly T[], v: unknown): v is T =>
   (list as readonly unknown[]).includes(v);
 
+function evidenceOf(e: unknown): IncidentalEvidence | null {
+  if (
+    !isObj(e) ||
+    (e['kind'] !== 'CHECKIN' && e['kind'] !== 'CHECKOUT') ||
+    typeof e['slotCode'] !== 'string' ||
+    !SLOT.test(e['slotCode']) ||
+    !has(SLOT_GROUPS, e['slotGroup']) ||
+    !isRole(e['takenBy']) ||
+    !isTime(e['receivedAt'])
+  ) {
+    return null;
+  }
+  return {
+    kind: e['kind'],
+    slotCode: e['slotCode'],
+    slotGroup: e['slotGroup'],
+    takenBy: e['takenBy'],
+    receivedAt: e['receivedAt'],
+  };
+}
+
+const CAP = /^(0|[1-9][0-9]{0,17})$/;
+function capsOf(v: unknown): TripIncidentalView['caps'] | undefined {
+  if (v === null) return null;
+  if (!isObj(v)) return undefined;
+  const out: Record<string, string | null> = {};
+  for (const f of FEE_TYPES) {
+    const c = v[f];
+    if (c === null) out[f] = null;
+    else if (typeof c === 'string' && CAP.test(c)) out[f] = c;
+    else return undefined;
+  }
+  return out as Record<FeeType, string | null>;
+}
+
 function invoiceOf(i: unknown): IncidentalInvoice | null {
   if (!isObj(i)) return null;
+  const rawEvidence = i['evidence'];
+  if (!Array.isArray(rawEvidence)) return null;
+  const evidence = rawEvidence.map(evidenceOf);
+  if (evidence.some((e) => e === null)) return null;
   const { decision, chargeStatus } = i;
   if (
     typeof i['id'] !== 'string' ||
@@ -121,6 +172,7 @@ function invoiceOf(i: unknown): IncidentalInvoice | null {
     windowOpen: i['windowOpen'],
     description: i['description'],
     evidenceCount: i['evidenceCount'],
+    evidence: evidence as IncidentalEvidence[],
     disputeReason: i['disputeReason'],
     decision,
     decisionRationale: i['decisionRationale'],
@@ -180,6 +232,8 @@ export function tripIncidentalOf(reply: ApiResult): TripIncidentalView | null {
   ) {
     return null;
   }
+  const caps = capsOf(j['caps']);
+  if (caps === undefined) return null;
   const invoices = rawInvoices.map(invoiceOf);
   const photos = rawPhotos.map(photoOf);
   if (invoices.some((i) => i === null) || photos.some((p) => p === null)) return null;
@@ -192,6 +246,7 @@ export function tripIncidentalOf(reply: ApiResult): TripIncidentalView | null {
     endedAt: j['endedAt'],
     hostDeadlineAt: j['hostDeadlineAt'],
     canSubmit: j['canSubmit'],
+    caps,
     feeTypes: feeTypes as FeeType[],
     invoices: invoices as IncidentalInvoice[],
     photos: photos as IncidentalPhoto[],
@@ -267,6 +322,34 @@ export function incidentalHref(
   const base =
     role === 'HOST' ? `/host/trips/${tripId}/incidental-fees` : `/trips/${tripId}/incidental-fees`;
   return query === '' ? base : `${base}?${query}`;
+}
+
+/** Photos du trip (séries de départ et de retour), reconstruites. */
+export function tripPhotosHref(role: IncidentalRole, tripId: string, org: string | null): string {
+  return role === 'HOST'
+    ? `/host/trips/${tripId}/inspection/checkout${org !== null && UUID.test(org) ? `?org=${org}` : ''}`
+    : `/trips/${tripId}/inspection/checkout`;
+}
+
+/**
+ * Texte de l'état d'un frais pour la personne qui lit (MINEUR des revues : le voyageur lit « répondez
+ * avant… », l'hôte « réponse du voyageur attendue… ») ; échéance passée : ce qui va se passer
+ * (débit, ou décision de la plateforme si le frais est contesté ; revue ux n° 2).
+ */
+export function statusKeyOf(
+  inv: IncidentalInvoice,
+  role: IncidentalRole,
+  nowMs: number,
+): MessageKey {
+  const passed = nowMs >= Date.parse(inv.responseDueAt);
+  if (inv.status === 'AWAITING_GUEST') {
+    if (!inv.windowOpen || passed) return 'web.incidental.expired.AWAITING_GUEST';
+    return role === 'GUEST'
+      ? 'web.incidental.statusGuest.AWAITING_GUEST'
+      : 'web.incidental.status.AWAITING_GUEST';
+  }
+  if (inv.status === 'DISPUTED' && passed) return 'web.incidental.expired.DISPUTED';
+  return STATUS_KEYS[inv.status];
 }
 
 /** Les états d'un trip où la page des frais annexes est proposée (après le retour). */

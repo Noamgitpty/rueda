@@ -2812,6 +2812,13 @@
       "story": "US-706"
     },
     {
+      "signature": "core.claim_incidental_host_files(uuid,uuid)",
+      "family": "cmd_hold",
+      "owner": "cmd_hold_owner",
+      "execute": ["cmd_money_owner"],
+      "story": "US-706"
+    },
+    {
       "signature": "core.claim_cmd_submit_incidental(bytea,uuid,uuid,text,bigint,text,uuid[])",
       "family": "cmd_money",
       "owner": "cmd_money_owner",

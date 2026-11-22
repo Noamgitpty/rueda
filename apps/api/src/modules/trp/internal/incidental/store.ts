@@ -34,11 +34,24 @@ export interface IncidentalInvoiceRow {
   readonly windowOpen: boolean;
   readonly description: string;
   readonly evidenceCount: number;
+  /** Photos du trip retenues comme pièces (côté, emplacement, auteur, heure serveur). */
+  readonly evidence: readonly IncidentalEvidenceRow[];
   readonly disputeReason: string | null;
   readonly decision: 'CHARGE' | 'REJECTED' | null;
   readonly decisionRationale: string | null;
   readonly chargeStatus: IncidentalChargeStatus | null;
 }
+
+export interface IncidentalEvidenceRow {
+  readonly kind: 'CHECKIN' | 'CHECKOUT';
+  readonly slotCode: string;
+  readonly slotGroup: string;
+  readonly takenBy: IncidentalRole;
+  readonly receivedAt: Date;
+}
+
+/** Plafonds du pays par type (unités mineures) ; `null` : non fixé (aucune demande). */
+export type IncidentalCaps = Readonly<Record<IncidentalFeeType, string | null>>;
 
 export interface IncidentalPhotoRow {
   readonly fileId: string;
@@ -57,6 +70,8 @@ export interface IncidentalViewRow {
   readonly endedAt: Date | null;
   readonly hostDeadlineAt: Date | null;
   readonly canSubmit: boolean;
+  /** Hôte seulement ; `null` pour le voyageur. */
+  readonly caps: IncidentalCaps | null;
   readonly feeTypes: readonly IncidentalFeeType[];
   readonly invoices: readonly IncidentalInvoiceRow[];
   readonly photos: readonly IncidentalPhotoRow[];
@@ -136,6 +151,24 @@ const FEES: readonly unknown[] = INCIDENTAL_FEE_TYPES;
 const STATUSES: readonly unknown[] = INCIDENTAL_STATUSES;
 const CHARGE_STATUSES: readonly unknown[] = ['PROCESSING', 'PAID', 'UNPAID'];
 
+const CAP = /^(0|[1-9][0-9]{0,17})$/;
+
+/** Plafonds rendus à l'hôte ; absent pour le voyageur ; forme inattendue ⇒ erreur. */
+function capsOf(v: unknown): IncidentalCaps | null {
+  if (v === null || v === undefined) return null;
+  if (!isObj(v))
+    throw new IncidentalStoreError('lecture des frais annexes : plafonds illisibles', undefined);
+  const out: Record<string, string | null> = {};
+  for (const fee of INCIDENTAL_FEE_TYPES) {
+    const c = v[fee];
+    if (c === null || c === undefined) out[fee] = null;
+    else if (typeof c === 'string' && CAP.test(c)) out[fee] = c;
+    else
+      throw new IncidentalStoreError('lecture des frais annexes : plafonds illisibles', undefined);
+  }
+  return out as IncidentalCaps;
+}
+
 /** Vue jsonb de `core.claim_incidental_view` ; forme inattendue ⇒ erreur (jamais une vue partielle). */
 export function parseIncidentalView(v: unknown, exponent?: unknown): IncidentalViewRow | null {
   const bad = (): never => {
@@ -171,6 +204,30 @@ export function parseIncidentalView(v: unknown, exponent?: unknown): IncidentalV
     const amount = i['amountMinor'];
     const description = i['description'];
     const count = i['evidenceCount'];
+    const rawEvidence = i['evidence'];
+    if (!Array.isArray(rawEvidence)) return bad();
+    const evidence = rawEvidence.map((e): IncidentalEvidenceRow => {
+      if (
+        !isObj(e) ||
+        (e['kind'] !== 'CHECKIN' && e['kind'] !== 'CHECKOUT') ||
+        typeof e['slotCode'] !== 'string' ||
+        !SLOT.test(e['slotCode']) ||
+        typeof e['slotGroup'] !== 'string' ||
+        !/^[A-Z]{2,16}$/.test(e['slotGroup']) ||
+        !ROLES.includes(e['takenBy'])
+      ) {
+        return bad();
+      }
+      const at = time(e['receivedAt']);
+      if (at === null) return bad();
+      return {
+        kind: e['kind'],
+        slotCode: e['slotCode'],
+        slotGroup: e['slotGroup'],
+        takenBy: e['takenBy'] as IncidentalRole,
+        receivedAt: at,
+      };
+    });
     const decision = i['decision'];
     const charge = i['chargeStatus'];
     if (
@@ -205,6 +262,7 @@ export function parseIncidentalView(v: unknown, exponent?: unknown): IncidentalV
       windowOpen: i['windowOpen'] as boolean,
       description,
       evidenceCount: count,
+      evidence,
       disputeReason: textOrNull(i['disputeReason']),
       decision: (decision ?? null) as IncidentalInvoiceRow['decision'],
       decisionRationale: textOrNull(i['decisionRationale']),
@@ -244,6 +302,7 @@ export function parseIncidentalView(v: unknown, exponent?: unknown): IncidentalV
     endedAt: time(v['endedAt']),
     hostDeadlineAt: time(v['hostDeadlineAt']),
     canSubmit: v['canSubmit'],
+    caps: capsOf(v['caps']),
     feeTypes: feeTypes as IncidentalFeeType[],
     invoices,
     photos,

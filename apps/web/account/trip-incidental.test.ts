@@ -26,6 +26,7 @@ const VIEW = {
   endedAt: '2097-03-10T08:00:00.000Z',
   hostDeadlineAt: '2097-03-13T08:00:00.000Z',
   canSubmit: false,
+  caps: null,
   feeTypes: ['FUEL', 'CLEANING', 'SMOKING'],
   invoices: [
     {
@@ -38,6 +39,15 @@ const VIEW = {
       windowOpen: true,
       description: 'Sable sur la banquette arrière',
       evidenceCount: 1,
+      evidence: [
+        {
+          kind: 'CHECKOUT',
+          slotCode: 'INT_01',
+          slotGroup: 'INTERIOR',
+          takenBy: 'HOST',
+          receivedAt: '2097-03-10T08:00:00.000Z',
+        },
+      ],
       disputeReason: null,
       decision: null,
       decisionRationale: null,
@@ -64,6 +74,8 @@ describe('vue des frais annexes (US-706)', () => {
       { ...VIEW, invoices: [{ ...VIEW.invoices[0], responseDueAt: '2097-03-13' }] },
       { ...VIEW, photos: [{ ...VIEW.photos[0], slotCode: 'ROOF' }] },
       { ...VIEW, endedAt: 'hier' },
+      { ...VIEW, caps: { FUEL: '45.00', CLEANING: null, SMOKING: null } },
+      { ...VIEW, invoices: [{ ...VIEW.invoices[0], evidence: [{ kind: 'ROOF' }] }] },
     ];
     for (const json of bad) {
       expect(tripIncidentalOf({ status: 200, json, headers: {} } as never)).toBeNull();
