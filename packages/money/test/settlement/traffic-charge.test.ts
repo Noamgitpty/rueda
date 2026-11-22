@@ -3,12 +3,14 @@
  * 04 ; BR-PRICE-15 [NOUS] : frais de gestion 5 % ; BR-REIMB-04 : 100 % à l'hôte, frais facturés au
  * voyageur ; ADR-198), en PA (USD) et PY (PYG sans décimale).
  *
- * Attendus écrits à la main depuis 08 (5 % = 500 points de base, arrondi roundHalfUp de 08
- * BR-PRICE-14 : demi-unité vers le haut), jamais calculés par le code testé :
- *   USD 12,30 ⇒ 5 % = 61,5 c ⇒ 62 c ; total 12,92 ;
- *   USD 10,00 ⇒ 50 c ; total 10,50 ; USD 0,01 ⇒ 0,05 c ⇒ 0 ; total 0,01 ;
- *   PYG 25 010 ⇒ 1 250,5 ⇒ 1 251 ; total 26 261 ; PYG 150 000 ⇒ 7 500 ; total 157 500 ;
- *   PYG 9 ⇒ 0,45 ⇒ 0 ; PYG 10 ⇒ 0,5 ⇒ 1.
+ * Attendus : sortie de l'oracle Python `packages/money/test/oracle/traffic_fee_oracle.py`
+ * (`python -I -X utf8 packages/money/test/oracle/traffic_fee_oracle.py`), qui applique la
+ * fonction `rhu` (roundHalfUp) de `docs/specs/tools/independent_settlement_check.py` à
+ * montant × 500 / 10 000 — 08 BR-PRICE-15 [NOUS] « frais de gestion {param} = 5 % » (ligne 1692)
+ * et BR-PRICE-14 [NOUS] (2) « arrondi half-up par ligne » (ligne 1686) ; jamais le code testé.
+ * Recalcul : USD 1 230 × 0,05 = 61,5 ⇒ 62 (total 1 292) ; 1 000 ⇒ 50 ; 1 × 0,05 = 0,05 ⇒ 0 ;
+ * PYG 25 010 × 0,05 = 1 250,5 ⇒ 1 251 (total 26 261) ; 150 000 ⇒ 7 500 ; 9 ⇒ 0,45 ⇒ 0 ;
+ * 10 ⇒ 0,5 ⇒ 1.
  * Propriétés (graines fixes) : Σ jambes = total = montant + frais ; HOST = montant ; INSURER =
  * TAX_THIRD_PARTY = 0 ; frais ≤ montant × bps / 10 000 + ½.
  */

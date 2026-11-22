@@ -13,8 +13,10 @@
  * BR-TT-04, BR-PRICE-15 (frais de gestion 5 %, [NOUS]), BR-REIMB-04 (100 % à l'hôte, frais au
  * voyageur) et de 22 OQ-BR-17 / OQ-BR-19, jamais du code testé.
  *
- * Montants attendus écrits à la main depuis 08 (5 % arrondi roundHalfUp de BR-PRICE-14) :
- * USD 12,30 ⇒ frais 0,615 ⇒ 0,62 ; total 12,92. PYG 25 010 ⇒ 1 250,5 ⇒ 1 251 ; total 26 261.
+ * Montants attendus : sortie de l'oracle Python `packages/money/test/oracle/traffic_fee_oracle.py`
+ * (`rhu` de `docs/specs/tools/independent_settlement_check.py`, montant × 500 / 10 000 ; 08
+ * BR-PRICE-15 [NOUS] ligne 1692 : 5 % ; BR-PRICE-14 [NOUS] (2) ligne 1686 : half-up par ligne) :
+ * USD 1 230 × 0,05 = 61,5 ⇒ 62, total 1 292 ; PYG 25 010 × 0,05 = 1 250,5 ⇒ 1 251, total 26 261.
  *
  * Années virtuelles propres au fichier : 2057 (trips) et 2058 (lots de versement). Aucun
  * interrupteur n'est écrit : `insurer_contract_active` et `payouts_enabled` restent faux.
@@ -52,7 +54,7 @@ const END = '2057-04-10T10:00:00.000Z';
 /** 08 BR-TT-02 [NOUS] : fin effective + 120 jours (graine 0178). */
 const DEADLINE = plus(END, 120 * DAY);
 
-/** Saisies de l'hôte et attendus de 08 (BR-PRICE-15 : 5 %), par devise. */
+/** Saisies de l'hôte et frais attendus (oracle `traffic_fee_oracle.py`, voir l'en-tête), par devise. */
 const AMOUNTS: Readonly<Record<string, { amount: bigint; fee: bigint; rent: bigint }>> = {
   USD: { amount: 1230n, fee: 62n, rent: 30000n },
   PYG: { amount: 25010n, fee: 1251n, rent: 2000000n },

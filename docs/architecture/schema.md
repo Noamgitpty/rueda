@@ -3812,10 +3812,7 @@ Déclencheurs :
 | `permission_overrides` | `text[]` | oui | `'{}'::text[]` |
 | `status` | `text` | oui | `'INVITED'::text` |
 | `invite_expires_at` | `timestamp with time zone` | non | — |
-| `holder_ref` | `uuid` | non | `CASE WHEN (role = 'P2P_HOST'::text) THEN user_id ELSE NULL: ❯ test/int/schema-doc.test.ts (1 test | 1 failed) 145ms
-   ❯ document du schéma (docs/architecture/schema.md) (1)
-     × est à jour : régénéré depuis la base migrée, identique au fichier commité 144ms
-:uuid END` |
+| `holder_ref` | `uuid` | non | `CASE WHEN (role = 'P2P_HOST'::text) THEN user_id ELSE NULL::uuid END` |
 | `created_at` | `timestamp with time zone` | oui | `platform.now()` |
 | `created_by` | `uuid` | non | — |
 | `updated_at` | `timestamp with time zone` | oui | `platform.now()` |
@@ -6566,9 +6563,6 @@ Déclencheurs :
 | `rate_bps` | `integer` | non | — |
 | `tax_minor` | `bigint` | oui | — |
 | `third_party` | `boolean` | oui | — |
-##[error]command (/home/runner/work/rueda/rueda/packages/db) /home/runner/setup-pnpm/node_modules/.bin/bin/pnpm run test:int exited (1)
-@rueda/db#test:int:  ERROR  command (/home/runner/work/rueda/rueda/packages/db) /home/runner/setup-pnpm/node_modules/.bin/bin/pnpm run test:int exited (1)
- ERROR  run failed: command  exited (1)
 
 Contraintes :
 
