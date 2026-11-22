@@ -3834,6 +3834,23 @@
         "updated_at": "C1"
       }
     },
+    "core.trip_ops_overdue_escalation": {
+      "lifecycle": "B",
+      "subjects": [],
+      "export": "none",
+      "columns": {
+        "id": "C1",
+        "case_id": "C1",
+        "trip_id": "C1",
+        "country_code": "C1",
+        "from_stage": "C1",
+        "stage": "C1",
+        "documents": "C1",
+        "escalated_at": "C1",
+        "due_at": "C1",
+        "event_id": "C1"
+      }
+    },
     "core.finance_reconciliation_run": {
       "lifecycle": "A",
       "subjects": [

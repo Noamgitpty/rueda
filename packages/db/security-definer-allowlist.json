@@ -2728,6 +2728,27 @@
       "story": "US-314"
     },
     {
+      "signature": "core.trip_manual_action_escalate_overdue(bytea,uuid,text,uuid,jsonb,text,uuid,text)",
+      "family": "cmd_hold",
+      "owner": "cmd_hold_owner",
+      "execute": ["iam_staff_owner"],
+      "story": "US-306"
+    },
+    {
+      "signature": "core.trip_overdue_board(text[])",
+      "family": "cmd_hold",
+      "owner": "cmd_hold_owner",
+      "execute": ["iam_staff_owner"],
+      "story": "US-306"
+    },
+    {
+      "signature": "core.support_staff_overdue_board(bytea,uuid)",
+      "family": "iam_staff",
+      "owner": "iam_staff_owner",
+      "execute": ["app_api"],
+      "story": "US-306"
+    },
+    {
       "signature": "core.report_staff_beta_view(bytea,uuid,text,text,boolean,text)",
       "family": "iam_staff",
       "owner": "iam_staff_owner",

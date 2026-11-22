@@ -162,6 +162,12 @@ describe('schéma outbox (US-008)', () => {
           expect(r).toMatchObject({ roles: 'cmd_hold_owner', cmd: 'a' });
           continue;
         }
+        // escalade de non-restitution (0173, US-306, ADR-193) : trip.overdue.escalated seulement,
+        // attribué à l'agent de la session (OPS_AGENT ou ADMIN), contexte STAFF
+        if (r.pol === 'outbox_outbox_event.cmd_trip_escalation_event_ins') {
+          expect(r).toMatchObject({ roles: 'cmd_hold_owner', cmd: 'a' });
+          continue;
+        }
         // décision de l'ops sur une réservation signalée (0119, US-209b, ADR-141) :
         // booking.hold.review_decided seulement, acteur OPS_AGENT ou ADMIN
         if (r.pol === 'outbox_outbox_event.cmd_hold_review_event') {

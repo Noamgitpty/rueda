@@ -43,6 +43,7 @@ const ops: OpsConsoleStore = {
   bookingReview: neverCalled,
   tripCancellation: neverCalled,
   tripRefunds: neverCalled,
+  overdueBoard: neverCalled,
   findUser: neverCalled,
   profile: neverCalled,
   addNote: neverCalled,

@@ -436,6 +436,9 @@ export const CONSTRAINT_CODES: Readonly<Record<string, readonly [string, DbBusin
   // détection des retards (0168, US-305 ; 16 TRP-035, 17 §2.5 « prolongation tacite »)
   trip_overdue_case_immutable: [SQLSTATE.integrityConstraintViolation, 'IMMUTABLE_RECORD'],
   trip_overdue_batch_invalid: [SQLSTATE.checkViolation, 'INVARIANT_VIOLATION'],
+  // escalade de non-restitution (0173, US-306 ; 16 TRP-038, ADM-022)
+  trip_overdue_escalation_immutable: [SQLSTATE.integrityConstraintViolation, 'IMMUTABLE_RECORD'],
+  trip_overdue_escalation_unique: [SQLSTATE.uniqueViolation, 'INVARIANT_VIOLATION'],
   // contrat de location et signature (0122, US-211 ; 16 BKG-018, BKG-019)
   trip_contract_not_signed: [SQLSTATE.objectNotInPrerequisiteState, 'CONTRACT_NOT_SIGNED'],
   contract_record_immutable: [SQLSTATE.integrityConstraintViolation, 'IMMUTABLE_RECORD'],

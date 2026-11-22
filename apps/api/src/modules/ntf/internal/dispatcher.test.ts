@@ -62,6 +62,8 @@ describe('abonnement', () => {
       // US-307 : signalement du no-show de l'hôte par le voyageur (l'hôte prévenu)
       'trip.no_show.reported',
       'trip.overdue.detected',
+      // US-306 : étape d'escalade de non-restitution (gabarit de l'étape remis à l'hôte)
+      'trip.overdue.escalated',
       'trip.status_changed',
     ]);
   });
@@ -95,6 +97,35 @@ describe.each(COUNTRY_CASES)('planDispatches — $country ($currency)', (c) => {
         end_at: '2026-12-27T10:00:00Z',
       });
     }
+  });
+
+  it('US-306 : étape d’escalade de non-restitution (`trip.overdue.escalated`, 0173) ⇒ l’hôte seul, le gabarit de l’étape (e-mail d’abord) ; référence du trip et fin prévue seulement ; étape inconnue : aucun envoi', () => {
+    const escalated = (stage: string) =>
+      event(
+        'trip.overdue.escalated',
+        {
+          trip_id: tripId,
+          stage,
+          host_user_id: host,
+          documents: ['DEMAND_LETTER', 'GPS_REQUEST'],
+          scheduled_end: '2026-12-27T10:00:00+00:00',
+          escalated_at: '2026-12-27T16:00:00+00:00',
+        },
+        c.country,
+      );
+    for (const [stage, template] of [
+      ['T2H', 'EVT_UNRETURNED_CONTACT'],
+      ['T6H', 'EVT_UNRETURNED_FORMAL_NOTICE'],
+      ['T24H', 'EVT_UNRETURNED_POLICE_REPORT'],
+    ] as const) {
+      const plan = planDispatches(escalated(stage), RULES, tripMap());
+      expect(who(plan), stage).toEqual([['HOST', host, 'EMAIL', template]]);
+      expect(plan[0]?.variables).toEqual({
+        booking_ref: '0190F5A2',
+        end_at: '2026-12-27T10:00:00+00:00',
+      });
+    }
+    expect(planDispatches(escalated('T30M'), RULES, tripMap())).toEqual([]);
   });
 
   it('US-213 : charge utile réelle de `booking.trip.booked` (0126, sans identifiant de personne) ⇒ parties lues en base, titulaire du compte d’hôte', () => {

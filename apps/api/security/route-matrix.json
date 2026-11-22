@@ -229,6 +229,13 @@
       "portee": "pays",
       "idor": "trip de l’autre pays ou inconnu : 403 FORBIDDEN journalisé, aucune donnée ; trip qui concerne l’agent : 403 STAFF_SELF_FORBIDDEN ; aucune donnée personnelle rendue (preuve L0 l0-us224d-refund-read)"
     },
+    "GET /console/overdue": {
+      "acces": "staff",
+      "permission": "ops.force_terminate_trip (OPS_AGENT, ADMIN) ; pays de la vue : ceux où l’agent détient ce droit, refus journalisés (US-306, 0173)",
+      "roles": ["OPS_AGENT", "ADMIN"],
+      "portee": "sans_pays",
+      "idor": "trips des pays hors de la portée de l’agent : jamais rendus ; trips qui concernent l’agent (partie ou compte lié) écartés ; aucune donnée personnelle rendue (preuve L0 l0-us306-escalation)"
+    },
     "POST /console/evidence-bundles": {
       "acces": "staff",
       "permission": "evidence.export (OPS_AGENT, ADMIN) dans le pays du dossier de support OUVERT de ce trip assigné à l’agent (ADMIN : tout dossier de son pays), garde ADR-122, motif journalisé (BULK_EXPORT, audit chaîné), refus journalisés (US-308, 0164)",

@@ -379,8 +379,14 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  dans le pays (`scheduleClosed`), « montant à verser » avant le paiement (`toPay`), états SM-6, motifs de retenue lisibles, montants),
  lignes du host_ledger `web.a08.line.RELEASED_LEG_ADVANCE`, `CHARGEBACK_CLAWBACK`,
  `RECEIVABLE_WRITE_OFF`, `PAYOUT_NETTING` et `web.a08.line.creditHint`.
- Version 109 (réservée à US-311 par l’orchestrateur ; les 104 à 107 sont celles d’US-703,
- US-317, US-307 et US-314, la 108 est réservée à US-306 ; le numéro ne redescend jamais) : vues de la bêta et
+ Version 108 (réservée à US-306 par l’orchestrateur ; 104 à 107 sont réservées à US-703, US-317,
+ US-307 et US-314 ; le numéro ne redescend jamais) : vue des retards et escalade de
+ non-restitution (US-306, ADR-193) : `backoffice.overdue.*` (O01 : retard, étape, étape suivante et
+ son heure, confirmation qui dit ce que la plateforme fait et ne fait pas, refus expliqués) et les
+ gabarits remis à l’hôte `ntf.unreturnedContact.*`, `ntf.unreturnedFormalNotice.*` (mise en demeure
+ au nom de l’hôte) et `ntf.unreturnedPoliceReport.*` (plainte pré-remplie que l’hôte dépose).
+ Version 109 (réservée à US-311 par l’orchestrateur ; les 104 à 108 sont celles d’US-703,
+ US-317, US-307, US-314 et US-306 ; le numéro ne redescend jamais) : vues de la bêta et
  rapprochement par jambe assisté (US-311, ADR-194) : réponses de la console
  `common.reconciliation.*` (relevé du PSP absent, mal formé, trop lourd ou proche du plafond de
  400 lignes, checklist mensuelle incomplète,
