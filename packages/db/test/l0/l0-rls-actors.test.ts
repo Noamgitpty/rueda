@@ -694,6 +694,9 @@ describe('RLS-5, RLS-12, RLS-18', () => {
           // de catalog_cmd_owner, hôte désigné par son jeton)
           'catalog_vehicle_earnings_plan',
           'catalog_vehicle_eligibility_check',
+          // US-706 (0177, ADR-197) : même règle (frais annexes ; commandes de l'hôte et du voyageur
+          // de cmd_money_owner, personne désignée par son jeton ; console d'iam_staff_owner)
+          'claim_incidental_invoice',
           'iam_membership',
           // US-123 (0075, ADR-105) : AUCUN droit ni politique d'app_api ; accès par les seules
           // fonctions SECURITY DEFINER de kyc_cmd_owner (hôte désigné par son jeton)

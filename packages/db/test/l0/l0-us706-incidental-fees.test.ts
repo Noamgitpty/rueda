@@ -853,8 +853,10 @@ describe.each(COUNTRIES)('US-706 — frais annexes ($country, $currency)', (c: C
         expect((r['response_due_at'] as Date).toISOString()).toBe(at(J0, 24 * HOUR));
         // valeur nulle (hors de 1 à 720 h) : aucune demande (fail-closed)
         const v = await world(tx, c);
-        await param(tx, 'invoice_guest_response_h', c.country, 0);
+        // une version par instant : la nouvelle valeur part une minute après J0
         await now(tx, at(J0, MINUTE));
+        await param(tx, 'invoice_guest_response_h', c.country, 0);
+        await now(tx, at(J0, 2 * MINUTE));
         expect(
           (
             await submit(tx, await session(tx, v.holder), v.trip, 'CLEANING', a['cleaning']!, [

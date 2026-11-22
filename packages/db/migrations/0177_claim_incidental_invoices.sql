@@ -699,8 +699,10 @@ BEGIN
     RETURN 'NOT_FOUND';
   END IF;
   PERFORM 1 FROM core.booking_trip AS t WHERE t.id = v_trip FOR UPDATE;
-  SELECT * INTO i FROM core.claim_incidental_invoice AS x WHERE x.id = p_invoice_id FOR UPDATE;
-  IF i.host_user_id <> p.user_id THEN
+  -- relue APRÈS le verrou du trip (tout écrivain de la demande le prend d'abord) : lecture simple,
+  -- jamais FOR UPDATE ici (les politiques UPDATE ne voient la ligne qu'une fois le contexte posé)
+  SELECT * INTO i FROM core.claim_incidental_invoice AS x WHERE x.id = p_invoice_id;
+  IF i.id IS NULL OR i.host_user_id IS DISTINCT FROM p.user_id THEN
     RETURN 'NOT_FOUND';
   END IF;
   IF i.status = 'CANCELLED_BY_HOST' THEN
@@ -714,6 +716,10 @@ BEGIN
   UPDATE core.claim_incidental_invoice AS x
      SET status = 'CANCELLED_BY_HOST', cancelled_at = platform.now()
    WHERE x.id = i.id;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'claim: incidental update refused' USING ERRCODE = 'insufficient_privilege',
+      CONSTRAINT = 'claim_incidental_forbidden';
+  END IF;
   PERFORM pg_catalog.set_config('app.actor_kind', COALESCE(v_kind, ''), true);
   PERFORM pg_catalog.set_config('app.actor_id', COALESCE(v_actor, ''), true);
   RETURN 'CANCELLED';
@@ -748,10 +754,12 @@ BEGIN
     RETURN 'NOT_FOUND';
   END IF;
   PERFORM 1 FROM core.booking_trip AS t WHERE t.id = v_trip FOR UPDATE;
-  SELECT * INTO i FROM core.claim_incidental_invoice AS x WHERE x.id = p_invoice_id FOR UPDATE;
+  -- relue APRÈS le verrou du trip (tout écrivain de la demande le prend d'abord) : lecture simple,
+  -- jamais FOR UPDATE ici (les politiques UPDATE ne voient la ligne qu'une fois le contexte posé)
+  SELECT * INTO i FROM core.claim_incidental_invoice AS x WHERE x.id = p_invoice_id;
   -- heure lue APRÈS les verrous (17 §1.3 point 1)
   v_now := platform.now();
-  IF i.guest_user_id <> p.user_id THEN
+  IF i.id IS NULL OR i.guest_user_id IS DISTINCT FROM p.user_id THEN
     RETURN 'NOT_FOUND';
   END IF;
   IF i.accepted_at IS NOT NULL THEN
@@ -768,6 +776,10 @@ BEGIN
   UPDATE core.claim_incidental_invoice AS x
      SET status = 'ACCEPTED', accepted_at = v_now, next_check_at = v_now, execution_code = NULL
    WHERE x.id = i.id;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'claim: incidental update refused' USING ERRCODE = 'insufficient_privilege',
+      CONSTRAINT = 'claim_incidental_forbidden';
+  END IF;
   PERFORM pg_catalog.set_config('app.actor_kind', COALESCE(v_kind, ''), true);
   PERFORM pg_catalog.set_config('app.actor_id', COALESCE(v_actor, ''), true);
   RETURN 'ACCEPTED';
@@ -807,9 +819,11 @@ BEGIN
     RETURN 'NOT_FOUND';
   END IF;
   PERFORM 1 FROM core.booking_trip AS t WHERE t.id = v_trip FOR UPDATE;
-  SELECT * INTO i FROM core.claim_incidental_invoice AS x WHERE x.id = p_invoice_id FOR UPDATE;
+  -- relue APRÈS le verrou du trip (tout écrivain de la demande le prend d'abord) : lecture simple,
+  -- jamais FOR UPDATE ici (les politiques UPDATE ne voient la ligne qu'une fois le contexte posé)
+  SELECT * INTO i FROM core.claim_incidental_invoice AS x WHERE x.id = p_invoice_id;
   v_now := platform.now();
-  IF i.guest_user_id <> p.user_id THEN
+  IF i.id IS NULL OR i.guest_user_id IS DISTINCT FROM p.user_id THEN
     RETURN 'NOT_FOUND';
   END IF;
   IF i.disputed_at IS NOT NULL THEN
@@ -839,6 +853,10 @@ BEGIN
      SET status = 'DISPUTED', disputed_at = v_now, dispute_reason = v_reason,
          dispute_evidence_file_ids = v_ev
    WHERE x.id = i.id;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'claim: incidental update refused' USING ERRCODE = 'insufficient_privilege',
+      CONSTRAINT = 'claim_incidental_forbidden';
+  END IF;
   PERFORM pg_catalog.set_config('app.actor_kind', COALESCE(v_kind, ''), true);
   PERFORM pg_catalog.set_config('app.actor_id', COALESCE(v_actor, ''), true);
   RETURN 'DISPUTED';
