@@ -405,6 +405,8 @@ export const CONTRACT_SUITES: Readonly<Record<string, string>> = {
   // inscription et vérification de l'hôte, profil fiscal (US-123, module KYC)
   '/host/accounts/{orgId}/verification': 'modules/kyc/testing/host-verification.contract.test.ts',
   '/host/accounts/{orgId}/payout-account': 'modules/pyo/testing/payout-account.contract.test.ts',
+  // versements lus par le titulaire du compte d'hôte (US-314, module PYO ; écran A08)
+  '/host/accounts/{orgId}/payouts': 'modules/pyo/testing/host-payouts.contract.test.ts',
   '/listings': 'modules/cat/testing/host-listings.contract.test.ts',
   // recherche publique (US-201)
   '/search': 'modules/cat/testing/search.contract.test.ts',
@@ -445,6 +447,8 @@ export const CONTRACT_SUITES: Readonly<Record<string, string>> = {
   '/trips/{tripId}/inspections': 'modules/trp/testing/trip-inspection.contract.test.ts',
   // remise et retour entre particuliers (US-315, module TRP)
   '/trips/{tripId}/handover': 'modules/trp/testing/trip-handover.contract.test.ts',
+  // no-show déclaré par une partie du trip (US-307, module TRP)
+  '/trips/{tripId}/no-show': 'modules/trp/testing/trip-no-show.contract.test.ts',
   // aide et urgence (US-310, module SUP) : S17 public, aide d'un trip, demande d'aide, console
   '/help': 'modules/sup/testing/help.contract.test.ts',
   '/trips/{tripId}/help': 'modules/sup/testing/help.contract.test.ts',

@@ -221,7 +221,8 @@ describe('US-211 — retenue écrite au contrat : devis figés réels de l’ora
       expect(derived.cancellation).toMatchObject({
         penaltyDays: days,
         retainedMinor: (v.trip.totalPaidMinor - v.expected.guestRefundMinor).toString(),
-        engineVersion: 'cxl-beta/1',
+        // US-307 (ADR-191) : version du moteur en vigueur (cxl-beta/2, mêmes montants)
+        engineVersion: 'cxl-beta/2',
       });
       expect(derived.cancellation.freeUntilLocal).toMatch(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/);
       // le texte que le voyageur signe porte la même retenue

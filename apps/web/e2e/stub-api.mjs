@@ -2722,6 +2722,69 @@ function receiptRoute(req, res, url) {
   });
 }
 
+// `GET /host/accounts/{orgId}/payouts` (US-314) : versements du compte de la session (compte d'un
+// autre ⇒ 404 HOST_ACCOUNT_NOT_FOUND). Données FIXES (trips et lots fictifs) : un premier versement
+// PAYÉ dont la pénalité de l'hôte est compensée, puis un lot RETENU (réclamation ouverte,
+// versements fermés dans le pays). Montants des vecteurs de 08 (jambe HOST de TJ01, pénalité de
+// T14 en exposant 2 ; TJ08a, T48 sans décimale) ; calendrier : J+2 / J+5 ouvrés à 10:00 (forme de
+// 17 §7.2, fuseau UTC du double).
+function payoutsRoute(req, res, url) {
+  const m = /^\/host\/accounts\/([0-9a-f-]{36})\/payouts$/.exec(url.pathname);
+  if (m === null || req.method !== 'GET') return false;
+  const owner = hostOf(req);
+  if (owner === undefined) return err(res, 401, 'AUTH_REQUIRED', 'common.auth.sessionRequired');
+  const a = owner === null ? undefined : owner.accounts.find((x) => x.orgId === m[1]);
+  if (a === undefined)
+    return err(res, 404, 'HOST_ACCOUNT_NOT_FOUND', 'common.listing.hostNotFound');
+  const z = a.market.currencyExponent === 0;
+  const leg = z ? '787500' : '13125';
+  const netted = z ? '200000' : '2500';
+  const paidNet = z ? '587500' : '10625';
+  const batch = (id, trip, over) => ({
+    batchId: id,
+    kind: 'FINAL',
+    currency: a.market.currency,
+    grossMinor: leg,
+    nettedMinor: '0',
+    netMinor: leg,
+    holdReasons: [],
+    initiatedAt: null,
+    paidAt: null,
+    trips: [{ tripId: trip, amountMinor: leg }],
+    ...over,
+  });
+  return json(res, 200, {
+    orgId: m[1],
+    country: a.market.country,
+    currency: a.market.currency,
+    currencyExponent: a.market.currencyExponent,
+    schedule: {
+      businessDayOffset: 2,
+      firstPayoutBusinessDay: 5,
+      localTimeMinutes: 600,
+      timeZone: 'UTC',
+      payoutsOpen: false,
+    },
+    payouts: [
+      batch('31400000-0000-4000-8000-000000000002', '31400000-0000-4000-8000-0000000000b2', {
+        status: 'ON_HOLD',
+        scheduledFor: '2036-12-16T10:00:00.000Z',
+        firstPayout: false,
+        holdReasons: ['CLAIM', 'PAYOUTS_DISABLED'],
+      }),
+      batch('31400000-0000-4000-8000-000000000001', '31400000-0000-4000-8000-0000000000b1', {
+        status: 'PAID',
+        scheduledFor: '2036-12-05T10:00:00.000Z',
+        firstPayout: true,
+        nettedMinor: netted,
+        netMinor: paidNet,
+        initiatedAt: '2036-12-05T10:01:00.000Z',
+        paidAt: '2036-12-06T10:00:00.000Z',
+      }),
+    ],
+  });
+}
+
 // `GET /host/accounts/{orgId}/earnings/{month}` : relevé du compte de la session (compte d'un autre
 // ⇒ 404 EARNINGS_NOT_FOUND ; mois mal formé ⇒ 400). Seul le mois EARNINGS_MONTH porte des lignes
 // FIXES (trips fictifs) : un trip à venir capturé (à liquider), un trip annulé par le voyageur et
@@ -3263,6 +3326,103 @@ async function reviewsRoute(req, res, url) {
   });
 }
 
+// No-show entre particuliers (US-307) : `GET /__e2e/no-show/new?guest=&host=&traced=` crée un trip
+// en remise ouverte dont la fenêtre de déclaration est ouverte à l'heure « serveur » fixe du double
+// (`traced` : message de la partie présente suivi de 15 min sans réponse) ; l'hôte déclare le
+// voyageur absent, le voyageur l'hôte ; toute autre session ⇒ 404 NO_SHOW_NOT_FOUND ; même
+// `requestId` ⇒ la même demande ; une seconde ⇒ 409 CANCELLATION_PENDING ; aucune heure reçue.
+const noShows = new Map();
+const NO_SHOW_START = '2036-12-10T12:00:00.000Z';
+const NO_SHOW_AT = '2036-12-10T15:00:00.000Z';
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+
+async function noShowRoute(req, res, url) {
+  const path = url.pathname;
+  if (req.method === 'GET' && path === '/__e2e/no-show/new') {
+    const tripId = uuid();
+    noShows.set(tripId, {
+      guest: url.searchParams.get('guest') ?? '',
+      host: url.searchParams.get('host') ?? '',
+      traced: url.searchParams.get('traced') === 'yes',
+      declaration: null,
+    });
+    return json(res, 200, { tripId });
+  }
+  const m = /^\/trips\/([^/]+)\/no-show$/.exec(path);
+  if (m === null) return false;
+  const token = tokenOf(req);
+  if (token === undefined) return err(res, 401, 'AUTH_REQUIRED', 'common.auth.sessionRequired');
+  const t = noShows.get(m[1]);
+  const role =
+    t === undefined ? null : token === t.guest ? 'GUEST' : token === t.host ? 'HOST' : null;
+  if (t === undefined || role === null) {
+    return err(res, 404, 'NO_SHOW_NOT_FOUND', 'common.noShow.notFound');
+  }
+  const absent = role === 'HOST' ? 'GUEST' : 'HOST';
+  const blocker =
+    t.declaration !== null
+      ? 'CANCELLATION_PENDING'
+      : role === 'GUEST' && !t.traced
+        ? 'NO_SHOW_EVIDENCE_REQUIRED'
+        : null;
+  if (req.method === 'GET') {
+    return json(res, 200, {
+      tripId: m[1],
+      viewerRole: role,
+      absentParty: absent,
+      tripStatus: 'CHECKIN_OPEN',
+      timezone: INSPECTION_TZ,
+      scheduledStart: NO_SHOW_START,
+      declarableFrom: role === 'HOST' ? '2036-12-10T13:00:00.000Z' : '2036-12-10T12:30:00.000Z',
+      declarableUntil: '2036-12-13T12:00:00.000Z',
+      canDeclare: blocker === null,
+      blocker,
+      messageTraced: t.traced,
+      declaration:
+        t.declaration === null
+          ? null
+          : {
+              id: t.declaration.id,
+              requestedReason: t.declaration.reason,
+              status: t.declaration.status,
+              requestedAt: NO_SHOW_AT,
+              mine: t.declaration.by === role,
+            },
+    });
+  }
+  if (req.method !== 'POST') return false;
+  const b = (await readBody(req)) ?? {};
+  const keys = Object.keys(b);
+  if (keys.length !== 1 || typeof b.requestId !== 'string' || !UUID_RE.test(b.requestId)) {
+    return err(res, 400, 'REQUEST_INVALID', 'common.auth.requestInvalid');
+  }
+  if (t.declaration !== null && t.declaration.id === b.requestId && t.declaration.by === role) {
+    return json(res, 200, {
+      declarationId: b.requestId,
+      requestedAt: NO_SHOW_AT,
+      status: t.declaration.status,
+    });
+  }
+  if (blocker === 'CANCELLATION_PENDING') {
+    return err(res, 409, 'CANCELLATION_PENDING', 'common.noShow.pending');
+  }
+  if (blocker === 'NO_SHOW_EVIDENCE_REQUIRED') {
+    return err(res, 409, 'NO_SHOW_EVIDENCE_REQUIRED', 'common.noShow.evidenceRequired');
+  }
+  t.declaration = {
+    id: b.requestId,
+    by: role,
+    reason: absent === 'GUEST' ? 'GUEST_NO_SHOW' : 'HOST_NO_SHOW',
+    // le signalement du voyageur attend la validation de l'ops (US-307, ADR-191)
+    status: role === 'GUEST' ? 'AWAITING_REVIEW' : 'PENDING',
+  };
+  return json(res, 200, {
+    declarationId: b.requestId,
+    requestedAt: NO_SHOW_AT,
+    status: t.declaration.status,
+  });
+}
+
 createServer(async (req, res) => {
   const url = new URL(req.url ?? '/', 'http://127.0.0.1');
   const path = url.pathname;
@@ -3271,10 +3431,12 @@ createServer(async (req, res) => {
   if ((await contractRoute(req, res, url)) !== false) return;
   if ((await inspectionRoute(req, res, url)) !== false) return;
   if ((await handoverRoute(req, res, url)) !== false) return;
+  if ((await noShowRoute(req, res, url)) !== false) return;
   if ((await constanciaRoute(req, res, url)) !== false) return;
   if (refundRoute(req, res, url) !== false) return;
   if (receiptRoute(req, res, url) !== false) return;
   if (earningsRoute(req, res, url) !== false) return;
+  if (payoutsRoute(req, res, url) !== false) return;
   if ((await messagesRoute(req, res, url)) !== false) return;
   if ((await meetingsRoute(req, res, url)) !== false) return;
   if ((await reviewsRoute(req, res, url)) !== false) return;

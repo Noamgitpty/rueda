@@ -648,6 +648,10 @@
       "acces": "session",
       "idor": "compte d'hôte {orgId} d'un autre hôte, ou dont la personne n'est que co-hôte : 404 HOST_ACCOUNT_NOT_FOUND comme un compte inconnu, rien n'est révélé (17 §2.3 point 5 ; payout.manage_account du seul titulaire ; preuves base : l0-us707)"
     },
+    "GET /host/accounts/{orgId}/payouts": {
+      "acces": "session",
+      "idor": "compte d'hôte {orgId} d'un autre hôte, dont la personne n'est que co-hôte (même dotée de finance.read_org_statements, RLS-28), inconnu ou mal formé : 404 HOST_ACCOUNT_NOT_FOUND, même réponse, rien n'est révélé (core.payout_host_payouts, 0172, titulaire par core.iam_host_accounts) ; aucun identifiant du personnel, du PSP ni du compte de versement (RLS-26) ; montants lus, jamais recalculés ; lecture seule ; preuves base : l0-us314-host-payouts"
+    },
     "POST /host/accounts/{orgId}/payout-account": {
       "acces": "session",
       "idor": "compte d'hôte {orgId} d'un autre hôte ou d'un co-hôte : 404 HOST_ACCOUNT_NOT_FOUND, aucun compte écrit (17 §2.3 point 5 ; preuves base : l0-us707)"
@@ -755,6 +759,14 @@
     "POST /trips/{tripId}/handover/checkin/identity": {
       "acces": "session",
       "idor": "trip d'une autre personne (ni son voyageur ni le titulaire de son compte d'hôte), inconnu, sens ou identifiant mal formé : 404 HANDOVER_NOT_FOUND, même réponse (17 §2.3 point 5) ; la partie est celle de la session, jugée en base (core.trip_handover_view, core.trip_cmd_open_checkin, core.trip_cmd_identity_check, core.trip_cmd_validate_handover, 0163) ; chaque partie écrit SA validation seulement ; le contrôle du permis est celui du seul hôte (403 HANDOVER_HOST_ONLY au voyageur) ; l'hôte ne lit du voyageur que le prénom, l'initiale du nom et l'année de naissance, au départ ; aucune heure reçue du client ; preuves base : l0-us315"
+    },
+    "GET /trips/{tripId}/no-show": {
+      "acces": "session",
+      "idor": "trip d'une autre personne (ni son voyageur ni le titulaire de son compte d'hôte), inconnu ou identifiant mal formé : 404 NO_SHOW_NOT_FOUND, même réponse (17 §2.3 point 5) ; la partie est celle de la session, jugée en base (core.trip_no_show_view, core.trip_cmd_report_no_show, 0171) ; le motif est déduit de la partie (l'hôte déclare le voyageur absent, le voyageur l'hôte), jamais reçu ; aucune heure ni aucun montant reçu du client ; rejeu par requestId de la même personne seulement (sinon 400) ; preuves base : l0-us307"
+    },
+    "POST /trips/{tripId}/no-show": {
+      "acces": "session",
+      "idor": "trip d'une autre personne (ni son voyageur ni le titulaire de son compte d'hôte), inconnu ou identifiant mal formé : 404 NO_SHOW_NOT_FOUND, même réponse (17 §2.3 point 5) ; la partie est celle de la session, jugée en base (core.trip_no_show_view, core.trip_cmd_report_no_show, 0171) ; le motif est déduit de la partie (l'hôte déclare le voyageur absent, le voyageur l'hôte), jamais reçu ; aucune heure ni aucun montant reçu du client ; rejeu par requestId de la même personne seulement (sinon 400) ; preuves base : l0-us307"
     },
     "POST /trips/{tripId}/handover/{direction}/validate": {
       "acces": "session",

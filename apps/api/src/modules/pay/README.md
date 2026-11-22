@@ -97,3 +97,7 @@ API publique (`index.ts`, liste complète dans le fichier) : `PayModule`, `PayWe
 - Preuves L0 en base : `pnpm --filter @rueda/db exec vitest run --config vitest.l0.config.ts test/l0/l0-pay-port.test.ts test/l0/l0-pay-marketplace.test.ts test/l0/l0-pay-pan.test.ts test/l0/l0-pay-legs-rls.test.ts`.
 
 Les tests d'intégration et L0 demandent PostgreSQL : guide `docs/ops/INSTALL.md` (compose de dev) ou `RUEDA_PG_TESTCONTAINERS=1`.
+
+## Capacité de réajustement exigée pour une réaffectation (US-307, ADR-191)
+
+`core.payment_assert_payout_adjustment(account, method)` (0171) : `SUPPORTS_PAYOUT_ADJUSTMENT` VALIDÉE pour le compte et le moyen (lecture fail-closed de 0040 : inconnue = « non »), exigée par STL avant un ordre `LEG_REALLOCATION` d'un règlement d'annulation (08 E7 règle 3, TJ05b) ; refus `leg_reallocation_unsupported` ⇒ revue FIN.

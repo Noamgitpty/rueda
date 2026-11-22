@@ -3,8 +3,9 @@
  * Attendus : contrat OpenAPI de la route (ADR-161, ADR-167) et 08 TJ01 / T03 / T14 (jambe HOST
  * 131,25 ; retenue 45,00 ; pénalité −25,00) ; jamais le code testé.
  */
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { hostEarningsOf, monthOf, shiftMonth } from './host-earnings.ts';
+import { ADJUSTMENT_REASONS, hostEarningsOf, monthOf, shiftMonth } from './host-earnings.ts';
 
 const ORG = '00000000-0000-4000-8000-0000000217b2';
 const TRIP_A = '00000000-0000-4000-8000-0000000217a1';
@@ -94,6 +95,31 @@ describe('hostEarningsOf', () => {
       expect(hostEarningsOf(ok(bad)), JSON.stringify(bad)).toBeNull();
     }
     expect(hostEarningsOf({ status: 404, json: {}, session: null })).toBeNull();
+  });
+
+  // US-314 (revue de #284) : chaque motif du host_ledger (0129, 0139, 0167) est lisible ; montants
+  // des formes de 08 (avance TJ18b −75,00 ; reprise T53 −45,00 ; passage en perte +75,00)
+  it.each([
+    ['RELEASED_LEG_ADVANCE', '-7500'],
+    ['CHARGEBACK_CLAWBACK', '-4500'],
+    ['RECEIVABLE_WRITE_OFF', '7500'],
+    ['HOST_CANCELLATION_PENALTY', '-2500'],
+  ])('motif %s ⇒ relevé lu (et non une erreur)', (reason, amount) => {
+    const line = { ...penalty, reason, amountMinor: amount };
+    const v = hostEarningsOf(ok({ ...body, statements: [{ ...statement, lines: [line] }] }));
+    expect(v?.statements[0]?.lines[0]).toMatchObject({ reason, amountMinor: BigInt(amount) });
+  });
+
+  it('parité : motifs du site = enum du contrat OpenAPI de l’API (relevé et reçu)', () => {
+    const openapi = readFileSync(
+      new URL('../../api/openapi/openapi.json', import.meta.url),
+      'utf8',
+    );
+    const enums = [...openapi.matchAll(/"enum": \[\s*("HOST_CANCELLATION_PENALTY"[^\]]*)\]/g)].map(
+      (m) => (JSON.parse(`[${m[1] ?? ''}]`) as (string | null)[]).filter((x) => x !== null),
+    );
+    expect(enums.length).toBeGreaterThanOrEqual(2);
+    for (const e of enums) expect(e).toEqual([...ADJUSTMENT_REASONS]);
   });
 
   it('mois : navigation et mois par défaut', () => {

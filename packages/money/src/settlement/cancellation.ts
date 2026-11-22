@@ -46,8 +46,14 @@ import {
 /**
  * Version du moteur. Toute modification d'une règle, d'un arrondi ou du sous-ensemble de motifs
  * crée une nouvelle version ; un règlement stocké garde la version qui l'a produit (US-018).
+ *
+ * `cxl-beta/2` (US-307, ADR-191) : `cxl-beta/1` plus la ligne n° 8 de 08
+ * (`CLEANLINESS_SAFETY_VALID`, refus du véhicule validé : FULL, gains 0, pénalité `cleanliness`,
+ * état `REFUSED_AT_PICKUP`). Aucune autre règle ni aucun arrondi ne change : pour les onze motifs
+ * de `cxl-beta/1`, le résultat est identique à celui de `cxl-beta/1` (seule la version écrite
+ * change). Un règlement stocké en `cxl-beta/1` reste rejoué par son propre vérificateur (0054).
  */
-export const CANCELLATION_ENGINE_VERSION = 'cxl-beta/1';
+export const CANCELLATION_ENGINE_VERSION = 'cxl-beta/2';
 
 const MINUTE_MS = 60_000;
 const HOUR_MS = 60 * MINUTE_MS;
@@ -68,7 +74,7 @@ const POLICY = Object.freeze({
 });
 
 type HostCompensationKind = 'NONE' | 'LATE_CXL_AFTER_FREE_WINDOW';
-type PenaltyKind = 'NONE' | 'HOST_CXL' | 'HOST_NO_SHOW';
+type PenaltyKind = 'NONE' | 'HOST_CXL' | 'HOST_NO_SHOW' | 'CLEANLINESS';
 
 interface ReasonRow {
   readonly qualification: Qualification;
@@ -96,6 +102,8 @@ const REASONS: Readonly<Record<CancellationReason, ReasonRow>> = Object.freeze({
   HOST_ACCOUNT_CLOSED: row('FULL', 'NONE', 'CANCELLED_BY_PLATFORM', 'NONE'),
   PLATFORM_REVIEW_DELAY: row('FULL', 'LATE_CXL_AFTER_FREE_WINDOW', 'CANCELLED_BY_PLATFORM', 'NONE'),
   PSP_FAILURE: row('FULL', 'LATE_CXL_AFTER_FREE_WINDOW', 'CANCELLED_BY_PLATFORM', 'NONE'),
+  // (8) refus du véhicule validé (BR-CXL-04) : pénalité de propreté / sécurité (BR-CSP-03)
+  CLEANLINESS_SAFETY_VALID: row('FULL', 'NONE', 'REFUSED_AT_PICKUP', 'CLEANLINESS'),
 });
 
 function row(
@@ -333,9 +341,11 @@ function penalty(
   const fee =
     rowOf.penaltyKind === 'HOST_NO_SHOW'
       ? schedule.hostNoShow
-      : trip.startAtMs - ev.requestedAtMs > POLICY.hostPenaltyLeadMs
-        ? schedule.cxlEarly
-        : schedule.cxlLate;
+      : rowOf.penaltyKind === 'CLEANLINESS'
+        ? schedule.cleanliness
+        : trip.startAtMs - ev.requestedAtMs > POLICY.hostPenaltyLeadMs
+          ? schedule.cxlEarly
+          : schedule.cxlLate;
   if (fee.currency !== trip.currency.code) {
     throw new SettlementError(
       'SETTLEMENT_CONFIG_INVALID',

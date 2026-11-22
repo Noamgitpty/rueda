@@ -350,6 +350,8 @@ export const CONSTRAINT_CODES: Readonly<Record<string, readonly [string, DbBusin
   ],
   leg_release_insurer_inactive: [SQLSTATE.objectNotInPrerequisiteState, 'FORBIDDEN'],
   leg_release_payouts_disabled: [SQLSTATE.objectNotInPrerequisiteState, 'FORBIDDEN'],
+  // US-314 (0172, ADR-192) : lot du trip retenu (réclamation, litige, gel…) relu à l'ordre et au report
+  leg_release_payout_held: [SQLSTATE.objectNotInPrerequisiteState, 'FORBIDDEN'],
   leg_funds_holding_disabled: [SQLSTATE.objectNotInPrerequisiteState, 'FORBIDDEN'],
   // lots de versement à l'hôte (0165, US-708, ADR-185) : commandes réservées au travailleur,
   // ordre LEG_RELEASE d'un item (lot READY, clé, rang, montant ; un seul ordre HOST vivant),
@@ -449,6 +451,11 @@ export const CONSTRAINT_CODES: Readonly<Record<string, readonly [string, DbBusin
   ],
   trip_cancellation_uncaptured: [SQLSTATE.integrityConstraintViolation, 'INVARIANT_VIOLATION'],
   trip_cancellation_unrefunded: [SQLSTATE.integrityConstraintViolation, 'INVARIANT_VIOLATION'],
+  // no-show et refus du véhicule déclarés (0171, US-307, ADR-191)
+  trip_cancellation_traced_shape: [SQLSTATE.checkViolation, 'INVARIANT_VIOLATION'],
+  trip_no_show_evidence_missing: [SQLSTATE.objectNotInPrerequisiteState, 'INVARIANT_VIOLATION'],
+  leg_reallocation_unsupported: [SQLSTATE.objectNotInPrerequisiteState, 'FIN_REVIEW_REQUIRED'],
+  payment_command_forbidden: [SQLSTATE.insufficientPrivilege, 'FORBIDDEN'],
   // host_ledger minimal : pénalité d'annulation de l'hôte (0129, US-709a, ADR-153)
   host_ledger_command_forbidden: [SQLSTATE.insufficientPrivilege, 'FORBIDDEN'],
   host_ledger_settlement_unknown: [SQLSTATE.integrityConstraintViolation, 'INVARIANT_VIOLATION'],

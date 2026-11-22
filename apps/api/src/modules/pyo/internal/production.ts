@@ -9,12 +9,15 @@
  */
 import { pyoConsoleLogger } from './pyo-payout.module.js';
 import type { PyoPayoutOptions } from './pyo-payout.module.js';
+import { PgHostPayoutsStore } from './host-payouts.js';
 import { PgPayoutAccountStore } from './pg-payout-account-store.js';
 import type { PyoSqlExecutor } from './pg-payout-account-store.js';
 
 export function postgresPyoAdapters(db: PyoSqlExecutor): PyoPayoutOptions {
   return {
     store: new PgPayoutAccountStore(db),
+    // US-314 : versements lus par le titulaire (core.payout_host_payouts de 0172)
+    payouts: new PgHostPayoutsStore(db),
     vault: null,
     verifier: null,
     log: pyoConsoleLogger,

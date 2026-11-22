@@ -229,6 +229,20 @@
       "line": 307,
       "kind": "drop-function",
       "justification": "US-316 (ADR-186, revues code et ux du 2026-11-20) : core.messaging_thread_read (0161) est supprimée puis recréée DANS LA MÊME TRANSACTION avec la même signature, le même propriétaire (messaging_cmd_owner) et les mêmes droits (EXECUTE app_api) ; seule une colonne de retour est ajoutée en dernier (purged, impossible par CREATE OR REPLACE). La version N appelle la fonction par SELECT * et lit ses colonnes par nom (trip-message-store.ts, threadOf) : la colonne ajoutée est ignorée, aucune colonne lue n'est retirée ni renommée (même cas que 0118, US-205b)"
+    },
+    {
+      "path": "packages/db/migrations/0171_trip_no_show_refusal.sql",
+      "line": 607,
+      "kind": "data-update",
+      "dataTables": ["core.support_manual_action_catalog"],
+      "justification": "US-307 (ADR-191) : DECLARE_NO_SHOW reçoit sa clé de saisie fermée (absentParty : GUEST, HOST ou NONE, mots seulement, jamais un montant ni un chiffre) ; une ligne de référence écrite par migration seulement ; permission, mode et sujet inchangés ; aucune ligne manual_action n'en dépend (l'action était indisponible, sans commande liée) ; la version N, qui n'envoie jamais cette action, est inchangée"
+    },
+    {
+      "path": "packages/db/migrations/0171_trip_no_show_refusal.sql",
+      "line": 613,
+      "kind": "data-update",
+      "dataTables": ["core.support_manual_action_catalog"],
+      "justification": "US-307 (ADR-191) : REFUSE_AT_PICKUP reçoit sa clé de saisie fermée (refusalReason : CLEANLINESS, SAFETY, INVALID_LICENSE, IDENTITY_NOT_VERIFIED, OTHER_DRIVER_SENT ; mots seulement, jamais un montant ni un chiffre) ; une ligne de référence écrite par migration seulement ; permission, mode et sujet inchangés ; aucune ligne manual_action n'en dépend (l'action était indisponible, sans commande liée) ; la version N, qui n'envoie jamais cette action, est inchangée"
     }
   ]
 }

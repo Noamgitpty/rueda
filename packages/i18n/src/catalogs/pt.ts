@@ -1347,6 +1347,11 @@ export const PT_MESSAGES = {
     'Olá, {first_name}. Estamos analisando a conta do anfitrião da sua reserva {booking_ref}. Sua reserva continua registrada e vamos manter você informado. Se o anfitrião cancelar, você recebe o reembolso integral. Detalhes no app.',
   'ntf.tripHostRestricted.sms.body':
     '{brand}: estamos analisando a conta do anfitrião da sua reserva {booking_ref}. Reembolso integral se o anfitrião cancelar. Detalhes no app.',
+  'ntf.tripNoShowReported.email.subject': 'Reserva {booking_ref}: o viajante relatou sua ausência',
+  'ntf.tripNoShowReported.email.body':
+    'Olá, {first_name}. O viajante da reserva {booking_ref} informou que você não compareceu à entrega. A Kmino está verificando antes de decidir. Se você estava lá, escreva para nós pela ajuda da viagem no app.',
+  'ntf.tripNoShowReported.sms.body':
+    '{brand}: o viajante da reserva {booking_ref} informou que você não apareceu. Estamos verificando. Se você estava lá, escreva pelo app.',
   'ntf.tripHostRestrictionLifted.email.subject':
     'Reserva {booking_ref}: novidade sobre seu anfitrião',
   'ntf.tripHostRestrictionLifted.email.body':
@@ -2957,6 +2962,66 @@ export const PT_MESSAGES = {
   'web.a08.empty': 'Você ainda não tem ganhos',
   'web.a08.payoutsOff':
     'Seus ganhos ficam registrados. Os pagamentos a anfitriões em {country} ainda não estão abertos; avisaremos você.',
+  // US-314 : versements de l’hôte (A08), motifs de retenue, lignes du host_ledger (ADR-192)
+  'common.payouts.readForbidden': 'Você não pode ver os pagamentos desta conta.',
+  'common.payouts.unavailable': 'Não conseguimos carregar seus pagamentos. Tente mais tarde.',
+  'web.a08.line.RELEASED_LEG_ADVANCE': 'Reembolso ao viajante adiantado pela plataforma',
+  'web.a08.line.CHARGEBACK_CLAWBACK': 'Contestação de cobrança do viajante',
+  'web.a08.line.RECEIVABLE_WRITE_OFF': 'Dívida cancelada',
+  'web.a08.line.PAYOUT_NETTING': 'Descontado de um pagamento',
+  'web.a08.line.creditHint': 'Este valor reduz o que você deve.',
+  'web.a08.payouts.title': 'Pagamentos',
+  'web.a08.payouts.schedule':
+    'Pagamos você {n} dias úteis após o fim da viagem, por volta das {time} (horário local). O primeiro pagamento para uma conta nova sai {first} dias úteis após a viagem, enquanto verificamos a conta.',
+  'web.a08.payouts.scheduleClosed':
+    'Quando os pagamentos a anfitriões abrirem em {country}, pagaremos você {n} dias úteis após o fim da viagem, por volta das {time} (horário local); o primeiro pagamento para uma conta nova, {first} dias úteis após a viagem.',
+  'web.a08.payouts.toPay': 'Valor a pagar',
+  'web.a08.payouts.scheduleUnknown':
+    'O calendário de pagamentos ainda não foi publicado em {country}.',
+  'web.a08.payouts.empty':
+    'Você ainda não tem pagamentos. Preparamos um após cada viagem concluída.',
+  'web.a08.payouts.scheduledFor': 'Previsto para {date}',
+  'web.a08.payouts.sentOn': 'Enviado em {date}',
+  'web.a08.payouts.paidOn': 'Pago em {date}',
+  'web.a08.payouts.first': 'Primeiro pagamento',
+  'web.a08.payouts.gross': 'Ganhos deste pagamento',
+  'web.a08.payouts.netted': 'Descontado por valores que você deve',
+  'web.a08.payouts.net': 'Valor do pagamento',
+  'web.a08.payouts.heldTitle': 'Pagamento retido',
+  'web.a08.payouts.loadError': 'Não conseguimos carregar seus pagamentos.',
+  'web.a08.payouts.trips': { one: '{count} viagem', other: '{count} viagens' },
+  'web.a08.payouts.status.SCHEDULED': 'Programado',
+  'web.a08.payouts.status.ON_HOLD': 'Retido',
+  'web.a08.payouts.status.NETTING': 'Em preparação',
+  'web.a08.payouts.status.READY': 'Pronto para envio',
+  'web.a08.payouts.status.ZERO_NET': 'Nada a pagar',
+  'web.a08.payouts.status.INITIATED': 'Enviado',
+  'web.a08.payouts.status.IN_TRANSIT': 'A caminho',
+  'web.a08.payouts.status.PAID': 'Pago',
+  'web.a08.payouts.status.FAILED': 'Recusado pelo banco',
+  'web.a08.payouts.hold.PAYOUTS_DISABLED':
+    'Os pagamentos a anfitriões em {country} ainda não estão abertos.',
+  'web.a08.payouts.hold.FUNDS_HOLDING_DISABLED':
+    'Este meio de pagamento ainda não está disponível em {country}.',
+  'web.a08.payouts.hold.VARIANT_B_UNAVAILABLE': 'Este meio de pagamento ainda não está disponível.',
+  'web.a08.payouts.hold.HOST_PAYOUT_RAIL_UNAVAILABLE':
+    'Nosso provedor de pagamentos ainda não pode pagar particulares em {country}.',
+  'web.a08.payouts.hold.SUBMERCHANT_INACTIVE':
+    'Nosso provedor de pagamentos ainda está verificando sua conta.',
+  'web.a08.payouts.hold.PAYOUT_ACCOUNT_MISSING':
+    'Adicione uma conta de recebimento para receber seus pagamentos.',
+  'web.a08.payouts.hold.PAYOUT_ACCOUNT_UNVERIFIED':
+    'Sua conta de recebimento ainda está em verificação.',
+  'web.a08.payouts.hold.PAYOUT_ACCOUNT_CHANGE_HOLD':
+    'Você mudou sua conta de recebimento há pouco: por segurança, o pagamento aguarda um tempo.',
+  'web.a08.payouts.hold.CHARGEBACK':
+    'O viajante contestou a cobrança com o banco dele; o pagamento aguarda a decisão.',
+  'web.a08.payouts.hold.DISPUTE':
+    'Há uma divergência aberta sobre esta viagem; o pagamento aguarda a decisão.',
+  'web.a08.payouts.hold.CLAIM':
+    'Há uma reclamação aberta sobre esta viagem; o pagamento aguarda a decisão da nossa equipe de suporte.',
+  'web.a08.payouts.hold.TRIP_NOT_COMPLETED': 'A viagem ainda não foi encerrada.',
+  'web.a08.payouts.hold.OTHER': 'O pagamento está retido; nossa equipe está analisando.',
   // US-303 : photos guidées de l’état du véhicule (ADR-179)
   'common.inspection.notFound': 'Não encontramos as fotos desta viagem.',
   'common.inspection.notOpen': 'As fotos desta viagem não estão abertas agora.',
@@ -3304,6 +3369,111 @@ export const PT_MESSAGES = {
     'Olá, {first_name}. O encontro para a devolução da reserva {booking_ref} está confirmado para {meet_at}. O local combinado está nas mensagens da reserva no {brand}.',
   'ntf.meetingReturnConfirmed.sms.body':
     '{brand}: encontro para a devolução confirmado ({booking_ref}) em {meet_at}. Local nas mensagens do app.',
+  // US-307 (ADR-191) : no-show et refus du véhicule — routes, écrans de l’hôte et du voyageur, console
+  'common.noShow.notFound': 'Não encontramos esta viagem.',
+  'common.noShow.checkinNotOpen': 'Abra primeiro a entrega do carro (“Cheguei”).',
+  'common.noShow.notAllowed': 'Esta viagem não permite mais esta declaração.',
+  'common.noShow.tooEarly': 'Ainda é cedo: espere o horário indicado para declarar.',
+  'common.noShow.windowClosed': 'O prazo para declarar terminou (72 horas após o início).',
+  'common.noShow.partyPresent': 'A outra pessoa compareceu à entrega.',
+  'common.noShow.evidenceRequired':
+    'Escreva nas mensagens da viagem e espere 15 minutos sem resposta: é a prova da sua espera.',
+  'common.noShow.pending': 'Já existe uma solicitação em andamento para esta viagem.',
+  'common.noShow.unavailable': 'Não conseguimos registrar. Verifique sua conexão e tente de novo.',
+  'web.noShow.title.HOST': 'O viajante não apareceu',
+  'web.noShow.title.GUEST': 'O anfitrião não apareceu',
+  'web.noShow.back': 'Voltar à viagem',
+  'web.noShow.link.HOST': 'O viajante não apareceu',
+  'web.noShow.link.GUEST': 'O anfitrião não apareceu',
+  'web.noShow.lead.HOST': 'Se o viajante não aparecer, você pode declarar de {d1} até {d2}.',
+  'web.noShow.lead.GUEST': 'Se o anfitrião não aparecer, você pode nos avisar de {d1} até {d2}.',
+  'web.noShow.rule.HOST':
+    'Antes, escreva nas mensagens da viagem e espere 15 minutos. Sem essa mensagem, o viajante recebe o mesmo reembolso, mas você não recebe ganhos por esta viagem.',
+  'web.noShow.rule.GUEST':
+    'Escreva nas mensagens da viagem e espere 15 minutos. A Kmino verifica seu aviso e, se confirmado, devolve tudo o que você pagou.',
+  'web.noShow.traced.yes': 'Sua mensagem e a espera de 15 minutos foram registradas.',
+  'web.noShow.traced.no': 'Ainda não há uma mensagem sua com 15 minutos de espera.',
+  'web.noShow.messagesLink': 'Ir para as mensagens da viagem',
+  'web.noShow.declare.HOST': 'Declarar que o viajante não apareceu',
+  'web.noShow.declare.GUEST': 'Avisar que o anfitrião não apareceu',
+  'web.noShow.confirmRequired': 'Selecione a caixa para confirmar que a decisão é definitiva.',
+  'web.noShow.status.AWAITING_REVIEW':
+    'Aviso registrado em {date}. A Kmino verifica antes de qualquer reembolso; o resultado aparecerá nesta página.',
+  'web.noShow.title.against': 'Aviso de não comparecimento',
+  'web.noShow.against.HOST': 'Em {date}, o viajante informou que você não compareceu à entrega.',
+  'web.noShow.against.GUEST': 'Em {date}, o anfitrião declarou que você não compareceu à entrega.',
+  'web.noShow.againstStatus.AWAITING_REVIEW':
+    'A Kmino está verificando. Se você estava lá, escreva pela ajuda da viagem.',
+  'web.noShow.againstStatus.PENDING': 'A Kmino está calculando o resultado da viagem.',
+  'web.noShow.againstStatus.SETTLED': 'Resolvido: a viagem está cancelada.',
+  'web.noShow.againstStatus.FIN_REVIEW':
+    'A Kmino está revisando o resultado. Ele aparecerá nesta página.',
+  'web.noShow.againstStatus.FAILED': 'O aviso não foi mantido: a viagem segue como previsto.',
+  'backoffice.noShow.choice.NO_SHOW_REJECT_REPORT':
+    'Rejeitar o aviso do viajante: o anfitrião estava lá',
+  'backoffice.noShow.refused.NO_SHOW_REPORT_INVALIDATED':
+    'O aviso do viajante não se sustenta mais (o anfitrião estava presente ou a viagem mudou de estado). Rejeite-o.',
+  'backoffice.noShow.refused.NO_REPORT_PENDING':
+    'Não há nenhum aviso do viajante para revisar nesta viagem.',
+  'backoffice.noShow.tripInvalid': 'Digite o identificador completo da viagem.',
+  'backoffice.noShow.confirm.title': 'Confirme antes de registrar',
+  'backoffice.noShow.confirm.trip': 'Viagem: {d1}',
+  'backoffice.noShow.confirm.irreversible':
+    'É definitivo: a viagem pode ser cancelada, com reembolso e, conforme o caso, uma penalidade. Não pode ser desfeito.',
+  'backoffice.noShow.confirm.send': 'Confirmar e registrar',
+  'backoffice.noShow.confirm.back': 'Corrigir',
+  'backoffice.noShow.next': 'Revisar',
+  'web.noShow.final':
+    'É uma decisão definitiva: a viagem é cancelada e a Kmino calcula o reembolso.',
+  'web.noShow.status.PENDING':
+    'Declaração registrada em {date}. A Kmino está calculando o reembolso.',
+  'web.noShow.status.SETTLED':
+    'Resolvido: a viagem está cancelada e o reembolso está em andamento.',
+  'web.noShow.status.FIN_REVIEW':
+    'A Kmino está revisando o reembolso. O resultado aparecerá nesta página.',
+  'web.noShow.status.FAILED':
+    'Não foi possível resolver assim. Se precisar de ajuda, escreva pela ajuda da viagem.',
+  'web.noShow.reason.GUEST_NO_SHOW': 'Motivo: o viajante não apareceu.',
+  'web.noShow.reason.HOST_NO_SHOW': 'Motivo: o anfitrião não apareceu.',
+  'web.noShow.reason.other': 'Motivo: outro cancelamento da viagem.',
+  'web.noShow.loadError': 'Não conseguimos carregar esta página.',
+  'web.noShow.retry': 'Tentar de novo',
+  'backoffice.noShow.heading': 'Não comparecimento e recusa do carro',
+  'backoffice.noShow.hint':
+    'Registre um não comparecimento ou valide uma recusa do carro na entrega. A Kmino calcula o reembolso; nunca digite um valor.',
+  'backoffice.noShow.subject': 'Viagem',
+  'backoffice.noShow.choice.NO_SHOW_GUEST': 'O viajante não apareceu',
+  'backoffice.noShow.choice.NO_SHOW_HOST':
+    'O anfitrião não apareceu: validar o aviso do viajante ou declará-lo (anexe a prova)',
+  'backoffice.noShow.choice.REFUSE_CLEANLINESS': 'Carro sujo: o viajante recusa',
+  'backoffice.noShow.choice.REFUSE_SAFETY': 'Carro perigoso: o viajante recusa',
+  'backoffice.noShow.choice.REFUSE_INVALID_LICENSE':
+    'Carteira inválida: o anfitrião não entrega o carro',
+  'backoffice.noShow.choice.REFUSE_IDENTITY_NOT_VERIFIED':
+    'Identidade não verificada: o anfitrião não entrega o carro',
+  'backoffice.noShow.choice.REFUSE_OTHER_DRIVER_SENT':
+    'Veio outra pessoa: o anfitrião não entrega o carro',
+  'backoffice.noShow.evidenceHint':
+    'Identificadores das provas, separados por espaços. Sem prova, uma recusa por carteira conta como cancelamento do anfitrião.',
+  'backoffice.noShow.settleNote':
+    'O reembolso e a penalidade do anfitrião são calculados depois. Acompanhe em “Cancelamentos”.',
+  'backoffice.noShow.record': 'Registrar',
+  'backoffice.noShow.recorded': 'Solicitação registrada. O reembolso está sendo calculado.',
+  'backoffice.noShow.refused.NO_SHOW_TOO_EARLY':
+    'Cedo demais: o tempo de espera ainda não terminou.',
+  'backoffice.noShow.refused.NO_SHOW_WINDOW_CLOSED':
+    'Prazo vencido: mais de 72 horas desde o início.',
+  'backoffice.noShow.refused.NO_SHOW_PARTY_PRESENT': 'Essa pessoa compareceu à entrega.',
+  'backoffice.noShow.refused.NO_SHOW_PARTY_REQUIRED': 'Escolha quem não apareceu.',
+  'backoffice.noShow.refused.REFUSAL_REASON_REQUIRED': 'Escolha o motivo da recusa.',
+  'backoffice.noShow.refused.REFUSAL_AFTER_CHECKIN':
+    'O viajante já validou a entrega: abra um incidente.',
+  'backoffice.noShow.refused.CHECKIN_NOT_OPEN': 'A entrega ainda não está aberta.',
+  'backoffice.noShow.refused.TRIP_TRANSITION_FORBIDDEN': 'O estado da viagem não permite mais.',
+  'backoffice.noShow.refused.CANCELLATION_PENDING':
+    'Já existe uma solicitação em andamento para esta viagem.',
+  'backoffice.noShow.refused.SELF_FORBIDDEN': 'Você não pode agir sobre uma viagem sua.',
+  'backoffice.noShow.refused.NOT_FOUND': 'Não encontramos esta viagem.',
   'ntf.tripAtRiskHost.email.subject': 'Reserva {booking_ref}: o carro ainda não voltou',
   'ntf.tripAtRiskHost.email.body':
     'Olá, {first_name}. Sua reserva {booking_ref} começa em {start_at}, mas a viagem anterior com este carro ainda não terminou: a devolução está atrasada. Nossa equipe vai entrar em contato para ver as opções com o viajante. Você pode nos escrever pela reserva no app.',

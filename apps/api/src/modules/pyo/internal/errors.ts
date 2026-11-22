@@ -8,7 +8,8 @@
  * `HOST_KYC_REQUIRED` (US-123). PROPOSÉS (à reporter dans 16 A.8, ADR-180) :
  * `PAYOUT_ACCOUNT_STATE`, `PAYOUT_ACCOUNT_SAVED`, `PAYOUT_MANAGE_FORBIDDEN`,
  * `PAYOUT_ACCOUNT_INVALID`, `PAYOUT_RAIL_UNSUPPORTED`, `PAYOUT_HOLDER_MISMATCH`,
- * `PAYOUT_VAULT_UNAVAILABLE`, `PAYOUT_ACCOUNT_UNAVAILABLE`.
+ * `PAYOUT_VAULT_UNAVAILABLE`, `PAYOUT_ACCOUNT_UNAVAILABLE`. US-314 (ADR-192, PROPOSÉS) :
+ * `PAYOUTS_READ_FORBIDDEN`, `PAYOUTS_UNAVAILABLE` (versements de l'hôte, A08).
  */
 import { HttpException } from '@nestjs/common';
 
@@ -30,6 +31,9 @@ export const PYO_MESSAGES = {
     status: 503,
     messageKey: 'common.payoutAccount.railUnavailable',
   },
+  // US-314 (ADR-192) : versements lus par le titulaire (A08)
+  PAYOUTS_READ_FORBIDDEN: { status: 403, messageKey: 'common.payouts.readForbidden' },
+  PAYOUTS_UNAVAILABLE: { status: 503, messageKey: 'common.payouts.unavailable' },
 } as const;
 
 export type PyoCode = keyof typeof PYO_MESSAGES;
