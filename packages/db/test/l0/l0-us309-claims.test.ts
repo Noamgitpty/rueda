@@ -601,11 +601,14 @@ describe.each(COUNTRIES)(
         payTx(client, { worker: 'payment_command', deploymentEnv: 'test' }, async (tx) => {
           expect(await goLive(tx, 'payouts_enabled', c.country)).toBe(false);
           const psp = await insertAccount(tx, { country: c.country });
-          // calendrier des jours ouvrés du pays (un férié suffit à le rendre présent, fixture 9921)
-          await tx.query('SELECT test_fixture.us708_holiday($1, $2::date)', [
-            c.country,
-            '2032-01-01',
-          ]);
+          // calendrier des jours ouvrés propre au test (un férié de 2032 suffit à le rendre
+          // présent) : version posée très au-dessus de toute version validée par un autre fichier
+          // L0 (fixture 9909 ; instabilité du 2026-11-22 : version dépassée ⇒ CALENDAR_MISSING)
+          const pinned = await tx.query<{ v: number }>(
+            'SELECT test_fixture.us309_pinned_holiday($1, $2::date) AS v',
+            [c.country, '2032-01-01'],
+          );
+          expect(pinned.rows[0]?.v).toBeGreaterThan(1_000_000);
           const ready = async (): Promise<string> => {
             const trip = await insertTrip(tx, c);
             const { operation_id: op } = await recordOperation(tx, {
@@ -652,6 +655,7 @@ describe.each(COUNTRIES)(
             )
           ).rows[0]!.id;
           const p1 = await prepare(before);
+          expect(p1['outcome']).toBe('PREPARED');
           expect(p1['hold_reasons']).toEqual(expect.arrayContaining(['CLAIM', 'PAYOUTS_DISABLED']));
           // décision non exécutée : toujours retenu ; exécutée : levé, les autres motifs restent
           await tx.query(
@@ -670,6 +674,7 @@ describe.each(COUNTRIES)(
           );
           const after = await ready();
           const p2 = await prepare(after);
+          expect(p2['outcome']).toBe('PREPARED');
           expect(p2['hold_reasons']).not.toContain('CLAIM');
           const caseAfter = await claimCase(tx, c, after, null, 'TRIP');
           const claimAfter = (

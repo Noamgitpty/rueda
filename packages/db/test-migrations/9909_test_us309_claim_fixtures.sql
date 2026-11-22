@@ -421,6 +421,30 @@ AS $fn$
   SELECT i.id, i.status, i.provider_ref FROM core.claim_insurer_declaration AS i WHERE i.id = p_id
 $fn$;
 
+-- Calendrier des jours ouvrés propre au test (instabilité du 2026-11-22) : core.payout_business_day
+-- relit à chaque instruction la DERNIÈRE version validée du calendrier du pays ; les fichiers L0
+-- « ouverts » (US-708, US-709, US-314) en valident une nouvelle (test_fixture.us708_holiday : max + 1)
+-- à tout moment. Une version posée à max + 1 par la transaction du test pouvait donc être dépassée
+-- entre la pose et la préparation (CALENDAR_MISSING, lot absent). Ici la version est posée très
+-- au-dessus (max + 1 000 000) dans la transaction du test, jamais validée (annulée avec elle) :
+-- aucune version validée par un autre fichier ne la dépasse, et aucun autre test ne la voit.
+CREATE FUNCTION test_fixture.us309_pinned_holiday(p_country text, p_date date)
+  RETURNS integer
+  LANGUAGE plpgsql
+  SECURITY DEFINER
+  SET search_path = pg_catalog, pg_temp
+AS $fn$
+DECLARE
+  v_version integer;
+BEGIN
+  SELECT COALESCE(pg_catalog.max(h.version), 0) + 1000000 INTO v_version
+    FROM core.config_holiday_calendar AS h WHERE h.country_code::text = p_country;
+  INSERT INTO core.config_holiday_calendar (country_code, date, name, version)
+  VALUES (p_country, p_date, 'Fixture US-309', v_version);
+  RETURN v_version;
+END
+$fn$;
+
 REVOKE ALL ON FUNCTION
   test_fixture.us309_returned(uuid),
   test_fixture.us309_set_status(uuid, text),
@@ -443,7 +467,8 @@ REVOKE ALL ON FUNCTION
   test_fixture.us309_evidence_file(uuid),
   test_fixture.us309_insert_declaration(uuid),
   test_fixture.us309_decision_check(uuid),
-  test_fixture.us309_declaration_by_id(uuid)
+  test_fixture.us309_declaration_by_id(uuid),
+  test_fixture.us309_pinned_holiday(text, date)
 FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION
   test_fixture.us309_returned(uuid),
@@ -467,5 +492,6 @@ GRANT EXECUTE ON FUNCTION
   test_fixture.us309_evidence_file(uuid),
   test_fixture.us309_insert_declaration(uuid),
   test_fixture.us309_decision_check(uuid),
-  test_fixture.us309_declaration_by_id(uuid)
+  test_fixture.us309_declaration_by_id(uuid),
+  test_fixture.us309_pinned_holiday(text, date)
 TO app_worker, app_api;
