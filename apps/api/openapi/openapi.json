@@ -17833,6 +17833,160 @@
           }
         }
       }
+    },
+    "/trips/{tripId}/traffic-charges/preview": {
+      "post": {
+        "operationId": "previewTripTrafficCharge",
+        "tags": ["clm"],
+        "summary": "Récapitulatif AVANT l'envoi d'une amende, d'un péage ou d'une fourrière (revue ux n° 1) : mêmes contrôles que la déclaration (partie, délai du pays, période du trip, pièce, frais du pays) ; montant payé, frais de gestion et total refacturé au voyageur calculés par la base ; RIEN n'est écrit et le requestId n'est pas consommé ; l'hôte confirme ensuite par POST /trips/{tripId}/traffic-charges avec le même corps",
+        "parameters": [
+          {
+            "name": "tripId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TripTrafficChargeRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Récapitulatif calculé par la base (aucune écriture) : débit séparé sur la carte du loyer après confirmation",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TripTrafficChargePreview"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Corps invalide (clé inconnue, identifiant, montant, nature ou date mal formés) ou requestId déjà pris par une autre déclaration",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "REQUEST_INVALID"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthRequired"
+          },
+          "404": {
+            "description": "Trip inconnu, d'une autre personne, partie sans droit ou identifiant mal formé : même réponse (17 §2.3 point 5)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "TRIP_CLAIM_NOT_FOUND"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Trip non terminé (aucun retour)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "TRAFFIC_TRIP_NOT_ENDED"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "415": {
+            "$ref": "#/components/responses/NotJson"
+          },
+          "422": {
+            "description": "Délai dépassé (deadlineAt), fait hors de la période du trip, pièce absente de la série TRAFFIC ou déjà utilisée",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "enum": [
+                        "TRAFFIC_CHARGE_DEADLINE_PASSED",
+                        "TRAFFIC_OUTSIDE_TRIP",
+                        "TRAFFIC_EVIDENCE_REQUIRED"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Délai ou frais du pays absents (fail-closed), ou base injoignable : rien n'est écrit",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "enum": ["TRAFFIC_TERMS_UNKNOWN", "TRIP_CLAIM_UNAVAILABLE"]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -29766,6 +29920,60 @@
                 }
               }
             }
+          }
+        }
+      },
+      "TripTrafficChargePreview": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "kind",
+          "occurredAt",
+          "currency",
+          "feeBps",
+          "amountMinor",
+          "adminFeeMinor",
+          "totalMinor",
+          "deadlineAt",
+          "chargedBy"
+        ],
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": ["TOLL", "FINE", "IMPOUND"]
+          },
+          "occurredAt": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}[.][0-9]{3}Z$"
+          },
+          "currency": {
+            "type": "string",
+            "pattern": "^[A-Z]{3}$"
+          },
+          "feeBps": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 10000
+          },
+          "amountMinor": {
+            "type": "string",
+            "pattern": "^(0|[1-9][0-9]{0,17})$"
+          },
+          "adminFeeMinor": {
+            "type": "string",
+            "pattern": "^(0|[1-9][0-9]{0,17})$"
+          },
+          "totalMinor": {
+            "type": "string",
+            "pattern": "^(0|[1-9][0-9]{0,17})$"
+          },
+          "deadlineAt": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}[.][0-9]{3}Z$"
+          },
+          "chargedBy": {
+            "type": "string",
+            "const": "SEPARATE_CARD_CHARGE"
           }
         }
       }

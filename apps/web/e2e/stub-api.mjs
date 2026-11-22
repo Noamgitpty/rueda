@@ -3430,6 +3430,7 @@ async function noShowRoute(req, res, url) {
 // une photo dans la série libre (le navigateur de la CI n'a pas de caméra). Routes du double :
 // aide du trip et demande d'aide (voyageur), séries `incident` (voyageur, IN_PROGRESS / OVERDUE) et
 // `traffic` (titulaire, trip rendu), `POST /trips/{id}/incidents`, `GET /trips/{id}/claims` et
+// `POST /trips/{id}/traffic-charges/preview` (récapitulatif, rien d'écrit ; revue ux n° 1) et
 // `POST /trips/{id}/traffic-charges` (titulaire ; délai du double : fin + 120 j ; frais de gestion
 // de 500 bps arrondis comme 08 BR-PRICE-14, montants rendus en chaînes), trip vu par l'hôte
 // (`GET /host/accounts/{orgId}/trips/{tripId}`). Toute autre session ⇒ 404 (comme l'API).
@@ -3470,6 +3471,8 @@ async function p2pRoute(req, res, url) {
       host: url.searchParams.get('host') ?? '',
       status: url.searchParams.get('status') ?? 'IN_PROGRESS',
       theft: url.searchParams.get('theft') === 'yes',
+      // numéro de l'assistance de l'assureur du pays configuré (`insurer=`, E.164 fictif) ; absent : null
+      insurer: url.searchParams.get('insurer') || null,
       series: { incident: new Map(), traffic: new Map() },
       captures: new Map(),
       cases: new Map(),
@@ -3519,7 +3522,7 @@ async function p2pRoute(req, res, url) {
     });
   }
   const m =
-    /^\/trips\/([0-9a-f-]{36})\/(help|help-requests|incidents|claims|traffic-charges|inspections\/(incident|traffic)(\/captures|\/photos|\/submit)?)$/.exec(
+    /^\/trips\/([0-9a-f-]{36})\/(help|help-requests|incidents|claims|traffic-charges|traffic-charges\/preview|inspections\/(incident|traffic)(\/captures|\/photos|\/submit)?)$/.exec(
       path,
     );
   if (m === null || !p2pTrips.has(m[1])) return false;
@@ -3531,7 +3534,11 @@ async function p2pRoute(req, res, url) {
   if (what === 'help' || what === 'help-requests') {
     if (role !== 'GUEST') return err(res, 404, 'TRIP_NOT_FOUND', 'common.trips.notFound');
     if (what === 'help' && req.method === 'GET') {
-      return json(res, 200, { tripId: m[1], role: 'GUEST', help: helpView() });
+      return json(res, 200, {
+        tripId: m[1],
+        role: 'GUEST',
+        help: { ...helpView(), insurerAssistancePhone: t.insurer },
+      });
     }
     if (what !== 'help-requests' || req.method !== 'POST') return false;
     const b = await readBody(req);
@@ -3674,7 +3681,7 @@ async function p2pRoute(req, res, url) {
       })),
     });
   }
-  if (what === 'traffic-charges' && req.method === 'POST') {
+  if ((what === 'traffic-charges' || what === 'traffic-charges/preview') && req.method === 'POST') {
     const b = await readBody(req);
     if (
       b === null ||
@@ -3705,6 +3712,19 @@ async function p2pRoute(req, res, url) {
     const amount = BigInt(b.amountMinor);
     // frais du double : roundHalfUp(montant × 500 / 10 000) (08 BR-PRICE-15, BR-PRICE-14)
     const fee = (2n * amount * 500n + 10000n) / 20000n;
+    if (what === 'traffic-charges/preview') {
+      return json(res, 200, {
+        kind: b.kind,
+        occurredAt: new Date(at).toISOString(),
+        currency: MARKET.currency,
+        feeBps: 500,
+        amountMinor: amount.toString(),
+        adminFeeMinor: fee.toString(),
+        totalMinor: (amount + fee).toString(),
+        deadlineAt: P2P_DEADLINE,
+        chargedBy: 'SEPARATE_CARD_CHARGE',
+      });
+    }
     const charge = {
       id: uuid(),
       kind: b.kind,

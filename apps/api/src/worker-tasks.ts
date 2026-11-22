@@ -372,7 +372,7 @@ export function registerWorkerTasks(registry: BusRegistry, deps: WorkerTaskDeps)
   // séparé du voyageur NOTIFIÉ (débité par mit_charge_scheduler, jamais la caution), franchise de
   // l'hôte au host_ledger, déclaration à l'assureur journalisée ; AUCUN port d'assureur en
   // production avant le lot C (`null` : rien n'est envoyé, l'ops transmet la déclaration)
-  registerClaimDecisionExecutor(registry, deps.transactions, deps.log, null);
+  registerClaimDecisionExecutor(registry, deps.transactions, deps.log, null, alerts);
 
   // US-701 (ADR-169) : ré-autorisation de la caution avant l'échéance (rail a) ; refusée ⇒ ops,
   // sans débit. Aucun connecteur en production avant le lot C : rien n'est envoyé

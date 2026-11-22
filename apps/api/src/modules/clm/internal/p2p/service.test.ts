@@ -181,6 +181,93 @@ describe('US-318 — issues de la base', () => {
       ).declareTrafficCharge(Buffer.alloc(32), ID, input),
     ).rejects.toMatchObject({ code: 'TRIP_CLAIM_UNAVAILABLE' });
   });
+
+  it('récapitulatif (revue ux n° 1) : appel en mode aperçu, montants de la base servis tels quels ; issue autre que PREVIEW ⇒ refus traduit ; forme inattendue ⇒ 503', async () => {
+    const seen: boolean[] = [];
+    const store = (outcome: string, body: Record<string, unknown> | null): TripClaimsStore => ({
+      reportIncident: () => Promise.reject(new Error('non')),
+      declareTrafficCharge: (_p, _t, _i, preview) => {
+        seen.push(preview);
+        return Promise.resolve({ outcome, chargeId: null, body });
+      },
+      hostClaims: () => Promise.resolve(null),
+    });
+    const input = {
+      requestId: ID,
+      kind: 'TOLL',
+      occurredAt: ISO,
+      amountMinor: '25010',
+      fileId: ID,
+    };
+    const body = {
+      amountMinor: '25010',
+      adminFeeMinor: '1251',
+      totalMinor: '26261',
+      currency: 'XTB',
+      feeBps: 500,
+      deadlineAt: '2031-10-12T10:00:00.000Z',
+    };
+    const ok = await new TripClaimsService(store('PREVIEW', body)).previewTrafficCharge(
+      Buffer.alloc(32),
+      ID,
+      input,
+    );
+    expect(seen).toEqual([true]);
+    expect(ok).toEqual({
+      kind: 'TOLL',
+      occurredAt: ISO,
+      currency: 'XTB',
+      feeBps: 500,
+      amountMinor: '25010',
+      adminFeeMinor: '1251',
+      totalMinor: '26261',
+      deadlineAt: '2031-10-12T10:00:00.000Z',
+      chargedBy: 'SEPARATE_CARD_CHARGE',
+    });
+    // la déclaration elle-même n'est jamais un aperçu
+    const declared = new TripClaimsService(
+      store('DECLARED', { ...body, deadlineAt: '2031-10-12T10:00:00.000Z' }),
+    );
+    await declared.declareTrafficCharge(Buffer.alloc(32), ID, input).catch(() => undefined);
+    expect(seen.at(-1)).toBe(false);
+    await expect(
+      new TripClaimsService(store('TRAFFIC_OUTSIDE_TRIP', null)).previewTrafficCharge(
+        Buffer.alloc(32),
+        ID,
+        input,
+      ),
+    ).rejects.toMatchObject({ code: 'TRAFFIC_OUTSIDE_TRIP' });
+    await expect(
+      new TripClaimsService(
+        store('TRAFFIC_CHARGE_DEADLINE_PASSED', { deadlineAt: '2031-10-12T10:00:00.000Z' }),
+      ).previewTrafficCharge(Buffer.alloc(32), ID, input),
+    ).rejects.toMatchObject({
+      code: 'TRAFFIC_CHARGE_DEADLINE_PASSED',
+      response: expect.objectContaining({ deadlineAt: '2031-10-12T10:00:00.000Z' }),
+    });
+    // une déclaration enregistrée à la place d'un aperçu : jamais servie comme récapitulatif
+    await expect(
+      new TripClaimsService(store('DECLARED', body)).previewTrafficCharge(
+        Buffer.alloc(32),
+        ID,
+        input,
+      ),
+    ).rejects.toMatchObject({ code: 'TRIP_CLAIM_UNAVAILABLE' });
+    for (const bad of [
+      { ...body, totalMinor: 26261 },
+      { ...body, currency: 'xtb' },
+      { ...body, feeBps: '500' },
+      { ...body, deadlineAt: null },
+    ]) {
+      await expect(
+        new TripClaimsService(store('PREVIEW', bad)).previewTrafficCharge(
+          Buffer.alloc(32),
+          ID,
+          input,
+        ),
+      ).rejects.toMatchObject({ code: 'TRIP_CLAIM_UNAVAILABLE' });
+    }
+  });
 });
 
 describe('US-318 — vue des sinistres du trip (lecture stricte)', () => {

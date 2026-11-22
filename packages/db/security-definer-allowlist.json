@@ -2889,7 +2889,7 @@
       "story": "US-318"
     },
     {
-      "signature": "core.claim_cmd_declare_traffic_charge(bytea,uuid,uuid,text,timestamp with time zone,bigint,uuid)",
+      "signature": "core.claim_cmd_declare_traffic_charge(bytea,uuid,uuid,text,timestamp with time zone,bigint,uuid,boolean)",
       "family": "cmd_hold",
       "owner": "cmd_hold_owner",
       "execute": ["app_api"],
@@ -2953,6 +2953,13 @@
     },
     {
       "signature": "core.claim_cmd_defer_traffic_charge(uuid,text)",
+      "family": "cmd_money",
+      "owner": "cmd_money_owner",
+      "execute": ["app_worker"],
+      "story": "US-318"
+    },
+    {
+      "signature": "core.claim_cmd_lock_theft_declaration(uuid)",
       "family": "cmd_money",
       "owner": "cmd_money_owner",
       "execute": ["app_worker"],

@@ -32,7 +32,22 @@ US-306 escalade un trip non rendu jusqu'à T+24 h (plainte pré-remplie remise �
 - Frais de gestion forfaitaires ou plafonnés d'office : Turo prend un pourcentage sans plafond ; plafond renvoyé au fondateur.
 - Débit immédiat sans préavis : contraire aux règles des réseaux d'US-703.
 
+## Reprise après les revues (2026-11-22)
+
+- **Récapitulatif avant l'envoi** (ux n° 1) : `POST /trips/{tripId}/traffic-charges/preview` → `core.claim_cmd_declare_traffic_charge(…, p_preview => true)` : mêmes contrôles, récapitulatif calculé par la base (montant, frais, total refacturé, jambes), rien n'est écrit ni l'identifiant de requête consommé ; l'hôte confirme ensuite (même corps, même identifiant).
+- **Travailleur** (code n° 1 à 3) : chaque erreur de la base est journalisée par son SQLSTATE et alertée (`CLAIM_P2P_FAILED`, P1, étape et SQLSTATE) ; refacturation repoussée de 15 min au plus 5 fois, puis BLOCKED `RETRY_EXHAUSTED` (colonne `failed_attempts`), alertée `CLAIM_TRAFFIC_BLOCKED` comme `NO_CARD_TENDER` ; les passes d'US-309 et d'US-318 sont isolées.
+- **Déclaration de vol** (argent n° 11, sécurité n° 6) : verrou et interrupteur relus AVANT l'appel au port (`core.claim_cmd_lock_theft_declaration`), appel et enregistrement dans la même transaction.
+- **Échéance** (argent n° 7) : jours ajoutés en UTC, quel que soit le fuseau de la session.
+- **Preuves** : parité SQL / oracle sur tous les cas (`traffic_fee_oracle.py`), état des refacturations lu par objet, courses à deux connexions (`l0-us318-claims-race`).
+- **Écrans** (ux n° 2 à 7) : étapes de la plainte pré-remplie, consigne « ne continuez pas à rouler » en tête, renvoi à l'urgence et à l'autorité du pays si le numéro de l'assureur manque, envoi de l'incident impossible sans photo, date et heure au format de la langue.
+- **Taxe sur les frais de gestion** (argent n° 4) : frais « toutes taxes comprises » gardés (PROPOSÉ, fail-closed) ; « TTC » ou « en sus » (ITBMS 7 % PA, IVA 10 % PY, taxe de Kmino dans PLATFORM / `tax_payable`) est à trancher par le fondateur avant l'ouverture d'un pays (OQ-BR-14, POUR_LE_FONDATEUR §7.14).
+
 ## Suites
+
+- Jambe HOST d'une refacturation TRAFFIC reportée dans les versements : ticket commun avec INCIDENTAL et DAMAGE (US-703 ne reporte un mouvement de jambe que pour RENT_SHORTFALL et NO_SHOW_RETENTION ; argent n° 8).
+- Contestation de la refacturation par le voyageur, avec notification (`EVT_POST_TRIP_CHARGE_*`), avant l'ouverture au public (comme Turo).
+- Plafond de plausibilité du montant déclaré (argent n° 9).
+- Délais des réseaux (Mastercard 30 j depuis le préavis, Visa / AMEX 90 j depuis le retour, 0169) plus courts que les 120 j de déclaration : une refacturation tardive devient une dette (comportement fail-closed d'US-703), à documenter pour l'hôte.
 
 Passage UNRETURNED et retour d'un trip UNRETURNED ; frais de 500 $ d'un véhicule déclaré volé et protection du voyageur annulée (08 BR-RETURN-04) ; numéro de plainte saisi par l'hôte ; statut de la déclaration à l'assureur dans la vue des retards (ADM-022) ; contestation d'une refacturation par le voyageur (BR-REIMB-02 / 03) et notification `EVT_POST_TRIP_CHARGE_*` ; vue de l'incident dans la console ; refacturation des péages liés à un compte Panapass (BR-TT-01) ; références visuelles des nouveaux écrans reprises de l'artefact `regression-visuelle`.
 

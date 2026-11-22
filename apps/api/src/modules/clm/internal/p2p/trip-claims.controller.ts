@@ -11,6 +11,7 @@
  * | ------------------------------------- | ------------------------------------------------------ |
  * | POST /trips/{tripId}/incidents        | 201 incident ouvert (rejeu : le même) ; 409 ; 422      |
  * | GET  /trips/{tripId}/claims           | 200 délai, frais, dossier de vol, refacturations       |
+ * | POST /trips/{tripId}/traffic-charges/preview | 200 récapitulatif calculé par la base, rien d'écrit |
  * | POST /trips/{tripId}/traffic-charges  | 201 refacturation enregistrée (rejeu : la même) ; 422  |
  *
  * Aucune heure de réception ni aucun frais n'est reçu du client.
@@ -60,6 +61,12 @@ export class TripClaimsController {
   @Get(':tripId/claims')
   async view(@Req() request: Req, @Param('tripId') tripId: string) {
     return this.claims.view(proofOf(request), tripOf(tripId));
+  }
+
+  @Post(':tripId/traffic-charges/preview')
+  @HttpCode(200)
+  async trafficChargePreview(@Req() request: Req, @Param('tripId') tripId: string) {
+    return this.claims.previewTrafficCharge(proofOf(request), tripOf(tripId), bodyOf(request));
   }
 
   @Post(':tripId/traffic-charges')

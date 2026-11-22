@@ -83,32 +83,45 @@ for (const language of LANGUAGES) {
         'tel:911',
       );
       await expect(main).toContainText(t('web.help.roadside.inApp'));
-      await expect(main).not.toContainText(/\+[0-9]{7,}/);
-      await expect(page.locator('[data-testid="s17-incident-stop"]')).toHaveText(
-        t('web.incident.stopDriving'),
+      // revue ux n° 3 : sans numéro de l'assureur, renvoi à l'urgence et à l'autorité DU PAYS
+      await expect(page.locator('[data-testid="s17-incident-roadsideFallback"]')).toHaveText(
+        t('web.help.roadside.useEmergency', {
+          number: '911',
+          authority: t('common.help.authority.attt'),
+        }),
       );
+      await expect(main).not.toContainText(/\+[0-9]{7,}/);
+      const stop = page.locator('[data-testid="s17-incident-stop"]');
+      await expect(stop).toHaveText(t('web.incident.stopDriving'));
+      // revue ux n° 4 : la consigne vient AVANT les numéros, dans le premier écran à 360 px
+      const stopBox = await stop.boundingBox();
+      const numbersBox = await page.locator('[data-testid="s17-incident-numbers"]').boundingBox();
+      expect(stopBox).not.toBeNull();
+      expect(stopBox!.y).toBeLessThan(numbersBox!.y);
+      expect(stopBox!.y + stopBox!.height).toBeLessThanOrEqual(page.viewportSize()!.height);
       // capture en direct seulement : aucun sélecteur de fichier
       await expect(page.locator('input[type="file"]')).toHaveCount(0);
       await expect(page.locator('[data-testid="s17-incident-take"]')).toBeVisible();
       await expectMobileFriendly(page);
       await expectAccessible(page, { include: null });
 
-      // réponses obligatoires
-      await page.locator('[data-testid="s17-incident-submit"]').click();
-      await expect(main).toContainText(t('web.incident.answerRequired'));
-      // sans photo : refus de l'API annoncé, rien d'enregistré
-      await page.locator('[data-testid="s17-incident-third-party-yes"]').check();
-      await page.locator('[data-testid="s17-incident-police-no"]').check();
-      await page.locator('[data-testid="s17-incident-submit"]').click();
-      await expect(page.locator('[data-testid="s17-incident-error"]')).toHaveText(
-        t('common.tripClaims.incidentPhotosRequired'),
+      // revue ux n° 7 : sans photo, l'envoi est inactif et la consigne dit pourquoi
+      const submit = page.locator('[data-testid="s17-incident-submit"]');
+      await expect(submit).toBeDisabled();
+      await expect(page.locator('[data-testid="s17-incident-need-photo"]')).toHaveText(
+        t('web.incident.needPhoto'),
       );
+      await expect(submit).toHaveAttribute('aria-describedby', 's17-incident-submit-hint');
 
       // une photo reçue (heure serveur) : l'incident est enregistré
       const photo = await fetch(`${API}/__e2e/p2p/photo?trip=${tripId}&kind=incident`);
       expect(photo.status).toBe(200);
       await page.reload();
       await expect(page.locator('[data-testid="s17-incident-photos"] li')).toHaveCount(1);
+      await expect(submit).toBeEnabled();
+      // réponses obligatoires
+      await submit.click();
+      await expect(main).toContainText(t('web.incident.answerRequired'));
       await page.locator('[data-testid="s17-incident-third-party-yes"]').check();
       await page.locator('[data-testid="s17-incident-police-no"]').check();
       await page.locator('[data-testid="s17-incident-submit"]').click();
@@ -118,6 +131,28 @@ for (const language of LANGUAGES) {
         t('web.incident.sentAt', { time: i18n.dateTime(SERVER_AT, ZONE) }),
       );
       await expect(sent).toContainText(t('web.incident.sentPhotos', { count: 1 }));
+      await expectAccessible(page, { include: null });
+    });
+
+    test('assistance de l’assureur configurée pour le pays : son numéro est affiché (lien tel:)', async ({
+      page,
+      context,
+    }) => {
+      const i18n = createTranslator(getProfile(LOCALE_CONFIG, tagOf(language)));
+      const t = i18n.t.bind(i18n);
+      const guest = await signIn(context, language);
+      // numéro E.164 fictif posé dans la donnée de pays du double (jamais dans le site)
+      const insurer = '+15550100';
+      const r = await fetch(
+        `${API}/__e2e/p2p/new?guest=${guest}&host=&status=IN_PROGRESS&insurer=${encodeURIComponent(insurer)}`,
+      );
+      const { tripId } = (await r.json()) as { tripId: string };
+      await page.goto(`/trips/${tripId}/incident`);
+      const call = page.locator('[data-testid="s17-incident-roadsideCall"]');
+      await expect(call).toHaveAttribute('href', `tel:${insurer}`);
+      await expect(call).toHaveText(t('web.help.roadside.number', { number: insurer }));
+      await expect(page.locator('[data-testid="s17-incident-roadsideInApp"]')).toHaveCount(0);
+      await expect(page.locator('[data-testid="s17-incident-roadsideFallback"]')).toHaveCount(0);
       await expectAccessible(page, { include: null });
     });
 

@@ -71,7 +71,26 @@ const REPORT = `SELECT outcome, incident_id::text AS incident_id, reported_at, p
   FROM core.claim_cmd_report_incident($1, $2::uuid, $3::uuid, $4::uuid, $5, $6)`;
 const DECLARE = `SELECT outcome, charge_id::text AS charge_id, body
   FROM core.claim_cmd_declare_traffic_charge($1, $2::uuid, $3::uuid, $4, $5::timestamptz, $6::bigint,
-                                             $7::uuid)`;
+                                             $7::uuid, $8)`;
+/**
+ * Cas de l'oracle `packages/money/test/oracle/traffic_fee_oracle.py` (sortie recopiée : devise,
+ * montant, frais ; `rhu` de docs/specs/tools, 08 BR-PRICE-15 ligne 1692, BR-PRICE-14 ligne 1686),
+ * rejoués contre la fonction SQL par le récapitulatif de la déclaration (revues argent n° 3, qa
+ * n° 6) : sous la demi-unité (1 ⇒ 0, 9 ⇒ 0), demi-unité exacte vers le haut (10 ⇒ 1, 25 010 ⇒ 1 251).
+ */
+const ORACLE: Readonly<Record<string, readonly (readonly [bigint, bigint])[]>> = {
+  USD: [
+    [1230n, 62n],
+    [1000n, 50n],
+    [1n, 0n],
+  ],
+  PYG: [
+    [25010n, 1251n],
+    [150000n, 7500n],
+    [9n, 0n],
+    [10n, 1n],
+  ],
+};
 const HOST_VIEW = 'SELECT core.claim_host_trip_claims($1, $2::uuid) AS v';
 
 const setNow = (tx: Tx, iso: string) =>
@@ -440,9 +459,11 @@ describe.each(COUNTRIES)('US-318 — sinistres entre particuliers ($country, $cu
           at: string,
           file: string | null,
           req = uuid(),
+          preview = false,
+          amount = a.amount,
         ) =>
           tx
-            .query<Row>(DECLARE, [who, req, trip, kind, at, a.amount.toString(), file])
+            .query<Row>(DECLARE, [who, req, trip, kind, at, amount.toString(), file, preview])
             .then((r) => r.rows[0]!);
 
         // délai : fin effective (retour à END) + 120 j ; + 1 ms : refus, rien d'écrit
@@ -450,6 +471,9 @@ describe.each(COUNTRIES)('US-318 — sinistres entre particuliers ($country, $cu
         await reopen();
         const late = await declare(h, w.trip, 'FINE', plus(START, HOUR), f1.fileId);
         expect(late['outcome']).toBe('TRAFFIC_CHARGE_DEADLINE_PASSED');
+        expect(
+          (await declare(h, w.trip, 'FINE', plus(START, HOUR), f1.fileId, uuid(), true))['outcome'],
+        ).toBe('TRAFFIC_CHARGE_DEADLINE_PASSED');
         expect((late['body'] as Row)['deadlineAt']).toBe(DEADLINE);
         expect(
           (await tx.query('SELECT * FROM test_fixture.us318_traffic_charges($1)', [w.trip])).rows,
@@ -457,6 +481,30 @@ describe.each(COUNTRIES)('US-318 — sinistres entre particuliers ($country, $cu
 
         await setNow(tx, DEADLINE);
         await reopen();
+        // récapitulatif AVANT l'envoi (revue ux n° 1) : calculé par la base, rien n'est écrit,
+        // l'identifiant de requête n'est pas consommé ; parité avec l'oracle sur tous ses cas
+        for (const [amount, fee] of ORACLE[c.currency]!) {
+          const pv = await declare(h, w.trip, 'TOLL', START, f1.fileId, uuid(), true, amount);
+          expect(pv['outcome'], `${c.currency} ${amount}`).toBe('PREVIEW');
+          expect(pv['charge_id']).toBeNull();
+          expect(pv['body']).toMatchObject({
+            amountMinor: amount.toString(),
+            adminFeeMinor: fee.toString(),
+            totalMinor: (amount + fee).toString(),
+            currency: c.currency,
+            feeBps: 500,
+            deadlineAt: DEADLINE,
+            legs: {
+              HOST: amount.toString(),
+              INSURER: '0',
+              TAX_THIRD_PARTY: '0',
+              PLATFORM: fee.toString(),
+            },
+          });
+        }
+        expect(
+          (await tx.query('SELECT * FROM test_fixture.us318_traffic_charges($1)', [w.trip])).rows,
+        ).toEqual([]);
         // bornes du fait : début − 1 ms et fin + 1 ms refusés ; début et fin acceptés
         expect((await declare(h, w.trip, 'TOLL', plus(START, -1), f1.fileId))['outcome']).toBe(
           'TRAFFIC_OUTSIDE_TRIP',
@@ -553,12 +601,13 @@ describe.each(COUNTRIES)('US-318 — sinistres entre particuliers ($country, $cu
     // exécution par Kmino (travailleur payment_command), transaction annulée
     await withRole('app_worker', (client) =>
       payTx(client, { worker: 'payment_command', virtualNow: DEADLINE }, async (tx) => {
-        const due = (
-          await tx.query<{ id: string }>(
-            'SELECT traffic_charge_id::text AS id FROM core.claim_traffic_charges_due(100)',
-          )
-        ).rows.map((r) => r.id);
-        expect(due).toEqual(expect.arrayContaining([ids.fine, ids.toll, ids.impound]));
+        // état lu par objet du test (jamais par la file globale, revue qa n° 5)
+        const state = async (id: string): Promise<Row> =>
+          (await tx.query<Row>('SELECT * FROM test_fixture.us318_traffic_charge($1)', [id]))
+            .rows[0]!;
+        for (const id of [ids.fine, ids.toll, ids.impound]) {
+          expect(await state(id)).toMatchObject({ execution_status: 'PENDING', due: true });
+        }
         const exec = (id: string) =>
           tx
             .query<Row>('SELECT outcome, code FROM core.claim_cmd_execute_traffic_charge($1, $2)', [
@@ -597,13 +646,33 @@ describe.each(COUNTRIES)('US-318 — sinistres entre particuliers ($country, $cu
             )
           ).rows[0]!.r,
         ).toBe('DEFERRED');
-        const after = (
-          await tx.query<{ id: string }>(
-            'SELECT traffic_charge_id::text AS id FROM core.claim_traffic_charges_due(100)',
-          )
-        ).rows.map((r) => r.id);
-        expect(after).not.toContain(ids.toll);
-        expect(after).not.toContain(ids.fine);
+        expect(await state(ids.toll)).toMatchObject({
+          execution_status: 'PENDING',
+          due: false,
+          failed_attempts: 1,
+        });
+        expect(await state(ids.fine)).toMatchObject({ execution_status: 'DONE', due: false });
+        // plafond d'essais (revue code n° 2) : au 5e échec, BLOCKED RETRY_EXHAUSTED, plus jamais dû
+        const defer = async (): Promise<string> =>
+          (
+            await tx.query<{ r: string }>(
+              'SELECT core.claim_cmd_defer_traffic_charge($1, $2) AS r',
+              [ids.toll, 'EXECUTION_FAILED'],
+            )
+          ).rows[0]!.r;
+        expect([await defer(), await defer(), await defer()]).toEqual([
+          'DEFERRED',
+          'DEFERRED',
+          'DEFERRED',
+        ]);
+        expect(await defer()).toBe('BLOCKED');
+        expect(await state(ids.toll)).toMatchObject({
+          execution_status: 'BLOCKED',
+          execution_code: 'RETRY_EXHAUSTED',
+          failed_attempts: 5,
+          due: false,
+        });
+        expect(await defer()).toBe('NOT_DUE');
       }),
     );
   });

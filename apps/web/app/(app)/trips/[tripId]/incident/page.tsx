@@ -83,7 +83,13 @@ export default async function TripIncidentPage({
         <span data-testid="s17-incident-help-unavailable">{t('web.help.unavailable')}</span>
       </Banner>
     ) : (
-      <HelpNumbers i18n={i18n} help={help.help} brand={brand.name} idPrefix="s17-incident" />
+      <HelpNumbers
+        i18n={i18n}
+        help={help.help}
+        brand={brand.name}
+        idPrefix="s17-incident"
+        emergencyFallback
+      />
     );
   const warning = (
     <Banner tone="warning">
@@ -93,6 +99,7 @@ export default async function TripIncidentPage({
   if (series === null || series.viewerRole !== 'GUEST') {
     return shell(
       <>
+        {warning}
         {numbers}
         <Banner tone="danger" live="assertive">
           {t('common.tripClaims.unavailable')}
@@ -103,6 +110,7 @@ export default async function TripIncidentPage({
   if (!series.open) {
     return shell(
       <>
+        {warning}
         {numbers}
         <Banner tone="info" live="polite">
           <span data-testid="s17-incident-closed">{t('common.tripClaims.incidentNotOpen')}</span>
@@ -113,8 +121,8 @@ export default async function TripIncidentPage({
   if (!UUID.test(caseId)) {
     return shell(
       <>
-        {numbers}
         {warning}
+        {numbers}
         <Banner tone="info" live="polite">
           <span data-testid="s17-incident-no-case">
             {t('common.tripClaims.incidentCaseRequired')}
@@ -128,8 +136,8 @@ export default async function TripIncidentPage({
   }
   return shell(
     <>
-      {numbers}
       {warning}
+      {numbers}
       <section className={styles['section']} aria-labelledby="s17-incident-photos-title">
         <h2 id="s17-incident-photos-title" className={accountStyles['h2']}>
           {t('web.incident.photos.title')}
@@ -154,6 +162,7 @@ export default async function TripIncidentPage({
           caseId={caseId}
           requestId={randomUUID()}
           timezone={series.timezone}
+          photoCount={series.mine.photos.length}
         />
       </section>
     </>,

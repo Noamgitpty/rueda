@@ -787,6 +787,10 @@
       "acces": "session",
       "idor": "trip dont la session n'est pas le titulaire du compte d'hôte (voyageur, co-hôte, autre personne), inconnu ou identifiant mal formé : 404 TRIP_CLAIM_NOT_FOUND, même réponse (17 §2.3 point 5) ; la partie est celle de la session, jugée en base (core.claim_host_trip_claims, core.claim_cmd_declare_traffic_charge, 0178) ; pièce de SA série TRAFFIC de ce trip seulement ; frais, délai et jambes calculés par la base, jamais reçus ; aucune donnée nominative du voyageur ; rejeu par requestId de la même personne seulement (sinon 400) ; preuves base : l0-us318-p2p-claims"
     },
+    "POST /trips/{tripId}/traffic-charges/preview": {
+      "acces": "session",
+      "idor": "mêmes règles que POST /trips/{tripId}/traffic-charges (titulaire du compte d'hôte de la session seulement ; voyageur, co-hôte, autre personne, trip inconnu ou identifiant mal formé : 404 TRIP_CLAIM_NOT_FOUND, même réponse) ; récapitulatif calculé par la base (core.claim_cmd_declare_traffic_charge, p_preview, 0178) : rien n'est écrit ni le requestId consommé ; montants jamais reçus ; preuves base : l0-us318-p2p-claims"
+    },
     "POST /trips/{tripId}/handover/{direction}/validate": {
       "acces": "session",
       "idor": "trip d'une autre personne (ni son voyageur ni le titulaire de son compte d'hôte), inconnu, sens ou identifiant mal formé : 404 HANDOVER_NOT_FOUND, même réponse (17 §2.3 point 5) ; la partie est celle de la session, jugée en base (core.trip_handover_view, core.trip_cmd_open_checkin, core.trip_cmd_identity_check, core.trip_cmd_validate_handover, 0163) ; chaque partie écrit SA validation seulement ; le contrôle du permis est celui du seul hôte (403 HANDOVER_HOST_ONLY au voyageur) ; l'hôte ne lit du voyageur que le prénom, l'initiale du nom et l'année de naissance, au départ ; aucune heure reçue du client ; preuves base : l0-us315"

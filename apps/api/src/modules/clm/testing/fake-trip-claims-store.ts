@@ -137,6 +137,7 @@ export class FakeTripClaimsStore implements TripClaimsStore {
     proof: Buffer,
     tripId: string,
     input: TrafficChargeInput,
+    preview = false,
   ): Promise<TrafficChargeResult> {
     const t = this.trips.get(tripId);
     const hex = proof.toString('hex');
@@ -150,7 +151,8 @@ export class FakeTripClaimsStore implements TripClaimsStore {
       deadlineAt: c.deadline.toISOString(),
     });
     const old = this.charges.find((c) => c.requestId === input.requestId);
-    if (old !== undefined) {
+    // un récapitulatif ne lit ni ne consomme l'identifiant de requête (rien n'est écrit)
+    if (old !== undefined && !preview) {
       if (old.proof !== hex || old.tripId !== tripId || old.input.fileId !== input.fileId) {
         return Promise.reject(new TripClaimStoreError('rejeu', '22023'));
       }
@@ -175,6 +177,26 @@ export class FakeTripClaimsStore implements TripClaimsStore {
     }
     const bps = BigInt(t.feeBps);
     const fee = (2n * input.amountMinor * bps + 10_000n) / 20_000n;
+    if (preview) {
+      return Promise.resolve({
+        outcome: 'PREVIEW',
+        chargeId: null,
+        body: {
+          amountMinor: input.amountMinor.toString(),
+          adminFeeMinor: fee.toString(),
+          totalMinor: (input.amountMinor + fee).toString(),
+          currency: t.currency,
+          feeBps: t.feeBps,
+          deadlineAt: deadline.toISOString(),
+          legs: {
+            HOST: input.amountMinor.toString(),
+            INSURER: '0',
+            TAX_THIRD_PARTY: '0',
+            PLATFORM: fee.toString(),
+          },
+        },
+      });
+    }
     const c: Charge = {
       id: randomUUID(),
       tripId,

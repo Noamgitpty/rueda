@@ -90,6 +90,19 @@ AS $fn$
     FROM core.claim_traffic_charge AS x WHERE x.trip_id = p_trip
 $fn$;
 
+-- État d'une refacturation lu par objet (jamais par la file globale) : exécution, essais, échue
+CREATE FUNCTION test_fixture.us318_traffic_charge(p_id uuid)
+  RETURNS TABLE (execution_status text, execution_code text, failed_attempts integer, due boolean)
+  LANGUAGE sql
+  STABLE
+  SECURITY DEFINER
+  SET search_path = pg_catalog, pg_temp
+AS $fn$
+  SELECT x.execution_status, x.execution_code, x.failed_attempts,
+         x.execution_status = 'PENDING' AND x.next_check_at <= platform.now()
+    FROM core.claim_traffic_charge AS x WHERE x.id = p_id
+$fn$;
+
 -- Débit séparé d'US-703 notifié pour une refacturation
 CREATE FUNCTION test_fixture.us318_post_trip_charges(p_traffic_charge uuid)
   RETURNS TABLE (id uuid, purpose text, reason text, origin_type text, amount_minor bigint,
@@ -141,7 +154,8 @@ REVOKE ALL ON FUNCTION
   test_fixture.us318_incidents(uuid),
   test_fixture.us318_traffic_charges(uuid),
   test_fixture.us318_post_trip_charges(uuid),
-  test_fixture.us318_try_write(text, uuid)
+  test_fixture.us318_try_write(text, uuid),
+  test_fixture.us318_traffic_charge(uuid)
 FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION
   test_fixture.us318_overdue_t24h(uuid),
@@ -150,5 +164,6 @@ GRANT EXECUTE ON FUNCTION
   test_fixture.us318_incidents(uuid),
   test_fixture.us318_traffic_charges(uuid),
   test_fixture.us318_post_trip_charges(uuid),
-  test_fixture.us318_try_write(text, uuid)
+  test_fixture.us318_try_write(text, uuid),
+  test_fixture.us318_traffic_charge(uuid)
 TO app_worker, app_api;

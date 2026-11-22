@@ -458,7 +458,8 @@ describe('US-211 partie 211b — routes du contrat de location d’un trip', () 
           // sinistres d'un trip (US-318) : leur propre suite (clm/testing/trip-claims.contract)
           !d.includes(' /trips/{tripId}/incidents ') &&
           !d.includes(' /trips/{tripId}/claims ') &&
-          !d.includes(' /trips/{tripId}/traffic-charges '),
+          !d.includes(' /trips/{tripId}/traffic-charges ') &&
+          !d.includes(' /trips/{tripId}/traffic-charges/preview '),
       ),
       'statuts',
     ).toEqual([]);

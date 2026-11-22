@@ -231,3 +231,127 @@ export function tripClaimsOf(reply: ApiResult, tripId: string): TripClaimsView |
 export function feePercentText(bps: number, tag: string): string {
   return new Intl.NumberFormat(tag, { maximumFractionDigits: 2 }).format(bps / 100);
 }
+
+export interface TrafficPreview {
+  readonly kind: TrafficKind;
+  readonly occurredAt: string;
+  readonly currency: string;
+  readonly feeBps: number;
+  readonly amountMinor: string;
+  readonly adminFeeMinor: string;
+  readonly totalMinor: string;
+  readonly deadlineAt: string;
+}
+
+/**
+ * Récapitulatif d'une refacturation calculé par l'API AVANT l'envoi (200, revue ux n° 1) : montant
+ * payé, frais de gestion, total refacturé au voyageur ; `null` si la réponse est illisible.
+ */
+export function trafficPreviewOf(reply: ApiResult): TrafficPreview | null {
+  if (reply.status !== 200 || !isObj(reply.json)) return null;
+  const j = reply.json;
+  const minor = (k: string) => typeof j[k] === 'string' && MINOR.test(j[k] as string);
+  const fee = j['feeBps'];
+  if (
+    !oneOf(j['kind'], TRAFFIC_KINDS) ||
+    !isTime(j['occurredAt']) ||
+    typeof j['currency'] !== 'string' ||
+    !/^[A-Z]{3}$/.test(j['currency']) ||
+    typeof fee !== 'number' ||
+    !Number.isSafeInteger(fee) ||
+    fee < 0 ||
+    !minor('amountMinor') ||
+    !minor('adminFeeMinor') ||
+    !minor('totalMinor') ||
+    !isTime(j['deadlineAt']) ||
+    j['chargedBy'] !== 'SEPARATE_CARD_CHARGE'
+  ) {
+    return null;
+  }
+  return {
+    kind: j['kind'],
+    occurredAt: j['occurredAt'],
+    currency: j['currency'],
+    feeBps: fee,
+    amountMinor: j['amountMinor'] as string,
+    adminFeeMinor: j['adminFeeMinor'] as string,
+    totalMinor: j['totalMinor'] as string,
+    deadlineAt: j['deadlineAt'],
+  };
+}
+
+export type DatePart = 'day' | 'month' | 'year';
+
+/**
+ * Ordre jour / mois / année de la langue de la vue (Intl, jamais codé par pays) : le champ de date
+ * de l'hôte suit cet ordre (revue ux n° 6). Repli : jour, mois, année.
+ */
+export function dateOrder(tag: string): readonly DatePart[] {
+  try {
+    const parts = new Intl.DateTimeFormat(tag, {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+    }).formatToParts(new Date(Date.UTC(2033, 10, 22)));
+    const order = parts
+      .map((p) => p.type)
+      .filter((t): t is DatePart => t === 'day' || t === 'month' || t === 'year');
+    return order.length === 3 ? order : ['day', 'month', 'year'];
+  } catch {
+    return ['day', 'month', 'year'];
+  }
+}
+
+/** Exemple affiché du format de date (« dd/mm/aaaa ») à partir des lettres de la langue. */
+export function datePattern(
+  order: readonly DatePart[],
+  letters: Readonly<Record<DatePart, string>>,
+): string {
+  return order.map((p) => letters[p]).join('/');
+}
+
+/**
+ * Date saisie dans l'ordre de la langue (séparateurs / . -), jour et mois sur 1 ou 2 chiffres,
+ * année sur 4 : rend `AAAA-MM-JJ` d'une date du calendrier, sinon `null`.
+ */
+export function parseLocalDate(text: string, order: readonly DatePart[]): string | null {
+  const m = /^\s*(\d{1,4})[/.-](\d{1,4})[/.-](\d{1,4})\s*$/.exec(text);
+  if (m === null || order.length !== 3) return null;
+  const v: Partial<Record<DatePart, string>> = {};
+  order.forEach((p, i) => {
+    const part = m[i + 1];
+    if (part !== undefined) v[p] = part;
+  });
+  const { day, month, year } = v;
+  if (
+    day === undefined ||
+    month === undefined ||
+    year === undefined ||
+    !/^\d{4}$/.test(year) ||
+    day.length > 2 ||
+    month.length > 2
+  ) {
+    return null;
+  }
+  const y = Number(year);
+  const mo = Number(month);
+  const d = Number(day);
+  const date = new Date(Date.UTC(y, mo - 1, d));
+  if (
+    mo < 1 ||
+    mo > 12 ||
+    d < 1 ||
+    date.getUTCFullYear() !== y ||
+    date.getUTCMonth() !== mo - 1 ||
+    date.getUTCDate() !== d
+  ) {
+    return null;
+  }
+  return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+}
+
+/** Heure saisie sur 24 h (« 9:05 », « 21:30 ») ⇒ `HH:MM`, sinon `null`. */
+export function parseLocalTime(text: string): string | null {
+  const m = /^\s*([01]?\d|2[0-3])[:h.]([0-5]\d)\s*$/.exec(text);
+  return m === null ? null : `${m[1]!.padStart(2, '0')}:${m[2]}`;
+}

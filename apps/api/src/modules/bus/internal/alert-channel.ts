@@ -68,6 +68,11 @@ export const ALERT_CODES = [
   // no-show (US-307, ADR-191) : signalement du voyageur sans issue, en attente de l'ops au-delà
   // du délai du pays (STALE) ou devenu inapplicable (BLOCKED) ; P2, une fois par signalement
   'TRIP_NO_SHOW_REPORT_UNRESOLVED',
+  // sinistres entre particuliers (US-318, ADR-198) : erreur de la base dans la passe du travailleur
+  // (vol présumé, déclaration à l'assureur, refacturation ; étiquette error_code = étape_SQLSTATE,
+  // P1) ; refacturation passée BLOCKED (sans carte du loyer, essais épuisés ; P1)
+  'CLAIM_P2P_FAILED',
+  'CLAIM_TRAFFIC_BLOCKED',
 ] as const;
 export type AlertCode = (typeof ALERT_CODES)[number];
 

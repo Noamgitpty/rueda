@@ -6,10 +6,15 @@
 import { describe, expect, it } from 'vitest';
 import type { ApiResult } from './api-client.ts';
 import {
+  dateOrder,
+  datePattern,
   feePercentText,
   incidentReportedOf,
   nextFreeSlot,
+  parseLocalDate,
+  parseLocalTime,
   trafficDeclaredOf,
+  trafficPreviewOf,
   tripClaimsOf,
 } from './trip-claims.ts';
 
@@ -123,5 +128,66 @@ describe('US-318 — sinistres du trip côté site', () => {
   it('pourcentage des frais pour l’affichage, dans la langue de la vue', () => {
     expect(feePercentText(500, 'es')).toBe('5');
     expect(feePercentText(250, 'fr')).toBe('2,5');
+  });
+});
+
+describe('US-318, revue ux n° 6 — date dans l’ordre de la langue de la vue', () => {
+  it('ordre jour / mois / année tiré d’Intl, repli jour-mois-année', () => {
+    expect(dateOrder('fr')).toEqual(['day', 'month', 'year']);
+    expect(dateOrder('en-US')).toEqual(['month', 'day', 'year']);
+    expect(dateOrder('xx-invalid-@@')).toEqual(['day', 'month', 'year']);
+  });
+  it('exemple affiché avec les lettres de la langue', () => {
+    expect(datePattern(['day', 'month', 'year'], { day: 'jj', month: 'mm', year: 'aaaa' })).toBe(
+      'jj/mm/aaaa',
+    );
+  });
+  it('date lue dans l’ordre donné, séparateurs / . -, calendrier vérifié', () => {
+    const dmy = ['day', 'month', 'year'] as const;
+    const mdy = ['month', 'day', 'year'] as const;
+    expect(parseLocalDate('7/4/2057', dmy)).toBe('2057-04-07');
+    expect(parseLocalDate('07.04.2057', dmy)).toBe('2057-04-07');
+    expect(parseLocalDate('4-7-2057', mdy)).toBe('2057-04-07');
+    expect(parseLocalDate('29/02/2056', dmy)).toBe('2056-02-29');
+    for (const bad of [
+      '30/02/2057',
+      '31/04/2057',
+      '7/13/2057',
+      '2057/04/07',
+      '7/4/57',
+      '',
+      'a/b/c',
+    ]) {
+      expect(parseLocalDate(bad, dmy), bad).toBeNull();
+    }
+  });
+  it('heure 24 h', () => {
+    expect(parseLocalTime('9:05')).toBe('09:05');
+    expect(parseLocalTime('21h30')).toBe('21:30');
+    expect(parseLocalTime('23:59')).toBe('23:59');
+    for (const bad of ['24:00', '9:5', '12:60', 'noon', ''])
+      expect(parseLocalTime(bad), bad).toBeNull();
+  });
+});
+
+describe('US-318, revue ux n° 1 — récapitulatif rendu par l’API', () => {
+  const body = {
+    kind: 'FINE',
+    occurredAt: '2057-04-07T10:00:00.000Z',
+    currency: 'XTS',
+    feeBps: 500,
+    amountMinor: '1230',
+    adminFeeMinor: '62',
+    totalMinor: '1292',
+    deadlineAt: '2057-08-08T10:00:00.000Z',
+    chargedBy: 'SEPARATE_CARD_CHARGE',
+  };
+  it('lu tel quel, montants en chaînes', () => {
+    expect(trafficPreviewOf(ok(body))).toMatchObject({ totalMinor: '1292', feeBps: 500 });
+  });
+  it('forme inattendue ⇒ null', () => {
+    expect(trafficPreviewOf(ok({ ...body, totalMinor: 1292 }))).toBeNull();
+    expect(trafficPreviewOf(ok({ ...body, chargedBy: 'DEPOSIT' }))).toBeNull();
+    expect(trafficPreviewOf(ok(body, 201))).toBeNull();
   });
 });

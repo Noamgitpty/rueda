@@ -55,13 +55,14 @@
 --   réappliquer core.payout_batch_hold_reasons de 0175 (sous cmd_money_owner) et
 --     core.trip_inspection_party de 0158 (sous cmd_hold_owner) ;
 --   DROP FUNCTION core.claim_cmd_report_incident(bytea, uuid, uuid, uuid, boolean, boolean),
---     core.claim_cmd_declare_traffic_charge(bytea, uuid, uuid, text, timestamptz, bigint, uuid),
+--     core.claim_cmd_declare_traffic_charge(bytea, uuid, uuid, text, timestamptz, bigint, uuid, boolean),
 --     core.claim_host_trip_claims(bytea, uuid), core.claim_traffic_charge_legs(bigint, integer),
 --     core.claim_theft_cases_due(integer), core.claim_cmd_open_theft_case(uuid),
 --     core.claim_cmd_close_theft_case(uuid), core.claim_theft_declarations_due(integer),
 --     core.claim_cmd_record_theft_declaration(uuid, text), core.claim_traffic_charges_due(integer),
 --     core.claim_cmd_execute_traffic_charge(uuid, uuid),
---     core.claim_cmd_defer_traffic_charge(uuid, text), core.claim_p2p_guard() ;
+--     core.claim_cmd_defer_traffic_charge(uuid, text), core.claim_cmd_lock_theft_declaration(uuid),
+--     core.claim_p2p_guard() ;
 --   DROP POLICY cmd_hold_incident_case_sel ON core.support_support_case ;
 --   DROP POLICY cmd_hold_traffic_param_read ON core.config_param_value ;
 --   DROP POLICY cmd_money_theft_overdue_sel ON core.trip_ops_overdue_case ;
@@ -220,6 +221,9 @@ CREATE TABLE core.claim_traffic_charge (
     CONSTRAINT claim_traffic_charge_charge_fk REFERENCES core.payment_post_trip_charge (id),
   executed_at               timestamptz,
   next_check_at             timestamptz NOT NULL DEFAULT platform.now(),
+  -- essais d'exécution en échec (erreur de la base) ; au 5e : BLOCKED RETRY_EXHAUSTED (revue code n° 2)
+  failed_attempts           integer     NOT NULL DEFAULT 0
+    CONSTRAINT claim_traffic_charge_attempts_range CHECK (failed_attempts BETWEEN 0 AND 5),
   CONSTRAINT claim_traffic_charge_trip_country_fk FOREIGN KEY (trip_id, country_code)
     REFERENCES core.booking_trip (id, country_code),
   -- jambes explicites (jamais un prorata) : HOST = montant payé par l'hôte, PLATFORM = frais
@@ -281,6 +285,7 @@ BEGIN
         OLD.leg_platform_minor, OLD.trip_start_at, OLD.trip_end_at, OLD.deadline_at,
         OLD.request_id, OLD.declared_at)
        AND (OLD.charge_id IS NULL OR NEW.charge_id IS NOT DISTINCT FROM OLD.charge_id)
+       AND NEW.failed_attempts >= OLD.failed_attempts
        AND (OLD.execution_status = 'PENDING'
             OR (OLD.execution_status = NEW.execution_status
                 AND NEW.executed_at IS NOT DISTINCT FROM OLD.executed_at)) THEN
@@ -339,7 +344,8 @@ GRANT SELECT, INSERT ON core.claim_traffic_charge TO cmd_hold_owner;
 CREATE POLICY cmd_hold_traffic_sel ON core.claim_traffic_charge FOR SELECT TO cmd_hold_owner
   USING (true);
 CREATE POLICY cmd_hold_traffic_ins ON core.claim_traffic_charge FOR INSERT TO cmd_hold_owner
-  WITH CHECK (execution_status = 'PENDING' AND charge_id IS NULL AND executed_at IS NULL);
+  WITH CHECK (execution_status = 'PENDING' AND charge_id IS NULL AND executed_at IS NULL
+              AND failed_attempts = 0);
 -- dossier de vol lu par l'hôte de son trip (état, déclaration à l'assureur), jamais écrit
 GRANT SELECT (trip_id, status, opened_at, closed_at, insurer_status)
   ON core.claim_theft_case TO cmd_hold_owner;
@@ -494,7 +500,9 @@ BEGIN
   SELECT t.id, t.country_code::text, t.currency::text, t.org_id, t.holder_user_id, t.status::text,
          COALESCE(t.checkin_validated_at, t.scheduled_start), v_ret, v_days,
          CASE WHEN v_ret IS NOT NULL AND v_days IS NOT NULL
-              THEN v_ret + pg_catalog.make_interval(days => v_days) END,
+              -- jours comptés en UTC, quel que soit le fuseau de la session (revue argent n° 7)
+              THEN ((v_ret AT TIME ZONE 'UTC') + pg_catalog.make_interval(days => v_days))
+                     AT TIME ZONE 'UTC' END,
          core.claim_traffic_param('traffic_charge_admin_fee_bps', t.country_code);
 END
 $fn$;
@@ -604,11 +612,14 @@ COMMENT ON FUNCTION core.claim_cmd_report_incident(bytea, uuid, uuid, uuid, bool
 -- absent), TRAFFIC_CHARGE_DEADLINE_PASSED (après fin effective + délai, à l'heure de la base),
 -- TRAFFIC_OUTSIDE_TRIP (fait hors [début effectif, fin effective] ou futur), TRAFFIC_EVIDENCE_REQUIRED
 -- (pièce absente de la série TRAFFIC du titulaire ou déjà utilisée), DECLARED, DUPLICATE. `body` :
--- montants et jambes (texte d'entiers), délai.
+-- montants et jambes (texte d'entiers), délai. `p_preview` (revue ux n° 1) : mêmes contrôles, puis
+-- PREVIEW et le récapitulatif calculé par la base (montant, frais, total refacturé, jambes) ; RIEN
+-- n'est écrit ni l'identifiant de requête consommé : l'hôte confirme ensuite par un second appel.
 CREATE FUNCTION core.claim_cmd_declare_traffic_charge(p_token_hash bytea, p_request_id uuid,
                                                       p_trip_id uuid, p_kind text,
                                                       p_occurred_at timestamptz,
-                                                      p_amount_minor bigint, p_file_id uuid)
+                                                      p_amount_minor bigint, p_file_id uuid,
+                                                      p_preview boolean)
   RETURNS TABLE (outcome text, charge_id uuid, body jsonb)
   LANGUAGE plpgsql
   VOLATILE
@@ -627,7 +638,7 @@ DECLARE
 BEGIN
   IF p_request_id IS NULL OR p_kind IS NULL OR p_kind NOT IN ('TOLL', 'FINE', 'IMPOUND')
      OR p_occurred_at IS NULL OR p_amount_minor IS NULL OR p_amount_minor <= 0
-     OR p_amount_minor > 1000000000000 OR p_file_id IS NULL THEN
+     OR p_amount_minor > 1000000000000 OR p_file_id IS NULL OR p_preview IS NULL THEN
     RAISE EXCEPTION 'refacturation : entrée invalide' USING ERRCODE = 'invalid_parameter_value';
   END IF;
   SELECT * INTO p FROM core.trip_inspection_party(p_token_hash, p_trip_id, 'TRAFFIC');
@@ -638,7 +649,7 @@ BEGIN
   PERFORM pg_catalog.pg_advisory_xact_lock(
     pg_catalog.hashtextextended('claim.traffic:' || p_request_id::text, 0));
   SELECT * INTO v_old FROM core.claim_traffic_charge AS x WHERE x.request_id = p_request_id;
-  IF v_old.id IS NOT NULL THEN
+  IF v_old.id IS NOT NULL AND NOT p_preview THEN
     IF v_old.trip_id = p.trip_id AND v_old.declared_by = p.user_id AND v_old.kind = p_kind
        AND v_old.occurred_at = p_occurred_at AND v_old.amount_minor = p_amount_minor
        AND v_old.file_id = p_file_id THEN
@@ -697,6 +708,16 @@ BEGIN
     RETURN;
   END IF;
   v_legs := core.claim_traffic_charge_legs(p_amount_minor, f.fee_bps);
+  IF p_preview THEN
+    RETURN QUERY SELECT 'PREVIEW'::text, NULL::uuid, pg_catalog.jsonb_build_object(
+      'amountMinor', p_amount_minor::text, 'adminFeeMinor', v_legs[4]::text,
+      'totalMinor', (v_legs[1] + v_legs[4])::text, 'currency', f.currency, 'feeBps', f.fee_bps,
+      'deadlineAt', pg_catalog.to_char(f.deadline_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),
+      'legs', pg_catalog.jsonb_build_object('HOST', v_legs[1]::text, 'INSURER', v_legs[2]::text,
+                                            'TAX_THIRD_PARTY', v_legs[3]::text,
+                                            'PLATFORM', v_legs[4]::text));
+    RETURN;
+  END IF;
   v_id := pg_catalog.gen_random_uuid();
   INSERT INTO core.claim_traffic_charge
          (id, trip_id, country_code, currency, org_id, declared_by, kind, occurred_at, file_id,
@@ -716,7 +737,7 @@ BEGIN
 END
 $fn$;
 COMMENT ON FUNCTION core.claim_cmd_declare_traffic_charge(bytea, uuid, uuid, text, timestamptz,
-  bigint, uuid) IS
+  bigint, uuid, boolean) IS
   'Amende, péage ou fourrière déclarés par le titulaire du compte d''hôte de la session, avec la '
   'pièce de sa série TRAFFIC, dans le délai du pays (08 BR-TT-02) ; jambes explicites, frais de '
   'gestion du pays. SECURITY DEFINER, EXECUTE app_api. US-318 (ADR-198).';
@@ -781,11 +802,11 @@ COMMENT ON FUNCTION core.claim_host_trip_claims(bytea, uuid) IS
 
 REVOKE ALL ON FUNCTION core.claim_traffic_facts(uuid),
   core.claim_cmd_report_incident(bytea, uuid, uuid, uuid, boolean, boolean),
-  core.claim_cmd_declare_traffic_charge(bytea, uuid, uuid, text, timestamptz, bigint, uuid),
+  core.claim_cmd_declare_traffic_charge(bytea, uuid, uuid, text, timestamptz, bigint, uuid, boolean),
   core.claim_host_trip_claims(bytea, uuid) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION
   core.claim_cmd_report_incident(bytea, uuid, uuid, uuid, boolean, boolean),
-  core.claim_cmd_declare_traffic_charge(bytea, uuid, uuid, text, timestamptz, bigint, uuid),
+  core.claim_cmd_declare_traffic_charge(bytea, uuid, uuid, text, timestamptz, bigint, uuid, boolean),
   core.claim_host_trip_claims(bytea, uuid) TO app_api;
 
 RESET ROLE;
@@ -804,7 +825,8 @@ CREATE POLICY cmd_money_theft_upd ON core.claim_theft_case FOR UPDATE TO cmd_mon
   USING (app.actor_kind() = 'WORKER' AND app.worker_name() = 'payment_command')
   WITH CHECK (app.actor_kind() = 'WORKER' AND app.worker_name() = 'payment_command');
 GRANT SELECT ON core.claim_traffic_charge TO cmd_money_owner;
-GRANT UPDATE (execution_status, execution_code, charge_id, executed_at, next_check_at)
+GRANT UPDATE (execution_status, execution_code, charge_id, executed_at, next_check_at,
+              failed_attempts)
   ON core.claim_traffic_charge TO cmd_money_owner;
 CREATE POLICY cmd_money_traffic_sel ON core.claim_traffic_charge FOR SELECT TO cmd_money_owner
   USING (true);
@@ -1009,6 +1031,46 @@ COMMENT ON FUNCTION core.claim_cmd_record_theft_declaration(uuid, text) IS
   'Travailleur payment_command : déclaration de vol envoyée à l''assureur (référence du port), '
   'interrupteur relu. EXECUTE app_worker. US-318 (ADR-198).';
 
+-- 3.4 bis Déclaration de vol prête à l'envoi, verrouillée, interrupteur relu AVANT l'appel au port
+-- (revues argent n° 11, sécurité n° 6) : le travailleur appelle le port puis enregistre la
+-- référence dans la MÊME transaction, sous ce verrou. Issues : READY, ALREADY_SENT, WITHDRAWN,
+-- INSURER_CONTRACT_INACTIVE, NOT_FOUND.
+CREATE FUNCTION core.claim_cmd_lock_theft_declaration(p_theft_case_id uuid)
+  RETURNS text
+  LANGUAGE plpgsql
+  VOLATILE
+  SECURITY DEFINER
+  SET search_path = pg_catalog, pg_temp
+AS $fn$
+DECLARE
+  x core.claim_theft_case%ROWTYPE;
+BEGIN
+  IF app.actor_kind() IS DISTINCT FROM 'WORKER'
+     OR app.worker_name() IS DISTINCT FROM 'payment_command' THEN
+    RAISE EXCEPTION 'claim: lock_theft_declaration reserved to the payment_command worker'
+      USING ERRCODE = 'insufficient_privilege', CONSTRAINT = 'claim_p2p_command_forbidden';
+  END IF;
+  SELECT * INTO x FROM core.claim_theft_case AS c WHERE c.id = p_theft_case_id FOR UPDATE;
+  IF x.id IS NULL THEN
+    RETURN 'NOT_FOUND';
+  END IF;
+  IF x.insurer_status = 'SENT' THEN
+    RETURN 'ALREADY_SENT';
+  END IF;
+  IF x.insurer_status = 'WITHDRAWN' OR x.status <> 'THEFT_INVESTIGATION' THEN
+    RETURN 'WITHDRAWN';
+  END IF;
+  IF NOT core.config_go_live('insurer_contract_active', x.country_code) THEN
+    RETURN 'INSURER_CONTRACT_INACTIVE';
+  END IF;
+  RETURN 'READY';
+END
+$fn$;
+COMMENT ON FUNCTION core.claim_cmd_lock_theft_declaration(uuid) IS
+  'Travailleur payment_command : déclaration de vol verrouillée et interrupteur relu avant l''appel '
+  'au port de l''assureur (même transaction que l''enregistrement). EXECUTE app_worker. US-318 '
+  '(ADR-198).';
+
 -- 3.5 Refacturations à exécuter (PENDING échues), plus anciennes d'abord
 CREATE FUNCTION core.claim_traffic_charges_due(p_limit integer)
   RETURNS TABLE (traffic_charge_id uuid)
@@ -1116,7 +1178,9 @@ COMMENT ON FUNCTION core.claim_cmd_execute_traffic_charge(uuid, uuid) IS
   'motif DELAYED_CHARGES, jambes explicites, jamais la caution). Travailleur payment_command. '
   'EXECUTE app_worker. US-318 (ADR-198).';
 
--- 3.7 Report d'une exécution en échec (erreur de la base attrapée par le travailleur) : +15 min
+-- 3.7 Report d'une exécution en échec (erreur de la base attrapée par le travailleur) : +15 min,
+-- au plus 5 essais ; au 5e échec, état terminal BLOCKED `RETRY_EXHAUSTED` (alerté par le
+-- travailleur, revue code n° 2). Issues : DEFERRED, BLOCKED, NOT_DUE.
 CREATE FUNCTION core.claim_cmd_defer_traffic_charge(p_traffic_charge_id uuid, p_code text)
   RETURNS text
   LANGUAGE plpgsql
@@ -1124,6 +1188,8 @@ CREATE FUNCTION core.claim_cmd_defer_traffic_charge(p_traffic_charge_id uuid, p_
   SECURITY DEFINER
   SET search_path = pg_catalog, pg_temp
 AS $fn$
+DECLARE
+  n integer;
 BEGIN
   IF app.actor_kind() IS DISTINCT FROM 'WORKER'
      OR app.worker_name() IS DISTINCT FROM 'payment_command' THEN
@@ -1133,15 +1199,28 @@ BEGIN
   IF p_code IS NULL OR p_code !~ '^[A-Z][A-Z0-9_]{1,63}$' THEN
     RAISE EXCEPTION 'claim: invalid code' USING ERRCODE = 'invalid_parameter_value';
   END IF;
+  SELECT c.failed_attempts + 1 INTO n FROM core.claim_traffic_charge AS c
+   WHERE c.id = p_traffic_charge_id AND c.execution_status = 'PENDING'
+   FOR UPDATE;
+  IF n IS NULL THEN
+    RETURN 'NOT_DUE';
+  END IF;
+  IF n >= 5 THEN
+    UPDATE core.claim_traffic_charge AS c
+       SET failed_attempts = 5, execution_status = 'BLOCKED', execution_code = 'RETRY_EXHAUSTED'
+     WHERE c.id = p_traffic_charge_id;
+    RETURN 'BLOCKED';
+  END IF;
   UPDATE core.claim_traffic_charge AS c
-     SET next_check_at = platform.now() + interval '15 minutes', execution_code = p_code
-   WHERE c.id = p_traffic_charge_id AND c.execution_status = 'PENDING';
-  RETURN CASE WHEN FOUND THEN 'DEFERRED' ELSE 'NOT_DUE' END;
+     SET next_check_at = platform.now() + interval '15 minutes', execution_code = p_code,
+         failed_attempts = n
+   WHERE c.id = p_traffic_charge_id;
+  RETURN 'DEFERRED';
 END
 $fn$;
 COMMENT ON FUNCTION core.claim_cmd_defer_traffic_charge(uuid, text) IS
   'Travailleur payment_command : refacturation en échec repoussée de 15 min (PROPOSÉ), code '
-  'seulement. EXECUTE app_worker. US-318 (ADR-198).';
+  'seulement ; au 5e échec BLOCKED RETRY_EXHAUSTED. EXECUTE app_worker. US-318 (ADR-198).';
 
 -- 3.8 Motifs de retenue d'un lot (0175, même signature) : corps de 0175 recopié ; le bloc CLAIM
 -- réunit désormais trois sources (US-314, US-309, US-318 : dossier de vol ouvert).
@@ -1220,12 +1299,14 @@ REVOKE ALL ON FUNCTION core.claim_theft_cases_due(integer), core.claim_cmd_open_
   core.claim_cmd_close_theft_case(uuid), core.claim_theft_declarations_due(integer),
   core.claim_cmd_record_theft_declaration(uuid, text), core.claim_traffic_charges_due(integer),
   core.claim_cmd_execute_traffic_charge(uuid, uuid),
-  core.claim_cmd_defer_traffic_charge(uuid, text) FROM PUBLIC;
+  core.claim_cmd_defer_traffic_charge(uuid, text), core.claim_cmd_lock_theft_declaration(uuid)
+  FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION core.claim_theft_cases_due(integer),
   core.claim_cmd_open_theft_case(uuid), core.claim_cmd_close_theft_case(uuid),
   core.claim_theft_declarations_due(integer), core.claim_cmd_record_theft_declaration(uuid, text),
   core.claim_traffic_charges_due(integer), core.claim_cmd_execute_traffic_charge(uuid, uuid),
-  core.claim_cmd_defer_traffic_charge(uuid, text) TO app_worker;
+  core.claim_cmd_defer_traffic_charge(uuid, text), core.claim_cmd_lock_theft_declaration(uuid)
+  TO app_worker;
 
 RESET ROLE;
 REVOKE CREATE ON SCHEMA core FROM cmd_money_owner;

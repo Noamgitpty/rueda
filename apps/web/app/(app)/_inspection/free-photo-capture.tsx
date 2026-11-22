@@ -120,6 +120,8 @@ export function FreePhotoCapture(props: FreePhotoCaptureProps) {
         deviceCapturedAt: photo.deviceCapturedAt,
       });
       if (!sent.ok) {
+        // la clé vient de la réponse de l'API (messageKey) : le refus PHOTO_DUPLICATE de la PR
+        // n° 291 (0176, empreinte déjà reçue) s'affichera avec sa clé dès sa fusion (revue ux n° 7)
         setError(sent.key);
         return;
       }

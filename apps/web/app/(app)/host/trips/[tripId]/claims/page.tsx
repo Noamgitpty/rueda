@@ -9,7 +9,13 @@ import { callApi } from '../../../../../../account/api-client.ts';
 import { hostAccountsOf, priceExample } from '../../../../../../account/host-listings.ts';
 import { hostTripOf } from '../../../../../../account/host-trips.ts';
 import { clientContext } from '../../../../../../account/request.ts';
-import { feePercentText, tripClaimsOf, UUID } from '../../../../../../account/trip-claims.ts';
+import {
+  dateOrder,
+  datePattern,
+  feePercentText,
+  tripClaimsOf,
+  UUID,
+} from '../../../../../../account/trip-claims.ts';
 import { tripInspectionOf } from '../../../../../../account/trip-inspection.ts';
 import { getRequestBrand } from '../../../../../../brand-source.ts';
 import { getRequestI18n, getRequestLocaleTag } from '../../../../../../i18n.ts';
@@ -140,6 +146,19 @@ export default async function HostTripClaimsPage({
           {claims.theft.status === 'THEFT_INVESTIGATION' && (
             <p className={accountStyles['text']}>{t('web.theft.payoutHeld')}</p>
           )}
+          {/* plainte pré-remplie (US-306) : où la trouver, que faire, et si la voiture revient (revue ux n° 2) */}
+          <p className={styles['strong']} id="a09-theft-report-title">
+            {t('web.theft.report.title')}
+          </p>
+          <ol
+            className={accountStyles['text']}
+            aria-labelledby="a09-theft-report-title"
+            data-testid="a09-theft-report"
+          >
+            <li>{t('web.theft.report.where', { brand: brand.name })}</li>
+            <li>{t('web.theft.report.file')}</li>
+            <li>{t('web.theft.report.returned', { brand: brand.name })}</li>
+          </ol>
           <p className={accountStyles['muted']}>
             {t('web.theft.noRecovery', { brand: brand.name })}
           </p>
@@ -188,6 +207,11 @@ export default async function HostTripClaimsPage({
               timezone={timezone}
               evidence={available}
               amountExample={priceExample(read.market.currencyExponent, number)}
+              dateExample={datePattern(dateOrder(tag), {
+                day: t('web.traffic.dateLetters.day'),
+                month: t('web.traffic.dateLetters.month'),
+                year: t('web.traffic.dateLetters.year'),
+              })}
             />
           </section>
         </>

@@ -4,6 +4,8 @@
  * fermées (tiers impliqué, police prévenue ; jamais présélectionnées), puis l'envoi. Après l'envoi :
  * « Incidente registrado », l'heure du SERVEUR (fuseau du trip) et le nombre de photos jointes. Sans
  * JavaScript : envoi natif. L'identifiant de la requête est posé par le serveur à l'affichage.
+ * Sans photo reçue, le bouton est inactif et une consigne dit pourquoi (revue ux n° 7) ; la base
+ * reste juge (`INCIDENT_PHOTOS_REQUIRED`).
  */
 import { useActionState } from 'react';
 import { createTranslator, getProfile } from '@rueda/i18n';
@@ -23,6 +25,8 @@ export interface IncidentFormProps {
   readonly caseId: string;
   readonly requestId: string;
   readonly timezone: string;
+  /** Photos déjà reçues dans la série INCIDENT (relues par la page après chaque envoi). */
+  readonly photoCount: number;
 }
 
 export function IncidentForm({
@@ -31,6 +35,7 @@ export function IncidentForm({
   caseId,
   requestId,
   timezone,
+  photoCount,
 }: IncidentFormProps) {
   const i18n = createTranslator(getProfile(LOCALE_CONFIG, localeTag));
   const t = i18n.t.bind(i18n);
@@ -106,7 +111,23 @@ export function IncidentForm({
       {question(INCIDENT_THIRD_PARTY_ID, 'thirdParty', t('web.incident.thirdParty'))}
       {question(INCIDENT_POLICE_ID, 'police', t('web.incident.police'))}
       <p className={accountStyles['muted']}>{t('web.incident.serverTime')}</p>
-      <Button type="submit" block loading={pending} data-testid="s17-incident-submit">
+      {photoCount === 0 && (
+        <p
+          id="s17-incident-submit-hint"
+          className={styles['hint']}
+          data-testid="s17-incident-need-photo"
+        >
+          {t('web.incident.needPhoto')}
+        </p>
+      )}
+      <Button
+        type="submit"
+        block
+        loading={pending}
+        disabled={photoCount === 0}
+        aria-describedby={photoCount === 0 ? 's17-incident-submit-hint' : undefined}
+        data-testid="s17-incident-submit"
+      >
         {t('web.incident.submit')}
       </Button>
     </form>

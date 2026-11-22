@@ -3859,8 +3859,6 @@ export const PT_MESSAGES = {
   'web.traffic.sent.fee': 'Taxa de gestão: {amount}',
   'web.traffic.sent.total': 'Total cobrado do viajante: {amount}',
   'web.traffic.kind': 'Tipo de cobrança',
-  'web.traffic.at': 'Data e hora do fato',
-  'web.traffic.atHint': 'Horário local da viagem, entre a entrega e a devolução.',
   'web.traffic.amount': 'Valor que você pagou',
   'web.traffic.amountHint': 'Exemplo: {example}',
   'web.traffic.file': 'Comprovante',
@@ -3870,7 +3868,6 @@ export const PT_MESSAGES = {
     'Cobramos o valor do viajante; a multa continua no seu nome perante a autoridade.',
   'web.traffic.noParking':
     'O estacionamento que você pagar para recuperar o carro não é cobrado do viajante.',
-  'web.traffic.submit': 'Informar a cobrança',
   'web.traffic.kindRequired': 'Escolha o tipo de cobrança.',
   'web.traffic.atRequired': 'Informe a data e a hora do fato.',
   'web.traffic.amountInvalid': 'Digite o valor que você pagou, como no exemplo.',
@@ -3887,4 +3884,34 @@ export const PT_MESSAGES = {
     'O seu repasse desta viagem fica retido enquanto houver suspeita de roubo; ele é liberado quando o carro volta.',
   'web.theft.noRecovery':
     'Você registra o boletim. A {brand} não recupera o carro nem o imobiliza a distância.',
+  // US-318, revues (2026-11-22) : confirmation de la refacturation, plainte, numéros
+  'web.traffic.review.submit': 'Revisar a cobrança',
+  'web.traffic.review.title': 'Revise antes de confirmar',
+  'web.traffic.review.kind': 'Tipo de cobrança: {kind}',
+  'web.traffic.review.at': 'Data do fato: {time}',
+  'web.traffic.review.total': 'Total que será cobrado do viajante: {amount}',
+  'web.traffic.review.card':
+    'Calculado por nós. É cobrado à parte no cartão da viagem, depois de avisar o viajante. Revise o valor: se você confirmar, a cobrança fica registrada.',
+  'web.traffic.review.confirm': 'Confirmar',
+  'web.traffic.review.correct': 'Corrigir',
+  'web.traffic.date': 'Data do fato',
+  'web.traffic.dateHint':
+    'Formato {example}, horário local da viagem, entre a entrega e a devolução.',
+  'web.traffic.time': 'Horário do fato',
+  'web.traffic.timeHint': 'Formato 24 h, por exemplo 14:30.',
+  'web.traffic.dateInvalid': 'Escreva uma data válida no formato indicado.',
+  'web.traffic.timeInvalid': 'Escreva o horário no formato 24 h, por exemplo 14:30.',
+  'web.traffic.dateLetters.day': 'dd',
+  'web.traffic.dateLetters.month': 'mm',
+  'web.traffic.dateLetters.year': 'aaaa',
+  'web.theft.report.title': 'O que fazer com o boletim de ocorrência',
+  'web.theft.report.where':
+    'Confira seu e-mail: a equipe da {brand} enviou o boletim pré-preenchido quando o carro completou 24 horas sem voltar.',
+  'web.theft.report.file':
+    'Imprima e registre você mesmo na polícia ou no Ministério Público, com o seu contrato de locação. Guarde o número do boletim.',
+  'web.theft.report.returned':
+    'Se o carro voltar, avise o suporte da {brand}: o processo é encerrado e o seu repasse é liberado.',
+  'web.help.roadside.useEmergency':
+    'Se houve um acidente, ligue já para o {number} e avise {authority}.',
+  'web.incident.needPhoto': 'Tire pelo menos uma foto para enviar a declaração.',
 } as const satisfies Readonly<Record<MessageKey, Message>>;

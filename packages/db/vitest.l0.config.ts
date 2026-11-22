@@ -81,6 +81,9 @@ const ISOLATED = [
   // (travailleurs, enregistrements simultanés) ; trips, sessions et avis commités ; le travailleur
   // publie tous les scellés échus de la base
   'test/l0/l0-us317-review-timer.test.ts',
+  // US-318 : courses à deux sessions (exécution d'une refacturation, même pièce, ouverture du
+  // dossier de vol contre le retour) ; trips, sessions, photos et refacturations commités
+  'test/l0/l0-us318-claims-race.test.ts',
 ];
 const C11 = ['test/l0/l0-c11-fuzz.test.ts'];
 // US-049 : les attaques de la red team (test/redteam/<axe>/) tournent seules, après tous les autres

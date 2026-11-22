@@ -43,10 +43,15 @@ export interface TrafficChargeResult {
 
 export interface TripClaimsStore {
   reportIncident(proof: Buffer, tripId: string, input: IncidentInput): Promise<IncidentResult>;
+  /**
+   * Déclaration (`preview` faux) ou récapitulatif calculé par la base sans rien écrire (`preview`
+   * vrai, issue PREVIEW ; revue ux n° 1).
+   */
   declareTrafficCharge(
     proof: Buffer,
     tripId: string,
     input: TrafficChargeInput,
+    preview: boolean,
   ): Promise<TrafficChargeResult>;
   /** `null` : personne autre que le titulaire (NOT_FOUND). */
   hostClaims(proof: Buffer, tripId: string): Promise<Readonly<Record<string, unknown>> | null>;
@@ -118,12 +123,17 @@ export class PgTripClaimsStore implements TripClaimsStore {
     };
   }
 
-  async declareTrafficCharge(proof: Buffer, tripId: string, input: TrafficChargeInput) {
+  async declareTrafficCharge(
+    proof: Buffer,
+    tripId: string,
+    input: TrafficChargeInput,
+    preview: boolean,
+  ) {
     const r = await this.#one<{ outcome: string; charge_id: string | null; body: unknown }>(
       'déclaration de refacturation',
       `SELECT outcome, charge_id::text AS charge_id, body
          FROM core.claim_cmd_declare_traffic_charge($1, $2::uuid, $3::uuid, $4, $5::timestamptz,
-                                                    $6::bigint, $7::uuid)`,
+                                                    $6::bigint, $7::uuid, $8)`,
       [
         proof,
         input.requestId,
@@ -132,6 +142,7 @@ export class PgTripClaimsStore implements TripClaimsStore {
         input.occurredAt.toISOString(),
         input.amountMinor.toString(),
         input.fileId,
+        preview,
       ],
     );
     return {

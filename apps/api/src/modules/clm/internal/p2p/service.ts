@@ -213,6 +213,14 @@ export function parseTripClaimsView(v: Readonly<Record<string, unknown>>): TripC
   };
 }
 
+/** Texte d'un entier en unités mineures rendu par la base ; autre forme ⇒ 503 (fail-closed). */
+function minorText(x: unknown): string {
+  if (typeof x !== 'string' || !/^(0|[1-9][0-9]{0,17})$/.test(x)) {
+    throw new TripClaimHttpError('TRIP_CLAIM_UNAVAILABLE');
+  }
+  return x;
+}
+
 @Injectable()
 export class TripClaimsService {
   constructor(@Inject(CLM_TRIP_CLAIMS_STORE) private readonly store: TripClaimsStore) {}
@@ -255,9 +263,58 @@ export class TripClaimsService {
     };
   }
 
+  /**
+   * Récapitulatif AVANT l'envoi (revue ux n° 1) : mêmes contrôles que la déclaration, montants
+   * calculés par la base (montant payé, frais de gestion, total refacturé au voyageur, devise),
+   * rien n'est écrit ; l'hôte confirme ensuite par `declareTrafficCharge` avec le même corps.
+   */
+  async previewTrafficCharge(proof: Buffer, tripId: string, body: Body) {
+    const input = parseTrafficChargeRequest(body);
+    const r = await this.#call(() => this.store.declareTrafficCharge(proof, tripId, input, true));
+    if (r.outcome !== 'PREVIEW') this.#refuse(r);
+    const b = r.body ?? {};
+    const currency = b['currency'];
+    const fee = b['feeBps'];
+    const deadline = b['deadlineAt'];
+    if (
+      typeof currency !== 'string' ||
+      !CURRENCY.test(currency) ||
+      typeof fee !== 'number' ||
+      !Number.isInteger(fee) ||
+      typeof deadline !== 'string'
+    ) {
+      throw new TripClaimHttpError('TRIP_CLAIM_UNAVAILABLE');
+    }
+    return {
+      kind: input.kind,
+      occurredAt: input.occurredAt.toISOString(),
+      currency,
+      feeBps: fee,
+      amountMinor: minorText(b['amountMinor']),
+      adminFeeMinor: minorText(b['adminFeeMinor']),
+      totalMinor: minorText(b['totalMinor']),
+      deadlineAt: new Date(deadline).toISOString(),
+      chargedBy: 'SEPARATE_CARD_CHARGE' as const,
+    };
+  }
+
+  #refuse(r: {
+    readonly outcome: string;
+    readonly body: Readonly<Record<string, unknown>> | null;
+  }): never {
+    const code = tripClaimOutcomeCode(r.outcome);
+    const deadline = r.body?.['deadlineAt'];
+    throw new TripClaimHttpError(
+      code,
+      code === 'TRAFFIC_CHARGE_DEADLINE_PASSED' && typeof deadline === 'string'
+        ? { deadlineAt: deadline }
+        : undefined,
+    );
+  }
+
   async declareTrafficCharge(proof: Buffer, tripId: string, body: Body) {
     const input = parseTrafficChargeRequest(body);
-    const r = await this.#call(() => this.store.declareTrafficCharge(proof, tripId, input));
+    const r = await this.#call(() => this.store.declareTrafficCharge(proof, tripId, input, false));
     if ((r.outcome !== 'DECLARED' && r.outcome !== 'DUPLICATE') || r.chargeId === null) {
       const code = tripClaimOutcomeCode(r.outcome);
       const deadline = r.body?.['deadlineAt'];

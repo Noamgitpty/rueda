@@ -3767,8 +3767,6 @@ export const EN_MESSAGES = {
   'web.traffic.sent.fee': 'Handling fee: {amount}',
   'web.traffic.sent.total': 'Total charged to the traveler: {amount}',
   'web.traffic.kind': 'Type of charge',
-  'web.traffic.at': 'Date and time of the event',
-  'web.traffic.atHint': 'Local trip time, between pickup and return.',
   'web.traffic.amount': 'Amount you paid',
   'web.traffic.amountHint': 'Example: {example}',
   'web.traffic.file': 'Receipt',
@@ -3777,7 +3775,6 @@ export const EN_MESSAGES = {
   'web.traffic.notTransferred':
     'We charge the amount to the traveler; the fine stays in your name with the authority.',
   'web.traffic.noParking': 'Parking you pay to get your car back is not charged to the traveler.',
-  'web.traffic.submit': 'Report the charge',
   'web.traffic.kindRequired': 'Choose the type of charge.',
   'web.traffic.atRequired': 'Enter the date and time of the event.',
   'web.traffic.amountInvalid': 'Enter the amount you paid, as in the example.',
@@ -3794,4 +3791,33 @@ export const EN_MESSAGES = {
     'Your payout for this trip is held while theft is presumed; it is released when the car comes back.',
   'web.theft.noRecovery':
     'You file the police report. {brand} does not recover the car or immobilize it remotely.',
+  // US-318, revues (2026-11-22) : confirmation de la refacturation, plainte, numéros
+  'web.traffic.review.submit': 'Review the charge',
+  'web.traffic.review.title': 'Check before you confirm',
+  'web.traffic.review.kind': 'Type of charge: {kind}',
+  'web.traffic.review.at': 'Date of the event: {time}',
+  'web.traffic.review.total': 'Total that will be charged to the traveler: {amount}',
+  'web.traffic.review.card':
+    'Calculated by us. It is charged separately to the trip card, after the traveler is notified. Check the amount: once you confirm, the charge is recorded.',
+  'web.traffic.review.confirm': 'Confirm',
+  'web.traffic.review.correct': 'Make changes',
+  'web.traffic.date': 'Date of the event',
+  'web.traffic.dateHint': 'Format {example}, trip local time, between pickup and return.',
+  'web.traffic.time': 'Time of the event',
+  'web.traffic.timeHint': '24-hour format, for example 14:30.',
+  'web.traffic.dateInvalid': 'Enter a valid date in the format shown.',
+  'web.traffic.timeInvalid': 'Enter the time in 24-hour format, for example 14:30.',
+  'web.traffic.dateLetters.day': 'dd',
+  'web.traffic.dateLetters.month': 'mm',
+  'web.traffic.dateLetters.year': 'yyyy',
+  'web.theft.report.title': 'What to do with the police report',
+  'web.theft.report.where':
+    'Check your email: the {brand} team sent you the pre-filled police report when the car was 24 hours overdue.',
+  'web.theft.report.file':
+    'Print it and file it yourself with the police or the public prosecutor, with your rental contract. Keep the report number.',
+  'web.theft.report.returned':
+    'If the car comes back, tell {brand} support: the file is closed and your payout is released.',
+  'web.help.roadside.useEmergency':
+    'If there was an accident, call {number} now and notify {authority}.',
+  'web.incident.needPhoto': 'Take at least one photo to send the report.',
 } as const satisfies Readonly<Record<MessageKey, Message>>;

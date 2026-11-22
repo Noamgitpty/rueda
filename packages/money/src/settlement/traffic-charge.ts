@@ -1,8 +1,10 @@
 /**
  * Jambes d'une amende, d'un péage ou d'une fourrière refacturés au voyageur (08 BR-TT-02 à 04,
  * BR-PRICE-15 [NOUS], BR-REIMB-04 ; US-318, ADR-198). Fonction pure, versionnée
- * (`TRAFFIC_CHARGE_RULE_VERSION`) : la base la rejoue à l'identique
- * (`core.claim_traffic_charge_legs`, 0178) et c'est son résultat qui part au PSP.
+ * (`TRAFFIC_CHARGE_RULE_VERSION`), référence de la règle : en production, les jambes sont
+ * calculées par sa jumelle SQL `core.claim_traffic_charge_legs` (0178), qui écrit la refacturation
+ * et le débit séparé ; cette fonction n'est appelée que par les tests, qui prouvent la parité des
+ * deux avec l'oracle `rhu` de docs/specs/tools (revue code n° 5).
  *
  * - `HOST` = montant payé par l'hôte (100 % reversés à l'hôte, BR-REIMB-04) ;
  * - `PLATFORM` = frais de gestion = roundHalfUp(montant × bps / 10 000) (paramètre du pays

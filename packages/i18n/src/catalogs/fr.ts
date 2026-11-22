@@ -3933,8 +3933,6 @@ export const FR_MESSAGES = {
   'web.traffic.sent.fee': 'Frais de gestion : {amount}',
   'web.traffic.sent.total': 'Total facturé au voyageur : {amount}',
   'web.traffic.kind': 'Type de frais',
-  'web.traffic.at': 'Date et heure du fait',
-  'web.traffic.atHint': 'Heure locale du trajet, entre la remise et le retour.',
   'web.traffic.amount': 'Montant que tu as payé',
   'web.traffic.amountHint': 'Exemple : {example}',
   'web.traffic.file': 'Justificatif',
@@ -3944,7 +3942,6 @@ export const FR_MESSAGES = {
     'Nous facturons le montant au voyageur ; l’amende reste à ton nom auprès de l’autorité.',
   'web.traffic.noParking':
     'Le stationnement que tu paies pour récupérer ta voiture n’est pas facturé au voyageur.',
-  'web.traffic.submit': 'Déclarer les frais',
   'web.traffic.kindRequired': 'Choisis le type de frais.',
   'web.traffic.atRequired': 'Indique la date et l’heure du fait.',
   'web.traffic.amountInvalid': 'Écris le montant payé, comme dans l’exemple.',
@@ -3961,4 +3958,33 @@ export const FR_MESSAGES = {
     'Ton versement de ce trajet est retenu tant que le vol est présumé ; il est libéré au retour de la voiture.',
   'web.theft.noRecovery':
     'C’est toi qui déposes la plainte. {brand} ne récupère pas la voiture et ne l’immobilise pas à distance.',
+  // US-318, revues (2026-11-22) : confirmation de la refacturation, plainte, numéros
+  'web.traffic.review.submit': 'Vérifier la demande',
+  'web.traffic.review.title': 'Vérifie avant de confirmer',
+  'web.traffic.review.kind': 'Type de frais : {kind}',
+  'web.traffic.review.at': 'Date du fait : {time}',
+  'web.traffic.review.total': 'Total qui sera débité au voyageur : {amount}',
+  'web.traffic.review.card':
+    'Calculé par nous. Le montant est débité à part sur la carte du trajet, après un avis au voyageur. Vérifie le montant : si tu confirmes, la demande est enregistrée.',
+  'web.traffic.review.confirm': 'Confirmer',
+  'web.traffic.review.correct': 'Corriger',
+  'web.traffic.date': 'Date du fait',
+  'web.traffic.dateHint': 'Format {example}, heure locale du trajet, entre la remise et le retour.',
+  'web.traffic.time': 'Heure du fait',
+  'web.traffic.timeHint': 'Format 24 h, par exemple 14:30.',
+  'web.traffic.dateInvalid': 'Écris une date valide au format indiqué.',
+  'web.traffic.timeInvalid': 'Écris l’heure au format 24 h, par exemple 14:30.',
+  'web.traffic.dateLetters.day': 'jj',
+  'web.traffic.dateLetters.month': 'mm',
+  'web.traffic.dateLetters.year': 'aaaa',
+  'web.theft.report.title': 'Que faire de la plainte',
+  'web.theft.report.where':
+    'Regarde tes e-mails : l’équipe de {brand} t’a envoyé la plainte pré-remplie quand la voiture avait 24 heures de retard.',
+  'web.theft.report.file':
+    'Imprime-la et dépose-la toi-même auprès de la police ou du ministère public, avec ton contrat de location. Garde le numéro de la plainte.',
+  'web.theft.report.returned':
+    'Si la voiture revient, préviens le support de {brand} : le dossier est clos et ton versement est libéré.',
+  'web.help.roadside.useEmergency':
+    'En cas d’accident, appelle tout de suite le {number} et préviens {authority}.',
+  'web.incident.needPhoto': 'Prends au moins une photo pour pouvoir envoyer la déclaration.',
 } as const satisfies Readonly<Record<MessageKey, Message>>;

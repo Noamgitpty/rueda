@@ -1,7 +1,7 @@
 /**
  * US-318 — contrat des routes des sinistres entre particuliers d'un trip
  * (`POST /trips/{tripId}/incidents`, `GET /trips/{tripId}/claims`,
- * `POST /trips/{tripId}/traffic-charges`) sur l'application RÉELLE (ApiModule, gardes globaux,
+ * `POST /trips/{tripId}/traffic-charges`, `POST /trips/{tripId}/traffic-charges/preview`) sur l'application RÉELLE (ApiModule, gardes globaux,
  * durcissement HTTP ; harnais d'US-043) avec le FAKE du magasin : chaque réponse est confrontée à
  * `apps/api/openapi/openapi.json`, chaque statut déclaré est exercé.
  *
@@ -11,6 +11,9 @@
  *   l'hôte, une autre personne, un trip inconnu ⇒ la même 404 ;
  * - amende, péage, fourrière : fin effective + 120 j acceptée, + 1 ms refusée (deadlineAt) ; fait
  *   hors du trip refusé ; pièce exigée, une par refacturation ; frais 5 % (USD 12,30 ⇒ 0,62) ;
+ * - récapitulatif AVANT l'envoi (revue ux n° 1) : montants calculés par l'API (oracle
+ *   `traffic_fee_oracle.py` : 1 230 ⇒ 62, total 1 292 ; 25 010 ⇒ 1 251, total 26 261), rien n'est
+ *   écrit, l'identifiant de requête reste libre, mêmes refus que la déclaration ;
  * - corps strict (clé inconnue, identifiant, montant, nature) ⇒ 400 ; JSON exigé ⇒ 415 ; sans
  *   session ⇒ 401 ; aucun magasin ⇒ 503.
  * Les règles de la base sont prouvées sur PostgreSQL (l0-us318-p2p-claims). Données fictives.
@@ -58,6 +61,8 @@ const incident = (w: World, who: Record<string, string>, body: unknown, trip = w
   w.app.api.request('POST', `/trips/${trip}/incidents`, { headers: who, body });
 const charge = (w: World, who: Record<string, string>, body: unknown, trip = w.trip) =>
   w.app.api.request('POST', `/trips/${trip}/traffic-charges`, { headers: who, body });
+const preview = (w: World, who: Record<string, string>, body: unknown, trip = w.trip) =>
+  w.app.api.request('POST', `/trips/${trip}/traffic-charges/preview`, { headers: who, body });
 const view = (w: World, who: Record<string, string>, trip = w.trip) =>
   w.app.api.request('GET', `/trips/${trip}/claims`, { headers: who });
 const incidentBody = (caseId: string, requestId: string = randomUUID()) => ({
@@ -182,6 +187,111 @@ describe('US-318 — routes des sinistres d’un trip (contrat OpenAPI)', () => 
     expect(code(terms)).toBe('TRAFFIC_TERMS_UNKNOWN');
   });
 
+  it('récapitulatif avant l’envoi (revue ux n° 1) : montants calculés par l’API, rien d’écrit, requestId libre, mêmes refus ; puis confirmation 201', async () => {
+    const w = await world();
+    apps.push(w.app);
+    const t = w.store.trips.get(w.trip)!;
+    const file = randomUUID();
+    t.evidence.set(file, { slot: 'DAMAGE_01', receivedAt: END });
+    const req = randomUUID();
+    const body = (o: Record<string, unknown> = {}) => ({
+      requestId: req,
+      kind: 'TOLL',
+      occurredAt: START.toISOString(),
+      amountMinor: '1230',
+      fileId: file,
+      ...o,
+    });
+    expect(code(await preview(w, host(w), body()))).toBe('TRAFFIC_TRIP_NOT_ENDED');
+    t.status = 'COMPLETED';
+    t.end = END;
+    w.store.now = () => DEADLINE;
+    const p = await preview(w, host(w), body());
+    expect(p.status).toBe(200);
+    expect(p.json).toEqual({
+      kind: 'TOLL',
+      occurredAt: START.toISOString(),
+      currency: 'XTA',
+      feeBps: 500,
+      amountMinor: '1230',
+      adminFeeMinor: '62',
+      totalMinor: '1292',
+      deadlineAt: DEADLINE.toISOString(),
+      chargedBy: 'SEPARATE_CARD_CHARGE',
+    });
+    const big = await preview(w, host(w), body({ amountMinor: '25010' }));
+    expect(big.json).toMatchObject({ adminFeeMinor: '1251', totalMinor: '26261' });
+    // rien n'est écrit ; le requestId n'est pas consommé par le récapitulatif
+    expect(w.store.charges).toHaveLength(0);
+    const confirmed = await charge(w, host(w), body());
+    expect(confirmed.status).toBe(201);
+    expect(confirmed.json).toMatchObject({
+      adminFeeMinor: '62',
+      totalMinor: '1292',
+      replayed: false,
+    });
+    // mêmes refus que la déclaration
+    expect(code(await preview(w, host(w), body({ requestId: randomUUID() })))).toBe(
+      'TRAFFIC_EVIDENCE_REQUIRED',
+    );
+    const outside = await preview(
+      w,
+      host(w),
+      body({ requestId: randomUUID(), occurredAt: new Date(END.getTime() + 1).toISOString() }),
+    );
+    expect(outside.status).toBe(422);
+    expect(code(outside)).toBe('TRAFFIC_OUTSIDE_TRIP');
+    w.store.now = () => new Date(DEADLINE.getTime() + 1);
+    const late = await preview(w, host(w), body({ requestId: randomUUID() }));
+    expect(late.status).toBe(422);
+    expect(late.json).toMatchObject({
+      code: 'TRAFFIC_CHARGE_DEADLINE_PASSED',
+      deadlineAt: DEADLINE.toISOString(),
+    });
+    w.store.now = () => DEADLINE;
+    t.feeBps = null;
+    const terms = await preview(w, host(w), body({ requestId: randomUUID() }));
+    expect(terms.status).toBe(503);
+    expect(code(terms)).toBe('TRAFFIC_TERMS_UNKNOWN');
+    // corps strict, IDOR, session, JSON
+    expect(code(await preview(w, host(w), { ...body(), amountMinor: 12.3 }))).toBe(
+      'REQUEST_INVALID',
+    );
+    for (const [who, trip] of [
+      [guest(w), w.trip],
+      [stranger(w), w.trip],
+      [host(w), 'not-a-uuid'],
+    ] as const) {
+      const r = await preview(w, who, body(), trip);
+      expect(r.status).toBe(404);
+      expect(code(r)).toBe('TRIP_CLAIM_NOT_FOUND');
+    }
+    expect(
+      (
+        await w.app.api.request('POST', `/trips/${w.trip}/traffic-charges/preview`, {
+          body: body(),
+        })
+      ).status,
+    ).toBe(401);
+    expect(
+      (
+        await w.app.api.request(
+          'POST',
+          `/trips/${w.trip}/traffic-charges/preview`,
+          textBody(host(w)),
+        )
+      ).status,
+    ).toBe(415);
+    const none = await startContractApp();
+    apps.push(none);
+    const x = await none.api.request('POST', `/trips/${w.trip}/traffic-charges/preview`, {
+      headers: none.cookie('staff_sans_mfa'),
+      body: body(),
+    });
+    expect(x.status).toBe(503);
+    expect(code(x)).toBe('TRIP_CLAIM_UNAVAILABLE');
+  });
+
   it('corps strict (400), JSON exigé (415), IDOR 404 (même réponse), sans session 401, base injoignable 503', async () => {
     const w = await world();
     apps.push(w.app);
@@ -300,6 +410,12 @@ describe('US-318 — routes des sinistres d’un trip (contrat OpenAPI)', () => 
 
   it('couverture : chaque statut déclaré pour /trips/{tripId}/claims est exercé', () => {
     expect(missingCoverage(contract, '/trips/{tripId}/claims', coverageOf(...apps))).toEqual([]);
+  });
+
+  it('couverture : chaque statut déclaré pour /trips/{tripId}/traffic-charges/preview est exercé', () => {
+    expect(
+      missingCoverage(contract, '/trips/{tripId}/traffic-charges/preview', coverageOf(...apps)),
+    ).toEqual([]);
   });
 
   it('couverture : chaque statut déclaré pour /trips/{tripId}/traffic-charges est exercé', () => {

@@ -1144,6 +1144,18 @@ async function requestOf(
       };
     case 'GET /trips/{tripId}/claims':
       return { method: 'GET', path: `/trips/${randomUUID()}/claims` };
+    case 'POST /trips/{tripId}/traffic-charges/preview':
+      return {
+        method: 'POST',
+        path: `/trips/${randomUUID()}/traffic-charges/preview`,
+        body: {
+          requestId: randomUUID(),
+          kind: 'TOLL',
+          occurredAt: '2030-01-01T10:00:00.000Z',
+          amountMinor: '100',
+          fileId: randomUUID(),
+        },
+      };
     case 'POST /trips/{tripId}/traffic-charges':
       return {
         method: 'POST',

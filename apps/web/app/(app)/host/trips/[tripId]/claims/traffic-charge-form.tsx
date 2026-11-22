@@ -3,8 +3,10 @@
  * Déclaration d'une amende, d'un péage ou d'une fourrière par l'hôte (US-318 ; 19 US-318
  * critère 3 ; 08 BR-TT-02 à 04, BR-TT-05 ; 10b A09) : nature (liste fermée), date et heure du fait
  * dans le fuseau du trip, montant PAYÉ par l'hôte dans la langue de la vue, pièce photographiée
- * (photo de la série `traffic` non encore utilisée). Après l'envoi, montants RENDUS par l'API
- * (montant, frais de gestion, total refacturé au voyageur) : aucun calcul dans le client.
+ * (photo de la série `traffic` non encore utilisée). Deux temps (revue ux n° 1) : « Revisar »
+ * affiche le récapitulatif calculé par l'API (montant, frais de gestion, total refacturé au
+ * voyageur, débit séparé sur sa carte après avis) ; « Confirmar » déclare, « Corregir » revient à
+ * la saisie. Aucun montant calculé dans le client. Date dans l'ordre de la langue (revue ux n° 6).
  */
 import { useActionState } from 'react';
 import { createTranslator, getProfile } from '@rueda/i18n';
@@ -13,7 +15,7 @@ import { TRAFFIC_KINDS } from '../../../../../../account/trip-claims.ts';
 import { LOCALE_CONFIG } from '../../../../../../locale-config.ts';
 import accountStyles from '../../../../_account/account.module.css';
 import styles from '../../../../host/host.module.css';
-import { declareTrafficChargeAction } from './actions.ts';
+import { trafficChargeAction } from './actions.ts';
 import type { TrafficState } from './actions.ts';
 import {
   TRAFFIC_AMOUNT_ID,
@@ -21,6 +23,7 @@ import {
   TRAFFIC_FILE_ID,
   TRAFFIC_FORM_ID,
   TRAFFIC_KIND_ID,
+  TRAFFIC_TIME_ID,
 } from './ids.ts';
 
 const INITIAL: TrafficState = { errors: [] };
@@ -35,23 +38,19 @@ export interface TrafficChargeFormProps {
   readonly evidence: readonly { readonly fileId: string; readonly receivedAt: string }[];
   /** Exemple de saisie du montant dans la langue de la vue (« 12,50 », « 150.000 »). */
   readonly amountExample: string;
+  /** Format de la date dans l'ordre de la langue de la vue (« dd/mm/aaaa »). */
+  readonly dateExample: string;
 }
 
 export function TrafficChargeForm(props: TrafficChargeFormProps) {
   const i18n = createTranslator(getProfile(LOCALE_CONFIG, props.localeTag));
   const t = i18n.t.bind(i18n);
-  const [state, run, pending] = useActionState(declareTrafficChargeAction, INITIAL);
+  const [state, run, pending] = useActionState(trafficChargeAction, INITIAL);
   const messages = state.errors.map((e) => ({ fieldId: e.fieldId, message: t(e.key, e.values) }));
   const errorOf = (id: string) => messages.find((m) => m.fieldId === id)?.message;
   const formError = errorOf(TRAFFIC_FORM_ID);
-  const money = (minor: string) =>
-    state.sent === undefined
-      ? minor
-      : i18n.money({
-          amountMinor: BigInt(minor),
-          currency: state.sent.currency,
-          exponent: state.sent.exponent,
-        });
+  const money = (minor: string, currency: string, exponent: number) =>
+    i18n.money({ amountMinor: BigInt(minor), currency, exponent });
   const radios = (
     id: string,
     name: string,
@@ -90,6 +89,81 @@ export function TrafficChargeForm(props: TrafficChargeFormProps) {
       </fieldset>
     );
   };
+  const hidden = (
+    <>
+      <input type="hidden" name="trip" value={props.tripId} />
+      <input type="hidden" name="org" value={props.org} />
+      <input type="hidden" name="request" value={props.requestId} />
+    </>
+  );
+  const p = state.preview;
+  if (p !== undefined && state.values !== undefined) {
+    const v = state.values;
+    return (
+      <form
+        id={TRAFFIC_FORM_ID}
+        className={styles['actions']}
+        action={run}
+        noValidate
+        aria-labelledby="a09-traffic-review-title"
+        data-testid="a09-traffic-review"
+      >
+        <h2 id="a09-traffic-review-title" className={accountStyles['h2']}>
+          {t('web.traffic.review.title')}
+        </h2>
+        {hidden}
+        <input type="hidden" name="kind" value={v.kind} />
+        <input type="hidden" name="date" value={v.date} />
+        <input type="hidden" name="time" value={v.time} />
+        <input type="hidden" name="amount" value={v.amount} />
+        <input type="hidden" name="file" value={v.file} />
+        <div className={styles['card']}>
+          <p className={accountStyles['text']}>
+            {t('web.traffic.review.kind', { kind: t(`web.traffic.kind.${p.kind}`) })}
+          </p>
+          <p className={accountStyles['text']}>
+            {t('web.traffic.review.at', { time: i18n.dateTime(p.occurredAt, props.timezone) })}
+          </p>
+          <p className={accountStyles['text']} data-testid="a09-traffic-review-amount">
+            {t('web.traffic.sent.amount', { amount: money(p.amountMinor, p.currency, p.exponent) })}
+          </p>
+          <p className={accountStyles['text']} data-testid="a09-traffic-review-fee">
+            {t('web.traffic.sent.fee', { amount: money(p.adminFeeMinor, p.currency, p.exponent) })}
+          </p>
+          <p className={styles['strong']} data-testid="a09-traffic-review-total">
+            {t('web.traffic.review.total', { amount: money(p.totalMinor, p.currency, p.exponent) })}
+          </p>
+          <p className={accountStyles['muted']}>{t('web.traffic.review.card')}</p>
+        </div>
+        {formError !== undefined && (
+          <Banner tone="danger" live="assertive">
+            <span data-testid="a09-traffic-error">{formError}</span>
+          </Banner>
+        )}
+        <Button
+          type="submit"
+          name="intent"
+          value="confirm"
+          block
+          loading={pending}
+          data-testid="a09-traffic-confirm"
+        >
+          {t('web.traffic.review.confirm')}
+        </Button>
+        <Button
+          type="submit"
+          name="intent"
+          value="correct"
+          variant="secondary"
+          block
+          disabled={pending}
+          data-testid="a09-traffic-correct"
+        >
+          {t('web.traffic.review.correct')}
+        </Button>
+      </form>
+    );
+  }
   return (
     <form
       id={TRAFFIC_FORM_ID}
@@ -107,13 +181,19 @@ export function TrafficChargeForm(props: TrafficChargeFormProps) {
             {t('web.traffic.sent')}
           </Banner>
           <p className={accountStyles['text']}>
-            {t('web.traffic.sent.amount', { amount: money(state.sent.amountMinor) })}
+            {t('web.traffic.sent.amount', {
+              amount: money(state.sent.amountMinor, state.sent.currency, state.sent.exponent),
+            })}
           </p>
           <p className={accountStyles['text']}>
-            {t('web.traffic.sent.fee', { amount: money(state.sent.adminFeeMinor) })}
+            {t('web.traffic.sent.fee', {
+              amount: money(state.sent.adminFeeMinor, state.sent.currency, state.sent.exponent),
+            })}
           </p>
           <p className={styles['strong']} data-testid="a09-traffic-sent-total">
-            {t('web.traffic.sent.total', { amount: money(state.sent.totalMinor) })}
+            {t('web.traffic.sent.total', {
+              amount: money(state.sent.totalMinor, state.sent.currency, state.sent.exponent),
+            })}
           </p>
         </div>
       )}
@@ -123,9 +203,7 @@ export function TrafficChargeForm(props: TrafficChargeFormProps) {
           <span data-testid="a09-traffic-error">{formError}</span>
         </Banner>
       )}
-      <input type="hidden" name="trip" value={props.tripId} />
-      <input type="hidden" name="org" value={props.org} />
-      <input type="hidden" name="request" value={props.requestId} />
+      {hidden}
       {radios(
         TRAFFIC_KIND_ID,
         'kind',
@@ -135,13 +213,26 @@ export function TrafficChargeForm(props: TrafficChargeFormProps) {
       <TextField
         i18n={i18n}
         id={TRAFFIC_AT_ID}
-        name="at"
-        type="datetime-local"
-        label={t('web.traffic.at')}
-        hint={t('web.traffic.atHint')}
+        name="date"
+        inputMode="numeric"
+        autoComplete="off"
+        label={t('web.traffic.date')}
+        hint={t('web.traffic.dateHint', { example: props.dateExample })}
         error={errorOf(TRAFFIC_AT_ID)}
-        defaultValue={state.values?.at}
-        data-testid="a09-traffic-at-input"
+        defaultValue={state.values?.date}
+        data-testid="a09-traffic-date-input"
+      />
+      <TextField
+        i18n={i18n}
+        id={TRAFFIC_TIME_ID}
+        name="time"
+        inputMode="numeric"
+        autoComplete="off"
+        label={t('web.traffic.time')}
+        hint={t('web.traffic.timeHint')}
+        error={errorOf(TRAFFIC_TIME_ID)}
+        defaultValue={state.values?.time}
+        data-testid="a09-traffic-time-input"
       />
       <TextField
         i18n={i18n}
@@ -178,8 +269,15 @@ export function TrafficChargeForm(props: TrafficChargeFormProps) {
       )}
       <p className={accountStyles['muted']}>{t('web.traffic.notTransferred')}</p>
       <p className={accountStyles['muted']}>{t('web.traffic.noParking')}</p>
-      <Button type="submit" block loading={pending} data-testid="a09-traffic-submit">
-        {t('web.traffic.submit')}
+      <Button
+        type="submit"
+        name="intent"
+        value="review"
+        block
+        loading={pending}
+        data-testid="a09-traffic-submit"
+      >
+        {t('web.traffic.review.submit')}
       </Button>
     </form>
   );

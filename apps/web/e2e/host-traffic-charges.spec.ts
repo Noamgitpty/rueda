@@ -9,6 +9,9 @@
  *   l'assureur inactif), versement retenu ; jamais de récupération ni d'immobilisation (OQ-BR-17) ;
  * - délai et règle des frais (pourcentage du pays seulement : aucun calcul dans le client) ;
  * - saisie obligatoire ; fait hors du trip ⇒ refus de l'API annoncé sur le champ, saisie conservée ;
+ * - récapitulatif AVANT la déclaration (revue ux n° 1) : montants calculés par l'API, « Corregir »
+ *   revient à la saisie conservée, « Confirmar » déclare ; date dans l'ordre de la langue (n° 6) ;
+ * - plainte pré-remplie : où la trouver, que faire, si la voiture revient (revue ux n° 2) ;
  * - déclaration acceptée : montants RENDUS par l'API (12,30 + frais de 5 % arrondis par 08
  *   BR-PRICE-14 = 0,62 ; total 12,92 au voyageur) ; refacturation listée ; jamais un transfert de
  *   l'amende (OQ-BR-19), parking de récupération non refacturable (BR-TT-05) ;
@@ -19,6 +22,7 @@ import { randomBytes } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import type { BrowserContext } from '@playwright/test';
 import { createTranslator, getProfile } from '@rueda/i18n';
+import { dateOrder } from '../account/trip-claims.ts';
 import { LOCALE_CONFIG } from '../locale-config.ts';
 import { expectAccessible } from './axe.ts';
 import { expect, expectMobileFriendly, LANGUAGES, tagOf, test } from './fixtures.ts';
@@ -33,6 +37,14 @@ const ZONE = (
     readFileSync(new URL('../../api/src/modules/cfg/data/countries.json', import.meta.url), 'utf8'),
   ) as { countries: { timeZone: string }[] }
 ).countries[0]!.timeZone;
+
+/** Date murale du trip saisie dans l'ordre de la langue de la vue (jour, mois, année). */
+function localDate(tag: string, y: string, m: string, d: string): string {
+  const v = { day: d, month: m, year: y };
+  return dateOrder(tag)
+    .map((p) => v[p])
+    .join('/');
+}
 
 async function signInHost(context: BrowserContext): Promise<string> {
   const value = `H0st${randomBytes(30).toString('base64url').slice(0, 39)}`;
@@ -83,6 +95,12 @@ for (const language of LANGUAGES) {
         t('web.theft.insurer.PENDING'),
       );
       await expect(main).toContainText(t('web.theft.payoutHeld'));
+      const report = page.locator('[data-testid="a09-theft-report"] li');
+      await expect(report).toHaveCount(3);
+      // marque de la coquille (donnée de thème) : la phrase est comparée après la marque
+      const where = t('web.theft.report.where', { brand: 'BRAND' });
+      await expect(report.nth(0)).toContainText(where.slice(where.indexOf('BRAND') + 5));
+      await expect(report.nth(1)).toHaveText(t('web.theft.report.file'));
       // délai et règle des frais (pourcentage du pays)
       await expect(page.locator('[data-testid="a09-traffic-deadline"]')).toHaveText(
         t('web.traffic.deadline', { time: i18n.dateTime(DEADLINE, ZONE) }),
@@ -99,21 +117,46 @@ for (const language of LANGUAGES) {
       // saisie obligatoire
       await page.locator('[data-testid="a09-traffic-submit"]').click();
       await expect(main).toContainText(t('web.traffic.kindRequired'));
-      await expect(main).toContainText(t('web.traffic.atRequired'));
+      await expect(main).toContainText(t('web.traffic.dateInvalid'));
       await expect(main).toContainText(t('web.traffic.amountInvalid'));
 
       // fait hors du trip : refus annoncé sur le champ, saisie conservée
       const amount = `12${profile.number.decimal}30`;
       await page.locator('[data-testid="a09-traffic-kind-1"]').check();
-      await page.locator('#a09-traffic-at').fill('2036-12-20T10:00');
+      const tag = tagOf(language);
+      await page.locator('#a09-traffic-at').fill(localDate(tag, '2036', '12', '20'));
+      await page.locator('#a09-traffic-time').fill('10:00');
       await page.locator('#a09-traffic-amount').fill(amount);
       await page.locator('[data-testid="a09-traffic-submit"]').click();
       await expect(main).toContainText(t('common.tripClaims.trafficOutsideTrip'));
       await expect(page.locator('#a09-traffic-amount')).toHaveValue(amount);
+      await expect(page.locator('[data-testid="a09-charges"] li')).toHaveCount(0);
 
-      // pendant le trip : enregistré, montants rendus par l'API
-      await page.locator('#a09-traffic-at').fill('2036-12-11T10:00');
+      // pendant le trip : récapitulatif calculé par l'API, AUCUNE déclaration encore
+      await page.locator('#a09-traffic-at').fill(localDate(tag, '2036', '12', '11'));
       await page.locator('[data-testid="a09-traffic-submit"]').click();
+      const review = page.locator('[data-testid="a09-traffic-review"]');
+      await expect(review).toContainText(t('web.traffic.review.title'));
+      await expect(page.locator('[data-testid="a09-traffic-review-amount"]')).toHaveText(
+        t('web.traffic.sent.amount', { amount: money(1230n) }),
+      );
+      await expect(page.locator('[data-testid="a09-traffic-review-fee"]')).toHaveText(
+        t('web.traffic.sent.fee', { amount: money(62n) }),
+      );
+      await expect(page.locator('[data-testid="a09-traffic-review-total"]')).toHaveText(
+        t('web.traffic.review.total', { amount: money(1292n) }),
+      );
+      await expect(review).toContainText(t('web.traffic.review.card'));
+      await expect(page.locator('[data-testid="a09-charges"] li')).toHaveCount(0);
+      await expectAccessible(page, { include: null });
+      // « Corregir » : retour à la saisie conservée, rien de déclaré
+      await page.locator('[data-testid="a09-traffic-correct"]').click();
+      await expect(page.locator('#a09-traffic-amount')).toHaveValue(amount);
+      await expect(page.locator('#a09-traffic-time')).toHaveValue('10:00');
+      await expect(page.locator('[data-testid="a09-charges"] li')).toHaveCount(0);
+      // « Revisar » puis « Confirmar » : déclaré avec la même saisie
+      await page.locator('[data-testid="a09-traffic-submit"]').click();
+      await page.locator('[data-testid="a09-traffic-confirm"]').click();
       const sent = page.locator('[data-testid="a09-traffic-sent"]');
       await expect(sent).toContainText(t('web.traffic.sent'));
       await expect(sent).toContainText(t('web.traffic.sent.amount', { amount: money(1230n) }));
