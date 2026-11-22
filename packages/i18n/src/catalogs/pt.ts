@@ -3184,6 +3184,8 @@ export const PT_MESSAGES = {
   'common.inspection.galleryForbidden':
     'Tire a foto com a câmera do aplicativo: fotos da galeria não são aceitas.',
   'common.inspection.photoInvalid': 'Não conseguimos aceitar esta foto. Tire-a de novo.',
+  'common.inspection.photoDuplicate':
+    'Esta foto já foi enviada. Tire uma foto nova do veículo, agora.',
   'common.inspection.uploadUnavailable':
     'O envio de fotos não está disponível agora. Tente mais tarde.',
   'common.inspection.unavailable': 'As fotos não estão disponíveis agora. Tente mais tarde.',

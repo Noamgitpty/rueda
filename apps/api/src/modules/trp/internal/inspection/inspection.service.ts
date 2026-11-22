@@ -8,20 +8,27 @@
  *      usage unique ; sinon PHOTO_GALLERY_FORBIDDEN) ; bornes du pays lues en même temps ;
  *   3. envoi fermé si antivirus, coffre ou stockage sont indisponibles (503, production bêta) ;
  *   4. taille (≤ `photo_max_kb` du pays et ≤ la limite du corps JSON), type RÉEL JPEG ou WebP,
- *      dimensions (côté ≤ `photo_max_px` ; plusieurs tailles annoncées : la plus grande, N-120) ;
- *      empreinte des octets reçus = celle de l'appareil (sinon PHOTO_INVALID : transport altéré) ;
- *   5. antivirus : seul `CLEAN` du type réel libère ; panne ou délai ⇒ 503 ;
+ *      dimensions (côté ≤ `photo_max_px` ; plusieurs tailles annoncées : la plus grande, N-120),
+ *      métadonnées retirées (EXIF dont GPS, XMP, IPTC, commentaires : `preparePhoto`, liste
+ *      blanche d'AUD) ; empreinte des octets REÇUS = celle de l'appareil (sinon PHOTO_INVALID :
+ *      transport altéré) ;
+ *   5. antivirus sur la copie nettoyée : seul `CLEAN` du type réel libère ; panne ou délai ⇒ 503 ;
  *   6. une transaction : clé USER de la personne (coffre), commande d'ajout (jeton consommé,
- *      `file_asset`, photo ; heure serveur), chiffrement, dépôt en création seule ; tout échec
- *      annule.
- * Les octets stockés sont ceux reçus : l'empreinte enregistrée (SHA-256 des octets reçus) se
- * recalcule à l'identique sur l'objet déchiffré (`verifyFileAsset`, US-009).
+ *      `file_asset`, photo ; heure serveur ; empreinte déjà vue ⇒ PHOTO_DUPLICATE), chiffrement,
+ *      dépôt en création seule ; tout échec annule.
+ * Deux empreintes (ADR-196, F-L3-PRE-01 / F-L3-PRE-02) : celle de l'ORIGINAL, envoyée par
+ * l'appareil, prouve seulement le transport et n'est jamais gardée ; celle de la COPIE NETTOYÉE est
+ * la seule enregistrée, rendue, scellée et stockée (aucun EXIF ni GPS ne part dans le dossier de
+ * preuve d'US-308) ; elle se recalcule à l'identique sur l'objet déchiffré (`verifyFileAsset`,
+ * US-009) et ne change pas quand on retouche un octet de métadonnée : la garde d'unicité de la
+ * base (0176) porte sur elle.
  * Journaux : aucun ; jamais un identifiant, une empreinte ni une donnée personnelle.
  */
 import { randomUUID, createHash } from 'node:crypto';
 import { Inject, Injectable } from '@nestjs/common';
 import { API_BODY_LIMIT_BYTES } from '../../../../http-hardening.js';
 import { isCleanScan, PhotoRejectedError, preparePhoto } from '../../../aud/index.js';
+import type { CleanPhoto } from '../../../aud/index.js';
 import { TRP_EVIDENCE_PIPELINE, TRP_INSPECTION_STORE } from '../tokens.js';
 import { InspectionHttpError, outcomeCode } from './errors.js';
 import { INSPECTION_MIME_TYPES, kindOf, parseCaptureRequest, parsePhotoUpload } from './model.js';
@@ -127,23 +134,28 @@ export class InspectionService {
     const limits = this.#limits(check.maxKb, check.maxPx);
     if (!limits.valid) throw new InspectionHttpError('INSPECTION_UNAVAILABLE');
     if (!evidenceOpen(this.pipeline)) throw new InspectionHttpError('PHOTO_UPLOAD_UNAVAILABLE');
-    let mime: string;
+    let clean: CleanPhoto;
     try {
-      mime = preparePhoto(input.content, {
+      clean = preparePhoto(input.content, {
         maxBytes: limits.maxBytes,
         maxSide: limits.maxPx,
         maxPixels: limits.maxPx * limits.maxPx,
-      }).mime;
+      });
     } catch (error) {
       if (error instanceof PhotoRejectedError) throw new InspectionHttpError('PHOTO_INVALID');
       throw error;
     }
+    const mime = clean.mime;
     if (!(INSPECTION_MIME_TYPES as readonly string[]).includes(mime)) {
       throw new InspectionHttpError('PHOTO_INVALID');
     }
-    const sha256 = createHash('sha256').update(input.content).digest();
-    if (!sha256.equals(input.clientSha256)) throw new InspectionHttpError('PHOTO_INVALID');
-    const scan = await this.pipeline.scanner.scan({ declaredMime: mime, body: input.content });
+    // transport : empreinte de l'original (celle de l'appareil), jamais enregistrée
+    const received = createHash('sha256').update(input.content).digest();
+    if (!received.equals(input.clientSha256)) throw new InspectionHttpError('PHOTO_INVALID');
+    // preuve : seule la copie nettoyée est hachée, scellée, stockée et rendue (F-L3-PRE-02)
+    const stored = clean.body;
+    const sha256 = createHash('sha256').update(stored).digest();
+    const scan = await this.pipeline.scanner.scan({ declaredMime: mime, body: stored });
     if (scan.status !== 'SCANNED') throw new InspectionHttpError('PHOTO_UPLOAD_UNAVAILABLE');
     if (!isCleanScan(scan, mime as 'image/jpeg' | 'image/webp')) {
       throw new InspectionHttpError('PHOTO_INVALID');
@@ -155,7 +167,7 @@ export class InspectionService {
       }
     };
     const deposit = async (tx: SqlExecutor, key: string) => {
-      const sealed = await this.pipeline.vault.seal(tx, userId, fileId, input.content);
+      const sealed = await this.pipeline.vault.seal(tx, userId, fileId, stored);
       if (sealed.status !== 'SEALED') throw new EvidenceDepositError();
       const put = await this.pipeline.files.put('PRIVATE_EVIDENCE', key, sealed.body);
       if (put.status !== 'STORED') throw new EvidenceDepositError();
@@ -172,7 +184,7 @@ export class InspectionService {
             slot: input.slot,
             fileId,
             mime,
-            bytes: input.content.length,
+            bytes: stored.length,
             sha256,
             deviceCapturedAt: input.deviceCapturedAt,
           },
@@ -193,7 +205,7 @@ export class InspectionService {
       fileId,
       slot: input.slot,
       sha256: sha256.toString('hex'),
-      bytes: input.content.length,
+      bytes: stored.length,
       receivedAt: r.receivedAt.toISOString(),
     };
   }

@@ -7,7 +7,7 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 
 ## Synthèse
 
-- 176 migrations ; 166 tables ; 6 vues ; 938 politiques RLS ; 409 fonctions `SECURITY DEFINER` ; 323 autres fonctions.
+- 177 migrations ; 166 tables ; 6 vues ; 939 politiques RLS ; 409 fonctions `SECURITY DEFINER` ; 323 autres fonctions.
 - Tables sans RLS `ENABLE` + `FORCE` : aucune.
 - Rôles applicatifs avec `SUPERUSER` ou `BYPASSRLS` : aucun.
 
@@ -191,6 +191,7 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 | `0173_trip_overdue_escalation` | TRP / SUP : escalade de non-restitution lancée par l'ops et vue des retards (bêta). |
 | `0174_report_beta_views_reconciliation` | RPT / FIN : vues de la bêta (remises du jour, retards, KPI de sortie) et rapprochement |
 | `0175_claim_damage_claims_decisions` | CLM : déclarations de dommage de l'hôte et d'incident du voyageur, décisions motivées par |
+| `0176_trip_inspection_photo_fingerprint` | TRP : empreinte de photo d'état unique, tous trips, photos d'annonce comprises (bêta). |
 
 ## Rôles
 
@@ -470,6 +471,7 @@ Contraintes :
 Index :
 
 - `file_asset_enc_subject_idx` : `CREATE INDEX file_asset_enc_subject_idx ON core.audit_file_asset USING btree (enc_subject_type, enc_subject_id) WHERE (enc_subject_type IS NOT NULL)`
+- `file_asset_listing_sha256_idx` : `CREATE INDEX file_asset_listing_sha256_idx ON core.audit_file_asset USING btree (sha256) WHERE (bucket = 'PUBLIC_LISTING'::text)`
 
 Politiques RLS :
 
@@ -479,6 +481,7 @@ Politiques RLS :
 - `cmd_hold_evidence_export_ins` (INSERT, PERMISSIVE, cmd_hold_owner) WITH CHECK `((bucket = 'PRIVATE_EVIDENCE'::text) AND (classification = 'C2'::text) AND (source = 'GENERATED'::text) AND (retention_class = 'EVIDENCE_EXPORT'::text) AND (mime = 'application/zip'::text) AND (enc_subject_type = 'USER'::text) AND (enc_subject_id IS NOT NULL) AND (enc_subject_id = uploader_user_id))`
 - `cmd_hold_evidence_file_sel` (SELECT, PERMISSIVE, cmd_hold_owner) USING `(bucket = 'PRIVATE_EVIDENCE'::text)`
 - `cmd_hold_inspection_file_ins` (INSERT, PERMISSIVE, cmd_hold_owner) WITH CHECK `((bucket = 'PRIVATE_EVIDENCE'::text) AND (classification = 'C2'::text) AND (source = 'IN_APP_CAMERA'::text) AND (retention_class = 'TRIP_INSPECTION'::text) AND (enc_subject_type = 'USER'::text) AND (enc_subject_id IS NOT NULL) AND (enc_subject_id = uploader_user_id) AND (mime = ANY (ARRAY['image/jpeg'::text, 'image/webp'::text])))`
+- `cmd_hold_inspection_listing_sha_sel` (SELECT, PERMISSIVE, cmd_hold_owner) USING `(bucket = 'PUBLIC_LISTING'::text)`
 - `iam_staff_evidence_insert` (INSERT, PERMISSIVE, iam_staff_owner) WITH CHECK `((bucket = 'PRIVATE_EVIDENCE'::text) AND (classification = 'C2'::text) AND (source = 'STAFF_UPLOAD'::text) AND (enc_subject_type = 'USER'::text) AND (enc_subject_id IS NOT NULL) AND (retention_class = 'STAFF_EVIDENCE'::text))`
 - `iam_staff_insert` (INSERT, PERMISSIVE, iam_staff_owner) WITH CHECK `((bucket = 'BRAND'::text) AND (classification = 'C0'::text) AND (source = 'STAFF_UPLOAD'::text) AND (enc_subject_type IS NULL) AND (retention_class = 'BRAND_PUBLIC'::text))`
 - `iam_staff_select` (SELECT, PERMISSIVE, iam_staff_owner) USING `true`
@@ -8256,6 +8259,10 @@ Contraintes :
 - `trip_ops_inspection_photo_capture_id_fkey` : `FOREIGN KEY (capture_id) REFERENCES core.trip_ops_photo_capture(id)`
 - `trip_ops_inspection_photo_file_id_fkey` : `FOREIGN KEY (file_id) REFERENCES core.audit_file_asset(id)`
 - `trip_ops_inspection_photo_inspection_id_fkey` : `FOREIGN KEY (inspection_id) REFERENCES core.trip_ops_inspection(id)`
+
+Index :
+
+- `trip_inspection_photo_sha256_unique` : `CREATE UNIQUE INDEX trip_inspection_photo_sha256_unique ON core.trip_ops_inspection_photo USING btree (sha256)`
 
 Politiques RLS :
 

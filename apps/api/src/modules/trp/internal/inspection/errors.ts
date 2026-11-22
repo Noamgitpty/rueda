@@ -9,6 +9,8 @@
  * identifiant mal formé : même réponse), `INSPECTION_NOT_OPEN` (hors de la fenêtre de la série),
  * `INSPECTION_SUBMITTED` (série déjà validée), `PHOTO_LIMIT_REACHED` (100 photos par série),
  * `PHOTO_INVALID` (type réel, taille, dimensions, empreinte de transport ou antivirus),
+ * `PHOTO_DUPLICATE` (US-303 suite, ADR-196 : empreinte de la copie nettoyée déjà enregistrée pour
+ * une photo d'état de tout trip ou une photo d'annonce ; rien n'est reçu, l'angle se reprend),
  * `PHOTO_UPLOAD_UNAVAILABLE` (antivirus, coffre ou stockage indisponibles : rien n'est reçu),
  * `INSPECTION_UNAVAILABLE` (base indisponible ou bornes du pays absentes).
  */
@@ -19,6 +21,7 @@ export const INSPECTION_MESSAGES = {
   INSPECTION_NOT_OPEN: { status: 409, messageKey: 'common.inspection.notOpen' },
   INSPECTION_SUBMITTED: { status: 409, messageKey: 'common.inspection.submitted' },
   PHOTO_LIMIT_REACHED: { status: 409, messageKey: 'common.inspection.limitReached' },
+  PHOTO_DUPLICATE: { status: 409, messageKey: 'common.inspection.photoDuplicate' },
   PHOTO_TEMPLATE_INCOMPLETE: { status: 422, messageKey: 'common.inspection.templateIncomplete' },
   PHOTO_GALLERY_FORBIDDEN: { status: 422, messageKey: 'common.inspection.galleryForbidden' },
   PHOTO_INVALID: { status: 422, messageKey: 'common.inspection.photoInvalid' },
@@ -55,6 +58,7 @@ export function outcomeCode(outcome: string): InspectionCode {
     case 'INSPECTION_NOT_OPEN':
     case 'INSPECTION_SUBMITTED':
     case 'PHOTO_LIMIT_REACHED':
+    case 'PHOTO_DUPLICATE':
     case 'PHOTO_GALLERY_FORBIDDEN':
     case 'PHOTO_INVALID':
     case 'PHOTO_TEMPLATE_INCOMPLETE':
