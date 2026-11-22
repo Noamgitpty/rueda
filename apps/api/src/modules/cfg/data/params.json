@@ -2810,13 +2810,13 @@
       "type": "BOOL",
       "scopes": ["COUNTRY"],
       "failMode": "BLOCK",
-      "source": "08 BR-REIMB-01, BR-PICKUP-03 ; 16 CLM-021 ; DEC-FONDATEUR-22 ; ADR-197 : vrai : les pièces d’un frais annexe sont des photos des séries de départ ou de retour du trip (heure serveur, empreinte) ; faux : aussi les fichiers du seau des preuves déposés par l’hôte depuis le début du trip ; absent : aucune demande (fail-closed)",
-      "status": "PROPOSÉ (ADR-197) : vrai, contrôle gardé contre une fraude évidente (photo antidatée ou d’un autre véhicule, L3-PM-02) ; Turo demande aussi des photos à métadonnées",
+      "source": "08 BR-REIMB-01, BR-PICKUP-03 ; 16 CLM-021 ; DEC-FONDATEUR-22 ; ADR-197 : vrai : les pièces d’un frais annexe sont seulement des photos des séries de départ ou de retour du trip (heure serveur, empreinte) ; faux : aussi les fichiers du seau des preuves déposés par l’hôte dans la fenêtre du trip, jamais une photo d’état ni la pièce d’un autre trip ; absent : aucune demande (fail-closed)",
+      "status": "PROPOSÉ comme Turo (ADR-197, DEC-FONDATEUR-22) : faux ; Turo accepte les photos fournies par l’hôte ; vrai serait plus lourd que Turo",
       "decision": "PROPOSED",
       "decisionRef": "ADR-197 ; COMME_TURO (US-706) ; DEC-FONDATEUR-22",
       "values": {
-        "PA": true,
-        "PY": true
+        "PA": false,
+        "PY": false
       }
     },
     {

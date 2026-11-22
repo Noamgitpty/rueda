@@ -539,12 +539,14 @@ describe.each(COUNTRIES)('US-706 — frais annexes ($country, $currency)', (c: C
         const w = await world(tx, c);
         const other = await world(tx, c);
         await param(tx, 'fuel_refill_max', c.country, a['fuelCap']!.toString());
-        await now(tx, J0);
+        // fichier de l'hôte déposé AVANT le début du trip : hors de la fenêtre, jamais une pièce
+        await now(tx, at(START, -HOUR));
         const loose = (
           await tx.query<{ id: string }>('SELECT test_fixture.us706_loose_file($1)::text AS id', [
             w.holder,
           ])
         ).rows[0]!.id;
+        await now(tx, J0);
         const h = await session(tx, w.holder);
         for (const evidence of [[], [loose], [other.inner], [uuid()], [w.inner, loose]]) {
           expect(
@@ -701,7 +703,7 @@ describe.each(COUNTRIES)('US-706 — frais annexes ($country, $currency)', (c: C
     });
   });
 
-  it('DEC-FONDATEUR-22 (comme Turo) : par défaut, carburant demandable malgré un Extra vendu ou une fin anticipée (le voyageur conteste) ; pièces hors des photos du trip admises si incidental_evidence_trip_photos_only est faux — fichiers déposés par l’hôte depuis le début du trip seulement', async () => {
+  it('DEC-FONDATEUR-22 (comme Turo, défauts faux) : carburant demandable malgré un Extra vendu ou une fin anticipée (le voyageur conteste) ; fichiers de l’hôte admis comme pièces, mais seulement ceux déposés dans la fenêtre de CE trip — jamais une photo d’état ni la pièce d’un autre trip, jamais un fichier du voyageur ; nettoyage toujours avec au moins une preuve valide ; incidental_evidence_trip_photos_only à vrai ⇒ photos du trip seulement', async () => {
     await withRole('app_api', async (api) => {
       await withTestTransaction(api, { virtualNow: START }, async (tx) => {
         const prepaid = await world(tx, c, { extras: true });
@@ -733,15 +735,8 @@ describe.each(COUNTRIES)('US-706 — frais annexes ($country, $currency)', (c: C
           ).rows[0]!.id;
         const mine = await file(loose.holder);
         const guests = await file(loose.guest);
-        let h = await session(tx, loose.holder);
-        // défaut PROPOSÉ vrai (contrôle contre la fraude évidente) : photos du trip seulement
-        expect(
-          (await submit(tx, h, loose.trip, 'CLEANING', a['cleaning']!, [mine]))['outcome'],
-        ).toBe('CLAIM_EVIDENCE_MISSING');
-        await now(tx, at(J0, MINUTE));
-        await param(tx, 'incidental_evidence_trip_photos_only', c.country, false);
-        await now(tx, at(J0, 2 * MINUTE));
-        h = await session(tx, loose.holder);
+        // défaut PROPOSÉ comme Turo (DEC-FONDATEUR-22) : incidental_evidence_trip_photos_only = faux
+        const h = await session(tx, loose.holder);
         // fichier d'un autre trip refusé (revue sécurité delta n° 3) : même hôte, autre voiture ;
         // une photo d'état de l'autre trip, ou une pièce déjà jointe à une demande de l'autre trip
         const shared = await file(loose.holder);
@@ -773,6 +768,23 @@ describe.each(COUNTRIES)('US-706 — frais annexes ($country, $currency)', (c: C
           fee_type: 'CLEANING',
           status: 'AWAITING_GUEST',
         });
+        // paramètre posé à vrai : photos du trip seulement (un fichier de l'hôte ne suffit plus)
+        const strict = await world(tx, c);
+        await now(tx, at(J0, MINUTE));
+        const strictFile = await file(strict.holder);
+        await param(tx, 'incidental_evidence_trip_photos_only', c.country, true);
+        await now(tx, at(J0, 2 * MINUTE));
+        const hs = await session(tx, strict.holder);
+        for (const evidence of [[strictFile], [strictFile, strict.inner]]) {
+          expect(
+            (await submit(tx, hs, strict.trip, 'CLEANING', a['cleaning']!, evidence))['outcome'],
+          ).toBe('CLAIM_EVIDENCE_MISSING');
+        }
+        expect(
+          (await submit(tx, hs, strict.trip, 'CLEANING', a['cleaning']!, [strict.inner]))[
+            'outcome'
+          ],
+        ).toBe('SUBMITTED');
         // la vue ne liste que les photos du trip ; le fichier déposé est compté
         const g = await session(tx, loose.guest);
         const inv = (
