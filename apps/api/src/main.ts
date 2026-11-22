@@ -36,6 +36,7 @@ import type {
   PublicListingRatings,
   SearchRatings,
 } from './modules/cat/index.js';
+import { postgresClmTripAdapters } from './modules/clm/index.js';
 import { postgresCtrAdapters } from './modules/ctr/index.js';
 import { postgresIamAdapters, postgresStaffAdapters } from './modules/iam/index.js';
 import { postgresKycAdapters } from './modules/kyc/index.js';
@@ -206,6 +207,8 @@ async function bootstrap(): Promise<void> {
       // US-311 : vues de la bêta et rapprochement assisté (portes core.report_staff_beta_view et
       // core.finance_staff_* de 0174 sous app_api)
       new PgReportStore(pool),
+      // US-318 : sinistres entre particuliers (commandes core.claim_* de 0178 sous app_api)
+      postgresClmTripAdapters(pool),
     ),
     { rawBody: true },
   );

@@ -2774,6 +2774,35 @@
         "PA": 120,
         "PY": 120
       }
+    },
+    {
+      "key": "traffic_charge_admin_fee_bps",
+      "type": "BPS",
+      "scopes": ["COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "08 BR-PRICE-15 [NOUS] (frais de gestion 5 % des frais annexes), BR-REIMB-04 (facturés au voyageur, pas prélevés sur l’hôte), BR-TT-02 à 04 ; 19 US-318 ; ADR-198 : frais de gestion d’une amende, d’un péage ou d’une fourrière refacturés au voyageur = roundHalfUp(montant × bps / 10 000), jambe PLATFORM, taxes de la plateforme comprises ; absent ou hors [0 ; 10 000] : refacturation refusée (TRAFFIC_FEE_UNKNOWN, fail-closed)",
+      "status": "PROPOSÉ comme Turo (ADR-198) : Turo prend 3 % ; 08 recommande 5 % au PA / PY (coût PSP local) ; aucun plafond (Turo n'en a pas) : plafond de BR-PRICE-15 renvoyé au fondateur (POUR_LE_FONDATEUR)",
+      "decision": "PROPOSED",
+      "decisionRef": "ADR-198 ; COMME_TURO (US-318)",
+      "values": {
+        "PA": 500,
+        "PY": 500
+      }
+    },
+    {
+      "key": "traffic_charge_deadline_days",
+      "type": "DURATION",
+      "unit": "d",
+      "scopes": ["COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "08 BR-TT-02 / BR-TT-03 [NOUS] (péages et PV : fin effective + 120 j, lenteur des avis ATTT), « Échéances exécutables » de BR-REIMB (end_effective = check-out ?? fin prévue) ; 19 US-318 ; ADR-198 : déclaration d’une amende, d’un péage ou d’une fourrière par l’hôte au plus tard à fin effective + ce délai (heure de la base) ; au-delà : TRAFFIC_CHARGE_DEADLINE_PASSED ; absent ou non positif : refus (TRAFFIC_WINDOW_UNKNOWN, fail-closed)",
+      "status": "PROPOSÉ comme Turo (ADR-198) : Turo 90 j ; 08 retient 120 j au PA / PY",
+      "decision": "PROPOSED",
+      "decisionRef": "ADR-198 ; COMME_TURO (US-318) ; 08 BR-TT-02",
+      "values": {
+        "PA": 120,
+        "PY": 120
+      }
     }
   ]
 }

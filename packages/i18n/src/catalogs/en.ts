@@ -3691,4 +3691,22 @@ export const EN_MESSAGES = {
     'Hi {first_name}. The car for booking {booking_ref} has not been returned for more than a day. Here is a pre-filled police report that you can file yourself with the police or the public prosecutor, with your rental contract and your ID: “I, the host who rented out the vehicle stated in the attached rental contract (make, model and plate), declare that this vehicle, rented through booking {booking_ref} on {brand}, was due back to me on {end_at} and has not been returned despite my reminders. The renter’s identity is in the attached contract. I am filing a complaint for failure to return the vehicle.” Keep the report number. {brand} does not file the report for you, does not recover the car and does not act on it remotely; your payout is not blocked by this procedure.',
   'ntf.unreturnedPoliceReport.sms.body':
     '{brand}: pre-filled police report for booking {booking_ref} sent by email. You file it with the police yourself.',
+  // US-318 (ADR-198) : réponses des routes des sinistres d’un trip (incident, amendes, péages, fourrière)
+  'common.tripClaims.notFound': 'We couldn’t find this trip.',
+  'common.tripClaims.incidentNotOpen':
+    'You can only report an incident while the trip is in progress.',
+  'common.tripClaims.incidentCaseRequired':
+    'First ask for help with an accident or breakdown from the trip’s help screen.',
+  'common.tripClaims.incidentPhotosRequired':
+    'Take at least one photo with the app’s camera before reporting the incident.',
+  'common.tripClaims.trafficTripNotEnded':
+    'You can report fines, tolls or towing once the trip has ended.',
+  'common.tripClaims.trafficDeadlinePassed': 'The deadline to report this charge has passed.',
+  'common.tripClaims.trafficOutsideTrip':
+    'The charge date must fall within the trip, between pickup and return.',
+  'common.tripClaims.trafficEvidenceRequired':
+    'Take a photo of the receipt with the app’s camera; each photo can be used for one charge only.',
+  'common.tripClaims.trafficTermsUnknown':
+    'We can’t record charges in this country yet. Try again later.',
+  'common.tripClaims.unavailable': 'We couldn’t record it. Check your connection and try again.',
 } as const satisfies Readonly<Record<MessageKey, Message>>;

@@ -3783,4 +3783,23 @@ export const PT_MESSAGES = {
     'Olá, {first_name}. O carro da reserva {booking_ref} está sem devolução há mais de um dia. Aqui está um boletim de ocorrência pré-preenchido que você mesmo pode registrar na polícia ou no Ministério Público, com o seu contrato de locação e o seu documento de identidade: “Eu, anfitrião que colocou para locação o veículo indicado no contrato de locação anexo (marca, modelo e placa), declaro que este veículo, alugado pela reserva {booking_ref} na {brand}, devia ser devolvido a mim em {end_at} e não foi, apesar das minhas cobranças. A identidade do locatário consta no contrato anexo. Registro queixa pela não devolução do veículo.” Guarde o número do boletim. A {brand} não registra o boletim por você, não recupera o carro e não age sobre ele a distância; o seu repasse não fica bloqueado por este procedimento.',
   'ntf.unreturnedPoliceReport.sms.body':
     '{brand}: boletim pré-preenchido da reserva {booking_ref} enviado por e-mail. Você mesmo o registra na polícia.',
+  // US-318 (ADR-198) : réponses des routes des sinistres d’un trip (incident, amendes, péages, fourrière)
+  'common.tripClaims.notFound': 'Não encontramos esta viagem.',
+  'common.tripClaims.incidentNotOpen':
+    'Você só pode informar um incidente enquanto a viagem estiver em andamento.',
+  'common.tripClaims.incidentCaseRequired':
+    'Primeiro peça ajuda por um acidente ou uma pane na tela de ajuda da viagem.',
+  'common.tripClaims.incidentPhotosRequired':
+    'Tire pelo menos uma foto com a câmera do app antes de informar o incidente.',
+  'common.tripClaims.trafficTripNotEnded':
+    'Você poderá informar multas, pedágios ou guincho quando a viagem terminar.',
+  'common.tripClaims.trafficDeadlinePassed': 'O prazo para informar esta cobrança já terminou.',
+  'common.tripClaims.trafficOutsideTrip':
+    'A data da cobrança precisa estar dentro da viagem, entre a entrega e a devolução.',
+  'common.tripClaims.trafficEvidenceRequired':
+    'Tire uma foto do comprovante com a câmera do app; cada foto serve para uma única cobrança.',
+  'common.tripClaims.trafficTermsUnknown':
+    'Ainda não podemos registrar cobranças neste país. Tente mais tarde.',
+  'common.tripClaims.unavailable':
+    'Não conseguimos registrar. Verifique sua conexão e tente de novo.',
 } as const satisfies Readonly<Record<MessageKey, Message>>;

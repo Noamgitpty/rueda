@@ -3778,6 +3778,25 @@ export const ES_MESSAGES = {
     'Hola, {first_name}. El auto de la reserva {booking_ref} lleva más de un día sin ser devuelto. Esta es una denuncia prellenada que puedes presentar tú mismo ante la policía o el Ministerio Público, con tu contrato de alquiler y tu documento de identidad: «Yo, anfitrión que puso en alquiler el vehículo indicado en el contrato de alquiler adjunto (marca, modelo y placa), declaro que este vehículo, alquilado con la reserva {booking_ref} en {brand}, debía serme devuelto el {end_at} y no lo fue pese a mis reclamos. La identidad del arrendatario figura en el contrato adjunto. Presento denuncia por no devolución del vehículo.» Guarda el número de la denuncia. {brand} no presenta la denuncia en tu lugar, no recupera el auto y no actúa sobre él a distancia; tu pago no queda bloqueado por este procedimiento.',
   'ntf.unreturnedPoliceReport.sms.body':
     '{brand}: denuncia prellenada de la reserva {booking_ref} enviada por correo. Tú la presentas ante la policía.',
+  // US-318 (ADR-198) : réponses des routes des sinistres d’un trip (incident, amendes, péages, fourrière)
+  'common.tripClaims.notFound': 'No encontramos este viaje.',
+  'common.tripClaims.incidentNotOpen':
+    'Solo puedes declarar un incidente mientras el viaje está en curso.',
+  'common.tripClaims.incidentCaseRequired':
+    'Primero pide ayuda por un accidente o una avería desde la pantalla de ayuda del viaje.',
+  'common.tripClaims.incidentPhotosRequired':
+    'Toma al menos una foto con la cámara de la app antes de declarar el incidente.',
+  'common.tripClaims.trafficTripNotEnded':
+    'Podrás declarar multas, peajes o grúa cuando el viaje haya terminado.',
+  'common.tripClaims.trafficDeadlinePassed': 'El plazo para declarar este cargo ya venció.',
+  'common.tripClaims.trafficOutsideTrip':
+    'La fecha del cargo debe estar dentro del viaje, entre la entrega y la devolución.',
+  'common.tripClaims.trafficEvidenceRequired':
+    'Toma una foto del comprobante con la cámara de la app; cada foto sirve para un solo cargo.',
+  'common.tripClaims.trafficTermsUnknown':
+    'Por ahora no podemos registrar cargos en este país. Inténtalo más tarde.',
+  'common.tripClaims.unavailable':
+    'No pudimos registrarlo. Revisa tu conexión y vuelve a intentarlo.',
 } as const satisfies Catalog;
 
 export type MessageKey = keyof typeof ES_MESSAGES;

@@ -19,6 +19,7 @@
  */
 import { randomUUID } from 'node:crypto';
 import type { BusRegistry, SqlClient, WorkerTransactions } from '../../../bus/index.js';
+import { P2pClaimsExecutor } from '../p2p/executor.js';
 
 export const CLAIM_DECISION_WORKER = 'claim_decision_executor';
 /** Nom de travailleur exigé par la base pour les commandes d'argent. */
@@ -29,7 +30,8 @@ export const CLAIM_DECISION_BATCH = 50;
 /** Déclaration envoyée à l'assureur partenaire : aucune donnée personnelle. */
 export interface InsurerClaimRequest {
   readonly declarationId: string;
-  readonly kind: 'DAMAGE' | 'INCIDENT';
+  /** THEFT : vol présumé d'un trip non rendu (US-318, ADR-198), coût constaté « 0 ». */
+  readonly kind: 'DAMAGE' | 'INCIDENT' | 'THEFT';
   readonly country: string;
   readonly currency: string;
   readonly repairCostMinor: string;
@@ -201,6 +203,9 @@ export function registerClaimDecisionExecutor(
   insurer: InsurerClaimsPort | null,
 ): void {
   const executor = new ClaimDecisionExecutor({ transactions, insurer, log });
+  // US-318 (ADR-198) : vol présumé, déclarations de vol, refacturations des amendes, péages et
+  // fourrières, dans la même passe (même nom de travailleur `payment_command`)
+  const p2p = new P2pClaimsExecutor({ transactions, insurer, log });
   registry.registerPeriodic(
     CLAIM_DECISION_WORKER,
     CLAIM_DECISION_PERIOD_SECONDS,
@@ -210,6 +215,7 @@ export function registerClaimDecisionExecutor(
       ]);
       const due = await ClaimDecisionExecutor.due(tx);
       await executor.process(due);
+      await p2p.process();
     },
   );
 }

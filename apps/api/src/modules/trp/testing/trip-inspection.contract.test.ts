@@ -99,13 +99,13 @@ async function world(options: { evidence?: EvidencePipeline | null } = {}): Prom
   const base = { hostProof: app.hash('staff_sans_mfa'), guestProof: app.hash('voyageur') };
   store.trips.set(trip, {
     ...base,
-    open: { CHECKIN: true, CHECKOUT: false },
+    open: { CHECKIN: true, CHECKOUT: false, INCIDENT: false, TRAFFIC: false },
     maxKb: 500,
     maxPx: 1600,
   });
   store.trips.set(closed, {
     ...base,
-    open: { CHECKIN: false, CHECKOUT: false },
+    open: { CHECKIN: false, CHECKOUT: false, INCIDENT: false, TRAFFIC: false },
     maxKb: 500,
     maxPx: 1600,
   });

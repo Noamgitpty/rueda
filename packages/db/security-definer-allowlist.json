@@ -2880,6 +2880,83 @@
       "owner": "iam_staff_owner",
       "execute": ["app_api"],
       "story": "US-311"
+    },
+    {
+      "signature": "core.claim_cmd_report_incident(bytea,uuid,uuid,uuid,boolean,boolean)",
+      "family": "cmd_hold",
+      "owner": "cmd_hold_owner",
+      "execute": ["app_api"],
+      "story": "US-318"
+    },
+    {
+      "signature": "core.claim_cmd_declare_traffic_charge(bytea,uuid,uuid,text,timestamp with time zone,bigint,uuid)",
+      "family": "cmd_hold",
+      "owner": "cmd_hold_owner",
+      "execute": ["app_api"],
+      "story": "US-318"
+    },
+    {
+      "signature": "core.claim_host_trip_claims(bytea,uuid)",
+      "family": "cmd_hold",
+      "owner": "cmd_hold_owner",
+      "execute": ["app_api"],
+      "story": "US-318"
+    },
+    {
+      "signature": "core.claim_theft_cases_due(integer)",
+      "family": "cmd_money",
+      "owner": "cmd_money_owner",
+      "execute": ["app_worker"],
+      "story": "US-318"
+    },
+    {
+      "signature": "core.claim_cmd_open_theft_case(uuid)",
+      "family": "cmd_money",
+      "owner": "cmd_money_owner",
+      "execute": ["app_worker"],
+      "story": "US-318"
+    },
+    {
+      "signature": "core.claim_cmd_close_theft_case(uuid)",
+      "family": "cmd_money",
+      "owner": "cmd_money_owner",
+      "execute": ["app_worker"],
+      "story": "US-318"
+    },
+    {
+      "signature": "core.claim_theft_declarations_due(integer)",
+      "family": "cmd_money",
+      "owner": "cmd_money_owner",
+      "execute": ["app_worker"],
+      "story": "US-318"
+    },
+    {
+      "signature": "core.claim_cmd_record_theft_declaration(uuid,text)",
+      "family": "cmd_money",
+      "owner": "cmd_money_owner",
+      "execute": ["app_worker"],
+      "story": "US-318"
+    },
+    {
+      "signature": "core.claim_traffic_charges_due(integer)",
+      "family": "cmd_money",
+      "owner": "cmd_money_owner",
+      "execute": ["app_worker"],
+      "story": "US-318"
+    },
+    {
+      "signature": "core.claim_cmd_execute_traffic_charge(uuid,uuid)",
+      "family": "cmd_money",
+      "owner": "cmd_money_owner",
+      "execute": ["app_worker"],
+      "story": "US-318"
+    },
+    {
+      "signature": "core.claim_cmd_defer_traffic_charge(uuid,text)",
+      "family": "cmd_money",
+      "owner": "cmd_money_owner",
+      "execute": ["app_worker"],
+      "story": "US-318"
     }
   ]
 }

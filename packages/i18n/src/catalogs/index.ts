@@ -397,8 +397,13 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  exigé, décision « définitive » refusée, somme des parts, plafonds, ADMIN pour tout débit) et
  `backoffice.claim.*` (A09 dans la console : déclaration, preuves, gabarit de la décision avec ses
  lignes exclues comme non refacturables, voies de recours, exécution par Kmino).
+ Version 113 (réservée à US-318 par l’orchestrateur ; 111 et 112 sont celles d’US-303 suite et
+ d’US-706 ; le numéro ne redescend jamais) : sinistres entre particuliers (US-318, ADR-198) :
+ `common.tripClaims.*` (réponses des routes `/trips/{tripId}/incidents`, `/claims` et
+ `/traffic-charges`) et les écrans de l’incident du voyageur (S17) et des amendes, péages et
+ fourrière de l’hôte.
  */
-export const CATALOG_VERSION = 110;
+export const CATALOG_VERSION = 113;
 
 /** Catalogues de base par langue ; la langue d'un profil de locale choisit le sien. */
 export const CATALOGS: Readonly<Record<CatalogLanguage, VersionedCatalog<MessageKey>>> = {

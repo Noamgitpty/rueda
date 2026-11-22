@@ -3857,4 +3857,22 @@ export const FR_MESSAGES = {
     'Bonjour {first_name}. La voiture de la réservation {booking_ref} n’est pas rendue depuis plus d’un jour. Voici une plainte pré-remplie que tu peux déposer toi-même auprès de la police ou du ministère public, avec ton contrat de location et ta pièce d’identité : « Je soussigné(e), hôte qui a mis en location le véhicule indiqué au contrat de location joint (marque, modèle et plaque), déclare que ce véhicule, loué par la réservation {booking_ref} sur {brand}, devait m’être restitué le {end_at} et ne l’a pas été malgré mes relances. L’identité du locataire figure au contrat joint. Je dépose plainte pour non-restitution du véhicule. » Garde le numéro de la plainte. {brand} ne dépose pas de plainte à ta place, ne récupère pas la voiture et n’agit pas à distance sur elle ; ton versement n’est pas bloqué par cette procédure.',
   'ntf.unreturnedPoliceReport.sms.body':
     '{brand} : plainte pré-remplie pour la réservation {booking_ref} envoyée par e-mail. C’est toi qui la déposes auprès de la police.',
+  // US-318 (ADR-198) : réponses des routes des sinistres d’un trip (incident, amendes, péages, fourrière)
+  'common.tripClaims.notFound': 'Nous ne trouvons pas ce trajet.',
+  'common.tripClaims.incidentNotOpen': 'Tu ne peux déclarer un incident que pendant le trajet.',
+  'common.tripClaims.incidentCaseRequired':
+    'Demande d’abord de l’aide pour un accident ou une panne depuis l’écran d’aide du trajet.',
+  'common.tripClaims.incidentPhotosRequired':
+    'Prends au moins une photo avec l’appareil photo de l’application avant de déclarer l’incident.',
+  'common.tripClaims.trafficTripNotEnded':
+    'Tu pourras déclarer une amende, un péage ou une fourrière une fois le trajet terminé.',
+  'common.tripClaims.trafficDeadlinePassed': 'Le délai pour déclarer ces frais est dépassé.',
+  'common.tripClaims.trafficOutsideTrip':
+    'La date des frais doit se situer pendant le trajet, entre la remise et le retour.',
+  'common.tripClaims.trafficEvidenceRequired':
+    'Prends en photo le justificatif avec l’appareil photo de l’application ; chaque photo ne sert qu’à une seule demande.',
+  'common.tripClaims.trafficTermsUnknown':
+    'Nous ne pouvons pas encore enregistrer ces frais dans ce pays. Réessaie plus tard.',
+  'common.tripClaims.unavailable':
+    'Nous n’avons pas pu l’enregistrer. Vérifie ta connexion et réessaie.',
 } as const satisfies Readonly<Record<MessageKey, Message>>;

@@ -4028,6 +4028,86 @@
         "sent_at": "C1",
         "provider_ref": "C1"
       }
+    },
+    "core.claim_theft_case": {
+      "lifecycle": "A",
+      "subjects": [],
+      "export": "none",
+      "columns": {
+        "id": "C1",
+        "trip_id": "C1",
+        "country_code": "C1",
+        "org_id": "C1",
+        "status": "C1",
+        "opened_at": "C1",
+        "closed_at": "C1",
+        "insurer_status": "C1",
+        "insurer_sent_at": "C1",
+        "insurer_ref": "C1"
+      }
+    },
+    "core.claim_incident_report": {
+      "lifecycle": "A",
+      "subjects": [
+        {
+          "column": "reporter_user_id",
+          "type": "USER"
+        }
+      ],
+      "export": "controller",
+      "columns": {
+        "id": "C1",
+        "trip_id": "C1",
+        "country_code": "C1",
+        "case_id": "C1",
+        "reporter_user_id": "C1",
+        "kind": "C1",
+        "third_party": "C1",
+        "police_report": "C1",
+        "inspection_id": "C1",
+        "photo_file_ids": "C1",
+        "request_id": "C1",
+        "reported_at": "C1"
+      }
+    },
+    "core.claim_traffic_charge": {
+      "lifecycle": "A",
+      "subjects": [
+        {
+          "column": "declared_by",
+          "type": "USER"
+        }
+      ],
+      "export": "controller",
+      "columns": {
+        "id": "C1",
+        "trip_id": "C1",
+        "country_code": "C1",
+        "currency": "C1",
+        "org_id": "C1",
+        "declared_by": "C1",
+        "kind": "C1",
+        "occurred_at": "C1",
+        "file_id": "C1",
+        "amount_minor": "C1",
+        "fee_bps": "C1",
+        "admin_fee_minor": "C1",
+        "total_minor": "C1",
+        "leg_host_minor": "C1",
+        "leg_insurer_minor": "C1",
+        "leg_tax_third_party_minor": "C1",
+        "leg_platform_minor": "C1",
+        "trip_start_at": "C1",
+        "trip_end_at": "C1",
+        "deadline_at": "C1",
+        "request_id": "C1",
+        "declared_at": "C1",
+        "execution_status": "C1",
+        "execution_code": "C1",
+        "charge_id": "C1",
+        "executed_at": "C1",
+        "next_check_at": "C1"
+      }
     }
   }
 }

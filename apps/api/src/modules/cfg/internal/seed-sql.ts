@@ -189,6 +189,13 @@ export const POST_SEED_PARAMS: readonly {
     refs: '16 TRP-015 ; 08 BR-CXL-13 ; ADR-191',
     embedded: true,
   },
+  {
+    prefix: 'traffic_charge_',
+    file: '0178_claim_p2p_theft_incident_traffic.sql',
+    story: 'US-318',
+    refs: '08 BR-TT-02 à 04, BR-PRICE-15 ; ADR-198',
+    embedded: true,
+  },
 ];
 
 /** La clé appartient au groupe : préfixe ou clé nouvelle nommée (`extraKeys`). */
