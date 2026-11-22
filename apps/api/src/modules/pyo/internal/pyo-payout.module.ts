@@ -1,6 +1,7 @@
 /**
  * Module Nest du compte de versement de l'hôte (US-707, ADR-180 : routes
- * /host/accounts/{orgId}/payout-account). Module DYNAMIQUE, importé par le seul processus API
+ * /host/accounts/{orgId}/payout-account) et des versements lus par le titulaire (US-314, ADR-192 :
+ * route /host/accounts/{orgId}/payouts, écran A08). Module DYNAMIQUE, importé par le seul processus API
  * (`api.module.ts`), après `IamAuthModule` (il utilise `SessionGuard`).
  *
  * Adaptateurs choisis par l'appelant :
@@ -12,13 +13,19 @@
  */
 import { Module } from '@nestjs/common';
 import type { DynamicModule } from '@nestjs/common';
+import { HostPayoutsController } from './host-payouts.controller.js';
+import { HostPayoutsService, UnavailableHostPayoutsStore } from './host-payouts.js';
+import type { HostPayoutsStore } from './host-payouts.js';
 import { PayoutAccountController } from './payout-account.controller.js';
 import { UnavailablePayoutAccountStore } from './payout-account-store.js';
 import { PayoutAccountService } from './payout-account.service.js';
 import type { PayoutAccountDeps } from './payout-account.service.js';
 import { PYO_PAYOUT_ACCOUNT_SERVICE } from './tokens.js';
 
-export type PyoPayoutOptions = PayoutAccountDeps;
+export type PyoPayoutOptions = PayoutAccountDeps & {
+  /** Versements lus par le titulaire (US-314, A08) ; absent ⇒ 503 (fail-closed). */
+  readonly payouts?: HostPayoutsStore;
+};
 
 const consoleLogger: PayoutAccountDeps['log'] = {
   warn: (message, fields) => {
@@ -30,6 +37,7 @@ const consoleLogger: PayoutAccountDeps['log'] = {
 export function unavailablePyoOptions(): PyoPayoutOptions {
   return {
     store: new UnavailablePayoutAccountStore(),
+    payouts: new UnavailableHostPayoutsStore(),
     vault: null,
     verifier: null,
     log: consoleLogger,
@@ -41,9 +49,13 @@ export class PyoPayoutModule {
   static register(options: PyoPayoutOptions = unavailablePyoOptions()): DynamicModule {
     return {
       module: PyoPayoutModule,
-      controllers: [PayoutAccountController],
+      controllers: [PayoutAccountController, HostPayoutsController],
       providers: [
         { provide: PYO_PAYOUT_ACCOUNT_SERVICE, useValue: new PayoutAccountService(options) },
+        {
+          provide: HostPayoutsService,
+          useValue: new HostPayoutsService(options.payouts ?? new UnavailableHostPayoutsStore()),
+        },
       ],
     };
   }

@@ -398,7 +398,8 @@ async function openReceivedReviews(
 
 /**
  * A10 → A08 de l'hôte (US-217 partie 217b) : mois du double qui porte des gains (acquis, à
- * liquider, pénalité en ligne séparée), compte au marché à deux décimales.
+ * liquider, pénalité en ligne séparée), compte au marché à deux décimales ; US-314 : versements
+ * (premier versement payé avec compensation, lot retenu pour réclamation et versements fermés).
  */
 async function openHostEarnings(page: Page, context: BrowserContext): Promise<void> {
   await signInHost(context);
@@ -408,6 +409,8 @@ async function openHostEarnings(page: Page, context: BrowserContext): Promise<vo
   const org = new URL(page.url()).searchParams.get('org') ?? '';
   await page.goto(`/host/earnings?org=${org}&month=2036-12`);
   await expect(page.locator('[data-testid="a08-earned"]')).toBeVisible();
+  // US-314 : section « Versements » (lot payé, lot retenu et ses motifs)
+  await expect(page.locator('[data-testid="a08-hold-CLAIM"]')).toBeVisible();
 }
 
 /**
@@ -496,6 +499,17 @@ async function openGuestHandover(
   const { tripId } = (await r.json()) as { tripId: string };
   await page.goto(`/trips/${tripId}/handover/checkin`);
   await expect(page.locator('[data-testid="handover-mit-reminder"]')).toBeVisible();
+}
+
+/** US-307 : écran du no-show de l'hôte (message tracé, déclaration possible). */
+async function openNoShow(page: Page, context: BrowserContext): Promise<void> {
+  await signInHost(context);
+  const token = (await context.cookies()).find((c) => c.name === '__Host-session')?.value ?? '';
+  const r = await fetch(`${API}/__e2e/no-show/new?guest=&host=${token}&traced=yes`);
+  expect(r.status).toBe(200);
+  const { tripId } = (await r.json()) as { tripId: string };
+  await page.goto(`/host/trips/${tripId}/no-show`);
+  await expect(page.locator('[data-testid="no-show-form"]')).toBeVisible();
 }
 
 interface Screen {
@@ -886,6 +900,12 @@ export const SCREENS: readonly Screen[] = [
     name: 'remise-voyageur',
     source: 'S09 · check-in, US-315, US-703',
     open: (page, context, language) => openGuestHandover(page, context, language),
+  },
+  // US-307 : no-show du voyageur déclaré par l'hôte (A05 · no-show)
+  {
+    name: 'no-show-hote',
+    source: 'A05, US-307',
+    open: (page, context) => openNoShow(page, context),
   },
   // US-525 : messages du trip (S16), fil du voyageur
   {

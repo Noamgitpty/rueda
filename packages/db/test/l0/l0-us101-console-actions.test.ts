@@ -191,6 +191,10 @@ const CANCEL_TRIP_HANDLER =
 // dossier de retard) ; saisie fermée de l'étape
 const ESCALATE_OVERDUE_HANDLER =
   'core.trip_manual_action_escalate_overdue(bytea,uuid,text,uuid,jsonb,text,uuid,text)';
+// US-307 (0171, ADR-191) : no-show et refus du véhicule liés à leur commande (demande réglée par
+// le travailleur trip_lifecycle) ; saisies fermées de la partie absente et du motif du refus
+const NO_SHOW_HANDLER =
+  'core.booking_manual_action_no_show(bytea,uuid,text,uuid,jsonb,text,uuid,text)';
 // US-224e (0140, ADR-163) : annulation des trips à venir d'un hôte défaillant
 const CANCEL_HOST_TRIPS_HANDLER =
   'core.booking_manual_action_cancel_host_trips(bytea,uuid,text,uuid,jsonb,text,uuid,text)';
@@ -350,19 +354,31 @@ const MATRIX: Readonly<Record<string, Expected>> = {
     permission: 'trip.declare_no_show',
     subject: 'TRIP',
     mode: 'DOMAIN_COMMAND',
-    keys: [],
-    values: {},
+    // US-307 : partie absente (GUEST ⇒ GUEST_NO_SHOW, HOST ⇒ HOST_NO_SHOW), mots seulement
+    keys: ['absentParty'],
+    values: { absentParty: ['GUEST', 'HOST', 'NONE'] },
     approval: false,
-    source: '17 §2.3 « trip.declare_no_show »',
+    handler: NO_SHOW_HANDLER,
+    source: '17 §2.3 « trip.declare_no_show » ; 19 US-307, ADR-191',
   },
   REFUSE_AT_PICKUP: {
     permission: 'kyc.license_check_at_handover',
     subject: 'TRIP',
     mode: 'DOMAIN_COMMAND',
-    keys: [],
-    values: {},
+    // US-307 : motif du refus (BR-CXL-04 propreté / sécurité ; BR-CXL-12 permis), mots seulement
+    keys: ['refusalReason'],
+    values: {
+      refusalReason: [
+        'CLEANLINESS',
+        'SAFETY',
+        'INVALID_LICENSE',
+        'IDENTITY_NOT_VERIFIED',
+        'OTHER_DRIVER_SENT',
+      ],
+    },
     approval: false,
-    source: '17 §2.3 « kyc.license_check_at_handover » (OPS oui)',
+    handler: NO_SHOW_HANDLER,
+    source: '17 §2.3 « kyc.license_check_at_handover » (OPS oui) ; 19 US-307, ADR-191',
   },
   KYC_DECISION: {
     permission: 'kyc.decide',
@@ -975,9 +991,15 @@ describe('critère 1 — action d’état : commande de domaine liée, dans la m
         ).rejects.toMatchObject({ code: '22023' });
       }
       // une action d'état sans clé déclarée n'admet aucune saisie (US-215 : CANCEL_TRIP_PLATFORM
-      // déclare désormais platformReason ; la propriété est prouvée sur DECLARE_NO_SHOW, sans clé)
+      // déclare désormais platformReason ; US-307 : DECLARE_NO_SHOW déclare absentParty ; la
+      // propriété est prouvée sur ESCALATE_OVERDUE, action de trip dont la seule clé déclarée est
+      // escalationStep (US-306) : `cause` n'est pas déclarée ; même assertion
       await expect(
-        act(client, ops, 'DECLARE_NO_SHOW', subject, { input: { cause: 'x' } }),
+        act(client, ops, 'ESCALATE_OVERDUE', subject, { input: { cause: 'x' } }),
+      ).rejects.toMatchObject({ code: '22023' });
+      // une clé déclarée n'admet que ses valeurs (US-307 : partie absente en énumération fermée)
+      await expect(
+        act(client, ops, 'DECLARE_NO_SHOW', subject, { input: { absentParty: 'BOTH' } }),
       ).rejects.toMatchObject({ code: '22023' });
       // `decision` : énumération fermée {APPROVED, REJECTED} (sujet ORGANIZATION, connu)
       const org = world.countries[0]?.orgA ?? '';
@@ -1018,8 +1040,9 @@ describe('critère 1 — action d’état : commande de domaine liée, dans la m
       };
       // KYC_DECISION (US-106, l0-us106-kyc-decision), HOST_VERIFICATION_DECISION (US-123,
       // l0-us123-host-verification), REVIEW_FLAGGED_BOOKING (US-209, l0-us209-risk-checkout) et
-      // les trois annulations (US-215, l0-us215-trip-cancellation) sont liées ; l'escalade de
-      // non-restitution aussi (US-306, l0-us306-escalation)
+      // les trois annulations (US-215, l0-us215-trip-cancellation) sont liées ; no-show et refus
+      // du véhicule aussi (US-307, l0-us307-no-show) ; l'escalade de non-restitution aussi (US-306,
+      // l0-us306-escalation)
       for (const a of STATE_ACTIONS.filter(
         (x) =>
           x !== 'KYC_DECISION' &&
@@ -1028,6 +1051,8 @@ describe('critère 1 — action d’état : commande de domaine liée, dans la m
           x !== 'CANCEL_TRIP_GUEST' &&
           x !== 'CANCEL_TRIP_HOST' &&
           x !== 'CANCEL_TRIP_PLATFORM' &&
+          x !== 'DECLARE_NO_SHOW' &&
+          x !== 'REFUSE_AT_PICKUP' &&
           x !== 'ESCALATE_OVERDUE',
       )) {
         const input = {};

@@ -63,7 +63,9 @@ export interface SettlementTrip {
 /**
  * Motifs du sous-ensemble bêta (19 US-017 ; 17 NN3) : voyageur (gratuit, tardif), hôte, plateforme,
  * no-show du voyageur — limités aux lignes de la table de décision de 08 qu'un vecteur doré exerce
- * (ADR-054). Tout autre motif ⇒ `SETTLEMENT_REASON_NOT_SUPPORTED` (moteur complet : US-518).
+ * (ADR-054). US-307 (ADR-191, `cxl-beta/2`) ajoute la ligne n° 8 (`CLEANLINESS_SAFETY_VALID` :
+ * refus du véhicule validé, BR-CXL-04). Tout autre motif ⇒ `SETTLEMENT_REASON_NOT_SUPPORTED`
+ * (moteur complet : US-518).
  */
 export const BETA_CANCELLATION_REASONS = [
   'GUEST_CANCELLED',
@@ -77,6 +79,8 @@ export const BETA_CANCELLATION_REASONS = [
   'HOST_ACCOUNT_CLOSED',
   'PLATFORM_REVIEW_DELAY',
   'PSP_FAILURE',
+  // (8) refus du véhicule validé au départ (BR-CXL-04, BR-CSP-03) ; US-307, cxl-beta/2
+  'CLEANLINESS_SAFETY_VALID',
 ] as const;
 export type CancellationReason = (typeof BETA_CANCELLATION_REASONS)[number];
 
@@ -154,7 +158,8 @@ export type TargetState =
   | 'NO_SHOW_GUEST'
   | 'CANCELLED_BY_HOST'
   | 'NO_SHOW_HOST'
-  | 'CANCELLED_BY_PLATFORM';
+  | 'CANCELLED_BY_PLATFORM'
+  | 'REFUSED_AT_PICKUP';
 
 export const LEGS = ['HOST', 'INSURER', 'TAX_THIRD_PARTY', 'PLATFORM'] as const;
 export type Leg = (typeof LEGS)[number];

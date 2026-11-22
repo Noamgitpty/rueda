@@ -222,8 +222,8 @@ describe('critères de la story', () => {
 
 describe('bornes, version et garde d’équilibre (mutants survivants de la revue code US-017)', () => {
   it('version du moteur : valeur écrite dans le test, recopiée dans chaque règlement', () => {
-    expect(CANCELLATION_ENGINE_VERSION).toBe('cxl-beta/1');
-    expect(settleVector(settlementVector(set, 'T03')).engineVersion).toBe('cxl-beta/1');
+    expect(CANCELLATION_ENGINE_VERSION).toBe('cxl-beta/2');
+    expect(settleVector(settlementVector(set, 'T03')).engineVersion).toBe('cxl-beta/2');
   });
 
   it('déclaration de no-show entre + 72 h et + 73 h, message tracé : hôte inéligible (= T39)', () => {

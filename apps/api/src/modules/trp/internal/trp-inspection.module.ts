@@ -1,7 +1,8 @@
 /**
  * Module Nest des photos d'état du véhicule (US-303, ADR-179) et de la remise et du retour entre
- * particuliers (US-315, ADR-183) : routes `/trips/{tripId}/inspections/{kind}` et
- * `/trips/{tripId}/handover/{direction}`. Module DYNAMIQUE, importé par le seul processus API
+ * particuliers (US-315, ADR-183) et du no-show déclaré par une partie (US-307, ADR-191) : routes
+ * `/trips/{tripId}/inspections/{kind}`, `/trips/{tripId}/handover/{direction}` et
+ * `/trips/{tripId}/no-show`. Module DYNAMIQUE, importé par le seul processus API
  * (`api.module.ts`), après `IamAuthModule` (`SessionGuard`) et `CtrLegalModule` (`TermsGuard`).
  *
  * Adaptateurs choisis par l'appelant : production `postgresTrpAdapters(pool)` (magasin PostgreSQL,
@@ -15,6 +16,10 @@ import { HandoverService } from './handover/handover.service.js';
 import { PgHandoverStore, UnavailableHandoverStore } from './handover/store.js';
 import type { HandoverStore } from './handover/store.js';
 import { TripInspectionController } from './inspection/inspection.controller.js';
+import { TripNoShowController } from './no-show/no-show.controller.js';
+import { NoShowService } from './no-show/no-show.service.js';
+import { PgNoShowStore, UnavailableNoShowStore } from './no-show/store.js';
+import type { NoShowStore } from './no-show/store.js';
 import { InspectionService } from './inspection/inspection.service.js';
 import { UNAVAILABLE_EVIDENCE } from './inspection/ports.js';
 import type { EvidencePipeline, SqlPool } from './inspection/ports.js';
@@ -27,6 +32,7 @@ import {
   TRP_HANDOVER_STORE,
   TRP_INSPECTION_STORE,
   TRP_MIT_REMINDERS,
+  TRP_NO_SHOW_STORE,
 } from './tokens.js';
 
 export interface TrpInspectionOptions {
@@ -38,6 +44,8 @@ export interface TrpInspectionOptions {
   readonly handover?: HandoverStore;
   /** Rappel du consentement MIT à la remise (US-703) ; absent : rien n'est enregistré. */
   readonly mitReminders?: MitConsentPort;
+  /** No-show déclaré par une partie (US-307) ; absent : 503. */
+  readonly noShow?: NoShowStore;
 }
 
 @Module({})
@@ -45,7 +53,7 @@ export class TrpInspectionModule {
   static register(options: TrpInspectionOptions = {}): DynamicModule {
     return {
       module: TrpInspectionModule,
-      controllers: [TripInspectionController, TripHandoverController],
+      controllers: [TripInspectionController, TripHandoverController, TripNoShowController],
       providers: [
         {
           provide: TRP_INSPECTION_STORE,
@@ -62,6 +70,11 @@ export class TrpInspectionModule {
           useValue: options.mitReminders ?? UNAVAILABLE_MIT_CONSENTS,
         },
         HandoverService,
+        {
+          provide: TRP_NO_SHOW_STORE,
+          useValue: options.noShow ?? new UnavailableNoShowStore(),
+        },
+        NoShowService,
       ],
     };
   }
@@ -80,5 +93,7 @@ export function postgresTrpAdapters(pool: SqlPool): TrpInspectionOptions {
     handover: new PgHandoverStore(pool),
     // US-703 : rappel du consentement MIT à la remise (commande de PAY, 0169, sous app_api)
     mitReminders: new PgMitConsentStore(pool),
+    // US-307 : core.trip_cmd_report_no_show et core.trip_no_show_view sous app_api
+    noShow: new PgNoShowStore(pool),
   };
 }

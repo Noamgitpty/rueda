@@ -181,6 +181,12 @@ export default async function GuestTripPage({
           {t('web.review.link')}
         </a>
       )}
+      {/* no-show de l'hôte signalé par le voyageur (US-307) : remise ouverte, pas encore commencée */}
+      {(trip.status === 'CHECKIN_OPEN' || trip.status === 'START_WINDOW_EXPIRED') && (
+        <a className={styles['link']} href={`/trips/${trip.id}/no-show`} data-testid="s09-no-show">
+          {t('web.noShow.link.GUEST')}
+        </a>
+      )}
       <section
         className={styles['section']}
         aria-labelledby="s09-documents"

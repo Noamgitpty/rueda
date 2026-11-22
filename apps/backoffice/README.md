@@ -28,3 +28,5 @@ Parcours : connexion (mot de passe), puis enrôlement TOTP avec le code d'activa
 - Textes de l'accueil (registre d'US-121), quatre langues ensemble ; refus expliqués (mot d'un texte juridique cité, émojis composés ZWJ).
 
 Commandes : `pnpm --filter @rueda/backoffice test:unit`, `pnpm --filter @rueda/backoffice build`.
+
+- **US-307 (no-show et refus du véhicule, ADR-191)** : panneau `app/console/no-show-view.tsx` (OPS_AGENT, ADMIN) : `DECLARE_NO_SHOW` (partie absente) et `REFUSE_AT_PICKUP` (propreté, sécurité, permis non conforme, identité non vérifiée, autre conducteur) en sept choix fermés, motif et pièces (preuve validée d'un refus pour permis et d'un no-show de l'hôte), refus des commandes liées expliqués ; les deux actions quittent le formulaire générique. Le règlement se lit dans le panneau des annulations (215b). Textes `backoffice.noShow.*` (catalogue v106).

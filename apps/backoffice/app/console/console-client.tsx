@@ -23,6 +23,8 @@ import type { CancelHandlers, CancelState, CancellationView } from './cancel-vie
 import type { RefundsHandlers, RefundsState, TripRefundsView } from './refund-view.tsx';
 import { OVERDUE_REFUSAL_KEYS, OVERDUE_ROLES } from './overdue-view.tsx';
 import type { OverdueBoardView, OverdueHandlers, OverdueState } from './overdue-view.tsx';
+import { NO_SHOW_CHOICES, NO_SHOW_REFUSAL_KEYS } from './no-show-view.tsx';
+import type { NoShowChoice } from './no-show-view.tsx';
 import { ConsoleView, DSR_REFUSAL_KEYS, REVIEW_REFUSAL_KEYS, SCREEN_HEADINGS } from './view.tsx';
 import type {
   ConsoleAction,
@@ -356,6 +358,45 @@ export function ConsoleClient({ localeTag }: { readonly localeTag: string }) {
         await refresh(
           r.ok
             ? { tone: 'success', key: 'backoffice.dsr.recorded' }
+            : refusal !== undefined
+              ? { tone: 'warning', key: refusal }
+              : { tone: r.status === 409 ? 'warning' : 'danger', key: r.messageKey },
+        );
+      });
+    },
+    // US-307 : no-show ou refus du véhicule d'un trip, saisie fermée du catalogue (0171) ; un
+    // requestId par intention ; jamais un montant ; la base règle ensuite la demande
+    onNoShow: (
+      tripId: string,
+      choice: NoShowChoice,
+      reason: string,
+      evidence: readonly string[],
+    ) => {
+      const subject = tripId.trim().toLowerCase();
+      const { action, input } = NO_SHOW_CHOICES[choice];
+      intent.current = intentFor(
+        intent.current,
+        [action, subject, choice, reason.trim(), evidence],
+        () => crypto.randomUUID(),
+      );
+      const { requestId } = intent.current;
+      once(async () => {
+        const r = await call<{ messageKey?: unknown }>('POST', '/console/actions', {
+          requestId,
+          action,
+          subjectId: subject,
+          reason,
+          input,
+          ...(evidence.length > 0 ? { evidence } : {}),
+        });
+        const why = r.ok ? undefined : r.values?.['reason'];
+        const refusal =
+          !r.ok && r.code === 'STAFF_ACTION_REFUSED' && typeof why === 'string'
+            ? NO_SHOW_REFUSAL_KEYS[why]
+            : undefined;
+        await refresh(
+          r.ok
+            ? { tone: 'success', key: 'backoffice.noShow.recorded' }
             : refusal !== undefined
               ? { tone: 'warning', key: refusal }
               : { tone: r.status === 409 ? 'warning' : 'danger', key: r.messageKey },

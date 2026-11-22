@@ -364,6 +364,21 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  `web.reviews.*` (avis reçus, droit d’accès Ley 81), `web.a13.title`, `web.a13.preview`,
  `web.a13.reviews`, `web.a13.link` (A13 : aperçu du profil public) et `web.listing.hostReviews`
  (fiche S03, LST-020).
+ Version 106 (réservée à US-307 par l’orchestrateur ; les 102 à 105 sont celles d’US-709, US-305, US-703
+ et US-317) : no-show et refus du véhicule (US-307, ADR-191) :
+ `common.noShow.*` (réponses des routes `/trips/{id}/no-show` : trop tôt, fenêtre close, partie
+ présente, preuve manquante, demande en cours, base injoignable), `web.noShow.*` (écran de l’hôte
+ « le voyageur n’est pas venu » et du voyageur « l’hôte n’est pas venu » : fenêtre, preuve tracée
+ dans les messages, déclaration définitive, état de la demande, liens du détail du trip) et
+ `backoffice.noShow.*` (console : `DECLARE_NO_SHOW` et `REFUSE_AT_PICKUP` à saisie fermée, refus
+ expliqués).
+ Version 107 (réservée à US-314 par l’orchestrateur ; les 104 à 106 sont réservées à US-703,
+ US-317 et US-307 ; le numéro ne redescend jamais) : versements de l’hôte (US-314, ADR-192) :
+ `common.payouts.*` (réponses de `GET /host/accounts/{orgId}/payouts`), `web.a08.payouts.*` (A08 :
+ calendrier J+N ouvrés et premier versement, au conditionnel tant que les versements sont fermés
+ dans le pays (`scheduleClosed`), « montant à verser » avant le paiement (`toPay`), états SM-6, motifs de retenue lisibles, montants),
+ lignes du host_ledger `web.a08.line.RELEASED_LEG_ADVANCE`, `CHARGEBACK_CLAWBACK`,
+ `RECEIVABLE_WRITE_OFF`, `PAYOUT_NETTING` et `web.a08.line.creditHint`.
  Version 108 (réservée à US-306 par l’orchestrateur ; 104 à 107 sont réservées à US-703, US-317,
  US-307 et US-314 ; le numéro ne redescend jamais) : vue des retards et escalade de
  non-restitution (US-306, ADR-193) : `backoffice.overdue.*` (O01 : retard, étape, étape suivante et
