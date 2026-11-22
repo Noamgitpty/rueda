@@ -218,7 +218,9 @@ CREATE FUNCTION test_fixture.us706_insert_invoice(p_trip uuid)
   SET search_path = pg_catalog, pg_temp
 AS $fn$
 DECLARE
-  v_id uuid := pg_catalog.gen_random_uuid();
+  v_id  uuid := pg_catalog.gen_random_uuid();
+  -- une seule lecture de l'horloge (horloge réelle de la matrice : échéance = notification + 72 h)
+  v_now timestamptz := platform.now();
 BEGIN
   INSERT INTO core.claim_incidental_invoice
          (id, trip_id, country_code, currency, org_id, host_user_id, guest_user_id, request_id,
@@ -227,9 +229,8 @@ BEGIN
           notified_at, response_hours, response_due_at, next_check_at)
   SELECT v_id, t.id, t.country_code, t.currency, t.org_id, o.holder_user_id, t.guest_user_id,
          pg_catalog.gen_random_uuid(), 'CLEANING', 100, 100, 0, 0, 0, 'Demande de fixture US-706',
-         ARRAY[pg_catalog.gen_random_uuid()], platform.now(), platform.now() + interval '72 hours',
-         platform.now(), 72, platform.now() + interval '72 hours',
-         platform.now() + interval '72 hours'
+         ARRAY[pg_catalog.gen_random_uuid()], v_now, v_now + interval '72 hours', v_now, 72,
+         v_now + interval '72 hours', v_now + interval '72 hours'
     FROM core.booking_trip AS t JOIN core.iam_organization AS o ON o.id = t.org_id
    WHERE t.id = p_trip;
   RETURN v_id;
