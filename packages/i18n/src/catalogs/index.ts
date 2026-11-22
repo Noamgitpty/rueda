@@ -397,8 +397,12 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  exigé, décision « définitive » refusée, somme des parts, plafonds, ADMIN pour tout débit) et
  `backoffice.claim.*` (A09 dans la console : déclaration, preuves, gabarit de la décision avec ses
  lignes exclues comme non refacturables, voies de recours, exécution par Kmino).
+ Version 111 (réservée à la suite d’US-303 par l’orchestrateur ; la 110 est celle d’US-309) :
+ empreinte de photo d’état unique (US-303 suite, ADR-196, F-L3-PRE-01) :
+ `common.inspection.photoDuplicate` (photo déjà envoyée, pour ce trip, un autre trip ou une
+ annonce : une nouvelle prise est demandée).
  */
-export const CATALOG_VERSION = 110;
+export const CATALOG_VERSION = 111;
 
 /** Catalogues de base par langue ; la langue d'un profil de locale choisit le sien. */
 export const CATALOGS: Readonly<Record<CatalogLanguage, VersionedCatalog<MessageKey>>> = {
