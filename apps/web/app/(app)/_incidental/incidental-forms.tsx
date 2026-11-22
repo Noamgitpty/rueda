@@ -40,17 +40,12 @@ function PhotoChoices(p: {
   readonly photos: readonly IncidentalPhoto[];
   readonly legend: string;
   readonly hint: string;
-  readonly invalid: boolean;
   readonly prefix: string;
 }) {
   const { t } = useT(p.localeTag);
   const hintId = `${p.prefix}-photos-hint`;
   return (
-    <fieldset
-      className={hostStyles['choices']}
-      aria-describedby={hintId}
-      aria-invalid={p.invalid ? true : undefined}
-    >
+    <fieldset className={hostStyles['choices']} aria-describedby={hintId}>
       <legend className={hostStyles['legend']}>{p.legend}</legend>
       <p id={hintId} className={hostStyles['hint']}>
         {p.hint}
@@ -165,7 +160,6 @@ export function IncidentalFeeForm(p: {
         photos={p.photos}
         legend={t('web.incidental.form.photos')}
         hint={t('web.incidental.form.photosHint')}
-        invalid={state.field === 'photos'}
         prefix={id}
       />
       <Button type="submit" block loading={pending} data-testid="incidental-submit">
@@ -251,7 +245,6 @@ export function IncidentalDisputeForm(p: {
           photos={p.photos}
           legend={t('web.incidental.dispute.photos')}
           hint={t('web.incidental.form.photosHint')}
-          invalid={state.field === 'photos'}
           prefix={id}
         />
         <Button
