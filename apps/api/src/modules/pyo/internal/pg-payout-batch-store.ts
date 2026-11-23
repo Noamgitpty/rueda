@@ -10,6 +10,7 @@ import type { ApplyOutcome, ApplyStatusInput, OperationStatus } from '../../pay/
 import type {
   AdjustmentOrder,
   BatchCheck,
+  ChargeToPrepare,
   DueBatch,
   PayoutBatchStore,
   PayoutOrder,
@@ -73,6 +74,33 @@ export class PgPayoutBatchStore implements PayoutBatchStore {
 
   async deferTrip(tripId: string, code: string): Promise<void> {
     await this.#db.query('SELECT core.payout_cmd_defer_trip($1, $2)', [tripId, code]);
+  }
+
+  async chargesToPrepare(limit: number): Promise<readonly ChargeToPrepare[]> {
+    const { rows } = await this.#db.query<{ charge_id: string; trip_id: string }>(
+      'SELECT charge_id, trip_id FROM core.payout_charges_to_prepare($1)',
+      [limit],
+    );
+    return rows.map((r) => ({ chargeId: r.charge_id, tripId: r.trip_id }));
+  }
+
+  async prepareCharge(chargeId: string): Promise<PrepareResult> {
+    const { rows } = await this.#db.query<{
+      outcome: string;
+      batch_id: string | null;
+      status: string | null;
+      hold_reasons: string[] | null;
+    }>('SELECT outcome, batch_id, status, hold_reasons FROM core.payout_cmd_prepare_charge($1)', [
+      chargeId,
+    ]);
+    const r = rows[0];
+    if (r === undefined) throw new Error('PYO : préparation de débit sans résultat');
+    return {
+      outcome: r.outcome,
+      batchId: r.batch_id,
+      status: r.status,
+      holdReasons: r.hold_reasons ?? [],
+    };
   }
 
   async dueBatches(limit: number): Promise<readonly DueBatch[]> {

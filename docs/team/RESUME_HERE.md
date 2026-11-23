@@ -1,6 +1,6 @@
 # RESUME_HERE — point de reprise du dépôt
 
-> Lu en premier par toute session qui reprend le travail (handoff §4.9). Tenu par l'orchestrateur à chaque fin de session. **Dernière mise à jour : 2026-11-20, 6 h UTC (lot 3 en cours : 8 stories sur 21 MERGED, 48 points sur 110 ; détail au `BOARD.md`).** Mise à jour précédente : 2026-11-19, 12 h UTC (fin du lot 2 : 27 stories sur 27 MERGED, 140 points sur 140 ; porte L2 franchie, #261). Avant : 2026-11-19, 7 h UTC (lot 2 : 26 sur 27, 137 points). Avant : 2026-11-18, 23 h UTC (lot 2 : 21 sur 27, 110 points). Avant : 2026-11-10 (porte du lot 0 tenue : PR #92, #93 et #94 fusionnées ; US-027 en revue).
+> Lu en premier par toute session qui reprend le travail (handoff §4.9). Tenu par l'orchestrateur à chaque fin de session. **Dernière mise à jour : 2026-11-23, 3 h 50 UTC (lot 3 : 20 stories sur 21 MERGED, 107 points sur 110 ; détail au `BOARD.md`).** Mise à jour précédente : 2026-11-22, 19 h UTC (lot 3 : 18 sur 21, 97 points). Avant : 2026-11-20, 6 h UTC (lot 3 : 8 sur 21, 48 points). Avant : 2026-11-19, 12 h UTC (fin du lot 2 : 27 stories sur 27 MERGED, 140 points sur 140 ; porte L2 franchie, #261). Avant : 2026-11-19, 7 h UTC (lot 2 : 26 sur 27, 137 points). Avant : 2026-11-18, 23 h UTC (lot 2 : 21 sur 27, 110 points). Avant : 2026-11-10 (porte du lot 0 tenue : PR #92, #93 et #94 fusionnées ; US-027 en revue).
 
 ## Pour reprendre
 
@@ -8,7 +8,48 @@
 2. Sous Git Bash : `export PATH="/c/Program Files/nodejs:/c/Users/noamm/AppData/Roaming/npm:/c/Program Files/GitHub CLI:$PATH"`. Vérifie `node -v`, qui doit donner v26.13.0 (ADR-041).
 3. `git fetch`, `git worktree list`, puis relance les tests de chaque branche en cours **avant** de continuer (OPERATING_RULES §3).
 
-## État au 2026-11-20
+## État au 2026-11-23
+
+Le `BOARD.md` fait foi ; ce résumé ne sert qu'à reprendre vite.
+
+- **Lots 0 à 2** : inchangés (lot 2 clos, porte L2 franchie le 2026-11-19).
+- **Lot 3** (21 stories, 110 points) : **20 MERGED, 107 points** (97 %). Fusionnées depuis #294 : **US-706** (#292, `15952e76`, 0177, ADR-197, v112, frais annexes) et **US-318** (#293, `0e3fcd24`, 0178, ADR-198, v113, sinistres entre particuliers). Hors total : **#295** (`2bddc6c8`, US-007 suite, 0179, ADR-199) : refus rapide de la pose et paramètres de pays en PL/pgSQL, p95 de L0-02 à 75 ms pour un seuil inchangé de 300 ms ; sur un créneau définitivement pris, `VEHICLE_UNAVAILABLE` passe avant les autres refus (PROPOSÉ, `COMME_TURO.md`) ; **N-468 faite**. Bêta : environ **66 %** (573 points sur 869).
+- **Reste du lot 3** : le **post-mortem d'US-313** (critère 4 ; N-422, N-423). La suite de la red team est ouverte (`story/US-313-redteam-suite`, PR #296, brouillon, `redteam/L3-donnees-sinistres.md`) : **F-L3-SIN-01 (critique)** : une même amende photographiée plusieurs fois est débitée une fois par photo ; **F-L3-SIN-02 (critique**, relevé par la revue argent : 08 BR-TT-02 / 03 donne 48 h pour payer ou contester**)** : refacturation sans fenêtre de réponse, contestation, décision de l'ops ni plafond ; **F-L3-FRA-01 (élevé)** : frais annexe contesté, annulé puis redemandé, fenêtre de 72 h rouverte sans décision de l'ops ; F-L3-FRA-02 et F-L3-DON-01 (moyens). **Le lot 3 ne sort pas tant que SIN-01, SIN-02 et FRA-01 ne sont pas corrigés** (US-320 sur `story/US-318-suite-refacturation` ; FRA-01 / 02 sur `story/US-706-suite-contestation` ; N-496 à N-499), puis S03, V10 et V11 rejoués (N-474) ; **M01 à M04, critiques, sont joués avant la porte du lot** (N-474). Aucun argent réel n'est en jeu (`FAKE`, interrupteurs fermés) ; aucune décision du fondateur n'est requise (plafond et délai : paramètres PROPOSÉS, fail-closed, comme Turo).
+- **En cours, hors total** : **US-319 IN_PROGRESS** (PR #297, brouillon ; 0180 / ADR-200 / fixture 9905 ; revues code, architecture, argent, qa, securite) : report de la jambe HOST des frais `INCIDENTAL`, `DAMAGE` et `TRAFFIC` dans les versements, avant `payouts_enabled`.
+- **Numéros sur `main`** : dernière migration **0179** (#295), dernier ADR **ADR-199**, catalogue **v113**, fixtures jusqu'à **9906**. **Réservés** : US-319 (#297) 0180 / ADR-200 / 9905 ; US-320 (`story/US-318-suite-refacturation`, sans PR) 0181 / ADR-201 / v114 / 9904 ; suite d'US-706, F-L3-FRA-01 / 02 (`story/US-706-suite-contestation`, sans PR) 0182 / ADR-202 / v115 / 9903. **Prochains libres** : 0183 / ADR-203 / v116 / 9902. #298 (US-319 au registre des revues) en cours de fusion.
+- **Suites** : N-490 à N-500 inscrites (#295 ; revues delta de #292 et #293 ; constats de #296 : N-496 à N-500). Avant l'ouverture d'un pays : N-492 (route d'envoi des fichiers de l'hôte, empreinte calculée côté serveur) et N-495 (connecteur de l'assureur idempotent par `declarationId`) ; avant `payouts_enabled` : N-491 (reprise des frais « à revoir par ops »). Inventaire « avant l'ouverture d'un pays » : **47 suites**. Story **US-320** (correctifs F-L3-SIN-01 / 02 des refacturations d'US-318 ; absorbe la contestation par le voyageur avec notification, N-482). Specs de #295 et OQ-BR-14 ajoutées à la PR de specs N-475.
+- **Fondateur** : `POUR_LE_FONDATEUR.md` §0 à jour (66 %) ; le gel du versement en cas de vol (défaut gardé ; écart 16 / 19 tranché dans N-475) et le débit d'un frais annexe à l'échéance sans réponse (préavis Visa au lot C) sont **décidés comme Turo** (arbitrage de l'orchestrateur du 2026-11-23, `COMME_TURO.md`) et ne sont plus que de l'information ; §7.14 (sinistres, US-318) garde la question de la taxe sur les frais de gestion de 5 % (OQ-BR-14, avec le comptable) ; red team et versements renumérotés §7.15 et §7.16 après la fusion de `main`.
+
+## Prochaine action exacte (orchestrateur, 2026-11-23)
+
+1. Fusionner la PR du BOARD (#294) quand sa CI est verte.
+2. Faire corriger F-L3-SIN-01, SIN-02 (US-320) et FRA-01 (N-498), mener **#296** à ses revues, faire jouer M01 à M04 (critiques, avant la porte) et rejouer S03, V10 et V11 (N-474), puis lancer le **post-mortem du lot 3** (US-313 critère 4).
+3. Mener **#297** (US-319) à ses revues (code, architecture, argent sur un autre modèle, qa, securite).
+4. Planifier les suites N-491 à N-495, N-499 et N-500 ; `payouts_enabled` ne change que par la commande à deux personnes sur décision écrite du fondateur.
+5. Ne supprimer aucune branche distante sans le « oui » écrit du fondateur (`POUR_LE_FONDATEUR.md` §5, N-428).
+
+## État au 2026-11-22 (historique)
+
+Le `BOARD.md` fait foi ; ce résumé ne sert qu'à reprendre vite.
+
+- **Lots 0 à 2** : inchangés (lot 2 clos, porte L2 franchie le 2026-11-19).
+- **Lot 3** (21 stories, 110 points) : **18 MERGED, 97 points** (88 %). Fusionnées depuis #280 : US-709 (#277, `6fc0e7cc`), US-305 (#278, `18564cae`), US-703 (#279, `c0890e5b`), US-317 (#282, `36e71769`), US-307 (#283, `8b10cf13`), US-314 (#284, `69e5b0a0` : **S-04 faite**), US-306 (#285, `beff2411`), US-311 (#286, `b8dc0bc4` ; correctif du test des KPI #290, `6b11ee49`), US-309 (#287, `45f9e1c4`), US-312 (#288, `bad1a4e4`), red team du lot 3 (#289, `f647fd59`, US-313 critères 2 et 3) ; hors lot : #281 (US-047, stabilité du rapprochement, `29248b80`). Bêta : environ **65 %** (563 points sur 869).
+- **Fusionnée ensuite** : **#291** (US-303 suite, hors total, `be5e1026` : F-L3-PRE-01 et F-L3-PRE-02 corrigés ; 0176, ADR-196, v111, 9908). **En revue** : **#292** (US-706, frais annexes) et **#293** (US-318, sinistres entre particuliers), toutes deux en correction après revues.
+- **Reste du lot 3** : US-706, US-318 et le post-mortem d'US-313 (critère 4), qui attend la red team restante (N-474 : V08 « deux travailleurs », V09 logique, axe « données », H08 complet, puis S01 à S04 et M04 sur US-706 et US-318).
+- **Constats de la red team** (`RISKS.md`, « Constats de la red team du lot 3 ») : F-L3-PRE-01 et 02 (ÉLEVÉ) corrigés (#291) ; F-L3-PRE-03 (MOYEN, second chargeback perdu) ouvert, suite d'US-709 (N-473). L3-PM-03 et L3-PM-06 : « corrigé (#291) ».
+- **Numéros sur `main`** : dernière migration **0176** (#291), dernier ADR **ADR-196**, catalogue **v111** (v100 et v102 non prises), fixtures jusqu'à **9908** (9910 prise par US-003). **Réservés** : US-706 (#292) 0177 / ADR-197 / v112 / 9907 ; US-318 (#293) 0178 / ADR-198 / v113 / 9906. **Prochains libres** : 0179 / ADR-199 / v114 / 9905. Vérifier les PR ouvertes avant de réserver ; renuméroter à chaque fusion de `main` si l'ordre change.
+- **Suites** : N-462 à N-489 inscrites au BOARD ; N-19, N-272, N-402, N-415, N-471, N-472 faites ; N-270, N-271, N-274, N-384, N-455 en partie. Story **US-319** ouverte (report de la jambe HOST des frais `INCIDENTAL`, `DAMAGE` et `TRAFFIC` dans les versements, N-463). **Bogue** : « {brand_name} » non résolu dans le titre de la console (N-462). **Prérequis d'ouverture de `payouts_enabled`** : US-319, N-464 (gains d'annulation `CXL_EARNINGS`), N-465 (`EVT_PAYOUT_ON_HOLD`), N-467 (calendrier complet), N-473, N-483, N-437, N-438, N-454, N-455, N-270, N-271, N-384. Inventaire « avant l'ouverture d'un pays » : 45 suites.
+- **Fondateur** : `POUR_LE_FONDATEUR.md` §0 à jour ; quatre réglages nouveaux au §3 (plafond `fuel_refill_max`, à fixer après avoir distingué BR-FUEL-02 et la fin anticipée due à l'hôte ; frais de gestion de 5 % TTC ou en sus ; débit d'un frais annexe à l'échéance et préavis Visa J+6 ; gel du versement en cas de vol) ; en information : `incidental_evidence_trip_photos_only` = faux par défaut, comme Turo (DEC-FONDATEUR-22, appliqué dans #292) ; doublons du §7 signalés (N-489) ; §7.14 (red team) et §7.15 (versements) ; branches mortes : vingt et une, aucune nouvelle.
+
+## Prochaine action exacte (orchestrateur, 2026-11-22, historique)
+
+1. #291 fusionnée (`be5e1026`) : RISKS et BOARD déjà à jour.
+2. Mener **#292** (US-706) et **#293** (US-318) à la fin de leurs corrections et à leurs revues delta, puis les fusionner dans l'ordre de leurs numéros (0177 puis 0178).
+3. Lancer la red team restante (N-474), puis le **post-mortem du lot 3** (US-313 critère 4 ; N-422, N-423).
+4. Avant toute idée d'ouverture des versements : US-319 et les prérequis de l'inventaire (jamais codés comme ouverture ; `payouts_enabled` ne change que par la commande à deux personnes sur décision écrite du fondateur).
+5. Ne supprimer aucune branche distante sans le « oui » écrit du fondateur (`POUR_LE_FONDATEUR.md` §5, N-428).
+
+## État au 2026-11-20 (historique)
 
 Le `BOARD.md` fait foi ; ce résumé ne sert qu'à reprendre vite.
 
@@ -21,7 +62,7 @@ Le `BOARD.md` fait foi ; ce résumé ne sert qu'à reprendre vite.
 - **Suites** : N-433 à N-461 inscrites au BOARD (réserves des revues et suites des passations d'US-303, US-707, US-525, US-310, US-315, US-308, US-708, US-316, US-221 et US-535a) ; N-120, N-362, N-383, N-410, N-416 faites en partie ; N-422 confiée à la partie post-mortem d'US-313 ; S-04 portée par US-314. **Prérequis d'ouverture de `payouts_enabled`** : N-437 (OTP avant un changement de compte, notification de l'hôte), N-438, N-454 (L0 `IN_TRANSIT` / `FAILED` / reprise au rang suivant, `PgPayoutBatchStore` contre PostgreSQL, alertes FIN bloquantes, fériés PA / PY saisis), N-455, N-270 à N-272, N-384, S-04. Inventaire « avant l'ouverture d'un pays » : 45 suites (dont N-445 : numéros d'urgence à valider par l'ops, heures du support et plan de staffing, SUP-020).
 - **Fondateur** : `POUR_LE_FONDATEUR.md` (page 1 et son ordre gardés) ; §0 à jour ; branche `fix/US-221-flocon-parcours-dores` ajoutée à la demande de « oui » pour les branches mortes (vingt et une) ; en information : versements aux hôtes livrés mais fermés en production, prérequis qui relèvent de lui (fériés, heures du support, numéros d'urgence à valider) ; aucune nouvelle demande.
 
-## Prochaine action exacte (orchestrateur, 2026-11-20)
+## Prochaine action exacte (orchestrateur, 2026-11-20, historique)
 
 1. Faire relire **#277** (US-709) par les revues exigées (`node scripts/ci/check-story-reviews.mjs --branch story/US-709-grand-livre --base origin/main --root . --author-model <modèle de l'auteur>`), argent sur un autre modèle, puis fusionner CI verte et revues APPROUVÉ ; N-402, N-415 et N-455 passent alors FAIT selon la passation.
 2. Mener **#278** (US-305) et **US-703** à la revue ; lancer la vague suivante (US-307, US-317, US-309, puis US-706, US-306, US-311, US-314, US-318, US-312) en réservant les numéros au BOARD avant de coder.
