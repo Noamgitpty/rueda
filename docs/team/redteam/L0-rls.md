@@ -60,7 +60,7 @@ Fichiers : `packages/db/test/l0/redteam-rls/rt-rls-catalog.test.ts`, `packages/d
 
 ### F-RLS-03 — Commande dont l'argument choisit l'acteur : `core.iam_cmd_open_session(session, user_id, token_hash, …)` — limite déjà écrite (0011, 17 §2.3 RLS-18) ; gravité PROPOSÉE **élevée**
 
-- **Test** : RT-RLS-18 (caractérisation, étiquetée « LIMITE DOCUMENTÉE ») : sous SQL arbitraire, `app_api` ouvre une session au niveau `NONE` pour **n'importe quel compte** (ici un membre du staff), choisit lui-même l'empreinte du jeton, puis `core.iam_session_resolve` renvoie ce compte. Le test passe tant que la limite existe ; s'il devient rouge, c'est qu'elle est fermée.
+- **Test** : RT-RLS-18 (caractérisation, étiquetée « LIMITE DOCUMENTÉE ») : sous SQL arbitraire, `app_api` ouvre une session au niveau `NONE` pour **n'importe quel compte** (ici un membre du staff), choisit lui-même l'empreinte du jeton, puis `core.iam_session_resolve` renvoie ce compte. Le test passe tant que la limite existe ; s'il devient rouge, c'est qu'elle est fermée. **Fermée par US-410** (migration 0185, ADR-205) : RT-RLS-18 est inversé et exige le refus sans preuve signée, sous `app_api`, `app_worker` et `app_anon`, en PA et en PY.
 - **Portée** : exige l'exécution de SQL arbitraire sous `app_api` (injection), donc pas d'IDOR HTTP. Les sessions de staff restent inutilisables pour les actions sensibles sans élévation TOTP (vérifié par RT-RLS-15), mais le compte voyageur ou hôte visé est entièrement pris.
 - **Parade suggérée** (déjà PROPOSÉE au lot 4, 17 §2.3) : faire signer l'ouverture par l'API (HMAC d'un secret que `app_api` ne lit pas) ou la réserver à un rôle de connexion distinct de celui des requêtes métier.
 

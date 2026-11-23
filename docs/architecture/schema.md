@@ -7,7 +7,7 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 
 ## Synthèse
 
-- 185 migrations ; 172 tables ; 6 vues ; 973 politiques RLS ; 458 fonctions `SECURITY DEFINER` ; 339 autres fonctions.
+- 186 migrations ; 173 tables ; 6 vues ; 975 politiques RLS ; 458 fonctions `SECURITY DEFINER` ; 341 autres fonctions.
 - Tables sans RLS `ENABLE` + `FORCE` : aucune.
 - Rôles applicatifs avec `SUPERUSER` ou `BYPASSRLS` : aucun.
 
@@ -200,6 +200,7 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 | `0182_claim_incidental_contest_and_evidence` | CLM : frais annexes, suite de la red team du lot 3 (US-313) : une demande contestée puis |
 | `0183_claim_traffic_reference_canonical_trip_cap` | CLM : refacturation des amendes, péages et fourrières — clé canonique du PV, unicité par |
 | `0184_claim_incidental_abandoned_fact` | CLM : frais annexes, passe de la porte de la red team du lot 3 (US-313) : un frais abandonné |
+| `0185_iam_session_open_proof` | IAM : ouverture de session sur PREUVE SIGNÉE (F-RLS-03, EXC-003). US-410 (S-07, lot 4, |
 
 ## Rôles
 
@@ -4328,6 +4329,28 @@ Déclencheurs :
 
 - `session_guarded_columns` : `CREATE TRIGGER session_guarded_columns BEFORE UPDATE ON core.iam_session FOR EACH ROW EXECUTE FUNCTION core.iam_session_guard()`
 - `touch_row` : `CREATE TRIGGER touch_row BEFORE UPDATE ON core.iam_session FOR EACH ROW EXECUTE FUNCTION platform.touch_row()`
+
+### `core.iam_session_open_key`
+
+- RLS : ENABLE + FORCE ; propriétaire `migrator`
+- Droits : migrator: DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE
+
+| Colonne | Type | NOT NULL | Défaut |
+| ------- | ---- | -------- | ------ |
+| `id` | `smallint` | oui | — |
+| `key` | `bytea` | oui | — |
+| `installed_at` | `timestamp with time zone` | oui | `platform.now()` |
+
+Contraintes :
+
+- `session_open_key_length` : `CHECK (octet_length(key) >= 32 AND octet_length(key) <= 64)`
+- `session_open_key_pkey` : `PRIMARY KEY (id)`
+- `session_open_key_slot` : `CHECK (id = ANY (ARRAY[1, 2]))`
+
+Politiques RLS :
+
+- `iam_auth_select` (SELECT, PERMISSIVE, iam_auth_owner) USING `true`
+- `migrator_all` (ALL, PERMISSIVE, migrator) USING `true` WITH CHECK `true`
 
 ### `core.iam_staff_role_assignment`
 
@@ -9188,7 +9211,7 @@ Chacune a un propriétaire `NOLOGIN` dédié (ADR-053) et un `search_path` figé
 | `core.finance_trip_receipt_view(p_trip_id uuid, p_viewer text)` | `jsonb` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | cmd_hold_owner: EXECUTE ; cmd_money_owner: EXECUTE |
 | `core.iam_auth_lookup(p_email text)` | `TABLE(user_id uuid, password_hash text, status text)` | `iam_auth_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; iam_auth_owner: EXECUTE |
 | `core.iam_cmd_open_host_account(p_token_hash bytea, p_country text, p_holder_kind text)` | `TABLE(outcome text, org_id uuid)` | `iam_auth_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; iam_auth_owner: EXECUTE |
-| `core.iam_cmd_open_session(p_session_id uuid, p_user_id uuid, p_token_hash bytea, p_ttl_s integer, p_mfa_level text, p_ip inet, p_user_agent text)` | `timestamp with time zone` | `iam_auth_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; iam_auth_owner: EXECUTE |
+| `core.iam_cmd_open_session(p_session_id uuid, p_user_id uuid, p_token_hash bytea, p_ttl_s integer, p_mfa_level text, p_ip inet, p_user_agent text, p_issued_at_ms bigint, p_proof bytea)` | `timestamp with time zone` | `iam_auth_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; iam_auth_owner: EXECUTE |
 | `core.iam_cmd_phone_otp_request(p_token_hash bytea, p_phone text, p_country text)` | `TABLE(outcome text, challenge_id uuid, resend_after_s integer, expires_in_s integer, locked_for_s integer)` | `iam_auth_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; iam_auth_owner: EXECUTE |
 | `core.iam_cmd_phone_otp_verify(p_token_hash bytea, p_code_hashes bytea[])` | `TABLE(outcome text, attempts_left integer, locked_for_s integer)` | `iam_auth_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; iam_auth_owner: EXECUTE |
 | `core.iam_cmd_register(p_user_id uuid, p_email text, p_password_hash text, p_legal_first_name text, p_legal_last_name text, p_preferred_locale text, p_verification_id uuid, p_verification_token_hash bytea, p_verification_ttl_s integer, p_ip inet)` | `boolean` | `iam_auth_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; iam_auth_owner: EXECUTE |
@@ -9584,13 +9607,15 @@ Chacune a un propriétaire `NOLOGIN` dédié (ADR-053) et un `search_path` figé
 | `core.finance_recon_operation_kinds()` | `text[]` | `iam_staff_owner` | iam_staff_owner: EXECUTE |
 | `core.finance_recon_threshold_bps(p_country text)` | `integer` | `iam_staff_owner` | iam_staff_owner: EXECUTE |
 | `core.finance_reconciliation_guard()` | `trigger` | `migrator` | migrator: EXECUTE |
-| `core.iam_hmac_sha256(p_key bytea, p_msg bytea)` | `bytea` | `migrator` | iam_staff_owner: EXECUTE ; migrator: EXECUTE |
+| `core.iam_hmac_sha256(p_key bytea, p_msg bytea)` | `bytea` | `migrator` | iam_auth_owner: EXECUTE ; iam_staff_owner: EXECUTE ; migrator: EXECUTE |
 | `core.iam_host_open_account(p_user uuid, p_country text, p_holder_kind text, p_actor uuid, p_actor_role text, p_source text, p_request_id uuid, p_reason text)` | `TABLE(outcome text, org_id uuid)` | `migrator` | iam_auth_owner: EXECUTE ; migrator: EXECUTE |
 | `core.iam_mfa_proof(p_key bytea, p_token_hash bytea, p_factor_id uuid, p_step bigint)` | `bytea` | `migrator` | iam_staff_owner: EXECUTE ; migrator: EXECUTE |
 | `core.iam_mfa_proof_key_rotate(p_action text, p_key bytea)` | `text` | `migrator` | migrator: EXECUTE |
 | `core.iam_otp_hash_equal(p_a bytea, p_b bytea)` | `boolean` | `migrator` | iam_auth_owner: EXECUTE ; migrator: EXECUTE |
 | `core.iam_otp_param(p_key text, p_country text)` | `integer` | `migrator` | iam_auth_owner: EXECUTE ; migrator: EXECUTE |
 | `core.iam_session_guard()` | `trigger` | `migrator` | migrator: EXECUTE |
+| `core.iam_session_open_key_rotate(p_action text, p_key bytea)` | `text` | `migrator` | migrator: EXECUTE |
+| `core.iam_session_open_proof(p_key bytea, p_session_id uuid, p_user_id uuid, p_token_hash bytea, p_ttl_s integer, p_issued_at_ms bigint)` | `bytea` | `migrator` | iam_auth_owner: EXECUTE ; migrator: EXECUTE |
 | `core.iam_staff_audit(p_actor uuid, p_role text, p_action text, p_subject_type text, p_subject_id uuid, p_before jsonb, p_after jsonb, p_reason text, p_request_id uuid)` | `bigint` | `migrator` | cmd_golive_owner: EXECUTE ; cmd_money_owner: EXECUTE ; cmd_param_owner: EXECUTE ; iam_staff_owner: EXECUTE ; migrator: EXECUTE |
 | `core.iam_staff_audit_countries(p_actor uuid, p_subject_type text, p_subject_id uuid, p_before jsonb, p_after jsonb)` | `text[]` | `migrator` | cmd_golive_owner: EXECUTE ; cmd_money_owner: EXECUTE ; cmd_param_owner: EXECUTE ; iam_staff_owner: EXECUTE ; migrator: EXECUTE |
 | `core.iam_staff_authority(p_actor uuid, p_target uuid)` | `text` | `migrator` | iam_staff_owner: EXECUTE ; migrator: EXECUTE |
