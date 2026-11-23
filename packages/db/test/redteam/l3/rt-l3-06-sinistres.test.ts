@@ -25,7 +25,7 @@
  *   BR-TT-03 (« photo du PV + reçu payé ») ; 17 §0.1 (les interrupteurs restent faux) ;
  * - frais de gestion de 5 % (08 BR-PRICE-15 [NOUS], graine 0178) : les montants de la déclaration sont
  *   ceux de l'oracle `packages/money/test/oracle/traffic_fee_oracle.py` (`rhu`, voir
- *   `l0-us318-p2p-claims`) pour 1 230 USD et 25 010 PYG, et le produit exact montant × 5 % pour les
+ *   `l0-us318-p2p-claims`) pour 12,30 USD (1 230 unités mineures) et 25 010 PYG, et le produit exact montant × 5 % pour les
  *   montants ronds de la passe (aucun arrondi en jeu).
  */
 import { randomBytes } from 'node:crypto';
