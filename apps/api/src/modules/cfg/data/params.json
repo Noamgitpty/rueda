@@ -2806,6 +2806,21 @@
       }
     },
     {
+      "key": "incidental_cleaning_photo_window_h",
+      "type": "DURATION",
+      "unit": "h",
+      "scopes": ["COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "08 BR-REIMB-01 (nettoyage / tabac : « photos dans les fenêtres de 24 h ») ; 16 CLM-021 ; ADR-197, ADR-202 (F-L3-FRA-02) : sans photo de l’intérieur au retour, un nettoyage ou un tabac n’est demandé que si au moins un fichier de l’hôte rattaché au trip a été reçu par le serveur entre la fin effective et la fin effective + cette durée ; absent ou mal formé : aucune demande (fail-closed)",
+      "status": "PROPOSÉ comme Turo (ADR-202) : 24 h après la fin du trip, comme la fenêtre des photos de Turo reprise par 08",
+      "decision": "PROPOSED",
+      "decisionRef": "ADR-202 ; COMME_TURO (US-706 suite)",
+      "values": {
+        "PA": 24,
+        "PY": 24
+      }
+    },
+    {
       "key": "incidental_evidence_trip_photos_only",
       "type": "BOOL",
       "scopes": ["COUNTRY"],

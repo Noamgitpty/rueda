@@ -91,6 +91,9 @@ const ISOLATED = [
   // débit et lot du trip VALIDÉS sur le compte PSP ACTIVE partagé du pays (fixture 9800),
   // SUPPORTS_MIT remise inconnue à la fin
   'test/l0/l0-us319-charge-race.test.ts',
+  // US-706 suite : annulation d'une demande contestée contre une redemande ou une décision de l'ops,
+  // à deux sessions ; trips, sessions et demandes contestées commités
+  'test/l0/l0-us706-incidental-contest-race.test.ts',
 ];
 const C11 = ['test/l0/l0-c11-fuzz.test.ts'];
 // US-049 : les attaques de la red team (test/redteam/<axe>/) tournent seules, après tous les autres

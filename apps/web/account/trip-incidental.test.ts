@@ -64,6 +64,29 @@ describe('vue des frais annexes (US-706)', () => {
     expect(tripIncidentalOf({ status: 200, json: VIEW, headers: {} } as never)).toEqual(VIEW);
   });
 
+  it('fichier de l’hôte décrit (ADR-202) : type admis et heure de dépôt ; autre type ou auteur ⇒ null', () => {
+    const file = {
+      kind: 'HOST_FILE',
+      takenBy: 'HOST',
+      mime: 'image/webp',
+      receivedAt: '2097-03-10T09:00:00.000Z',
+    };
+    const inv = VIEW.invoices[0]!;
+    const json = {
+      ...VIEW,
+      invoices: [{ ...inv, evidenceCount: 2, evidence: [...inv.evidence, file] }],
+    };
+    expect(tripIncidentalOf({ status: 200, json, headers: {} } as never)).toEqual(json);
+    for (const bad of [
+      { ...file, mime: 'application/pdf' },
+      { ...file, takenBy: 'GUEST' },
+      { ...file, receivedAt: 'hier' },
+    ]) {
+      const j = { ...VIEW, invoices: [{ ...inv, evidence: [bad] }] };
+      expect(tripIncidentalOf({ status: 200, json: j, headers: {} } as never)).toBeNull();
+    }
+  });
+
   it('plafond illisible ⇒ non affiché, la vue reste lisible (aide du montant seulement)', () => {
     const json = { ...VIEW, caps: { FUEL: '45.00', CLEANING: '15000', SMOKING: 7 } };
     expect(tripIncidentalOf({ status: 200, json, headers: {} } as never)?.caps).toEqual({

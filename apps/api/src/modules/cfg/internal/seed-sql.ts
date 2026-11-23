@@ -216,6 +216,13 @@ export const POST_SEED_PARAMS: readonly {
     refs: '08 BR-TT-02, BR-TT-03, BR-REIMB-05 ; ADR-201',
     embedded: true,
   },
+  {
+    prefix: 'incidental_cleaning_photo_window_h',
+    file: '0182_claim_incidental_contest_and_evidence.sql',
+    story: 'US-706 suite',
+    refs: '08 BR-REIMB-01 ; 16 CLM-021 ; ADR-202',
+    embedded: true,
+  },
 ];
 
 /** La clé appartient au groupe : préfixe ou clé nouvelle nommée (`extraKeys`). */
