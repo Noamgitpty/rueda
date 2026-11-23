@@ -146,6 +146,11 @@ export function TrafficChargeForm(props: TrafficChargeFormProps) {
             {t('web.traffic.review.total', { amount: money(p.totalMinor, p.currency, p.exponent) })}
           </p>
           <p className={accountStyles['muted']}>{t('web.traffic.review.card')}</p>
+          {p.opsReviewRequired && (
+            <p className={accountStyles['text']} data-testid="a09-traffic-review-ops">
+              {t('web.traffic.opsReview')}
+            </p>
+          )}
           <p className={accountStyles['muted']} data-testid="a09-traffic-review-response">
             {t('web.traffic.review.response', {
               n: String(p.responseHours),
@@ -218,6 +223,11 @@ export function TrafficChargeForm(props: TrafficChargeFormProps) {
               time: i18n.dateTime(state.sent.responseDueAt, props.timezone),
             })}
           </p>
+          {state.sent.opsReviewRequired && (
+            <p className={accountStyles['text']} data-testid="a09-traffic-sent-ops">
+              {t('web.traffic.opsReview')}
+            </p>
+          )}
         </div>
       )}
       <ErrorSummary i18n={i18n} errors={messages.filter((m) => m.fieldId !== TRAFFIC_FORM_ID)} />

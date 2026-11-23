@@ -1,6 +1,7 @@
 # ADR-201 — Refacturation des amendes, péages et fourrières : référence unique par trip, délai de réponse du voyageur, contestation, décision de l'ops, plafond du pays
 
 - **Statut** : PROPOSÉ (US-318 suite, agent de story, rôle back-end, claude-opus-5-5, 2026-11-23). Revues exigées : code, architecture, sécurité, argent, ux, qa (`docs/team/review-requirements.json`) ; argent, RLS / rôles, `SECURITY DEFINER` et concurrence sur un autre modèle que l'auteur.
+- **Remplacé en partie par** : ADR-203 (US-318 suite 2, 0183) : la référence n'est plus « unique par trip » mais unique par compte d'hôte du pays, sous une clé canonique ; un seuil cumulé du trip envoie la refacturation en revue de l'ops (points 1 et 2 ci-dessous complétés).
 - **Complète** : ADR-198 (refacturation, migration 0178), ADR-197 (frais annexes : mécanique reprise), ADR-195 (décisions motivées), ADR-122 (séparation des tâches), ADR-199 (aucune politique nouvelle de `cmd_hold_owner` sur `config_param_value`).
 - **Sources** : red team du lot 3, constats **F-L3-SIN-01** (critique : débit en double) et **F-L3-SIN-02** (relevé en critique : débit sans réponse ni recours), `docs/team/redteam/L3-donnees-sinistres.md` (RT-L3-S04) ; 08 BR-TT-02 (« 48 h pour payer/contester »), BR-TT-03 (mêmes délais), BR-REIMB-02, BR-REIMB-03, BR-REIMB-05 (« doublons », « montant non justifié » interdits) ; 16 CLM-021 ; 19 US-318 critère 3 ; DEC-FONDATEUR-22 (« jamais plus lourd que Turo »).
 

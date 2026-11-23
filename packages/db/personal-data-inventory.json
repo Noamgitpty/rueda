@@ -4245,7 +4245,9 @@
           "justification": "motif de la décision de l'ops sur une refacturation contestée, écrit par l'agent dans un registre immuable (champ posé une fois), décision motivée rendue aux parties (BR-REIMB-03 [NOUS], ACODECO / SEDECO) ; consigne : aucun nom ni contact ; aucun droit applicatif",
           "report": "US-536"
         },
-        "charge_basis": "C1"
+        "charge_basis": "C1",
+        "reference_canonical_key": "C1",
+        "ops_review_required": "C1"
       }
     }
   }

@@ -7,6 +7,8 @@
  * ce FAKE ne fait pas foi (les montants attendus des tests viennent de 08, pas d'ici).
  * Suite (0181, ADR-201) : référence unique par trip, plafond, délai de réponse du voyageur, paiement
  * et contestation (prouvés par l0-us318s-traffic-response).
+ * Suite 2 (0183, ADR-203) : clé canonique de la référence, unicité par compte d'hôte du pays (même
+ * empreinte de session d'hôte), plafond cumulé du trip (prouvés par l0-us318s2-traffic-canonical).
  */
 import { randomUUID } from 'node:crypto';
 import { TripClaimStoreError } from '../internal/p2p/store.js';
@@ -21,7 +23,19 @@ import type {
 
 const DAY = 86_400_000;
 const HOUR = 3_600_000;
-const refKey = (r: string): string => r.toUpperCase().replace(/[^A-Z0-9]/g, '');
+/** Clé canonique d'ADR-203 (séparateurs, casse, O / I / L dans un numéro, zéros de tête). */
+const refKey = (r: string): string =>
+  r
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, '')
+    .replace(/[0-9OIL]+/g, (n) =>
+      /[0-9]/.test(n)
+        ? n
+            .replace(/O/g, '0')
+            .replace(/[IL]/g, '1')
+            .replace(/^0+(?=.)/, '')
+        : n,
+    );
 
 export interface FakeClaimsTrip {
   readonly hostProof: string;
@@ -37,6 +51,8 @@ export interface FakeClaimsTrip {
   /** Délai du voyageur (h) et plafond du montant (0181) ; `null` : paramètre absent. */
   responseHours: number | null;
   capMinor: bigint | null;
+  /** Plafond cumulé des refacturations du trip (0183) ; `null` : paramètre absent. */
+  tripCapMinor: bigint | null;
   /** Demandes d'aide vivantes du voyageur. */
   cases: Set<string>;
   incidentPhotos: number;
@@ -63,6 +79,7 @@ export function fakeClaimsTrip(hostProof: string, guestProof: string, start: Dat
     feeBps: 500,
     responseHours: 48,
     capMinor: 100_000n,
+    tripCapMinor: 100_000n,
     cases: new Set(),
     incidentPhotos: 0,
     evidence: new Map(),
@@ -91,6 +108,8 @@ interface Charge {
   readonly due: Date;
   guestStatus: 'AWAITING_GUEST' | 'ACCEPTED' | 'DISPUTED';
   disputeReason: string | null;
+  /** Au-delà du plafond cumulé du trip (0183) : aucun débit sans décision de l'ops. */
+  readonly opsReview: boolean;
 }
 
 export class FakeTripClaimsStore implements TripClaimsStore {
@@ -163,6 +182,7 @@ export class FakeTripClaimsStore implements TripClaimsStore {
       totalMinor: (c.input.amountMinor + c.fee).toString(),
       deadlineAt: c.deadline.toISOString(),
       responseDueAt: c.due.toISOString(),
+      opsReviewRequired: c.opsReview,
     });
     const old = this.charges.find((c) => c.requestId === input.requestId);
     // un récapitulatif ne lit ni ne consomme l'identifiant de requête (rien n'est écrit)
@@ -176,7 +196,7 @@ export class FakeTripClaimsStore implements TripClaimsStore {
     if (t.deadlineDays === null) return none('TRAFFIC_WINDOW_UNKNOWN');
     if (t.feeBps === null) return none('TRAFFIC_FEE_UNKNOWN');
     if (t.responseHours === null) return none('TRAFFIC_RESPONSE_WINDOW_UNKNOWN');
-    if (t.capMinor === null) return none('TRAFFIC_CAP_UNKNOWN');
+    if (t.capMinor === null || t.tripCapMinor === null) return none('TRAFFIC_CAP_UNKNOWN');
     const deadline = new Date(t.end.getTime() + t.deadlineDays * DAY);
     const now = this.now();
     if (now > deadline) {
@@ -191,10 +211,22 @@ export class FakeTripClaimsStore implements TripClaimsStore {
         currency: t.currency,
       });
     }
-    const dup = this.charges.find(
-      (c) => c.tripId === tripId && refKey(c.input.reference) === refKey(input.reference),
-    );
+    // un PV par compte d'hôte du pays (0183) : tout trip du même hôte, même pays
+    const dup = this.charges.find((c) => {
+      const o = this.trips.get(c.tripId);
+      return (
+        o !== undefined &&
+        o.hostProof === t.hostProof &&
+        o.country === t.country &&
+        refKey(c.input.reference) === refKey(input.reference)
+      );
+    });
     if (dup !== undefined) return none('TRAFFIC_DUPLICATE', { chargeId: dup.id });
+    const charged = this.charges
+      .filter((c) => c.tripId === tripId)
+      .reduce((sum, c) => sum + c.input.amountMinor, 0n);
+    // au-delà du plafond cumulé du trip : enregistrée, revue de l'ops avant tout débit (0183)
+    const review = charged + input.amountMinor > t.tripCapMinor;
     if (
       !t.evidence.has(input.fileId) ||
       this.charges.some((c) => c.input.fileId === input.fileId)
@@ -216,6 +248,9 @@ export class FakeTripClaimsStore implements TripClaimsStore {
           reference: input.reference,
           responseHours: t.responseHours,
           capMinor: t.capMinor.toString(),
+          tripCapMinor: t.tripCapMinor.toString(),
+          tripChargedMinor: charged.toString(),
+          opsReviewRequired: review,
           deadlineAt: deadline.toISOString(),
           legs: {
             HOST: input.amountMinor.toString(),
@@ -238,6 +273,7 @@ export class FakeTripClaimsStore implements TripClaimsStore {
       due: new Date(now.getTime() + t.responseHours * HOUR),
       guestStatus: 'AWAITING_GUEST',
       disputeReason: null,
+      opsReview: review,
     };
     this.charges.push(c);
     return Promise.resolve({ outcome: 'DECLARED', chargeId: c.id, body: body(c) });

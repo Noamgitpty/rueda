@@ -19,6 +19,9 @@
  * - suite (0181, ADR-201, red team F-L3-SIN-01 / 02) : référence du PV exigée et unique par trip
  *   (409 TRAFFIC_DUPLICATE, chargeId), plafond du pays (422 TRAFFIC_AMOUNT_ABOVE_CAP, capMinor) ;
  *   le voyageur lit ses refacturations, paie ou conteste avant l'échéance (08 BR-TT-02 : 48 h).
+ * - suite 2 (0183, ADR-203, red team F-L3-SIN-03 / 04 / 05) : clé canonique du PV et unicité par
+ *   compte d'hôte (409 TRAFFIC_DUPLICATE sur un autre trip du même hôte), plafond cumulé du trip
+ *   (au-delà : enregistrée, `opsReviewRequired`, revue de l'ops avant tout débit).
  * Les règles de la base sont prouvées sur PostgreSQL (l0-us318-p2p-claims,
  * l0-us318s-traffic-response). Données fictives.
  */
@@ -245,6 +248,7 @@ describe('US-318 — routes des sinistres d’un trip (contrat OpenAPI)', () => 
       responseHours: 48,
       capMinor: '100000',
       chargedBy: 'SEPARATE_CARD_CHARGE',
+      opsReviewRequired: false,
     });
     const big = await preview(w, host(w), body({ amountMinor: '25010' }));
     expect(big.json).toMatchObject({ adminFeeMinor: '1251', totalMinor: '26261' });
@@ -608,6 +612,71 @@ describe('US-318 — routes des sinistres d’un trip (contrat OpenAPI)', () => 
       expect(x.status, path).toBe(503);
       expect(code(x)).toBe('TRIP_CLAIM_UNAVAILABLE');
     }
+  });
+
+  it('suite 2 (0183) : le même PV écrit autrement (zéros de tête, O pour 0) ou déclaré sur un autre trip du même hôte ⇒ 409 TRAFFIC_DUPLICATE ; somme du trip au-delà du plafond cumulé ⇒ enregistrée avec opsReviewRequired (revue de l’ops avant tout débit), annoncée au récapitulatif', async () => {
+    const w = await world();
+    apps.push(w.app);
+    const t = w.store.trips.get(w.trip)!;
+    const otherTrip = randomUUID();
+    w.store.trips.set(
+      otherTrip,
+      fakeClaimsTrip(w.app.hash('staff_sans_mfa'), w.app.hash('voyageur'), START),
+    );
+    const o = w.store.trips.get(otherTrip)!;
+    const at = new Date(END.getTime() + HOUR);
+    w.store.now = () => at;
+    const files = [randomUUID(), randomUUID(), randomUUID(), randomUUID()];
+    for (const trip of [t, o]) {
+      trip.status = 'COMPLETED';
+      trip.end = END;
+    }
+    for (const [i, f] of files.entries()) {
+      (i === 3 ? o : t).evidence.set(f, { slot: `DAMAGE_0${i + 1}`, receivedAt: END });
+    }
+    const body = (x: Record<string, unknown>) => ({
+      requestId: randomUUID(),
+      kind: 'FINE',
+      occurredAt: START.toISOString(),
+      amountMinor: '60000',
+      ...x,
+    });
+    const first = await charge(w, host(w), body({ fileId: files[0], reference: 'PV 100200' }));
+    expect(first.status).toBe(201);
+    const id = (first.json as { chargeId: string }).chargeId;
+    for (const [trip, file, reference] of [
+      [w.trip, files[1], 'PV 1OO2OO'],
+      [w.trip, files[1], 'pv-000100200'],
+      [otherTrip, files[3], 'PV 100200'],
+    ] as const) {
+      const r = await charge(w, host(w), body({ fileId: file, reference }), trip);
+      expect(r.status, reference).toBe(409);
+      expect(r.json).toEqual({
+        code: 'TRAFFIC_DUPLICATE',
+        messageKey: 'common.tripClaims.trafficDuplicate',
+        chargeId: id,
+      });
+    }
+    const pre = await preview(w, host(w), body({ fileId: files[1], reference: 'PEAJE-78' }));
+    expect(pre.status).toBe(200);
+    expect(pre.json).toMatchObject({ opsReviewRequired: true, capMinor: '100000' });
+    const within = await preview(
+      w,
+      host(w),
+      body({ fileId: files[1], reference: 'PEAJE-78', amountMinor: '40000' }),
+    );
+    expect(within.json).toMatchObject({ opsReviewRequired: false });
+    expect(first.json).toMatchObject({ opsReviewRequired: false });
+    const over = await charge(w, host(w), body({ fileId: files[1], reference: 'PEAJE-78' }));
+    expect(over.status).toBe(201);
+    expect(over.json).toMatchObject({ opsReviewRequired: true, replayed: false });
+    const after = await charge(
+      w,
+      host(w),
+      body({ fileId: files[2], reference: 'PEAJE-79', amountMinor: '1' }),
+    );
+    expect(after.status).toBe(201);
+    expect(after.json).toMatchObject({ opsReviewRequired: true });
   });
 
   it('couverture : chaque statut déclaré pour les routes du voyageur (refacturations) est exercé', () => {

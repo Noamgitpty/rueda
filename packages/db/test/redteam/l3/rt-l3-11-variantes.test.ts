@@ -19,6 +19,9 @@
  *   AUTRE clé ; un préfixe ajouté ou retiré aussi (limite assumée, observation seule) ; le plafond
  *   par pays est par refacturation, jamais cumulé par trip ; la clé est par trip, jamais par hôte :
  *   le même numéro est refacturé à deux voyageurs ;
+ *   CORRIGÉS par la suite 2 d'US-318 (0183, ADR-203) : les `it.fails` F-L3-SIN-03, -04 et -05 sont
+ *   devenus des tests de comportement (mêmes attaques), et leurs observations prouvent le refus
+ *   (TRAFFIC_DUPLICATE) ou l'escalade à l'ops (`ops_review_required`, aucun débit sans décision) ;
  * - correctif #299 (0182, en revue au moment de cette passe : annulation après contestation = frais
  *   abandonné pour CE type) : l'hôte redemande le même fait sous un AUTRE type (nettoyage puis tabac,
  *   mêmes pièces) et obtient une fenêtre de réponse neuve.
@@ -177,46 +180,48 @@ describe.each(COUNTRIES)('RT-L3 variantes contre la PR 300 ($country, $currency)
     return { first, second, trip: w.trip };
   }
 
-  it('RT-L3-S04 — observation F-L3-SIN-03 : le même procès-verbal écrit « PV 000123 » puis « PV 123 » (zéros de tête), ou « PV 100200 » puis « PV 1OO2OO » (lettre O), est refacturé deux fois ; deux refacturations existent', async () => {
+  it('RT-L3-S04 — F-L3-SIN-03 corrigé (0183, preuve du refus) : le même procès-verbal écrit « PV 000123 » puis « PV 123 » (zéros de tête), ou « PV 100200 » puis « PV 1OO2OO » (lettre O), est refusé TRAFFIC_DUPLICATE (identifiant de la première) ; une seule refacturation existe', async () => {
     await asApi(async (tx) => {
       const zeros = await twoSpellings(tx, 'PV 000123', 'PV 123');
-      expect(zeros.second['outcome']).toBe('DECLARED');
+      expect(zeros.second).toMatchObject({
+        outcome: 'TRAFFIC_DUPLICATE',
+        charge_id: null,
+        body: { chargeId: zeros.first['charge_id'] },
+      });
       expect((await chargesOn(tx, zeros.trip)).map((r) => r['reference_key'])).toEqual([
         'PV000123',
-        'PV123',
       ]);
       const letter = await twoSpellings(tx, 'PV 100200', 'PV 1OO2OO');
-      expect(letter.second['outcome']).toBe('DECLARED');
+      expect(letter.second).toMatchObject({
+        outcome: 'TRAFFIC_DUPLICATE',
+        charge_id: null,
+        body: { chargeId: letter.first['charge_id'] },
+      });
       expect((await chargesOn(tx, letter.trip)).map((r) => r['reference_key'])).toEqual([
         'PV100200',
-        'PV1OO2OO',
       ]);
     });
   });
 
-  // CONSTAT F-L3-SIN-03 : la clé de référence (majuscules, lettres et chiffres) ne reconnaît pas
-  // un numéro écrit avec ou sans zéros de tête ; correction attendue : une clé canonique qui les
-  // ignore (TRAFFIC_DUPLICATE) ou une escalade à l'ops : l'it.fails n'exige que « pas de seconde
-  // refacturation enregistrée sans décision », donc accepte un refus comme une escalade
-  it.fails(
-    'RT-L3-S04 — CONSTAT F-L3-SIN-03 (zéros de tête) : « PV 000123 » puis « PV 123 » sur le même trip n’est pas enregistré comme une seconde refacturation (refus ou escalade à l’ops)',
-    async () => {
-      await asApi(async (tx) => {
-        const r = await twoSpellings(tx, 'PV 000123', 'PV 123');
-        expect(r.second['outcome']).not.toBe('DECLARED');
-      });
-    },
-  );
+  // CONSTAT F-L3-SIN-03 (CORRIGÉ, 0183) : la clé de référence (majuscules, lettres et chiffres) ne
+  // reconnaissait pas un numéro écrit avec ou sans zéros de tête ; correction : une clé canonique
+  // qui les ignore (TRAFFIC_DUPLICATE). Ancien `it.fails`, inversé : même attaque, même exigence
+  // (« pas de seconde refacturation enregistrée »), plus le signal exact
+  it('RT-L3-S04 — CONSTAT F-L3-SIN-03 (zéros de tête) : « PV 000123 » puis « PV 123 » sur le même trip n’est pas enregistré comme une seconde refacturation (refus ou escalade à l’ops)', async () => {
+    await asApi(async (tx) => {
+      const r = await twoSpellings(tx, 'PV 000123', 'PV 123');
+      expect(r.second['outcome']).not.toBe('DECLARED');
+      expect(r.second['outcome']).toBe('TRAFFIC_DUPLICATE');
+    });
+  });
 
-  it.fails(
-    'RT-L3-S04 — CONSTAT F-L3-SIN-03 (lettre O pour le zéro) : « PV 100200 » puis « PV 1OO2OO » sur le même trip n’est pas enregistré comme une seconde refacturation (refus ou escalade à l’ops)',
-    async () => {
-      await asApi(async (tx) => {
-        const r = await twoSpellings(tx, 'PV 100200', 'PV 1OO2OO');
-        expect(r.second['outcome']).not.toBe('DECLARED');
-      });
-    },
-  );
+  it('RT-L3-S04 — CONSTAT F-L3-SIN-03 (lettre O pour le zéro) : « PV 100200 » puis « PV 1OO2OO » sur le même trip n’est pas enregistré comme une seconde refacturation (refus ou escalade à l’ops)', async () => {
+    await asApi(async (tx) => {
+      const r = await twoSpellings(tx, 'PV 100200', 'PV 1OO2OO');
+      expect(r.second['outcome']).not.toBe('DECLARED');
+      expect(r.second['outcome']).toBe('TRAFFIC_DUPLICATE');
+    });
+  });
 
   it('RT-L3-S04 — limite assumée (observation seule) : un préfixe ajouté ou retiré (« A-77-4410 » puis « 77-4410 ») a une autre clé ; aucune équivalence de texte libre n’est prétendue, le plafond cumulé du trip est la parade (voir ci-dessous)', async () => {
     await asApi(async (tx) => {
@@ -229,11 +234,35 @@ describe.each(COUNTRIES)('RT-L3 variantes contre la PR 300 ($country, $currency)
     });
   });
 
+  // NOUVELLES ATTAQUES (revue sécurité et argent de cde5b982) : la lettre confondue EN TÊTE du
+  // numéro (« PV I00200 », « PV L00200 » pour « PV 100200 » ; « PV O00200 » pour « PV 000200 »)
+  it('RT-L3-S04 — F-L3-SIN-03 (variante : lettre en tête du numéro) : « PV 100200 » puis « PV I00200 » ou « PV L00200 », « PV 000200 » puis « PV O00200 », sur le même trip, sont refusés TRAFFIC_DUPLICATE ; une seule refacturation par PV', async () => {
+    await asApi(async (tx) => {
+      for (const [base, variant] of [
+        ['PV 100200', 'PV I00200'],
+        ['PV 100200', 'pv l00200'],
+        ['PV 000200', 'PV O00200'],
+      ] as const) {
+        const r = await twoSpellings(tx, base, variant);
+        expect(r.second, variant).toMatchObject({
+          outcome: 'TRAFFIC_DUPLICATE',
+          charge_id: null,
+          body: { chargeId: r.first['charge_id'] },
+        });
+        expect(await chargesOn(tx, r.trip), variant).toHaveLength(1);
+      }
+    });
+  });
+
   // -----------------------------------------------------------------------------------------
   // plafond : par refacturation, jamais cumulé par trip
-  async function threeUnderTheCap(
-    tx: Tx,
-  ): Promise<{ trip: string; cap: bigint; total: bigint; outcomes: string[] }> {
+  async function threeUnderTheCap(tx: Tx): Promise<{
+    trip: string;
+    cap: bigint;
+    total: bigint;
+    outcomes: string[];
+    reviews: unknown[];
+  }> {
     const w = await trafficWorld(tx, c, uuid());
     // le plafond du pays est rendu par le récapitulatif (aucune constante de pays ici)
     const probe = await declareOn(tx, w, 'FINE', FINE, `RT-${uuid().slice(0, 8)}`, true);
@@ -244,45 +273,79 @@ describe.each(COUNTRIES)('RT-L3 variantes contre la PR 300 ($country, $currency)
     // l'aide n'affirme AUCUNE issue des trois déclarations (une correction peut refuser ou
     // escalader la deuxième) : l'observation affirme les trois DECLARED, l'it.fails juge le cumul
     const outcomes: string[] = [];
+    // 0183 : escalade à l'ops annoncée par la réponse (`opsReviewRequired`)
+    const reviews: unknown[] = [];
     for (const kind of ['FINE', 'TOLL', 'IMPOUND']) {
       const r = await declareOn(tx, w, kind, each, `RT-${uuid().slice(0, 8)}`);
       outcomes.push(String(r['outcome']));
+      reviews.push((r['body'] as Row | null)?.['opsReviewRequired']);
     }
-    return { trip: w.trip, cap, total: each * 3n, outcomes };
+    return { trip: w.trip, cap, total: each * 3n, outcomes, reviews };
   }
 
-  it('RT-L3-S04 — observation F-L3-SIN-04 : trois refacturations de 60 % du plafond du pays, trois références inventées, sur le même trip, sont toutes acceptées : 180 % du plafond, chacune seule sous le plafond', async () => {
+  it('RT-L3-S04 — F-L3-SIN-04 corrigé (0183, preuve de l’escalade) : trois refacturations de 60 % du plafond du pays, trois références inventées, sur le même trip, sont enregistrées (180 % du plafond, jamais un refus : amendes réelles légitimes) ; la deuxième et la troisième, au-delà du seuil cumulé, sont marquées « revue de l’ops » en base', async () => {
     await asApi(async (tx) => {
       const r = await threeUnderTheCap(tx);
       expect(r.outcomes).toEqual(['DECLARED', 'DECLARED', 'DECLARED']);
+      expect(r.reviews).toEqual([false, true, true]);
       const rows = await chargesOn(tx, r.trip);
       expect(rows).toHaveLength(3);
       const total = rows.reduce((s, x) => s + BigInt(String(x['amount_minor'])), 0n);
       expect(total).toBe(r.total);
       expect(total > r.cap).toBe(true);
+      const flagged = (
+        await tx.query<Row>('SELECT * FROM test_fixture.us318t_charges($1)', [r.trip])
+      ).rows.map((x) => x['ops_review_required']);
+      expect(flagged.sort()).toEqual([false, true, true]);
     });
   });
 
-  // CONSTAT F-L3-SIN-04 : le plafond de 0181 borne UNE refacturation ; rien ne borne la somme des
-  // refacturations d'un trip (chaque référence inventée de 3 caractères suffit) ; correction
-  // attendue : aucune refacturation au-delà du plafond cumulé du trip sans décision de l'ops. Un
-  // refus ou une escalade à l'ops passent tous deux : la déclaration qui fait dépasser le plafond
-  // (la deuxième, 120 %) ne doit pas rendre l'issue simple DECLARED, ou la somme enregistrée reste
-  // sous le plafond. Le signal exact (refus, file de l'ops) n'est pas figé.
-  it.fails(
-    'RT-L3-S04 — CONSTAT F-L3-SIN-04 : aucune refacturation au-delà du plafond cumulé du trip sans refus ni escalade à l’ops',
-    async () => {
-      await asApi(async (tx) => {
-        const r = await threeUnderTheCap(tx);
-        // témoin : la première, sous le plafond, est enregistrée
-        expect(r.outcomes[0]).toBe('DECLARED');
-        const rows = await chargesOn(tx, r.trip);
-        expect(rows.length).toBeGreaterThan(0);
-        const total = rows.reduce((x, row) => x + BigInt(String(row['amount_minor'])), 0n);
-        expect(total <= r.cap || r.outcomes[1] !== 'DECLARED').toBe(true);
-      });
-    },
-  );
+  // CONSTAT F-L3-SIN-04 (CORRIGÉ, 0183) : le plafond de 0181 bornait UNE refacturation ; rien ne
+  // bornait la somme des refacturations d'un trip. Correction (revue argent de la red team) :
+  // escalade à l'ops, pas de refus ; la déclaration qui fait dépasser le seuil garde l'issue
+  // DECLARED mais porte `ops_review_required`, et n'est jamais débitée sans décision de l'ops.
+  // Ancien `it.fails`, inversé et RENFORCÉ (précision de la revue de la PR 301) : la condition
+  // « somme ≤ plafond ou issue ≠ DECLARED » est remplacée, puisque l'issue reste DECLARED, par :
+  // la somme des refacturations débitables SANS décision de l'ops reste sous le plafond ; la
+  // deuxième ET la troisième sont en revue ; la base interdit tout débit d'une refacturation en
+  // revue hors décision de l'ops (contrainte `claim_traffic_charge_review_before_charge` ;
+  // l'exécution BLOCKED `TRAFFIC_OPS_REVIEW_REQUIRED` est prouvée sous app_worker par
+  // l0-us318s2-traffic-canonical). Même attaque (trois refacturations à 60 %).
+  it('RT-L3-S04 — CONSTAT F-L3-SIN-04 : aucune refacturation au-delà du plafond cumulé du trip sans refus ni escalade à l’ops', async () => {
+    await asApi(async (tx) => {
+      const r = await threeUnderTheCap(tx);
+      // témoin : la première, sous le plafond, est enregistrée
+      expect(r.outcomes[0]).toBe('DECLARED');
+      const rows = await chargesOn(tx, r.trip);
+      expect(rows.length).toBeGreaterThan(0);
+      const total = rows.reduce((x, row) => x + BigInt(String(row['amount_minor'])), 0n);
+      const flagged = (
+        await tx.query<Row>('SELECT * FROM test_fixture.us318t_charges($1)', [r.trip])
+      ).rows;
+      expect(flagged).toHaveLength(rows.length);
+      // débitable sans décision de l'ops : seulement les refacturations hors revue
+      const free = flagged
+        .filter((row) => row['ops_review_required'] !== true)
+        .reduce((x, row) => x + BigInt(String(row['amount_minor'])), 0n);
+      expect(free <= r.cap).toBe(true);
+      expect(total > r.cap).toBe(true);
+      // issue réelle (revue sécurité et argent de cde5b982) : ni la deuxième (120 %) ni la
+      // troisième (180 %) ne passent sans l'ops ; elles sont enregistrées EN REVUE
+      for (const i of [1, 2]) {
+        expect(r.outcomes[i], `déclaration ${i + 1}`).toBe('DECLARED');
+        expect(r.reviews[i], `déclaration ${i + 1}`).toBe(true);
+      }
+      // la base refuse tout débit d'une refacturation en revue hors décision de l'ops
+      const check = await tx.query<{ def: string }>(
+        `SELECT pg_catalog.pg_get_constraintdef(k.oid) AS def
+             FROM pg_catalog.pg_constraint AS k
+            WHERE k.conrelid = 'core.claim_traffic_charge'::regclass
+              AND k.conname = 'claim_traffic_charge_review_before_charge'`,
+      );
+      expect(check.rows).toHaveLength(1);
+      expect(check.rows[0]!.def).toContain('OPS_DECISION');
+    });
+  });
 
   // -----------------------------------------------------------------------------------------
   // la clé est par trip : le même numéro sur deux trips du même hôte = deux voyageurs débités
@@ -299,27 +362,52 @@ describe.each(COUNTRIES)('RT-L3 variantes contre la PR 300 ($country, $currency)
     return { a, b, tripA: wa.trip, tripB: wb.trip };
   }
 
-  it('RT-L3-S04 — observation F-L3-SIN-05 : le même numéro de procès-verbal déclaré sur deux trips du MÊME hôte est refacturé à deux voyageurs différents', async () => {
+  it('RT-L3-S04 — F-L3-SIN-05 corrigé (0183, preuve du refus) : le même numéro de procès-verbal déclaré sur deux trips du MÊME hôte est refusé TRAFFIC_DUPLICATE sur le second (identifiant de la première) ; un seul voyageur refacturé', async () => {
     await asApi(async (tx) => {
       const r = await sameNumberTwoGuests(tx);
-      expect(r.b['outcome']).toBe('DECLARED');
+      expect(r.b).toMatchObject({
+        outcome: 'TRAFFIC_DUPLICATE',
+        charge_id: null,
+        body: { chargeId: r.a['charge_id'] },
+      });
       expect(await chargesOn(tx, r.tripA)).toHaveLength(1);
-      expect(await chargesOn(tx, r.tripB)).toHaveLength(1);
+      expect(await chargesOn(tx, r.tripB)).toHaveLength(0);
     });
   });
 
-  // CONSTAT F-L3-SIN-05 : l'unicité de 0181 est par trip ; correction attendue : un même numéro de
-  // procès-verbal ne se refacture qu'à un seul voyageur d'un même hôte (refus ou escalade à l'ops)
-  it.fails(
-    'RT-L3-S04 — CONSTAT F-L3-SIN-05 : un même numéro de procès-verbal déclaré par un même hôte n’est refacturé qu’à un seul voyageur',
-    async () => {
-      await asApi(async (tx) => {
-        const r = await sameNumberTwoGuests(tx);
-        expect(r.a['outcome']).toBe('DECLARED');
-        expect(r.b['outcome']).not.toBe('DECLARED');
-      });
-    },
-  );
+  // CONSTAT F-L3-SIN-05 (CORRIGÉ, 0183) : l'unicité de 0181 était par trip ; correction : un même
+  // numéro de procès-verbal ne se refacture qu'à un seul voyageur d'un même hôte (unicité par pays et
+  // compte d'hôte, TRAFFIC_DUPLICATE). Ancien `it.fails`, inversé : même attaque, même exigence
+  it('RT-L3-S04 — CONSTAT F-L3-SIN-05 : un même numéro de procès-verbal déclaré par un même hôte n’est refacturé qu’à un seul voyageur', async () => {
+    await asApi(async (tx) => {
+      const r = await sameNumberTwoGuests(tx);
+      expect(r.a['outcome']).toBe('DECLARED');
+      expect(r.b['outcome']).not.toBe('DECLARED');
+      expect(r.b['outcome']).toBe('TRAFFIC_DUPLICATE');
+    });
+  });
+
+  // NOUVELLE ATTAQUE (revue sécurité et argent de cde5b982) : le même numéro sur deux trips du même
+  // hôte, avec le premier caractère changé (« PV 100200 » puis « PV I00200 »)
+  it('RT-L3-S04 — F-L3-SIN-05 (variante : lettre en tête du numéro) : « PV 100200 » sur un trip puis « PV I00200 » sur un autre trip du même hôte est refusé TRAFFIC_DUPLICATE ; un seul voyageur refacturé', async () => {
+    await asApi(async (tx) => {
+      const org = uuid();
+      const wa = await trafficWorld(tx, c, org);
+      const wb = await trafficWorld(tx, c, org);
+      const a = await declareOn(tx, wa, 'FINE', FINE, 'PV 100200');
+      expect(a['outcome']).toBe('DECLARED');
+      for (const variant of ['PV I00200', 'PV L00200', 'pv-1oo2oo']) {
+        const b = await declareOn(tx, wb, 'FINE', FINE, variant);
+        expect(b, variant).toMatchObject({
+          outcome: 'TRAFFIC_DUPLICATE',
+          charge_id: null,
+          body: { chargeId: a['charge_id'] },
+        });
+      }
+      expect(await chargesOn(tx, wa.trip)).toHaveLength(1);
+      expect(await chargesOn(tx, wb.trip)).toHaveLength(0);
+    });
+  });
 });
 
 // -- frais annexes : changer de type après une contestation et un abandon --------------------

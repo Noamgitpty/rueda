@@ -4134,7 +4134,7 @@ export const FR_MESSAGES = {
   'common.tripClaims.trafficReferenceRequired':
     'Écris la référence de l’avis, du PV ou du reçu, comme sur le document.',
   'common.tripClaims.trafficDuplicate':
-    'Cette référence est déjà déclarée pour ce trajet : les mêmes frais ne se déclarent qu’une fois.',
+    'Cette référence est déjà déclarée pour un de tes trajets : les mêmes frais ne se déclarent qu’une fois.',
   'common.tripClaims.trafficAmountAboveCap':
     'Le montant dépasse le plafond du pays pour ces frais. Vérifie le montant payé ; s’il est exact, écris-nous depuis l’aide du trajet.',
   'common.tripClaims.trafficNotOpen':
@@ -4151,6 +4151,8 @@ export const FR_MESSAGES = {
   'web.traffic.review.response':
     'Le voyageur aura {n} h pour payer ou contester. Rien n’est débité avant ; s’il conteste, {brand} décide.',
   'web.traffic.sent.due': 'Le voyageur a jusqu’au {time} pour payer ou contester.',
+  'web.traffic.opsReview':
+    'Avec ces frais, le total refacturé sur ce trajet dépasse le plafond : notre équipe vérifie la demande avant tout débit du voyageur.',
   'web.traffic.status.VOID': 'Annulée',
   'web.traffic.guest.AWAITING_GUEST': 'Réponse du voyageur attendue avant le {time}',
   'web.traffic.guest.expired': 'Le voyageur n’a pas répondu avant le {time}',

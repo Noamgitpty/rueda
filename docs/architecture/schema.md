@@ -7,7 +7,7 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 
 ## Synthèse
 
-- 184 migrations ; 172 tables ; 6 vues ; 973 politiques RLS ; 457 fonctions `SECURITY DEFINER` ; 338 autres fonctions.
+- 185 migrations ; 172 tables ; 6 vues ; 973 politiques RLS ; 458 fonctions `SECURITY DEFINER` ; 339 autres fonctions.
 - Tables sans RLS `ENABLE` + `FORCE` : aucune.
 - Rôles applicatifs avec `SUPERUSER` ou `BYPASSRLS` : aucun.
 
@@ -198,6 +198,7 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 | `0180_payout_post_trip_charge_host_leg` | PYO / PAY / STL : report de la jambe HOST des frais annexes, dommages et amendes débités |
 | `0181_claim_traffic_charge_guest_response` | CLM : refacturation des amendes, péages et fourrières — référence unique par trip, |
 | `0182_claim_incidental_contest_and_evidence` | CLM : frais annexes, suite de la red team du lot 3 (US-313) : une demande contestée puis |
+| `0183_claim_traffic_reference_canonical_trip_cap` | CLM : refacturation des amendes, péages et fourrières — clé canonique du PV, unicité par |
 | `0184_claim_incidental_abandoned_fact` | CLM : frais annexes, passe de la porte de la red team du lot 3 (US-313) : un frais abandonné |
 
 ## Rôles
@@ -2827,6 +2828,8 @@ Déclencheurs :
 | `decision_request_id` | `uuid` | non | — |
 | `decision_rationale` | `text` | non | — |
 | `charge_basis` | `text` | non | — |
+| `reference_canonical_key` | `text` | non | `core.claim_traffic_reference_key(reference)` |
+| `ops_review_required` | `boolean` | oui | `false` |
 
 Contraintes :
 
@@ -2866,6 +2869,7 @@ Contraintes :
 - `claim_traffic_charge_request_unique` : `UNIQUE (request_id)`
 - `claim_traffic_charge_response_hours_range` : `CHECK (response_hours IS NULL OR response_hours >= 1 AND response_hours <= 720)`
 - `claim_traffic_charge_response_in_window` : `CHECK ((accepted_at IS NULL OR accepted_at >= declared_at AND accepted_at < response_due_at) AND (disputed_at IS NULL OR disputed_at >= declared_at AND disputed_at < response_due_at) AND (accepted_at IS NULL OR disputed_at IS NULL))`
+- `claim_traffic_charge_review_before_charge` : `CHECK (NOT ops_review_required OR rules_version = 2 AND (charge_basis IS NULL OR charge_basis = 'OPS_DECISION'::text))`
 - `claim_traffic_charge_rules_version_valid` : `CHECK (rules_version = ANY (ARRAY[1, 2]))`
 - `claim_traffic_charge_status_shape` : `CHECK (rules_version = 1 OR (guest_status <> 'AWAITING_GUEST'::text OR accepted_at IS NULL AND disputed_at IS NULL AND decided_at IS NULL) AND (guest_status <> 'ACCEPTED'::text OR accepted_at IS NOT NULL AND decided_at IS NULL) AND (guest_status <> 'DISPUTED'::text OR disputed_at IS NOT NULL AND decided_at IS NULL) AND ((guest_status <> ALL (ARRAY['DECIDED_CHARGE'::text, 'REJECTED'::text])) OR decided_at IS NOT NULL) AND (guest_status = 'REJECTED'::text) = (execution_status = 'VOID'::text))`
 - `claim_traffic_charge_trip_country_fk` : `FOREIGN KEY (trip_id, country_code) REFERENCES core.booking_trip(id, country_code)`
@@ -2875,6 +2879,7 @@ Contraintes :
 Index :
 
 - `claim_traffic_charge_due_idx` : `CREATE INDEX claim_traffic_charge_due_idx ON core.claim_traffic_charge USING btree (next_check_at) WHERE (execution_status = 'PENDING'::text)`
+- `claim_traffic_charge_reference_host_unique` : `CREATE UNIQUE INDEX claim_traffic_charge_reference_host_unique ON core.claim_traffic_charge USING btree (country_code, org_id, reference_canonical_key) WHERE (rules_version = 2)`
 - `claim_traffic_charge_reference_unique` : `CREATE UNIQUE INDEX claim_traffic_charge_reference_unique ON core.claim_traffic_charge USING btree (trip_id, reference_key) WHERE (rules_version = 2)`
 - `claim_traffic_charge_review_idx` : `CREATE INDEX claim_traffic_charge_review_idx ON core.claim_traffic_charge USING btree (disputed_at) WHERE (guest_status = 'DISPUTED'::text)`
 - `claim_traffic_charge_trip_idx` : `CREATE INDEX claim_traffic_charge_trip_idx ON core.claim_traffic_charge USING btree (trip_id)`
@@ -3433,7 +3438,7 @@ Politiques RLS :
 - `cmd_money_incidental_param_read` (SELECT, PERMISSIVE, cmd_money_owner) USING `(key = ANY (ARRAY['incidental_host_window_h'::text, 'invoice_guest_response_h'::text, 'incidental_cleaning_max_minor'::text, 'fuel_refill_max'::text, 'incidental_evidence_trip_photos_only'::text, 'incidental_fuel_extras_block'::text, 'incidental_fuel_early_end_block'::text, 'incidental_cleaning_photo_window_h'::text]))`
 - `cmd_money_quote_read` (SELECT, PERMISSIVE, cmd_money_owner) USING `(key = ANY (ARRAY['grace_minutes'::text, 'max_trip_days'::text, 'host_default_plan'::text, 'host_share_pct'::text, 'delivery_share_pct'::text, 'extras_share_pct'::text, 'trip_fee_schedule'::text, 'quote_validity_minutes'::text, 'quote_freezes_per_guest_hour'::text, 'protection_grid'::text, 'guest_protection_min_level'::text, 'insurer_premium_share'::text]))`
 - `cmd_money_sel` (SELECT, PERMISSIVE, cmd_money_owner) USING `(key = ANY (ARRAY['payouts_enabled'::text, 'insurer_contract_active'::text, 'funds_holding_enabled'::text, 'payout_account_rails'::text, 'payout_account_change_hold_h'::text, 'payout_business_day_offset'::text, 'first_payout_business_day'::text, 'payout_batch_local_time'::text, 'mit_consent_checkbox_required'::text]))`
-- `cmd_money_traffic_guest_param_read` (SELECT, PERMISSIVE, cmd_money_owner) USING `(key = ANY (ARRAY['traffic_guest_response_h'::text, 'traffic_guest_charge_max_minor'::text]))`
+- `cmd_money_traffic_guest_param_read` (SELECT, PERMISSIVE, cmd_money_owner) USING `(key = ANY (ARRAY['traffic_guest_response_h'::text, 'traffic_guest_charge_max_minor'::text, 'traffic_trip_charge_max_minor'::text]))`
 - `cmd_param_ins` (INSERT, PERMISSIVE, cmd_param_owner) WITH CHECK `((app.actor_kind() = 'STAFF'::text) AND (scope_type = 'COUNTRY'::text) AND (approved_by IS NOT NULL) AND (decision_ref IS NOT NULL) AND (EXISTS ( SELECT 1 FROM core.config_param_change_request r WHERE ((r.status = 'APPLIED'::text) AND (r.key = config_param_value.key) AND (r.country_code = config_param_value.country_code) AND (r.value = config_param_value.value) AND (NOT (r.currency IS DISTINCT FROM config_param_value.currency)) AND (r.valid_from = config_param_value.valid_from) AND (r.approved_by = config_param_value.approved_by) AND (r.decision_ref = config_param_value.decision_ref)))))`
 - `cmd_param_sel` (SELECT, PERMISSIVE, cmd_param_owner) USING `((scope_type = 'COUNTRY'::text) AND (NOT (key IN ( SELECT d.key FROM core.config_param_definition d WHERE d.go_live_switch))))`
 - `cmd_param_upd` (UPDATE, PERMISSIVE, cmd_param_owner) USING `((app.actor_kind() = 'STAFF'::text) AND (scope_type = 'COUNTRY'::text) AND (valid_to IS NULL) AND (NOT (key IN ( SELECT d.key FROM core.config_param_definition d WHERE d.go_live_switch))))` WITH CHECK `((app.actor_kind() = 'STAFF'::text) AND (valid_to IS NOT NULL) AND (EXISTS ( SELECT 1 FROM core.config_param_change_request r WHERE ((r.status = 'APPLIED'::text) AND (r.key = config_param_value.key) AND (r.country_code = config_param_value.country_code) AND (r.valid_from = config_param_value.valid_to)))))`
@@ -9145,6 +9150,7 @@ Chacune a un propriétaire `NOLOGIN` dédié (ADR-053) et un `search_path` figé
 | `core.claim_traffic_notify_guest(p_traffic_charge_id uuid)` | `boolean` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | cmd_hold_owner: EXECUTE ; cmd_money_owner: EXECUTE |
 | `core.claim_traffic_review_list(p_ids uuid[])` | `jsonb` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | cmd_money_owner: EXECUTE ; iam_staff_owner: EXECUTE |
 | `core.claim_traffic_staff_view(p_traffic_charge_id uuid)` | `jsonb` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | cmd_money_owner: EXECUTE ; iam_staff_owner: EXECUTE |
+| `core.claim_traffic_trip_cap(p_country text)` | `bigint` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | cmd_hold_owner: EXECUTE ; cmd_money_owner: EXECUTE |
 | `core.claim_trip_facts(p_trip_id uuid)` | `TABLE(trip_id uuid, country_code text, currency text, org_id uuid, guest_user_id uuid, holder_user_id uuid, status text, end_at timestamp with time zone, window_hours integer, deadline_at timestamp with time zone, checkin_photos boolean, checkout_photos boolean, accepted_deductible_minor bigint)` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | cmd_hold_owner: EXECUTE ; cmd_money_owner: EXECUTE |
 | `core.claim_worker_complete_evidence_bundle(p_bundle_id uuid, p_file_id uuid, p_storage_key text, p_sha256 bytea, p_bytes bigint)` | `text` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; cmd_hold_owner: EXECUTE |
 | `core.claim_worker_evidence_due(p_limit integer)` | `TABLE(bundle_id uuid)` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; cmd_hold_owner: EXECUTE |
@@ -9553,6 +9559,7 @@ Chacune a un propriétaire `NOLOGIN` dédié (ADR-053) et un `search_path` figé
 | `core.claim_traffic_charge_legs(p_amount bigint, p_fee_bps integer)` | `bigint[]` | `cmd_hold_owner` | cmd_hold_owner: EXECUTE |
 | `core.claim_traffic_facts(p_trip_id uuid)` | `TABLE(trip_id uuid, country_code text, currency text, org_id uuid, holder_user_id uuid, status text, start_at timestamp with time zone, end_at timestamp with time zone, deadline_days integer, deadline_at timestamp with time zone, fee_bps integer)` | `cmd_hold_owner` | cmd_hold_owner: EXECUTE |
 | `core.claim_traffic_param(p_key text, p_country text)` | `integer` | `cmd_hold_owner` | cmd_hold_owner: EXECUTE |
+| `core.claim_traffic_reference_key(p_reference text)` | `text` | `migrator` | cmd_hold_owner: EXECUTE ; cmd_money_owner: EXECUTE ; migrator: EXECUTE |
 | `core.config_go_live(p_key text, p_country text)` | `boolean` | `migrator` | app_api: EXECUTE ; app_worker: EXECUTE ; catalog_cmd_owner: EXECUTE ; cmd_golive_owner: EXECUTE ; cmd_hold_owner: EXECUTE ; cmd_money_owner: EXECUTE ; kyc_cmd_owner: EXECUTE ; migrator: EXECUTE |
 | `core.config_go_live_request_guard()` | `trigger` | `migrator` | migrator: EXECUTE |
 | `core.config_go_live_write_refusal(p_op text, p_key text, p_old_key text, p_value jsonb, p_request_id uuid, p_approved_by uuid, p_decision_ref text)` | `text` | `migrator` | app_api: EXECUTE ; app_worker: EXECUTE ; cmd_golive_owner: EXECUTE ; cmd_param_owner: EXECUTE ; migrator: EXECUTE |

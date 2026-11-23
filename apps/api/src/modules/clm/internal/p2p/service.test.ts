@@ -214,6 +214,7 @@ describe('US-318 — issues de la base', () => {
       deadlineAt: '2031-10-12T10:00:00.000Z',
       responseDueAt: '2031-06-16T10:00:00.000Z',
       replayed: false,
+      opsReviewRequired: false,
     });
     // doublon et plafond : identifiant existant et plafond rendus (0181)
     await expect(
@@ -293,6 +294,7 @@ describe('US-318 — issues de la base', () => {
       responseHours: 48,
       capMinor: '7500000',
       chargedBy: 'SEPARATE_CARD_CHARGE',
+      opsReviewRequired: false,
     });
     // la déclaration elle-même n'est jamais un aperçu
     const declared = new TripClaimsService(
