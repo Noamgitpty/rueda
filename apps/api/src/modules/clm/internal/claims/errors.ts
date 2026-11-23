@@ -38,6 +38,9 @@ export const CLAIM_MESSAGES = {
   AGREEMENT_FILE_INVALID: { status: 422, messageKey: 'common.claim.agreementFileInvalid' },
   // US-706 (ADR-197) : seule une demande de frais annexe CONTESTÉE est décidée par l'ops
   INCIDENTAL_NOT_DISPUTED: { status: 409, messageKey: 'common.claim.incidentalNotDisputed' },
+  // US-318 suite (ADR-201) : seule une refacturation (amende, péage, fourrière) CONTESTÉE est
+  // décidée par l'ops
+  TRAFFIC_NOT_DISPUTED: { status: 409, messageKey: 'common.claim.trafficNotDisputed' },
   CLAIMS_UNAVAILABLE: { status: 503, messageKey: 'common.claim.unavailable' },
 } as const;
 

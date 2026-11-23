@@ -209,6 +209,13 @@ export const POST_SEED_PARAMS: readonly {
     refs: '08 BR-TT-02 à 04, BR-PRICE-15 ; ADR-198',
     embedded: true,
   },
+  {
+    prefix: 'traffic_guest_',
+    file: '0181_claim_traffic_charge_guest_response.sql',
+    story: 'US-318',
+    refs: '08 BR-TT-02, BR-TT-03, BR-REIMB-05 ; ADR-201',
+    embedded: true,
+  },
 ];
 
 /** La clé appartient au groupe : préfixe ou clé nouvelle nommée (`extraKeys`). */

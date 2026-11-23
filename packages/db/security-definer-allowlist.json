@@ -3097,6 +3097,90 @@
       "owner": "cmd_money_owner",
       "execute": ["app_worker"],
       "story": "US-318"
+    },
+    {
+      "signature": "core.claim_traffic_guest_terms(text)",
+      "family": "cmd_money",
+      "owner": "cmd_money_owner",
+      "execute": ["cmd_hold_owner"],
+      "story": "US-318"
+    },
+    {
+      "signature": "core.claim_traffic_notify_guest(uuid)",
+      "family": "cmd_money",
+      "owner": "cmd_money_owner",
+      "execute": ["cmd_hold_owner"],
+      "story": "US-318"
+    },
+    {
+      "signature": "core.claim_traffic_guest_view(bytea,uuid)",
+      "family": "cmd_money",
+      "owner": "cmd_money_owner",
+      "execute": ["app_api"],
+      "story": "US-318"
+    },
+    {
+      "signature": "core.claim_cmd_accept_traffic_charge(bytea,uuid)",
+      "family": "cmd_money",
+      "owner": "cmd_money_owner",
+      "execute": ["app_api"],
+      "story": "US-318"
+    },
+    {
+      "signature": "core.claim_cmd_dispute_traffic_charge(bytea,uuid,text,uuid[])",
+      "family": "cmd_money",
+      "owner": "cmd_money_owner",
+      "execute": ["app_api"],
+      "story": "US-318"
+    },
+    {
+      "signature": "core.claim_cmd_decide_traffic_charge(uuid,uuid,text,uuid,text,text)",
+      "family": "cmd_money",
+      "owner": "cmd_money_owner",
+      "execute": ["iam_staff_owner"],
+      "story": "US-318"
+    },
+    {
+      "signature": "core.claim_traffic_staff_view(uuid)",
+      "family": "cmd_money",
+      "owner": "cmd_money_owner",
+      "execute": ["iam_staff_owner"],
+      "story": "US-318"
+    },
+    {
+      "signature": "core.claim_traffic_review_list(uuid[])",
+      "family": "cmd_money",
+      "owner": "cmd_money_owner",
+      "execute": ["iam_staff_owner"],
+      "story": "US-318"
+    },
+    {
+      "signature": "core.claim_cmd_declare_traffic_charge(bytea,uuid,uuid,text,timestamp with time zone,bigint,uuid,boolean,text)",
+      "family": "cmd_hold",
+      "owner": "cmd_hold_owner",
+      "execute": ["app_api"],
+      "story": "US-318"
+    },
+    {
+      "signature": "core.support_staff_traffic_charge(bytea,uuid,uuid)",
+      "family": "iam_staff",
+      "owner": "iam_staff_owner",
+      "execute": ["app_api"],
+      "story": "US-318"
+    },
+    {
+      "signature": "core.support_staff_decide_traffic_charge(bytea,uuid,uuid,text,text)",
+      "family": "iam_staff",
+      "owner": "iam_staff_owner",
+      "execute": ["app_api"],
+      "story": "US-318"
+    },
+    {
+      "signature": "core.support_staff_traffic_review(bytea,uuid)",
+      "family": "iam_staff",
+      "owner": "iam_staff_owner",
+      "execute": ["app_api"],
+      "story": "US-318"
     }
   ]
 }

@@ -31,7 +31,12 @@ const plus = (iso: string, ms: number): string => new Date(Date.parse(iso) + ms)
 /** Années virtuelles propres au fichier (2059). */
 const START = '2059-03-03T10:00:00.000Z';
 const END = '2059-03-06T10:00:00.000Z';
-const RACE_AT = plus(END, 2 * HOUR);
+/**
+ * Courses à fin effective + 50 h : après l'échéance du voyageur (déclaration à fin + 1 h,
+ * `traffic_guest_response_h` = 48 h, 08 BR-TT-02 ; 0181) ; la refacturation est due sans réponse.
+ */
+const DECLARED_AT = plus(END, HOUR);
+const RACE_AT = plus(END, 50 * HOUR);
 /** Saisie de l'hôte (unités mineures de la devise du pays). */
 const AMOUNT: Readonly<Record<string, string>> = { USD: '1230', PYG: '25010' };
 const RENT: Readonly<Record<string, string>> = { USD: '30000', PYG: '2000000' };
@@ -41,7 +46,7 @@ const ADD = `SELECT * FROM core.trip_cmd_add_inspection_photo($1, $2::uuid, $3, 
                                                               $7, $8::bigint, $9, $10::timestamptz)`;
 const DECLARE = `SELECT outcome, charge_id::text AS charge_id
   FROM core.claim_cmd_declare_traffic_charge($1, $2::uuid, $3::uuid, $4, $5::timestamptz, $6::bigint,
-                                             $7::uuid, false)`;
+                                             $7::uuid, false, $8)`;
 const EXECUTE = 'SELECT outcome, code FROM core.claim_cmd_execute_traffic_charge($1, $2)';
 
 async function begin(client: Tx): Promise<void> {
@@ -57,8 +62,13 @@ async function worker(client: Tx): Promise<void> {
 }
 
 /** La session `pid` attend un verrou tenu par `holder` (pg_locks, puis pg_blocking_pids). */
-async function blockedBy(observer: Tx, pid: number, holder: number): Promise<void> {
-  await waitUntilBlocked(observer, pid, 'transactionid');
+async function blockedBy(
+  observer: Tx,
+  pid: number,
+  holder: number,
+  locktype: 'advisory' | 'transactionid' = 'transactionid',
+): Promise<void> {
+  await waitUntilBlocked(observer, pid, locktype);
   const r = await observer.query<{ b: number[] }>('SELECT pg_catalog.pg_blocking_pids($1) AS b', [
     pid,
   ]);
@@ -73,8 +83,10 @@ interface Setup {
   /** Session du titulaire du trip rendu (jeton). */
   readonly host: Buffer;
   readonly trip: string;
-  /** Pièce libre de la série TRAFFIC (course de deux déclarations). */
+  /** Pièces libres de la série TRAFFIC (courses de deux déclarations). */
   readonly freeFile: string;
+  readonly freeA: string;
+  readonly freeB: string;
   /** Refacturation PENDING validée (course d'exécution). */
   readonly charge: string;
   /** Trips OVERDUE à l'étape T24H (courses ouverture contre retour, dans les deux ordres). */
@@ -140,7 +152,7 @@ async function setup(c: CountryCase): Promise<Setup> {
       await tx.query('SELECT test_fixture.us318_overdue_t24h($1)', [a.trip]);
       const b = await world(tx, c, 'IN_PROGRESS');
       await tx.query('SELECT test_fixture.us318_overdue_t24h($1)', [b.trip]);
-      await setVirtualNow(tx, plus(RACE_AT, -60_000));
+      await setVirtualNow(tx, DECLARED_AT);
       const keys = new SubjectKeyStore(new FakeKeyWrapper());
       await setActor(tx, { kind: 'GUEST', actorId: w.holder });
       const k = await keys.dekFor(tx, { type: 'USER', id: w.holder }, 'create');
@@ -148,6 +160,8 @@ async function setup(c: CountryCase): Promise<Setup> {
       const host = (await openSession(tx, w.holder)).hash;
       const used = await photo(tx, host, w.trip, 'DAMAGE_01');
       const freeFile = await photo(tx, host, w.trip, 'DAMAGE_02');
+      const freeA = await photo(tx, host, w.trip, 'DAMAGE_03');
+      const freeB = await photo(tx, host, w.trip, 'DAMAGE_04');
       const d = (
         await tx.query<Row>(DECLARE, [
           host,
@@ -157,13 +171,19 @@ async function setup(c: CountryCase): Promise<Setup> {
           START,
           AMOUNT[c.currency],
           used,
+          `RT-${uuid().slice(0, 8)}`,
         ])
       ).rows[0]!;
       expect(d['outcome']).toBe('DECLARED');
+      // session du titulaire ouverte à l'heure des courses (celle de la déclaration aurait expiré)
+      await setVirtualNow(tx, plus(RACE_AT, -60_000));
+      const raceHost = (await openSession(tx, w.holder)).hash;
       return {
-        host,
+        host: raceHost,
         trip: w.trip,
         freeFile,
+        freeA,
+        freeB,
         charge: String(d['charge_id']),
         overdueA: a.trip,
         overdueB: b.trip,
@@ -218,6 +238,7 @@ describe.each(COUNTRIES)('US-318 — courses à deux connexions ($country, $curr
                 START,
                 AMOUNT[c.currency],
                 s.freeFile,
+                `PV-${uuid().slice(0, 8)}`,
               ])
             ).rows[0]!;
             expect(first['outcome']).toBe('DECLARED');
@@ -232,13 +253,69 @@ describe.each(COUNTRIES)('US-318 — courses à deux connexions ($country, $curr
               END,
               AMOUNT[c.currency],
               s.freeFile,
+              `PV-${uuid().slice(0, 8)}`,
             ]);
-            await blockedBy(observer, pid, holder);
+            // déclarations d'un même trip sérialisées par le verrou consultatif du trip (0181)
+            await blockedBy(observer, pid, holder, 'advisory');
             await one.query('COMMIT');
             expect((await pending).rows[0]).toMatchObject({
               outcome: 'TRAFFIC_EVIDENCE_REQUIRED',
               charge_id: null,
             });
+            await two.query('ROLLBACK');
+          } finally {
+            await rollbackQuietly(one);
+            await rollbackQuietly(two);
+          }
+        }),
+      ),
+    );
+  });
+
+  it('F-L3-SIN-01 (0181) : deux déclarations du MÊME PV (même référence, deux photos distinctes) en même temps : la seconde attend le verrou du trip puis TRAFFIC_DUPLICATE ; une seule refacturation, donc un seul débit possible', async () => {
+    const s = await setup(c);
+    const ref = `PV ${uuid().slice(0, 8)}`;
+    await withRole('app_worker', (observer) =>
+      withRole('app_api', (one) =>
+        withRole('app_api', async (two) => {
+          try {
+            await begin(one);
+            const first = (
+              await one.query<Row>(DECLARE, [
+                s.host,
+                uuid(),
+                s.trip,
+                'FINE',
+                START,
+                AMOUNT[c.currency],
+                s.freeA,
+                ref,
+              ])
+            ).rows[0]!;
+            expect(first['outcome']).toBe('DECLARED');
+            const pid = await backendPid(two);
+            const holder = await backendPid(one);
+            await begin(two);
+            // même PV : heure + 1 s, montant + 1, autre nature, référence saisie autrement
+            const pending = two.query<Row>(DECLARE, [
+              s.host,
+              uuid(),
+              s.trip,
+              'TOLL',
+              plus(START, 1000),
+              String(BigInt(AMOUNT[c.currency]!) + 1n),
+              s.freeB,
+              ref.toLowerCase().replace(' ', '-'),
+            ]);
+            await blockedBy(observer, pid, holder, 'advisory');
+            await one.query('COMMIT');
+            const second = (await pending).rows[0]!;
+            expect(second).toMatchObject({ outcome: 'TRAFFIC_DUPLICATE', charge_id: null });
+            const rows = (
+              await two.query<Row>('SELECT * FROM test_fixture.us318s_charges($1)', [s.trip])
+            ).rows.filter((r) => r['reference_key'] === ref.replace(' ', '').toUpperCase());
+            expect(rows).toHaveLength(1);
+            expect(rows[0]!['id']).toBe(first['charge_id']);
             await two.query('ROLLBACK');
           } finally {
             await rollbackQuietly(one);

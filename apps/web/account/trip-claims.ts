@@ -4,6 +4,8 @@
  * `GET /trips/{id}/claims` et `POST /trips/{id}/traffic-charges` (toute forme inattendue ⇒ `null`,
  * l'écran dit l'erreur), et choix de l'angle libre suivant des séries `incident` / `traffic`.
  * Aucun montant n'est calculé ici : frais et totaux viennent de l'API (unités mineures, chaînes).
+ * Suite (0181, ADR-201) : référence du PV obligatoire (format de la base), plafond du pays,
+ * échéance et réponse du voyageur lues avec chaque refacturation.
  */
 import type { ApiResult } from './api-client.ts';
 
@@ -24,6 +26,33 @@ export function nextFreeSlot(taken: readonly string[]): string | null {
 
 export const TRAFFIC_KINDS = ['TOLL', 'FINE', 'IMPOUND'] as const;
 export type TrafficKind = (typeof TRAFFIC_KINDS)[number];
+
+/** Réponse du voyageur à une refacturation (suite d'US-318, 0181, ADR-201 ; 08 BR-TT-02). */
+export const TRAFFIC_GUEST_STATUSES = [
+  'AWAITING_GUEST',
+  'ACCEPTED',
+  'DISPUTED',
+  'DECIDED_CHARGE',
+  'REJECTED',
+] as const;
+export type TrafficGuestStatus = (typeof TRAFFIC_GUEST_STATUSES)[number];
+/** Exécution du débit (`VOID` : refacturation rejetée, jamais débitée). */
+export const TRAFFIC_EXECUTION_STATUSES = ['PENDING', 'DONE', 'BLOCKED', 'VOID'] as const;
+export type TrafficExecutionStatus = (typeof TRAFFIC_EXECUTION_STATUSES)[number];
+
+/**
+ * Référence d'un avis, d'un PV ou d'un reçu (même format que l'API et la base, 0181) : 3 à 40
+ * caractères ASCII (lettres, chiffres, espaces, « . », « / », « - »), lettre ou chiffre au début et
+ * à la fin, au moins trois lettres ou chiffres.
+ */
+export const TRAFFIC_REFERENCE = /^[A-Za-z0-9][A-Za-z0-9 ./-]{1,38}[A-Za-z0-9]$/;
+export const TRAFFIC_REFERENCE_MAX = 40;
+
+/** Référence saisie, espaces de bord retirés ; `null` si elle ne suit pas le format. */
+export function trafficReferenceOf(text: string): string | null {
+  const ref = text.trim();
+  return TRAFFIC_REFERENCE.test(ref) && ref.replace(/[^A-Za-z0-9]/g, '').length >= 3 ? ref : null;
+}
 
 type Obj = Readonly<Record<string, unknown>>;
 const isObj = (v: unknown): v is Obj => typeof v === 'object' && v !== null && !Array.isArray(v);
@@ -61,6 +90,8 @@ export interface TrafficDeclared {
   readonly adminFeeMinor: string;
   readonly totalMinor: string;
   readonly deadlineAt: string;
+  /** Échéance du voyageur pour payer ou contester (0181). */
+  readonly responseDueAt: string;
 }
 
 /** Refacturation enregistrée (201) ; `null` si la réponse est illisible. */
@@ -74,7 +105,8 @@ export function trafficDeclaredOf(reply: ApiResult): TrafficDeclared | null {
     !minor('amountMinor') ||
     !minor('adminFeeMinor') ||
     !minor('totalMinor') ||
-    !isTime(j['deadlineAt'])
+    !isTime(j['deadlineAt']) ||
+    !isTime(j['responseDueAt'])
   ) {
     return null;
   }
@@ -84,6 +116,7 @@ export function trafficDeclaredOf(reply: ApiResult): TrafficDeclared | null {
     adminFeeMinor: j['adminFeeMinor'] as string,
     totalMinor: j['totalMinor'] as string,
     deadlineAt: j['deadlineAt'],
+    responseDueAt: j['responseDueAt'],
   };
 }
 
@@ -95,6 +128,9 @@ export interface TripClaimsView {
   readonly tripEndAt: string | null;
   readonly deadlineAt: string | null;
   readonly feeBps: number | null;
+  /** Délai du voyageur pour répondre (h) et plafond du montant du pays (0181) ; `null` : inconnu. */
+  readonly responseHours: number | null;
+  readonly capMinor: string | null;
   readonly theft: {
     readonly status: 'THEFT_INVESTIGATION' | 'RETURNED';
     readonly openedAt: string;
@@ -109,7 +145,11 @@ export interface TripClaimsView {
     readonly adminFeeMinor: string;
     readonly totalMinor: string;
     readonly declaredAt: string;
-    readonly status: 'PENDING' | 'DONE' | 'BLOCKED';
+    /** Référence du PV, échéance et réponse du voyageur (`null` : refacturation antérieure à 0181). */
+    readonly reference: string | null;
+    readonly responseDueAt: string | null;
+    readonly guestStatus: TrafficGuestStatus | null;
+    readonly status: TrafficExecutionStatus;
   }[];
   readonly evidence: readonly {
     readonly fileId: string;
@@ -129,6 +169,8 @@ export function tripClaimsOf(reply: ApiResult, tripId: string): TripClaimsView |
   const fee = j['feeBps'];
   const end = timeOrNull(j['tripEndAt']);
   const deadline = timeOrNull(j['deadlineAt']);
+  const hours = j['responseHours'] ?? null;
+  const cap = j['capMinor'] ?? null;
   if (
     j['tripId'] !== tripId ||
     typeof j['currency'] !== 'string' ||
@@ -138,6 +180,8 @@ export function tripClaimsOf(reply: ApiResult, tripId: string): TripClaimsView |
     end === undefined ||
     deadline === undefined ||
     (fee !== null && (typeof fee !== 'number' || !Number.isSafeInteger(fee) || fee < 0)) ||
+    (hours !== null && (typeof hours !== 'number' || !Number.isSafeInteger(hours) || hours < 1)) ||
+    (cap !== null && (typeof cap !== 'string' || !MINOR.test(cap))) ||
     !Array.isArray(j['charges']) ||
     !Array.isArray(j['evidence'])
   ) {
@@ -165,12 +209,18 @@ export function tripClaimsOf(reply: ApiResult, tripId: string): TripClaimsView |
   }
   const charges: TripClaimsView['charges'][number][] = [];
   for (const c of j['charges'] as unknown[]) {
+    const ref = isObj(c) ? (c['reference'] ?? null) : undefined;
+    const due = isObj(c) ? timeOrNull(c['responseDueAt'] ?? null) : undefined;
+    const answer = isObj(c) ? (c['guestStatus'] ?? null) : undefined;
     if (
       !isObj(c) ||
+      (ref !== null && (typeof ref !== 'string' || !TRAFFIC_REFERENCE.test(ref))) ||
+      due === undefined ||
+      (answer !== null && !oneOf(answer, TRAFFIC_GUEST_STATUSES)) ||
       typeof c['id'] !== 'string' ||
       !UUID.test(c['id']) ||
       !oneOf(c['kind'], TRAFFIC_KINDS) ||
-      !oneOf(c['status'], ['PENDING', 'DONE', 'BLOCKED'] as const) ||
+      !oneOf(c['status'], TRAFFIC_EXECUTION_STATUSES) ||
       !isTime(c['occurredAt']) ||
       !isTime(c['declaredAt']) ||
       ['amountMinor', 'adminFeeMinor', 'totalMinor'].some(
@@ -188,6 +238,9 @@ export function tripClaimsOf(reply: ApiResult, tripId: string): TripClaimsView |
       amountMinor: c['amountMinor'] as string,
       adminFeeMinor: c['adminFeeMinor'] as string,
       totalMinor: c['totalMinor'] as string,
+      reference: ref as string | null,
+      responseDueAt: due,
+      guestStatus: answer as TrafficGuestStatus | null,
     });
   }
   const evidence: TripClaimsView['evidence'][number][] = [];
@@ -218,6 +271,8 @@ export function tripClaimsOf(reply: ApiResult, tripId: string): TripClaimsView |
     tripEndAt: end,
     deadlineAt: deadline,
     feeBps: fee as number | null,
+    responseHours: hours as number | null,
+    capMinor: cap as string | null,
     theft,
     charges,
     evidence,
@@ -241,6 +296,10 @@ export interface TrafficPreview {
   readonly adminFeeMinor: string;
   readonly totalMinor: string;
   readonly deadlineAt: string;
+  /** Référence relue par l'API, délai du voyageur (h) et plafond du pays (0181). */
+  readonly reference: string;
+  readonly responseHours: number;
+  readonly capMinor: string;
 }
 
 /**
@@ -264,6 +323,12 @@ export function trafficPreviewOf(reply: ApiResult): TrafficPreview | null {
     !minor('adminFeeMinor') ||
     !minor('totalMinor') ||
     !isTime(j['deadlineAt']) ||
+    typeof j['reference'] !== 'string' ||
+    !TRAFFIC_REFERENCE.test(j['reference']) ||
+    typeof j['responseHours'] !== 'number' ||
+    !Number.isSafeInteger(j['responseHours']) ||
+    j['responseHours'] < 1 ||
+    !minor('capMinor') ||
     j['chargedBy'] !== 'SEPARATE_CARD_CHARGE'
   ) {
     return null;
@@ -277,6 +342,9 @@ export function trafficPreviewOf(reply: ApiResult): TrafficPreview | null {
     adminFeeMinor: j['adminFeeMinor'] as string,
     totalMinor: j['totalMinor'] as string,
     deadlineAt: j['deadlineAt'],
+    reference: j['reference'],
+    responseHours: j['responseHours'],
+    capMinor: j['capMinor'] as string,
   };
 }
 

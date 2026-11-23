@@ -4105,4 +4105,64 @@ export const FR_MESSAGES = {
   'web.help.roadside.useEmergency':
     'En cas d’accident, appelle tout de suite le {number} et préviens {authority}.',
   'web.incident.needPhoto': 'Prends au moins une photo pour pouvoir envoyer la déclaration.',
+  // US-318 suite (0181, ADR-201) : référence du PV, plafond, réponse du voyageur (48 h)
+  'common.tripClaims.trafficReferenceRequired':
+    'Écris la référence de l’avis, du PV ou du reçu, comme sur le document.',
+  'common.tripClaims.trafficDuplicate':
+    'Cette référence est déjà déclarée pour ce trajet : les mêmes frais ne se déclarent qu’une fois.',
+  'common.tripClaims.trafficAmountAboveCap':
+    'Le montant dépasse le plafond du pays pour ces frais. Vérifie le montant payé.',
+  'common.tripClaims.trafficNotOpen':
+    'Ces frais ne sont plus en attente de ta réponse : ils ont déjà été payés, contestés ou décidés.',
+  'common.claim.trafficNotDisputed':
+    'Seule une refacturation contestée par le voyageur se décide ici.',
+  'web.traffic.reference': 'Référence de l’avis, du PV ou du reçu',
+  'web.traffic.referenceHint':
+    'Le numéro imprimé sur le document : de 3 à 40 caractères, lettres, chiffres, espaces, « . », « / » ou « - ».',
+  'web.traffic.referenceInvalid':
+    'Écris la référence comme sur le document : de 3 à 40 caractères, avec une lettre ou un chiffre au début et à la fin.',
+  'web.traffic.amountCap': 'Plafond du pays : {amount}.',
+  'web.traffic.review.reference': 'Référence : {reference}',
+  'web.traffic.review.response':
+    'Le voyageur aura {n} h pour payer ou contester. Rien n’est débité avant ; s’il conteste, {brand} décide.',
+  'web.traffic.sent.due': 'Le voyageur a jusqu’au {time} pour payer ou contester.',
+  'web.traffic.status.VOID': 'Annulée',
+  'web.traffic.guest.AWAITING_GUEST': 'Réponse du voyageur attendue avant le {time}',
+  'web.traffic.guest.expired': 'Le voyageur n’a pas répondu avant le {time}',
+  'web.traffic.guest.ACCEPTED': 'Payée par le voyageur',
+  'web.traffic.guest.DISPUTED': 'Contestée par le voyageur : {brand} décide',
+  'web.traffic.guest.DECIDED_CHARGE': 'Décision de {brand} : facturée au voyageur',
+  'web.traffic.guest.REJECTED': 'Décision de {brand} : rejetée',
+  'web.trafficGuest.title': 'Amendes, péages et fourrière',
+  'web.trafficGuest.lead':
+    'Ton hôte a payé ces frais pour des faits survenus pendant ton trajet, justificatif à l’appui. Paie-les ou conteste-les avant l’échéance : rien n’est débité avant. Si tu contestes, {brand} décide.',
+  'web.trafficGuest.empty': 'Aucune amende, aucun péage ni aucune fourrière pour ce trajet.',
+  'web.trafficGuest.list': 'Frais refacturés',
+  'web.trafficGuest.amount': 'Payé par ton hôte : {amount}',
+  'web.trafficGuest.total': 'Total à payer : {amount}',
+  'web.trafficGuest.due': 'Réponds avant le {date}',
+  'web.trafficGuest.payNotice':
+    'En payant, tu acceptes ces frais : {brand} débite la carte du trajet, à part de la location.',
+  'web.trafficGuest.dispute.reason': 'Pourquoi n’es-tu pas d’accord ?',
+  'web.trafficGuest.dispute.reasonHint': 'De 20 à 1 000 caractères, sans nom ni téléphone.',
+  'web.trafficGuest.dispute.photos': 'Photos du trajet à l’appui (facultatif)',
+  'web.trafficGuest.dispute.photosHint':
+    'Coche les photos de la remise ou du retour qui appuient ta contestation, 10 au plus.',
+  'web.trafficGuest.dispute.submit': 'Envoyer la contestation',
+  'web.trafficGuest.dispute.reasonInvalid': 'Ton motif doit faire de 20 à 1 000 caractères.',
+  'web.trafficGuest.status.EXPIRED':
+    'Le délai pour répondre s’est terminé le {date} : {brand} va débiter la carte du trajet.',
+  'web.trafficGuest.status.ACCEPTED':
+    'Tu as accepté ces frais : {brand} débite la carte du trajet.',
+  'web.trafficGuest.status.DISPUTED':
+    'Tu as contesté ces frais : {brand} examine le dossier et décide ; rien n’est débité avant.',
+  'web.trafficGuest.status.DECIDED_CHARGE':
+    'Décision de {brand} : les frais sont dus et débités sur la carte du trajet.',
+  'web.trafficGuest.status.REJECTED':
+    'Décision de {brand} : les frais sont annulés, rien n’est débité.',
+  'web.trafficGuest.disputeReason': 'Ta contestation',
+  'web.trafficGuest.decidedAt': 'Décidé le {date}',
+  'web.trafficGuest.done.accepted': 'Merci. {brand} débite la carte du trajet.',
+  'web.trafficGuest.done.disputed': 'Contestation envoyée. {brand} décide et te prévient.',
+  'web.trafficGuest.slot.OTHER': 'Autre photo',
 } as const satisfies Readonly<Record<MessageKey, Message>>;

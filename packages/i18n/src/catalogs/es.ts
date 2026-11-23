@@ -4025,6 +4025,64 @@ export const ES_MESSAGES = {
   'web.help.roadside.useEmergency':
     'Si hubo un accidente, llama ya al {number} y avisa a {authority}.',
   'web.incident.needPhoto': 'Toma al menos una foto para poder enviar la declaración.',
+  // US-318 suite (0181, ADR-201) : referencia del aviso, tope, respuesta del viajero (48 h)
+  'common.tripClaims.trafficReferenceRequired':
+    'Escribe la referencia del aviso, la boleta o el recibo, tal como aparece en el documento.',
+  'common.tripClaims.trafficDuplicate':
+    'Esta referencia ya está declarada en este viaje: el mismo cargo se declara una sola vez.',
+  'common.tripClaims.trafficAmountAboveCap':
+    'El monto supera el tope fijado para este cargo. Revisa el monto que pagaste.',
+  'common.tripClaims.trafficNotOpen':
+    'Este cargo ya no espera tu respuesta: ya se pagó, se impugnó o se decidió.',
+  'common.claim.trafficNotDisputed':
+    'Solo se decide aquí un cargo de tránsito impugnado por el viajero.',
+  'web.traffic.reference': 'Referencia del aviso, la boleta o el recibo',
+  'web.traffic.referenceHint':
+    'El número impreso en el documento: de 3 a 40 caracteres, letras, números, espacios, «.», «/» o «-».',
+  'web.traffic.referenceInvalid':
+    'Escribe la referencia como en el documento: de 3 a 40 caracteres, con una letra o un número al inicio y al final.',
+  'web.traffic.amountCap': 'Tope máximo: {amount}.',
+  'web.traffic.review.reference': 'Referencia: {reference}',
+  'web.traffic.review.response':
+    'El viajero tendrá {n} h para pagar o impugnar. No se cobra nada antes; si impugna, lo decide {brand}.',
+  'web.traffic.sent.due': 'El viajero tiene hasta el {time} para pagar o impugnar.',
+  'web.traffic.status.VOID': 'Anulado',
+  'web.traffic.guest.AWAITING_GUEST': 'Respuesta del viajero esperada antes del {time}',
+  'web.traffic.guest.expired': 'El viajero no respondió antes del {time}',
+  'web.traffic.guest.ACCEPTED': 'Pagado por el viajero',
+  'web.traffic.guest.DISPUTED': 'Impugnado por el viajero: lo decide {brand}',
+  'web.traffic.guest.DECIDED_CHARGE': 'Decisión de {brand}: se cobra al viajero',
+  'web.traffic.guest.REJECTED': 'Decisión de {brand}: rechazado',
+  'web.trafficGuest.title': 'Multas, peajes y grúa',
+  'web.trafficGuest.lead':
+    'Tu anfitrión pagó estos cargos por hechos ocurridos durante tu viaje, con su comprobante. Págalos o impúgnalos antes del plazo: no se cobra nada antes. Si impugnas, lo decide {brand}.',
+  'web.trafficGuest.empty': 'No hay multas, peajes ni grúa en este viaje.',
+  'web.trafficGuest.list': 'Cargos que te cobran',
+  'web.trafficGuest.amount': 'Pagado por tu anfitrión: {amount}',
+  'web.trafficGuest.total': 'Total a pagar: {amount}',
+  'web.trafficGuest.due': 'Responde antes del {date}',
+  'web.trafficGuest.payNotice':
+    'Al pagar, aceptas este cargo: {brand} cobra la tarjeta del viaje, aparte del alquiler.',
+  'web.trafficGuest.dispute.reason': '¿Por qué no estás de acuerdo?',
+  'web.trafficGuest.dispute.reasonHint': 'De 20 a 1000 caracteres, sin nombres ni teléfonos.',
+  'web.trafficGuest.dispute.photos': 'Fotos del viaje como prueba (opcional)',
+  'web.trafficGuest.dispute.photosHint':
+    'Marca las fotos de la entrega o la devolución que respaldan tu impugnación, hasta 10.',
+  'web.trafficGuest.dispute.submit': 'Enviar la impugnación',
+  'web.trafficGuest.dispute.reasonInvalid': 'Tu motivo debe tener de 20 a 1000 caracteres.',
+  'web.trafficGuest.status.EXPIRED':
+    'El plazo para responder terminó el {date}: {brand} cobrará la tarjeta del viaje.',
+  'web.trafficGuest.status.ACCEPTED': 'Aceptaste este cargo: {brand} cobra la tarjeta del viaje.',
+  'web.trafficGuest.status.DISPUTED':
+    'Impugnaste este cargo: {brand} revisa el caso y decide; no se cobra nada antes.',
+  'web.trafficGuest.status.DECIDED_CHARGE':
+    'Decisión de {brand}: el cargo corresponde y se cobra en la tarjeta del viaje.',
+  'web.trafficGuest.status.REJECTED': 'Decisión de {brand}: el cargo se anula, no se cobra nada.',
+  'web.trafficGuest.disputeReason': 'Tu impugnación',
+  'web.trafficGuest.decidedAt': 'Decidido el {date}',
+  'web.trafficGuest.done.accepted': 'Gracias. {brand} cobra la tarjeta del viaje.',
+  'web.trafficGuest.done.disputed': 'Impugnación enviada. {brand} decide y te avisa.',
+  'web.trafficGuest.slot.OTHER': 'Otra foto',
 } as const satisfies Catalog;
 
 export type MessageKey = keyof typeof ES_MESSAGES;

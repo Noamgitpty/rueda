@@ -178,6 +178,20 @@ async function invoiceOf(country: string): Promise<string> {
   return id;
 }
 
+/** Refacturation du trip du pays (fixture 9904, AWAITING_GUEST : jamais décidée). */
+const trafficByCountry = new Map<string, string>();
+async function trafficOf(country: string): Promise<string> {
+  const known = trafficByCountry.get(country);
+  if (known !== undefined) return known;
+  const { rows } = await client.query<{ id: string }>(
+    'SELECT test_fixture.us318s_insert_charge($1)::text AS id',
+    [tripOf.get(country)],
+  );
+  const id = rows[0]?.id ?? randomUUID();
+  trafficByCountry.set(country, id);
+  return id;
+}
+
 /** Devise du pays (configuration pays, jamais une constante). */
 async function currencyOf(country: string): Promise<string> {
   const { rows } = await client.query<{ currency: string }>(
@@ -715,6 +729,22 @@ async function requestOf(
     // US-706 : frais annexe du pays ; décision d'un frais NON contesté ⇒ OPS et ADMIN du pays :
     // 409 INCIDENTAL_NOT_DISPUTED, rien n'est décidé ; autre pays : FORBIDDEN
     // US-706 : frais à revoir des pays de l'agent (aucun ⇒ 200, liste vide)
+    // US-318 suite : refacturation du pays ; décision d'une refacturation NON contestée ⇒ OPS et
+    // ADMIN du pays : 409 TRAFFIC_NOT_DISPUTED, rien n'est décidé ; autre pays : FORBIDDEN
+    case 'GET /console/traffic-charges':
+      return { method: 'GET', path: '/console/traffic-charges' };
+    case 'GET /console/traffic-charges/{chargeId}':
+      return { method: 'GET', path: `/console/traffic-charges/${await trafficOf(country)}` };
+    case 'POST /console/traffic-charges/{chargeId}/decision':
+      return {
+        method: 'POST',
+        path: `/console/traffic-charges/${await trafficOf(country)}/decision`,
+        body: {
+          requestId: id,
+          outcome: 'REJECT',
+          rationale: 'Matrice US-043 : décision sur une refacturation non contestée',
+        },
+      };
     case 'GET /console/incidental-reviews':
       return { method: 'GET', path: '/console/incidental-reviews' };
     case 'GET /console/incidental-fees/{invoiceId}':
@@ -1213,6 +1243,21 @@ async function requestOf(
       };
     case 'GET /trips/{tripId}/claims':
       return { method: 'GET', path: `/trips/${randomUUID()}/claims` };
+    // US-318 suite : refacturations du voyageur ; trip ou refacturation inconnus ⇒ 404
+    case 'GET /trips/{tripId}/traffic-charges':
+      return { method: 'GET', path: `/trips/${randomUUID()}/traffic-charges` };
+    case 'POST /trips/{tripId}/traffic-charges/{chargeId}/accept':
+      return {
+        method: 'POST',
+        path: `/trips/${randomUUID()}/traffic-charges/${randomUUID()}/accept`,
+        body: {},
+      };
+    case 'POST /trips/{tripId}/traffic-charges/{chargeId}/dispute':
+      return {
+        method: 'POST',
+        path: `/trips/${randomUUID()}/traffic-charges/${randomUUID()}/dispute`,
+        body: { reason: 'Matrice US-043 : contestation d’une refacturation inconnue' },
+      };
     case 'POST /trips/{tripId}/traffic-charges/preview':
       return {
         method: 'POST',
@@ -1223,6 +1268,7 @@ async function requestOf(
           occurredAt: '2030-01-01T10:00:00.000Z',
           amountMinor: '100',
           fileId: randomUUID(),
+          reference: 'US043-PV-1',
         },
       };
     case 'POST /trips/{tripId}/traffic-charges':
@@ -1235,6 +1281,7 @@ async function requestOf(
           occurredAt: '2030-01-01T10:00:00.000Z',
           amountMinor: '100',
           fileId: randomUUID(),
+          reference: 'US043-PV-1',
         },
       };
     // constancia d'arrendamiento (US-212) : trip inconnu de l'acteur ⇒ 404 ; recherche de l'hôte :

@@ -11,6 +11,17 @@
  * | GET  /console/incidental-reviews               | 200 frais « à revoir par     | 403 FORBIDDEN (aucun pays) |
  * |                                                | l'ops » (ADR-197 n° 18)      |                            |
  *
+ * | GET  /console/traffic-charges                | 200 refacturations contestées | 403 FORBIDDEN (aucun pays) |
+ * |                                                | à décider (US-318 suite)     |                            |
+ * | GET  /console/traffic-charges/:chargeId        | 200 vue (montant, jambes,    | 403 FORBIDDEN (inconnue :  |
+ * |                                                | référence, contestation)     | aucune existence)          |
+ * | POST /console/traffic-charges/:chargeId/       | 201 décision ; 200 rejeu     | 422 DECISION_RATIONALE_…,  |
+ * |      decision                                  |                              | FINALITY ; 403 ADMIN ; 409 |
+ *
+ * Refacturations d'amendes, de péages et de fourrières (US-318 suite, migration 0181, ADR-201) :
+ * même mécanique que les frais annexes (même transaction STAFF, mêmes règles et mêmes codes ;
+ * `TRAFFIC_NOT_DISPUTED` au lieu d'`INCIDENTAL_NOT_DISPUTED`).
+ *
  * Toutes : StaffGuard (401 AUTH_REQUIRED, 403 FORBIDDEN / 2FA_REQUIRED), 400 REQUEST_INVALID, 403
  * STAFF_SELF_FORBIDDEN. La base juge chaque droit (session élevée, `dispute.decide` dans le pays,
  * séparation des tâches ADR-122), le motif (jamais « définitif »), réserve le débit à ADMIN et
@@ -61,6 +72,27 @@ function refusal(r: ClaimResult): never {
       if (isClaimCode(r.outcome)) throw new ClaimHttpError(r.outcome);
       throw new AuthHttpError('FORBIDDEN');
   }
+}
+
+/** Corps d'une décision (`{ requestId, outcome, rationale }`) ; toute autre forme : 400. */
+function decisionOf(
+  id: string,
+  body: unknown,
+): { requestId: string; outcome: IncidentalDecisionOutcome; rationale: string } {
+  if (!UUID.test(id) || !isObject(body)) throw new AuthHttpError('REQUEST_INVALID');
+  const { requestId, outcome, rationale } = body;
+  if (
+    Object.keys(body).some((k) => !KEYS.includes(k)) ||
+    typeof requestId !== 'string' ||
+    !UUID.test(requestId) ||
+    typeof outcome !== 'string' ||
+    !INCIDENTAL_DECISION_OUTCOMES.includes(outcome as IncidentalDecisionOutcome) ||
+    typeof rationale !== 'string' ||
+    rationale.length > 2000
+  ) {
+    throw new AuthHttpError('REQUEST_INVALID');
+  }
+  return { requestId, outcome: outcome as IncidentalDecisionOutcome, rationale };
 }
 
 function unavailable(error: unknown): never {
@@ -116,6 +148,46 @@ export class IncidentalFeesController {
     const r = await this.#run(staff, (tx) => this.fees.view(tx, staff, randomUUID(), invoiceId));
     if (r.outcome !== 'OK' || r.body === null) refusal(r);
     return { incidental: r.body };
+  }
+
+  /** Refacturations contestées à décider (US-318 suite, ADR-201). */
+  @Get('traffic-charges')
+  @UseGuards(StaffGuard)
+  async trafficReview(@Req() request: object) {
+    const staff = this.#staff(request);
+    const r = await this.#run(staff, (tx) => this.fees.trafficReview(tx, staff, randomUUID()));
+    if (r.outcome !== 'OK' || r.body === null) refusal(r);
+    return r.body;
+  }
+
+  @Get('traffic-charges/:chargeId')
+  @UseGuards(StaffGuard)
+  async trafficView(@Req() request: object, @Param('chargeId') chargeId: string) {
+    const staff = this.#staff(request);
+    if (!UUID.test(chargeId)) throw new AuthHttpError('REQUEST_INVALID');
+    const r = await this.#run(staff, (tx) =>
+      this.fees.trafficView(tx, staff, randomUUID(), chargeId),
+    );
+    if (r.outcome !== 'OK' || r.body === null) refusal(r);
+    return { trafficCharge: r.body };
+  }
+
+  @Post('traffic-charges/:chargeId/decision')
+  @UseGuards(StaffGuard)
+  async trafficDecide(
+    @Req() request: object,
+    @Param('chargeId') chargeId: string,
+    @Body() body: unknown,
+    @Res({ passthrough: true }) reply: Reply,
+  ) {
+    const staff = this.#staff(request);
+    const d = decisionOf(chargeId, body);
+    const r = await this.#run(staff, (tx) =>
+      this.fees.trafficDecide(tx, staff, d.requestId, chargeId, d.outcome, d.rationale),
+    );
+    if (r.outcome !== 'DECIDED' && r.outcome !== 'ALREADY_DECIDED') refusal(r);
+    reply.status(r.outcome === 'DECIDED' ? 201 : 200);
+    return { trafficCharge: r.body };
   }
 
   @Post('incidental-fees/:invoiceId/decision')

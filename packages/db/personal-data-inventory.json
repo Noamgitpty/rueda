@@ -4167,6 +4167,14 @@
         {
           "column": "declared_by",
           "type": "USER"
+        },
+        {
+          "column": "guest_user_id",
+          "type": "USER"
+        },
+        {
+          "column": "decided_by",
+          "type": "USER"
         }
       ],
       "export": "controller",
@@ -4198,7 +4206,35 @@
         "charge_id": "C1",
         "executed_at": "C1",
         "next_check_at": "C1",
-        "failed_attempts": "C1"
+        "failed_attempts": "C1",
+        "rules_version": "C1",
+        "guest_user_id": "C1",
+        "reference": "C1",
+        "reference_key": "C1",
+        "response_hours": "C1",
+        "response_due_at": "C1",
+        "cap_minor": "C1",
+        "guest_status": "C1",
+        "accepted_at": "C1",
+        "disputed_at": "C1",
+        "dispute_reason": {
+          "class": "C2",
+          "erasure": "derogation",
+          "justification": "motif de la contestation d'une refacturation écrit par le voyageur dans un registre immuable (champ posé une fois, garde claim_p2p_guard), preuve de la contestation (08 BR-TT-02, BR-REIMB-03, ACODECO / SEDECO) ; consigne : aucun nom, contact ni identifiant de personne ; aucun droit applicatif, lu par les seules commandes du voyageur du trip et la console",
+          "report": "US-536"
+        },
+        "dispute_evidence_file_ids": "C1",
+        "decided_at": "C1",
+        "decided_by": "C1",
+        "decided_role": "C1",
+        "decision_request_id": "C1",
+        "decision_rationale": {
+          "class": "C2",
+          "erasure": "derogation",
+          "justification": "motif de la décision de l'ops sur une refacturation contestée, écrit par l'agent dans un registre immuable (champ posé une fois), décision motivée rendue aux parties (BR-REIMB-03 [NOUS], ACODECO / SEDECO) ; consigne : aucun nom ni contact ; aucun droit applicatif",
+          "report": "US-536"
+        },
+        "charge_basis": "C1"
       }
     }
   }

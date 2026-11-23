@@ -15,6 +15,7 @@ import {
   parseLocalTime,
   trafficDeclaredOf,
   trafficPreviewOf,
+  trafficReferenceOf,
   tripClaimsOf,
 } from './trip-claims.ts';
 
@@ -41,9 +42,14 @@ const view = (extra: Record<string, unknown> = {}) => ({
       adminFeeMinor: '62',
       totalMinor: '1292',
       declaredAt: '2057-04-11T10:00:00.000Z',
+      reference: 'PV-2057/0042',
+      responseDueAt: '2057-04-13T10:00:00.000Z',
+      guestStatus: 'AWAITING_GUEST',
       status: 'PENDING',
     },
   ],
+  responseHours: 48,
+  capMinor: '50000',
   evidence: [{ fileId: ID, slot: 'DAMAGE_01', receivedAt: '2057-04-10T11:00:00.000Z', used: true }],
   ...extra,
 });
@@ -74,6 +80,7 @@ describe('US-318 — sinistres du trip côté site', () => {
       adminFeeMinor: '62',
       totalMinor: '1292',
       deadlineAt: '2057-08-08T10:00:00.000Z',
+      responseDueAt: '2057-04-13T10:00:00.000Z',
     };
     expect(trafficDeclaredOf(ok(body, 201))).toEqual(body);
     expect(trafficDeclaredOf(ok({ ...body, totalMinor: 1292 }, 201))).toBeNull();
@@ -180,6 +187,9 @@ describe('US-318, revue ux n° 1 — récapitulatif rendu par l’API', () => {
     adminFeeMinor: '62',
     totalMinor: '1292',
     deadlineAt: '2057-08-08T10:00:00.000Z',
+    reference: 'PV-2057/0042',
+    responseHours: 48,
+    capMinor: '50000',
     chargedBy: 'SEPARATE_CARD_CHARGE',
   };
   it('lu tel quel, montants en chaînes', () => {
@@ -189,5 +199,101 @@ describe('US-318, revue ux n° 1 — récapitulatif rendu par l’API', () => {
     expect(trafficPreviewOf(ok({ ...body, totalMinor: 1292 }))).toBeNull();
     expect(trafficPreviewOf(ok({ ...body, chargedBy: 'DEPOSIT' }))).toBeNull();
     expect(trafficPreviewOf(ok(body, 201))).toBeNull();
+  });
+});
+
+describe('suite d’US-318 (0181, ADR-201) — référence du PV, plafond, réponse du voyageur', () => {
+  it('référence : 3 à 40 caractères ASCII, lettre ou chiffre aux bords, espaces de bord retirés', () => {
+    expect(trafficReferenceOf('  PV-2057/0042 ')).toBe('PV-2057/0042');
+    expect(trafficReferenceOf('A1 2.3')).toBe('A1 2.3');
+    expect(trafficReferenceOf('A'.repeat(40))).toBe('A'.repeat(40));
+    for (const bad of [
+      '',
+      'AB',
+      'A'.repeat(41),
+      '-AB1',
+      'AB1-',
+      'A--B',
+      'PV#12',
+      'Ñandú12',
+      'A  .',
+    ]) {
+      expect(trafficReferenceOf(bad), bad).toBeNull();
+    }
+  });
+
+  it('vue de l’hôte : délai du voyageur, plafond, référence, échéance et réponse lus', () => {
+    const v = tripClaimsOf(ok(view()), TRIP);
+    expect(v?.responseHours).toBe(48);
+    expect(v?.capMinor).toBe('50000');
+    expect(v?.charges[0]).toMatchObject({
+      reference: 'PV-2057/0042',
+      responseDueAt: '2057-04-13T10:00:00.000Z',
+      guestStatus: 'AWAITING_GUEST',
+    });
+  });
+
+  it('refacturation antérieure à 0181 : référence, échéance et réponse absentes ⇒ null', () => {
+    const v = tripClaimsOf(
+      ok(
+        view({
+          responseHours: null,
+          capMinor: null,
+          charges: [
+            { ...view().charges[0], reference: null, responseDueAt: null, guestStatus: null },
+          ],
+        }),
+      ),
+      TRIP,
+    );
+    expect(v?.capMinor).toBeNull();
+    expect(v?.charges[0]?.guestStatus).toBeNull();
+  });
+
+  it('exécution VOID lue ; réponse, référence, plafond ou délai inattendus ⇒ null', () => {
+    const c = view().charges[0];
+    expect(
+      tripClaimsOf(ok(view({ charges: [{ ...c, status: 'VOID', guestStatus: 'REJECTED' }] })), TRIP)
+        ?.charges[0]?.status,
+    ).toBe('VOID');
+    expect(tripClaimsOf(ok(view({ charges: [{ ...c, guestStatus: 'PAID' }] })), TRIP)).toBeNull();
+    expect(tripClaimsOf(ok(view({ charges: [{ ...c, reference: '#1' }] })), TRIP)).toBeNull();
+    expect(tripClaimsOf(ok(view({ capMinor: 50000 })), TRIP)).toBeNull();
+    expect(tripClaimsOf(ok(view({ responseHours: 0 })), TRIP)).toBeNull();
+  });
+
+  it('déclaration : échéance du voyageur exigée ; récapitulatif : référence, délai, plafond exigés', () => {
+    const sent = {
+      chargeId: ID,
+      amountMinor: '1230',
+      adminFeeMinor: '62',
+      totalMinor: '1292',
+      deadlineAt: '2057-08-08T10:00:00.000Z',
+    };
+    expect(trafficDeclaredOf(ok(sent, 201))).toBeNull();
+    const preview = {
+      kind: 'FINE',
+      occurredAt: '2057-04-07T10:00:00.000Z',
+      currency: 'XTS',
+      feeBps: 500,
+      amountMinor: '1230',
+      adminFeeMinor: '62',
+      totalMinor: '1292',
+      deadlineAt: '2057-08-08T10:00:00.000Z',
+      reference: 'PV-2057/0042',
+      responseHours: 48,
+      capMinor: '50000',
+      chargedBy: 'SEPARATE_CARD_CHARGE',
+    };
+    expect(trafficPreviewOf(ok(preview))).toMatchObject({
+      reference: 'PV-2057/0042',
+      responseHours: 48,
+      capMinor: '50000',
+    });
+    for (const k of ['reference', 'responseHours', 'capMinor']) {
+      const rest: Record<string, unknown> = { ...preview };
+      delete rest[k];
+      expect(trafficPreviewOf(ok(rest)), k).toBeNull();
+    }
   });
 });

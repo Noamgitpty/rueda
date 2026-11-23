@@ -70,8 +70,10 @@ const INCIDENTAL = /trip-incidental\.spec\.ts$/;
 /**
  * Sinistres entre particuliers (US-318) : incident du voyageur depuis S17, amendes, péages et
  * fourrière de l'hôte : 360 px (leurs écrans passent à 390 px et en sombre par SCREENS).
+ * Suite (0181, ADR-201) : refacturations payées ou contestées par le voyageur (360 px seulement,
+ * écran absent de SCREENS).
  */
-const TRIP_CLAIMS = /(trip-incident|host-traffic-charges)\.spec\.ts$/;
+const TRIP_CLAIMS = /(trip-incident|host-traffic-charges|trip-traffic-guest)\.spec\.ts$/;
 /** Remboursement d'un trip : S10 · remboursement du voyageur, A05 de l'hôte (US-224 partie 224d) : 360 px. */
 const REFUND = /trip-refund\.spec\.ts$/;
 /** « Mis viajes » (S08) et détail du trip (S09) du voyageur (US-214) : 360 px, une langue. */

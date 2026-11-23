@@ -31,6 +31,8 @@ const API = `http://127.0.0.1:${process.env['RUEDA_E2E_API_PORT'] ?? '3199'}`;
 const MAIN = 'main:not([aria-busy])';
 /** Délai du double : fin du trip + 120 j (08 BR-TT-02 [NOUS]). */
 const DEADLINE = '2037-04-12T14:00:00.000Z';
+/** Échéance du voyageur du double : déclaration + 48 h (08 BR-TT-02 ; suite d'US-318). */
+const DUE = '2036-12-16T09:30:00.000Z';
 /** Fuseau du marché du double : premier pays de la configuration (comme e2e/stub-api.mjs). */
 const ZONE = (
   JSON.parse(
@@ -119,10 +121,14 @@ for (const language of LANGUAGES) {
       await expect(main).toContainText(t('web.traffic.kindRequired'));
       await expect(main).toContainText(t('web.traffic.dateInvalid'));
       await expect(main).toContainText(t('web.traffic.amountInvalid'));
+      await expect(main).toContainText(t('common.tripClaims.trafficReferenceRequired'));
+      // plafond du pays dans l'aide du montant (suite d'US-318, 0181)
+      await expect(main).toContainText(t('web.traffic.amountCap', { amount: money(50000n) }));
 
       // fait hors du trip : refus annoncé sur le champ, saisie conservée
       const amount = `12${profile.number.decimal}30`;
       await page.locator('[data-testid="a09-traffic-kind-1"]').check();
+      await page.locator('#a09-traffic-reference').fill('PV-2036/4471');
       const tag = tagOf(language);
       await page.locator('#a09-traffic-at').fill(localDate(tag, '2036', '12', '20'));
       await page.locator('#a09-traffic-time').fill('10:00');
@@ -147,6 +153,9 @@ for (const language of LANGUAGES) {
         t('web.traffic.review.total', { amount: money(1292n) }),
       );
       await expect(review).toContainText(t('web.traffic.review.card'));
+      await expect(page.locator('[data-testid="a09-traffic-review-reference"]')).toHaveText(
+        t('web.traffic.review.reference', { reference: 'PV-2036/4471' }),
+      );
       await expect(page.locator('[data-testid="a09-charges"] li')).toHaveCount(0);
       await expectAccessible(page, { include: null });
       // « Corregir » : retour à la saisie conservée, rien de déclaré
@@ -168,7 +177,28 @@ for (const language of LANGUAGES) {
       await expect(page.locator('[data-testid="a09-charges"]')).toContainText(
         t('web.traffic.kind.FINE'),
       );
+      // référence et échéance du voyageur (déclaration + 48 h) listées (suite d'US-318)
+      await expect(page.locator('[data-testid="a09-charge-reference"]')).toHaveText(
+        t('web.traffic.review.reference', { reference: 'PV-2036/4471' }),
+      );
+      await expect(page.locator('[data-testid="a09-traffic-sent-due"]')).toHaveText(
+        t('web.traffic.sent.due', { time: i18n.dateTime(DUE, ZONE) }),
+      );
       await expectAccessible(page, { include: null });
+
+      // même référence sur ce trip : refusée sur le champ (TRAFFIC_DUPLICATE), rien de déclaré
+      const second = await fetch(`${API}/__e2e/p2p/photo?trip=${tripId}&kind=traffic`);
+      expect(second.status).toBe(200);
+      await page.goto(`/host/trips/${tripId}/claims`);
+      await page.locator('[data-testid="a09-traffic-kind-0"]').check();
+      await page.locator('#a09-traffic-reference').fill('pv 2036/4471');
+      await page.locator('#a09-traffic-at').fill(localDate(tag, '2036', '12', '11'));
+      await page.locator('#a09-traffic-time').fill('11:00');
+      await page.locator('#a09-traffic-amount').fill(`3${profile.number.decimal}00`);
+      await page.locator('[data-testid="a09-traffic-submit"]').click();
+      await expect(main).toContainText(t('common.tripClaims.trafficDuplicate'));
+      await expect(page.locator('#a09-traffic-reference')).toHaveValue('pv 2036/4471');
+      await expect(page.locator('[data-testid="a09-charges"] li')).toHaveCount(1);
     });
 
     test('trip d’un autre hôte : même message que l’inconnu', async ({ page, context }) => {

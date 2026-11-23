@@ -317,6 +317,18 @@ describe('configuration pays : structure et droits', () => {
             ...(t === 'config_param_value' || t === 'config_param_definition'
               ? [{ t, pol: 'cmd_money_sel', cmd: 'r', roles: 'cmd_money_owner' }]
               : []),
+            // refacturations (US-318 suite, 0181) : délai du voyageur et plafond
+            // (traffic_guest_*) seulement
+            ...(t === 'config_param_value'
+              ? [
+                  {
+                    t,
+                    pol: 'cmd_money_traffic_guest_param_read',
+                    cmd: 'r',
+                    roles: 'cmd_money_owner',
+                  },
+                ]
+              : []),
             // changement de paramètre à deux personnes (US-535a, 0157) : lecture des pays et des
             // définitions ; versions COUNTRY des clés non gardées : lecture, fermeture et insertion
             // de la seule version recopiant une demande approuvée
