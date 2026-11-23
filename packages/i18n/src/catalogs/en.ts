@@ -3706,7 +3706,8 @@ export const EN_MESSAGES = {
     'This cost can’t be charged: same fuel level, trip ended early, or the car is only unwashed (no wash is needed).',
   'common.incidental.fuelPrepaid': 'The guest bought an extra on this trip: fuel isn’t charged.',
   'common.incidental.amountAboveCap': 'The amount is above the maximum allowed for this cost.',
-  'common.incidental.duplicate': 'There is already a request of this kind for this trip.',
+  'common.incidental.duplicate':
+    'This kind of cost can’t be requested again for this trip: a request already exists, was rejected, or was cancelled after a dispute.',
   'common.incidental.notCancellable': 'This request can no longer be cancelled.',
   'common.incidental.notOpen': 'This charge is no longer waiting for your answer.',
   'common.incidental.responseWindowClosed':
@@ -3810,6 +3811,10 @@ export const EN_MESSAGES = {
   'web.incidental.evidenceHostFile': 'Photo sent by the host · {format} · received {date}',
   'web.incidental.cancelDisputedFinal':
     'The guest disputed this cost. Cancelling the request is final: this cost can’t be requested again for this trip.',
+  'web.incidental.cancelDisputedConfirm':
+    'I understand: this cost can’t be requested again for this trip',
+  'web.incidental.form.abandonedTypes':
+    'Not offered again: {fees}. A request cancelled after a dispute, or rejected by {brand}, is final for this trip.',
   // US-318 (ADR-198) : réponses des routes des sinistres d’un trip (incident, amendes, péages, fourrière)
   'common.tripClaims.notFound': 'We couldn’t find this trip.',
   'common.tripClaims.incidentNotOpen':

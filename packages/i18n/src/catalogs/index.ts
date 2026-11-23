@@ -416,7 +416,9 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  d’US-318 ; le numéro ne redescend jamais) : frais annexes, suite de la red team du lot 3 (ADR-202,
  F-L3-FRA-01 et 02) : `web.incidental.evidenceHostFile` (fichier de l’hôte décrit : format et heure
  serveur de dépôt) et `web.incidental.cancelDisputedFinal` (annuler une demande contestée est
- définitif).
+ définitif), `web.incidental.cancelDisputedConfirm` (case de confirmation),
+ `web.incidental.form.abandonedTypes` (type retiré du formulaire et pourquoi) ;
+ `common.incidental.duplicate` reformulée (demande existante, rejetée ou abandonnée).
  */
 export const CATALOG_VERSION = 115;
 

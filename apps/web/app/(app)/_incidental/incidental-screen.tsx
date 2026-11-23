@@ -153,6 +153,16 @@ export async function IncidentalScreen({
       ),
   );
 
+  // types retirés pour de bon (rejet de l'ops, annulation après contestation) : dits à l'hôte, qui
+  // sait pourquoi ils ne sont plus proposés (ADR-202)
+  const abandoned = view.feeTypes.filter((f) =>
+    view.invoices.some(
+      (i) =>
+        i.feeType === f &&
+        (i.status === 'REJECTED' || (i.status === 'CANCELLED_BY_HOST' && i.disputeReason !== null)),
+    ),
+  );
+
   const invoice = (inv: IncidentalInvoice) => (
     <li
       key={inv.id}
@@ -252,18 +262,13 @@ export async function IncidentalScreen({
           />
         </>
       )}
-      {role === 'HOST' && inv.status === 'DISPUTED' && (
-        // annuler une demande contestée est définitif (ADR-202, F-L3-FRA-01)
-        <p className={accountStyles['muted']} data-testid="incidental-cancel-final">
-          {t('web.incidental.cancelDisputedFinal')}
-        </p>
-      )}
       {role === 'HOST' && (inv.status === 'AWAITING_GUEST' || inv.status === 'DISPUTED') && (
         <IncidentalCancelForm
           localeTag={localeTag}
           tripId={view.tripId}
           invoiceId={inv.id}
           org={org}
+          disputed={inv.status === 'DISPUTED'}
         />
       )}
     </li>
@@ -324,6 +329,16 @@ export async function IncidentalScreen({
           <h2 id="incidental-add" className={accountStyles['h2']}>
             {t('web.a04.addFee')}
           </h2>
+          {abandoned.length > 0 && (
+            <p className={accountStyles['text']} data-testid="incidental-abandoned">
+              {t('web.incidental.form.abandonedTypes', {
+                ...values,
+                fees: new Intl.ListFormat(localeTag, { type: 'conjunction' }).format(
+                  abandoned.map((f) => t(FEE_KEYS[f])),
+                ),
+              })}
+            </p>
+          )}
           {openTypes.length === 0 ? (
             <Banner tone="info" live="off">
               <span data-testid="incidental-all-requested">

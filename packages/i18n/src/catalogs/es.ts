@@ -3794,7 +3794,8 @@ export const ES_MESSAGES = {
   'common.incidental.fuelPrepaid':
     'El viajero compró un extra en este viaje: no se cobra combustible.',
   'common.incidental.amountAboveCap': 'El monto supera el máximo permitido para este gasto.',
-  'common.incidental.duplicate': 'Ya hay una solicitud de este tipo en curso para este viaje.',
+  'common.incidental.duplicate':
+    'Ya no puedes pedir este tipo de gasto para este viaje: ya hay una solicitud, fue rechazada o se canceló después de una impugnación.',
   'common.incidental.notCancellable': 'Esta solicitud ya no se puede cancelar.',
   'common.incidental.notOpen': 'Este cargo ya no espera tu respuesta.',
   'common.incidental.responseWindowClosed': 'El plazo para pagar o impugnar este cargo terminó.',
@@ -3898,6 +3899,9 @@ export const ES_MESSAGES = {
     'Foto enviada por el anfitrión · {format} · recibida el {date}',
   'web.incidental.cancelDisputedFinal':
     'El viajero impugnó este gasto. Si cancelas la solicitud, es definitivo: ya no podrás pedir este gasto para este viaje.',
+  'web.incidental.cancelDisputedConfirm': 'Entiendo: ya no podré pedir este gasto para este viaje',
+  'web.incidental.form.abandonedTypes':
+    'Ya no se ofrece: {fees}. Una solicitud cancelada después de una impugnación, o rechazada por {brand}, es definitiva para este viaje.',
   // US-318 (ADR-198) : réponses des routes des sinistres d’un trip (incident, amendes, péages, fourrière)
   'common.tripClaims.notFound': 'No encontramos este viaje.',
   'common.tripClaims.incidentNotOpen':

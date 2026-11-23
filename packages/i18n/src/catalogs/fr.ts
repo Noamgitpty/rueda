@@ -3874,7 +3874,8 @@ export const FR_MESSAGES = {
   'common.incidental.fuelPrepaid':
     'Le voyageur a acheté un extra pour ce voyage : le carburant n’est pas facturé.',
   'common.incidental.amountAboveCap': 'Le montant dépasse le maximum autorisé pour ces frais.',
-  'common.incidental.duplicate': 'Une demande de ce type est déjà en cours pour ce voyage.',
+  'common.incidental.duplicate':
+    'Ce type de frais ne peut plus être demandé pour ce voyage : une demande existe déjà, a été rejetée ou a été annulée après une contestation.',
   'common.incidental.notCancellable': 'Cette demande ne peut plus être annulée.',
   'common.incidental.notOpen': 'Ces frais n’attendent plus votre réponse.',
   'common.incidental.responseWindowClosed': 'Le délai pour payer ou contester ces frais est passé.',
@@ -3979,6 +3980,10 @@ export const FR_MESSAGES = {
   'web.incidental.evidenceHostFile': 'Photo envoyée par l’hôte · {format} · reçue le {date}',
   'web.incidental.cancelDisputedFinal':
     'Le voyageur a contesté ces frais. Annuler la demande est définitif : ces frais ne pourront plus être demandés pour ce voyage.',
+  'web.incidental.cancelDisputedConfirm':
+    'Je comprends : ces frais ne pourront plus être demandés pour ce voyage',
+  'web.incidental.form.abandonedTypes':
+    'Plus proposé : {fees}. Une demande annulée après une contestation, ou rejetée par {brand}, est définitive pour ce voyage.',
   // US-318 (ADR-198) : réponses des routes des sinistres d’un trip (incident, amendes, péages, fourrière)
   'common.tripClaims.notFound': 'Nous ne trouvons pas ce trajet.',
   'common.tripClaims.incidentNotOpen': 'Tu ne peux déclarer un incident que pendant le trajet.',

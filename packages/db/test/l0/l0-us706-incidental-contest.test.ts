@@ -133,6 +133,18 @@ describe.each(COUNTRIES)('US-706 suite — contestation et pièces ($country, $c
             WHERE schemaname = 'core' AND indexname = 'claim_incidental_live_unique'`,
         );
         expect(idx.rows[0]!.d).toContain('disputed_at IS NOT NULL');
+        // et l'index refuse lui-même une écriture directe (fixture sous migrator, sans la commande)
+        await tx.query('SAVEPOINT direct');
+        const err = await tx.query('SELECT test_fixture.us706_insert_invoice($1)', [w.trip]).then(
+          () => null,
+          (e: unknown) => e as { code?: string; constraint?: string },
+        );
+        await tx.query('ROLLBACK TO SAVEPOINT direct');
+        expect(err).toMatchObject({ code: '23505', constraint: 'claim_incidental_live_unique' });
+        // témoin : sur un trip sans demande de nettoyage, la même écriture passe
+        const w2 = await world(tx, c, { start: START, end: END });
+        await tx.query('SELECT test_fixture.us706_insert_invoice($1)', [w2.trip]);
+        expect((await invoices(tx, w2.trip)).map((r) => r['status'])).toEqual(['AWAITING_GUEST']);
       });
     });
   });
@@ -241,6 +253,16 @@ describe.each(COUNTRIES)('US-706 suite — contestation et pièces ($country, $c
           (await submit(tx, he, edge.trip, 'CLEANING', a['cleaning']!, [inWindow.id, before.id]))[
             'outcome'
           ],
+        ).toBe('SUBMITTED');
+        // mêmes bornes pour le tabac (08 BR-REIMB-01 : nettoyage / tabac)
+        expect(
+          (await submit(tx, hl, late.trip, 'SMOKING', a['cleaning']!, [outside.id]))['outcome'],
+        ).toBe('INCIDENTAL_NOT_BILLABLE');
+        expect(
+          (await submit(tx, he, edge.trip, 'SMOKING', a['cleaning']!, [before.id]))['outcome'],
+        ).toBe('INCIDENTAL_NOT_BILLABLE');
+        expect(
+          (await submit(tx, he, edge.trip, 'SMOKING', a['cleaning']!, [inWindow.id]))['outcome'],
         ).toBe('SUBMITTED');
         // fenêtre illisible (hors bornes) : aucune demande, même avec la photo de l'intérieur
         await tx.query('SELECT test_fixture.us706s_param_version($1, $2, $3::jsonb)', [

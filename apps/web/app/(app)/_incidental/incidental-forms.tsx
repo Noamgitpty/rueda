@@ -6,7 +6,8 @@
  *   (cases à cocher, au moins une ; sans photo, aucune demande) ;
  * - voyageur : payer (accord écrit au bouton, montant affiché) ou contester avec un motif et des
  *   photos du trip ;
- * - hôte : annuler une demande en attente ou contestée.
+ * - hôte : annuler une demande en attente ou contestée (contestée : avertissement et confirmation,
+ *   l'annulation est définitive, ADR-202).
  * L'identifiant de la demande est fixé au rendu (clé d'idempotence). Chaque refus est dit en clair
  * et la saisie est gardée ; aucune heure n'est saisie. Sans JavaScript : envoi natif.
  */
@@ -271,9 +272,12 @@ export function IncidentalCancelForm(p: {
   readonly tripId: string;
   readonly invoiceId: string;
   readonly org: string | null;
+  /** Demande contestée : l'annulation est définitive (ADR-202), avertie et confirmée. */
+  readonly disputed: boolean;
 }) {
   const { t } = useT(p.localeTag);
   const [state, action, pending] = useActionState(cancelIncidentalAction, INITIAL);
+  const warnId = useId();
   return (
     <form action={action} data-testid="incidental-cancel-form">
       {state.key !== null && (
@@ -284,6 +288,27 @@ export function IncidentalCancelForm(p: {
       <input type="hidden" name="trip" value={p.tripId} />
       <input type="hidden" name="invoice" value={p.invoiceId} />
       <input type="hidden" name="org" value={p.org ?? ''} />
+      {p.disputed && (
+        <>
+          <input type="hidden" name="disputed" value="yes" />
+          <Banner tone="warning" live="off">
+            <span id={warnId} data-testid="incidental-cancel-final">
+              {t('web.incidental.cancelDisputedFinal')}
+            </span>
+          </Banner>
+          <label className={hostStyles['choice']}>
+            <input
+              type="checkbox"
+              name="confirmFinal"
+              value="yes"
+              required
+              aria-describedby={warnId}
+              data-testid="incidental-cancel-confirm"
+            />
+            <span>{t('web.incidental.cancelDisputedConfirm')}</span>
+          </label>
+        </>
+      )}
       <Button type="submit" variant="secondary" loading={pending} data-testid="incidental-cancel">
         {t('web.incidental.cancel')}
       </Button>

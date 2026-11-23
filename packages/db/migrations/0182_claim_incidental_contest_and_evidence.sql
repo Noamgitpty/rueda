@@ -11,8 +11,8 @@
 --
 -- Principes (ADR-202, PROPOSÉS, fail-closed, comme Turo adapté au PA / PY) :
 --   1. F-L3-FRA-01 : l'annulation par l'hôte d'une demande CONTESTÉE vaut abandon définitif du frais
---      pour ce trip (SM-5 : CANCELLED_BY_HOST est un état final ; comme Turo, l'hôte qui retire une
---      demande contestée ne la renvoie pas). Une demande du même type sur le même trip est refusée
+--      pour ce trip (choix du projet, plus strict que SM-5 tant que la révision SUPERSEDED, qui
+--      émettrait une facture liée avec son propre délai, n'existe pas). Une demande du même type sur le même trip est refusée
 --      `INCIDENTAL_DUPLICATE` dès qu'il existe une demande vivante, rejetée, ou annulée après une
 --      contestation (`disputed_at` posé) ; seule une demande annulée AVANT toute contestation libère
 --      le type (l'hôte corrige une erreur avant que le voyageur ait répondu). Garantie en base :

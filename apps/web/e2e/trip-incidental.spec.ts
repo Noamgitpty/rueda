@@ -268,11 +268,22 @@ for (const language of LANGUAGES) {
         t('web.incidental.cancelDisputedFinal'),
       );
       await expectAccessible(page, { include: null });
+      // confirmation exigée : sans la case, rien n'est envoyé (champ requis)
+      await page.locator('[data-testid="incidental-cancel"]').click();
+      await expect(page.locator('[data-testid="incidental-done"]')).toHaveCount(0);
+      await expect(page.locator('[data-testid="incidental-status"]')).not.toHaveText(
+        t('web.incidental.status.CANCELLED_BY_HOST'),
+      );
+      await page.locator('[data-testid="incidental-cancel-confirm"]').check();
       await page.locator('[data-testid="incidental-cancel"]').click();
       await expect(page.locator('[data-testid="incidental-status"]')).toHaveText(
         t('web.incidental.status.CANCELLED_BY_HOST'),
       );
       await expect(page.locator('[data-testid="incidental-cancel-final"]')).toHaveCount(0);
+      // le type retiré est dit à l'hôte, avec la raison
+      await expect(page.locator('[data-testid="incidental-abandoned"]')).toContainText(
+        t('web.incidental.fee.CLEANING'),
+      );
       await expect(
         page.locator('[data-testid="incidental-type"] option[value="CLEANING"]'),
       ).toHaveCount(0);
