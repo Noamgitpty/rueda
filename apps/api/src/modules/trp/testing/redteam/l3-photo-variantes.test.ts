@@ -146,28 +146,117 @@ describe('RT-L3-P03 (L3-PM-03) — variantes de la même prise de vue contre l�
     expect(await fingerprintOf(withExif)).toBe(await fingerprintOf(original));
   });
 
-  it('observation F-L3-PRE-04 : chaque variante, pixels identiques, a une empreinte DIFFÉRENTE de l’original et des autres ; l’index unique les accepterait toutes', async () => {
+  // CORRIGÉ (ADR-204, copie canonique) : l'observation de l'attaque devient la preuve du refus. Les
+  // variantes sont inchangées ; chacune a l'empreinte de l'original, que l'index unique
+  // `trip_inspection_photo_sha256_unique` refuse déjà (PHOTO_DUPLICATE)
+  it('preuve du refus F-L3-PRE-04 : chaque variante, pixels identiques, a l’empreinte de l’original ; l’index unique les refuse toutes', async () => {
     const base = await fingerprintOf(original);
-    const seen = new Set<string>([base]);
     for (const [label, body] of VARIANTS) {
-      const f = await fingerprintOf(body);
-      expect(f, label).not.toBe(base);
-      expect(seen.has(f), label).toBe(false);
-      seen.add(f);
+      // l'octet envoyé diffère bien de l'original (l'attaque est jouée)
+      expect(body.equals(original), label).toBe(false);
+      expect(await fingerprintOf(body), label).toBe(base);
     }
-    expect(seen.size).toBe(VARIANTS.length + 1);
   });
 
   // CONSTAT F-L3-PRE-04 : l'empreinte est celle des octets de la copie nettoyée, qui garde des
   // champs libres (densité et vignette JFIF, charge d'un segment ICC, bourrage du flux) ; correction
   // attendue : une copie CANONIQUE (champs libres normalisés ou retirés, bourrage supprimé) dont
-  // l'empreinte ne dépend que des pixels
-  it.fails(
-    'CONSTAT F-L3-PRE-04 : des octets de pixels identiques donnent la même empreinte, quelle que soit la retouche des champs libres (densité, vignette, profil ICC, bourrage)',
-    async () => {
-      const base = await fingerprintOf(original);
-      const fingerprints = await Promise.all(VARIANTS.map(([, body]) => fingerprintOf(body)));
-      expect(new Set([base, ...fingerprints]).size).toBe(1);
-    },
-  );
+  // l'empreinte ne dépend que des pixels. CORRIGÉ (ADR-204) : inversé en test de comportement, attaque
+  // et attendu inchangés
+  it('CONSTAT F-L3-PRE-04 (corrigé) : des octets de pixels identiques donnent la même empreinte, quelle que soit la retouche des champs libres (densité, vignette, profil ICC, bourrage)', async () => {
+    const base = await fingerprintOf(original);
+    const fingerprints = await Promise.all(VARIANTS.map(([, body]) => fingerprintOf(body)));
+    expect(new Set([base, ...fingerprints]).size).toBe(1);
+  });
+});
+
+/**
+ * Attaques AJOUTÉES après les revues de la PR 302 (tables JPEG) : la même prise de vue, tables
+ * identiques, réécrite avec la table de quantification après la trame, la même table répétée, ou
+ * un intervalle de reprise nul (DRI 0 : « pas d'intervalle », ITU T.81 B.2.4.4). Attendu : une
+ * seule empreinte (copie canonique, ADR-204) ; l'index unique refuse donc chaque variante.
+ */
+describe('RT-L3-P03 (L3-PM-03) — variantes de tables de la même prise de vue', () => {
+  const dqt = seg(0xdb, Buffer.concat([Buffer.from([0x00]), Buffer.alloc(64, 4)]));
+  const dri0 = seg(0xdd, Buffer.from([0, 0]));
+  const build = (...parts: Buffer[]): Buffer =>
+    Buffer.concat([Buffer.from([0xff, 0xd8]), ...parts, Buffer.from([0xff, 0xd9])]);
+  const original = build(jfif(72), dqt, PIXELS.frame, PIXELS.scanHeader, PIXELS.data);
+  const variants: readonly (readonly [string, Buffer])[] = [
+    ['DQT après la trame', build(jfif(72), PIXELS.frame, dqt, PIXELS.scanHeader, PIXELS.data)],
+    [
+      'DQT répétée à l’identique',
+      build(jfif(72), dqt, PIXELS.frame, dqt, dqt, PIXELS.scanHeader, PIXELS.data),
+    ],
+    ['DRI 0 ajouté', build(jfif(72), dqt, dri0, PIXELS.frame, PIXELS.scanHeader, PIXELS.data)],
+  ];
+
+  it('chaque variante de tables, octets différents, a l’empreinte de l’original : l’index unique les refuse toutes', async () => {
+    const base = await fingerprintOf(original);
+    for (const [label, body] of variants) {
+      expect(body.equals(original), label).toBe(false);
+      expect(await fingerprintOf(body), label).toBe(base);
+    }
+  });
+});
+
+/**
+ * Attaque AJOUTÉE après les revues delta de la PR 302 (déni de service mémoire) : huit tables de
+ * Huffman de 256 symboles, puis des scans de quelques octets qui permutent les sélecteurs. Une
+ * réécriture naïve réémet les tables à chaque scan (×139 en sortie). Attendu (ADR-204) : la copie
+ * n'est jamais plus grande que l'envoi plus une marge fixe ; au-delà de 128 scans, refus.
+ */
+describe('RT-L3-P03 (L3-PM-03) — amplification de la copie canonique', () => {
+  const huffSeg = (cls: number, slot: number): Buffer => {
+    const counts = Buffer.alloc(16);
+    counts[0] = 1;
+    counts[15] = 255;
+    return seg(
+      0xc4,
+      Buffer.concat([Buffer.from([(cls << 4) | slot]), counts, Buffer.alloc(256, slot + 1)]),
+    );
+  };
+  const attack = (scans: number): Buffer => {
+    const sof = Buffer.alloc(18);
+    sof[0] = 8;
+    sof.writeUInt16BE(64, 1);
+    sof.writeUInt16BE(64, 3);
+    sof[5] = 4;
+    [1, 2, 3, 4].forEach((id, k) => sof.set([id, 0x11, 0], 6 + 3 * k));
+    const parts: Buffer[] = [
+      Buffer.from([0xff, 0xd8]),
+      seg(0xdb, Buffer.concat([Buffer.from([0]), Buffer.alloc(64, 3)])),
+      ...[0, 1].flatMap((cls) => [0, 1, 2, 3].map((slot) => huffSeg(cls, slot))),
+      seg(0xc0, sof),
+    ];
+    for (let n = 0; n < scans; n += 1) {
+      const sel = [0, 1, 2, 3].map((k) => (k + n) % 4);
+      parts.push(
+        seg(
+          0xda,
+          Buffer.from([
+            4,
+            ...[1, 2, 3, 4].flatMap((id, k) => [id, ((sel[k] ?? 0) << 4) | (sel[3 - k] ?? 0)]),
+            0,
+            63,
+            0,
+          ]),
+        ),
+        Buffer.from([0x10 + (n % 5)]),
+      );
+    }
+    parts.push(Buffer.from([0xff, 0xd9]));
+    return Buffer.concat(parts);
+  };
+
+  it('scans qui permutent les sélecteurs : la photo est acceptée et sa copie ne dépasse pas l’envoi plus 1 024 octets', async () => {
+    const body = attack(120);
+    await fingerprintOf(body);
+    const { preparePhoto } = await import('../../../aud/index.js');
+    expect(preparePhoto(body).body.length).toBeLessThanOrEqual(body.length + 1024);
+  });
+
+  it('au-delà de 128 scans : refus (PHOTO_INVALID), rien n’est déposé', async () => {
+    await expect(fingerprintOf(attack(400))).rejects.toMatchObject({ code: 'PHOTO_INVALID' });
+  });
 });

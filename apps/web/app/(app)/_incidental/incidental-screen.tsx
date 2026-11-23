@@ -143,24 +143,26 @@ export async function IncidentalScreen({
       : t('web.incidental.form.cap', { fee: t(FEE_KEYS[fee]), amount: money(cap) });
   };
 
-  // un type déjà demandé ou rejeté ne se redemande pas (INCIDENTAL_DUPLICATE) : masqué ; seule une
-  // annulation par l'hôte AVANT toute contestation le libère (revue code delta ; ADR-202,
-  // F-L3-FRA-01 : une demande contestée puis annulée est abandonnée pour de bon)
+  // un frais rejeté par l'ops ou annulé après une contestation est abandonné pour de bon (ADR-202,
+  // F-L3-FRA-01) ; depuis 0184 (ADR-204, F-L3-FRA-03), l'abandon vaut pour tout son groupe :
+  // nettoyage et tabac (l'état de l'habitacle) ; le carburant est seul dans le sien
+  const group = (f: string) => (f === 'CLEANING' || f === 'SMOKING' ? 'INTERIOR' : f);
+  const isAbandoned = (i: IncidentalInvoice) =>
+    i.status === 'REJECTED' || (i.status === 'CANCELLED_BY_HOST' && i.disputeReason !== null);
+
+  // types retirés pour de bon : dits à l'hôte, qui sait pourquoi ils ne sont plus proposés
+  const abandoned = view.feeTypes.filter((f) =>
+    view.invoices.some((i) => isAbandoned(i) && group(i.feeType) === group(f)),
+  );
+
+  // un type déjà demandé (hors annulation AVANT toute contestation) ou abandonné ne se redemande
+  // pas (INCIDENTAL_DUPLICATE) : masqué
   const openTypes = view.feeTypes.filter(
     (f) =>
+      !abandoned.includes(f) &&
       !view.invoices.some(
         (i) => i.feeType === f && (i.status !== 'CANCELLED_BY_HOST' || i.disputeReason !== null),
       ),
-  );
-
-  // types retirés pour de bon (rejet de l'ops, annulation après contestation) : dits à l'hôte, qui
-  // sait pourquoi ils ne sont plus proposés (ADR-202)
-  const abandoned = view.feeTypes.filter((f) =>
-    view.invoices.some(
-      (i) =>
-        i.feeType === f &&
-        (i.status === 'REJECTED' || (i.status === 'CANCELLED_BY_HOST' && i.disputeReason !== null)),
-    ),
   );
 
   const invoice = (inv: IncidentalInvoice) => (

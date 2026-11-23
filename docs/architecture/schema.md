@@ -7,7 +7,7 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 
 ## Synthèse
 
-- 184 migrations ; 172 tables ; 6 vues ; 973 politiques RLS ; 458 fonctions `SECURITY DEFINER` ; 339 autres fonctions.
+- 185 migrations ; 172 tables ; 6 vues ; 973 politiques RLS ; 458 fonctions `SECURITY DEFINER` ; 339 autres fonctions.
 - Tables sans RLS `ENABLE` + `FORCE` : aucune.
 - Rôles applicatifs avec `SUPERUSER` ou `BYPASSRLS` : aucun.
 
@@ -199,6 +199,7 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 | `0181_claim_traffic_charge_guest_response` | CLM : refacturation des amendes, péages et fourrières — référence unique par trip, |
 | `0182_claim_incidental_contest_and_evidence` | CLM : frais annexes, suite de la red team du lot 3 (US-313) : une demande contestée puis |
 | `0183_claim_traffic_reference_canonical_trip_cap` | CLM : refacturation des amendes, péages et fourrières — clé canonique du PV, unicité par |
+| `0184_claim_incidental_abandoned_fact` | CLM : frais annexes, passe de la porte de la red team du lot 3 (US-313) : un frais abandonné |
 
 ## Rôles
 

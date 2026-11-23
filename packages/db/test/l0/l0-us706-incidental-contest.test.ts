@@ -59,10 +59,12 @@ describe.each(COUNTRIES)('US-706 suite — contestation et pièces ($country, $c
         const ops = await staff(tx, 'OPS_AGENT', [c.country]);
         const w = await world(tx, c, { start: START, end: END });
         await now(tx, J0);
+        // une pièce ne soutient qu'une demande du trip (0184, ADR-204) : le tabac a la sienne
+        const smokeFile = await attach(tx, w.holder, w.trip);
         const h = await session(tx, w.holder);
         const firstReq = uuid();
         const first = await submit(tx, h, w.trip, 'CLEANING', a['cleaning']!, [w.inner], firstReq);
-        const smoke = await submit(tx, h, w.trip, 'SMOKING', a['cleaning']!, [w.inner]);
+        const smoke = await submit(tx, h, w.trip, 'SMOKING', a['cleaning']!, [smokeFile.id]);
         expect([first['outcome'], smoke['outcome']]).toEqual(['SUBMITTED', 'SUBMITTED']);
         // le voyageur conteste le nettoyage avec sa photo (BR-REIMB-03)
         await now(tx, at(J0, 2 * HOUR));
@@ -94,17 +96,32 @@ describe.each(COUNTRIES)('US-706 suite — contestation et pièces ($country, $c
         expect(
           await submit(tx, h2, w.trip, 'CLEANING', a['cleaning']!, [w.inner], firstReq),
         ).toMatchObject({ outcome: 'ALREADY_SUBMITTED', invoice_id: first['invoice_id'] });
-        // témoin : le tabac, annulé avant toute contestation, se redemande
+        // le tabac, annulé avant toute contestation, est du groupe du nettoyage ABANDONNÉ et reprend
+        // sa pièce : refusé depuis 0184 (F-L3-FRA-03, ADR-204), aucune fenêtre neuve
         expect(
           (await submit(tx, h2, w.trip, 'SMOKING', a['cleaning']!, [w.inner]))['outcome'],
-        ).toBe('SUBMITTED');
+        ).toBe('INCIDENTAL_DUPLICATE');
         const rows = await invoices(tx, w.trip);
         expect(rows.filter((r) => r['fee_type'] === 'CLEANING').map((r) => r['status'])).toEqual([
           'CANCELLED_BY_HOST',
         ]);
+        expect(rows.filter((r) => r['status'] === 'AWAITING_GUEST')).toEqual([]);
+        // témoin : sur un trip sans frais abandonné, le tabac annulé avant toute contestation se
+        // redemande (même pièce)
+        const ws = await world(tx, c, { start: START, end: END });
+        const hs = await session(tx, ws.holder);
+        const s1 = await submit(tx, hs, ws.trip, 'SMOKING', a['cleaning']!, [ws.inner]);
+        expect(s1['outcome']).toBe('SUBMITTED');
+        expect(await one(tx, CANCEL, [await session(tx, ws.holder), s1['invoice_id']])).toBe(
+          'CANCELLED',
+        );
         expect(
-          rows.filter((r) => r['status'] === 'AWAITING_GUEST').map((r) => r['fee_type']),
-        ).toEqual(['SMOKING']);
+          (
+            await submit(tx, await session(tx, ws.holder), ws.trip, 'SMOKING', a['cleaning']!, [
+              ws.inner,
+            ])
+          )['outcome'],
+        ).toBe('SUBMITTED');
         // un seul avis au voyageur pour le nettoyage (celui de la demande d'origine)
         expect(
           (await tx.query('SELECT * FROM test_fixture.us706_events($1)', [first['invoice_id']]))
@@ -226,9 +243,16 @@ describe.each(COUNTRIES)('US-706 suite — contestation et pièces ($country, $c
         const before = await attach(tx, edge.holder, edge.trip);
         await now(tx, at(END, PHOTO_WINDOW_MS));
         const inWindow = await attach(tx, edge.holder, edge.trip);
+        // pièce propre au tabac : une pièce ne soutient qu'une demande du trip (0184, ADR-204)
+        const inWindowSmoke = await attach(tx, edge.holder, edge.trip);
         await now(tx, at(END, PHOTO_WINDOW_MS + 1));
         const outside = await attach(tx, late.holder, late.trip);
-        expect([before.r, inWindow.r, outside.r]).toEqual(['ATTACHED', 'ATTACHED', 'ATTACHED']);
+        expect([before.r, inWindow.r, inWindowSmoke.r, outside.r]).toEqual([
+          'ATTACHED',
+          'ATTACHED',
+          'ATTACHED',
+          'ATTACHED',
+        ]);
         await now(tx, at(END, PHOTO_WINDOW_MS + MINUTE));
         const he = await session(tx, edge.holder);
         const hl = await session(tx, late.holder);
@@ -262,7 +286,9 @@ describe.each(COUNTRIES)('US-706 suite — contestation et pièces ($country, $c
           (await submit(tx, he, edge.trip, 'SMOKING', a['cleaning']!, [before.id]))['outcome'],
         ).toBe('INCIDENTAL_NOT_BILLABLE');
         expect(
-          (await submit(tx, he, edge.trip, 'SMOKING', a['cleaning']!, [inWindow.id]))['outcome'],
+          (await submit(tx, he, edge.trip, 'SMOKING', a['cleaning']!, [inWindowSmoke.id]))[
+            'outcome'
+          ],
         ).toBe('SUBMITTED');
         // fenêtre illisible (hors bornes) : aucune demande, même avec la photo de l'intérieur
         await tx.query('SELECT test_fixture.us706s_param_version($1, $2, $3::jsonb)', [

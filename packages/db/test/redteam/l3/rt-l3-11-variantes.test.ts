@@ -512,16 +512,21 @@ describe.each(COUNTRIES)('RT-L3 variante contre la PR 299 ($country, $currency)'
   const asApiIncidental = (body: (tx: Tx) => Promise<void>): Promise<void> =>
     withRole('app_api', (api) => withTestTransaction(api, { virtualNow: I_START }, body));
 
-  it('RT-L3-S02 — observation F-L3-FRA-03 : un nettoyage contesté puis annulé est redemandé sous le type « tabac » avec la MÊME pièce ; la demande est acceptée et sa fenêtre de réponse est neuve (72 h), sans décision de l’ops', async () => {
+  // CORRIGÉ (0184, ADR-204) : l'observation de l'attaque devient la preuve du refus. L'attaque est
+  // inchangée (nettoyage contesté puis annulé, tabac redemandé avec la MÊME pièce) ; la redemande est
+  // refusée INCIDENTAL_DUPLICATE : aucune demande en attente du voyageur, aucune échéance neuve,
+  // l'ops n'a rien tranché
+  it('RT-L3-S02 — preuve du refus F-L3-FRA-03 : un nettoyage contesté puis annulé, redemandé sous le type « tabac » avec la MÊME pièce, est refusé (INCIDENTAL_DUPLICATE) ; aucune fenêtre de réponse neuve, aucune décision de l’ops', async () => {
     await asApiIncidental(async (tx) => {
       const { w, again } = await retypeAttack(tx);
-      expect(again['outcome']).toBe('SUBMITTED');
+      expect(again['outcome']).toBe('INCIDENTAL_DUPLICATE');
+      expect(again['invoice_id']).toBeNull();
+      expect(again['response_due_at']).toBeNull();
       const rows = await invoices(tx, w.trip);
       expect(rows.map((r) => [r['fee_type'], r['status']])).toEqual([
         ['CLEANING', 'CANCELLED_BY_HOST'],
-        ['SMOKING', 'AWAITING_GUEST'],
       ]);
-      expect((rows[1]!['response_due_at'] as Date).toISOString()).toBe(plus(J0, (4 + 72) * HOUR_S));
+      expect(rows.some((r) => r['fee_type'] === 'SMOKING')).toBe(false);
       expect(rows[0]!['decided_role']).toBeNull();
     });
   });
@@ -529,18 +534,16 @@ describe.each(COUNTRIES)('RT-L3 variante contre la PR 299 ($country, $currency)'
   // CONSTAT F-L3-FRA-03 : #299 bloque la redemande du MÊME type après contestation ; le même fait
   // (même pièce) redemandé sous un autre type du nettoyage rouvre la fenêtre. Correction attendue :
   // l'abandon d'un frais contesté vaut pour la pièce (ou le fait), quel que soit le type — refus ou
-  // escalade à l'ops, les deux passent
-  it.fails(
-    'RT-L3-S02 — CONSTAT F-L3-FRA-03 : après une contestation puis une annulation, le même fait (même pièce) redemandé sous un autre type ne rouvre aucune fenêtre de réponse du voyageur',
-    async () => {
-      await asApiIncidental(async (tx) => {
-        const { w, first } = await retypeAttack(tx);
-        expect(first['outcome']).toBe('SUBMITTED');
-        const rows = await invoices(tx, w.trip);
-        // témoin de population : la première demande existe bien, annulée
-        expect(rows.map((r) => r['status'])).toContain('CANCELLED_BY_HOST');
-        expect(rows.filter((r) => r['status'] === 'AWAITING_GUEST')).toEqual([]);
-      });
-    },
-  );
+  // escalade à l'ops, les deux passent. CORRIGÉ (0184, ADR-204) : inversé en test de comportement,
+  // attaque et attendu inchangés
+  it('RT-L3-S02 — CONSTAT F-L3-FRA-03 (corrigé) : après une contestation puis une annulation, le même fait (même pièce) redemandé sous un autre type ne rouvre aucune fenêtre de réponse du voyageur', async () => {
+    await asApiIncidental(async (tx) => {
+      const { w, first } = await retypeAttack(tx);
+      expect(first['outcome']).toBe('SUBMITTED');
+      const rows = await invoices(tx, w.trip);
+      // témoin de population : la première demande existe bien, annulée
+      expect(rows.map((r) => r['status'])).toContain('CANCELLED_BY_HOST');
+      expect(rows.filter((r) => r['status'] === 'AWAITING_GUEST')).toEqual([]);
+    });
+  });
 });
