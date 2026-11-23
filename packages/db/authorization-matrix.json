@@ -3468,6 +3468,19 @@
         "app_anon": []
       }
     },
+    "core.payout_item_charge": {
+      "type": "table",
+      "droits": {
+        "app_api": {},
+        "app_worker": {},
+        "app_anon": {}
+      },
+      "politiques": {
+        "app_api": [],
+        "app_worker": [],
+        "app_anon": []
+      }
+    },
     "core.payout_prepare_deferral": {
       "type": "table",
       "droits": {

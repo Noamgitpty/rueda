@@ -87,6 +87,10 @@ const ISOLATED = [
   // US-318 : courses à deux sessions (exécution d'une refacturation, même pièce, ouverture du
   // dossier de vol contre le retour) ; trips, sessions, photos et refacturations commités
   'test/l0/l0-us318-claims-race.test.ts',
+  // US-319 : deux travailleurs préparent la part du même débit post-trip, à deux sessions ; trip,
+  // débit et lot du trip VALIDÉS sur le compte PSP ACTIVE partagé du pays (fixture 9800),
+  // SUPPORTS_MIT remise inconnue à la fin
+  'test/l0/l0-us319-charge-race.test.ts',
   // US-706 suite : annulation d'une demande contestée contre une redemande ou une décision de l'ops,
   // à deux sessions ; trips, sessions et demandes contestées commités
   'test/l0/l0-us706-incidental-contest-race.test.ts',
