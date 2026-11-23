@@ -31514,31 +31514,55 @@
                 },
                 "evidence": {
                   "type": "array",
-                  "description": "Photos du trip retenues comme pièces (le voyageur les voit avant de payer)",
+                  "description": "Chaque pièce retenue (le voyageur la voit avant de payer) : photo d'une série du trip, ou fichier de preuve de l'hôte rattaché au trip (type, heure serveur de dépôt ; ADR-202)",
                   "items": {
-                    "type": "object",
-                    "additionalProperties": false,
-                    "required": ["kind", "slotCode", "slotGroup", "takenBy", "receivedAt"],
-                    "properties": {
-                      "kind": {
-                        "enum": ["CHECKIN", "CHECKOUT"]
+                    "oneOf": [
+                      {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": ["kind", "slotCode", "slotGroup", "takenBy", "receivedAt"],
+                        "properties": {
+                          "kind": {
+                            "enum": ["CHECKIN", "CHECKOUT"]
+                          },
+                          "slotCode": {
+                            "type": "string",
+                            "pattern": "^(EXT_[0-9]{2}|INT_[0-9]{2}|FUEL|ODOMETER|KEY|DAMAGE_[0-9]{2})$"
+                          },
+                          "slotGroup": {
+                            "type": "string",
+                            "pattern": "^[A-Z]{2,16}$"
+                          },
+                          "takenBy": {
+                            "enum": ["HOST", "GUEST"]
+                          },
+                          "receivedAt": {
+                            "type": "string",
+                            "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}[.][0-9]{3}Z$"
+                          }
+                        }
                       },
-                      "slotCode": {
-                        "type": "string",
-                        "pattern": "^(EXT_[0-9]{2}|INT_[0-9]{2}|FUEL|ODOMETER|KEY|DAMAGE_[0-9]{2})$"
-                      },
-                      "slotGroup": {
-                        "type": "string",
-                        "pattern": "^[A-Z]{2,16}$"
-                      },
-                      "takenBy": {
-                        "enum": ["HOST", "GUEST"]
-                      },
-                      "receivedAt": {
-                        "type": "string",
-                        "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}[.][0-9]{3}Z$"
+                      {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": ["kind", "takenBy", "mime", "receivedAt"],
+                        "properties": {
+                          "kind": {
+                            "const": "HOST_FILE"
+                          },
+                          "takenBy": {
+                            "const": "HOST"
+                          },
+                          "mime": {
+                            "enum": ["image/jpeg", "image/webp"]
+                          },
+                          "receivedAt": {
+                            "type": "string",
+                            "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}[.][0-9]{3}Z$"
+                          }
+                        }
                       }
-                    }
+                    ]
                   }
                 },
                 "disputeReason": {
@@ -31719,6 +31743,7 @@
           "legs",
           "status",
           "description",
+          "evidenceCount",
           "evidence",
           "disputeEvidence",
           "notifiedAt",
@@ -31796,23 +31821,83 @@
           "description": {
             "type": "string"
           },
+          "evidenceCount": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 10
+          },
           "evidence": {
             "type": "array",
+            "description": "Chaque pièce retenue par l'hôte : photo d'une série du trip, ou fichier de preuve de l'hôte rattaché au trip (identifiant, type, taille, empreinte, heure serveur de dépôt ; ADR-202)",
             "items": {
-              "type": "object",
-              "additionalProperties": false,
-              "required": ["kind", "slotCode", "takenBy"],
-              "properties": {
-                "kind": {
-                  "enum": ["CHECKIN", "CHECKOUT"]
+              "oneOf": [
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["kind", "slotCode", "slotGroup", "takenBy", "receivedAt"],
+                  "properties": {
+                    "kind": {
+                      "enum": ["CHECKIN", "CHECKOUT"]
+                    },
+                    "slotCode": {
+                      "type": "string"
+                    },
+                    "slotGroup": {
+                      "type": "string"
+                    },
+                    "takenBy": {
+                      "enum": ["HOST", "GUEST"]
+                    },
+                    "receivedAt": {
+                      "type": "string",
+                      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}[.][0-9]{3}Z$"
+                    }
+                  }
                 },
-                "slotCode": {
-                  "type": "string"
-                },
-                "takenBy": {
-                  "enum": ["HOST", "GUEST"]
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "kind",
+                    "takenBy",
+                    "fileId",
+                    "mime",
+                    "bytes",
+                    "sha256",
+                    "deleted",
+                    "receivedAt"
+                  ],
+                  "properties": {
+                    "kind": {
+                      "const": "HOST_FILE"
+                    },
+                    "takenBy": {
+                      "const": "HOST"
+                    },
+                    "fileId": {
+                      "$ref": "#/components/schemas/Uuid"
+                    },
+                    "mime": {
+                      "enum": ["image/jpeg", "image/webp"]
+                    },
+                    "bytes": {
+                      "type": "string",
+                      "pattern": "^[1-9][0-9]{0,17}$"
+                    },
+                    "sha256": {
+                      "type": "string",
+                      "pattern": "^[0-9a-f]{64}$"
+                    },
+                    "deleted": {
+                      "type": "boolean"
+                    },
+                    "receivedAt": {
+                      "type": "string",
+                      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}[.][0-9]{3}Z$"
+                    }
+                  }
                 }
-              }
+              ]
             }
           },
           "disputeEvidence": {

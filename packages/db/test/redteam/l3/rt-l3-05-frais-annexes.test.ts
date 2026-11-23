@@ -187,41 +187,42 @@ describe.each(COUNTRIES)('RT-L3 frais annexes ($country, $currency)', (c) => {
     return { w, first, again };
   }
 
-  it('RT-L3-S02 (L3-PM-26) — observation F-L3-FRA-01 : une demande contestée annulée puis redemandée (même type, même montant) est acceptée ; sa fenêtre de réponse est NEUVE (72 h), aucune décision de l’ops n’a eu lieu', async () => {
+  // F-L3-FRA-01 CORRIGÉ (US-706 suite, 0182, ADR-202) : l'ancienne observation (redemande acceptée,
+  // fenêtre neuve) devient la preuve du refus
+  it('RT-L3-S02 (L3-PM-26) — F-L3-FRA-01 corrigé : une demande contestée annulée puis redemandée (même type, même montant, mêmes pièces) est REFUSÉE (INCIDENTAL_DUPLICATE) ; aucune fenêtre neuve, aucune nouvelle demande, l’échéance d’origine reste la seule ; le voyageur n’a rien à payer ni à contester', async () => {
     await asApi(async (tx) => {
       const { w, first, again } = await reopenAttack(tx);
-      expect(again['outcome']).toBe('SUBMITTED');
+      expect(again['outcome']).toBe('INCIDENTAL_DUPLICATE');
+      expect(again['invoice_id']).toBeNull();
       const rows = await invoices(tx, w.trip);
-      expect(rows.map((r) => r['status'])).toEqual(['CANCELLED_BY_HOST', 'AWAITING_GUEST']);
-      // fenêtre rouverte : nouvelle échéance = nouvelle notification + 72 h, postérieure à l'ancienne
-      expect((rows[1]!['response_due_at'] as Date).toISOString()).toBe(plus(J0, (4 + 72) * HOUR_S));
+      expect(rows.map((r) => r['status'])).toEqual(['CANCELLED_BY_HOST']);
+      // l'échéance d'origine reste la seule ; aucune décision d'un agent n'a été contournée
       expect((rows[0]!['response_due_at'] as Date).toISOString()).toBe(DUE);
-      // aucune décision d'un agent n'existe sur la première demande
       expect(rows[0]!['decided_role']).toBeNull();
-      expect(first['invoice_id']).not.toBe(again['invoice_id']);
-      // le voyageur est de nouveau en « fenêtre ouverte » (silence = débit à l'échéance neuve)
+      expect(rows[0]!['id']).toBe(first['invoice_id']);
+      // le voyageur n'a aucune fenêtre ouverte (aucun débit possible à une échéance neuve)
       const g = (await tx.query<{ v: Row }>(VIEW, [await session(tx, w.guest), w.trip])).rows[0]!.v;
-      const live = (g['invoices'] as Row[]).find((i) => i['status'] === 'AWAITING_GUEST');
-      expect(live).toMatchObject({ windowOpen: true, disputeReason: null });
+      expect((g['invoices'] as Row[]).filter((i) => i['windowOpen'] === true)).toEqual([]);
+      expect((g['invoices'] as Row[])[0]).toMatchObject({
+        status: 'CANCELLED_BY_HOST',
+        disputeReason: DISPUTE_REASON,
+      });
     });
   });
 
-  // CONSTAT F-L3-FRA-01 → suite (US-706) : la contestation du voyageur passe à l'ops ; l'hôte ne
-  // peut ni annuler pour redemander à neuf (« fenêtre jamais rouverte », « un rejet n'est jamais
-  // redemandé » contournés) : redemander le même type après une contestation est refusé
-  it.fails(
-    'RT-L3-S02 — CONSTAT F-L3-FRA-01 : après une contestation puis une annulation, aucune demande du même frais ne rouvre une fenêtre de réponse du voyageur (refus ou escalade à l’ops : les deux corrections passent)',
-    async () => {
-      await asApi(async (tx) => {
-        const { w, first } = await reopenAttack(tx);
-        expect(first['outcome']).toBe('SUBMITTED');
-        const rows = await invoices(tx, w.trip);
-        // témoin de population : la première demande existe bien, annulée
-        expect(rows.map((r) => r['status'])).toContain('CANCELLED_BY_HOST');
-        expect(rows.filter((r) => r['status'] === 'AWAITING_GUEST')).toEqual([]);
-      });
-    },
-  );
+  // CONSTAT F-L3-FRA-01 → corrigé par US-706 suite (0182, ADR-202) : la contestation du voyageur
+  // passe à l'ops ; l'hôte ne peut plus annuler pour redemander à neuf : redemander le même type
+  // après une contestation est refusé (it.fails inversé en test de comportement)
+  it('RT-L3-S02 — CONSTAT F-L3-FRA-01 (corrigé) : après une contestation puis une annulation, aucune demande du même frais ne rouvre une fenêtre de réponse du voyageur (refus ou escalade à l’ops : les deux corrections passent)', async () => {
+    await asApi(async (tx) => {
+      const { w, first } = await reopenAttack(tx);
+      expect(first['outcome']).toBe('SUBMITTED');
+      const rows = await invoices(tx, w.trip);
+      // témoin de population : la première demande existe bien, annulée
+      expect(rows.map((r) => r['status'])).toContain('CANCELLED_BY_HOST');
+      expect(rows.filter((r) => r['status'] === 'AWAITING_GUEST')).toEqual([]);
+    });
+  });
 
   // -----------------------------------------------------------------------------------------
   // RT-L3-S01 — « frais sans preuve » : la preuve de l'hôte n'est vue ni du voyageur ni de l'ops
@@ -238,50 +239,56 @@ describe.each(COUNTRIES)('RT-L3 frais annexes ($country, $currency)', (c) => {
     return { w, mine, r };
   }
 
-  it('RT-L3-S01 (L3-PM-25) — observation F-L3-FRA-02 : un nettoyage est demandé avec UN fichier quelconque de l’hôte (aucune photo de l’intérieur) ; le voyageur voit « 1 pièce » sans pouvoir l’ouvrir, la console de l’ops ne la liste pas', async () => {
+  // F-L3-FRA-02 CORRIGÉ (US-706 suite, 0182, ADR-202) : l'ancienne observation (« 1 pièce » non
+  // décrite) devient la preuve que le fichier de l'hôte est décrit à ceux qui le jugent ; le fichier,
+  // reçu 2 h après la fin, est dans la fenêtre des photos de 08 BR-REIMB-01 (24 h)
+  it('RT-L3-S01 (L3-PM-25) — F-L3-FRA-02 corrigé : un nettoyage demandé avec UN fichier de l’hôte (reçu dans les 24 h après la fin) est décrit au voyageur (type, heure serveur de dépôt, jamais l’identifiant) et à la console (identifiant, type, empreinte, nombre de pièces)', async () => {
     await asApi(async (tx) => {
       const { w, mine, r } = await hostFileOnly(tx);
       expect(mine.id).toMatch(/^[0-9a-f-]{36}$/);
       expect(r['outcome']).toBe('SUBMITTED');
       expect(mine.r).toBe('ATTACHED');
-      // voyageur : un compte de pièces, aucune pièce décrite
+      const file = { kind: 'HOST_FILE', takenBy: 'HOST', mime: 'image/jpeg', receivedAt: J0 };
+      // voyageur : la pièce est décrite, son identifiant n'est pas rendu
       const g = (await tx.query<{ v: Row }>(VIEW, [await session(tx, w.guest), w.trip])).rows[0]!.v;
       const seen = (g['invoices'] as Row[])[0]!;
       expect(seen['evidenceCount']).toBe(1);
-      expect(seen['evidence']).toEqual([]);
-      // ops : la vue de la console (session élevée, dispute.decide) ne décrit aucune pièce
+      expect(seen['evidence']).toEqual([file]);
+      expect(JSON.stringify(g)).not.toContain(mine.id);
+      // ops : la vue de la console (session élevée, dispute.decide) décrit la pièce
       const ops = await staff(tx, 'OPS_AGENT', [c.country]);
       const read = (
         await tx.query<Row>(STAFF_VIEW, [await elevated(tx, ops), uuid(), r['invoice_id']])
       ).rows[0]!;
       expect(read['outcome']).toBe('OK');
-      expect((read['body'] as Row)['evidence']).toEqual([]);
+      expect(read['body']).toMatchObject({
+        evidenceCount: 1,
+        evidence: [{ ...file, fileId: mine.id, deleted: false }],
+      });
+      expect(((read['body'] as Row)['evidence'] as Row[])[0]!['sha256']).toMatch(/^[0-9a-f]{64}$/);
     });
   });
 
-  // CONSTAT F-L3-FRA-02 → suite (US-706) : toute pièce retenue à la demande est visible de ceux qui
-  // la jugent (voyageur avant de payer, ops avant de décider) — ou n'est pas admise
-  it.fails(
-    'RT-L3-S01 — CONSTAT F-L3-FRA-02 : chaque pièce retenue d’une demande est décrite au voyageur (vue) comme à l’ops (console)',
-    async () => {
-      await asApi(async (tx) => {
-        const { w, r } = await hostFileOnly(tx);
-        expect(r['outcome']).toBe('SUBMITTED');
-        // pièces retenues : le compte vu du voyageur (cardinalité de la demande)
-        const guestView = (await tx.query<{ v: Row }>(VIEW, [await session(tx, w.guest), w.trip]))
-          .rows[0]!.v;
-        const kept = (guestView['invoices'] as Row[])[0]!['evidenceCount'] as number;
-        expect(kept).toBe(1);
-        expect(((guestView['invoices'] as Row[])[0]!['evidence'] as unknown[]).length).toBe(kept);
-        const ops = await staff(tx, 'OPS_AGENT', [c.country]);
-        const read = (
-          await tx.query<Row>(STAFF_VIEW, [await elevated(tx, ops), uuid(), r['invoice_id']])
-        ).rows[0]!;
-        expect(read['outcome']).toBe('OK');
-        expect(((read['body'] as Row)['evidence'] as unknown[]).length).toBe(kept);
-      });
-    },
-  );
+  // CONSTAT F-L3-FRA-02 → corrigé par US-706 suite (0182, ADR-202) : toute pièce retenue à la
+  // demande est visible de ceux qui la jugent (it.fails inversé en test de comportement)
+  it('RT-L3-S01 — CONSTAT F-L3-FRA-02 (corrigé) : chaque pièce retenue d’une demande est décrite au voyageur (vue) comme à l’ops (console)', async () => {
+    await asApi(async (tx) => {
+      const { w, r } = await hostFileOnly(tx);
+      expect(r['outcome']).toBe('SUBMITTED');
+      // pièces retenues : le compte vu du voyageur (cardinalité de la demande)
+      const guestView = (await tx.query<{ v: Row }>(VIEW, [await session(tx, w.guest), w.trip]))
+        .rows[0]!.v;
+      const kept = (guestView['invoices'] as Row[])[0]!['evidenceCount'] as number;
+      expect(kept).toBe(1);
+      expect(((guestView['invoices'] as Row[])[0]!['evidence'] as unknown[]).length).toBe(kept);
+      const ops = await staff(tx, 'OPS_AGENT', [c.country]);
+      const read = (
+        await tx.query<Row>(STAFF_VIEW, [await elevated(tx, ops), uuid(), r['invoice_id']])
+      ).rows[0]!;
+      expect(read['outcome']).toBe('OK');
+      expect(((read['body'] as Row)['evidence'] as unknown[]).length).toBe(kept);
+    });
+  });
 
   it('RT-L3-S01 (L3-PM-25) — observation (faible, comme Turo) : le montant du carburant n’est pas lié à l’écart des jauges — un huitième manquant est demandé au plafond du pays', async () => {
     await asApi(async (tx) => {

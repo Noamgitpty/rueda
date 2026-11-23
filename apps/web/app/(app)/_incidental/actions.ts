@@ -148,6 +148,11 @@ export async function cancelIncidentalAction(
   _prev: IncidentalFormState,
   form: FormData,
 ): Promise<IncidentalFormState> {
+  // demande contestée : l'annulation est définitive (ADR-202) ; rien n'est envoyé sans la
+  // confirmation de l'hôte
+  if (short(form, 'disputed') === 'yes' && short(form, 'confirmFinal') !== 'yes') {
+    return { key: 'web.incidental.cancelDisputedFinal' };
+  }
   return invoiceAction(form, 'HOST', 'cancel', 'cancelled');
 }
 

@@ -50,7 +50,8 @@ export interface IncidentalInvoice {
   readonly windowOpen: boolean;
   readonly description: string;
   readonly evidenceCount: number;
-  /** Photos du trip retenues comme pièces (le voyageur les voit avant de payer). */
+  /** Pièces retenues (le voyageur les voit avant de payer) : photos du trip et fichiers de l'hôte
+   * (ADR-202, F-L3-FRA-02). */
   readonly evidence: readonly IncidentalEvidence[];
   readonly disputeReason: string | null;
   readonly decision: 'CHARGE' | 'REJECTED' | null;
@@ -58,13 +59,29 @@ export interface IncidentalInvoice {
   readonly chargeStatus: ChargeStatus | null;
 }
 
-export interface IncidentalEvidence {
-  readonly kind: 'CHECKIN' | 'CHECKOUT';
-  readonly slotCode: string;
-  readonly slotGroup: SlotGroup;
-  readonly takenBy: IncidentalRole;
-  readonly receivedAt: string;
-}
+export type IncidentalEvidence =
+  | {
+      readonly kind: 'CHECKIN' | 'CHECKOUT';
+      readonly slotCode: string;
+      readonly slotGroup: SlotGroup;
+      readonly takenBy: IncidentalRole;
+      readonly receivedAt: string;
+    }
+  | {
+      /** Fichier de preuve déposé par l'hôte, rattaché au trip (type et heure serveur de dépôt). */
+      readonly kind: 'HOST_FILE';
+      readonly takenBy: 'HOST';
+      readonly mime: HostFileMime;
+      readonly receivedAt: string;
+    };
+
+export const HOST_FILE_MIMES = ['image/jpeg', 'image/webp'] as const;
+export type HostFileMime = (typeof HOST_FILE_MIMES)[number];
+/** Nom court du type de fichier affiché au lecteur (jamais traduit : sigle du format). */
+export const HOST_FILE_FORMAT: Readonly<Record<HostFileMime, string>> = {
+  'image/jpeg': 'JPEG',
+  'image/webp': 'WebP',
+};
 
 export interface IncidentalPhoto {
   readonly fileId: string;
@@ -101,6 +118,12 @@ const has = <T extends string>(list: readonly T[], v: unknown): v is T =>
   (list as readonly unknown[]).includes(v);
 
 function evidenceOf(e: unknown): IncidentalEvidence | null {
+  if (isObj(e) && e['kind'] === 'HOST_FILE') {
+    if (e['takenBy'] !== 'HOST' || !has(HOST_FILE_MIMES, e['mime']) || !isTime(e['receivedAt'])) {
+      return null;
+    }
+    return { kind: 'HOST_FILE', takenBy: 'HOST', mime: e['mime'], receivedAt: e['receivedAt'] };
+  }
   if (
     !isObj(e) ||
     (e['kind'] !== 'CHECKIN' && e['kind'] !== 'CHECKOUT') ||

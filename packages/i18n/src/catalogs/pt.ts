@@ -3799,7 +3799,8 @@ export const PT_MESSAGES = {
   'common.incidental.fuelPrepaid':
     'O viajante comprou um extra nesta viagem: o combustível não é cobrado.',
   'common.incidental.amountAboveCap': 'O valor passa do máximo permitido para este custo.',
-  'common.incidental.duplicate': 'Já existe um pedido deste tipo em andamento para esta viagem.',
+  'common.incidental.duplicate':
+    'Este tipo de custo não pode mais ser pedido para esta viagem: já existe um pedido, ele foi recusado ou foi cancelado depois de uma contestação.',
   'common.incidental.notCancellable': 'Este pedido não pode mais ser cancelado.',
   'common.incidental.notOpen': 'Esta cobrança não espera mais a sua resposta.',
   'common.incidental.responseWindowClosed':
@@ -3916,6 +3917,14 @@ export const PT_MESSAGES = {
   'web.incidental.form.cap': 'Máximo para {fee}: {amount}.',
   'web.incidental.form.allRequested': 'Você já pediu cada tipo de custo para esta viagem.',
   'web.incidental.form.capMissing': '{fee}: ainda não pode ser pedido aqui.',
+  // US-706 suite (ADR-202) : fichier de l’hôte décrit ; annulation d’une demande contestée définitive
+  'web.incidental.evidenceHostFile': 'Foto enviada pelo anfitrião · {format} · recebida em {date}',
+  'web.incidental.cancelDisputedFinal':
+    'O viajante contestou este custo. Cancelar o pedido é definitivo: este custo não poderá mais ser pedido para esta viagem.',
+  'web.incidental.cancelDisputedConfirm':
+    'Entendo: este custo não poderá mais ser pedido para esta viagem',
+  'web.incidental.form.abandonedTypes':
+    'Não oferecido de novo: {fees}. Um pedido cancelado depois de uma contestação, ou recusado por {brand}, é definitivo para esta viagem.',
   // US-318 (ADR-198) : réponses des routes des sinistres d’un trip (incident, amendes, péages, fourrière)
   'common.tripClaims.notFound': 'Não encontramos esta viagem.',
   'common.tripClaims.incidentNotOpen':

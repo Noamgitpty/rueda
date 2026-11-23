@@ -97,6 +97,10 @@ export interface WorldOptions {
   readonly guest?: string;
   /** Compte d'hôte existant (même titulaire pour deux trips). */
   readonly org?: string;
+  /** Début et fin (rendu) du trip ; défaut : START et END (2097). Une autre preuve passe sa propre
+   * année virtuelle. */
+  readonly start?: string;
+  readonly end?: string;
 }
 
 export async function photo(tx: Tx, trip: string, kind: string, slot: string, role = 'HOST') {
@@ -112,6 +116,8 @@ export async function photo(tx: Tx, trip: string, kind: string, slot: string, ro
 
 /** Trip rendu à END (heure de la base), photos des deux séries, validations, loyer par carte. */
 export async function world(tx: Tx, c: CountryCase, o: WorldOptions = {}): Promise<World> {
+  const start = o.start ?? START;
+  const end = o.end ?? END;
   let trip = uuid();
   const guest = o.guest ?? uuid();
   if (o.extras === true) {
@@ -122,8 +128,8 @@ export async function world(tx: Tx, c: CountryCase, o: WorldOptions = {}): Promi
         [
           c.country,
           guest,
-          START,
-          END,
+          start,
+          end,
           JSON.stringify([
             { type: 'TRIP_PRICE', amountMinor: '20000' },
             { type: 'EXTRAS', amountMinor: '1000' },
@@ -140,11 +146,11 @@ export async function world(tx: Tx, c: CountryCase, o: WorldOptions = {}): Promi
       c.country,
       c.currency,
       c.timezone,
-      START,
-      END,
+      start,
+      end,
     ]);
   }
-  await tx.query(`SELECT pg_catalog.set_config('app.virtual_now', $1, true)`, [START]);
+  await tx.query(`SELECT pg_catalog.set_config('app.virtual_now', $1, true)`, [start]);
   const fuelOut = await photo(tx, trip, 'CHECKIN', 'FUEL');
   const [out, back] = o.fuel ?? [8, 5];
   for (const role of ['HOST', 'GUEST']) {
@@ -158,7 +164,7 @@ export async function world(tx: Tx, c: CountryCase, o: WorldOptions = {}): Promi
   if (o.terminatedEarly === true) {
     await tx.query('SELECT test_fixture.us706_terminated_early($1)', [trip]);
   }
-  await tx.query(`SELECT pg_catalog.set_config('app.virtual_now', $1, true)`, [END]);
+  await tx.query(`SELECT pg_catalog.set_config('app.virtual_now', $1, true)`, [end]);
   const fuelIn = await photo(tx, trip, 'CHECKOUT', 'FUEL');
   const inner = await photo(tx, trip, 'CHECKOUT', 'INT_01');
   const guestInner = await photo(tx, trip, 'CHECKOUT', 'INT_02', 'GUEST');

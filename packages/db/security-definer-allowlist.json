@@ -2819,6 +2819,13 @@
       "story": "US-706"
     },
     {
+      "signature": "core.claim_incidental_host_file_meta(uuid,uuid[])",
+      "family": "cmd_hold",
+      "owner": "cmd_hold_owner",
+      "execute": ["cmd_money_owner"],
+      "story": "US-706"
+    },
+    {
       "signature": "core.claim_incidental_store_host_file(uuid,uuid,uuid,text,bigint,bytea)",
       "family": "cmd_hold",
       "owner": "cmd_hold_owner",

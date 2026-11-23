@@ -53,6 +53,12 @@ export interface FakeIncidentalTrip {
   responseHours: number;
   capMinor: bigint | null;
   photos: IncidentalPhotoRow[];
+  /** Fichiers de preuve de l'hôte rattachés au trip (ADR-197 n° 19, décrits par ADR-202). */
+  hostFiles: {
+    readonly fileId: string;
+    readonly mime: 'image/jpeg' | 'image/webp';
+    readonly receivedAt: Date;
+  }[];
   invoices: FakeInvoice[];
 }
 
@@ -71,6 +77,7 @@ export function fakeIncidentalTrip(
     responseHours: 72,
     capMinor: 15000n,
     photos,
+    hostFiles: [],
     invoices: [],
   };
 }
@@ -101,7 +108,12 @@ export class FakeIncidentalStore implements IncidentalStore {
   }
 
   #known(t: FakeIncidentalTrip, ids: readonly string[]): boolean {
-    return ids.length > 0 && ids.every((id) => t.photos.some((p) => p.fileId === id));
+    return (
+      ids.length > 0 &&
+      ids.every(
+        (id) => t.photos.some((p) => p.fileId === id) || t.hostFiles.some((f) => f.fileId === id),
+      )
+    );
   }
 
   view(proof: Buffer, tripId: string): Promise<IncidentalViewRow | null> {
@@ -121,15 +133,25 @@ export class FakeIncidentalStore implements IncidentalStore {
       windowOpen: i.status === 'AWAITING_GUEST' && now < i.responseDueAt,
       description: i.description,
       evidenceCount: i.evidence.length,
-      evidence: t.photos
-        .filter((ph) => i.evidence.includes(ph.fileId))
-        .map((ph) => ({
-          kind: ph.kind,
-          slotCode: ph.slotCode,
-          slotGroup: ph.slotGroup,
-          takenBy: ph.takenBy,
-          receivedAt: t.endedAt ?? now,
-        })),
+      evidence: [
+        ...t.photos
+          .filter((ph) => i.evidence.includes(ph.fileId))
+          .map((ph) => ({
+            kind: ph.kind,
+            slotCode: ph.slotCode,
+            slotGroup: ph.slotGroup,
+            takenBy: ph.takenBy,
+            receivedAt: t.endedAt ?? now,
+          })),
+        ...t.hostFiles
+          .filter((f) => i.evidence.includes(f.fileId))
+          .map((f) => ({
+            kind: 'HOST_FILE' as const,
+            takenBy: 'HOST' as const,
+            mime: f.mime,
+            receivedAt: f.receivedAt,
+          })),
+      ],
       disputeReason: i.disputeReason,
       decision: null,
       decisionRationale: null,
@@ -192,8 +214,8 @@ export class FakeIncidentalStore implements IncidentalStore {
       t.invoices.some(
         (i) =>
           i.feeType === input.feeType &&
-          i.status !== 'REJECTED' &&
-          i.status !== 'CANCELLED_BY_HOST',
+          // comme la base (ADR-202) : seule une annulation AVANT toute contestation libère le type
+          (i.status !== 'CANCELLED_BY_HOST' || i.disputeReason !== null),
       )
     ) {
       return out('INCIDENTAL_DUPLICATE');

@@ -173,6 +173,38 @@ describe('US-706 — routes des frais annexes (contrat OpenAPI)', () => {
     const c = await post(w, `${base(w)}/${id}/cancel`, host(w), {});
     expect(c.status).toBe(200);
     expect(c.json).toEqual({ invoiceId: id, status: 'CANCELLED_BY_HOST' });
+    // ADR-202 (F-L3-FRA-01) : annulée APRÈS contestation, le même frais ne se redemande pas
+    const again = await post(w, base(w), host(w), fee());
+    expect(again.status).toBe(409);
+    expect(again.json).toMatchObject({ code: 'INCIDENTAL_DUPLICATE' });
+  });
+
+  it('ADR-202 (F-L3-FRA-02) : un fichier de l’hôte retenu comme pièce est décrit au voyageur (type, heure serveur de dépôt), sans son identifiant', async () => {
+    const w = await world();
+    apps.push(w.app);
+    const file = '0190a1b2-c3d4-7e5f-8a9b-00000000aa03';
+    const received = new Date(w.end.getTime() + HOUR);
+    w.store.trips.get(w.trip)!.hostFiles.push({
+      fileId: file,
+      mime: 'image/webp',
+      receivedAt: received,
+    });
+    const r = await post(w, base(w), host(w), fee({ evidenceFileIds: [file] }));
+    expect(r.status).toBe(200);
+    const g = await w.app.api.request('GET', base(w), { headers: guest(w) });
+    expect(g.status).toBe(200);
+    const inv = (g.json as { invoices: { evidenceCount: number; evidence: unknown[] }[] })
+      .invoices[0]!;
+    expect(inv.evidenceCount).toBe(1);
+    expect(inv.evidence).toEqual([
+      {
+        kind: 'HOST_FILE',
+        takenBy: 'HOST',
+        mime: 'image/webp',
+        receivedAt: received.toISOString(),
+      },
+    ]);
+    expect(JSON.stringify(g.json)).not.toContain(file);
   });
 
   it('critère 2 et RT-L3-S02 : hors liste fermée ⇒ 422 ; sans pièce ⇒ 422 CLAIM_EVIDENCE_MISSING ; trip non rendu, délai dépassé, doublon ⇒ 409 ; plafond absent ⇒ 503', async () => {
