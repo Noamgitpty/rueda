@@ -594,6 +594,46 @@
     "US-313": {
       "require": ["code", "architecture", "securite", "argent", "qa"],
       "why": "porte du lot 3 : pré-mortem, red team remise / preuves / versements (scénarios de l ex-porte LB, T53, T55, RLS-26, RLS-28) et post-mortem ; même périmètre de revue que US-222 ; Revue design : NON ; chemins de US-222 (db, i18n, money, fake-adapters, config, design-tokens) ; lot 3 (19 v3 §3.4), inscrite avant son démarrage ; PROPOSÉ, décision de l orchestrateur 2026-11-19"
+    },
+    "US-401": {
+      "require": ["code", "architecture", "securite", "argent", "qa"],
+      "why": "revue de sécurité avant ouverture (ADM-033, 17 §6.6, C19, NN6) : modèle de menaces, test ciblé, contrôle des secrets et de la portée PCI, suites RLS-1 à RLS-28, IDOR entre hôtes et C1 à C20 sous les rôles de production, interrupteurs de mise en service et décisions FINANCE à deux personnes (RLS-24, RLS-27) : sécurité, schéma ; argent ajouté à la liste (fail-closed : portée PCI, décisions FINANCE, funds_holding_enabled et payouts_enabled examinés) ; Revue design : NON ; second vérificateur indépendant (19 notes) ; chemins db, config, fake-adapters (C19) ; lot 4 (19 v3 §3.5), inscrite avant son démarrage ; PROPOSÉ, décision de l orchestrateur 2026-11-23"
+    },
+    "US-402": {
+      "require": ["code", "architecture", "securite", "qa"],
+      "why": "restauration testée et retour arrière exécuté (ADM-034, ADM-035) : rapport de restauration avec RPO / RTO mesurés, retour arrière exécuté au moins une fois, exercice rejoué depuis le runbook US-405 : infrastructure et déploiement (sécurité, architecture), preuve rejouée (qa) ; aucun montant ; Revue design : NON ; chemins db (comme US-112) ; lot 4 (19 v3 §3.5), inscrite avant son démarrage ; PROPOSÉ, décision de l orchestrateur 2026-11-23"
+    },
+    "US-403": {
+      "require": ["code", "architecture", "securite", "argent", "ux", "qa"],
+      "why": "recette interne PA et PY et tests d utilisabilité (18 §1.0, 10b §5.2, T1 à T15, HT1 à HT9) : parcours bout en bout sur FAKE (recherche, réservation, paiement par jambes, remise, retour, avis, versement ON_HOLD), bogues triés et corrigés : écrans (Revue design : OUI, ux), QA ; argent (paiement par jambes, versements) ; securite et architecture ajoutées (fail-closed : fixtures de recette dans packages/db, pathRules de packages/db) ; chemins db, i18n, ui, design-tokens, fake-adapters ; lot 4 (19 v3 §3.5), inscrite avant son démarrage ; PROPOSÉ, décision de l orchestrateur 2026-11-23"
+    },
+    "US-404": {
+      "require": ["code", "architecture", "securite", "argent", "qa"],
+      "why": "dossier de sortie du build de la bêta P2P (17 §10, 18 §3 et §4) : atteste C1 à C20, RLS-1 à RLS-28, L0-01 à L0-09, vecteurs dorés T01 à T68 et TJ01 à TJ21 en USD et en PYG, oracle C12 et rapprochement par jambe à 0, état de chaque interrupteur par pays et ce qui manque pour la mise en service : argent, sécurité, QA (preuves attestées), architecture ; Revue design : NON ; produit par l orchestrateur, re-vérifié par US-408 ; aucun chemin packages/ ; lot 4 (19 v3 §3.5), inscrite avant son démarrage ; PROPOSÉ, décision de l orchestrateur 2026-11-23"
+    },
+    "US-405": {
+      "require": ["code", "architecture", "securite", "qa"],
+      "why": "runbooks d exploitation (PLT-003, 17 §6.4 et §6.5, ADM-035, LEG-010) : déploiement, retour arrière, exercice de restauration, incident de sécurité, panne du PSP ou du KYC, DSR, rotation des clés et des secrets, rejoués en préproduction par un agent qui ne les a pas écrits : sécurité (secrets, déploiement, données personnelles), architecture, QA (rejeu) ; aucun montant calculé ; Revue design : NON ; aucun chemin packages/ (docs/ops) ; lot 4 (19 v3 §3.5), inscrite avant son démarrage ; PROPOSÉ, décision de l orchestrateur 2026-11-23"
+    },
+    "US-406": {
+      "require": ["code", "architecture", "securite", "qa"],
+      "why": "checklist de transmission exercée (PLT-003, DEC-FONDATEUR-08) : comptes et propriété, secrets, dépôts, environnements, documentation, runbooks, tests ; un agent neuf installe depuis zéro, lance toutes les suites, déploie en préproduction et reprend une story ouverte : sécurité (secrets, comptes), architecture, QA (suites rejouées) ; aucun montant ; Revue design : NON ; aucun chemin packages/ ; lot 4 (19 v3 §3.5), inscrite avant son démarrage ; PROPOSÉ, décision de l orchestrateur 2026-11-23"
+    },
+    "US-407": {
+      "require": ["code", "architecture", "securite", "argent", "qa"],
+      "why": "porte du lot 4 : pré-mortem au démarrage, red team en préproduction (paiement double ou falsifié, hold abusif, paiement hors plateforme, IDOR entre hôtes, fuite de données du voyageur, injection, élévation de rôle, ordre de paiement rejoué, fraudes P2P, jambe de l assureur, interrupteurs de mise en service ; N-516, N-520) et post-mortem du build de la bêta (lots 0 à 4) ; même périmètre de revue que US-313 ; Revue design : NON ; agent sans accès en écriture au code, famille B de préférence ; chemins de US-313 (db, i18n, money, fake-adapters, config, design-tokens) ; lot 4 (19 v3 §3.5), inscrite avant son démarrage ; PROPOSÉ, décision de l orchestrateur 2026-11-23"
+    },
+    "US-408": {
+      "require": ["code", "architecture", "securite", "argent", "qa"],
+      "why": "re-vérification indépendante avant mise en production (19 §1.5, §1.8, §1.9) : suites rejouées, changements argent / sécurité / réservation relus et comparés aux vecteurs et à 16, rapport go / no-go joint au dossier de sortie, famille B pour l argent, la sécurité / RLS et la concurrence : argent, sécurité, architecture, QA ; Revue design : NON ; aucun chemin packages/ ; lot 4 (19 v3 §3.5), inscrite avant son démarrage ; PROPOSÉ, décision de l orchestrateur 2026-11-23"
+    },
+    "US-409": {
+      "require": ["code", "architecture", "securite", "argent", "qa"],
+      "why": "surveillance post-mise en service et triage des bogues (C12, 17 §6.3, §1.8) : alertes C12 (rapprochement), erreurs, webhooks en échec, retards de remboursement, bogue S1 à S4 avec délai, test de non-régression et post-mortem pour un S1 : argent (C12, remboursements), sécurité (observabilité, journaux sans secret), architecture, QA ; Revue design : NON ; chemins db, i18n, config, fake-adapters ; lot 4 (19 v3 §3.5), inscrite avant son démarrage ; PROPOSÉ, décision de l orchestrateur 2026-11-23"
+    },
+    "US-410": {
+      "require": ["code", "architecture", "securite", "qa"],
+      "why": "fermer F-RLS-03 (S-07, EXC-003, ADR-089, revue sécurité #92 n° 3 ; rattachée à US-003) : ouverture de session par contexte signé HMAC ou rôle de connexion distinct, refus sans preuve signée, RT-RLS-18 inversé sous app_api, app_worker et app_anon en PA et en PY, provisionnement et rotation de la clé sans coupure, échec fermé si la clé est absente : sécurité, architecture ; qa ajoutée aux revues proposées au BOARD (fail-closed : tests L0 et d intégration livrés) ; Revue design : NON ; aucun montant ; chemins db ; lot 4 (19 v3 §3.5), inscrite avant son démarrage ; PROPOSÉ, décision de l orchestrateur 2026-11-23"
     }
   },
   "pathOwners": {
@@ -626,7 +666,10 @@
       "US-311",
       "US-312",
       "US-313",
-      "US-709"
+      "US-709",
+      "US-401",
+      "US-407",
+      "US-409"
     ],
     "packages/db/": [
       "US-001",
@@ -734,7 +777,13 @@
       "US-311",
       "US-312",
       "US-313",
-      "US-319"
+      "US-319",
+      "US-401",
+      "US-402",
+      "US-403",
+      "US-407",
+      "US-409",
+      "US-410"
     ],
     "packages/money/": [
       "US-015",
@@ -767,7 +816,8 @@
       "US-311",
       "US-312",
       "US-313",
-      "US-709"
+      "US-709",
+      "US-407"
     ],
     "packages/i18n/": [
       "US-014",
@@ -851,7 +901,10 @@
       "US-311",
       "US-312",
       "US-313",
-      "US-709"
+      "US-709",
+      "US-403",
+      "US-407",
+      "US-409"
     ],
     "packages/design-tokens/": [
       "US-030",
@@ -863,7 +916,9 @@
       "US-044",
       "US-122",
       "US-222",
-      "US-313"
+      "US-313",
+      "US-403",
+      "US-407"
     ],
     "packages/ui/": [
       "US-032",
@@ -919,7 +974,8 @@
       "US-708",
       "US-314",
       "US-318",
-      "US-311"
+      "US-311",
+      "US-403"
     ],
     "packages/fake-adapters/": [
       "US-019",
@@ -964,7 +1020,11 @@
       "US-311",
       "US-312",
       "US-313",
-      "US-709"
+      "US-709",
+      "US-401",
+      "US-403",
+      "US-407",
+      "US-409"
     ]
   },
   "sharedPaths": [
