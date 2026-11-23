@@ -234,6 +234,26 @@ describe.each(COUNTRIES)('RT-L3 variantes contre la PR 300 ($country, $currency)
     });
   });
 
+  // NOUVELLES ATTAQUES (revue sécurité et argent de cde5b982) : la lettre confondue EN TÊTE du
+  // numéro (« PV I00200 », « PV L00200 » pour « PV 100200 » ; « PV O00200 » pour « PV 000200 »)
+  it('RT-L3-S04 — F-L3-SIN-03 (variante : lettre en tête du numéro) : « PV 100200 » puis « PV I00200 » ou « PV L00200 », « PV 000200 » puis « PV O00200 », sur le même trip, sont refusés TRAFFIC_DUPLICATE ; une seule refacturation par PV', async () => {
+    await asApi(async (tx) => {
+      for (const [base, variant] of [
+        ['PV 100200', 'PV I00200'],
+        ['PV 100200', 'pv l00200'],
+        ['PV 000200', 'PV O00200'],
+      ] as const) {
+        const r = await twoSpellings(tx, base, variant);
+        expect(r.second, variant).toMatchObject({
+          outcome: 'TRAFFIC_DUPLICATE',
+          charge_id: null,
+          body: { chargeId: r.first['charge_id'] },
+        });
+        expect(await chargesOn(tx, r.trip), variant).toHaveLength(1);
+      }
+    });
+  });
+
   // -----------------------------------------------------------------------------------------
   // plafond : par refacturation, jamais cumulé par trip
   async function threeUnderTheCap(tx: Tx): Promise<{
@@ -308,12 +328,12 @@ describe.each(COUNTRIES)('RT-L3 variantes contre la PR 300 ($country, $currency)
         .filter((row) => row['ops_review_required'] !== true)
         .reduce((x, row) => x + BigInt(String(row['amount_minor'])), 0n);
       expect(free <= r.cap).toBe(true);
-      expect(total <= r.cap || r.outcomes[1] !== 'DECLARED' || r.reviews[1] === true).toBe(true);
-      // ni la deuxième (120 %) ni la troisième (180 %) ne passent sans l'ops
+      expect(total > r.cap).toBe(true);
+      // issue réelle (revue sécurité et argent de cde5b982) : ni la deuxième (120 %) ni la
+      // troisième (180 %) ne passent sans l'ops ; elles sont enregistrées EN REVUE
       for (const i of [1, 2]) {
-        expect(r.outcomes[i] !== 'DECLARED' || r.reviews[i] === true, `déclaration ${i + 1}`).toBe(
-          true,
-        );
+        expect(r.outcomes[i], `déclaration ${i + 1}`).toBe('DECLARED');
+        expect(r.reviews[i], `déclaration ${i + 1}`).toBe(true);
       }
       // la base refuse tout débit d'une refacturation en revue hors décision de l'ops
       const check = await tx.query<{ def: string }>(
@@ -364,6 +384,28 @@ describe.each(COUNTRIES)('RT-L3 variantes contre la PR 300 ($country, $currency)
       expect(r.a['outcome']).toBe('DECLARED');
       expect(r.b['outcome']).not.toBe('DECLARED');
       expect(r.b['outcome']).toBe('TRAFFIC_DUPLICATE');
+    });
+  });
+
+  // NOUVELLE ATTAQUE (revue sécurité et argent de cde5b982) : le même numéro sur deux trips du même
+  // hôte, avec le premier caractère changé (« PV 100200 » puis « PV I00200 »)
+  it('RT-L3-S04 — F-L3-SIN-05 (variante : lettre en tête du numéro) : « PV 100200 » sur un trip puis « PV I00200 » sur un autre trip du même hôte est refusé TRAFFIC_DUPLICATE ; un seul voyageur refacturé', async () => {
+    await asApi(async (tx) => {
+      const org = uuid();
+      const wa = await trafficWorld(tx, c, org);
+      const wb = await trafficWorld(tx, c, org);
+      const a = await declareOn(tx, wa, 'FINE', FINE, 'PV 100200');
+      expect(a['outcome']).toBe('DECLARED');
+      for (const variant of ['PV I00200', 'PV L00200', 'pv-1oo2oo']) {
+        const b = await declareOn(tx, wb, 'FINE', FINE, variant);
+        expect(b, variant).toMatchObject({
+          outcome: 'TRAFFIC_DUPLICATE',
+          charge_id: null,
+          body: { chargeId: a['charge_id'] },
+        });
+      }
+      expect(await chargesOn(tx, wa.trip)).toHaveLength(1);
+      expect(await chargesOn(tx, wb.trip)).toHaveLength(0);
     });
   });
 });

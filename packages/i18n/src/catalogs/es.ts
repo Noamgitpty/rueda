@@ -4072,7 +4072,7 @@ export const ES_MESSAGES = {
     'El viajero tendrá {n} h para pagar o impugnar. No se cobra nada antes; si impugna, lo decide {brand}.',
   'web.traffic.sent.due': 'El viajero tiene hasta el {time} para pagar o impugnar.',
   'web.traffic.opsReview':
-    'Con este cargo, el total cobrado en este viaje supera el tope: nuestro equipo revisa la solicitud antes de cualquier cobro al viajero.',
+    'Con este cargo, el total reclamado en este viaje supera el tope: nuestro equipo revisa la solicitud antes de cualquier cobro al viajero.',
   'web.traffic.status.VOID': 'Anulado',
   'web.traffic.guest.AWAITING_GUEST': 'Respuesta del viajero esperada antes del {time}',
   'web.traffic.guest.expired': 'El viajero no respondió antes del {time}',

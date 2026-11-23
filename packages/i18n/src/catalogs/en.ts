@@ -3982,7 +3982,7 @@ export const EN_MESSAGES = {
     'The traveler will have {n} h to pay or dispute. Nothing is charged before then; if they dispute, {brand} decides.',
   'web.traffic.sent.due': 'The traveler has until {time} to pay or dispute.',
   'web.traffic.opsReview':
-    'With this charge, the total for this trip goes over the cap: our team reviews the request before the guest is charged.',
+    'With this charge, the total for this trip goes over the cap: our team reviews the request before the traveler is charged.',
   'web.traffic.status.VOID': 'Voided',
   'web.traffic.guest.AWAITING_GUEST': 'Waiting for the traveler’s answer before {time}',
   'web.traffic.guest.expired': 'The traveler did not answer before {time}',

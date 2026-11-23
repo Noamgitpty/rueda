@@ -190,7 +190,7 @@ const asApi = (virtualNow: string, body: (tx: Tx) => Promise<void>): Promise<voi
   withRole('app_api', (api) => withTestTransaction(api, { virtualNow }, body));
 
 describe('US-318 suite 2 — clé canonique de la référence (ADR-203)', () => {
-  it('F-L3-SIN-03 : casse, séparateurs, zéros de tête et lettres O / I / L dans un numéro donnent la même clé ; préfixe, lettre avant le premier chiffre et zéros après un séparateur restent distincts (limites assumées d’ADR-203)', async () => {
+  it('F-L3-SIN-03 : casse, séparateurs, zéros de tête et lettres O / I / L dans un numéro (même en tête : revue sécurité et argent de cde5b982) donnent la même clé ; préfixe et zéros après un séparateur restent distincts (limites assumées d’ADR-203)', async () => {
     await asApi(D, async (tx) => {
       const key = async (r: string): Promise<string> =>
         (await tx.query<{ k: string }>('SELECT test_fixture.us318t_reference_key($1) AS k', [r]))
@@ -207,12 +207,20 @@ describe('US-318 suite 2 — clé canonique de la référence (ADR-203)', () => 
         ['PV 1l23', 'PV1123'],
         ['PV 000', 'PV0'],
         ['PV 2066-0042', 'PV20660042'],
+        // lettre confondue EN TÊTE du numéro (revue sécurité et argent de cde5b982)
+        ['PV I00200', 'PV100200'],
+        ['PV L00200', 'PV100200'],
+        ['pv i00200', 'PV100200'],
+        ['PV O123', 'PV123'],
+        ['PV O00200', 'PV200'],
+        ['PV 000200', 'PV200'],
+        ['PV OI23', 'PV123'],
         ['PV20660042', 'PV20660042'],
         // limites assumées (observation) : aucune équivalence de texte libre prétendue
         ['A-77-4410', 'A774410'],
         ['77-4410', '774410'],
-        ['BOL 2024', 'BOL2024'],
-        ['PV O123', 'PVO123'],
+        ['BOL 2024', 'B12024'],
+        ['PV OIL', 'PVOIL'],
         ['PV 12-0034', 'PV120034'],
         ['PV 12-34', 'PV1234'],
       ] as const) {
@@ -252,6 +260,11 @@ describe.each(COUNTRIES)('US-318 suite 2 — refacturations ($country, $currency
         ['PV 1OO2OO', second['charge_id']],
         ['pv 1oo2oo', second['charge_id']],
         ['PV-100-200', second['charge_id']],
+        // lettre confondue en tête du numéro (revue sécurité et argent de cde5b982)
+        ['PV O123', first['charge_id']],
+        ['PV OO0123', first['charge_id']],
+        ['PV I00200', second['charge_id']],
+        ['PV L00200', second['charge_id']],
       ] as const) {
         for (const preview of [true, false]) {
           expect(
@@ -290,10 +303,18 @@ describe.each(COUNTRIES)('US-318 suite 2 — refacturations ($country, $currency
       const fa = await shoot(tx, h, wa.trip, 'DAMAGE_01');
       const fb = await shoot(tx, h, wb.trip, 'DAMAGE_01');
       const fo = await shoot(tx, ho, other.trip, 'DAMAGE_01');
-      const ref = `PV-${uuid().slice(0, 8)}`;
+      // numéro tout numérique commençant par 1 : la variante change son premier caractère
+      const digits = `1${String(randomBytes(4).readUInt32BE(0) % 100000).padStart(5, '0')}`;
+      const ref = `PV-${digits}`;
       const first = await declare(tx, h, wa.trip, { amount: a['fine']!, file: fa, ref });
       expect(first['outcome']).toBe('DECLARED');
-      for (const spelled of [ref, ref.toLowerCase().replace('-', ' ')]) {
+      for (const spelled of [
+        ref,
+        ref.toLowerCase().replace('-', ' '),
+        `PV I${digits.slice(1)}`,
+        `pv l${digits.slice(1)}`,
+        `PV 0${digits}`,
+      ]) {
         for (const preview of [true, false]) {
           expect(
             await declare(tx, h, wb.trip, { amount: a['fine']!, file: fb, ref: spelled, preview }),
@@ -480,11 +501,16 @@ describe.each(COUNTRIES)('US-318 suite 2 — refacturations ($country, $currency
         ops_review_required: true,
         charge_basis: 'OPS_DECISION',
       });
-      for (const r of rows) {
-        if (r['ops_review_required'] === true) {
-          expect(r['charge_basis'] === null || r['charge_basis'] === 'OPS_DECISION').toBe(true);
-        }
-      }
+      // en revue : payée et silencieuse sans débit, contestée débitée sur décision de l'ops
+      const reviewed = rows.filter((r) => r['ops_review_required'] === true);
+      expect(reviewed).toHaveLength(3);
+      expect(new Map(reviewed.map((r) => [String(r['id']), r['charge_basis']]))).toEqual(
+        new Map([
+          [ids['paid']!, null],
+          [ids['silent']!, null],
+          [ids['disputed']!, 'OPS_DECISION'],
+        ]),
+      );
     });
     // sous le seuil (après le rejet) : la règle d'US-318 suite, échéance passée sans réponse ⇒ débitée
     await asWorker(plus(DUE, 3 * HOUR), async (tx) => {
@@ -560,6 +586,77 @@ describe.each(COUNTRIES)('US-318 suite 2 — refacturations ($country, $currency
             });
             expect(await charges(two, s.tripB)).toEqual([]);
             expect((await charges(two, s.tripA)).map((r) => r['id'])).toEqual([first['charge_id']]);
+            await two.query('ROLLBACK');
+          } finally {
+            await one.query('ROLLBACK').catch(() => undefined);
+            await two.query('ROLLBACK').catch(() => undefined);
+          }
+        }),
+      ),
+    );
+  });
+
+  it('F-L3-SIN-04 (course) : deux déclarations SIMULTANÉES sur le même trip, chacune à 60 % du seuil cumulé — la seconde attend le verrou puis relit la somme : une seule échappe à la revue de l’ops', async () => {
+    const s = await withRole('app_api', (api) =>
+      withTestTransaction(api, { virtualNow: R_START, commit: true }, async (tx) => {
+        const w = await world(tx, c, uuid(), R_START, R_END);
+        await setNow(tx, plus(R_END, 1000));
+        const h = await session(tx, w.holder);
+        return {
+          h,
+          trip: w.trip,
+          f1: await shoot(tx, h, w.trip, 'DAMAGE_01'),
+          f2: await shoot(tx, h, w.trip, 'DAMAGE_02'),
+        };
+      }),
+    );
+    const sixty = (a['tripCap']! * 6n) / 10n;
+    const call = (file: string, kind: string): unknown[] => [
+      s.h,
+      uuid(),
+      s.trip,
+      kind,
+      plus(R_START, HOUR),
+      sixty.toString(),
+      file,
+      false,
+      `RT-${uuid().slice(0, 8)}`,
+    ];
+    const begin = async (client: Tx): Promise<void> => {
+      await client.query('BEGIN');
+      await setVirtualNow(client, R_AT);
+      await client.query(`SET LOCAL lock_timeout = '15s'`);
+      await client.query(`SET LOCAL statement_timeout = '30s'`);
+    };
+    await withRole('app_worker', (observer) =>
+      withRole('app_api', (one) =>
+        withRole('app_api', async (two) => {
+          try {
+            await begin(one);
+            const first = (await one.query<Row>(DECLARE, call(s.f1, 'FINE'))).rows[0]!;
+            expect(first).toMatchObject({
+              outcome: 'DECLARED',
+              body: { opsReviewRequired: false },
+            });
+            const pid = await backendPid(two);
+            const holder = await backendPid(one);
+            await begin(two);
+            const pending = two.query<Row>(DECLARE, call(s.f2, 'IMPOUND'));
+            await waitUntilBlocked(observer, pid, 'advisory');
+            const b = await observer.query<{ b: number[] }>(
+              'SELECT pg_catalog.pg_blocking_pids($1) AS b',
+              [pid],
+            );
+            expect(b.rows[0]?.b).toContain(holder);
+            await one.query('COMMIT');
+            const second = (await pending).rows[0]!;
+            expect(second).toMatchObject({
+              outcome: 'DECLARED',
+              body: { opsReviewRequired: true },
+            });
+            const rows = await charges(two, s.trip);
+            expect(rows).toHaveLength(2);
+            expect(rows.filter((r) => r['ops_review_required'] !== true)).toHaveLength(1);
             await two.query('ROLLBACK');
           } finally {
             await one.query('ROLLBACK').catch(() => undefined);

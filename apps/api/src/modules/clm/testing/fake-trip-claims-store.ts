@@ -28,11 +28,13 @@ const refKey = (r: string): string =>
   r
     .toUpperCase()
     .replace(/[^A-Z0-9]/g, '')
-    .replace(/[0-9][0-9OIL]*/g, (n) =>
-      n
-        .replace(/O/g, '0')
-        .replace(/[IL]/g, '1')
-        .replace(/^0+(?=.)/, ''),
+    .replace(/[0-9OIL]+/g, (n) =>
+      /[0-9]/.test(n)
+        ? n
+            .replace(/O/g, '0')
+            .replace(/[IL]/g, '1')
+            .replace(/^0+(?=.)/, '')
+        : n,
     );
 
 export interface FakeClaimsTrip {

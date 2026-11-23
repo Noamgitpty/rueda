@@ -11,15 +11,15 @@
 -- Principes (ADR-203, PROPOSÉS, fail-closed, comme Turo adapté au PA / PY) :
 --   1. Clé canonique de la référence (F-L3-SIN-03) : `core.claim_traffic_reference_key`, fonction
 --      IMMUABLE et unique (colonne générée `reference_canonical_key` et déclaration) : majuscules,
---      séparateurs retirés (comme `reference_key` de 0181) ; puis, dans chaque suite qui COMMENCE
---      par un chiffre et ne contient que des chiffres et les lettres O, I, L, la lettre O vaut 0 et
---      I ou L valent 1 ; enfin les zéros de tête de chaque suite de chiffres sont retirés (un zéro
---      seul reste). « PV 000123 » = « PV 123 » ; « PV 100200 » = « PV 1OO2OO » ; « PV 2066-0042 » =
---      « PV20660042 » (0181 inchangé). Les homoglyphes non ASCII restent refusés par le format
---      fermé de 0181. Limites assumées (ADR-203) : un préfixe ajouté ou retiré, une lettre
---      confondue AVANT le premier chiffre d'une suite, des zéros après un séparateur au milieu
---      d'un numéro restent des références distinctes ; le seuil cumulé du trip (revue de l'ops)
---      borne le reste.
+--      séparateurs retirés (comme `reference_key` de 0181) ; puis, dans chaque suite MAXIMALE de
+--      chiffres et de lettres O, I, L qui contient au moins un chiffre (quelle que soit sa première
+--      lettre), O vaut 0 et I ou L valent 1, puis les zéros de tête sont retirés (un zéro seul
+--      reste). « PV 000123 » = « PV 123 » = « PV O123 » ; « PV 100200 » = « PV 1OO2OO » =
+--      « PV I00200 » = « PV L00200 » ; « PV 2066-0042 » = « PV20660042 » (0181 inchangé). Les
+--      homoglyphes non ASCII restent refusés par le format fermé de 0181. Limites assumées
+--      (ADR-203) : un préfixe ajouté ou retiré, des zéros après un séparateur au milieu d'un numéro
+--      restent des références distinctes ; le seuil cumulé du trip (revue de l'ops) borne le
+--      reste.
 --   2. Unicité du PV par compte d'hôte du pays (F-L3-SIN-05) : une référence d'avis désigne une
 --      infraction d'UN véhicule, et un véhicule n'appartient qu'à un compte d'hôte ; l'index unique
 --      partiel `claim_traffic_charge_reference_host_unique` (pays, compte d'hôte, clé canonique)
@@ -116,18 +116,19 @@ CREATE FUNCTION core.claim_traffic_reference_key(p_reference text)
 AS $fn$
   SELECT pg_catalog.string_agg(
            CASE
-             WHEN m.part[1] ~ '^[0-9]' THEN
+             WHEN m.part[1] ~ '[0-9]' THEN
                COALESCE(NULLIF(pg_catalog.ltrim(pg_catalog.translate(m.part[1], 'OIL', '011'), '0'),
                                ''), '0')
              ELSE m.part[1]
            END, '' ORDER BY m.n)
     FROM pg_catalog.regexp_matches(
            pg_catalog.regexp_replace(pg_catalog.upper(p_reference), '[^A-Z0-9]', '', 'g'),
-           '[0-9][0-9OIL]*|[A-Z]', 'g') WITH ORDINALITY AS m(part, n)
+           '[0-9OIL]+|[A-Z]', 'g') WITH ORDINALITY AS m(part, n)
 $fn$;
 COMMENT ON FUNCTION core.claim_traffic_reference_key(text) IS
   'Clé canonique de la référence d''un avis, d''un PV ou d''un reçu (F-L3-SIN-03) : majuscules, '
-  'séparateurs retirés, O → 0 et I / L → 1 dans les suites commençant par un chiffre, zéros de '
+  'séparateurs retirés, O → 0 et I / L → 1 dans les suites maximales de [0-9OIL] contenant un '
+  'chiffre, zéros de '
   'tête des suites de chiffres retirés. Colonne générée reference_canonical_key et déclaration. '
   'US-318 suite 2 (ADR-203).';
 REVOKE ALL ON FUNCTION core.claim_traffic_reference_key(text) FROM PUBLIC;
