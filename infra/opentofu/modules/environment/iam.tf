@@ -8,7 +8,7 @@
 locals {
   admin_secret_arn = aws_db_instance.this.master_user_secret[0].secret_arn
   task_secrets = {
-    api     = ["app_api_password", "rate_limit_key", "staff_mfa_proof_key"]
+    api     = ["app_api_password", "rate_limit_key", "staff_mfa_proof_key", "session_open_key"]
     worker  = ["app_worker_password"]
     migrate = ["migrator_password", "app_api_password", "app_worker_password", "app_anon_password"]
   }

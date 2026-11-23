@@ -15,6 +15,7 @@ import type pg from 'pg';
 import { newToken, phcArgon2id, SESSION_TTL_S } from './iam.ts';
 import { elevate, login, stepNow } from './staff.ts';
 import { uniquePhone } from './unique.ts';
+import { signedOpenParams } from '../../src/testing/index.ts';
 
 export const PROVIDER = 'FAKE';
 const DOCS = '[{"kind":"TOS_GUEST","version":1},{"kind":"PRIVACY","version":1}]';
@@ -141,8 +142,8 @@ export async function person(
   if (v.rows[0]?.ok !== true) throw new Error('vérification d’e-mail refusée');
   const t = newToken();
   const s = await client.query<{ expires_at: Date | null }>(
-    `SELECT core.iam_cmd_open_session($1, $2, $3, $4, 'NONE', NULL, 'vitest') AS expires_at`,
-    [uuid(), userId, t.hash, SESSION_TTL_S],
+    `SELECT core.iam_cmd_open_session($1, $2, $3, $4, 'NONE', NULL, 'vitest', $5, $6) AS expires_at`,
+    await signedOpenParams(client, [uuid(), userId, t.hash, SESSION_TTL_S]),
   );
   if (!s.rows[0]?.expires_at) throw new Error('session refusée');
   await client.query('SELECT test_fixture.us105_verify_phone($1, $2)', [

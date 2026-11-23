@@ -17,6 +17,7 @@ import { setSessionContext } from '../../src/index.ts';
 import {
   connectAs,
   releaseClient,
+  signedOpenParams,
   withRole,
   withTestTransaction,
 } from '../../src/testing/index.ts';
@@ -93,13 +94,19 @@ describe('primitives', () => {
       const s = await createStaff(client, 'ADMIN', ALL);
       for (const level of ['TOTP', 'OTP', 'none', '']) {
         await expect(
-          client.query(`SELECT core.iam_cmd_open_session($1, $2, $3, $4, $5, NULL, NULL)`, [
-            uuid(),
-            s.userId,
-            newToken().hash,
-            SESSION_TTL_S,
-            level,
-          ]),
+          (async () => {
+            // preuve valable (US-410) : le refus vient du niveau MFA, pas de la preuve
+            const [a, b, c, d, at, proof] = await signedOpenParams(client, [
+              uuid(),
+              s.userId,
+              newToken().hash,
+              SESSION_TTL_S,
+            ]);
+            return client.query(
+              `SELECT core.iam_cmd_open_session($1, $2, $3, $4, $5, NULL, NULL, $6, $7)`,
+              [a, b, c, d, level, at, proof],
+            );
+          })(),
           level,
         ).rejects.toMatchObject({ code: '22023' });
       }

@@ -20,7 +20,7 @@ import { createHash } from 'node:crypto';
 import type pg from 'pg';
 import { describe, expect, it } from 'vitest';
 import { translateDbError } from '../../src/index.ts';
-import { connectAs, releaseClient } from '../../src/testing/index.ts';
+import { connectAs, releaseClient, signedOpenParams } from '../../src/testing/index.ts';
 import { at, bookTrip, COUNTRIES, inTx, newSlot, uuid } from '../support/avl.ts';
 import type { CountryCase } from '../support/avl.ts';
 import { checkoutPerson } from '../support/checkout.ts';
@@ -402,12 +402,10 @@ describe.each(COUNTRIES)('US-211 — contrat de location ($country, $currency)',
           await tx.query<{ h: string }>('SELECT test_fixture.us211_holder($1) AS h', [trip])
         ).rows[0]!.h;
         const t = newToken();
-        await tx.query(`SELECT core.iam_cmd_open_session($1, $2, $3, $4, 'NONE', NULL, 'vitest')`, [
-          uuid(),
-          holder,
-          t.hash,
-          SESSION_TTL_S,
-        ]);
+        await tx.query(
+          `SELECT core.iam_cmd_open_session($1, $2, $3, $4, 'NONE', NULL, 'vitest', $5, $6)`,
+          await signedOpenParams(tx, [uuid(), holder, t.hash, SESSION_TTL_S]),
+        );
         return { id: holder, hash: t.hash };
       });
       const read = (p: Person, version: number | null = null) =>

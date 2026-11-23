@@ -304,11 +304,11 @@
       "story": "US-010"
     },
     {
-      "signature": "core.iam_cmd_open_session(uuid,uuid,bytea,integer,text,inet,text)",
+      "signature": "core.iam_cmd_open_session(uuid,uuid,bytea,integer,text,inet,text,bigint,bytea)",
       "family": "iam_auth",
       "owner": "iam_auth_owner",
       "execute": ["app_api"],
-      "story": "US-010"
+      "story": "US-410"
     },
     {
       "signature": "core.iam_cmd_register(uuid,text,text,text,text,text,uuid,bytea,integer,inet)",

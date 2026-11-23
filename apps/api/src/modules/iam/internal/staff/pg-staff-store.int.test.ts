@@ -9,7 +9,7 @@
  * - la suspension par un ADMIN fait tout perdre (401 au lieu du principal).
  */
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
-import { connectAs, releaseClient } from '@rueda/db/testing';
+import { connectAs, releaseClient, signedOpenParams } from '@rueda/db/testing';
 // types du contexte fourni par le globalSetup du banc (inject('ruedaBench'))
 import type {} from '@rueda/db/testing/global-setup';
 import type pg from 'pg';
@@ -78,11 +78,10 @@ async function staffWithSession(
     ]);
   }
   const t = token();
-  await client.query(`SELECT core.iam_cmd_open_session($1, $2, $3, 3600, 'NONE', NULL, 'int')`, [
-    randomUUID(),
-    userId,
-    sha(t),
-  ]);
+  await client.query(
+    `SELECT core.iam_cmd_open_session($1, $2, $3, 3600, 'NONE', NULL, 'int', $4, $5)`,
+    await signedOpenParams(client, [randomUUID(), userId, sha(t)], 3600),
+  );
   return { userId, token: t, secret, code };
 }
 
@@ -119,11 +118,10 @@ describe('console interne de bout en bout (PostgreSQL, app_api)', () => {
     expect(p.roles.map((r) => r.role)).toEqual(['OPS_AGENT']);
     // même code sur une nouvelle session : rejeu refusé (pas déjà consommé, relu en base)
     const second = token();
-    await client.query(`SELECT core.iam_cmd_open_session($1, $2, $3, 3600, 'NONE', NULL, 'int')`, [
-      randomUUID(),
-      s.userId,
-      sha(second),
-    ]);
+    await client.query(
+      `SELECT core.iam_cmd_open_session($1, $2, $3, 3600, 'NONE', NULL, 'int', $4, $5)`,
+      await signedOpenParams(client, [randomUUID(), s.userId, sha(second)], 3600),
+    );
     await expect(staff.verify(second, { code })).rejects.toMatchObject({
       code: 'AUTH_TOTP_INVALID',
     });

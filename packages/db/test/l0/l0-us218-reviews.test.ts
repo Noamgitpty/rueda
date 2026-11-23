@@ -20,7 +20,7 @@
 import { createHash, randomBytes } from 'node:crypto';
 import type pg from 'pg';
 import { describe, expect, it } from 'vitest';
-import { connectAs, releaseClient } from '../../src/testing/index.ts';
+import { connectAs, releaseClient, signedOpenParams } from '../../src/testing/index.ts';
 import { at, bookTrip, COUNTRIES, inTx, uuid } from '../support/avl.ts';
 import type { CountryCase } from '../support/avl.ts';
 import { newToken, phcArgon2id, SESSION_TTL_S } from '../support/iam.ts';
@@ -74,8 +74,8 @@ async function host(tx: pg.ClientBase, country: string): Promise<Host> {
   await tx.query('SELECT test_fixture.iam_set_account_status($1, $2)', [userId, 'ACTIVE']);
   const t = newToken();
   const s = await tx.query<{ expires_at: Date | null }>(
-    `SELECT core.iam_cmd_open_session($1, $2, $3, $4, 'NONE', NULL, 'vitest') AS expires_at`,
-    [uuid(), userId, t.hash, SESSION_TTL_S],
+    `SELECT core.iam_cmd_open_session($1, $2, $3, $4, 'NONE', NULL, 'vitest', $5, $6) AS expires_at`,
+    await signedOpenParams(tx, [uuid(), userId, t.hash, SESSION_TTL_S]),
   );
   if (!s.rows[0]?.expires_at) throw new Error('session refusée');
   const { rows } = await tx.query<{ outcome: string; org_id: string | null }>(

@@ -69,7 +69,7 @@
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { SubjectKeyStore } from '@rueda/db/audit';
-import { FakeKeyWrapper } from '@rueda/db/testing';
+import { FakeKeyWrapper, signedOpenParams } from '@rueda/db/testing';
 // types du contexte fourni par le globalSetup du banc (inject('ruedaBench'))
 import type {} from '@rueda/db/testing/global-setup';
 import { legVector, settlementVector } from '@rueda/money/golden-vectors';
@@ -216,8 +216,8 @@ const base = (year: number, c: Case): number => Date.UTC(year, 2, 1, 15, 0, 0) +
 async function session(tx: pg.ClientBase, userId: string): Promise<Buffer> {
   const hash = createHash('sha256').update(randomBytes(32)).digest();
   const s = await tx.query<{ expires_at: Date | null }>(
-    `SELECT core.iam_cmd_open_session($1, $2, $3, 1209600, 'NONE', NULL, 'vitest') AS expires_at`,
-    [randomUUID(), userId, hash],
+    `SELECT core.iam_cmd_open_session($1, $2, $3, 1209600, 'NONE', NULL, 'vitest', $4, $5) AS expires_at`,
+    await signedOpenParams(tx, [randomUUID(), userId, hash], 1209600),
   );
   if (!s.rows[0]?.expires_at) throw new Error('session refusée');
   return hash;

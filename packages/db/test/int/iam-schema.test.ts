@@ -25,6 +25,7 @@ const IAM_TABLES = [
   'iam_restriction',
   'iam_role_permission',
   'iam_session',
+  'iam_session_open_key',
   'iam_staff_role_assignment',
   'iam_user_account',
 ] as const;
@@ -51,6 +52,8 @@ const IAM_POLICIES: Record<(typeof IAM_TABLES)[number], string> = {
   iam_organization:
     'catalog_cmd_read:catalog_cmd_owner;cmd_hold_read:cmd_hold_owner;cmd_money_sel:cmd_money_owner;iam_auth_insert:iam_auth_owner;iam_auth_select:iam_auth_owner;iam_staff_select:iam_staff_owner;kyc_cmd_host_update:kyc_cmd_owner;kyc_cmd_read:kyc_cmd_owner;messaging_cmd_read:messaging_cmd_owner;migrator_all:migrator;organization_holder_read:app_api;organization_staff_read:app_api;policy_fn_read:policy_fn_owner;review_cmd_read:review_cmd_owner;risk_link_read:risk_limit_owner',
   iam_mfa_proof_key: 'iam_staff_select:iam_staff_owner;migrator_all:migrator',
+  // US-410 (0185) : clé de la preuve d'ouverture de session, lue par le seul iam_auth_owner
+  iam_session_open_key: 'iam_auth_select:iam_auth_owner;migrator_all:migrator',
   // US-104 (0066) : défis OTP écrits par les seules commandes d'iam_auth_owner
   iam_otp_challenge:
     'iam_auth_delete:iam_auth_owner;iam_auth_insert:iam_auth_owner;iam_auth_select:iam_auth_owner;iam_auth_update:iam_auth_owner;migrator_all:migrator',
@@ -82,7 +85,8 @@ const IAM_POLICIES: Record<(typeof IAM_TABLES)[number], string> = {
 // Commandes SECURITY DEFINER core.iam_* et leur propriétaire (US-010 : iam_auth ; US-012 : iam_staff).
 const IAM_COMMANDS: Record<string, string> = {
   'core.iam_auth_lookup(text)': 'iam_auth_owner',
-  'core.iam_cmd_open_session(uuid,uuid,bytea,integer,text,inet,text)': 'iam_auth_owner',
+  'core.iam_cmd_open_session(uuid,uuid,bytea,integer,text,inet,text,bigint,bytea)':
+    'iam_auth_owner',
   'core.iam_cmd_register(uuid,text,text,text,text,text,uuid,bytea,integer,inet)': 'iam_auth_owner',
   // US-102 (0059) : inscription avec consentements versionnés
   'core.iam_cmd_register_with_consents(uuid,text,text,text,text,text,uuid,bytea,integer,inet,text,jsonb,boolean)':

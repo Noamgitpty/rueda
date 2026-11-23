@@ -1501,6 +1501,19 @@
         "app_anon": []
       }
     },
+    "core.iam_session_open_key": {
+      "type": "table",
+      "droits": {
+        "app_api": {},
+        "app_worker": {},
+        "app_anon": {}
+      },
+      "politiques": {
+        "app_api": [],
+        "app_worker": [],
+        "app_anon": []
+      }
+    },
     "core.iam_staff_role_assignment": {
       "type": "table",
       "droits": {

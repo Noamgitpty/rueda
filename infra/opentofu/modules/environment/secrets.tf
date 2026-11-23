@@ -12,6 +12,7 @@ locals {
     app_anon_password   = "RUEDA_DB_APP_ANON_PASSWORD"
     rate_limit_key      = "RUEDA_RATE_LIMIT_KEY"
     staff_mfa_proof_key = "RUEDA_STAFF_MFA_PROOF_KEY"
+    session_open_key    = "RUEDA_SESSION_OPEN_KEY"
   }
 }
 

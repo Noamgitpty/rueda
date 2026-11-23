@@ -76,6 +76,8 @@ Routes :
 
 Les actions motivées sont dans SUP : `POST /console/actions`.
 
+Ouverture de session signée (US-410, ADR-205) : après la vérification du mot de passe, `PgAuthStore.openSession` lit `platform.now()` puis signe la preuve v1 (`internal/session-open-key.ts`, clé `RUEDA_SESSION_OPEN_KEY`) que `core.iam_cmd_open_session` recalcule (migration 0185). Sans clé, aucune session ne s'ouvre (`AuthStoreError`, fail-closed) ; une clé mal formée empêche le démarrage. Aucun texte visible nouveau.
+
 Fichiers (`internal/staff/`) :
 
 - `totp.ts` (RFC 4226 / 6238, base32) ;

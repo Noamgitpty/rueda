@@ -13,10 +13,13 @@ import { assertApiDatabaseRole, PgAuthStore } from './pg-auth-store.js';
 import type { SqlExecutor } from './pg-auth-store.js';
 import { otpHasherFromEnv } from './phone/otp-code.js';
 import { PgPhoneOtpStore } from './phone/phone-otp-store.js';
+import { sessionOpenKeyFromEnv } from './session-open-key.js';
 import type { OtpSendGuard } from './phone/phone-verification.service.js';
 
 /**
- * `env` : `RUEDA_OTP_KEY` (US-104 : absente, OTP indisponible ; mal formée, refus de démarrer).
+ * `env` : `RUEDA_OTP_KEY` (US-104 : absente, OTP indisponible ; mal formée, refus de démarrer) ;
+ * `RUEDA_SESSION_OPEN_KEY` (US-410, ADR-205 : absente, aucune session ouverte ; mal formée, refus
+ * de démarrer).
  * `sendGuard` : plafonds anti-abus des envois d'OTP (`AbuseGuard` de RISK, US-052).
  */
 export async function postgresIamAdapters(
@@ -26,8 +29,9 @@ export async function postgresIamAdapters(
 ): Promise<IamAuthOptions> {
   await assertApiDatabaseRole(db);
   const hasher = otpHasherFromEnv(env);
+  const sessionOpenKey = sessionOpenKeyFromEnv(env);
   return {
-    store: new PgAuthStore(db),
+    store: new PgAuthStore(db, { sessionOpenKey }),
     notifier: new PendingIdentityNotifier(),
     ...(sendGuard !== undefined
       ? { phone: { store: new PgPhoneOtpStore(db), hasher, sendGuard } }

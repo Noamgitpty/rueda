@@ -80,7 +80,9 @@ async function bootstrap(): Promise<void> {
   // défi anti-robot indisponible tant que SUP-013 n'a pas de fournisseur (soupçon ⇒ refus).
   const risk = postgresRiskAdapters(pool, process.env, new CountryConfigService().config);
   // OTP du téléphone (US-104) : commandes core.iam_* de 0066, plafonds d'AbuseGuard, empreinte
-  // sous RUEDA_OTP_KEY (absente : OTP indisponible ; mal formée : refus de démarrer).
+  // sous RUEDA_OTP_KEY (absente : OTP indisponible ; mal formée : refus de démarrer). Ouverture de
+  // session signée (US-410, ADR-205) sous RUEDA_SESSION_OPEN_KEY (absente : aucune session ouverte,
+  // fail-closed ; mal formée : refus de démarrer).
   const iam = await postgresIamAdapters(pool, process.env, risk.guard);
   // Console interne (US-012) : coffre TOTP indisponible tant qu'US-003 ne l'a pas livré et clé de
   // preuve lue dans RUEDA_STAFF_MFA_PROOF_KEY (absente : aucune élévation) — fail-closed.

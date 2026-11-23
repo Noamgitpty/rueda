@@ -31,7 +31,7 @@ Entités de 17 §3.2.1 :
 | `restriction`           | table `core.iam_restriction` (migration 0010)            |
 | `org_guest_block`       | cible 17, pas encore créée                               |
 
-Objets propres au code, hors entités de 17 : `core.iam_mfa_proof_key` (clé de preuve MFA, migration 0033) ; fonction `core.iam_notification_contact` (coordonnées pour le seul travailleur `ntf_sender`, migration 0031). Commandes `SECURITY DEFINER` : `core.iam_cmd_*` (0011), `core.iam_staff_cmd_*` (0033, 0034). Détail : `packages/db/README.md`, sections « Schéma IAM » et « MFA du staff et console interne ».
+Objets propres au code, hors entités de 17 : `core.iam_mfa_proof_key` (clé de preuve MFA, migration 0033) ; `core.iam_session_open_key` (clé de preuve d'ouverture de session, migration 0185, US-410, ADR-205 : `RUEDA_SESSION_OPEN_KEY`) ; fonction `core.iam_notification_contact` (coordonnées pour le seul travailleur `ntf_sender`, migration 0031). Commandes `SECURITY DEFINER` : `core.iam_cmd_*` (0011), `core.iam_staff_cmd_*` (0033, 0034). Détail : `packages/db/README.md`, sections « Schéma IAM » et « MFA du staff et console interne ».
 
 ## Événements
 

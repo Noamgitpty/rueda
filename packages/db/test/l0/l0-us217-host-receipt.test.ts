@@ -23,7 +23,7 @@ import { legVector, settlementVector } from '@rueda/money/golden-vectors';
 import type { GoldenLegVector, LineName } from '@rueda/money/golden-vectors';
 import type pg from 'pg';
 import { describe, expect, it } from 'vitest';
-import { withRole, withTestTransaction } from '../../src/testing/index.ts';
+import { signedOpenParams, withRole, withTestTransaction } from '../../src/testing/index.ts';
 import { COUNTRIES } from '../support/avl.ts';
 import type { CountryCase } from '../support/avl.ts';
 import { newToken, SESSION_TTL_S } from '../support/iam.ts';
@@ -223,12 +223,10 @@ async function world(worker: Tx, c: CountryCase): Promise<World> {
 /** Session ouverte par la vraie commande (app_api), dans la transaction de lecture (annulée). */
 async function session(tx: Tx, userId: string): Promise<Buffer> {
   const t = newToken();
-  await tx.query(`SELECT core.iam_cmd_open_session($1, $2, $3, $4, 'NONE', NULL, 'vitest')`, [
-    uuid(),
-    userId,
-    t.hash,
-    SESSION_TTL_S,
-  ]);
+  await tx.query(
+    `SELECT core.iam_cmd_open_session($1, $2, $3, $4, 'NONE', NULL, 'vitest', $5, $6)`,
+    await signedOpenParams(tx, [uuid(), userId, t.hash, SESSION_TTL_S]),
+  );
   return t.hash;
 }
 

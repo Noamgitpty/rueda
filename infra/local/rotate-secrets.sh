@@ -13,6 +13,8 @@
 #   retire rate-limit-key  efface `previous` (après la plus longue fenêtre de comptage, 24 h)
 #   stage mfa              tire une clé de preuve MFA SUIVANTE (`next`)
 #   promote mfa            la suivante devient courante ; l'ancienne est effacée
+#   stage session-open     tire une clé de preuve d'ouverture de session SUIVANTE (`next`, US-410)
+#   promote session-open   la suivante devient courante ; l'ancienne est effacée
 #
 # Propriétaires : node (image de production) = uid 1000, gid 1000 ; fichiers 0400.
 set -eu
@@ -101,8 +103,14 @@ case "${1:-} ${2:-}" in
   'promote mfa')
     promote_next staff_mfa_proof_key
     ;;
+  'stage session-open')
+    stage_next session_open_key
+    ;;
+  'promote session-open')
+    promote_next session_open_key
+    ;;
   *)
-    echo 'usage : rotate-secrets.sh stage|promote|verify db | stage|retire rate-limit-key | stage|promote mfa' >&2
+    echo 'usage : rotate-secrets.sh stage|promote|verify db | stage|retire rate-limit-key | stage|promote mfa | stage|promote session-open' >&2
     exit 2
     ;;
 esac

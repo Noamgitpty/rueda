@@ -15,6 +15,7 @@ import { approveSwitch, freshSession, requestSwitch } from './golive.ts';
 import type { StaffActor } from './golive.ts';
 import { newToken, phcArgon2id, SESSION_TTL_S } from './iam.ts';
 import { staff as rlsStaff, staffSessionHash } from './rls.ts';
+import { signedOpenParams } from '../../src/testing/index.ts';
 
 type Tx = pg.ClientBase;
 
@@ -148,8 +149,8 @@ export async function checkoutPerson(
   await c.query('SELECT test_fixture.iam_set_account_status($1, $2)', [id, 'ACTIVE']);
   const t = newToken();
   const s = await c.query<{ expires_at: Date | null }>(
-    `SELECT core.iam_cmd_open_session($1, $2, $3, $4, 'NONE', NULL, 'vitest') AS expires_at`,
-    [uuid(), id, t.hash, SESSION_TTL_S],
+    `SELECT core.iam_cmd_open_session($1, $2, $3, $4, 'NONE', NULL, 'vitest', $5, $6) AS expires_at`,
+    await signedOpenParams(c, [uuid(), id, t.hash, SESSION_TTL_S]),
   );
   if (!s.rows[0]?.expires_at) throw new Error('session refusée');
   return { id, hash: t.hash };

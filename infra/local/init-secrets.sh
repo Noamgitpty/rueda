@@ -10,7 +10,8 @@
 set -eu
 
 umask 077
-for name in postgres migrator app_api app_worker app_anon rate_limit_key staff_mfa_proof_key; do
+for name in postgres migrator app_api app_worker app_anon rate_limit_key staff_mfa_proof_key \
+  session_open_key; do
   dir="/run/rueda-secrets/$name"
   file="$dir/value"
   if [ ! -s "$file" ]; then

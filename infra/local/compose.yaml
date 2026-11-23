@@ -16,7 +16,8 @@
 # d'une rotation, `next` (suivante : mots de passe des rôles, clé de preuve MFA) ou `previous`
 # (ancienne : clé de débit). Profil `rotation` : seconde instance de l'API (`api-b`, bascule par
 # vagues comme le service cloud à deux tâches), gestes sur les volumes (`secrets-rotate`) et gestes
-# de la clé de preuve MFA en base (`mfa-rotate`, sous migrator).
+# de la clé de preuve MFA en base (`mfa-rotate`, sous migrator) et de la clé de preuve d'ouverture
+# de session (`session-open-rotate`, US-410).
 name: rueda-preprod-local
 
 x-release: &release
@@ -43,6 +44,7 @@ services:
       - secret-app-anon:/run/rueda-secrets/app_anon
       - secret-rate-limit-key:/run/rueda-secrets/rate_limit_key
       - secret-staff-mfa-proof-key:/run/rueda-secrets/staff_mfa_proof_key
+      - secret-session-open-key:/run/rueda-secrets/session_open_key
     restart: 'no'
 
   postgres:
@@ -103,6 +105,7 @@ services:
         RUEDA_RATE_LIMIT_KEY="$$(cat /run/rueda-secrets/rate_limit_key/value)"
         RUEDA_RATE_LIMIT_KEY_PREVIOUS="$$(cat /run/rueda-secrets/rate_limit_key/previous 2>/dev/null || true)"
         RUEDA_STAFF_MFA_PROOF_KEY="$$(cat /run/rueda-secrets/staff_mfa_proof_key/value 2>/dev/null || true)"
+        RUEDA_SESSION_OPEN_KEY="$$(cat /run/rueda-secrets/session_open_key/value 2>/dev/null || true)"
         exec node apps/api/dist/main.js
     environment:
       <<: *pg
@@ -115,6 +118,7 @@ services:
       - secret-app-api:/run/rueda-secrets/app_api:ro
       - secret-rate-limit-key:/run/rueda-secrets/rate_limit_key:ro
       - secret-staff-mfa-proof-key:/run/rueda-secrets/staff_mfa_proof_key:ro
+      - secret-session-open-key:/run/rueda-secrets/session_open_key:ro
     depends_on:
       postgres:
         condition: service_healthy
@@ -175,6 +179,7 @@ services:
       - secret-app-anon:/run/rueda-secrets/app_anon
       - secret-rate-limit-key:/run/rueda-secrets/rate_limit_key
       - secret-staff-mfa-proof-key:/run/rueda-secrets/staff_mfa_proof_key
+      - secret-session-open-key:/run/rueda-secrets/session_open_key
     restart: 'no'
 
   # Clé de preuve MFA en base (US-051, migration 0053) : `docker compose … run --rm mfa-rotate
@@ -199,6 +204,29 @@ services:
       postgres:
         condition: service_healthy
 
+  # Clé de preuve d'ouverture de session en base (US-410, migration 0185, ADR-205) :
+  # `docker compose … run --rm session-open-rotate <INSTALL|STAGE|PROMOTE|ABORT>`, sous migrator,
+  # avec l'image de production. Sans INSTALL, aucune session ne s'ouvre (fail-closed).
+  session-open-rotate:
+    <<: *release
+    profiles: ['rotation']
+    entrypoint:
+      - sh
+      - -c
+      - >-
+        RUEDA_DB_MIGRATOR_PASSWORD="$$(cat /run/rueda-secrets/migrator/value)"
+        RUEDA_SESSION_OPEN_KEY_NEXT="$$(cat /run/rueda-secrets/session_open_key/next 2>/dev/null || cat /run/rueda-secrets/session_open_key/value)"
+        exec node packages/db/src/rotation/cli.ts session-open-key "$$1"
+      - session-open-rotate
+    environment:
+      <<: *pg
+    volumes:
+      - secret-migrator:/run/rueda-secrets/migrator:ro
+      - secret-session-open-key:/run/rueda-secrets/session_open_key:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+
 volumes:
   pg-data:
   secret-postgres:
@@ -208,3 +236,4 @@ volumes:
   secret-app-anon:
   secret-rate-limit-key:
   secret-staff-mfa-proof-key:
+  secret-session-open-key:

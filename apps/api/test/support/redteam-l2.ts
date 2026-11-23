@@ -10,7 +10,7 @@
  */
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { setSessionContext } from '@rueda/db';
-import { connectAs, releaseClient, withTestTransaction } from '@rueda/db/testing';
+import { connectAs, releaseClient, signedOpenParams, withTestTransaction } from '@rueda/db/testing';
 import { legVector, loadGoldenVectors, settlementVector } from '@rueda/money/golden-vectors';
 import type pg from 'pg';
 import { afterEach, expect } from 'vitest';
@@ -260,8 +260,8 @@ export async function register(
 export async function openSession(tx: pg.ClientBase, userId: string): Promise<Buffer> {
   const hash = sha();
   const s = await tx.query<{ expires_at: Date | null }>(
-    `SELECT core.iam_cmd_open_session($1, $2, $3, 86400, 'NONE', NULL, 'vitest') AS expires_at`,
-    [randomUUID(), userId, hash],
+    `SELECT core.iam_cmd_open_session($1, $2, $3, 86400, 'NONE', NULL, 'vitest', $4, $5) AS expires_at`,
+    await signedOpenParams(tx, [randomUUID(), userId, hash], 86400),
   );
   if (!s.rows[0]?.expires_at) throw new Error('session refusée');
   return hash;

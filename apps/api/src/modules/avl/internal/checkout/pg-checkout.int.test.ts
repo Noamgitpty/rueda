@@ -23,7 +23,7 @@
  */
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { setSessionContext } from '@rueda/db';
-import { connectAs, releaseClient } from '@rueda/db/testing';
+import { connectAs, releaseClient, signedOpenParams } from '@rueda/db/testing';
 // types du contexte fourni par le globalSetup du banc (inject('ruedaBench'))
 import type {} from '@rueda/db/testing/global-setup';
 import type pg from 'pg';
@@ -156,8 +156,8 @@ async function guestSession(country: string): Promise<Buffer> {
   const id = await register(country);
   const hash = sha();
   const s = await client.query<{ expires_at: Date | null }>(
-    `SELECT core.iam_cmd_open_session($1, $2, $3, 86400, 'NONE', NULL, 'vitest') AS expires_at`,
-    [randomUUID(), id, hash],
+    `SELECT core.iam_cmd_open_session($1, $2, $3, 86400, 'NONE', NULL, 'vitest', $4, $5) AS expires_at`,
+    await signedOpenParams(client, [randomUUID(), id, hash], 86400),
   );
   if (!s.rows[0]?.expires_at) throw new Error('session refusée');
   // US-209 (16 BKG-012) : conducteur vérifié, majeur, permis du pays valable (fixture 9967)
@@ -355,8 +355,8 @@ describe.each(countryCases())(
       const holderId = await register(cc.country);
       const hostHash = sha();
       await client.query(
-        `SELECT core.iam_cmd_open_session($1, $2, $3, 86400, 'NONE', NULL, 'vitest')`,
-        [randomUUID(), holderId, hostHash],
+        `SELECT core.iam_cmd_open_session($1, $2, $3, 86400, 'NONE', NULL, 'vitest', $4, $5)`,
+        await signedOpenParams(client, [randomUUID(), holderId, hostHash], 86400),
       );
       const acc = await client.query<{ outcome: string; org_id: string | null }>(
         'SELECT * FROM core.iam_cmd_open_host_account($1, $2, $3)',
