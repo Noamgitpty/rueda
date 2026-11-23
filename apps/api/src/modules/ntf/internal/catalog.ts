@@ -184,6 +184,9 @@ export const TEMPLATE_KEYS = [
   'EVT_UNRETURNED_CONTACT',
   'EVT_UNRETURNED_FORMAL_NOTICE',
   'EVT_UNRETURNED_POLICE_REPORT',
+  // frais annexe demandé par l'hôte, à payer ou contester avant l'échéance (US-706, ADR-197 ; 16
+  // CLM-021 `EVT_INVOICE_TO_GUEST`)
+  'EVT_INVOICE_TO_GUEST',
 ] as const;
 export type TemplateKey = (typeof TEMPLATE_KEYS)[number];
 
@@ -462,6 +465,22 @@ export const TEMPLATES: Readonly<Record<TemplateKey, TemplateSpec>> = {
   // US-316 (19 US-316 critère 4 ; ADR-186, PROPOSÉ) : rendez-vous accepté, avis aux deux parties
   // avec l'heure ; le lieu se lit dans l'appli (aperçu sans contenu, L3-PM-45 ; aucun lieu dans
   // le journal d'envoi, L3-PM-50) ; e-mail d'abord, SMS en repli
+  // US-706 (16 CLM-021 « EVT_INVOICE_TO_GUEST » ; 19 US-706 « notifié à J0 » ; ADR-197, PROPOSÉ) :
+  // frais annexe demandé par l'hôte : type, montant et échéance ; jamais le motif de l'hôte
+  // (lu dans l'appli) ; e-mail d'abord, SMS en repli
+  EVT_INVOICE_TO_GUEST: {
+    key: 'EVT_INVOICE_TO_GUEST',
+    slug: 'invoiceToGuest',
+    variables: {
+      first_name: FIRST_NAME,
+      brand: BRAND,
+      booking_ref: BOOKING_REF,
+      amount: { from: 'payload', type: 'money', field: 'amount_minor', currencyField: 'currency' },
+      due_at: { from: 'payload', type: 'instant', field: 'response_due_at' },
+    },
+    channels: EMAIL_THEN_SMS,
+    critical: false,
+  },
   EVT_TRIP_MEETING_CONFIRMED_PICKUP: {
     key: 'EVT_TRIP_MEETING_CONFIRMED_PICKUP',
     slug: 'meetingPickupConfirmed',
@@ -753,6 +772,16 @@ export const RULES: readonly RuleSpec[] = [
     template: 'EVT_TRIP_MEETING_CONFIRMED_RETURN',
     condition: fieldIs('kind', 'RETURN'),
     recipients: [GUEST, HOST],
+    parties: TRIP_PARTIES,
+  },
+  // frais annexe demandé (0177, US-706, ADR-197 ; 17 §4.5 `invoice.status_changed`) : invoice_id,
+  // trip_id, status, fee_type, amount_minor, currency, response_due_at ; jamais le motif ; voyageur
+  // du trip lu en base ; status AWAITING_GUEST seulement (les autres états : suite)
+  {
+    eventType: 'invoice.status_changed',
+    template: 'EVT_INVOICE_TO_GUEST',
+    condition: fieldIs('status', 'AWAITING_GUEST'),
+    recipients: [GUEST],
     parties: TRIP_PARTIES,
   },
 ];

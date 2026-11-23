@@ -305,7 +305,6 @@ export const FR_PROTO = {
   'web.a02.cars.inReview': 'En cours d’examen',
   'web.a02.cars.add': 'Publier une autre voiture',
   'web.a02.noShow': 'Le voyageur ne s’est pas présenté',
-  'web.a04.addFee': 'Ajouter des frais avec justificatif',
   'web.a04.claimUntil': 'Tu peux déclarer des dommages jusqu’au {date}',
   'web.a05.cancel': 'Annuler la réservation',
   'web.a05.cancelWarning':

@@ -3175,6 +3175,8 @@ export const ES_MESSAGES = {
   'common.inspection.galleryForbidden':
     'Toma la foto con la cámara de la aplicación: no se aceptan fotos de la galería.',
   'common.inspection.photoInvalid': 'No pudimos aceptar esta foto. Tómala de nuevo.',
+  'common.inspection.photoDuplicate':
+    'Esta foto ya se envió. Toma una foto nueva del vehículo, ahora.',
   'common.inspection.uploadUnavailable':
     'El envío de fotos no está disponible por ahora. Inténtalo más tarde.',
   'common.inspection.unavailable': 'Las fotos no están disponibles por ahora. Inténtalo más tarde.',
@@ -3778,6 +3780,119 @@ export const ES_MESSAGES = {
     'Hola, {first_name}. El auto de la reserva {booking_ref} lleva más de un día sin ser devuelto. Esta es una denuncia prellenada que puedes presentar tú mismo ante la policía o el Ministerio Público, con tu contrato de alquiler y tu documento de identidad: «Yo, anfitrión que puso en alquiler el vehículo indicado en el contrato de alquiler adjunto (marca, modelo y placa), declaro que este vehículo, alquilado con la reserva {booking_ref} en {brand}, debía serme devuelto el {end_at} y no lo fue pese a mis reclamos. La identidad del arrendatario figura en el contrato adjunto. Presento denuncia por no devolución del vehículo.» Guarda el número de la denuncia. {brand} no presenta la denuncia en tu lugar, no recupera el auto y no actúa sobre él a distancia; tu pago de este viaje queda retenido mientras se presume el robo y se libera cuando el auto vuelve.',
   'ntf.unreturnedPoliceReport.sms.body':
     '{brand}: denuncia prellenada de la reserva {booking_ref} enviada por correo. Tú la presentas ante la policía.',
+  // US-706 (ADR-197) : frais annexes demandés par l’hôte, payés ou contestés par le voyageur
+  'common.incidental.notFound': 'No encontramos este cargo.',
+  'common.incidental.typeNotAllowed': 'Este tipo de gasto no se puede cobrar al viajero.',
+  'common.incidental.typeNotSupported':
+    'Este gasto se cobra por otra vía (atraso, peajes y multas, kilometraje). No se registró nada.',
+  'common.incidental.tripNotEnded': 'Podrás pedir un gasto después de la devolución del auto.',
+  'common.incidental.windowClosed': 'El plazo para pedir gastos de este viaje terminó.',
+  'common.incidental.evidenceMissing':
+    'Agrega una prueba: al menos una foto de la entrega o de la devolución de este viaje (combustible: el indicador a la salida y a la vuelta).',
+  'common.incidental.notBillable':
+    'Este gasto no se puede cobrar: mismo nivel de combustible, viaje terminado antes de tiempo o auto solo sin lavar (no hace falta lavarlo).',
+  'common.incidental.fuelPrepaid':
+    'El viajero compró un extra en este viaje: no se cobra combustible.',
+  'common.incidental.amountAboveCap': 'El monto supera el máximo permitido para este gasto.',
+  'common.incidental.duplicate': 'Ya hay una solicitud de este tipo en curso para este viaje.',
+  'common.incidental.notCancellable': 'Esta solicitud ya no se puede cancelar.',
+  'common.incidental.notOpen': 'Este cargo ya no espera tu respuesta.',
+  'common.incidental.responseWindowClosed': 'El plazo para pagar o impugnar este cargo terminó.',
+  'common.incidental.disputeReasonRequired':
+    'Explica por qué no estás de acuerdo (20 caracteres como mínimo).',
+  'common.incidental.unavailable':
+    'Los gastos adicionales no están disponibles por ahora. No se registró nada.',
+  'common.claim.incidentalNotDisputed': 'Solo se decide un cargo impugnado por el viajero.',
+  'web.a04.addFee': 'Agregar un gasto con prueba',
+  'web.s12.accept': 'Aceptar y pagar {amount}',
+  'web.s12.contest': 'No estoy de acuerdo',
+  'web.incidental.title.HOST': 'Gastos del viaje',
+  'web.incidental.title.GUEST': 'Gastos pedidos por el anfitrión',
+  'web.incidental.link.GUEST': 'Gastos pedidos por el anfitrión',
+  'web.incidental.back': 'Volver al viaje',
+  'web.incidental.lead.HOST':
+    'Puedes pedir combustible, limpieza o tabaco hasta el {date}, con fotos de la entrega o de la devolución. El viajero tendrá un plazo para pagar o impugnar.',
+  'web.incidental.closed.HOST': 'El plazo para pedir gastos terminó el {date}.',
+  'web.incidental.notEnded.HOST': 'Podrás pedir gastos después de la devolución del auto.',
+  'web.incidental.lead.GUEST':
+    'Puedes pagar o impugnar cada cargo hasta la hora indicada. Sin respuesta, {brand} decide y puede cobrar la tarjeta guardada.',
+  'web.incidental.empty.HOST': 'No pediste ningún gasto en este viaje.',
+  'web.incidental.empty.GUEST': 'El anfitrión no pidió ningún gasto.',
+  'web.incidental.list': 'Solicitudes',
+  'web.incidental.fee.FUEL': 'Combustible',
+  'web.incidental.fee.CLEANING': 'Limpieza',
+  'web.incidental.fee.SMOKING': 'Tabaco',
+  'web.incidental.status.AWAITING_GUEST': 'Respuesta del viajero hasta el {date}',
+  'web.incidental.status.ACCEPTED': 'Aceptado por el viajero: cobro en curso',
+  'web.incidental.status.DISPUTED': 'Impugnado: {brand} revisa las pruebas',
+  'web.incidental.status.DECIDED_CHARGE': '{brand} confirmó el cargo: cobro en curso',
+  'web.incidental.status.CHARGED': 'Cobro solicitado',
+  'web.incidental.status.REJECTED': '{brand} rechazó el cargo',
+  'web.incidental.status.CANCELLED_BY_HOST': 'Cancelado por el anfitrión',
+  'web.incidental.charge.PROCESSING': 'Pago en curso',
+  'web.incidental.charge.PAID': 'Pagado',
+  'web.incidental.charge.UNPAID': 'Pago rechazado: queda un saldo pendiente',
+  'web.incidental.evidenceCount': 'Fotos adjuntas: {count}',
+  'web.incidental.reason': 'Motivo del anfitrión',
+  'web.incidental.disputeReason': 'Impugnación del viajero',
+  'web.incidental.decision': 'Decisión de {brand}',
+  'web.incidental.cancel': 'Cancelar la solicitud',
+  'web.incidental.form.type': 'Tipo de gasto',
+  'web.incidental.form.amount': 'Monto ({currency})',
+  'web.incidental.form.amountHint': 'Ejemplo: {example}. Hay un máximo por tipo de gasto.',
+  'web.incidental.form.description': 'Motivo',
+  'web.incidental.form.descriptionHint': 'De 10 a 500 caracteres, sin nombres ni teléfonos.',
+  'web.incidental.form.photos': 'Fotos de prueba',
+  'web.incidental.form.photosHint':
+    'Elige al menos una foto de la entrega o de la devolución. Combustible: el indicador a la salida y a la vuelta. Limpieza o tabaco: una foto del interior a la vuelta.',
+  'web.incidental.form.submit': 'Enviar la solicitud',
+  'web.incidental.form.amountInvalid': 'Ingresa un monto válido, por ejemplo {example}.',
+  'web.incidental.form.descriptionInvalid': 'El motivo debe tener de 10 a 500 caracteres.',
+  'web.incidental.form.photoRequired': 'Elige al menos una foto.',
+  'web.incidental.form.noPhotos':
+    'Este viaje no tiene fotos de entrega ni de devolución: no se puede pedir un gasto.',
+  'web.incidental.photo': '{side} · {slot} · {by}',
+  'web.incidental.side.CHECKIN': 'Entrega',
+  'web.incidental.side.CHECKOUT': 'Devolución',
+  'web.incidental.slot.EXTERIOR': 'carrocería',
+  'web.incidental.slot.INTERIOR': 'habitáculo',
+  'web.incidental.slot.FUEL': 'indicador de combustible',
+  'web.incidental.slot.ODOMETER': 'odómetro',
+  'web.incidental.slot.KEY': 'llave',
+  'web.incidental.slot.DAMAGE': 'daño',
+  'web.incidental.by.HOST': 'foto del anfitrión',
+  'web.incidental.by.GUEST': 'foto del viajero',
+  'web.incidental.payNotice': 'Al pagar, aceptas que se cobre este monto a tu tarjeta guardada.',
+  'web.incidental.dispute.reason': '¿Por qué no estás de acuerdo?',
+  'web.incidental.dispute.reasonHint': 'De 20 a 1000 caracteres, sin nombres ni teléfonos.',
+  'web.incidental.dispute.photos': 'Fotos que te dan la razón',
+  'web.incidental.dispute.submit': 'Enviar la impugnación',
+  'web.incidental.dispute.reasonInvalid': 'El motivo debe tener de 20 a 1000 caracteres.',
+  'web.incidental.done.submitted': 'Solicitud enviada. El viajero recibió el aviso.',
+  'web.incidental.done.accepted': 'Gracias. {brand} cobrará la tarjeta guardada.',
+  'web.incidental.done.disputed':
+    'Impugnación enviada. {brand} revisa las pruebas y decide; no se cobra nada antes.',
+  'web.incidental.done.cancelled': 'Solicitud cancelada.',
+  'web.incidental.loadError': 'No pudimos cargar esta página.',
+  'web.incidental.retry': 'Reintentar',
+  // US-706 (revues) : avis au voyageur, preuves, échéance passée, plafonds
+  'ntf.invoiceToGuest.email.subject': 'Reserva {booking_ref}: el anfitrión pidió un gasto',
+  'ntf.invoiceToGuest.email.body':
+    'Hola, {first_name}. El anfitrión de la reserva {booking_ref} pidió un gasto de {amount}. Puedes pagarlo o impugnarlo con una foto en {brand} hasta el {due_at}. Sin respuesta, {brand} decide y puede cobrar tu tarjeta guardada.',
+  'ntf.invoiceToGuest.sms.body':
+    '{brand}: el anfitrión pidió {amount} ({booking_ref}). Págalo o impúgnalo en la app antes del {due_at}.',
+  'web.incidental.evidence':
+    'Pruebas que eligió el anfitrión: fotos de entrega y devolución, y archivos enviados durante este viaje',
+  'web.incidental.evidenceItem': '{side} · {slot} · {by} · recibida el {date}',
+  'web.incidental.evidenceUpload': 'Archivos enviados por el anfitrión durante este viaje: {count}',
+  'web.incidental.statusGuest.AWAITING_GUEST': 'Responde antes del {date}',
+  'web.incidental.expired.AWAITING_GUEST':
+    'El plazo para responder terminó el {date}: {brand} cobrará la tarjeta guardada.',
+  'web.incidental.expired.DISPUTED':
+    'Impugnado a tiempo: {brand} revisa las pruebas y decide; no se cobra nada antes.',
+  'web.incidental.form.cap': 'Máximo para {fee}: {amount}.',
+  'web.incidental.form.allRequested': 'Ya pediste cada tipo de gasto para este viaje.',
+  'web.incidental.form.capMissing': '{fee}: todavía no se puede pedir aquí.',
   // US-318 (ADR-198) : réponses des routes des sinistres d’un trip (incident, amendes, péages, fourrière)
   'common.tripClaims.notFound': 'No encontramos este viaje.',
   'common.tripClaims.incidentNotOpen':

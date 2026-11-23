@@ -300,7 +300,6 @@ export const PT_PROTO = {
   'web.a02.cars.inReview': 'Em análise',
   'web.a02.cars.add': 'Anunciar outro carro',
   'web.a02.noShow': 'O viajante não apareceu',
-  'web.a04.addFee': 'Adicionar um custo com comprovante',
   'web.a04.claimUntil': 'Você pode informar danos até {date}',
   'web.a05.cancel': 'Cancelar a reserva',
   'web.a05.cancelWarning':

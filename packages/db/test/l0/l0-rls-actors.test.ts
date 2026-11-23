@@ -694,6 +694,9 @@ describe('RLS-5, RLS-12, RLS-18', () => {
           // de catalog_cmd_owner, hôte désigné par son jeton)
           'catalog_vehicle_earnings_plan',
           'catalog_vehicle_eligibility_check',
+          // US-706 (0177, ADR-197) : même règle (frais annexes ; commandes de l'hôte et du voyageur
+          // de cmd_money_owner, personne désignée par son jeton ; console d'iam_staff_owner)
+          'claim_incidental_invoice',
           // US-318 (0178, ADR-198) : AUCUN droit ni politique d'app_api ; dossier de vol et
           // refacturations écrits par les commandes SECURITY DEFINER de cmd_hold_owner (titulaire
           // désigné par son jeton) et du travailleur payment_command (cmd_money_owner)
@@ -742,6 +745,9 @@ describe('RLS-5, RLS-12, RLS-18', () => {
           r.t.startsWith('pricing_') ||
           // US-707 (0159) : compte de versement, fonctions SECURITY DEFINER seulement
           r.t.startsWith('payout_') ||
+          // US-706 (0177) : frais annexes, fonctions SECURITY DEFINER seulement
+          r.t === 'claim_incidental_invoice' ||
+          r.t === 'claim_incidental_host_file' ||
           // US-318 (0178) : dossier de vol et refacturations, fonctions SECURITY DEFINER seulement
           r.t === 'claim_theft_case' ||
           r.t === 'claim_traffic_charge' ||

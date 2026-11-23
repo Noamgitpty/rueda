@@ -537,6 +537,31 @@ async function openNoShow(page: Page, context: BrowserContext): Promise<void> {
   await expect(page.locator('[data-testid="no-show-form"]')).toBeVisible();
 }
 
+/** US-706 : frais annexes, écran de l'hôte (formulaire) ou du voyageur (frais à payer ou contester). */
+async function openIncidental(
+  page: Page,
+  context: BrowserContext,
+  role: 'HOST' | 'GUEST',
+): Promise<void> {
+  if (role === 'HOST') await signInHost(context);
+  else await signIn(context, 'B00k');
+  const token = (await context.cookies()).find((c) => c.name === '__Host-session')?.value ?? '';
+  const who = role === 'HOST' ? `guest=&host=${token}` : `guest=${token}&host=`;
+  const r = await fetch(
+    `${API}/__e2e/incidental/new?${who}&pending=${role === 'GUEST' ? 'yes' : 'no'}`,
+  );
+  expect(r.status).toBe(200);
+  const { tripId } = (await r.json()) as { tripId: string };
+  await page.goto(
+    role === 'HOST' ? `/host/trips/${tripId}/incidental-fees` : `/trips/${tripId}/incidental-fees`,
+  );
+  await expect(
+    page.locator(
+      role === 'HOST' ? '[data-testid="incidental-form"]' : '[data-testid="incidental-accept"]',
+    ),
+  ).toBeVisible();
+}
+
 /**
  * US-318 : S17 · incidente du voyageur (trip en cours, demande d'aide « accident », une photo
  * déposée par le double : la CI n'a pas de caméra).
@@ -976,6 +1001,18 @@ export const SCREENS: readonly Screen[] = [
     name: 'no-show-hote',
     source: 'A05, US-307',
     open: (page, context) => openNoShow(page, context),
+  },
+  // US-706 : frais annexes demandés par l'hôte avec justificatif (A04) et payés ou contestés par
+  // le voyageur (S12)
+  {
+    name: 'frais-annexes-hote',
+    source: 'A04, US-706',
+    open: (page, context) => openIncidental(page, context, 'HOST'),
+  },
+  {
+    name: 'frais-annexes-voyageur',
+    source: 'S12, US-706',
+    open: (page, context) => openIncidental(page, context, 'GUEST'),
   },
   // US-525 : messages du trip (S16), fil du voyageur
   {

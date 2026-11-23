@@ -165,27 +165,29 @@ describe.each(COUNTRIES)('RT-L3 preuves de la remise ($country, $currency)', (c:
     return out;
   }
 
-  it('RT-L3-P03 (L3-PM-03) — observation : le même fichier est accepté à deux angles de la série et sur un autre trip', async () => {
+  // Observation mise à jour par la suite d'US-303 (0176, ADR-196) : avant le correctif, elle
+  // affirmait `sameSeries` et `otherTrip` à DONE (attaque réussie) ; l'attaque, inchangée, est
+  // toujours jouée (premier envoi et témoin acceptés), et l'issue observée est désormais le refus
+  // exact `PHOTO_DUPLICATE` (rien n'est écrit), non un autre refus qui masquerait la garde.
+  it('RT-L3-P03 (L3-PM-03) — observation : le même fichier à deux angles de la série et sur un autre trip est refusé PHOTO_DUPLICATE', async () => {
     const out = await duplicateAttack();
     expect(out['first']).toBe('DONE');
     expect(out['witness']).toBe('DONE');
-    // CONSTAT F-L3-PRE-01 → suite : aucune garde d'empreinte déjà vue (0158, `trip_cmd_add_inspection_photo`)
-    expect(out['sameSeries']).toBe('DONE');
-    expect(out['otherTrip']).toBe('DONE');
+    // CONSTAT F-L3-PRE-01 → corrigé : garde d'empreinte déjà vue (0176, index unique et commande)
+    expect(out['sameSeries']).toBe('PHOTO_DUPLICATE');
+    expect(out['otherTrip']).toBe('PHOTO_DUPLICATE');
   });
 
-  // CONSTAT F-L3-PRE-01 → suite : refuser une empreinte SHA-256 déjà enregistrée (tous trips, photos
-  // d'annonce comprises) ; les angles d'une série ne se remplissent pas avec un seul fichier
-  it.fails(
-    'RT-L3-P03 (L3-PM-03) — CONSTAT F-L3-PRE-01 : une empreinte déjà enregistrée est refusée (même série, autre trip)',
-    async () => {
-      const out = await duplicateAttack();
-      expect(out['first']).toBe('DONE');
-      expect(out['witness']).toBe('DONE');
-      expect(out['sameSeries']).not.toBe('DONE');
-      expect(out['otherTrip']).not.toBe('DONE');
-    },
-  );
+  // CONSTAT F-L3-PRE-01 → corrigé (US-303 suite, 0176) : une empreinte SHA-256 déjà enregistrée est
+  // refusée (tous trips, photos d'annonce comprises) ; les angles d'une série ne se remplissent pas
+  // avec un seul fichier
+  it('RT-L3-P03 (L3-PM-03) — CONSTAT F-L3-PRE-01 : une empreinte déjà enregistrée est refusée (même série, autre trip)', async () => {
+    const out = await duplicateAttack();
+    expect(out['first']).toBe('DONE');
+    expect(out['witness']).toBe('DONE');
+    expect(out['sameSeries']).not.toBe('DONE');
+    expect(out['otherTrip']).not.toBe('DONE');
+  });
 
   // -------------------------------------------------------------------------------------------
   it('RT-L3-RM02 (L3-PM-09) : aucune commande de la remise, du départ, du retour ou du versement ne reçoit une heure du client ; seule l’heure de l’appareil d’une photo est reçue, comme indice', async () => {

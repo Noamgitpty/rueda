@@ -65,6 +65,8 @@ const INSPECTION = /trip-inspection\.spec\.ts$/;
 const HANDOVER = /trip-handover\.spec\.ts$/;
 // US-307 : no-show de l'hôte et du voyageur (360 px ; l'écran de l'hôte passe à 390 px par SCREENS)
 const NO_SHOW = /trip-no-show\.spec\.ts$/;
+// US-706 : frais annexes de l'hôte et du voyageur (360 px ; les deux écrans passent à 390 px par SCREENS)
+const INCIDENTAL = /trip-incidental\.spec\.ts$/;
 /**
  * Sinistres entre particuliers (US-318) : incident du voyageur depuis S17, amendes, péages et
  * fourrière de l'hôte : 360 px (leurs écrans passent à 390 px et en sombre par SCREENS).
@@ -195,6 +197,7 @@ export default defineConfig({
         INSPECTION,
         HANDOVER,
         NO_SHOW,
+        INCIDENTAL,
         TRIP_CLAIMS,
         REFUND,
         GUEST_TRIPS,
@@ -236,6 +239,7 @@ export default defineConfig({
         // TRIP_MESSAGES (US-525) : 360 px seulement, son écran passe à 390 px par SCREENS
         // TRIP_REVIEWS (US-317) : 360 px seulement, S13 et les avis reçus passent à 390 px par SCREENS
         // NO_SHOW (US-307) : 360 px seulement, l'écran de l'hôte passe à 390 px par SCREENS
+        // INCIDENTAL (US-706) : 360 px seulement, ses deux écrans passent à 390 px par SCREENS
         // TRIP_CLAIMS (US-318) : 360 px seulement, ses deux écrans passent à 390 px par SCREENS
         SCREENS,
       ],

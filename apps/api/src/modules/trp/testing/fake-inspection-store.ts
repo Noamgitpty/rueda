@@ -184,6 +184,12 @@ export class FakeInspectionStore implements InspectionStore {
     const outcome = this.#ticket(proof, tripId, kind, photo.captureId, photo.slot);
     if (outcome !== 'OK') return { outcome, receivedAt: null };
     const role = this.#role(proof, tripId)!;
+    // comme la base (0176, ADR-196) : empreinte déjà vue, tous trips ⇒ rien n'est écrit
+    const hex = photo.sha256.toString('hex');
+    for (const s of this.series.values()) {
+      if (s.photos.some((p) => p.sha256 === hex))
+        return { outcome: 'PHOTO_DUPLICATE', receivedAt: null };
+    }
     await prepare(tx);
     const key = `trips/${tripId}/inspections/${kind}-${role}/${photo.fileId}`;
     await deposit(tx, key);

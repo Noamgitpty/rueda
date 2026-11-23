@@ -190,6 +190,19 @@ export const POST_SEED_PARAMS: readonly {
     embedded: true,
   },
   {
+    prefix: 'incidental_host_window_h',
+    file: '0177_claim_incidental_invoices.sql',
+    story: 'US-706',
+    refs: '08 BR-REIMB-01 ; 16 CLM-021 ; ADR-197',
+    extraKeys: [
+      'incidental_cleaning_max_minor',
+      'incidental_evidence_trip_photos_only',
+      'incidental_fuel_early_end_block',
+      'incidental_fuel_extras_block',
+    ],
+    embedded: true,
+  },
+  {
     prefix: 'traffic_charge_',
     file: '0178_claim_p2p_theft_incident_traffic.sql',
     story: 'US-318',

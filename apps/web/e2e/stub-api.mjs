@@ -3423,6 +3423,195 @@ async function noShowRoute(req, res, url) {
   });
 }
 
+// Frais annexes (US-706) : `GET /__e2e/incidental/new?guest=&host=` crée un trip rendu (fin à
+// 08:00, délai de l'hôte jusqu'au 13 mars 08:00 « serveur ») avec ses photos de départ et de retour ;
+// l'hôte demande un frais de la liste fermée (photos du trip exigées, plafond 150,00) ; le voyageur
+// paie ou conteste (motif de 20 caractères et photo) avant l'échéance = notification + 72 h ; toute
+// autre session ⇒ 404 INCIDENTAL_NOT_FOUND ; même `requestId` ⇒ la même demande ; aucune heure ni
+// jambe reçue. Heure « serveur » fixe du double : J0 10:00.
+const incidentals = new Map();
+const INC_END = '2097-03-10T08:00:00.000Z';
+const INC_DEADLINE = '2097-03-13T08:00:00.000Z';
+const INC_NOW = '2097-03-10T10:00:00.000Z';
+const INC_DUE = '2097-03-13T10:00:00.000Z';
+const INC_PHOTOS = [
+  ['CHECKIN', 'FUEL', 'FUEL', 'HOST'],
+  ['CHECKOUT', 'FUEL', 'FUEL', 'HOST'],
+  ['CHECKOUT', 'INT_01', 'INTERIOR', 'HOST'],
+  ['CHECKOUT', 'INT_02', 'INTERIOR', 'GUEST'],
+];
+
+async function incidentalRoute(req, res, url) {
+  const path = url.pathname;
+  if (req.method === 'GET' && path === '/__e2e/incidental/new') {
+    const tripId = uuid();
+    const photos = INC_PHOTOS.map(([kind, slotCode, slotGroup, takenBy]) => ({
+      fileId: uuid(),
+      kind,
+      slotCode,
+      slotGroup,
+      takenBy,
+    }));
+    incidentals.set(tripId, {
+      guest: url.searchParams.get('guest') ?? '',
+      host: url.searchParams.get('host') ?? '',
+      photos,
+      invoices: [],
+    });
+    // `pending=yes` : une demande de nettoyage déjà notifiée (écran du voyageur)
+    if (url.searchParams.get('pending') === 'yes') {
+      incidentals.get(tripId).invoices.push({
+        id: uuid(),
+        requestId: uuid(),
+        feeType: 'CLEANING',
+        amountMinor: '4500',
+        status: 'AWAITING_GUEST',
+        description: 'Sable et boue sur la banquette arrière',
+        evidence: [photos[2].fileId],
+        disputeReason: null,
+      });
+    }
+    return json(res, 200, { tripId });
+  }
+  const m = /^\/trips\/([^/]+)\/incidental-fees(?:\/([^/]+)\/(accept|dispute|cancel))?$/.exec(path);
+  if (m === null) return false;
+  const token = tokenOf(req);
+  if (token === undefined) return err(res, 401, 'AUTH_REQUIRED', 'common.auth.sessionRequired');
+  const t = incidentals.get(m[1]);
+  const role =
+    t === undefined ? null : token === t.guest ? 'GUEST' : token === t.host ? 'HOST' : null;
+  const notFound = () => err(res, 404, 'INCIDENTAL_NOT_FOUND', 'common.incidental.notFound');
+  if (t === undefined || role === null) return notFound();
+  const known = (ids) =>
+    Array.isArray(ids) &&
+    ids.length > 0 &&
+    ids.every((id) => t.photos.some((p) => p.fileId === id));
+  if (req.method === 'GET' && m[2] === undefined) {
+    return json(res, 200, {
+      tripId: m[1],
+      viewerRole: role,
+      currency: MARKET.currency,
+      currencyExponent: MARKET.currencyExponent,
+      timezone: INSPECTION_TZ,
+      endedAt: INC_END,
+      hostDeadlineAt: INC_DEADLINE,
+      canSubmit: role === 'HOST',
+      caps: role === 'HOST' ? { FUEL: null, CLEANING: '15000', SMOKING: '15000' } : null,
+      feeTypes: ['FUEL', 'CLEANING', 'SMOKING'],
+      invoices: t.invoices.map((i) => ({
+        id: i.id,
+        feeType: i.feeType,
+        amountMinor: i.amountMinor,
+        status: i.status,
+        notifiedAt: INC_NOW,
+        responseDueAt: INC_DUE,
+        windowOpen: i.status === 'AWAITING_GUEST',
+        description: i.description,
+        evidenceCount: i.evidence.length,
+        evidence: t.photos
+          .filter((p) => i.evidence.includes(p.fileId))
+          .map((p) => ({
+            kind: p.kind,
+            slotCode: p.slotCode,
+            slotGroup: p.slotGroup,
+            takenBy: p.takenBy,
+            receivedAt: INC_END,
+          })),
+        disputeReason: i.disputeReason,
+        decision: null,
+        decisionRationale: null,
+        chargeStatus: null,
+      })),
+      // identifiants des photos : à l'hôte qui peut demander, au voyageur qui peut contester
+      photos:
+        role === 'HOST' || t.invoices.some((i) => i.status === 'AWAITING_GUEST') ? t.photos : [],
+    });
+  }
+  if (req.method !== 'POST') return false;
+  const b = (await readBody(req)) ?? {};
+  const bad = () => err(res, 400, 'REQUEST_INVALID', 'common.auth.requestInvalid');
+  if (m[2] === undefined) {
+    if (role !== 'HOST') return notFound();
+    const keys = Object.keys(b).sort().join(',');
+    if (
+      keys !== 'amountMinor,description,evidenceFileIds,feeType,requestId' ||
+      typeof b.requestId !== 'string' ||
+      !UUID_RE.test(b.requestId) ||
+      typeof b.amountMinor !== 'string' ||
+      !/^[1-9][0-9]{0,14}$/.test(b.amountMinor) ||
+      typeof b.description !== 'string'
+    ) {
+      return bad();
+    }
+    const replay = t.invoices.find((i) => i.requestId === b.requestId);
+    if (replay !== undefined) {
+      return json(res, 200, {
+        invoiceId: replay.id,
+        responseDueAt: INC_DUE,
+        status: 'AWAITING_GUEST',
+      });
+    }
+    if (!['FUEL', 'CLEANING', 'SMOKING'].includes(b.feeType)) {
+      return err(res, 422, 'INCIDENTAL_TYPE_NOT_ALLOWED', 'common.incidental.typeNotAllowed');
+    }
+    if (!known(b.evidenceFileIds)) {
+      return err(res, 422, 'CLAIM_EVIDENCE_MISSING', 'common.incidental.evidenceMissing');
+    }
+    if (BigInt(b.amountMinor) > 15000n) {
+      return err(res, 422, 'INCIDENTAL_AMOUNT_ABOVE_CAP', 'common.incidental.amountAboveCap');
+    }
+    if (t.invoices.some((i) => i.feeType === b.feeType && i.status !== 'CANCELLED_BY_HOST')) {
+      return err(res, 409, 'INCIDENTAL_DUPLICATE', 'common.incidental.duplicate');
+    }
+    const id = uuid();
+    t.invoices.push({
+      id,
+      requestId: b.requestId,
+      feeType: b.feeType,
+      amountMinor: b.amountMinor,
+      status: 'AWAITING_GUEST',
+      description: b.description.trim(),
+      evidence: b.evidenceFileIds,
+      disputeReason: null,
+    });
+    return json(res, 200, { invoiceId: id, responseDueAt: INC_DUE, status: 'AWAITING_GUEST' });
+  }
+  const inv = t.invoices.find((i) => i.id === m[2]);
+  if (inv === undefined) return notFound();
+  if (m[3] === 'cancel') {
+    if (role !== 'HOST') return notFound();
+    if (Object.keys(b).length !== 0) return bad();
+    if (inv.status !== 'AWAITING_GUEST' && inv.status !== 'DISPUTED') {
+      return err(res, 409, 'INCIDENTAL_NOT_CANCELLABLE', 'common.incidental.notCancellable');
+    }
+    inv.status = 'CANCELLED_BY_HOST';
+    return json(res, 200, { invoiceId: inv.id, status: 'CANCELLED_BY_HOST' });
+  }
+  if (role !== 'GUEST') return notFound();
+  if (inv.status !== 'AWAITING_GUEST') {
+    return err(res, 409, 'INCIDENTAL_NOT_OPEN', 'common.incidental.notOpen');
+  }
+  if (m[3] === 'accept') {
+    if (Object.keys(b).length !== 0) return bad();
+    inv.status = 'ACCEPTED';
+    return json(res, 200, { invoiceId: inv.id, status: 'ACCEPTED' });
+  }
+  if (typeof b.reason !== 'string' || b.reason.trim().length < 20) {
+    return err(
+      res,
+      422,
+      'INCIDENTAL_DISPUTE_REASON_REQUIRED',
+      'common.incidental.disputeReasonRequired',
+    );
+  }
+  if (!known(b.evidenceFileIds)) {
+    return err(res, 422, 'CLAIM_EVIDENCE_MISSING', 'common.incidental.evidenceMissing');
+  }
+  inv.status = 'DISPUTED';
+  inv.disputeReason = b.reason.trim();
+  return json(res, 200, { invoiceId: inv.id, status: 'DISPUTED' });
+}
+
 // ---- Sinistres entre particuliers (US-318) ------------------------------------------------------
 // `GET /__e2e/p2p/new?guest=&host=&status=&theft=` crée un trip (statut SM-1 donné) dont le voyageur
 // et le titulaire sont ces deux jetons ; `theft=yes` : dossier de vol présumé ouvert, déclaration à
@@ -3760,6 +3949,7 @@ createServer(async (req, res) => {
   if ((await inspectionRoute(req, res, url)) !== false) return;
   if ((await handoverRoute(req, res, url)) !== false) return;
   if ((await noShowRoute(req, res, url)) !== false) return;
+  if ((await incidentalRoute(req, res, url)) !== false) return;
   if ((await constanciaRoute(req, res, url)) !== false) return;
   if (refundRoute(req, res, url) !== false) return;
   if (receiptRoute(req, res, url) !== false) return;

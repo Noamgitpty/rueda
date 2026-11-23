@@ -409,6 +409,13 @@ export const CONSTRAINT_CODES: Readonly<Record<string, readonly [string, DbBusin
   claim_record_immutable: [SQLSTATE.integrityConstraintViolation, 'IMMUTABLE_RECORD'],
   claim_decision_conflict: [SQLSTATE.integrityConstraintViolation, 'IDEMPOTENCY_CONFLICT'],
   host_ledger_claim_decision_unique: [SQLSTATE.uniqueViolation, 'INVARIANT_VIOLATION'],
+  // frais annexes (0177, US-706, ADR-197) : commandes réservées à la porte du staff ou au
+  // travailleur payment_command, demande figée (transitions de SM-5 seulement), une demande vivante
+  // par (trip, type), un débit par demande
+  claim_incidental_forbidden: [SQLSTATE.insufficientPrivilege, 'FORBIDDEN'],
+  claim_incidental_immutable: [SQLSTATE.integrityConstraintViolation, 'IMMUTABLE_RECORD'],
+  claim_incidental_live_unique: [SQLSTATE.uniqueViolation, 'INVARIANT_VIOLATION'],
+  claim_incidental_charge_unique: [SQLSTATE.uniqueViolation, 'INVARIANT_VIOLATION'],
   // sinistres entre particuliers (0178, US-318, ADR-198) : commandes du travailleur payment_command,
   // registres immuables, une refacturation par pièce, un incident par demande d'aide
   claim_p2p_command_forbidden: [SQLSTATE.insufficientPrivilege, 'FORBIDDEN'],

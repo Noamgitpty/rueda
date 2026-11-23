@@ -101,6 +101,29 @@ export type {
   InsurerClaimsPort,
 } from './internal/claims/executor.js';
 
+// Frais annexes (US-706, ADR-197) : travailleur `incidental_invoice_executor` (sous
+// `payment_command`) qui débite par US-703 les frais payés, décidés ou sans réponse à l'échéance.
+export {
+  INCIDENTAL_BATCH,
+  INCIDENTAL_PERIOD_SECONDS,
+  INCIDENTAL_WORKER,
+  IncidentalInvoiceExecutor,
+  registerIncidentalInvoiceExecutor,
+} from './internal/incidental/executor.js';
+export type {
+  IncidentalChargeOutcome,
+  IncidentalExecutorDeps,
+  IncidentalPass,
+} from './internal/incidental/executor.js';
+export {
+  INCIDENTAL_DECISION_OUTCOMES,
+  PgIncidentalStaffStore,
+  UNAVAILABLE_INCIDENTAL_STAFF_STORE,
+} from './internal/incidental/staff-store.js';
+export type {
+  IncidentalDecisionOutcome,
+  IncidentalStaffStore,
+} from './internal/incidental/staff-store.js';
 // Sinistres entre particuliers d'un trip (US-318, ADR-198) : incident du voyageur depuis S17,
 // amendes, péages et fourrière déclarés par l'hôte et refacturés par débit séparé, dossier de vol
 // présumé (travailleur dans la passe de `claim_decision_executor`).

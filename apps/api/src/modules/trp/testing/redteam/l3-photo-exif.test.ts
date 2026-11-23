@@ -110,23 +110,32 @@ describe('RT-L3-P06 (L3-PM-06) — géolocalisation EXIF d’une photo d’état
     expect(clean.body.includes('Exif')).toBe(false);
   });
 
-  it('observation : l’objet déposé en PRIVATE_EVIDENCE est l’original, EXIF et position compris ; l’empreinte rendue est celle de l’original', async () => {
+  // Observation mise à jour par la suite d'US-303 (ADR-196) : avant le correctif, elle affirmait
+  // que l'objet déposé était l'original (EXIF et position compris) et que l'empreinte rendue était
+  // celle de l'original. L'attaque est inchangée (même JPEG géolocalisé, même service réel) ;
+  // l'issue observée est désormais : objet déposé = copie nettoyée par `preparePhoto`, empreinte
+  // rendue (enregistrée, scellée) = celle de cette copie, jamais celle de l'original (qui ne sert
+  // qu'au contrôle de transport, l'empreinte de l'appareil étant acceptée).
+  it('observation : l’objet déposé en PRIVATE_EVIDENCE est la copie nettoyée ; l’empreinte rendue est celle de la copie nettoyée, l’original n’étant contrôlé qu’au transport', async () => {
     const out = await deposit(original);
-    // CONSTAT F-L3-PRE-02 → suite : la copie nettoyée est écartée (inspection.service.ts, addPhoto)
-    expect(out.stored.equals(original)).toBe(true);
-    expect(out.stored.includes(GPS)).toBe(true);
-    expect(out.sha256).toBe(createHash('sha256').update(original).digest('hex'));
+    const clean = preparePhoto(original, {
+      maxBytes: 500_000,
+      maxSide: 1600,
+      maxPixels: 1600 * 1600,
+    }).body;
+    // CONSTAT F-L3-PRE-02 → corrigé : la copie nettoyée est hachée, scellée et stockée
+    expect(out.stored.equals(clean)).toBe(true);
+    expect(out.stored.equals(original)).toBe(false);
+    expect(out.sha256).toBe(createHash('sha256').update(clean).digest('hex'));
+    expect(out.sha256).not.toBe(createHash('sha256').update(original).digest('hex'));
   });
 
-  // CONSTAT F-L3-PRE-02 → suite : empreinte, coffre et stockage reçoivent `preparePhoto(...).body`
-  // (copie nettoyée) ; l'original, s'il doit être gardé, l'est dans un champ à accès restreint
-  it.fails(
-    'CONSTAT F-L3-PRE-02 : l’objet déposé ne porte aucune géolocalisation EXIF',
-    async () => {
-      const out = await deposit(original);
-      expect(out.stored.length).toBeGreaterThan(0);
-      expect(out.stored.includes(GPS)).toBe(false);
-      expect(out.stored.includes('Exif')).toBe(false);
-    },
-  );
+  // CONSTAT F-L3-PRE-02 → corrigé (US-303 suite) : empreinte, coffre et stockage reçoivent
+  // `preparePhoto(...).body` (copie nettoyée) ; l'original n'est pas gardé
+  it('CONSTAT F-L3-PRE-02 : l’objet déposé ne porte aucune géolocalisation EXIF', async () => {
+    const out = await deposit(original);
+    expect(out.stored.length).toBeGreaterThan(0);
+    expect(out.stored.includes(GPS)).toBe(false);
+    expect(out.stored.includes('Exif')).toBe(false);
+  });
 });
