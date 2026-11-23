@@ -171,26 +171,25 @@ async function race(opA: string, opB: string): Promise<Race> {
           await gate; // A tient ses verrous jusqu'à ce que B soit vu bloqué
           return out;
         });
-        let blocked = false;
-        let resultB = '';
-        try {
-          await Promise.race([aApplied, a]);
-          const b = payTx(clientB, opts, async (tx) => {
-            await tx.query(`SET LOCAL lock_timeout = '30s'`);
-            await tx.query(`SET LOCAL statement_timeout = '60s'`);
-            return applySignedStatus(tx, opB, 'SUCCEEDED');
-          }).then(
-            (out) => out,
-            (error: unknown) => `ERREUR ${(error as { code?: string }).code ?? 'inconnue'}`,
-          );
-          await waitBlocked(observer, pidB);
-          blocked = true;
-          goA();
-          resultB = await b;
-        } finally {
-          goA();
-        }
-        return { a: await a, b: opB, resultB, blocked };
+        const seen = await (async (): Promise<{ blocked: boolean; resultB: string }> => {
+          try {
+            await Promise.race([aApplied, a]);
+            const b = payTx(clientB, opts, async (tx) => {
+              await tx.query(`SET LOCAL lock_timeout = '30s'`);
+              await tx.query(`SET LOCAL statement_timeout = '60s'`);
+              return applySignedStatus(tx, opB, 'SUCCEEDED');
+            }).then(
+              (out) => out,
+              (error: unknown) => `ERREUR ${(error as { code?: string }).code ?? 'inconnue'}`,
+            );
+            await waitBlocked(observer, pidB);
+            goA();
+            return { blocked: true, resultB: await b };
+          } finally {
+            goA();
+          }
+        })();
+        return { a: await a, b: opB, resultB: seen.resultB, blocked: seen.blocked };
       }),
     ),
   );
