@@ -76,6 +76,9 @@ const STAFF_VIEW =
   'SELECT outcome, body FROM core.support_staff_traffic_charge($1, $2::uuid, $3::uuid)';
 const REVIEW = 'SELECT outcome, body FROM core.support_staff_traffic_review($1, $2::uuid)';
 const EXECUTE = 'SELECT outcome, code FROM core.claim_cmd_execute_traffic_charge($1, $2)';
+/** File du travailleur filtrée DANS la requête (avant la limite) sur les refacturations du test. */
+const DUE_LIST =
+  'SELECT traffic_charge_id::text AS id FROM core.claim_traffic_charges_due(100, $1::uuid[])';
 
 const DISPUTE_REASON = 'Je n’étais pas sur cette route ce jour-là, voir le relevé du trajet.';
 const RATIONALE = 'Avis officiel de la police lu : plaque et heure dans le trip, débit justifié.';
@@ -289,13 +292,13 @@ describe.each(COUNTRIES)('US-318 suite — refacturations ($country, $currency)'
             .rows;
           expect(ev).toHaveLength(1);
           expect(ev[0]).toMatchObject({
-            type: 'invoice.status_changed',
+            type: 'traffic_charge.status_changed',
             aggregate_type: 'traffic_charge',
             actor_role: 'HOST',
             actor_user_id: w.holder,
             country_code: c.country,
             payload: {
-              invoice_id: id,
+              charge_id: id,
               trip_id: w.trip,
               status: 'AWAITING_GUEST',
               currency: c.currency,
@@ -305,7 +308,15 @@ describe.each(COUNTRIES)('US-318 suite — refacturations ($country, $currency)'
           });
         }
         // référence mal formée (courriel, trop courte, caractères hors liste) : entrée invalide
-        for (const ref of ['ana@correo.com', 'P-1', 'PV#12345', `PV${'9'.repeat(40)}`]) {
+        for (const ref of [
+          'ana@correo.com',
+          'P-1',
+          'PV#12345',
+          `PV${'9'.repeat(40)}`,
+          // homoglyphes Unicode (revue sécurité n° 2) : cyrillique « О », pleine chasse
+          'PV-2066-0\u041E42',
+          '\uFF30\uFF36-2066-0042',
+        ]) {
           const e = await caught(tx, () =>
             declare(tx, h2, w.trip, { amount: a['fine']!, file: files[2]!, ref }),
           );
@@ -639,6 +650,26 @@ describe.each(COUNTRIES)('US-318 suite — refacturations ($country, $currency)'
         }
       });
     }
+    // file du travailleur lue par objet (revue qa n° 2) : jamais une contestée sans décision ni une
+    // refacturation avant l'échéance ; une échue sans réponse, une payée, une décidée y sont
+    const mine = ['silent', 'paid', 'disputed', 'rejected', 'late', 'self'].map((n) => ids[n]!);
+    const queue = async (at: string): Promise<string[]> =>
+      asWorker(at, async (tx) =>
+        (await tx.query<{ id: string }>(DUE_LIST, [mine])).rows.map((r) => r.id).sort(),
+      );
+    expect(await queue(plus(DUE, -1))).toEqual([ids['paid']!]);
+    expect(await queue(DUE)).toEqual([ids['silent']!, ids['paid']!, ids['late']!].sort());
+    expect(await queue(plus(DUE, 2 * HOUR))).toEqual(
+      [ids['silent']!, ids['paid']!, ids['late']!, ids['disputed']!].sort(),
+    );
+    // à l'échéance EXACTE (borne incluse, qa n° 4) : sans réponse ⇒ débitée
+    await asWorker(DUE, async (tx) => {
+      expect((await tx.query<Row>(EXECUTE, [ids['silent'], uuid()])).rows[0]).toEqual({
+        outcome: 'DONE',
+        code: null,
+      });
+      expect(await state(tx, ids['silent']!)).toMatchObject({ charge_basis: 'NO_RESPONSE' });
+    });
     // payée : débitée tout de suite, accord écrit du voyageur
     await asWorker(plus(D, 2 * HOUR), async (tx) => {
       expect(await state(tx, ids['paid']!)).toMatchObject({ guest_status: 'ACCEPTED', due: true });
@@ -693,5 +724,42 @@ describe.each(COUNTRIES)('US-318 suite — refacturations ($country, $currency)'
       expect(await state(tx, ids['disputed']!)).toMatchObject({ charge_basis: 'OPS_DECISION' });
       expect(await debits(tx, ids['disputed']!)).toHaveLength(1);
     });
+  });
+
+  it('0178 (rules_version = 1, sans délai du voyageur) : jamais débitée automatiquement — dans la file, le travailleur la passe en BLOCKED GUEST_RESPONSE_MISSING, aucun débit, rejeu stable, y compris longtemps après (revues argent n° 1, qa n° 1)', async () => {
+    const v1 = await withRole('app_api', (api) =>
+      withTestTransaction(api, { virtualNow: START, commit: true }, async (tx) => {
+        const w = await world(tx, c);
+        await setNow(tx, D);
+        return (
+          await tx.query<{ id: string }>(
+            'SELECT test_fixture.us318s_insert_v1_charge($1)::text AS id',
+            [w.trip],
+          )
+        ).rows[0]!.id;
+      }),
+    );
+    for (const at of [D, plus(D, 49 * HOUR), plus(D, 1000 * HOUR)]) {
+      await asWorker(at, async (tx) => {
+        expect(await state(tx, v1), at).toMatchObject({
+          rules_version: 1,
+          guest_status: null,
+          execution_status: 'PENDING',
+          due: true,
+        });
+        expect((await tx.query<{ id: string }>(DUE_LIST, [[v1]])).rows.map((r) => r.id)).toEqual([
+          v1,
+        ]);
+        for (let i = 0; i < 2; i += 1) {
+          expect((await tx.query<Row>(EXECUTE, [v1, uuid()])).rows[0], `${at} ${i}`).toEqual({
+            outcome: 'BLOCKED',
+            code: 'GUEST_RESPONSE_MISSING',
+          });
+        }
+        expect(await debits(tx, v1)).toEqual([]);
+        expect(await state(tx, v1)).toMatchObject({ execution_status: 'BLOCKED', due: false });
+        expect((await tx.query(DUE_LIST, [[v1]])).rows).toEqual([]);
+      });
+    }
   });
 });

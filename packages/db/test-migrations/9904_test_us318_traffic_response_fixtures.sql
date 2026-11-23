@@ -147,13 +147,43 @@ BEGIN
 END
 $fn$;
 
+-- Refacturation de 0178 (rules_version = 1 : sans référence, sans délai du voyageur), telle qu'une
+-- base antérieure à 0181 la porte ; pièce : photo d'une série du trip (fixture 9907). Preuve de la
+-- garde « jamais débitée automatiquement » (revues argent n° 1, qa n° 1)
+CREATE FUNCTION test_fixture.us318s_insert_v1_charge(p_trip uuid)
+  RETURNS uuid
+  LANGUAGE plpgsql
+  SECURITY DEFINER
+  SET search_path = pg_catalog, pg_temp
+AS $fn$
+DECLARE
+  v_id   uuid := pg_catalog.gen_random_uuid();
+  v_now  timestamptz := platform.now();
+  v_file uuid := test_fixture.us706_photo(p_trip, 'CHECKOUT', 'EXT_03', 'HOST');
+BEGIN
+  INSERT INTO core.claim_traffic_charge
+         (id, trip_id, country_code, currency, org_id, declared_by, kind, occurred_at, file_id,
+          amount_minor, fee_bps, admin_fee_minor, total_minor, leg_host_minor, leg_insurer_minor,
+          leg_tax_third_party_minor, leg_platform_minor, trip_start_at, trip_end_at, deadline_at,
+          request_id, declared_at, next_check_at)
+  SELECT v_id, t.id, t.country_code, t.currency, t.org_id, o.holder_user_id, 'FINE',
+         v_now - interval '36 hours', v_file, 100, 500, 5, 105, 100, 0, 0, 5,
+         v_now - interval '2 days', v_now - interval '1 day', v_now + interval '100 days',
+         pg_catalog.gen_random_uuid(), v_now, v_now
+    FROM core.booking_trip AS t JOIN core.iam_organization AS o ON o.id = t.org_id
+   WHERE t.id = p_trip;
+  RETURN v_id;
+END
+$fn$;
+
 REVOKE ALL ON FUNCTION
   test_fixture.us318s_state(uuid),
   test_fixture.us318s_charges(uuid),
   test_fixture.us318s_events(uuid),
   test_fixture.us318s_param_close(text, text),
   test_fixture.us318s_try_write(text, uuid),
-  test_fixture.us318s_insert_charge(uuid)
+  test_fixture.us318s_insert_charge(uuid),
+  test_fixture.us318s_insert_v1_charge(uuid)
 FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION
   test_fixture.us318s_state(uuid),
@@ -161,5 +191,6 @@ GRANT EXECUTE ON FUNCTION
   test_fixture.us318s_events(uuid),
   test_fixture.us318s_param_close(text, text),
   test_fixture.us318s_try_write(text, uuid),
-  test_fixture.us318s_insert_charge(uuid)
+  test_fixture.us318s_insert_charge(uuid),
+  test_fixture.us318s_insert_v1_charge(uuid)
 TO app_worker, app_api;

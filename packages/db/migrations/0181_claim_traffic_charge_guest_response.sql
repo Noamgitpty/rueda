@@ -23,8 +23,7 @@
 --      `TRAFFIC_AMOUNT_ABOVE_CAP` (rien d'écrit : l'hôte passe par le support) ; paramètre absent ou
 --      illisible ⇒ `TRAFFIC_CAP_UNKNOWN` (aucune refacturation, fail-closed).
 --   3. Délai de réponse (F-L3-SIN-02 ; 08 BR-TT-02 : 48 h) : la déclaration est notifiée au voyageur
---      (`invoice.status_changed`, agrégat `traffic_charge`, règle NTF `EVT_INVOICE_TO_GUEST`
---      d'US-706) ; il a jusqu'à `response_due_at` = déclaration + `traffic_guest_response_h`
+--      (`traffic_charge.status_changed`, agrégat `traffic_charge`, un gabarit NTF par nature) ; il a jusqu'à `response_due_at` = déclaration + `traffic_guest_response_h`
 --      (EXCLU) pour payer (`ACCEPTED`) ou contester avec un motif écrit et, s'il le veut, des photos
 --      du trip (`DISPUTED`) ; la fenêtre ne se rouvre jamais. Paramètre absent ⇒
 --      `TRAFFIC_RESPONSE_WINDOW_UNKNOWN`.
@@ -39,7 +38,7 @@
 --      pays, session élevée, séparation des tâches d'ADR-122, décisions et refus journalisés) ;
 --      liste « à revoir » de la console (refacturations contestées sans décision).
 --   6. Mécanique d'US-706 réutilisée : `core.claim_incidental_party` (partie de la session),
---      `core.claim_incidental_trip_photos` (pièces de la contestation), événement et gabarit NTF,
+--      `core.claim_incidental_trip_photos` (pièces de la contestation), mécanique de l'outbox,
 --      `core.iam_staff_permitted`, `core.support_actor_conflict`, `core.iam_staff_audit` ;
 --      codes `GUEST_RESPONSE_WINDOW_CLOSED`, `INCIDENTAL_DISPUTE_REASON_REQUIRED`,
 --      `CLAIM_EVIDENCE_MISSING`, `DECISION_*`.
@@ -56,6 +55,7 @@
 --
 -- Expand / contract : colonnes (nulles ou à défaut), contraintes, index, fonctions, politiques et
 -- droits AJOUTÉS ; `claim_traffic_charge_execution_valid` recréée sous son nom (+ VOID) ;
+-- politique `cmd_hold_traffic_ins` de 0178 recréée sous son nom, resserrée (version 2 seulement) ;
 -- `core.claim_p2p_guard`, `core.claim_cmd_declare_traffic_charge` (8 arguments : rend
 -- `TRAFFIC_REFERENCE_REQUIRED`), `core.claim_host_trip_claims`, `core.claim_traffic_charges_due` et
 -- `core.claim_cmd_execute_traffic_charge` remplacées à signature identique (corps de 0178 recopiés
@@ -66,7 +66,9 @@
 --     core.claim_cmd_declare_traffic_charge (8 arguments) et core.claim_host_trip_claims
 --     (cmd_hold_owner), core.claim_traffic_charges_due et core.claim_cmd_execute_traffic_charge
 --     (cmd_money_owner) ;
---   DROP FUNCTION core.claim_cmd_declare_traffic_charge(bytea, uuid, uuid, text, timestamptz, bigint,
+--   recréer cmd_hold_traffic_ins de 0178 (sans les conditions de version 2) ;
+--   DROP FUNCTION core.claim_traffic_charges_due(integer, uuid[]),
+--     core.claim_cmd_declare_traffic_charge(bytea, uuid, uuid, text, timestamptz, bigint,
 --     uuid, boolean, text), core.claim_traffic_guest_terms(text),
 --     core.claim_traffic_notify_guest(uuid),
 --     core.claim_traffic_charge_eligible(smallint, text, text, timestamptz, timestamptz, timestamptz),
@@ -99,8 +101,8 @@
 -- Retour arrière (base sans dépendance) : DELETE des valeurs puis des définitions dont la clé
 -- commence par « traffic_guest_ » ; jamais en production : nouvelle migration à la place.
 INSERT INTO core.config_param_definition (key, type, unit, allowed_scopes, currency_bound, fail_mode, optional, go_live_switch, not_applicable_in, allowed_values, source_ref, status) VALUES
-  ('traffic_guest_charge_max_minor', 'MONEY', NULL, ARRAY['COUNTRY']::text[], true, 'BLOCK', false, false, '{}'::text[], NULL, '08 BR-TT-02 à 04, BR-REIMB-05 (« montant non justifié » interdit) ; red team F-L3-SIN-02 ; ADR-201 : plafond du montant d’une amende, d’un péage ou d’une fourrière déclaré par l’hôte, en unités mineures de la devise du pays (frais de gestion non compris) ; au-delà, la déclaration est refusée (TRAFFIC_AMOUNT_ABOVE_CAP) et l’hôte passe par le support ; absent ou mal formé : aucune refacturation (TRAFFIC_TERMS_UNKNOWN, fail-closed)', 'PROPOSÉ (ADR-201) : 1 000,00 USD au Panama ; 7 500 000 PYG au Paraguay (même conversion que incidental_cleaning_max_minor) ; Turo n’a pas de plafond publié, mais ne débite jamais sans délai de réponse ; à confirmer par le fondateur'),
-  ('traffic_guest_response_h', 'DURATION', 'h', ARRAY['COUNTRY']::text[], false, 'BLOCK', false, false, '{}'::text[], NULL, '08 BR-TT-02 (« 48 h pour payer/contester »), BR-TT-03 (mêmes délais), BR-REIMB-02 / 03 ; red team F-L3-SIN-02 ; ADR-201 : délai du voyageur pour payer ou contester une amende, un péage ou une fourrière refacturés, compté depuis la déclaration (heure de la base), échéance exclue ; aucun débit avant ; absent ou hors [1 ; 720] : aucune refacturation (TRAFFIC_TERMS_UNKNOWN, fail-closed)', 'PROPOSÉ comme Turo (ADR-201, 08 BR-TT-02) : 48 h au PA / PY');
+  ('traffic_guest_charge_max_minor', 'MONEY', NULL, ARRAY['COUNTRY']::text[], true, 'BLOCK', false, false, '{}'::text[], NULL, '08 BR-TT-02 à 04, BR-REIMB-05 (« montant non justifié » interdit) ; red team F-L3-SIN-02 ; ADR-201 : plafond du montant d’une amende, d’un péage ou d’une fourrière déclaré par l’hôte, en unités mineures de la devise du pays (frais de gestion non compris) ; au-delà, la déclaration est refusée (TRAFFIC_AMOUNT_ABOVE_CAP) et l’hôte passe par le support ; absent ou mal formé : aucune refacturation (TRAFFIC_CAP_UNKNOWN, fail-closed)', 'PROPOSÉ (ADR-201) : 1 000,00 USD au Panama ; 7 500 000 PYG au Paraguay (même conversion que incidental_cleaning_max_minor) ; Turo n’a pas de plafond publié, mais ne débite jamais sans délai de réponse ; réglage modifiable par l’administration des paramètres'),
+  ('traffic_guest_response_h', 'DURATION', 'h', ARRAY['COUNTRY']::text[], false, 'BLOCK', false, false, '{}'::text[], NULL, '08 BR-TT-02 (« 48 h pour payer/contester »), BR-TT-03 (mêmes délais), BR-REIMB-02 / 03 ; red team F-L3-SIN-02 ; ADR-201 : délai du voyageur pour payer ou contester une amende, un péage ou une fourrière refacturés, compté depuis la déclaration (heure de la base), échéance exclue ; aucun débit avant ; absent ou hors [1 ; 720] : aucune refacturation (TRAFFIC_RESPONSE_WINDOW_UNKNOWN, fail-closed)', 'PROPOSÉ comme Turo (ADR-201, 08 BR-TT-02) : 48 h au PA / PY');
 
 INSERT INTO core.config_param_value (key, country_code, scope_type, scope_id, network, value, change_reason) VALUES
   ('traffic_guest_charge_max_minor', 'PA', 'COUNTRY', NULL, NULL, '"100000"'::jsonb, 'graine US-318 : défauts PROPOSÉS (08 BR-TT-02, BR-TT-03, BR-REIMB-05 ; ADR-201)'),
@@ -319,6 +321,16 @@ COMMENT ON FUNCTION core.claim_p2p_guard() IS
   'de DELETE ni de TRUNCATE. US-318 (ADR-198, ADR-201).';
 REVOKE ALL ON FUNCTION core.claim_p2p_guard() FROM PUBLIC;
 
+-- 1.3 Écriture de la déclaration (cmd_hold_owner) : la politique permissive d'insertion de 0178 est
+-- recréée sous son nom, resserrée (version 2, en attente du voyageur, aucune réponse ni décision ;
+-- la matrice d'US-043 n'admet que des politiques permissives ; revue sécurité n° 1)
+DROP POLICY cmd_hold_traffic_ins ON core.claim_traffic_charge;
+CREATE POLICY cmd_hold_traffic_ins ON core.claim_traffic_charge FOR INSERT TO cmd_hold_owner
+  WITH CHECK (execution_status = 'PENDING' AND charge_id IS NULL AND executed_at IS NULL
+              AND failed_attempts = 0 AND rules_version = 2 AND guest_status = 'AWAITING_GUEST'
+              AND accepted_at IS NULL AND disputed_at IS NULL AND decided_at IS NULL
+              AND charge_basis IS NULL);
+
 -- 1.4 Réponse du voyageur et décision du staff (cmd_money_owner, contexte posé par la commande)
 GRANT UPDATE (guest_status, accepted_at, disputed_at, dispute_reason, dispute_evidence_file_ids,
               decided_at, decided_by, decided_role, decision_request_id, decision_rationale,
@@ -340,11 +352,11 @@ CREATE POLICY iam_staff_traffic_sel ON core.claim_traffic_charge FOR SELECT TO i
 CREATE POLICY cmd_money_traffic_guest_param_read ON core.config_param_value FOR SELECT
   TO cmd_money_owner
   USING (key IN ('traffic_guest_response_h', 'traffic_guest_charge_max_minor'));
--- avis au voyageur (NTF `EVT_INVOICE_TO_GUEST`, US-706) : invoice.status_changed, agrégat
--- traffic_charge, acteur HOST (le titulaire de la session)
+-- avis au voyageur (NTF, un gabarit par nature : `EVT_TRAFFIC_FINE_TO_GUEST`, `_TOLL_`, `_IMPOUND_`) :
+-- traffic_charge.status_changed, agrégat traffic_charge, acteur HOST (le titulaire de la session)
 CREATE POLICY cmd_money_traffic_event ON core.outbox_outbox_event FOR INSERT
   TO cmd_money_owner
-  WITH CHECK (type = 'invoice.status_changed' AND aggregate_type = 'traffic_charge'
+  WITH CHECK (type = 'traffic_charge.status_changed' AND aggregate_type = 'traffic_charge'
               AND actor_role = 'HOST' AND actor_user_id IS NOT NULL);
 
 -- 2. Réponse du voyageur, décision de l'ops, travailleur (cmd_money_owner) ---------------------------
@@ -409,9 +421,9 @@ COMMENT ON FUNCTION core.claim_traffic_guest_terms(text) IS
 REVOKE ALL ON FUNCTION core.claim_traffic_guest_terms(text) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION core.claim_traffic_guest_terms(text) TO cmd_hold_owner;
 
--- 2.3 Avis au voyageur d'une refacturation déclarée (même événement que les frais annexes d'US-706,
--- règle NTF EVT_INVOICE_TO_GUEST) ; relu en base, une fois par refacturation. Rend true si l'avis
--- est écrit.
+-- 2.3 Avis au voyageur d'une refacturation déclarée (mécanique de l'outbox des frais annexes
+-- d'US-706, événement et gabarits propres : nature, 48 h, photo facultative, débit à l'échéance sans
+-- réponse) ; relu en base, une fois par refacturation. Rend true si l'avis est écrit.
 CREATE FUNCTION core.claim_traffic_notify_guest(p_traffic_charge_id uuid)
   RETURNS boolean
   LANGUAGE plpgsql
@@ -430,10 +442,10 @@ BEGIN
   INSERT INTO core.outbox_outbox_event
          (type, schema_version, aggregate_type, aggregate_id, aggregate_version, country_code,
           actor_user_id, actor_role, correlation_id, payload, partition_key)
-  VALUES ('invoice.status_changed', 1, 'traffic_charge', x.id, 0, x.country_code, x.declared_by,
-          'HOST', pg_catalog.gen_random_uuid(),
+  VALUES ('traffic_charge.status_changed', 1, 'traffic_charge', x.id, 0, x.country_code,
+          x.declared_by, 'HOST', pg_catalog.gen_random_uuid(),
           pg_catalog.jsonb_build_object(
-            'invoice_id', x.id, 'trip_id', x.trip_id, 'status', 'AWAITING_GUEST',
+            'charge_id', x.id, 'trip_id', x.trip_id, 'status', 'AWAITING_GUEST',
             'fee_type', x.kind, 'amount_minor', x.total_minor::text, 'currency', x.currency,
             'response_due_at', pg_catalog.to_char(x.response_due_at AT TIME ZONE 'UTC',
                                                   'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')),
@@ -442,7 +454,7 @@ BEGIN
 END
 $fn$;
 COMMENT ON FUNCTION core.claim_traffic_notify_guest(uuid) IS
-  'Interne : avis invoice.status_changed (AWAITING_GUEST) d''une refacturation déclarée ; voyageur '
+  'Interne : avis traffic_charge.status_changed (AWAITING_GUEST) d''une refacturation déclarée ; voyageur '
   'lu en base par NTF ; jamais le motif ni la référence. EXECUTE cmd_hold_owner. US-318 suite '
   '(ADR-201).';
 REVOKE ALL ON FUNCTION core.claim_traffic_notify_guest(uuid) FROM PUBLIC;
@@ -788,8 +800,9 @@ GRANT EXECUTE ON FUNCTION core.claim_traffic_guest_view(bytea, uuid),
 GRANT EXECUTE ON FUNCTION core.claim_cmd_decide_traffic_charge(uuid, uuid, text, uuid, text, text),
   core.claim_traffic_staff_view(uuid), core.claim_traffic_review_list(uuid[]) TO iam_staff_owner;
 
--- 2.10 File du travailleur (0178, même signature) : prédicat 2.1, plus anciennes d'abord
-CREATE OR REPLACE FUNCTION core.claim_traffic_charges_due(p_limit integer)
+-- 2.10 File du travailleur : prédicat 2.1, plus anciennes d'abord ; `p_only` filtre DANS la requête,
+-- avant la limite (preuves par objet, comme US-706) ; NULL : toutes
+CREATE FUNCTION core.claim_traffic_charges_due(p_limit integer, p_only uuid[])
   RETURNS TABLE (traffic_charge_id uuid)
   LANGUAGE plpgsql
   STABLE
@@ -810,9 +823,24 @@ BEGIN
    WHERE x.execution_status = 'PENDING' AND x.next_check_at <= v_now
      AND core.claim_traffic_charge_eligible(x.rules_version, x.execution_status, x.guest_status,
                                             x.response_due_at, x.next_check_at, v_now)
+     AND (p_only IS NULL OR x.id = ANY (p_only))
    ORDER BY x.next_check_at, x.declared_at, x.id
    LIMIT LEAST(GREATEST(COALESCE(p_limit, 0), 0), 100);
 END
+$fn$;
+COMMENT ON FUNCTION core.claim_traffic_charges_due(integer, uuid[]) IS
+  'Travailleur payment_command : refacturations à exécuter, filtrées avant la limite (preuves par '
+  'objet). EXECUTE app_worker. US-318 suite (ADR-201).';
+
+-- File de 0178 (même signature) : la même, sans filtre
+CREATE OR REPLACE FUNCTION core.claim_traffic_charges_due(p_limit integer)
+  RETURNS TABLE (traffic_charge_id uuid)
+  LANGUAGE sql
+  STABLE
+  SECURITY DEFINER
+  SET search_path = pg_catalog, pg_temp
+AS $fn$
+  SELECT d.traffic_charge_id FROM core.claim_traffic_charges_due(p_limit, NULL::uuid[]) AS d
 $fn$;
 COMMENT ON FUNCTION core.claim_traffic_charges_due(integer) IS
   'Travailleur payment_command : refacturations à exécuter (payées, décidées, ou échéance du '
@@ -925,6 +953,9 @@ COMMENT ON FUNCTION core.claim_cmd_execute_traffic_charge(uuid, uuid) IS
   'voyageur passée sans réponse ; jamais contestée ni avant l''échéance ; débit séparé du voyageur '
   '(US-703, but INCIDENTAL, motif DELAYED_CHARGES, jambes explicites, jamais la caution). '
   'Travailleur payment_command. EXECUTE app_worker. US-318 (ADR-198, ADR-201).';
+
+REVOKE ALL ON FUNCTION core.claim_traffic_charges_due(integer, uuid[]) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION core.claim_traffic_charges_due(integer, uuid[]) TO app_worker;
 
 RESET ROLE;
 REVOKE CREATE ON SCHEMA core FROM cmd_money_owner;

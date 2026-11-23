@@ -3881,6 +3881,22 @@ export const ES_MESSAGES = {
     'Hola, {first_name}. El anfitrión de la reserva {booking_ref} pidió un gasto de {amount}. Puedes pagarlo o impugnarlo con una foto en {brand} hasta el {due_at}. Sin respuesta, {brand} decide y puede cobrar tu tarjeta guardada.',
   'ntf.invoiceToGuest.sms.body':
     '{brand}: el anfitrión pidió {amount} ({booking_ref}). Págalo o impúgnalo en la app antes del {due_at}.',
+  // US-318 suite (0181, ADR-201) : avis au voyageur d'une amende, d'un péage ou d'une fourrière
+  'ntf.trafficFineToGuest.email.subject': 'Reserva {booking_ref}: el anfitrión te cobra una multa',
+  'ntf.trafficFineToGuest.email.body':
+    'Hola, {first_name}. El anfitrión de la reserva {booking_ref} declaró una multa recibida durante tu viaje: {amount} con los gastos de gestión. Tienes 48 horas, hasta el {due_at}, para pagar o impugnar en {brand}, en «Multas, peajes y grúa» de tu viaje; la foto es opcional. Sin respuesta, el monto se cobra a tu tarjeta guardada al vencer el plazo.',
+  'ntf.trafficFineToGuest.sms.body':
+    '{brand}: multa de {amount} ({booking_ref}). Puedes pagar o impugnar en la app antes del {due_at}; si no, se cobra a tu tarjeta.',
+  'ntf.trafficTollToGuest.email.subject': 'Reserva {booking_ref}: el anfitrión te cobra un peaje',
+  'ntf.trafficTollToGuest.email.body':
+    'Hola, {first_name}. El anfitrión de la reserva {booking_ref} declaró un peaje pagado durante tu viaje: {amount} con los gastos de gestión. Tienes 48 horas, hasta el {due_at}, para pagar o impugnar en {brand}, en «Multas, peajes y grúa» de tu viaje; la foto es opcional. Sin respuesta, el monto se cobra a tu tarjeta guardada al vencer el plazo.',
+  'ntf.trafficTollToGuest.sms.body':
+    '{brand}: peaje de {amount} ({booking_ref}). Puedes pagar o impugnar en la app antes del {due_at}; si no, se cobra a tu tarjeta.',
+  'ntf.trafficImpoundToGuest.email.subject': 'Reserva {booking_ref}: el anfitrión te cobra la grúa',
+  'ntf.trafficImpoundToGuest.email.body':
+    'Hola, {first_name}. El anfitrión de la reserva {booking_ref} declaró gastos de grúa y depósito pagados por tu viaje: {amount} con los gastos de gestión. Tienes 48 horas, hasta el {due_at}, para pagar o impugnar en {brand}, en «Multas, peajes y grúa» de tu viaje; la foto es opcional. Sin respuesta, el monto se cobra a tu tarjeta guardada al vencer el plazo.',
+  'ntf.trafficImpoundToGuest.sms.body':
+    '{brand}: grúa de {amount} ({booking_ref}). Puedes pagar o impugnar en la app antes del {due_at}; si no, se cobra a tu tarjeta.',
   'web.incidental.evidence':
     'Pruebas que eligió el anfitrión: fotos de entrega y devolución, y archivos enviados durante este viaje',
   'web.incidental.evidenceItem': '{side} · {slot} · {by} · recibida el {date}',
@@ -3971,7 +3987,7 @@ export const ES_MESSAGES = {
   'web.traffic.sent.total': 'Total cobrado al viajero: {amount}',
   'web.traffic.kind': 'Tipo de cargo',
   'web.traffic.amount': 'Monto que pagaste',
-  'web.traffic.amountHint': 'Ejemplo: {example}',
+  'web.traffic.amountHint': 'Ejemplo: {example}.',
   'web.traffic.file': 'Comprobante',
   'web.traffic.fileItem': 'Foto recibida a las {time}',
   'web.traffic.fileNone': 'Primero toma una foto del comprobante.',
@@ -4031,7 +4047,7 @@ export const ES_MESSAGES = {
   'common.tripClaims.trafficDuplicate':
     'Esta referencia ya está declarada en este viaje: el mismo cargo se declara una sola vez.',
   'common.tripClaims.trafficAmountAboveCap':
-    'El monto supera el tope fijado para este cargo. Revisa el monto que pagaste.',
+    'El monto supera el tope fijado para este cargo. Revisa el monto que pagaste; si es correcto, escríbenos desde la ayuda del viaje.',
   'common.tripClaims.trafficNotOpen':
     'Este cargo ya no espera tu respuesta: ya se pagó, se impugnó o se decidió.',
   'common.claim.trafficNotDisputed':

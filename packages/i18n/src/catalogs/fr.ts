@@ -3963,6 +3963,22 @@ export const FR_MESSAGES = {
     'Bonjour {first_name}. L’hôte de la réservation {booking_ref} demande des frais de {amount}. Vous pouvez les payer ou les contester avec une photo sur {brand} jusqu’au {due_at}. Sans réponse, {brand} tranche et peut débiter votre carte enregistrée.',
   'ntf.invoiceToGuest.sms.body':
     '{brand} : l’hôte demande {amount} ({booking_ref}). Payez ou contestez dans l’appli avant le {due_at}.',
+  // US-318 suite (0181, ADR-201) : avis au voyageur d'une amende, d'un péage ou d'une fourrière
+  'ntf.trafficFineToGuest.email.subject': 'Réservation {booking_ref} : une amende à régler',
+  'ntf.trafficFineToGuest.email.body':
+    'Bonjour {first_name}. L’hôte de la réservation {booking_ref} a déclaré une amende reçue pendant votre trajet : {amount}, frais de gestion compris. Vous avez 48 heures, jusqu’au {due_at}, pour payer ou contester sur {brand}, dans « Amendes, péages et fourrière » de votre trajet ; la photo est facultative. Sans réponse, le montant est débité de votre carte enregistrée à l’échéance.',
+  'ntf.trafficFineToGuest.sms.body':
+    '{brand} : amende de {amount} ({booking_ref}). Payez ou contestez dans l’appli avant le {due_at} ; sinon, votre carte est débitée.',
+  'ntf.trafficTollToGuest.email.subject': 'Réservation {booking_ref} : un péage à régler',
+  'ntf.trafficTollToGuest.email.body':
+    'Bonjour {first_name}. L’hôte de la réservation {booking_ref} a déclaré un péage payé pendant votre trajet : {amount}, frais de gestion compris. Vous avez 48 heures, jusqu’au {due_at}, pour payer ou contester sur {brand}, dans « Amendes, péages et fourrière » de votre trajet ; la photo est facultative. Sans réponse, le montant est débité de votre carte enregistrée à l’échéance.',
+  'ntf.trafficTollToGuest.sms.body':
+    '{brand} : péage de {amount} ({booking_ref}). Payez ou contestez dans l’appli avant le {due_at} ; sinon, votre carte est débitée.',
+  'ntf.trafficImpoundToGuest.email.subject': 'Réservation {booking_ref} : une fourrière à régler',
+  'ntf.trafficImpoundToGuest.email.body':
+    'Bonjour {first_name}. L’hôte de la réservation {booking_ref} a déclaré des frais de fourrière payés à cause de votre trajet : {amount}, frais de gestion compris. Vous avez 48 heures, jusqu’au {due_at}, pour payer ou contester sur {brand}, dans « Amendes, péages et fourrière » de votre trajet ; la photo est facultative. Sans réponse, le montant est débité de votre carte enregistrée à l’échéance.',
+  'ntf.trafficImpoundToGuest.sms.body':
+    '{brand} : fourrière de {amount} ({booking_ref}). Payez ou contestez dans l’appli avant le {due_at} ; sinon, votre carte est débitée.',
   'web.incidental.evidence':
     'Preuves retenues par l’hôte : photos de la remise et du retour, et fichiers envoyés pendant ce voyage',
   'web.incidental.evidenceItem': '{side} · {slot} · {by} · reçue le {date}',
@@ -4052,7 +4068,7 @@ export const FR_MESSAGES = {
   'web.traffic.sent.total': 'Total facturé au voyageur : {amount}',
   'web.traffic.kind': 'Type de frais',
   'web.traffic.amount': 'Montant que tu as payé',
-  'web.traffic.amountHint': 'Exemple : {example}',
+  'web.traffic.amountHint': 'Exemple : {example}.',
   'web.traffic.file': 'Justificatif',
   'web.traffic.fileItem': 'Photo reçue à {time}',
   'web.traffic.fileNone': 'Prends d’abord une photo du justificatif.',
@@ -4111,7 +4127,7 @@ export const FR_MESSAGES = {
   'common.tripClaims.trafficDuplicate':
     'Cette référence est déjà déclarée pour ce trajet : les mêmes frais ne se déclarent qu’une fois.',
   'common.tripClaims.trafficAmountAboveCap':
-    'Le montant dépasse le plafond du pays pour ces frais. Vérifie le montant payé.',
+    'Le montant dépasse le plafond du pays pour ces frais. Vérifie le montant payé ; s’il est exact, écris-nous depuis l’aide du trajet.',
   'common.tripClaims.trafficNotOpen':
     'Ces frais ne sont plus en attente de ta réponse : ils ont déjà été payés, contestés ou décidés.',
   'common.claim.trafficNotDisputed':

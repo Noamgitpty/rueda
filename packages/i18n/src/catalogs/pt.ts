@@ -3888,6 +3888,22 @@ export const PT_MESSAGES = {
     'Olá, {first_name}. O anfitrião da reserva {booking_ref} pediu um custo de {amount}. Você pode pagar ou contestar com uma foto em {brand} até {due_at}. Sem resposta, {brand} decide e pode cobrar o seu cartão salvo.',
   'ntf.invoiceToGuest.sms.body':
     '{brand}: o anfitrião pediu {amount} ({booking_ref}). Pague ou conteste no app antes de {due_at}.',
+  // US-318 suite (0181, ADR-201) : avis au voyageur d'une amende, d'un péage ou d'une fourrière
+  'ntf.trafficFineToGuest.email.subject': 'Reserva {booking_ref}: o anfitrião cobra uma multa',
+  'ntf.trafficFineToGuest.email.body':
+    'Olá, {first_name}. O anfitrião da reserva {booking_ref} declarou uma multa recebida durante a sua viagem: {amount} com a taxa de gestão. Você tem 48 horas, até {due_at}, para pagar ou contestar em {brand}, em “Multas, pedágios e guincho” da sua viagem; a foto é opcional. Sem resposta, o valor é cobrado no seu cartão salvo ao fim do prazo.',
+  'ntf.trafficFineToGuest.sms.body':
+    '{brand}: multa de {amount} ({booking_ref}). Pague ou conteste no app antes de {due_at}; senão, o seu cartão é cobrado.',
+  'ntf.trafficTollToGuest.email.subject': 'Reserva {booking_ref}: o anfitrião cobra um pedágio',
+  'ntf.trafficTollToGuest.email.body':
+    'Olá, {first_name}. O anfitrião da reserva {booking_ref} declarou um pedágio pago durante a sua viagem: {amount} com a taxa de gestão. Você tem 48 horas, até {due_at}, para pagar ou contestar em {brand}, em “Multas, pedágios e guincho” da sua viagem; a foto é opcional. Sem resposta, o valor é cobrado no seu cartão salvo ao fim do prazo.',
+  'ntf.trafficTollToGuest.sms.body':
+    '{brand}: pedágio de {amount} ({booking_ref}). Pague ou conteste no app antes de {due_at}; senão, o seu cartão é cobrado.',
+  'ntf.trafficImpoundToGuest.email.subject': 'Reserva {booking_ref}: o anfitrião cobra o guincho',
+  'ntf.trafficImpoundToGuest.email.body':
+    'Olá, {first_name}. O anfitrião da reserva {booking_ref} declarou custos de guincho e pátio pagos por causa da sua viagem: {amount} com a taxa de gestão. Você tem 48 horas, até {due_at}, para pagar ou contestar em {brand}, em “Multas, pedágios e guincho” da sua viagem; a foto é opcional. Sem resposta, o valor é cobrado no seu cartão salvo ao fim do prazo.',
+  'ntf.trafficImpoundToGuest.sms.body':
+    '{brand}: guincho de {amount} ({booking_ref}). Pague ou conteste no app antes de {due_at}; senão, o seu cartão é cobrado.',
   'web.incidental.evidence':
     'Provas escolhidas pelo anfitrião: fotos da entrega e da devolução, e arquivos enviados durante esta viagem',
   'web.incidental.evidenceItem': '{side} · {slot} · {by} · recebida em {date}',
@@ -3977,7 +3993,7 @@ export const PT_MESSAGES = {
   'web.traffic.sent.total': 'Total cobrado do viajante: {amount}',
   'web.traffic.kind': 'Tipo de cobrança',
   'web.traffic.amount': 'Valor que você pagou',
-  'web.traffic.amountHint': 'Exemplo: {example}',
+  'web.traffic.amountHint': 'Exemplo: {example}.',
   'web.traffic.file': 'Comprovante',
   'web.traffic.fileItem': 'Foto recebida às {time}',
   'web.traffic.fileNone': 'Primeiro tire uma foto do comprovante.',
@@ -4037,7 +4053,7 @@ export const PT_MESSAGES = {
   'common.tripClaims.trafficDuplicate':
     'Esta referência já foi declarada nesta viagem: a mesma cobrança só se declara uma vez.',
   'common.tripClaims.trafficAmountAboveCap':
-    'O valor passa do teto fixado para esta cobrança. Confira o valor que você pagou.',
+    'O valor passa do teto fixado para esta cobrança. Confira o valor que você pagou; se estiver certo, fale com a gente pela ajuda da viagem.',
   'common.tripClaims.trafficNotOpen':
     'Esta cobrança não espera mais a sua resposta: ela já foi paga, contestada ou decidida.',
   'common.claim.trafficNotDisputed':

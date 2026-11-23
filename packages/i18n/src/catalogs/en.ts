@@ -3794,6 +3794,22 @@ export const EN_MESSAGES = {
     'Hi {first_name}. The host of booking {booking_ref} requested a cost of {amount}. You can pay it or dispute it with a photo on {brand} until {due_at}. Without an answer, {brand} decides and may charge your saved card.',
   'ntf.invoiceToGuest.sms.body':
     '{brand}: the host requested {amount} ({booking_ref}). Pay or dispute in the app before {due_at}.',
+  // US-318 suite (0181, ADR-201) : avis au voyageur d'une amende, d'un péage ou d'une fourrière
+  'ntf.trafficFineToGuest.email.subject': 'Booking {booking_ref}: the host charges you a fine',
+  'ntf.trafficFineToGuest.email.body':
+    'Hi {first_name}. The host of booking {booking_ref} reported a fine received during your trip: {amount} including the handling fee. You have 48 hours, until {due_at}, to pay or dispute it on {brand}, under “Fines, tolls and towing” in your trip; a photo is optional. Without an answer, the amount is charged to your saved card when the deadline passes.',
+  'ntf.trafficFineToGuest.sms.body':
+    '{brand}: fine of {amount} ({booking_ref}). Pay or dispute in the app before {due_at}; otherwise your card is charged.',
+  'ntf.trafficTollToGuest.email.subject': 'Booking {booking_ref}: the host charges you a toll',
+  'ntf.trafficTollToGuest.email.body':
+    'Hi {first_name}. The host of booking {booking_ref} reported a toll paid during your trip: {amount} including the handling fee. You have 48 hours, until {due_at}, to pay or dispute it on {brand}, under “Fines, tolls and towing” in your trip; a photo is optional. Without an answer, the amount is charged to your saved card when the deadline passes.',
+  'ntf.trafficTollToGuest.sms.body':
+    '{brand}: toll of {amount} ({booking_ref}). Pay or dispute in the app before {due_at}; otherwise your card is charged.',
+  'ntf.trafficImpoundToGuest.email.subject': 'Booking {booking_ref}: the host charges you towing',
+  'ntf.trafficImpoundToGuest.email.body':
+    'Hi {first_name}. The host of booking {booking_ref} reported towing and impound costs paid because of your trip: {amount} including the handling fee. You have 48 hours, until {due_at}, to pay or dispute it on {brand}, under “Fines, tolls and towing” in your trip; a photo is optional. Without an answer, the amount is charged to your saved card when the deadline passes.',
+  'ntf.trafficImpoundToGuest.sms.body':
+    '{brand}: towing of {amount} ({booking_ref}). Pay or dispute in the app before {due_at}; otherwise your card is charged.',
   'web.incidental.evidence':
     'Proof chosen by the host: pickup and return photos, and files sent during this trip',
   'web.incidental.evidenceItem': '{side} · {slot} · {by} · received {date}',
@@ -3883,7 +3899,7 @@ export const EN_MESSAGES = {
   'web.traffic.sent.total': 'Total charged to the traveler: {amount}',
   'web.traffic.kind': 'Type of charge',
   'web.traffic.amount': 'Amount you paid',
-  'web.traffic.amountHint': 'Example: {example}',
+  'web.traffic.amountHint': 'Example: {example}.',
   'web.traffic.file': 'Receipt',
   'web.traffic.fileItem': 'Photo received at {time}',
   'web.traffic.fileNone': 'First take a photo of the receipt.',
@@ -3941,7 +3957,7 @@ export const EN_MESSAGES = {
   'common.tripClaims.trafficDuplicate':
     'This reference is already declared for this trip: the same charge can be declared only once.',
   'common.tripClaims.trafficAmountAboveCap':
-    'The amount is above the country cap for this charge. Check the amount you paid.',
+    'The amount is above the country cap for this charge. Check the amount you paid; if it is right, contact us from the trip help.',
   'common.tripClaims.trafficNotOpen':
     'This charge is no longer waiting for your answer: it was already paid, disputed or decided.',
   'common.claim.trafficNotDisputed':

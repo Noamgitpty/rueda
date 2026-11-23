@@ -3099,6 +3099,13 @@
       "story": "US-318"
     },
     {
+      "signature": "core.claim_traffic_charges_due(integer,uuid[])",
+      "family": "cmd_money",
+      "owner": "cmd_money_owner",
+      "execute": ["app_worker"],
+      "story": "US-318"
+    },
+    {
       "signature": "core.claim_cmd_execute_traffic_charge(uuid,uuid)",
       "family": "cmd_money",
       "owner": "cmd_money_owner",

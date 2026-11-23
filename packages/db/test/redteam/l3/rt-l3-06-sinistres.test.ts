@@ -279,7 +279,7 @@ function batchOf(c: CountryCase): Promise<Batch> {
         h,
         w.trip,
         'FINE',
-        plus(occurred, 1000),
+        plus(occurred, 1),
         a['fine']!,
         p5.fileId!,
         false,
