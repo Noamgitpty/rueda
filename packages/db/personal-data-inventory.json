@@ -3179,7 +3179,18 @@
         "release_attempt": "C1",
         "release_operation_id": "C1",
         "created_at": "C1",
-        "updated_at": "C1"
+        "updated_at": "C1",
+        "kind": "C1"
+      }
+    },
+    "core.payout_item_charge": {
+      "lifecycle": "A",
+      "export": "none",
+      "columns": {
+        "charge_id": "C1",
+        "item_id": "C1",
+        "amount_minor": "C1",
+        "created_at": "C1"
       }
     },
     "core.payout_prepare_deferral": {

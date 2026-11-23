@@ -30,6 +30,13 @@ PYO ne calcule pas la part de l'hôte (c'est STL) et ne déplace aucun fonds lui
 - **Ajustement avant le versement** : une fois chaque item libéré, `PayoutScheduler` envoie `adjustPayout` de la part compensée (clé `adjust:{lot}:r1`, montant STOCKÉ, motif `HOST_LEDGER_NETTING`), lecture d'abord pour un ajustement déjà envoyé ou sans en-tête d'idempotence ; refus reçu ⇒ jamais renvoyé, revue FIN ; capacité `SUPPORTS_PAYOUT_ADJUSTMENT` inconnue ⇒ aucun appel. La base refuse l'émission d'un lot compensé sans ajustement réussi.
 - **Port** : `PayoutBatchStore.adjustment` / `recordAdjustment` (`core.payout_cmd_adjustment`, `core.payout_cmd_record_adjustment`).
 
+### Jambe HOST des débits post-trip (US-319, migration 0180, ADR-200)
+
+- **Report** : un frais annexe, un dommage ou une amende débité (preuve signée) est reporté sur les jambes du trip aux montants explicites du débit (PAY, `core.payment_cmd_settle_mit_attempt`) ; sa part HOST reste chez le PSP sur la jambe HOST du trip (variante A, aucun fonds détenu par Kmino).
+- **Lot suivant** : `PayoutScheduler.prepareCharge` (même tâche `payout_scheduler`, une transaction par débit) rattache la part HOST, montant explicite du débit, au lot ouvert suivant de l'hôte (`core.payout_cmd_prepare_charge` : `payout_at` = J+2 ouvrés du pays après le report, J+5 au premier versement), dans un item `POST_TRIP_CHARGE` (un par lot et trip), seulement quand l'item du trip est compensé : la part n'est jamais comptée deux fois, l'item du trip l'exclut. Refus de la base ⇒ trip différé (code seul).
+- **Libération** : rang suivant de la jambe HOST du trip (`release:{trip}:1:HOST:i{n}`, `i2` après le versement du trip) ; motifs de retenue du lot (`CHARGEBACK`, gel, interrupteurs…) ; part contre-passée (0) après un chargeback perdu reçu après le débit.
+- **Port** : `PayoutBatchStore.chargesToPrepare` / `prepareCharge` (`core.payout_charges_to_prepare`, `core.payout_cmd_prepare_charge`).
+
 ### Compte de versement de l'hôte (US-707, migrations 0159 et 0160, ADR-180)
 
 - **Au nom de l'hôte, personne physique** : le titulaire déclaré (prénoms, noms) est rapproché en base du nom légal vérifié par le KYC (règle tolérante d'ADR-117) ; la cédula / le RUC du titulaire est comparé par le coffre (port `PayoutAccountVault`) au numéro fiscal chiffré de l'hôte. Discordant ⇒ 422 `PAYOUT_HOLDER_MISMATCH`, rien n'est écrit. Sans numéro fiscal enregistré ⇒ 409 `HOST_TAX_ID_REQUIRED` : au Paraguay, seul le RUC est admis, un hôte sans RUC n'a pas de compte et reste non activable (OQ-P2P-07, OQ-PAY-09, fail-closed).
@@ -42,11 +49,12 @@ PYO ne calcule pas la part de l'hôte (c'est STL) et ne déplace aucun fonds lui
 
 ## Entités
 
-| Entité (17 §3.2.9) | État                                                                                                  |
-| ------------------ | ----------------------------------------------------------------------------------------------------- |
-| `payout_account`   | `core.payout_payout_account` (US-707, 0159 ; écarts PROPOSÉS : pas d'`account_bidx`, type de pièce)   |
-| `payout_batch`     | `core.payout_payout_batch` (US-708, 0165 ; écarts PROPOSÉS : variante, compte PSP, premier versement) |
-| `payout_item`      | `core.payout_payout_item` (US-708, 0165 ; un trip, un lot ; ordre `LEG_RELEASE` de rang n)            |
+| Entité (17 §3.2.9)     | État                                                                                                     |
+| ---------------------- | -------------------------------------------------------------------------------------------------------- |
+| `payout_account`       | `core.payout_payout_account` (US-707, 0159 ; écarts PROPOSÉS : pas d'`account_bidx`, type de pièce)      |
+| `payout_batch`         | `core.payout_payout_batch` (US-708, 0165 ; écarts PROPOSÉS : variante, compte PSP, premier versement)    |
+| `payout_item`          | `core.payout_payout_item` (US-708, 0165 ; un trip, un lot ; ordre `LEG_RELEASE` de rang n)               |
+| `payout_item` (débits) | `core.payout_payout_item` de nature `POST_TRIP_CHARGE` et parts `core.payout_item_charge` (US-319, 0180) |
 
 17 §3.2.9 liste aussi `finance_approval` (table `core.settlement_finance_approval`, migration 0036, possédée par STL) et `tax_remittance` (module FIN).
 

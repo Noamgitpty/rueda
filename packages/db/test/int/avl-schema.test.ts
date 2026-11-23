@@ -146,6 +146,7 @@ const PAY_PORT_TABLES = [
 const FIN_RECON_TABLES = ['finance_reconciliation_item', 'finance_reconciliation_run'] as const;
 
 const PYO_TABLES = [
+  'payout_item_charge',
   'payout_payout_account',
   'payout_payout_batch',
   'payout_payout_item',

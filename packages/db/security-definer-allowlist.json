@@ -2945,6 +2945,27 @@
       "story": "US-314"
     },
     {
+      "signature": "core.payout_release_operation_hold_reasons(uuid)",
+      "family": "cmd_money",
+      "owner": "cmd_money_owner",
+      "execute": [],
+      "story": "US-319"
+    },
+    {
+      "signature": "core.payout_charges_to_prepare(integer)",
+      "family": "cmd_money",
+      "owner": "cmd_money_owner",
+      "execute": ["app_worker"],
+      "story": "US-319"
+    },
+    {
+      "signature": "core.payout_cmd_prepare_charge(uuid)",
+      "family": "cmd_money",
+      "owner": "cmd_money_owner",
+      "execute": ["app_worker"],
+      "story": "US-319"
+    },
+    {
       "signature": "core.trip_manual_action_escalate_overdue(bytea,uuid,text,uuid,jsonb,text,uuid,text)",
       "family": "cmd_hold",
       "owner": "cmd_hold_owner",
