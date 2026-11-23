@@ -601,7 +601,7 @@
     },
     "US-402": {
       "require": ["code", "architecture", "securite", "argent", "qa"],
-      "why": "restauration testée et retour arrière exécuté (ADM-034, ADM-035) : rapport de restauration avec RPO / RTO mesurés, retour arrière exécuté au moins une fois, exercice rejoué depuis le runbook US-405 : infrastructure et déploiement (sécurité, architecture), preuve rejouée (qa) ; aucun montant ; Revue design : NON ; chemins db (comme US-112) ; lot 4 (19 v3 §3.5), inscrite avant son démarrage ; PROPOSÉ, décision de l orchestrateur 2026-11-23"
+      "why": "restauration testée et retour arrière exécuté (ADM-034, ADM-035) : rapport de restauration avec RPO / RTO mesurés, retour arrière exécuté au moins une fois, exercice rejoué depuis le runbook US-405 : infrastructure et déploiement (sécurité, architecture), preuve rejouée (qa) ; argent : aucune restauration ne rejoue un débit, un versement ou une commande au PSP (L4-PM-19, pré-mortem du lot 4) ; Revue design : NON ; chemins db (comme US-112) ; lot 4 (19 v3 §3.5), inscrite avant son démarrage ; PROPOSÉ, décision de l orchestrateur 2026-11-23"
     },
     "US-403": {
       "require": ["code", "architecture", "securite", "argent", "ux", "qa"],
@@ -613,7 +613,7 @@
     },
     "US-405": {
       "require": ["code", "architecture", "securite", "argent", "qa"],
-      "why": "runbooks d exploitation (PLT-003, 17 §6.4 et §6.5, ADM-035, LEG-010) : déploiement, retour arrière, exercice de restauration, incident de sécurité, panne du PSP ou du KYC, DSR, rotation des clés et des secrets, rejoués en préproduction par un agent qui ne les a pas écrits : sécurité (secrets, déploiement, données personnelles), architecture, QA (rejeu) ; aucun montant calculé ; Revue design : NON ; aucun chemin packages/ (docs/ops) ; lot 4 (19 v3 §3.5), inscrite avant son démarrage ; PROPOSÉ, décision de l orchestrateur 2026-11-23"
+      "why": "runbooks d exploitation (PLT-003, 17 §6.4 et §6.5, ADM-035, LEG-010) : déploiement, retour arrière, exercice de restauration, incident de sécurité, panne du PSP ou du KYC, DSR, rotation des clés et des secrets, rejoués en préproduction par un agent qui ne les a pas écrits : sécurité (secrets, déploiement, données personnelles), architecture, QA (rejeu) ; aucun montant calculé, argent : runbooks de restauration et de panne du PSP sans rejeu de débit ni de versement (L4-PM-19) ; Revue design : NON ; aucun chemin packages/ (docs/ops) ; lot 4 (19 v3 §3.5), inscrite avant son démarrage ; PROPOSÉ, décision de l orchestrateur 2026-11-23"
     },
     "US-406": {
       "require": ["code", "architecture", "securite", "qa"],
