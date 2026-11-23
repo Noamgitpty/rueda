@@ -7,7 +7,7 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 
 ## Synthèse
 
-- 179 migrations ; 171 tables ; 6 vues ; 966 politiques RLS ; 440 fonctions `SECURITY DEFINER` ; 332 autres fonctions.
+- 181 migrations ; 172 tables ; 6 vues ; 969 politiques RLS ; 443 fonctions `SECURITY DEFINER` ; 336 autres fonctions.
 - Tables sans RLS `ENABLE` + `FORCE` : aucune.
 - Rôles applicatifs avec `SUPERUSER` ou `BYPASSRLS` : aucun.
 
@@ -194,6 +194,8 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 | `0176_trip_inspection_photo_fingerprint` | TRP : empreinte de photo d'état unique, tous trips, photos d'annonce comprises (bêta). |
 | `0177_claim_incidental_invoices` | CLM : frais annexes demandés par l'hôte (facture SM-5), délai de réponse du voyageur |
 | `0178_claim_p2p_theft_incident_traffic` | CLM : sinistres entre particuliers. Vol présumé après la non-restitution (dossier de vol, |
+| `0179_booking_hold_fast_refusal` | AVL : refus rapide de la pose perdante sous le verrou du véhicule, et paramètres de pays |
+| `0180_payout_post_trip_charge_host_leg` | PYO / PAY / STL : report de la jambe HOST des frais annexes, dommages et amendes débités |
 
 ## Rôles
 
@@ -6374,6 +6376,40 @@ Déclencheurs :
 
 - `webhook_inbox_proof_columns_immutable` : `CREATE TRIGGER webhook_inbox_proof_columns_immutable BEFORE UPDATE ON core.payment_webhook_inbox FOR EACH ROW EXECUTE FUNCTION core.payment_webhook_inbox_proof_columns_guard()`
 
+### `core.payout_item_charge`
+
+- RLS : ENABLE + FORCE ; propriétaire `migrator`
+- Droits : cmd_money_owner: INSERT, SELECT ; migrator: DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE
+
+| Colonne | Type | NOT NULL | Défaut |
+| ------- | ---- | -------- | ------ |
+| `charge_id` | `uuid` | oui | — |
+| `item_id` | `uuid` | oui | — |
+| `amount_minor` | `bigint` | oui | — |
+| `created_at` | `timestamp with time zone` | oui | `platform.now()` |
+
+Contraintes :
+
+- `payout_item_charge_amount_positive` : `CHECK (amount_minor > 0)`
+- `payout_item_charge_charge_fk` : `FOREIGN KEY (charge_id) REFERENCES core.payment_post_trip_charge(id)`
+- `payout_item_charge_item_fk` : `FOREIGN KEY (item_id) REFERENCES core.payout_payout_item(id)`
+- `payout_item_charge_pkey` : `PRIMARY KEY (charge_id)`
+
+Index :
+
+- `payout_item_charge_item_idx` : `CREATE INDEX payout_item_charge_item_idx ON core.payout_item_charge USING btree (item_id)`
+
+Politiques RLS :
+
+- `cmd_money_ins` (INSERT, PERMISSIVE, cmd_money_owner) WITH CHECK `((app.actor_kind() = 'WORKER'::text) AND (app.worker_name() = 'payment_command'::text))`
+- `cmd_money_sel` (SELECT, PERMISSIVE, cmd_money_owner) USING `true`
+- `migrator_all` (ALL, PERMISSIVE, migrator) USING `true` WITH CHECK `true`
+
+Déclencheurs :
+
+- `payout_item_charge_guard` : `CREATE TRIGGER payout_item_charge_guard BEFORE INSERT OR DELETE OR UPDATE ON core.payout_item_charge FOR EACH ROW EXECUTE FUNCTION core.payout_item_charge_guard()`
+- `payout_item_charge_no_truncate` : `CREATE TRIGGER payout_item_charge_no_truncate BEFORE TRUNCATE ON core.payout_item_charge FOR EACH STATEMENT EXECUTE FUNCTION core.payout_item_charge_guard()`
+
 ### `core.payout_payout_account`
 
 - RLS : ENABLE + FORCE ; propriétaire `migrator`
@@ -6549,21 +6585,24 @@ Déclencheurs :
 | `release_operation_id` | `uuid` | non | — |
 | `created_at` | `timestamp with time zone` | oui | `platform.now()` |
 | `updated_at` | `timestamp with time zone` | oui | `platform.now()` |
+| `kind` | `text` | oui | `'TRIP'::text` |
 
 Contraintes :
 
 - `payout_item_amount_nonneg` : `CHECK (amount_minor >= 0)`
 - `payout_item_attempt_valid` : `CHECK (release_attempt >= 0)`
 - `payout_item_batch_fk` : `FOREIGN KEY (batch_id) REFERENCES core.payout_payout_batch(id)`
+- `payout_item_charge_batch_trip_unique` : `EXCLUDE USING btree (batch_id WITH =, trip_id WITH =) WHERE (kind = 'POST_TRIP_CHARGE'::text)`
 - `payout_item_country_format` : `CHECK (country_code ~ '^[A-Z]{2}$'::text)`
 - `payout_item_currency_format` : `CHECK (currency ~ '^[A-Z]{3}$'::text)`
+- `payout_item_kind_valid` : `CHECK (kind = ANY (ARRAY['TRIP'::text, 'POST_TRIP_CHARGE'::text]))`
 - `payout_item_leg_host` : `CHECK (leg = 'HOST'::text)`
 - `payout_item_release_operation_fk` : `FOREIGN KEY (release_operation_id) REFERENCES core.payment_payment_operation(id)`
 - `payout_item_release_operation_unique` : `UNIQUE (release_operation_id)`
 - `payout_item_release_shape` : `CHECK (release_operation_id IS NULL OR release_attempt >= 1)`
 - `payout_item_segment_beta` : `CHECK (segment_no = 1)`
 - `payout_item_trip_country_fk` : `FOREIGN KEY (trip_id, country_code) REFERENCES core.booking_trip(id, country_code)`
-- `payout_item_trip_leg_unique` : `UNIQUE (trip_id, segment_no, leg)`
+- `payout_item_trip_leg_unique` : `EXCLUDE USING btree (trip_id WITH =, segment_no WITH =, leg WITH =) WHERE (kind = 'TRIP'::text)`
 - `payout_payout_item_pkey` : `PRIMARY KEY (id)`
 
 Index :
@@ -9195,10 +9234,12 @@ Chacune a un propriétaire `NOLOGIN` dédié (ADR-053) et un `search_path` figé
 | `core.payment_startup_guard()` | `TABLE(deployment_env text, fake_accounts integer)` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; app_worker: EXECUTE ; cmd_money_owner: EXECUTE |
 | `core.payment_trip_refund_view(p_trip_id uuid, p_viewer text)` | `jsonb` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | cmd_hold_owner: EXECUTE ; cmd_money_owner: EXECUTE ; iam_staff_owner: EXECUTE |
 | `core.payout_batches_due(p_limit integer)` | `TABLE(batch_id uuid, step text, status text, country_code text, currency text, provider text)` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; cmd_money_owner: EXECUTE |
+| `core.payout_charges_to_prepare(p_limit integer)` | `TABLE(charge_id uuid, trip_id uuid, country_code text)` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; cmd_money_owner: EXECUTE |
 | `core.payout_cmd_adjustment(p_batch_id uuid)` | `TABLE(outcome text, idempotency_key text, amount_minor bigint, currency text, submerchant_reference text, provider_ref text, hold_reasons text[])` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; cmd_money_owner: EXECUTE |
 | `core.payout_cmd_defer_trip(p_trip_id uuid, p_outcome text)` | `timestamp with time zone` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; cmd_money_owner: EXECUTE |
 | `core.payout_cmd_initiate_batch(p_batch_id uuid)` | `TABLE(outcome text, idempotency_key text, amount_minor bigint, currency text, submerchant_reference text, provider_ref text, hold_reasons text[])` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; cmd_money_owner: EXECUTE |
 | `core.payout_cmd_net_batch(p_batch_id uuid)` | `TABLE(outcome text, gross_minor bigint, netted_minor bigint, net_minor bigint, hold_reasons text[])` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; cmd_money_owner: EXECUTE |
+| `core.payout_cmd_prepare_charge(p_charge_id uuid)` | `TABLE(outcome text, batch_id uuid, payout_at timestamp with time zone, status text, hold_reasons text[])` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; cmd_money_owner: EXECUTE |
 | `core.payout_cmd_prepare_trip(p_trip_id uuid)` | `TABLE(outcome text, batch_id uuid, payout_at timestamp with time zone, status text, hold_reasons text[])` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; cmd_money_owner: EXECUTE |
 | `core.payout_cmd_recheck_batch(p_batch_id uuid)` | `TABLE(outcome text, hold_reasons text[])` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; cmd_money_owner: EXECUTE |
 | `core.payout_cmd_record_adjustment(p_batch_id uuid, p_status text, p_provider_ref text)` | `text` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; cmd_money_owner: EXECUTE |
@@ -9212,6 +9253,7 @@ Chacune a un propriétaire `NOLOGIN` dédié (ADR-053) et un `search_path` figé
 | `core.payout_release_hold_reasons(p_trip_id uuid)` | `text[]` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | cmd_money_owner: EXECUTE |
 | `core.payout_release_item_guard()` | `trigger` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | cmd_money_owner: EXECUTE |
 | `core.payout_release_items(p_batch_id uuid)` | `TABLE(item_id uuid, trip_id uuid, amount_minor bigint, currency text, psp_account_id uuid, next_attempt integer, next_key text, operation_id uuid, operation_status text, idem_sent text, provider_reference text, applied boolean, beneficiary_reference text)` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; cmd_money_owner: EXECUTE |
+| `core.payout_release_operation_hold_reasons(p_operation_id uuid)` | `text[]` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | cmd_money_owner: EXECUTE |
 | `core.payout_trips_to_prepare(p_limit integer)` | `TABLE(trip_id uuid, country_code text)` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; cmd_money_owner: EXECUTE |
 | `core.pricing_bind_checkout_trip(p_trip_id uuid)` | `integer` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; cmd_money_owner: EXECUTE |
 | `core.pricing_checkout_terms(p_token_hash bytea, p_quote_id uuid)` | `TABLE(quote_id uuid, engine_version text, inputs text, inputs_hash text, outputs text, outputs_hash text, total_minor bigint, currency text, frozen_at timestamp with time zone, mileage_mode text, included_km integer, extra_km_price_minor bigint)` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; cmd_money_owner: EXECUTE |
@@ -9560,8 +9602,11 @@ Chacune a un propriétaire `NOLOGIN` dédié (ADR-053) et un `search_path` figé
 | `core.payment_webhook_inbox_proof_columns_guard()` | `trigger` | `migrator` | migrator: EXECUTE |
 | `core.payout_batch_hold_reasons(p_batch_id uuid)` | `text[]` | `cmd_money_owner` | cmd_money_owner: EXECUTE |
 | `core.payout_business_day(p_country text, p_from date, p_n integer)` | `date` | `cmd_money_owner` | cmd_money_owner: EXECUTE ; iam_staff_owner: EXECUTE |
+| `core.payout_charge_item_amount(p_item_id uuid)` | `bigint` | `cmd_money_owner` | cmd_money_owner: EXECUTE |
 | `core.payout_effective_end(p_trip_id uuid)` | `timestamp with time zone` | `cmd_money_owner` | cmd_money_owner: EXECUTE |
 | `core.payout_item_amount(p_trip_id uuid)` | `bigint` | `cmd_money_owner` | cmd_money_owner: EXECUTE |
+| `core.payout_item_charge_guard()` | `trigger` | `migrator` | migrator: EXECUTE |
+| `core.payout_next_release_rank(p_trip_id uuid, p_exclude uuid)` | `integer` | `cmd_money_owner` | cmd_money_owner: EXECUTE |
 | `core.payout_param(p_key text, p_country text)` | `jsonb` | `cmd_money_owner` | cmd_money_owner: EXECUTE |
 | `core.payout_payout_account_guard()` | `trigger` | `migrator` | migrator: EXECUTE |
 | `core.payout_payout_batch_adjustment_guard()` | `trigger` | `migrator` | migrator: EXECUTE |
@@ -9569,6 +9614,7 @@ Chacune a un propriétaire `NOLOGIN` dédié (ADR-053) et un `search_path` figé
 | `core.payout_payout_item_guard()` | `trigger` | `migrator` | migrator: EXECUTE |
 | `core.payout_refresh_batch(p_batch_id uuid, p_netting boolean)` | `void` | `cmd_money_owner` | cmd_money_owner: EXECUTE |
 | `core.payout_schedule(p_trip_id uuid, p_first boolean)` | `timestamp with time zone` | `cmd_money_owner` | cmd_money_owner: EXECUTE |
+| `core.payout_schedule_after(p_trip_id uuid, p_from timestamp with time zone, p_first boolean)` | `timestamp with time zone` | `cmd_money_owner` | cmd_money_owner: EXECUTE |
 | `core.payout_titular(p_token_hash bytea, p_org uuid)` | `TABLE(outcome text, user_id uuid, country_code text, currency text)` | `cmd_money_owner` | cmd_money_owner: EXECUTE |
 | `core.pricing_digest(p_prefix text, p_text text)` | `text` | `migrator` | cmd_money_owner: EXECUTE ; migrator: EXECUTE |
 | `core.pricing_minor(p_value jsonb)` | `numeric` | `migrator` | cmd_money_owner: EXECUTE ; migrator: EXECUTE |

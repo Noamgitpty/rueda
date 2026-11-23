@@ -14,8 +14,15 @@
  *   lecture d'abord ; capacité `SUPPORTS_PAYOUT_ADJUSTMENT` absente ⇒ aucun appel (revue). La
  *   mémoire suit la garde de 0167 (aucune émission d'un lot compensé sans ajustement réussi).
  *
+ * - US-319 (ADR-200) : part HOST d'un débit post-trip (amende refacturée) dans le lot SUIVANT du
+ *   même trip : `releaseLeg` au rang suivant de la jambe HOST du trip (`i2`), au montant explicite
+ *   de la part ; registre du FAKE : jambe HOST du trip encaissée (loyer + part) = libérée ;
+ *   préparation des parts par la base, refus ⇒ trip différé. La mémoire suit 0180 (rang du trip,
+ *   un ordre vivant par item, item libre de même montant).
+ *
  * Attendus : jambe HOST des vecteurs TJ01 (USD) et TJ08a (PYG sans décimale) de l'export des
- * oracles Python (`@rueda/money/golden-vectors`) ; jamais le code testé.
+ * oracles Python (`@rueda/money/golden-vectors`) ; amende de 08 BR-TT-03 / BR-REIMB-04 (100 % à
+ * l'hôte) et frais de gestion de 5 % (BR-PRICE-15), calculés à la main ; jamais le code testé.
  */
 import { FakePsp, FakePspError } from '@rueda/fake-adapters';
 import type { FakeCapability, FakeOperation, FakePspScenario } from '@rueda/fake-adapters';
@@ -37,6 +44,7 @@ import type {
 import type {
   AdjustmentOrder,
   BatchCheck,
+  ChargeToPrepare,
   DueBatch,
   PayoutBatchStore,
   PayoutOrder,
@@ -188,6 +196,12 @@ class MemoryStore implements PayoutBatchStore {
     string,
     { status: OperationStatus; idemSent: string; idemPlain: string; ref: string | null }
   >();
+  /** US-319 : rang le plus haut des libérations HOST du trip faites hors de ce lot (lot précédent). */
+  readonly ranks = new Map<string, number>();
+  /** US-319 : parts de débits post-trip préparées (issue rendue par la base), trips différés. */
+  readonly preparedCharges: string[] = [];
+  chargeOutcome: string | Error = 'PREPARED';
+  readonly deferred: { trip: string; code: string }[] = [];
 
   constructor(
     readonly batchId: string,
@@ -220,8 +234,32 @@ class MemoryStore implements PayoutBatchStore {
       holdReasons: [],
     });
   }
-  deferTrip(): Promise<void> {
+  deferTrip(trip: string, code: string): Promise<void> {
+    this.deferred.push({ trip, code });
     return Promise.resolve();
+  }
+  chargesToPrepare(): Promise<readonly ChargeToPrepare[]> {
+    return Promise.resolve([]);
+  }
+  prepareCharge(chargeId: string): Promise<PrepareResult> {
+    if (this.chargeOutcome instanceof Error) return Promise.reject(this.chargeOutcome);
+    this.preparedCharges.push(chargeId);
+    return Promise.resolve({
+      outcome: this.chargeOutcome,
+      batchId: this.batchId,
+      status: 'SCHEDULED',
+      holdReasons: [],
+    });
+  }
+  /** Rang suivant de la jambe HOST d'un trip (0180) : 1 + plus haut rang déjà utilisé. */
+  rank(trip: string): number {
+    return (
+      1 +
+      Math.max(
+        this.ranks.get(trip) ?? 0,
+        ...this.items.filter((i) => i.trip === trip).map((i) => i.attempt),
+      )
+    );
   }
   dueBatches(): Promise<readonly DueBatch[]> {
     return Promise.resolve([]);
@@ -248,8 +286,8 @@ class MemoryStore implements PayoutBatchStore {
           amountMinor: i.amount,
           currency: this.currency,
           pspAccountId: 'acc',
-          nextAttempt: i.attempt + 1,
-          nextKey: `release:${i.trip}:1:HOST:i${i.attempt + 1}`,
+          nextAttempt: this.rank(i.trip),
+          nextKey: `release:${i.trip}:1:HOST:i${this.rank(i.trip)}`,
           operationId: i.op,
           operationStatus: op?.status ?? null,
           idemSent: op?.idemSent ?? null,
@@ -261,16 +299,19 @@ class MemoryStore implements PayoutBatchStore {
     );
   }
   recordRelease(input: RecordReleaseInput): Promise<string> {
-    const item = this.items.find((i) => i.trip === input.tripId);
-    const live = item?.op === null || item?.op === undefined ? undefined : this.ops.get(item.op);
-    // garde de 0165 : lot READY, clé, rang et montant de l'item, aucun ordre vivant
+    // garde de 0165 / 0180 : lot READY, item libre du trip de même montant, rang suivant du trip
+    const item = this.items.find(
+      (i) =>
+        i.trip === input.tripId &&
+        i.amount === input.amountMinor &&
+        (i.op === null || this.ops.get(i.op)?.status === 'FAILED'),
+    );
+    const n = this.rank(input.tripId);
     if (
       item === undefined ||
       this.status !== 'READY' ||
-      input.idemPlain !== `release:${item.trip}:1:HOST:i${item.attempt + 1}` ||
-      input.attemptNo !== item.attempt + 1 ||
-      input.amountMinor !== item.amount ||
-      (live !== undefined && live.status !== 'FAILED')
+      input.idemPlain !== `release:${item.trip}:1:HOST:i${n}` ||
+      input.attemptNo !== n
     ) {
       throw Object.assign(new Error('payout_release_item_mismatch'), { code: '55000' });
     }
@@ -281,7 +322,7 @@ class MemoryStore implements PayoutBatchStore {
       ref: null,
     });
     item.op = input.operationId;
-    item.attempt += 1;
+    item.attempt = n;
     return Promise.resolve(input.operationId);
   }
   applyRelease(operationId: string): Promise<string> {
@@ -620,3 +661,97 @@ describe.each(CLAIMS)('US-709 — ajustement de la part compensée ($label)', ({
     expect(r.store.adjusted).toBe('FAILED');
   });
 });
+
+/**
+ * Amende refacturée (08 BR-TT-03, BR-REIMB-04 : 100 % à l'hôte ; BR-PRICE-15 : 5 %, à la main), par
+ * vecteur du loyer : 12,30 à deux décimales (frais 0,62) ; 25 010 sans décimale (frais 1 251).
+ */
+const FINES: Readonly<Record<string, { host: bigint; fee: bigint }>> = {
+  TJ01: { host: 1230n, fee: 62n },
+  TJ08a: { host: 25010n, fee: 1251n },
+};
+
+describe.each(CASES)(
+  'US-319 — part HOST d’un débit post-trip versée ($label, $vector)',
+  ({ vector }) => {
+    const tj = legVector(golden, vector);
+    const host = tj.legsMinor.HOST;
+    const fine = FINES[vector] ?? { host: 0n, fee: 0n };
+
+    it('lot du trip (i1) puis lot suivant de la part (i2, montant explicite) ; registre du FAKE : jambe HOST du trip encaissée = libérée, payout = loyer + part', async () => {
+      const caps = [...CAPABILITIES, v('SUPPORTS_MIT', true)];
+      const r = rig(tj.currency, [host], undefined, caps);
+      const trip = r.trips[0]?.id ?? '';
+      expect(await r.scheduler.process(r.due('NET'))).toBe('NETTED');
+      expect(await r.scheduler.process(r.due('RELEASE'))).toBe('PAID');
+      // débit MIT de l'amende, réparti à la source sur les jambes du trip (aucun fonds détenu)
+      r.psp.chargeMit({
+        merchantReference: `${trip}:1:v0-TRAFFIC_CHARGE-x:MIT_CHARGE:t:i1:a1`,
+        tripReference: trip,
+        instrumentToken: 'tok_us319',
+        reason: 'DELAYED_CHARGES',
+        amountMinor: fine.host + fine.fee,
+        currency: tj.currency,
+        legs: { HOST: fine.host, INSURER: 0n, TAX_THIRD_PARTY: 0n, PLATFORM: fine.fee },
+      });
+      // lot suivant : un item de débits post-trip du même trip, rang suivant de sa jambe HOST
+      const next = new MemoryStore(
+        '22222222-2222-4222-8222-222222222222',
+        tj.currency,
+        r.store.submerchant,
+        [{ id: trip, host: fine.host }],
+      );
+      next.ranks.set(trip, 1);
+      let n = 100;
+      const connector = connectorOf(r.psp, caps);
+      const scheduler = new PayoutScheduler({
+        transactions,
+        connectors: { get: (p) => (p === PROVIDER ? connector : undefined) },
+        storeOf: () => next,
+        newId: () => `op-${(n += 1)}`,
+      });
+      const due = (step: DueBatch['step']): DueBatch => ({
+        batchId: next.batchId,
+        step,
+        status: next.status,
+        country: 'XA',
+        currency: tj.currency,
+        provider: PROVIDER,
+      });
+      expect(await scheduler.process(due('NET'))).toBe('NETTED');
+      expect(await scheduler.process(due('RELEASE'))).toBe('PAID');
+      const releases = r.psp.movements().filter((m) => m.operation === 'RELEASE_LEG');
+      expect(releases.map((m) => [m.merchantReference, m.amountMinor])).toEqual([
+        [`release:${trip}:1:HOST:i1`, host],
+        [`release:${trip}:1:HOST:i2`, fine.host],
+      ]);
+      const legs = r.psp.listLegBalances({ tripReference: trip });
+      const hostLeg = legs.find((l) => l.leg === 'HOST');
+      expect(hostLeg?.capturedMinor).toBe(host + fine.host);
+      expect(hostLeg?.releasedMinor).toBe(host + fine.host);
+      const platform = legs.find((l) => l.leg === 'PLATFORM');
+      expect(platform?.capturedMinor).toBe(fine.fee);
+      expect(platform?.releasedMinor).toBe(0n);
+      expect(r.psp.submerchant(r.store.submerchant)?.paidOutMinor).toBe(host + fine.host);
+      expect(r.calls('PAYOUT')).toBe(2);
+      // rejeu : aucun nouvel appel
+      expect(await scheduler.process(due('RELEASE'))).toBe('IDLE');
+      expect(r.calls('RELEASE_LEG')).toBe(2);
+    });
+
+    it('préparation d’une part : issue de la base rendue ; refus de la base ⇒ trip différé avec le seul code', async () => {
+      const r = rig(tj.currency, [host]);
+      const charge = { chargeId: 'charge-1', tripId: r.trips[0]?.id ?? '' };
+      expect(await r.scheduler.prepareCharge(charge)).toBe('PREPARED');
+      expect(r.store.preparedCharges).toEqual(['charge-1']);
+      r.store.chargeOutcome = 'TRIP_NOT_NETTED';
+      expect(await r.scheduler.prepareCharge(charge)).toBe('TRIP_NOT_NETTED');
+      r.store.chargeOutcome = Object.assign(new Error('payout_item_charge_mismatch'), {
+        code: '23000',
+        constraint: 'payout_item_charge_mismatch',
+      });
+      expect(await r.scheduler.prepareCharge(charge)).toBe('ERROR');
+      expect(r.store.deferred).toEqual([{ trip: charge.tripId, code: expect.any(String) }]);
+    });
+  },
+);

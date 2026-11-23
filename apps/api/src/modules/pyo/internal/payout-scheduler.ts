@@ -8,6 +8,9 @@
  * 1. préparation des trips COMPLETED (`core.payout_cmd_prepare_trip`) : `payout_at` (J+2 ouvrés du
  *    pays, J+5 au premier versement), `release_at` (écrivain unique), lot, item, montants et motifs
  *    de retenue — tout est calculé et gardé par la base ; aucun appel au PSP ;
+ * 1 bis. US-319 (ADR-200) : parts HOST des débits post-trip reportés (frais annexes, dommages,
+ *    amendes) rattachées au lot suivant de l'hôte (`core.payout_cmd_prepare_charge`, montant
+ *    explicite du débit) ; même transaction par débit, même différé du trip sur un refus ;
  * 2. `NET` (échéance atteinte) : compensation du `host_ledger`, READY / ZERO_NET, ou ON_HOLD ;
  * 3. `RELEASE` : sans connecteur pour le fournisseur (production avant le lot C : aucun), RIEN ;
  *    sinon motifs RELUS sous les verrous des trips et du lot (gardés pendant les appels), puis, pour
@@ -37,6 +40,7 @@ import type {
 } from '../../pay/index.js';
 import type {
   AdjustmentOrder,
+  ChargeToPrepare,
   DueBatch,
   PayoutBatchStore,
   PayoutOrder,
@@ -115,6 +119,31 @@ export class PayoutScheduler {
       try {
         await this.#deps.transactions.run(PAYMENT_COMMAND_WORKER, (db) =>
           this.#storeOf(db).deferTrip(tripId, code),
+        );
+      } catch {
+        // différé impossible : repris au passage suivant
+      }
+      return 'ERROR';
+    }
+  }
+
+  /**
+   * US-319 : rattache la part HOST d'un débit post-trip reporté au lot suivant, dans sa
+   * transaction ; un refus de la base diffère le trip (comme `prepare`), jamais un message.
+   */
+  async prepareCharge(charge: ChargeToPrepare): Promise<string> {
+    try {
+      const r = await this.#deps.transactions.run(PAYMENT_COMMAND_WORKER, (db) =>
+        this.#storeOf(db).prepareCharge(charge.chargeId),
+      );
+      return r.outcome;
+    } catch (error) {
+      if (classify(error) === 'RETRY') return 'RETRY';
+      const code = errorCode(error);
+      this.#log({ level: 'warn', event: 'prepare_charge', outcome: 'ERROR', error_code: code });
+      try {
+        await this.#deps.transactions.run(PAYMENT_COMMAND_WORKER, (db) =>
+          this.#storeOf(db).deferTrip(charge.tripId, code),
         );
       } catch {
         // différé impossible : repris au passage suivant
@@ -410,10 +439,15 @@ export function registerPayoutScheduler(
       ]);
       const store = new PgPayoutBatchStore(tx);
       const trips = await store.tripsToPrepare(PAYOUT_SCHEDULER_BATCH);
+      const charges = await store.chargesToPrepare(PAYOUT_SCHEDULER_BATCH);
       const due = await store.dueBatches(PAYOUT_SCHEDULER_BATCH);
       const counts: Record<string, number> = {};
       for (const trip of trips) {
         const key = `prepare_${(await scheduler.prepare(trip)).toLowerCase()}`;
+        counts[key] = (counts[key] ?? 0) + 1;
+      }
+      for (const charge of charges) {
+        const key = `charge_${(await scheduler.prepareCharge(charge)).toLowerCase()}`;
         counts[key] = (counts[key] ?? 0) + 1;
       }
       for (const d of due) {
@@ -426,6 +460,7 @@ export function registerPayoutScheduler(
           level: 'info',
           worker: PAYOUT_SCHEDULER_WORKER,
           trips: trips.length,
+          charges: charges.length,
           due: due.length,
           ...counts,
         }),
