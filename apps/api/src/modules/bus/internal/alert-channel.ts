@@ -68,6 +68,9 @@ export const ALERT_CODES = [
   // no-show (US-307, ADR-191) : signalement du voyageur sans issue, en attente de l'ops au-delà
   // du délai du pays (STALE) ou devenu inapplicable (BLOCKED) ; P2, une fois par signalement
   'TRIP_NO_SHOW_REPORT_UNRESOLVED',
+  // frais annexes (US-706, ADR-197 n° 18) : débit reporté 12 fois (erreur, issue inconnue), sorti de
+  // la file et à revoir par l'ops ; P2, une fois par frais
+  'CLAIM_INCIDENTAL_REVIEW_REQUIRED',
 ] as const;
 export type AlertCode = (typeof ALERT_CODES)[number];
 

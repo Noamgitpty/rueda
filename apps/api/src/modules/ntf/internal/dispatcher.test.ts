@@ -51,6 +51,8 @@ describe('abonnement', () => {
       'booking.trip.host_restriction_lifted',
       'catalog.addition_request.resolved',
       'deposit.decision.executed',
+      // US-706 : frais annexe demandé par l'hôte (avis au voyageur)
+      'invoice.status_changed',
       'kyc.verification.status_changed',
       'payout.batch.status_changed',
       // US-310 : réponse automatique à une demande d'aide hors plage
@@ -231,6 +233,37 @@ describe.each(COUNTRY_CASES)('planDispatches — $country ($currency)', (c) => {
       c.country,
     );
     expect(() => planDispatches(bad, RULES, tripMap())).toThrow(NotificationContractError);
+  });
+
+  it('US-706 : frais annexe demandé par l’hôte (`invoice.status_changed`, 0177, AWAITING_GUEST) ⇒ le voyageur du trip seul (base), e-mail d’abord ; montant dans la devise du pays et échéance de la base, jamais le motif de l’hôte ; autres états : aucun envoi', () => {
+    const changed = (status: string) =>
+      event(
+        'invoice.status_changed',
+        {
+          invoice_id: randomUUID(),
+          trip_id: tripId,
+          status,
+          fee_type: 'CLEANING',
+          amount_minor: '4500',
+          currency: c.currency,
+          response_due_at: '2097-03-13T10:00:00.000Z',
+        },
+        c.country,
+      );
+    const plan = planDispatches(changed('AWAITING_GUEST'), RULES, tripMap());
+    expect(who(plan)).toEqual([['GUEST', guest, 'EMAIL', 'EVT_INVOICE_TO_GUEST']]);
+    expect(plan[0]?.variables).toEqual({
+      booking_ref: '0190F5A2',
+      amount: { amount_minor: '4500', currency: c.currency },
+      due_at: '2097-03-13T10:00:00.000Z',
+    });
+    for (const status of ['ACCEPTED', 'DISPUTED', 'CHARGED', 'REJECTED', 'CANCELLED_BY_HOST']) {
+      expect(planDispatches(changed(status), RULES, tripMap())).toEqual([]);
+    }
+    // voyageur introuvable en base : erreur de contrat, jamais un envoi au hasard
+    expect(() => planDispatches(changed('AWAITING_GUEST'), RULES, tripMap(null))).toThrow(
+      NotificationContractError,
+    );
   });
 
   it('US-213 : charge utile et base en désaccord sur une personne ⇒ erreur de contrat (jamais un mélange)', () => {

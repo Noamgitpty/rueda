@@ -3859,4 +3859,120 @@ export const FR_MESSAGES = {
     'Bonjour {first_name}. La voiture de la réservation {booking_ref} n’est pas rendue depuis plus d’un jour. Voici une plainte pré-remplie que tu peux déposer toi-même auprès de la police ou du ministère public, avec ton contrat de location et ta pièce d’identité : « Je soussigné(e), hôte qui a mis en location le véhicule indiqué au contrat de location joint (marque, modèle et plaque), déclare que ce véhicule, loué par la réservation {booking_ref} sur {brand}, devait m’être restitué le {end_at} et ne l’a pas été malgré mes relances. L’identité du locataire figure au contrat joint. Je dépose plainte pour non-restitution du véhicule. » Garde le numéro de la plainte. {brand} ne dépose pas de plainte à ta place, ne récupère pas la voiture et n’agit pas à distance sur elle ; ton versement n’est pas bloqué par cette procédure.',
   'ntf.unreturnedPoliceReport.sms.body':
     '{brand} : plainte pré-remplie pour la réservation {booking_ref} envoyée par e-mail. C’est toi qui la déposes auprès de la police.',
+  // US-706 (ADR-197) : frais annexes demandés par l’hôte, payés ou contestés par le voyageur
+  'common.incidental.notFound': 'Nous ne trouvons pas ces frais.',
+  'common.incidental.typeNotAllowed': 'Ce type de frais ne peut pas être demandé au voyageur.',
+  'common.incidental.typeNotSupported':
+    'Ces frais se demandent autrement (retard, péages et amendes, kilométrage). Rien n’a été enregistré.',
+  'common.incidental.tripNotEnded':
+    'Vous pourrez demander des frais après le retour de la voiture.',
+  'common.incidental.windowClosed': 'Le délai pour demander des frais pour ce voyage est passé.',
+  'common.incidental.evidenceMissing':
+    'Ajoutez un justificatif : au moins une photo de la remise ou du retour de ce voyage (carburant : la jauge au départ et au retour).',
+  'common.incidental.notBillable':
+    'Ces frais ne peuvent pas être demandés : même niveau de carburant, voyage terminé plus tôt, ou voiture seulement non lavée (aucun lavage n’est exigé).',
+  'common.incidental.fuelPrepaid':
+    'Le voyageur a acheté un extra pour ce voyage : le carburant n’est pas facturé.',
+  'common.incidental.amountAboveCap': 'Le montant dépasse le maximum autorisé pour ces frais.',
+  'common.incidental.duplicate': 'Une demande de ce type est déjà en cours pour ce voyage.',
+  'common.incidental.notCancellable': 'Cette demande ne peut plus être annulée.',
+  'common.incidental.notOpen': 'Ces frais n’attendent plus votre réponse.',
+  'common.incidental.responseWindowClosed': 'Le délai pour payer ou contester ces frais est passé.',
+  'common.incidental.disputeReasonRequired':
+    'Expliquez pourquoi vous n’êtes pas d’accord (20 caractères au moins).',
+  'common.incidental.unavailable':
+    'Les frais annexes ne sont pas disponibles pour le moment. Rien n’a été enregistré.',
+  'common.claim.incidentalNotDisputed':
+    'Seuls les frais contestés par le voyageur se décident ici.',
+  'web.a04.addFee': 'Ajouter des frais avec justificatif',
+  'web.s12.accept': 'Accepter et payer {amount}',
+  'web.s12.contest': 'Je ne suis pas d’accord',
+  'web.incidental.title.HOST': 'Frais du voyage',
+  'web.incidental.title.GUEST': 'Frais demandés par l’hôte',
+  'web.incidental.link.GUEST': 'Frais demandés par l’hôte',
+  'web.incidental.back': 'Retour au voyage',
+  'web.incidental.lead.HOST':
+    'Vous pouvez demander des frais de carburant, de nettoyage ou de tabac jusqu’au {date}, avec des photos de la remise ou du retour. Le voyageur aura un délai pour payer ou contester.',
+  'web.incidental.closed.HOST': 'Le délai pour demander des frais s’est terminé le {date}.',
+  'web.incidental.notEnded.HOST': 'Vous pourrez demander des frais après le retour de la voiture.',
+  'web.incidental.lead.GUEST':
+    'Vous pouvez payer ou contester chaque frais jusqu’à l’heure indiquée. Sans réponse, {brand} tranche et peut débiter la carte enregistrée.',
+  'web.incidental.empty.HOST': 'Vous n’avez demandé aucuns frais pour ce voyage.',
+  'web.incidental.empty.GUEST': 'L’hôte n’a demandé aucuns frais.',
+  'web.incidental.list': 'Demandes',
+  'web.incidental.fee.FUEL': 'Carburant',
+  'web.incidental.fee.CLEANING': 'Nettoyage',
+  'web.incidental.fee.SMOKING': 'Tabac',
+  'web.incidental.status.AWAITING_GUEST': 'Réponse du voyageur attendue avant le {date}',
+  'web.incidental.status.ACCEPTED': 'Accepté par le voyageur : débit en cours',
+  'web.incidental.status.DISPUTED': 'Contesté : {brand} examine les preuves',
+  'web.incidental.status.DECIDED_CHARGE': '{brand} a confirmé les frais : débit en cours',
+  'web.incidental.status.CHARGED': 'Débit demandé',
+  'web.incidental.status.REJECTED': '{brand} a refusé les frais',
+  'web.incidental.status.CANCELLED_BY_HOST': 'Annulé par l’hôte',
+  'web.incidental.charge.PROCESSING': 'Paiement en cours',
+  'web.incidental.charge.PAID': 'Payé',
+  'web.incidental.charge.UNPAID': 'Paiement refusé : un solde reste dû',
+  'web.incidental.evidenceCount': 'Photos jointes : {count}',
+  'web.incidental.reason': 'Motif de l’hôte',
+  'web.incidental.disputeReason': 'Contestation du voyageur',
+  'web.incidental.decision': 'Décision de {brand}',
+  'web.incidental.cancel': 'Annuler la demande',
+  'web.incidental.form.type': 'Type de frais',
+  'web.incidental.form.amount': 'Montant ({currency})',
+  'web.incidental.form.amountHint': 'Exemple : {example}. Chaque type de frais a un maximum.',
+  'web.incidental.form.description': 'Motif',
+  'web.incidental.form.descriptionHint': 'De 10 à 500 caractères, sans nom ni téléphone.',
+  'web.incidental.form.photos': 'Photos justificatives',
+  'web.incidental.form.photosHint':
+    'Choisissez au moins une photo de la remise ou du retour. Carburant : la jauge au départ et au retour. Nettoyage ou tabac : une photo de l’intérieur au retour.',
+  'web.incidental.form.submit': 'Envoyer la demande',
+  'web.incidental.form.amountInvalid': 'Saisissez un montant valide, par exemple {example}.',
+  'web.incidental.form.descriptionInvalid': 'Le motif doit faire de 10 à 500 caractères.',
+  'web.incidental.form.photoRequired': 'Choisissez au moins une photo.',
+  'web.incidental.form.noPhotos':
+    'Ce voyage n’a aucune photo de remise ni de retour : aucuns frais ne peuvent être demandés.',
+  'web.incidental.photo': '{side} · {slot} · {by}',
+  'web.incidental.side.CHECKIN': 'Départ',
+  'web.incidental.side.CHECKOUT': 'Retour',
+  'web.incidental.slot.EXTERIOR': 'extérieur',
+  'web.incidental.slot.INTERIOR': 'intérieur',
+  'web.incidental.slot.FUEL': 'jauge de carburant',
+  'web.incidental.slot.ODOMETER': 'compteur',
+  'web.incidental.slot.KEY': 'clé',
+  'web.incidental.slot.DAMAGE': 'dommage',
+  'web.incidental.by.HOST': 'photo de l’hôte',
+  'web.incidental.by.GUEST': 'photo du voyageur',
+  'web.incidental.payNotice':
+    'En payant, vous acceptez que ce montant soit débité de votre carte enregistrée.',
+  'web.incidental.dispute.reason': 'Pourquoi n’êtes-vous pas d’accord ?',
+  'web.incidental.dispute.reasonHint': 'De 20 à 1 000 caractères, sans nom ni téléphone.',
+  'web.incidental.dispute.photos': 'Photos à l’appui',
+  'web.incidental.dispute.submit': 'Envoyer la contestation',
+  'web.incidental.dispute.reasonInvalid': 'Le motif doit faire de 20 à 1 000 caractères.',
+  'web.incidental.done.submitted': 'Demande envoyée. Le voyageur a été prévenu.',
+  'web.incidental.done.accepted': 'Merci. {brand} débitera la carte enregistrée.',
+  'web.incidental.done.disputed':
+    'Contestation envoyée. {brand} examine les preuves et tranche ; rien n’est débité avant.',
+  'web.incidental.done.cancelled': 'Demande annulée.',
+  'web.incidental.loadError': 'Nous n’avons pas pu charger cette page.',
+  'web.incidental.retry': 'Réessayer',
+  // US-706 (revues) : avis au voyageur, preuves, échéance passée, plafonds
+  'ntf.invoiceToGuest.email.subject': 'Réservation {booking_ref} : l’hôte demande des frais',
+  'ntf.invoiceToGuest.email.body':
+    'Bonjour {first_name}. L’hôte de la réservation {booking_ref} demande des frais de {amount}. Vous pouvez les payer ou les contester avec une photo sur {brand} jusqu’au {due_at}. Sans réponse, {brand} tranche et peut débiter votre carte enregistrée.',
+  'ntf.invoiceToGuest.sms.body':
+    '{brand} : l’hôte demande {amount} ({booking_ref}). Payez ou contestez dans l’appli avant le {due_at}.',
+  'web.incidental.evidence':
+    'Preuves retenues par l’hôte : photos de la remise et du retour, et fichiers envoyés pendant ce voyage',
+  'web.incidental.evidenceItem': '{side} · {slot} · {by} · reçue le {date}',
+  'web.incidental.evidenceUpload': 'Fichiers envoyés par l’hôte pendant ce voyage : {count}',
+  'web.incidental.statusGuest.AWAITING_GUEST': 'Répondez avant le {date}',
+  'web.incidental.expired.AWAITING_GUEST':
+    'Le délai de réponse s’est terminé le {date} : {brand} va débiter la carte enregistrée.',
+  'web.incidental.expired.DISPUTED':
+    'Contesté à temps : {brand} examine les preuves et tranche ; rien n’est débité avant.',
+  'web.incidental.form.cap': 'Maximum pour {fee} : {amount}.',
+  'web.incidental.form.allRequested': 'Vous avez déjà demandé chaque type de frais pour ce voyage.',
+  'web.incidental.form.capMissing': '{fee} : pas encore demandable dans ce pays.',
 } as const satisfies Readonly<Record<MessageKey, Message>>;

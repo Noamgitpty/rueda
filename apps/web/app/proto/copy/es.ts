@@ -304,7 +304,6 @@ export const ES_PROTO = {
   'web.a02.cars.inReview': 'En revisión',
   'web.a02.cars.add': 'Publicar otro auto',
   'web.a02.noShow': 'El viajero no llegó',
-  'web.a04.addFee': 'Agregar un gasto con prueba',
   'web.a04.claimUntil': 'Puedes reportar daños hasta el {date}',
   'web.a05.cancel': 'Cancelar reserva',
   'web.a05.cancelWarning':

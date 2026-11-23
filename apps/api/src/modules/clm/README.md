@@ -8,7 +8,7 @@ CLM traite ce qui arrive pendant ou après un trip : déclarations de dommage et
 
 CLM ne calcule pas le règlement (STL, nouvelle version sur décision) et n'exécute aucun débit (PAY).
 
-État réel : **dossier de preuve d'un trip** (US-308, ADR-184, migration 0164) ; **déclarations de dommage et d'incident, décisions motivées par gabarit et leur exécution par Kmino** (US-309, ADR-195, migration 0175). Les frais annexes arrivent avec US-706, les sinistres entre particuliers (vol) avec US-318 ; les débits post-trip sont ceux d'US-703 (PAY).
+État réel : **dossier de preuve d'un trip** (US-308, ADR-184, migration 0164) ; **déclarations de dommage et d'incident, décisions motivées par gabarit et leur exécution par Kmino** (US-309, ADR-195, migration 0175) ; **frais annexes : demande de l'hôte, réponse du voyageur, décision de l'ops et débit par Kmino** (US-706, ADR-197, migration 0177). Les sinistres entre particuliers (vol) arrivent avec US-318 ; les débits post-trip sont ceux d'US-703 (PAY).
 
 ## Dossier de preuve (US-308)
 
@@ -27,11 +27,18 @@ CLM ne calcule pas le règlement (STL, nouvelle version sur décision) et n'exé
 - **Exécution** (`ClaimDecisionExecutor`, tâche `claim_decision_executor`, 60 s, sous `payment_command`) : `core.claim_cmd_execute_decision` notifie le débit séparé d'US-703 (DAMAGE / DAMAGE_SEPARATE, jambes explicites, jamais la caution), écrit la franchise de l'hôte au host_ledger (`CLAIM_HOST_DEDUCTIBLE`) et journalise la déclaration à l'assureur ; port `InsurerClaimsPort` (FAKE `FakeInsurerClaims` de `@rueda/fake-adapters/insurer` en tests ; aucun en production) appelé seulement si `insurer_contract_active[pays]`.
 - Routes de la console (module SUP, `SupClaimsModule`) : `POST /console/claims`, `GET /console/claims/{claimId}`, `POST /console/claims/{claimId}/decision` ; écran A09 dans `apps/backoffice` (`claim-view.tsx`).
 
+## Frais annexes (US-706)
+
+- **Demande, paiement, contestation** (routes du module TRP, `/trips/{tripId}/incidental-fees…`) : commandes `core.claim_cmd_submit_incidental`, `…_accept_…`, `…_dispute_…`, `…_cancel_…` et vue `core.claim_incidental_view` (cmd_money_owner, EXECUTE app_api) ; liste fermée (FUEL, CLEANING, SMOKING), pièces = photos des séries du trip, plus (paramètre `incidental_evidence_trip_photos_only` = faux, défaut comme Turo) les fichiers de preuve de l'hôte rattachés à CE trip dès l'envoi : commande `core.claim_cmd_attach_incidental_file` (empreinte unique, fenêtre de l'hôte), table de rattachement `core.claim_incidental_host_file` (ajout seul, aucun droit applicatif) ; route d'envoi des octets : suite, contrôles du carburant plus stricts que Turo en paramètres du pays (DEC-FONDATEUR-22), demande rejetée non redemandable, avis `invoice.status_changed` au voyageur (NTF `EVT_INVOICE_TO_GUEST`), preuves de chaque demande rendues aux deux parties, délais `incidental_host_window_h` et `invoice_guest_response_h` à l'heure de la base, plafonds du pays, jambes figées (HOST 100 %).
+- **Décision de l'ops** (`dispute.decide`) : `IncidentalFeesController` (module SUP) → `PgIncidentalStaffStore` → `core.support_staff_incidental` / `core.support_staff_decide_incidental` ; frais contesté seulement, motif exigé, jamais « définitif », débiter réservé à ADMIN, garde ADR-122. Routes : `GET /console/incidental-fees/{invoiceId}`, `POST /console/incidental-fees/{invoiceId}/decision`. Frais « à revoir par l'ops » (débit reporté 12 fois) : `GET /console/incidental-reviews` (porte `core.support_staff_incidental_review`, pays de l'agent, ADR-122 avant la limite de 500) ; reprise (relancer ou clore) : suite AVANT `payouts_enabled`.
+- **Débit** (`IncidentalInvoiceExecutor`, tâche `incidental_invoice_executor`, 60 s, sous `payment_command`) : `core.claim_cmd_charge_incidental` relit l'état et l'échéance sous le verrou du trip, notifie le débit séparé d'US-703 (INCIDENTAL / DELAYED_CHARGES, origine `INCIDENTAL_INVOICE`, jambes explicites, jamais la caution) ; avant l'échéance : `GUEST_RESPONSE_WINDOW_OPEN` ; contesté sans décision : jamais ; erreur ou issue inconnue (`NOT_FOUND` compris) ⇒ report de 15 min (`core.claim_cmd_defer_incidental`), au 12e ⇒ « à revoir par l'ops » (hors de la file, alerte `CLAIM_INCIDENTAL_REVIEW_REQUIRED`, P2) ; sans carte du loyer ⇒ `BLOCKED NO_CARD_TENDER`, relu dans 24 h. Routes servies par TRP : voir ADR-197 n° 17.
+
 ## Entités
 
 - `evidence_bundle` (17 §3.2.11) : **créée** — `core.claim_evidence_bundle` (classe A, immuable : REQUESTED → READY ou FAILED, EXPIRED calculé ; aucun droit applicatif ; commandes sous `cmd_hold_owner`, portes sous `iam_staff_owner`).
 - `claim` / `incident_report` (17 §2.2) : **créée** — `core.claim_damage_claim` (classe A ; REPORTED → DECIDED). `decision` (17 §3.2.11) : **créée** — `core.claim_decision` (classe A ; exécution PENDING → DONE ou BLOCKED) ; déclaration à l'assureur `core.claim_insurer_declaration` (PENDING → SENT). Aucun droit applicatif ; commandes sous `cmd_money_owner`, portes sous `iam_staff_owner`, faits du trip sous `cmd_hold_owner`.
-- Cibles 17, pas encore créées : `incidental_invoice` (US-706), `damage_charge` (le débit est `payment_post_trip_charge` d'US-703), `dispute`.
+- `incidental_invoice` (16 CLM-021, SM-5) : **créée** — `core.claim_incidental_invoice` (classe A ; AWAITING_GUEST → ACCEPTED | DISPUTED | CHARGED | CANCELLED_BY_HOST ; DISPUTED → DECIDED_CHARGE | REJECTED ; garde `claim_incidental_guard`) ; aucun droit applicatif ; commandes sous `cmd_money_owner`, portes sous `iam_staff_owner`, faits et photos du trip sous `cmd_hold_owner`.
+- Cibles 17, pas encore créées : `damage_charge` (le débit est `payment_post_trip_charge` d'US-703), `dispute`.
 
 ## Événements
 
@@ -43,6 +50,7 @@ Consommés (cible 17 §4.5) : `settlement.computed` (STL), `payment.chargeback.o
 
 - `EvidenceBundleStore` (adaptateur `PgEvidenceBundleStore`, fonctions `core.support_staff_*_evidence_bundle` sous app_api).
 - `ClaimStore` (adaptateur `PgClaimStore`, portes `core.support_staff_record_claim`, `core.support_staff_claim`, `core.support_staff_issue_decision` sous app_api ; `UNAVAILABLE_CLAIM_STORE` : 503) ; `InsurerClaimsPort` (assureur partenaire, travailleur).
+- `IncidentalStaffStore` (adaptateur `PgIncidentalStaffStore`, portes `core.support_staff_incidental` et `core.support_staff_decide_incidental` sous app_api, transaction STAFF de `PgClaimStore` ; `UNAVAILABLE_INCIDENTAL_STAFF_STORE` : 503).
 - `EvidenceExportVault` (clé USER du demandeur ; `UnavailableEvidenceExportVault` en production) et `EvidenceExportFiles` (`UnavailableEvidenceExportFiles` en production).
 - Travailleur : `EvidenceFileReader` (lecture vérifiée), `EvidenceArchiveSealer` (clé du demandeur), `EvidenceArchiveStore` (création seule), `EvidenceContractRenderer`, `WorkerTransactions` de BUS.
 - Adaptateurs de TEST (`testing/audit-evidence-adapters.ts`, hors de l'image de production : `@rueda/db` y est une dépendance de développement) : `auditEvidenceAdapters` (`readFileAsset`, `seal`, `InMemoryFileStore`) et `subjectKeyExportVault` (`SubjectKeyStore` sur `FakeKeyWrapper`) ; KMS et stockage réels au lot C.
@@ -51,6 +59,7 @@ Consommés (cible 17 §4.5) : `settlement.computed` (STL), `payment.chargeback.o
 
 - Unitaires : `pnpm --filter @rueda/api exec vitest run src/modules/clm` (archive ZIP contre un lecteur et une table CRC-32 indépendants ; travailleur : READY, constats d'empreinte, objet absent, contrat différent, fil purgé, scellé rompu, plafond, panne passagère). Contrat HTTP : `src/testing/contract/console.contract.test.ts`.
 - Unitaires US-309 : `pnpm --filter @rueda/api exec vitest run src/modules/clm/internal/claims` (travailleur contre le FAKE de l'assureur) ; contrat HTTP : `src/testing/contract/console.contract.test.ts`. Preuve L0 : `packages/db/test/l0/l0-us309-claims.test.ts`.
+- Unitaires US-706 : `pnpm --filter @rueda/api exec vitest run src/modules/clm/internal/incidental` (travailleur contre une base simulée) ; contrat HTTP : `src/testing/contract/console.contract.test.ts` (console) et `src/modules/trp/testing/trip-incidental.contract.test.ts` (hôte, voyageur). Preuve L0 : `packages/db/test/l0/l0-us706-incidental-fees.test.ts` (bornes de l'échéance, RT-L3-S02).
 - Preuve L0 (rôles de production, PA / USD et PY / PYG) : `packages/db/test/l0/l0-us308-evidence-bundle.test.ts` (manifeste et empreintes recalculées, accès et refus journalisés, scellé, lien de 168 h, objet remplacé ⇒ constat, RLS).
 
 `test:int` et `test:l0` demandent PostgreSQL : guide `docs/ops/INSTALL.md` (compose de dev) ou `RUEDA_PG_TESTCONTAINERS=1` (Docker) ; variables dans `packages/db/README.md`, section « Commandes ».

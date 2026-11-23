@@ -7,7 +7,7 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 
 ## Synthèse
 
-- 177 migrations ; 166 tables ; 6 vues ; 939 politiques RLS ; 409 fonctions `SECURITY DEFINER` ; 323 autres fonctions.
+- 178 migrations ; 168 tables ; 6 vues ; 950 politiques RLS ; 428 fonctions `SECURITY DEFINER` ; 328 autres fonctions.
 - Tables sans RLS `ENABLE` + `FORCE` : aucune.
 - Rôles applicatifs avec `SUPERUSER` ou `BYPASSRLS` : aucun.
 
@@ -192,6 +192,7 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 | `0174_report_beta_views_reconciliation` | RPT / FIN : vues de la bêta (remises du jour, retards, KPI de sortie) et rapprochement |
 | `0175_claim_damage_claims_decisions` | CLM : déclarations de dommage de l'hôte et d'incident du voyageur, décisions motivées par |
 | `0176_trip_inspection_photo_fingerprint` | TRP : empreinte de photo d'état unique, tous trips, photos d'annonce comprises (bêta). |
+| `0177_claim_incidental_invoices` | CLM : frais annexes demandés par l'hôte (facture SM-5), délai de réponse du voyageur |
 
 ## Rôles
 
@@ -480,6 +481,7 @@ Politiques RLS :
 - `catalog_cmd_photo_insert` (INSERT, PERMISSIVE, catalog_cmd_owner) WITH CHECK `((bucket = 'PUBLIC_LISTING'::text) AND (classification = 'C0'::text) AND (source = 'HOST_UPLOAD'::text) AND (enc_subject_type IS NULL) AND (retention_class = 'LISTING_PHOTO'::text) AND (mime = ANY (ARRAY['image/jpeg'::text, 'image/png'::text, 'image/webp'::text])))`
 - `cmd_hold_evidence_export_ins` (INSERT, PERMISSIVE, cmd_hold_owner) WITH CHECK `((bucket = 'PRIVATE_EVIDENCE'::text) AND (classification = 'C2'::text) AND (source = 'GENERATED'::text) AND (retention_class = 'EVIDENCE_EXPORT'::text) AND (mime = 'application/zip'::text) AND (enc_subject_type = 'USER'::text) AND (enc_subject_id IS NOT NULL) AND (enc_subject_id = uploader_user_id))`
 - `cmd_hold_evidence_file_sel` (SELECT, PERMISSIVE, cmd_hold_owner) USING `(bucket = 'PRIVATE_EVIDENCE'::text)`
+- `cmd_hold_incidental_asset_ins` (INSERT, PERMISSIVE, cmd_hold_owner) WITH CHECK `((bucket = 'PRIVATE_EVIDENCE'::text) AND (classification = 'C2'::text) AND (source = 'HOST_UPLOAD'::text) AND (retention_class = 'TRIP_INSPECTION'::text) AND (enc_subject_type = 'USER'::text) AND (enc_subject_id IS NOT NULL) AND (enc_subject_id = uploader_user_id) AND (mime = ANY (ARRAY['image/jpeg'::text, 'image/webp'::text])))`
 - `cmd_hold_inspection_file_ins` (INSERT, PERMISSIVE, cmd_hold_owner) WITH CHECK `((bucket = 'PRIVATE_EVIDENCE'::text) AND (classification = 'C2'::text) AND (source = 'IN_APP_CAMERA'::text) AND (retention_class = 'TRIP_INSPECTION'::text) AND (enc_subject_type = 'USER'::text) AND (enc_subject_id IS NOT NULL) AND (enc_subject_id = uploader_user_id) AND (mime = ANY (ARRAY['image/jpeg'::text, 'image/webp'::text])))`
 - `cmd_hold_inspection_listing_sha_sel` (SELECT, PERMISSIVE, cmd_hold_owner) USING `(bucket = 'PUBLIC_LISTING'::text)`
 - `iam_staff_evidence_insert` (INSERT, PERMISSIVE, iam_staff_owner) WITH CHECK `((bucket = 'PRIVATE_EVIDENCE'::text) AND (classification = 'C2'::text) AND (source = 'STAFF_UPLOAD'::text) AND (enc_subject_type = 'USER'::text) AND (enc_subject_id IS NOT NULL) AND (retention_class = 'STAFF_EVIDENCE'::text))`
@@ -2496,6 +2498,144 @@ Déclencheurs :
 - `claim_evidence_no_truncate` : `CREATE TRIGGER claim_evidence_no_truncate BEFORE TRUNCATE ON core.claim_evidence_bundle FOR EACH STATEMENT EXECUTE FUNCTION core.audit_append_only('claim_evidence_sealed')`
 - `claim_evidence_sealed` : `CREATE TRIGGER claim_evidence_sealed BEFORE DELETE OR UPDATE ON core.claim_evidence_bundle FOR EACH ROW EXECUTE FUNCTION core.claim_evidence_guard()`
 
+### `core.claim_incidental_host_file`
+
+- RLS : ENABLE + FORCE ; propriétaire `migrator`
+- Droits : cmd_hold_owner: INSERT, SELECT ; migrator: DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE
+
+| Colonne | Type | NOT NULL | Défaut |
+| ------- | ---- | -------- | ------ |
+| `file_id` | `uuid` | oui | — |
+| `trip_id` | `uuid` | oui | — |
+| `uploader_user_id` | `uuid` | oui | — |
+| `sha256` | `bytea` | oui | — |
+| `received_at` | `timestamp with time zone` | oui | `platform.now()` |
+
+Contraintes :
+
+- `claim_incidental_host_file_asset_fk` : `FOREIGN KEY (file_id) REFERENCES core.audit_file_asset(id)`
+- `claim_incidental_host_file_pkey` : `PRIMARY KEY (file_id)`
+- `claim_incidental_host_file_sha_length` : `CHECK (length(sha256) = 32)`
+- `claim_incidental_host_file_trip_fk` : `FOREIGN KEY (trip_id) REFERENCES core.booking_trip(id)`
+- `claim_incidental_host_file_user_fk` : `FOREIGN KEY (uploader_user_id) REFERENCES core.iam_user_account(id)`
+
+Index :
+
+- `claim_incidental_host_file_sha_unique` : `CREATE UNIQUE INDEX claim_incidental_host_file_sha_unique ON core.claim_incidental_host_file USING btree (sha256)`
+- `claim_incidental_host_file_trip_idx` : `CREATE INDEX claim_incidental_host_file_trip_idx ON core.claim_incidental_host_file USING btree (trip_id)`
+
+Politiques RLS :
+
+- `cmd_hold_incidental_file_ins` (INSERT, PERMISSIVE, cmd_hold_owner) WITH CHECK `true`
+- `cmd_hold_incidental_file_sel` (SELECT, PERMISSIVE, cmd_hold_owner) USING `true`
+- `migrator_all` (ALL, PERMISSIVE, migrator) USING `true` WITH CHECK `true`
+
+Déclencheurs :
+
+- `claim_incidental_host_file_immutable` : `CREATE TRIGGER claim_incidental_host_file_immutable BEFORE DELETE OR UPDATE ON core.claim_incidental_host_file FOR EACH ROW EXECUTE FUNCTION core.audit_append_only('claim_incidental_host_file_immutable')`
+- `claim_incidental_host_file_no_truncate` : `CREATE TRIGGER claim_incidental_host_file_no_truncate BEFORE TRUNCATE ON core.claim_incidental_host_file FOR EACH STATEMENT EXECUTE FUNCTION core.audit_append_only('claim_incidental_host_file_immutable')`
+
+### `core.claim_incidental_invoice`
+
+- RLS : ENABLE + FORCE ; propriétaire `migrator`
+- Droits : cmd_money_owner: INSERT, SELECT ; migrator: DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE
+
+| Colonne | Type | NOT NULL | Défaut |
+| ------- | ---- | -------- | ------ |
+| `id` | `uuid` | oui | — |
+| `trip_id` | `uuid` | oui | — |
+| `country_code` | `text` | oui | — |
+| `currency` | `text` | oui | — |
+| `org_id` | `uuid` | oui | — |
+| `host_user_id` | `uuid` | oui | — |
+| `guest_user_id` | `uuid` | oui | — |
+| `request_id` | `uuid` | oui | — |
+| `fee_type` | `text` | oui | — |
+| `amount_minor` | `bigint` | oui | — |
+| `leg_host_minor` | `bigint` | oui | — |
+| `leg_insurer_minor` | `bigint` | oui | — |
+| `leg_tax_third_party_minor` | `bigint` | oui | — |
+| `leg_platform_minor` | `bigint` | oui | — |
+| `description` | `text` | oui | — |
+| `evidence_file_ids` | `uuid[]` | oui | — |
+| `trip_end_at` | `timestamp with time zone` | oui | — |
+| `host_deadline_at` | `timestamp with time zone` | oui | — |
+| `notified_at` | `timestamp with time zone` | oui | `platform.now()` |
+| `response_hours` | `integer` | oui | — |
+| `response_due_at` | `timestamp with time zone` | oui | — |
+| `status` | `text` | oui | `'AWAITING_GUEST'::text` |
+| `accepted_at` | `timestamp with time zone` | non | — |
+| `disputed_at` | `timestamp with time zone` | non | — |
+| `dispute_reason` | `text` | non | — |
+| `dispute_evidence_file_ids` | `uuid[]` | non | — |
+| `decided_at` | `timestamp with time zone` | non | — |
+| `decided_by` | `uuid` | non | — |
+| `decided_role` | `text` | non | — |
+| `decision_request_id` | `uuid` | non | — |
+| `decision_rationale` | `text` | non | — |
+| `cancelled_at` | `timestamp with time zone` | non | — |
+| `charge_basis` | `text` | non | — |
+| `charge_id` | `uuid` | non | — |
+| `charged_at` | `timestamp with time zone` | non | — |
+| `next_check_at` | `timestamp with time zone` | oui | — |
+| `execution_code` | `text` | non | — |
+| `defer_count` | `integer` | oui | `0` |
+| `review_required_at` | `timestamp with time zone` | non | — |
+
+Contraintes :
+
+- `claim_incidental_amount_positive` : `CHECK (amount_minor > 0)`
+- `claim_incidental_charge_after_window` : `CHECK (charge_basis IS NULL OR charge_basis = 'GUEST_ACCEPTED'::text AND accepted_at IS NOT NULL AND charged_at >= accepted_at OR charge_basis = 'NO_RESPONSE'::text AND accepted_at IS NULL AND disputed_at IS NULL AND charged_at >= response_due_at OR charge_basis = 'OPS_DECISION'::text AND decided_at IS NOT NULL AND decided_role = 'ADMIN'::text AND charged_at >= decided_at)`
+- `claim_incidental_charge_basis_valid` : `CHECK (charge_basis IS NULL OR (charge_basis = ANY (ARRAY['GUEST_ACCEPTED'::text, 'NO_RESPONSE'::text, 'OPS_DECISION'::text])))`
+- `claim_incidental_charge_fk` : `FOREIGN KEY (charge_id) REFERENCES core.payment_post_trip_charge(id)`
+- `claim_incidental_charge_unique` : `UNIQUE (charge_id)`
+- `claim_incidental_country_format` : `CHECK (country_code ~ '^[A-Z]{2}$'::text)`
+- `claim_incidental_currency_format` : `CHECK (currency ~ '^[A-Z]{3}$'::text)`
+- `claim_incidental_deadlines` : `CHECK (host_deadline_at >= trip_end_at AND notified_at <= host_deadline_at AND response_due_at = (notified_at + make_interval(hours => response_hours)))`
+- `claim_incidental_decided_by_fk` : `FOREIGN KEY (decided_by) REFERENCES core.iam_user_account(id)`
+- `claim_incidental_decided_role_valid` : `CHECK (decided_role IS NULL OR (decided_role = ANY (ARRAY['OPS_AGENT'::text, 'ADMIN'::text])))`
+- `claim_incidental_decision_request_unique` : `UNIQUE (decision_request_id)`
+- `claim_incidental_decision_shape` : `CHECK ((decided_at IS NULL) = (decided_by IS NULL) AND (decided_at IS NULL) = (decided_role IS NULL) AND (decided_at IS NULL) = (decision_request_id IS NULL) AND (decided_at IS NULL) = (decision_rationale IS NULL) AND (decided_at IS NULL OR disputed_at IS NOT NULL AND decided_at >= disputed_at))`
+- `claim_incidental_defer_count_range` : `CHECK (defer_count >= 0 AND defer_count <= 12)`
+- `claim_incidental_description_length` : `CHECK (char_length(description) >= 10 AND char_length(description) <= 500)`
+- `claim_incidental_dispute_evidence_shape` : `CHECK (dispute_evidence_file_ids IS NULL OR cardinality(dispute_evidence_file_ids) >= 1 AND cardinality(dispute_evidence_file_ids) <= 10 AND array_position(dispute_evidence_file_ids, NULL::uuid) IS NULL)`
+- `claim_incidental_dispute_reason_length` : `CHECK (dispute_reason IS NULL OR char_length(dispute_reason) >= 20 AND char_length(dispute_reason) <= 1000)`
+- `claim_incidental_dispute_shape` : `CHECK ((disputed_at IS NULL) = (dispute_reason IS NULL) AND (disputed_at IS NULL) = (dispute_evidence_file_ids IS NULL))`
+- `claim_incidental_evidence_shape` : `CHECK (cardinality(evidence_file_ids) >= 1 AND cardinality(evidence_file_ids) <= 10 AND array_position(evidence_file_ids, NULL::uuid) IS NULL)`
+- `claim_incidental_execution_code_format` : `CHECK (execution_code IS NULL OR execution_code ~ '^[A-Z][A-Z0-9_]{1,63}$'::text)`
+- `claim_incidental_fee_type_valid` : `CHECK (fee_type = ANY (ARRAY['FUEL'::text, 'CLEANING'::text, 'SMOKING'::text]))`
+- `claim_incidental_guest_fk` : `FOREIGN KEY (guest_user_id) REFERENCES core.iam_user_account(id)`
+- `claim_incidental_host_fk` : `FOREIGN KEY (host_user_id) REFERENCES core.iam_user_account(id)`
+- `claim_incidental_invoice_pkey` : `PRIMARY KEY (id)`
+- `claim_incidental_legs_host_only` : `CHECK (leg_host_minor = amount_minor AND leg_insurer_minor = 0 AND leg_tax_third_party_minor = 0 AND leg_platform_minor = 0)`
+- `claim_incidental_rationale_length` : `CHECK (decision_rationale IS NULL OR char_length(decision_rationale) >= 20 AND char_length(decision_rationale) <= 2000)`
+- `claim_incidental_request_unique` : `UNIQUE (request_id)`
+- `claim_incidental_response_hours_range` : `CHECK (response_hours >= 1 AND response_hours <= 720)`
+- `claim_incidental_response_in_window` : `CHECK ((accepted_at IS NULL OR accepted_at >= notified_at AND accepted_at < response_due_at) AND (disputed_at IS NULL OR disputed_at >= notified_at AND disputed_at < response_due_at) AND (accepted_at IS NULL OR disputed_at IS NULL))`
+- `claim_incidental_review_shape` : `CHECK (review_required_at IS NULL OR defer_count = 12)`
+- `claim_incidental_status_shape` : `CHECK ((status <> 'ACCEPTED'::text OR accepted_at IS NOT NULL) AND (status <> 'DISPUTED'::text OR disputed_at IS NOT NULL AND decided_at IS NULL) AND ((status <> ALL (ARRAY['DECIDED_CHARGE'::text, 'REJECTED'::text])) OR decided_at IS NOT NULL) AND (status = 'CANCELLED_BY_HOST'::text) = (cancelled_at IS NOT NULL) AND (status = 'CHARGED'::text) = (charge_id IS NOT NULL) AND (status = 'CHARGED'::text) = (charged_at IS NOT NULL) AND (status = 'CHARGED'::text) = (charge_basis IS NOT NULL))`
+- `claim_incidental_status_valid` : `CHECK (status = ANY (ARRAY['AWAITING_GUEST'::text, 'ACCEPTED'::text, 'DISPUTED'::text, 'DECIDED_CHARGE'::text, 'CHARGED'::text, 'REJECTED'::text, 'CANCELLED_BY_HOST'::text]))`
+- `claim_incidental_trip_country_fk` : `FOREIGN KEY (trip_id, country_code) REFERENCES core.booking_trip(id, country_code)`
+
+Index :
+
+- `claim_incidental_due_idx` : `CREATE INDEX claim_incidental_due_idx ON core.claim_incidental_invoice USING btree (next_check_at) WHERE ((status = ANY (ARRAY['AWAITING_GUEST'::text, 'ACCEPTED'::text, 'DECIDED_CHARGE'::text])) AND (review_required_at IS NULL))`
+- `claim_incidental_live_unique` : `CREATE UNIQUE INDEX claim_incidental_live_unique ON core.claim_incidental_invoice USING btree (trip_id, fee_type) WHERE (status <> 'CANCELLED_BY_HOST'::text)`
+- `claim_incidental_trip_idx` : `CREATE INDEX claim_incidental_trip_idx ON core.claim_incidental_invoice USING btree (trip_id)`
+
+Politiques RLS :
+
+- `cmd_money_incidental_ins` (INSERT, PERMISSIVE, cmd_money_owner) WITH CHECK `((app.actor_kind() = 'HOST'::text) AND (host_user_id = app.actor_id()) AND (status = 'AWAITING_GUEST'::text))`
+- `cmd_money_incidental_sel` (SELECT, PERMISSIVE, cmd_money_owner) USING `true`
+- `cmd_money_incidental_upd` (UPDATE, PERMISSIVE, cmd_money_owner) USING `(((app.actor_kind() = 'GUEST'::text) AND (guest_user_id = app.actor_id())) OR ((app.actor_kind() = 'HOST'::text) AND (host_user_id = app.actor_id())) OR (app.actor_kind() = 'STAFF'::text) OR ((app.actor_kind() = 'WORKER'::text) AND (app.worker_name() = 'payment_command'::text)))` WITH CHECK `(((app.actor_kind() = 'GUEST'::text) AND (guest_user_id = app.actor_id()) AND (status = ANY (ARRAY['ACCEPTED'::text, 'DISPUTED'::text]))) OR ((app.actor_kind() = 'HOST'::text) AND (host_user_id = app.actor_id()) AND (status = 'CANCELLED_BY_HOST'::text)) OR ((app.actor_kind() = 'STAFF'::text) AND (status = ANY (ARRAY['DECIDED_CHARGE'::text, 'REJECTED'::text]))) OR ((app.actor_kind() = 'WORKER'::text) AND (app.worker_name() = 'payment_command'::text) AND (status = ANY (ARRAY['AWAITING_GUEST'::text, 'ACCEPTED'::text, 'DECIDED_CHARGE'::text, 'CHARGED'::text]))))`
+- `iam_staff_incidental_sel` (SELECT, PERMISSIVE, iam_staff_owner) USING `true`
+- `migrator_all` (ALL, PERMISSIVE, migrator) USING `true` WITH CHECK `true`
+
+Déclencheurs :
+
+- `claim_incidental_immutable` : `CREATE TRIGGER claim_incidental_immutable BEFORE DELETE OR UPDATE ON core.claim_incidental_invoice FOR EACH ROW EXECUTE FUNCTION core.claim_incidental_guard()`
+- `claim_incidental_no_truncate` : `CREATE TRIGGER claim_incidental_no_truncate BEFORE TRUNCATE ON core.claim_incidental_invoice FOR EACH STATEMENT EXECUTE FUNCTION core.audit_append_only('claim_incidental_immutable')`
+
 ### `core.claim_insurer_declaration`
 
 - RLS : ENABLE + FORCE ; propriétaire `migrator`
@@ -3071,6 +3211,7 @@ Politiques RLS :
 - `cmd_hold_request_param_read` (SELECT, PERMISSIVE, cmd_hold_owner) USING `(key = ANY (ARRAY['booking_request_mode_enabled'::text, 'booking_request_expiry_hours'::text]))`
 - `cmd_hold_risk_read` (SELECT, PERMISSIVE, cmd_hold_owner) USING `(key = ANY (ARRAY['min_driver_age'::text, 'foreign_license_review_enabled'::text]))`
 - `cmd_money_advance_cap_read` (SELECT, PERMISSIVE, cmd_money_owner) USING `(key = 'host_advance_cap_minor'::text)`
+- `cmd_money_incidental_param_read` (SELECT, PERMISSIVE, cmd_money_owner) USING `(key = ANY (ARRAY['incidental_host_window_h'::text, 'invoice_guest_response_h'::text, 'incidental_cleaning_max_minor'::text, 'fuel_refill_max'::text, 'incidental_evidence_trip_photos_only'::text, 'incidental_fuel_extras_block'::text, 'incidental_fuel_early_end_block'::text]))`
 - `cmd_money_quote_read` (SELECT, PERMISSIVE, cmd_money_owner) USING `(key = ANY (ARRAY['grace_minutes'::text, 'max_trip_days'::text, 'host_default_plan'::text, 'host_share_pct'::text, 'delivery_share_pct'::text, 'extras_share_pct'::text, 'trip_fee_schedule'::text, 'quote_validity_minutes'::text, 'quote_freezes_per_guest_hour'::text, 'protection_grid'::text, 'guest_protection_min_level'::text, 'insurer_premium_share'::text]))`
 - `cmd_money_sel` (SELECT, PERMISSIVE, cmd_money_owner) USING `(key = ANY (ARRAY['payouts_enabled'::text, 'insurer_contract_active'::text, 'funds_holding_enabled'::text, 'payout_account_rails'::text, 'payout_account_change_hold_h'::text, 'payout_business_day_offset'::text, 'first_payout_business_day'::text, 'payout_batch_local_time'::text, 'mit_consent_checkbox_required'::text]))`
 - `cmd_param_ins` (INSERT, PERMISSIVE, cmd_param_owner) WITH CHECK `((app.actor_kind() = 'STAFF'::text) AND (scope_type = 'COUNTRY'::text) AND (approved_by IS NOT NULL) AND (decision_ref IS NOT NULL) AND (EXISTS ( SELECT 1 FROM core.config_param_change_request r WHERE ((r.status = 'APPLIED'::text) AND (r.key = config_param_value.key) AND (r.country_code = config_param_value.country_code) AND (r.value = config_param_value.value) AND (NOT (r.currency IS DISTINCT FROM config_param_value.currency)) AND (r.valid_from = config_param_value.valid_from) AND (r.approved_by = config_param_value.approved_by) AND (r.decision_ref = config_param_value.decision_ref)))))`
@@ -4921,6 +5062,7 @@ Politiques RLS :
 - `cmd_hold_request_event_sel` (SELECT, PERMISSIVE, cmd_hold_owner) USING `((type = 'booking.request.access_denied'::text) AND (actor_user_id = app.actor_id()))`
 - `cmd_hold_review_event` (INSERT, PERMISSIVE, cmd_hold_owner) WITH CHECK `((aggregate_type = 'checkout_hold'::text) AND (type = 'booking.hold.review_decided'::text) AND (actor_role = ANY (ARRAY['OPS_AGENT'::text, 'ADMIN'::text])) AND (actor_user_id IS NOT NULL))`
 - `cmd_hold_trip_notice_ins` (INSERT, PERMISSIVE, cmd_hold_owner) WITH CHECK `((type = ANY (ARRAY['booking.trip.host_restricted'::text, 'booking.trip.host_restriction_lifted'::text, 'trip.no_show.reported'::text])) AND (aggregate_type = 'trip'::text) AND (actor_user_id IS NOT NULL))`
+- `cmd_money_incidental_event` (INSERT, PERMISSIVE, cmd_money_owner) WITH CHECK `((type = 'invoice.status_changed'::text) AND (aggregate_type = 'incidental_invoice'::text) AND (actor_role = 'HOST'::text) AND (actor_user_id IS NOT NULL))`
 - `cmd_param_event_ins` (INSERT, PERMISSIVE, cmd_param_owner) WITH CHECK `((type = 'config.param.changed'::text) AND (aggregate_type = 'param_value'::text) AND (actor_role = ANY (ARRAY['ADMIN'::text, 'SUPERADMIN'::text])) AND (actor_user_id IS NOT NULL))`
 - `cmd_trip_escalation_event_ins` (INSERT, PERMISSIVE, cmd_hold_owner) WITH CHECK `((aggregate_type = 'trip'::text) AND (type = 'trip.overdue.escalated'::text) AND (actor_role = ANY (ARRAY['OPS_AGENT'::text, 'ADMIN'::text])) AND (app.actor_kind() = 'STAFF'::text) AND (actor_user_id = app.actor_id()))`
 - `cmd_trip_event_ins` (INSERT, PERMISSIVE, cmd_hold_owner) WITH CHECK `((aggregate_type = 'trip'::text) AND (type = ANY (ARRAY['trip.status_changed'::text, 'trip.cancellation.qualified'::text])) AND (actor_role = 'SYSTEM'::text) AND (actor_user_id IS NULL))`
@@ -8695,14 +8837,30 @@ Chacune a un propriétaire `NOLOGIN` dédié (ADR-053) et un `search_path` figé
 | `core.cfg_content_cmd_rollback(p_token_hash bytea, p_request_id uuid, p_block_key text, p_country text, p_target_version_no integer)` | `TABLE(outcome text, version_no integer)` | `iam_staff_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; iam_staff_owner: EXECUTE |
 | `core.cfg_content_cmd_save_draft(p_token_hash bytea, p_request_id uuid, p_block_key text, p_country text, p_bodies jsonb, p_asset_id uuid)` | `TABLE(outcome text, version_no integer)` | `iam_staff_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; iam_staff_owner: EXECUTE |
 | `core.claim_claim_view(p_claim_id uuid)` | `jsonb` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | cmd_money_owner: EXECUTE ; iam_staff_owner: EXECUTE |
+| `core.claim_cmd_accept_incidental(p_token_hash bytea, p_invoice_id uuid)` | `text` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; cmd_money_owner: EXECUTE |
+| `core.claim_cmd_attach_incidental_file(p_token_hash bytea, p_trip_id uuid, p_file_id uuid, p_mime text, p_bytes bigint, p_sha256 bytea)` | `text` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; cmd_money_owner: EXECUTE |
+| `core.claim_cmd_cancel_incidental(p_token_hash bytea, p_invoice_id uuid)` | `text` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; cmd_money_owner: EXECUTE |
+| `core.claim_cmd_charge_incidental(p_invoice_id uuid, p_charge_id uuid)` | `TABLE(outcome text, code text)` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; cmd_money_owner: EXECUTE |
+| `core.claim_cmd_decide_incidental(p_invoice_id uuid, p_agent uuid, p_role text, p_request_id uuid, p_outcome text, p_rationale text)` | `text` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | cmd_money_owner: EXECUTE ; iam_staff_owner: EXECUTE |
 | `core.claim_cmd_defer_decision(p_decision_id uuid, p_code text)` | `text` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; cmd_money_owner: EXECUTE |
+| `core.claim_cmd_defer_incidental(p_invoice_id uuid, p_code text)` | `text` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; cmd_money_owner: EXECUTE |
+| `core.claim_cmd_dispute_incidental(p_token_hash bytea, p_invoice_id uuid, p_reason text, p_evidence uuid[])` | `text` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; cmd_money_owner: EXECUTE |
 | `core.claim_cmd_execute_decision(p_decision_id uuid, p_charge_id uuid)` | `TABLE(outcome text, code text)` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; cmd_money_owner: EXECUTE |
 | `core.claim_cmd_issue_decision(p_decision_id uuid, p_claim_id uuid, p_agent uuid, p_role text, p_request_id uuid, p_input jsonb, p_preview boolean)` | `TABLE(outcome text, decision_id uuid, body jsonb)` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | cmd_money_owner: EXECUTE ; iam_staff_owner: EXECUTE |
 | `core.claim_cmd_record_claim(p_claim_id uuid, p_trip_id uuid, p_case_id uuid, p_declared_by text, p_kind text, p_description text, p_agent uuid, p_role text, p_request_id uuid)` | `TABLE(outcome text, claim_id uuid, deadline_at timestamp with time zone)` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | cmd_money_owner: EXECUTE ; iam_staff_owner: EXECUTE |
 | `core.claim_cmd_record_insurer_declaration(p_declaration_id uuid, p_provider_ref text)` | `text` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; cmd_money_owner: EXECUTE |
+| `core.claim_cmd_submit_incidental(p_token_hash bytea, p_trip_id uuid, p_request_id uuid, p_fee_type text, p_amount_minor bigint, p_description text, p_evidence uuid[])` | `TABLE(outcome text, invoice_id uuid, response_due_at timestamp with time zone)` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; cmd_money_owner: EXECUTE |
 | `core.claim_decisions_due(p_limit integer)` | `TABLE(decision_id uuid)` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; cmd_money_owner: EXECUTE |
 | `core.claim_evidence_export_file(p_bundle_id uuid)` | `TABLE(file_id uuid, storage_key text, sha256 text, bytes bigint, enc_subject_id uuid)` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | cmd_hold_owner: EXECUTE ; iam_staff_owner: EXECUTE |
 | `core.claim_evidence_record(p_trip_id uuid, p_country text, p_case_id uuid, p_purpose text, p_requested_by uuid, p_requested_role text, p_request_id uuid)` | `TABLE(outcome text, bundle_id uuid, status text, manifest_sha256 text)` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | cmd_hold_owner: EXECUTE ; iam_staff_owner: EXECUTE |
+| `core.claim_incidental_host_files(p_trip_id uuid, p_user uuid)` | `TABLE(file_id uuid)` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | cmd_hold_owner: EXECUTE ; cmd_money_owner: EXECUTE |
+| `core.claim_incidental_invoices_due(p_limit integer, p_only uuid[])` | `TABLE(invoice_id uuid)` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; cmd_money_owner: EXECUTE |
+| `core.claim_incidental_review_list(p_ids uuid[])` | `jsonb` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | cmd_money_owner: EXECUTE ; iam_staff_owner: EXECUTE |
+| `core.claim_incidental_staff_view(p_invoice_id uuid)` | `jsonb` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | cmd_money_owner: EXECUTE ; iam_staff_owner: EXECUTE |
+| `core.claim_incidental_store_host_file(p_trip_id uuid, p_user uuid, p_file_id uuid, p_mime text, p_bytes bigint, p_sha256 bytea)` | `text` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | cmd_hold_owner: EXECUTE ; cmd_money_owner: EXECUTE |
+| `core.claim_incidental_trip_facts(p_trip_id uuid)` | `TABLE(trip_id uuid, country_code text, currency text, org_id uuid, guest_user_id uuid, holder_user_id uuid, status text, timezone text, start_at timestamp with time zone, end_at timestamp with time zone, terminated_early boolean, fuel_out smallint, fuel_in smallint, extras_sold boolean)` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | cmd_hold_owner: EXECUTE ; cmd_money_owner: EXECUTE |
+| `core.claim_incidental_trip_photos(p_trip_id uuid)` | `TABLE(file_id uuid, kind text, slot_code text, slot_group text, taken_by_role text, received_at timestamp with time zone)` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | cmd_hold_owner: EXECUTE ; cmd_money_owner: EXECUTE |
+| `core.claim_incidental_view(p_token_hash bytea, p_trip_id uuid)` | `jsonb` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; cmd_money_owner: EXECUTE |
 | `core.claim_insurer_declarations_due(p_limit integer)` | `TABLE(declaration_id uuid, claim_id uuid, country_code text, currency text, kind text, repair_cost_minor bigint, reported_at timestamp with time zone)` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; cmd_money_owner: EXECUTE |
 | `core.claim_trip_facts(p_trip_id uuid)` | `TABLE(trip_id uuid, country_code text, currency text, org_id uuid, guest_user_id uuid, holder_user_id uuid, status text, end_at timestamp with time zone, window_hours integer, deadline_at timestamp with time zone, checkin_photos boolean, checkout_photos boolean, accepted_deductible_minor bigint)` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | cmd_hold_owner: EXECUTE ; cmd_money_owner: EXECUTE |
 | `core.claim_worker_complete_evidence_bundle(p_bundle_id uuid, p_file_id uuid, p_storage_key text, p_sha256 bytea, p_bytes bigint)` | `text` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; cmd_hold_owner: EXECUTE |
@@ -8930,6 +9088,7 @@ Chacune a un propriétaire `NOLOGIN` dédié (ADR-053) et un `search_path` figé
 | `core.support_staff_claim(p_token_hash bytea, p_request_id uuid, p_claim_id uuid)` | `TABLE(outcome text, body jsonb)` | `iam_staff_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; iam_staff_owner: EXECUTE |
 | `core.support_staff_claim_item(p_token_hash bytea, p_request_id uuid, p_item_id uuid)` | `TABLE(outcome text, body jsonb)` | `iam_staff_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; iam_staff_owner: EXECUTE |
 | `core.support_staff_conflict(p_actor uuid, p_subject_type text, p_subject_id uuid)` | `boolean` | `iam_staff_owner` | search_path=pg_catalog, pg_temp | cmd_golive_owner: EXECUTE ; cmd_money_owner: EXECUTE ; cmd_param_owner: EXECUTE ; iam_staff_owner: EXECUTE |
+| `core.support_staff_decide_incidental(p_token_hash bytea, p_request_id uuid, p_invoice_id uuid, p_outcome text, p_rationale text)` | `TABLE(outcome text, body jsonb)` | `iam_staff_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; iam_staff_owner: EXECUTE |
 | `core.support_staff_decide_listing(p_token_hash bytea, p_request_id uuid, p_item_id uuid, p_decision text, p_reason text)` | `TABLE(outcome text, body jsonb)` | `iam_staff_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; iam_staff_owner: EXECUTE |
 | `core.support_staff_decide_vehicle_claim(p_token_hash bytea, p_request_id uuid, p_item_id uuid, p_decision text, p_reason text, p_checklist jsonb, p_note text)` | `TABLE(outcome text, body jsonb)` | `iam_staff_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; iam_staff_owner: EXECUTE |
 | `core.support_staff_decide_vehicle_eligibility(p_token_hash bytea, p_request_id uuid, p_item_id uuid, p_checklist jsonb, p_documents jsonb)` | `TABLE(outcome text, body jsonb)` | `iam_staff_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; iam_staff_owner: EXECUTE |
@@ -8938,6 +9097,8 @@ Chacune a un propriétaire `NOLOGIN` dédié (ADR-053) et un `search_path` figé
 | `core.support_staff_find_user(p_token_hash bytea, p_request_id uuid, p_email text, p_purpose text)` | `TABLE(outcome text, body jsonb)` | `iam_staff_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; iam_staff_owner: EXECUTE |
 | `core.support_staff_help_requests(p_token_hash bytea, p_country text, p_limit integer)` | `TABLE(outcome text, body jsonb)` | `iam_staff_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; iam_staff_owner: EXECUTE |
 | `core.support_staff_host_dossier(p_token_hash bytea, p_request_id uuid, p_item_id uuid, p_purpose text)` | `TABLE(outcome text, body jsonb)` | `iam_staff_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; iam_staff_owner: EXECUTE |
+| `core.support_staff_incidental(p_token_hash bytea, p_request_id uuid, p_invoice_id uuid)` | `TABLE(outcome text, body jsonb)` | `iam_staff_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; iam_staff_owner: EXECUTE |
+| `core.support_staff_incidental_review(p_token_hash bytea, p_request_id uuid)` | `TABLE(outcome text, body jsonb)` | `iam_staff_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; iam_staff_owner: EXECUTE |
 | `core.support_staff_issue_decision(p_token_hash bytea, p_request_id uuid, p_claim_id uuid, p_input jsonb, p_preview boolean)` | `TABLE(outcome text, decision_id uuid, body jsonb)` | `iam_staff_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; iam_staff_owner: EXECUTE |
 | `core.support_staff_kyc_dossier(p_token_hash bytea, p_request_id uuid, p_item_id uuid, p_purpose text)` | `TABLE(outcome text, body jsonb)` | `iam_staff_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; iam_staff_owner: EXECUTE |
 | `core.support_staff_open_case(p_token_hash bytea, p_request_id uuid, p_requester uuid, p_category text, p_priority text, p_channel text)` | `TABLE(outcome text, body jsonb)` | `iam_staff_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; iam_staff_owner: EXECUTE |
@@ -8979,7 +9140,7 @@ Chacune a un propriétaire `NOLOGIN` dédié (ADR-053) et un `search_path` figé
 
 | Fonction | Résultat | Propriétaire | EXECUTE |
 | -------- | -------- | ------------ | ------- |
-| `app.actor_id()` | `uuid` | `migrator` | app_api: EXECUTE ; app_worker: EXECUTE ; cmd_hold_owner: EXECUTE ; guard_owner: EXECUTE ; migrator: EXECUTE ; policy_fn_owner: EXECUTE |
+| `app.actor_id()` | `uuid` | `migrator` | app_api: EXECUTE ; app_worker: EXECUTE ; cmd_hold_owner: EXECUTE ; cmd_money_owner: EXECUTE ; guard_owner: EXECUTE ; migrator: EXECUTE ; policy_fn_owner: EXECUTE |
 | `app.actor_kind()` | `text` | `migrator` | app_api: EXECUTE ; app_worker: EXECUTE ; catalog_probe_owner: EXECUTE ; cmd_golive_owner: EXECUTE ; cmd_hold_owner: EXECUTE ; cmd_money_owner: EXECUTE ; cmd_param_owner: EXECUTE ; guard_owner: EXECUTE ; host_view_owner: EXECUTE ; migrator: EXECUTE ; policy_fn_owner: EXECUTE |
 | `app.country_scope()` | `text[]` | `migrator` | app_api: EXECUTE ; app_worker: EXECUTE ; cmd_golive_owner: EXECUTE ; cmd_money_owner: EXECUTE ; cmd_param_owner: EXECUTE ; migrator: EXECUTE ; policy_fn_owner: EXECUTE |
 | `app.org_id()` | `uuid` | `migrator` | app_api: EXECUTE ; app_worker: EXECUTE ; cmd_hold_owner: EXECUTE ; host_view_owner: EXECUTE ; migrator: EXECUTE ; policy_fn_owner: EXECUTE |
@@ -9093,6 +9254,10 @@ Chacune a un propriétaire `NOLOGIN` dédié (ADR-053) et un `search_path` figé
 | `core.cfg_content_key_not_legal(p_key text)` | `boolean` | `migrator` | iam_staff_owner: EXECUTE ; migrator: EXECUTE |
 | `core.claim_evidence_guard()` | `trigger` | `migrator` | migrator: EXECUTE |
 | `core.claim_evidence_manifest(p_trip_id uuid, p_bundle_id uuid, p_purpose text, p_sealed_at timestamp with time zone)` | `jsonb` | `cmd_hold_owner` | cmd_hold_owner: EXECUTE |
+| `core.claim_incidental_bool(p_key text, p_country text)` | `boolean` | `cmd_money_owner` | cmd_money_owner: EXECUTE |
+| `core.claim_incidental_guard()` | `trigger` | `migrator` | migrator: EXECUTE |
+| `core.claim_incidental_param(p_key text, p_country text)` | `jsonb` | `cmd_money_owner` | cmd_money_owner: EXECUTE |
+| `core.claim_incidental_party(p_token_hash bytea, p_trip_id uuid)` | `TABLE(user_id uuid, role text)` | `cmd_money_owner` | cmd_money_owner: EXECUTE |
 | `core.claim_record_guard()` | `trigger` | `migrator` | migrator: EXECUTE |
 | `core.config_go_live(p_key text, p_country text)` | `boolean` | `migrator` | app_api: EXECUTE ; app_worker: EXECUTE ; catalog_cmd_owner: EXECUTE ; cmd_golive_owner: EXECUTE ; cmd_hold_owner: EXECUTE ; cmd_money_owner: EXECUTE ; kyc_cmd_owner: EXECUTE ; migrator: EXECUTE |
 | `core.config_go_live_request_guard()` | `trigger` | `migrator` | migrator: EXECUTE |
@@ -9278,6 +9443,7 @@ Chacune a un propriétaire `NOLOGIN` dédié (ADR-053) et un `search_path` figé
 | `core.support_staff_claim_gate(p_user uuid, p_claim_id uuid, p_permission text, p_attempted text, p_request_id uuid)` | `TABLE(deny text, role text, country_code text, trip_id uuid)` | `iam_staff_owner` | iam_staff_owner: EXECUTE |
 | `core.support_staff_covers_user(p_actor uuid, p_role text, p_user uuid, p_country text)` | `text` | `migrator` | iam_staff_owner: EXECUTE ; migrator: EXECUTE |
 | `core.support_staff_holds_permission(p_user uuid, p_permission text)` | `boolean` | `migrator` | iam_staff_owner: EXECUTE ; migrator: EXECUTE |
+| `core.support_staff_incidental_gate(p_user uuid, p_invoice_id uuid, p_permission text, p_attempted text, p_request_id uuid)` | `TABLE(deny text, role text, country_code text, trip_id uuid)` | `iam_staff_owner` | iam_staff_owner: EXECUTE |
 | `core.support_staff_legal_names(p_user uuid)` | `jsonb` | `iam_staff_owner` | iam_staff_owner: EXECUTE |
 | `core.support_staff_log_access(p_actor uuid, p_role text, p_subject_type text, p_subject_id uuid, p_field text, p_kind text, p_purpose text, p_case_ref text, p_request_id uuid, p_country text)` | `uuid` | `migrator` | iam_staff_owner: EXECUTE ; migrator: EXECUTE |
 | `core.support_staff_org_holder_names(p_org uuid)` | `jsonb` | `iam_staff_owner` | iam_staff_owner: EXECUTE |

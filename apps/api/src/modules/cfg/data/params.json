@@ -2774,6 +2774,78 @@
         "PA": 120,
         "PY": 120
       }
+    },
+    {
+      "key": "incidental_host_window_h",
+      "type": "DURATION",
+      "unit": "h",
+      "scopes": ["COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "08 BR-REIMB-01 (échéances exécutables, R09 : `deadline = end_effective + 72 h` pour le carburant, le nettoyage et le tabac) ; 16 CLM-021 ; ADR-197 : délai de l’hôte pour demander un frais annexe après la fin effective du trip ; au-delà, la demande est refusée (EXPIRED_WINDOW de SM-5) ; absent ou mal formé : aucune demande (fail-closed)",
+      "status": "PROPOSÉ comme Turo (ADR-197) : 72 h après la fin du trip, comme la règle de Turo la plus récente (08 BR-FUEL-01, H59)",
+      "decision": "PROPOSED",
+      "decisionRef": "ADR-197 ; COMME_TURO (US-706)",
+      "values": {
+        "PA": 72,
+        "PY": 72
+      }
+    },
+    {
+      "key": "incidental_cleaning_max_minor",
+      "type": "MONEY",
+      "scopes": ["COUNTRY"],
+      "currencyBound": true,
+      "failMode": "BLOCK",
+      "source": "08 BR-REIMB-01 (nettoyage / tabac : 150 $ chez Turo) ; 16 CLM-021 ; ADR-197 : plafond d’un frais annexe de nettoyage ou de tabac demandé par l’hôte, en unités mineures de la devise du pays ; au-delà, la demande est refusée ; absent ou mal formé : aucune demande de nettoyage ni de tabac (fail-closed)",
+      "status": "PROPOSÉ comme Turo (ADR-197) : 150,00 USD au Panama ; 1 125 000 PYG au Paraguay (même conversion que price_ceiling_extra_km_minor, à confirmer par le fondateur)",
+      "decision": "PROPOSED",
+      "decisionRef": "ADR-197 ; COMME_TURO (US-706)",
+      "values": {
+        "PA": "15000",
+        "PY": "1125000"
+      }
+    },
+    {
+      "key": "incidental_evidence_trip_photos_only",
+      "type": "BOOL",
+      "scopes": ["COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "08 BR-REIMB-01, BR-PICKUP-03 ; 16 CLM-021 ; DEC-FONDATEUR-22 ; ADR-197 : vrai : les pièces d’un frais annexe sont seulement des photos des séries de départ ou de retour du trip (heure serveur, empreinte) ; faux : aussi les fichiers de preuve de l’hôte rattachés à CE trip dès l’envoi (empreinte unique), jamais un fichier d’un autre trip ni une photo d’état ; absent : aucune demande (fail-closed)",
+      "status": "PROPOSÉ comme Turo (ADR-197, DEC-FONDATEUR-22) : faux ; Turo accepte les photos fournies par l’hôte ; vrai serait plus lourd que Turo",
+      "decision": "PROPOSED",
+      "decisionRef": "ADR-197 ; COMME_TURO (US-706) ; DEC-FONDATEUR-22",
+      "values": {
+        "PA": false,
+        "PY": false
+      }
+    },
+    {
+      "key": "incidental_fuel_extras_block",
+      "type": "BOOL",
+      "scopes": ["COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "08 BR-FUEL-02 ; 16 CLM-021 ; DEC-FONDATEUR-22 ; ADR-197 : vrai : carburant refusé dès qu’un Extra est vendu au devis du trip (l’Extra « carburant prépayé » n’est pas distingué) ; faux : seul le voyageur conteste ; absent : aucune demande (fail-closed)",
+      "status": "PROPOSÉ comme Turo (ADR-197) : faux ; Turo ne refuse que l’Extra carburant prépayé, qui n’existe pas encore ici",
+      "decision": "PROPOSED",
+      "decisionRef": "ADR-197 ; COMME_TURO (US-706) ; DEC-FONDATEUR-22",
+      "values": {
+        "PA": false,
+        "PY": false
+      }
+    },
+    {
+      "key": "incidental_fuel_early_end_block",
+      "type": "BOOL",
+      "scopes": ["COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "08 BR-FUEL-03 ; 16 CLM-021 ; DEC-FONDATEUR-22 ; ADR-197 : vrai : carburant refusé après une fin anticipée du trip (la cause n’est pas en base) ; faux : le voyageur conteste si la fin anticipée vient de l’hôte ou du véhicule ; absent : aucune demande (fail-closed)",
+      "status": "PROPOSÉ comme Turo (ADR-197) : faux ; Turo ne refuse que la fin anticipée causée par l’hôte ou le véhicule",
+      "decision": "PROPOSED",
+      "decisionRef": "ADR-197 ; COMME_TURO (US-706) ; DEC-FONDATEUR-22",
+      "values": {
+        "PA": false,
+        "PY": false
+      }
     }
   ]
 }

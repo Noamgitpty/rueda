@@ -14,7 +14,7 @@ TRP gère la remise et le retour du véhicule entre particuliers (17 §2.2, §2.
 
 TRP ne change pas lui-même l'état du trip : il demande les transitions SM-1 à AVL. La table du trip (`core.booking_trip`, migration 0004) appartient à AVL.
 
-État réel du code : **photos guidées de l'état du véhicule** (US-303, ADR-179, migration 0158) et **remise et retour entre particuliers** (US-315, ADR-183, migration 0163 : ouverture, contrôle du permis, validations, passages IN_PROGRESS et RETURNED) et **détection automatique des retards** (US-305, ADR-188, migration 0168). Le reste arrive avec US-306 (vue des retards et escalade), US-307 (refus et no-show), US-706 (frais annexes) et US-524 (hors ligne).
+État réel du code : **photos guidées de l'état du véhicule** (US-303, ADR-179, migration 0158) et **remise et retour entre particuliers** (US-315, ADR-183, migration 0163 : ouverture, contrôle du permis, validations, passages IN_PROGRESS et RETURNED) et **détection automatique des retards** (US-305, ADR-188, migration 0168). Le reste arrive avec US-306 (vue des retards et escalade), US-307 (refus et no-show) et US-524 (hors ligne) ; les routes des frais annexes (US-706) sont ici, leurs règles en base (CLM, 0177).
 
 ### Photos d'état (US-303)
 
@@ -32,7 +32,7 @@ TRP ne change pas lui-même l'état du trip : il demande les transitions SM-1 à
 - Base (0163, `cmd_hold_owner`, EXECUTE `app_api`) : `core.trip_handover_view`, `core.trip_cmd_open_checkin`, `core.trip_cmd_identity_check`, `core.trip_cmd_validate_handover` ; verrous du voyageur puis du véhicule ; transition par `core.booking_trip_apply_transition` (0099) ; tables sans aucun droit applicatif, en ajout seul.
 - **Fin effective du trajet** (source unique, lue par la caution et par US-708) : heure de la première ligne `RETURNED` de `core.booking_trip_state_log`, écrite par la seconde validation du retour ; début effectif : `booking_trip.checkin_validated_at`. Ce module n'écrit aucun `release_at`.
 - Remise sans rencontre : jamais proposée ni acceptée (`CONTACTLESS_UNAVAILABLE`, OQ-P2P-05). Aucune file hors ligne : base injoignable ⇒ 503 `HANDOVER_UNAVAILABLE`.
-- Hors périmètre (suites) : frais de carburant et de nettoyage (US-706, critère 5 d'US-315), refus et photo-preuve (US-307), libération de la jambe HOST (US-708), co-hôte, minuterie d'ouverture, notifications EVT_CHECKIN_DONE / EVT_CHECKOUT_DONE.
+- Hors périmètre (suites) : frais de carburant et de nettoyage (US-706, critère 5 d'US-315 : livré, voir « Frais annexes »), refus et photo-preuve (US-307), libération de la jambe HOST (US-708), co-hôte, minuterie d'ouverture, notifications EVT_CHECKIN_DONE / EVT_CHECKOUT_DONE.
 
 ### Retards (US-305)
 
@@ -91,3 +91,9 @@ Preuves L0 sous les rôles de production, PA / USD et PY / PYG : `packages/db/te
 - Routes (`SessionGuard`, `TermsGuard`) : `GET /trips/{tripId}/no-show` (fenêtre en heure serveur, premier obstacle, preuve tracée, dernière demande) et `POST /trips/{tripId}/no-show` (`{ requestId }` seulement : clé d'idempotence ; la partie absente est l'autre partie de la session, jugée en base). Codes : `NO_SHOW_NOT_FOUND` (404, même réponse pour toute autre personne), `CHECKIN_NOT_OPEN`, `NO_SHOW_NOT_ALLOWED`, `NO_SHOW_TOO_EARLY`, `NO_SHOW_WINDOW_CLOSED`, `NO_SHOW_PARTY_PRESENT`, `NO_SHOW_EVIDENCE_REQUIRED`, `CANCELLATION_PENDING` (409), `REQUEST_INVALID` (400), `NO_SHOW_UNAVAILABLE` (503).
 - Port `NoShowStore`, adaptateur `PgNoShowStore` (`core.trip_no_show_view`, `core.trip_cmd_report_no_show`, 0171) ; FAKE de test `testing/fake-no-show-store.ts` ; contrat `testing/trip-no-show.contract.test.ts`.
 - La demande est réglée par le travailleur `trip_lifecycle` (STL, `TripCancellationProcessor`) : aucun montant ici.
+
+### Frais annexes (US-706)
+
+- Routes (`SessionGuard`, `TermsGuard`) : `GET /trips/{tripId}/incidental-fees` (demandes, échéance, état du débit, photos du trip utilisables comme pièces, délai de l'hôte), `POST /trips/{tripId}/incidental-fees` (hôte : `{ requestId, feeType, amountMinor, description, evidenceFileIds }`, montant en texte d'entier d'unités mineures, aucune heure ni jambe), `POST /trips/{tripId}/incidental-fees/{invoiceId}/accept` et `/dispute` (voyageur), `/cancel` (hôte). Un frais d'un autre trip que celui de l'URL, d'une autre partie ou d'une autre personne : `INCIDENTAL_NOT_FOUND` (404, même réponse).
+- Codes : `INCIDENTAL_TYPE_NOT_ALLOWED`, `INCIDENTAL_TYPE_NOT_SUPPORTED`, `CLAIM_EVIDENCE_MISSING`, `INCIDENTAL_NOT_BILLABLE`, `INCIDENTAL_FUEL_PREPAID`, `INCIDENTAL_AMOUNT_ABOVE_CAP`, `INCIDENTAL_DISPUTE_REASON_REQUIRED` (422) ; `INCIDENTAL_TRIP_NOT_ENDED`, `INCIDENTAL_WINDOW_CLOSED`, `INCIDENTAL_DUPLICATE`, `INCIDENTAL_NOT_CANCELLABLE`, `INCIDENTAL_NOT_OPEN`, `GUEST_RESPONSE_WINDOW_CLOSED` (409) ; `REQUEST_INVALID` (400) ; `INCIDENTAL_UNAVAILABLE` (503 : base injoignable ou paramètre du pays absent).
+- Port `IncidentalStore`, adaptateur `PgIncidentalStore` (`core.claim_incidental_view`, `core.claim_cmd_*_incidental`, 0177 ; décimales de la devise lues dans `core.config_currency`) ; FAKE de test `testing/fake-incidental-store.ts` ; contrat `testing/trip-incidental.contract.test.ts`. Le débit est fait par le travailleur `incidental_invoice_executor` (CLM) : aucun montant n'est débité ici.

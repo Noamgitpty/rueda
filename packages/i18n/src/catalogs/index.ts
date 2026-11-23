@@ -401,8 +401,14 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  empreinte de photo d’état unique (US-303 suite, ADR-196, F-L3-PRE-01) :
  `common.inspection.photoDuplicate` (photo déjà envoyée, pour ce trip, un autre trip ou une
  annonce : une nouvelle prise est demandée).
+ Version 112 (numéro réservé par l’orchestrateur ; la 111 est celle d’US-303) : frais annexes
+ (US-706, ADR-197) : `common.incidental.*` (réponses des routes `/trips/{id}/incidental-fees…` :
+ liste fermée, pièce exigée, délais de l’hôte et du voyageur, plafonds, non facturable),
+ `common.claim.incidentalNotDisputed` (console), `web.incidental.*` (écrans de l’hôte et du
+ voyageur) et les clés de 10b §4.3 `web.a04.addFee` (devenue officielle, retirée du prototype),
+ `web.s12.accept`, `web.s12.contest`.
  */
-export const CATALOG_VERSION = 111;
+export const CATALOG_VERSION = 112;
 
 /** Catalogues de base par langue ; la langue d'un profil de locale choisit le sien. */
 export const CATALOGS: Readonly<Record<CatalogLanguage, VersionedCatalog<MessageKey>>> = {
