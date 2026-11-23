@@ -386,7 +386,13 @@ export const CONSTRAINT_CODES: Readonly<Record<string, readonly [string, DbBusin
   payout_batch_transition: [SQLSTATE.integrityConstraintViolation, 'INVALID_TRANSITION'],
   payout_batch_immutable: [SQLSTATE.integrityConstraintViolation, 'IMMUTABLE_RECORD'],
   payout_item_immutable: [SQLSTATE.integrityConstraintViolation, 'IMMUTABLE_RECORD'],
-  payout_item_trip_leg_unique: [SQLSTATE.uniqueViolation, 'INVARIANT_VIOLATION'],
+  // US-319 (0180, ADR-200) : unicité de l'item TRIP devenue une exclusion (items TRIP seulement),
+  // un item de débits post-trip par (lot, trip), parts HOST explicites des débits, ajout seul
+  payout_item_trip_leg_unique: [SQLSTATE.exclusionViolation, 'INVARIANT_VIOLATION'],
+  payout_item_charge_batch_trip_unique: [SQLSTATE.exclusionViolation, 'INVARIANT_VIOLATION'],
+  payout_item_charge_pkey: [SQLSTATE.uniqueViolation, 'INVARIANT_VIOLATION'],
+  payout_item_charge_mismatch: [SQLSTATE.integrityConstraintViolation, 'INVARIANT_VIOLATION'],
+  payout_item_charge_immutable: [SQLSTATE.integrityConstraintViolation, 'IMMUTABLE_RECORD'],
   trip_leg_balance_release_at_guarded: [
     SQLSTATE.integrityConstraintViolation,
     'INVARIANT_VIOLATION',

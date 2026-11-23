@@ -1,0 +1,39 @@
+# ADR-200 — Jambe HOST des frais annexes, dommages et amendes débités : report sur les jambes du trip et versement par le lot suivant de l'hôte
+
+- **Statut** : PROPOSÉ (US-319, agent de story, claude-opus-5-5, 2026-11-23). Revues exigées : celles de `node scripts/ci/check-story-reviews.mjs` (story non encore inscrite au registre : `code`, plus `architecture` et `securite` par les chemins de `packages/db/`) et celles de la story au BOARD (code, architecture, argent, qa) ; argent, RLS / rôles, `SECURITY DEFINER` et concurrence sur un autre modèle que l'auteur.
+- **Complète** : ADR-185 (lots de versement, US-708), ADR-187 (grand livre et chargebacks, US-709), ADR-189 (débits post-trip MIT, US-703 ; point « Pour US-309 / US-706 » (a)), ADR-192 (versements fermés par pays, US-314), ADR-195 (dommages, US-309), ADR-197 (frais annexes, US-706), ADR-198 (amendes, péages, fourrière, US-318).
+- **Sources** : BOARD US-319 et N-463 (critères PROPOSÉS) ; 08 E7 règles 1 (jambes explicites) et 6 (versement différé), BR-REIMB-04 (part de l'hôte : 100 % des frais annexes et amendes), BR-TT-02 / 03, BR-PAY-09 bis, BR-PAYOUT-02, SM-6 ; 17 v6 §0.1 (aucun fonds de tiers détenu), §2.8 (`releaseLeg`, clé `release:{trip_id}:{segment_id}:{leg}:i{n}`), §3.2.9.
+
+## Contexte
+
+Un frais annexe (US-706), une part de dommage (US-309) ou une amende refacturée (US-318) est débité au voyageur par un débit MIT séparé d'US-703, aux jambes explicites (HOST, INSURER, TAX_THIRD_PARTY, PLATFORM). Chez le PSP de place de marché (variante A), ce débit est réparti à la source sur les jambes du trip. Mais 0169 posait `leg_reported` à vrai **sans mouvement de jambe** pour ces buts (seuls `RENT_SHORTFALL` et `NO_SHOW_RETENTION` étaient reportés) et `settlement_cmd_apply_leg_movement` refusait tout but hors loyer : le registre miroir ignorait la part, et l'hôte ne l'aurait jamais reçue (un seul item de lot par trip, montant figé à la compensation). Aucun fonds de tiers n'était détenu (la part restait chez le PSP), mais le versement de l'hôte était faux. Prérequis de `payouts_enabled` = vrai.
+
+## Décision
+
+1. **Report sur les jambes du trip** (critère 1) : `core.payment_cmd_settle_mit_attempt` reporte tout débit post-trip débité, sur preuve (webhook signé ou lecture), aux montants explicites de sa tentative, puis seulement pose `leg_reported`. Sans preuve : `AWAITING_PROOF` (le débit reste dans la file, comme le loyer). `core.settlement_cmd_apply_leg_movement` admet un `MIT_CHARGE` de but `INCIDENTAL`, `DAMAGE` ou `OTHER_DEBT` seulement s'il est l'ordre d'une tentative d'un débit post-trip du même trip et du même but ; tout autre ordre hors loyer (remboursement, encaissement de dette, réaffectation) reste refusé. Mode autre que `SPLIT_AT_SOURCE` sans `funds_holding_enabled` : refusé (inchangé).
+2. **Versement par le lot suivant** (critère 2, comme Turo : le remboursement d'un frais est versé avec le versement suivant de l'hôte) : un débit reporté dont la part HOST est > 0 est rattaché, au montant explicite de cette part (table `core.payout_item_charge`, ajout seul), à un item de nature `POST_TRIP_CHARGE` (un par lot et trip) du lot **ouvert** de l'hôte dont `payout_at` = N-ième jour ouvré du pays après la date locale du report (`payout_business_day_offset`, `first_payout_business_day` au premier versement, mêmes fériés, même heure locale ; `core.payout_schedule_after`). Il n'y entre que lorsque l'item `TRIP` du trip est **compensé** (montant figé) : la part ne peut jamais être comptée deux fois. L'item `TRIP` exclut les parts reportées (`core.payout_item_amount`). La libération prend le rang suivant de la jambe HOST du trip (`i{n}` de 17 §2.8, `core.payout_next_release_rank` : `i2` après le versement du trip) ; un ordre vivant par item (`core.payout_release_item_guard`, refus de 0165 dans le même ordre) ; les motifs de retenue relus avant la libération sont ceux du lot de l'item qui porte l'ordre.
+3. **Débit échoué, remboursé ou contesté** (critère 3) : échoué ⇒ aucun `SUCCEEDED`, rien n'est reporté ni versé ; remboursé ⇒ aucune voie de remboursement d'un débit post-trip n'existe (refus au report, fail-closed) ; contesté (chargeback ouvert sur le trip) ⇒ jambe HOST gelée (0155) et motif `CHARGEBACK` du lot (0167) : la part est retenue tant que le motif est ouvert ; chargeback **perdu** reçu après l'ordre MIT du débit ⇒ part contre-passée (`core.payout_charge_item_amount` = 0 à la compensation) : elle n'est pas versée et reste chez le PSP. Tous les motifs de `core.payout_batch_hold_reasons` s'appliquent.
+4. **Aucun fonds de tiers détenu** (critère 4) : variante A seulement ; les lots de variante B restent retenus (0165) ; aucun interrupteur écrit ; aucune constante de pays ; heure de la base.
+5. **Forme des données** : colonne `payout_payout_item.kind` (défaut `TRIP`, la version N n'en sait rien) ; `payout_item_trip_leg_unique` remplacée sous le même nom par une exclusion restreinte aux items `TRIP` (un trip, un lot, comme avant) ; `payout_item_charge_batch_trip_unique`.
+
+## Conséquences
+
+- N-463 fermée par le code (prérequis de `payouts_enabled`) ; ADR-189 (a) complété.
+- Fonctions remplacées à signature, propriétaire et droits identiques (corps recopiés, blocs marqués US-319) : `settlement_cmd_apply_leg_movement` (0123), `payment_cmd_settle_mit_attempt` (0169), `payout_refresh_batch` (0167), `payout_trips_to_prepare`, `payout_cmd_prepare_trip`, `payout_release_items`, `payout_release_item_guard`, `payout_item_amount`, `payout_schedule` (0165), `settlement_release_blocker` (0172), `payout_payout_item_guard` (0165). Une migration suivante part des corps de 0180.
+- `payout_release_hold_reasons(trip)` (0172) n'est plus appelée par la garde (remplacée par `payout_release_hold_reasons_of_operation`) ; conservée (expand).
+- API (PYO) : `PayoutScheduler.prepareCharge`, port `PayoutBatchStore.chargesToPrepare` / `prepareCharge`. Aucun texte visible, aucun paramètre nouveau, aucun catalogue.
+- Preuves : `l0-us319-charge-payouts` (PA / USD, PY / PYG ; interrupteur ouvert à deux personnes dans une fenêtre lointaine refermée, transaction annulée) ; ordonnanceur sur le FAKE (`i1` puis `i2`, registre du FAKE équilibré).
+
+## Limites et suites (PROPOSÉ)
+
+- Un trip qui porte un **règlement** (version de règlement en tête) : la libération d'une part est bornée par la jambe retenue du règlement (`leg_release_exceeds_retained`) et refusée (fail-closed) ; sans objet en bêta (trajet réalisé sans règlement de fin) ; à reprendre avec les gains d'annulation (N-464).
+- Encaissement partiel d'une dette (`DEBT_COLLECTION`) d'un frais annexe ou d'un dommage : pas encore reporté (refus inchangé) ; à faire avec le rail du paiement de la dette (lot C).
+- Chargeback perdu **après** le versement de la part : aucune reprise sur l'hôte (l'imputation d'US-709 rend 0 sur un trajet réalisé) ; part contre-passée avant le versement seulement. Chargeback perdu sur le loyer reçu après le débit : la part est aussi contre-passée (prudence ; revue FIN). À trancher avec la revue argent.
+- Deux items libres du même trip, de même montant, dans deux lots READY au même moment : l'ordre se rattache au lot le plus ancien ; montants identiques, aucune somme versée deux fois.
+- Écran A08 (gains de l'hôte) : les items de débits apparaissent comme un second item du trip, sans libellé propre (suite UX).
+
+## Alternatives écartées
+
+- **Créditer le grand livre de l'hôte** (`host_ledger` positif) : le grand livre ne porte que des dettes (Σ crédits ≤ Σ débits, ADR-187) et la part doit de toute façon être libérée de la jambe HOST du trip chez le PSP (`releaseLeg`).
+- **Rouvrir l'item du trip** (montant recalculé après la compensation) : un lot compensé est figé (0165) ; la part arrive presque toujours après le versement du trip.
+- **Un item par débit** : deux items du même trip dans le même lot rendraient la clé `i{n}` ambiguë à l'envoi ; un item par (lot, trip) agrège les parts explicites.

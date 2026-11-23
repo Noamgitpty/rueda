@@ -2,7 +2,8 @@
  * Lots de versement à l'hôte (US-708, ADR-185 ; 08 SM-6, BR-PAYOUT-02 ; 17 §3.2.9) : port de
  * stockage du travailleur `payout_scheduler` ; ajustement de la part compensée (US-709, 0167). Une instance par transaction du travailleur
  * `payment_command` (la base l'exige pour chaque commande). Aucun montant n'est calculé ici :
- * montants, clés, rangs et motifs de retenue viennent des commandes de la migration 0165.
+ * montants, clés, rangs et motifs de retenue viennent des commandes de la migration 0165 ; parts
+ * HOST des débits post-trip reportés versées par le lot suivant (US-319, 0180, ADR-200).
  */
 import type { OperationStatus, OperationStatusStore } from '../../pay/index.js';
 
@@ -25,6 +26,12 @@ export interface PrepareResult {
   readonly batchId: string | null;
   readonly status: string | null;
   readonly holdReasons: readonly string[];
+}
+
+/** Débit post-trip reporté (frais annexe, dommage, amende) dont la part HOST attend un lot. */
+export interface ChargeToPrepare {
+  readonly chargeId: string;
+  readonly tripId: string;
 }
 
 export interface BatchCheck {
@@ -102,6 +109,10 @@ export interface PayoutBatchStore extends OperationStatusStore {
   prepareTrip(tripId: string): Promise<PrepareResult>;
   /** Préparation différée après un refus de la base (`code` : contrainte ou SQLSTATE). */
   deferTrip(tripId: string, code: string): Promise<void>;
+  /** US-319 : débits post-trip reportés à mettre dans le lot suivant (item du trip compensé). */
+  chargesToPrepare(limit: number): Promise<readonly ChargeToPrepare[]>;
+  /** US-319 : part HOST explicite du débit rattachée au lot suivant de l'hôte. */
+  prepareCharge(chargeId: string): Promise<PrepareResult>;
   dueBatches(limit: number): Promise<readonly DueBatch[]>;
   netBatch(batchId: string): Promise<BatchCheck>;
   recheckBatch(batchId: string): Promise<BatchCheck>;
