@@ -4246,7 +4246,8 @@
           "report": "US-536"
         },
         "charge_basis": "C1",
-        "reference_canonical_key": "C1"
+        "reference_canonical_key": "C1",
+        "ops_review_required": "C1"
       }
     }
   }
