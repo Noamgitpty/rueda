@@ -351,13 +351,20 @@ describe('US-410 — la clé est introuvable sous les rôles de production (RT-L
       await withRole(
         role,
         async (client) => {
-          const priv = await client.query<{ any: boolean; member: boolean }>(
-            `SELECT EXISTS (SELECT 1 FROM unnest(ARRAY['SELECT','INSERT','UPDATE','DELETE','TRUNCATE','REFERENCES','TRIGGER']) AS p(x)
-                             WHERE pg_catalog.has_table_privilege('core.iam_session_open_key', p.x)
-                                OR pg_catalog.has_any_column_privilege('core.iam_session_open_key', p.x)) AS any,
+          const priv = await client.query<{ any: boolean; found: number; member: boolean }>(
+            // par OID lu au catalogue : app_anon n'a pas USAGE sur le schéma core (un nom qualifié
+            // y échouerait avant de juger le droit)
+            `WITH t AS (SELECT c.oid FROM pg_catalog.pg_class c
+                          JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
+                         WHERE n.nspname = 'core' AND c.relname = 'iam_session_open_key')
+             SELECT EXISTS (SELECT 1 FROM t, unnest(ARRAY['SELECT','INSERT','UPDATE','DELETE','TRUNCATE','REFERENCES','TRIGGER']) AS p(x)
+                             WHERE pg_catalog.has_table_privilege(t.oid, p.x))
+                 OR EXISTS (SELECT 1 FROM t, unnest(ARRAY['SELECT','INSERT','UPDATE','REFERENCES']) AS p(x)
+                             WHERE pg_catalog.has_any_column_privilege(t.oid, p.x)) AS any,
+                    (SELECT count(*) FROM t)::int AS found,
                     pg_catalog.pg_has_role(current_user, 'iam_auth_owner', 'MEMBER') AS member`,
           );
-          expect(priv.rows[0]).toEqual({ any: false, member: false });
+          expect(priv.rows[0]).toEqual({ any: false, found: 1, member: false });
           const read = await client.query('SELECT key FROM core.iam_session_open_key').then(
             () => 'LU',
             (e: { code?: string }) => e.code ?? '?',
@@ -379,8 +386,9 @@ describe('US-410 — la clé est introuvable sous les rôles de production (RT-L
           );
           // la primitive de preuve (qui prend la clé en argument) n'est pas exécutable non plus
           const proofFn = await client.query<{ x: boolean }>(
-            `SELECT pg_catalog.has_function_privilege(
-                      'core.iam_session_open_proof(bytea, uuid, uuid, bytea, integer, bigint)', 'EXECUTE') AS x`,
+            `SELECT pg_catalog.has_function_privilege(p.oid, 'EXECUTE') AS x
+               FROM pg_catalog.pg_proc p JOIN pg_catalog.pg_namespace n ON n.oid = p.pronamespace
+              WHERE n.nspname = 'core' AND p.proname = 'iam_session_open_proof'`,
           );
           expect(proofFn.rows[0]?.x).toBe(false);
           const settings = await client.query<{ name: string }>(

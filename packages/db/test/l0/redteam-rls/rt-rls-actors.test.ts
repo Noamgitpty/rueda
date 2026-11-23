@@ -1040,7 +1040,11 @@ describe('RT-RLS-18 — ouverture de session sans preuve signée REFUSÉE (F-RLS
         for (const target of targets) {
           const hashes: Buffer[] = [];
           await withRole(role, async (client) => {
-            await withTestTransaction(client, {}, async (tx) => {
+            // transaction annulée à la main : app_anon n'a pas USAGE sur platform (withTestTransaction
+            // y lit platform.now()) ; L0-05 est assurée par withRole
+            const tx = client;
+            await tx.query('BEGIN');
+            try {
               const h = (): Buffer => {
                 const b = Buffer.from(randomBytes(32));
                 hashes.push(b);
@@ -1079,7 +1083,9 @@ describe('RT-RLS-18 — ouverture de session sans preuve signée REFUSÉE (F-RLS
                 ]),
                 'preuve sous la clé de l’attaquant',
               ).toBe(expected);
-            });
+            } finally {
+              await tx.query('ROLLBACK');
+            }
           });
           for (const hash of hashes) {
             expect(await holderOf(hash), `${role} : aucune session pour ${target}`).toBeNull();
