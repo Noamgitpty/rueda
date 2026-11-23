@@ -600,7 +600,7 @@
       "why": "revue de sécurité avant ouverture (ADM-033, 17 §6.6, C19, NN6) : modèle de menaces, test ciblé, contrôle des secrets et de la portée PCI, suites RLS-1 à RLS-28, IDOR entre hôtes et C1 à C20 sous les rôles de production, interrupteurs de mise en service et décisions FINANCE à deux personnes (RLS-24, RLS-27) : sécurité, schéma ; argent ajouté à la liste (fail-closed : portée PCI, décisions FINANCE, funds_holding_enabled et payouts_enabled examinés) ; Revue design : NON ; second vérificateur indépendant (19 notes) ; chemins db, config, fake-adapters (C19) ; lot 4 (19 v3 §3.5), inscrite avant son démarrage ; PROPOSÉ, décision de l orchestrateur 2026-11-23"
     },
     "US-402": {
-      "require": ["code", "architecture", "securite", "qa"],
+      "require": ["code", "architecture", "securite", "argent", "qa"],
       "why": "restauration testée et retour arrière exécuté (ADM-034, ADM-035) : rapport de restauration avec RPO / RTO mesurés, retour arrière exécuté au moins une fois, exercice rejoué depuis le runbook US-405 : infrastructure et déploiement (sécurité, architecture), preuve rejouée (qa) ; aucun montant ; Revue design : NON ; chemins db (comme US-112) ; lot 4 (19 v3 §3.5), inscrite avant son démarrage ; PROPOSÉ, décision de l orchestrateur 2026-11-23"
     },
     "US-403": {
@@ -612,7 +612,7 @@
       "why": "dossier de sortie du build de la bêta P2P (17 §10, 18 §3 et §4) : atteste C1 à C20, RLS-1 à RLS-28, L0-01 à L0-09, vecteurs dorés T01 à T68 et TJ01 à TJ21 en USD et en PYG, oracle C12 et rapprochement par jambe à 0, état de chaque interrupteur par pays et ce qui manque pour la mise en service : argent, sécurité, QA (preuves attestées), architecture ; Revue design : NON ; produit par l orchestrateur, re-vérifié par US-408 ; aucun chemin packages/ ; lot 4 (19 v3 §3.5), inscrite avant son démarrage ; PROPOSÉ, décision de l orchestrateur 2026-11-23"
     },
     "US-405": {
-      "require": ["code", "architecture", "securite", "qa"],
+      "require": ["code", "architecture", "securite", "argent", "qa"],
       "why": "runbooks d exploitation (PLT-003, 17 §6.4 et §6.5, ADM-035, LEG-010) : déploiement, retour arrière, exercice de restauration, incident de sécurité, panne du PSP ou du KYC, DSR, rotation des clés et des secrets, rejoués en préproduction par un agent qui ne les a pas écrits : sécurité (secrets, déploiement, données personnelles), architecture, QA (rejeu) ; aucun montant calculé ; Revue design : NON ; aucun chemin packages/ (docs/ops) ; lot 4 (19 v3 §3.5), inscrite avant son démarrage ; PROPOSÉ, décision de l orchestrateur 2026-11-23"
     },
     "US-406": {
