@@ -1,8 +1,11 @@
 /**
  * Port et adaptateur PostgreSQL des sinistres entre particuliers d'un trip (US-318, migration 0178,
- * ADR-198). L'adaptateur n'appelle QUE `core.claim_cmd_report_incident`,
- * `core.claim_cmd_declare_traffic_charge` et `core.claim_host_trip_claims` (SECURITY DEFINER,
- * propriétaire cmd_hold_owner, EXECUTE au seul app_api) : app_api n'a aucun droit sur les tables.
+ * ADR-198 ; suite, migration 0181, ADR-201). L'adaptateur n'appelle QUE
+ * `core.claim_cmd_report_incident`, `core.claim_cmd_declare_traffic_charge` (avec la référence du
+ * PV), `core.claim_host_trip_claims` (propriétaire cmd_hold_owner), `core.claim_traffic_guest_view`,
+ * `core.claim_cmd_accept_traffic_charge` et `core.claim_cmd_dispute_traffic_charge` (propriétaire
+ * cmd_money_owner), toutes SECURITY DEFINER, EXECUTE au seul app_api : app_api n'a aucun droit sur
+ * les tables.
  * La personne est désignée par l'empreinte de son jeton de session (`proof`), jamais par un
  * identifiant reçu. Requêtes paramétrées ; une erreur de la base devient `TripClaimStoreError`
  * (SQLSTATE seulement). Aucune heure de réception n'est envoyée : la base prend `platform.now()`.
@@ -33,6 +36,13 @@ export interface TrafficChargeInput {
   readonly occurredAt: Date;
   readonly amountMinor: bigint;
   readonly fileId: string;
+  /** Référence de l'avis, du PV ou du reçu (unique par trip, 0181). */
+  readonly reference: string;
+}
+
+export interface TrafficDisputeInput {
+  readonly reason: string;
+  readonly evidence: readonly string[];
 }
 
 export interface TrafficChargeResult {
@@ -55,6 +65,15 @@ export interface TripClaimsStore {
   ): Promise<TrafficChargeResult>;
   /** `null` : personne autre que le titulaire (NOT_FOUND). */
   hostClaims(proof: Buffer, tripId: string): Promise<Readonly<Record<string, unknown>> | null>;
+  /** Refacturations vues par le voyageur ; `null` : toute autre personne (NOT_FOUND). */
+  guestCharges(proof: Buffer, tripId: string): Promise<Readonly<Record<string, unknown>> | null>;
+  /** Issue de la commande (ACCEPTED, ALREADY_ACCEPTED, NOT_FOUND, …). */
+  acceptTrafficCharge(proof: Buffer, chargeId: string): Promise<string>;
+  disputeTrafficCharge(
+    proof: Buffer,
+    chargeId: string,
+    input: TrafficDisputeInput,
+  ): Promise<string>;
 }
 
 export class TripClaimStoreError extends Error {
@@ -75,6 +94,9 @@ export class UnavailableTripClaimsStore implements TripClaimsStore {
   reportIncident = (): Promise<IncidentResult> => this.#fail();
   declareTrafficCharge = (): Promise<TrafficChargeResult> => this.#fail();
   hostClaims = (): Promise<Readonly<Record<string, unknown>> | null> => this.#fail();
+  guestCharges = (): Promise<Readonly<Record<string, unknown>> | null> => this.#fail();
+  acceptTrafficCharge = (): Promise<string> => this.#fail();
+  disputeTrafficCharge = (): Promise<string> => this.#fail();
 }
 
 const sqlstateOf = (error: unknown): string | undefined =>
@@ -133,7 +155,7 @@ export class PgTripClaimsStore implements TripClaimsStore {
       'déclaration de refacturation',
       `SELECT outcome, charge_id::text AS charge_id, body
          FROM core.claim_cmd_declare_traffic_charge($1, $2::uuid, $3::uuid, $4, $5::timestamptz,
-                                                    $6::bigint, $7::uuid, $8)`,
+                                                    $6::bigint, $7::uuid, $8, $9)`,
       [
         proof,
         input.requestId,
@@ -143,6 +165,7 @@ export class PgTripClaimsStore implements TripClaimsStore {
         input.amountMinor.toString(),
         input.fileId,
         preview,
+        input.reference,
       ],
     );
     return {
@@ -163,5 +186,39 @@ export class PgTripClaimsStore implements TripClaimsStore {
     if (!isObj(r.v))
       throw new TripClaimStoreError('lecture des sinistres : vue illisible', undefined);
     return r.v;
+  }
+
+  async guestCharges(proof: Buffer, tripId: string) {
+    const r = await this.#one<{ v: unknown }>(
+      'lecture des refacturations du voyageur',
+      'SELECT core.claim_traffic_guest_view($1, $2::uuid) AS v',
+      [proof, tripId],
+    );
+    if (r === undefined) {
+      throw new TripClaimStoreError('lecture des refacturations du voyageur', undefined);
+    }
+    if (r.v === null) return null;
+    if (!isObj(r.v)) {
+      throw new TripClaimStoreError('lecture des refacturations : vue illisible', undefined);
+    }
+    return r.v;
+  }
+
+  async acceptTrafficCharge(proof: Buffer, chargeId: string) {
+    const r = await this.#one<{ r: string | null }>(
+      "paiement d'une refacturation",
+      'SELECT core.claim_cmd_accept_traffic_charge($1, $2::uuid) AS r',
+      [proof, chargeId],
+    );
+    return r?.r ?? 'UNAVAILABLE';
+  }
+
+  async disputeTrafficCharge(proof: Buffer, chargeId: string, input: TrafficDisputeInput) {
+    const r = await this.#one<{ r: string | null }>(
+      "contestation d'une refacturation",
+      'SELECT core.claim_cmd_dispute_traffic_charge($1, $2::uuid, $3, $4::uuid[]) AS r',
+      [proof, chargeId, input.reason, [...input.evidence]],
+    );
+    return r?.r ?? 'UNAVAILABLE';
   }
 }

@@ -7,6 +7,11 @@
  * permission `dispute.decide` dans le pays, la séparation des tâches (ADR-122), le motif, réserve
  * le débit à ADMIN et journalise chaque décision et chaque refus. Le montant n'est jamais saisi
  * ici : il est celui de la demande de l'hôte, avec ses jambes figées.
+ *
+ * US-318 suite (migration 0181, ADR-201) : même mécanique pour une amende, un péage ou une fourrière
+ * refacturés et contestés par le voyageur, par les portes `core.support_staff_traffic_charge`,
+ * `core.support_staff_decide_traffic_charge` et `core.support_staff_traffic_review` (même
+ * transaction STAFF, mêmes règles : `dispute.decide`, ADR-122, motif, débit réservé à ADMIN).
  */
 import type { EvidenceSqlExecutor, EvidenceSqlPool } from '../evidence/ports.js';
 import { ClaimStoreError, PgClaimStore } from '../claims/store.js';
@@ -39,6 +44,27 @@ export interface IncidentalStaffStore {
   ): Promise<ClaimResult>;
   /** Frais « à revoir par l'ops » des pays de l'agent (report plafonné, ADR-197 n° 18). */
   review(tx: EvidenceSqlExecutor, staff: ClaimStaff, requestId: string): Promise<ClaimResult>;
+  /** Refacturation d'une amende, d'un péage ou d'une fourrière (US-318 suite, ADR-201). */
+  trafficView(
+    tx: EvidenceSqlExecutor,
+    staff: ClaimStaff,
+    requestId: string,
+    chargeId: string,
+  ): Promise<ClaimResult>;
+  trafficDecide(
+    tx: EvidenceSqlExecutor,
+    staff: ClaimStaff,
+    requestId: string,
+    chargeId: string,
+    outcome: IncidentalDecisionOutcome,
+    rationale: string,
+  ): Promise<ClaimResult>;
+  /** Refacturations contestées à décider des pays de l'agent. */
+  trafficReview(
+    tx: EvidenceSqlExecutor,
+    staff: ClaimStaff,
+    requestId: string,
+  ): Promise<ClaimResult>;
 }
 
 /** L'exposant de la devise (config, lisible par app_api) est joint pour l'affichage du montant. */
@@ -55,6 +81,12 @@ const DECIDE_SQL = withExponent(
 
 const REVIEW_SQL = `SELECT r.outcome, NULL::text AS id, r.body
   FROM core.support_staff_incidental_review($1, $2::uuid) AS r`;
+const TRAFFIC_VIEW_SQL = withExponent('core.support_staff_traffic_charge($1, $2::uuid, $3::uuid)');
+const TRAFFIC_DECIDE_SQL = withExponent(
+  'core.support_staff_decide_traffic_charge($1, $2::uuid, $3::uuid, $4, $5)',
+);
+const TRAFFIC_REVIEW_SQL = `SELECT r.outcome, NULL::text AS id, r.body
+  FROM core.support_staff_traffic_review($1, $2::uuid) AS r`;
 
 type Row = { outcome: string; id: string | null; body: Record<string, unknown> | null };
 
@@ -115,6 +147,43 @@ export class PgIncidentalStaffStore implements IncidentalStaffStore {
     const { rows } = await tx.query<Row>(REVIEW_SQL, [staff.tokenHash, requestId]);
     return resultOf(rows);
   }
+
+  async trafficView(
+    tx: EvidenceSqlExecutor,
+    staff: ClaimStaff,
+    requestId: string,
+    chargeId: string,
+  ): Promise<ClaimResult> {
+    const { rows } = await tx.query<Row>(TRAFFIC_VIEW_SQL, [staff.tokenHash, requestId, chargeId]);
+    return resultOf(rows);
+  }
+
+  async trafficDecide(
+    tx: EvidenceSqlExecutor,
+    staff: ClaimStaff,
+    requestId: string,
+    chargeId: string,
+    outcome: IncidentalDecisionOutcome,
+    rationale: string,
+  ): Promise<ClaimResult> {
+    const { rows } = await tx.query<Row>(TRAFFIC_DECIDE_SQL, [
+      staff.tokenHash,
+      requestId,
+      chargeId,
+      outcome,
+      rationale,
+    ]);
+    return resultOf(rows);
+  }
+
+  async trafficReview(
+    tx: EvidenceSqlExecutor,
+    staff: ClaimStaff,
+    requestId: string,
+  ): Promise<ClaimResult> {
+    const { rows } = await tx.query<Row>(TRAFFIC_REVIEW_SQL, [staff.tokenHash, requestId]);
+    return resultOf(rows);
+  }
 }
 
 /** Magasin absent : toute transaction échoue (503, fail-closed). */
@@ -123,4 +192,7 @@ export const UNAVAILABLE_INCIDENTAL_STAFF_STORE: IncidentalStaffStore = {
   view: () => Promise.reject(new ClaimStoreError(null)),
   decide: () => Promise.reject(new ClaimStoreError(null)),
   review: () => Promise.reject(new ClaimStoreError(null)),
+  trafficView: () => Promise.reject(new ClaimStoreError(null)),
+  trafficDecide: () => Promise.reject(new ClaimStoreError(null)),
+  trafficReview: () => Promise.reject(new ClaimStoreError(null)),
 };

@@ -7,11 +7,14 @@
  * affiche le récapitulatif calculé par l'API (montant, frais de gestion, total refacturé au
  * voyageur, débit séparé sur sa carte après avis) ; « Confirmar » déclare, « Corregir » revient à
  * la saisie. Aucun montant calculé dans le client. Date dans l'ordre de la langue (revue ux n° 6).
+ * Suite (0181, ADR-201) : référence de l'avis, du PV ou du reçu obligatoire ; plafond du pays dans
+ * l'aide du montant ; récapitulatif avec la référence et le délai du voyageur (48 h, 08 BR-TT-02),
+ * échéance du voyageur après la déclaration.
  */
 import { useActionState } from 'react';
 import { createTranslator, getProfile } from '@rueda/i18n';
 import { Banner, Button, ErrorSummary, TextField } from '@rueda/ui';
-import { TRAFFIC_KINDS } from '../../../../../../account/trip-claims.ts';
+import { TRAFFIC_KINDS, TRAFFIC_REFERENCE_MAX } from '../../../../../../account/trip-claims.ts';
 import { LOCALE_CONFIG } from '../../../../../../locale-config.ts';
 import accountStyles from '../../../../_account/account.module.css';
 import styles from '../../../../host/host.module.css';
@@ -23,6 +26,7 @@ import {
   TRAFFIC_FILE_ID,
   TRAFFIC_FORM_ID,
   TRAFFIC_KIND_ID,
+  TRAFFIC_REFERENCE_ID,
   TRAFFIC_TIME_ID,
 } from './ids.ts';
 
@@ -40,6 +44,10 @@ export interface TrafficChargeFormProps {
   readonly amountExample: string;
   /** Format de la date dans l'ordre de la langue de la vue (« dd/mm/aaaa »). */
   readonly dateExample: string;
+  /** Plafond du montant du pays, déjà rendu (« Plafond du pays : 500,00 $ US. ») ; `null` : inconnu. */
+  readonly capHint: string | null;
+  /** Nom de la marque (donnée de thème), pour le récapitulatif. */
+  readonly brand: string;
 }
 
 export function TrafficChargeForm(props: TrafficChargeFormProps) {
@@ -113,6 +121,7 @@ export function TrafficChargeForm(props: TrafficChargeFormProps) {
         </h2>
         {hidden}
         <input type="hidden" name="kind" value={v.kind} />
+        <input type="hidden" name="reference" value={v.reference} />
         <input type="hidden" name="date" value={v.date} />
         <input type="hidden" name="time" value={v.time} />
         <input type="hidden" name="amount" value={v.amount} />
@@ -120,6 +129,9 @@ export function TrafficChargeForm(props: TrafficChargeFormProps) {
         <div className={styles['card']}>
           <p className={accountStyles['text']}>
             {t('web.traffic.review.kind', { kind: t(`web.traffic.kind.${p.kind}`) })}
+          </p>
+          <p className={accountStyles['text']} data-testid="a09-traffic-review-reference">
+            {t('web.traffic.review.reference', { reference: p.reference })}
           </p>
           <p className={accountStyles['text']}>
             {t('web.traffic.review.at', { time: i18n.dateTime(p.occurredAt, props.timezone) })}
@@ -134,6 +146,12 @@ export function TrafficChargeForm(props: TrafficChargeFormProps) {
             {t('web.traffic.review.total', { amount: money(p.totalMinor, p.currency, p.exponent) })}
           </p>
           <p className={accountStyles['muted']}>{t('web.traffic.review.card')}</p>
+          <p className={accountStyles['muted']} data-testid="a09-traffic-review-response">
+            {t('web.traffic.review.response', {
+              n: String(p.responseHours),
+              brand: props.brand,
+            })}
+          </p>
         </div>
         {formError !== undefined && (
           <Banner tone="danger" live="assertive">
@@ -195,6 +213,11 @@ export function TrafficChargeForm(props: TrafficChargeFormProps) {
               amount: money(state.sent.totalMinor, state.sent.currency, state.sent.exponent),
             })}
           </p>
+          <p className={accountStyles['text']} data-testid="a09-traffic-sent-due">
+            {t('web.traffic.sent.due', {
+              time: i18n.dateTime(state.sent.responseDueAt, props.timezone),
+            })}
+          </p>
         </div>
       )}
       <ErrorSummary i18n={i18n} errors={messages.filter((m) => m.fieldId !== TRAFFIC_FORM_ID)} />
@@ -210,6 +233,20 @@ export function TrafficChargeForm(props: TrafficChargeFormProps) {
         t('web.traffic.kind'),
         TRAFFIC_KINDS.map((k) => ({ value: k, label: t(`web.traffic.kind.${k}`) })),
       )}
+      <TextField
+        i18n={i18n}
+        id={TRAFFIC_REFERENCE_ID}
+        name="reference"
+        autoComplete="off"
+        autoCapitalize="characters"
+        spellCheck={false}
+        maxLength={TRAFFIC_REFERENCE_MAX}
+        label={t('web.traffic.reference')}
+        hint={t('web.traffic.referenceHint')}
+        error={errorOf(TRAFFIC_REFERENCE_ID)}
+        defaultValue={state.values?.reference}
+        data-testid="a09-traffic-reference-input"
+      />
       <TextField
         i18n={i18n}
         id={TRAFFIC_AT_ID}
@@ -241,7 +278,9 @@ export function TrafficChargeForm(props: TrafficChargeFormProps) {
         inputMode="decimal"
         autoComplete="off"
         label={t('web.traffic.amount')}
-        hint={t('web.traffic.amountHint', { example: props.amountExample })}
+        hint={[t('web.traffic.amountHint', { example: props.amountExample }), props.capHint]
+          .filter((h): h is string => h !== null)
+          .join(' ')}
         error={errorOf(TRAFFIC_AMOUNT_ID)}
         defaultValue={state.values?.amount}
         data-testid="a09-traffic-amount-input"

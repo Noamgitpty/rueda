@@ -17,6 +17,7 @@ import {
   UUID,
 } from '../../../../../../account/trip-claims.ts';
 import { tripInspectionOf } from '../../../../../../account/trip-inspection.ts';
+import { trafficHostAnswerKey } from '../../../../../../account/trip-traffic.ts';
 import { getRequestBrand } from '../../../../../../brand-source.ts';
 import { getRequestI18n, getRequestLocaleTag } from '../../../../../../i18n.ts';
 import { LOCALE_CONFIG } from '../../../../../../locale-config.ts';
@@ -35,6 +36,16 @@ const STATUS_TONE: Readonly<Record<string, BadgeTone>> = {
   PENDING: 'neutral',
   DONE: 'success',
   BLOCKED: 'warning',
+  VOID: 'neutral',
+};
+
+/** Ton de la réponse du voyageur (suite d'US-318, 0181). */
+const ANSWER_TONE: Readonly<Record<string, BadgeTone>> = {
+  AWAITING_GUEST: 'neutral',
+  ACCEPTED: 'success',
+  DISPUTED: 'warning',
+  DECIDED_CHARGE: 'success',
+  REJECTED: 'danger',
 };
 
 /**
@@ -45,6 +56,8 @@ const STATUS_TONE: Readonly<Record<string, BadgeTone>> = {
  * (b) amende, péage ou fourrière payés par l'hôte pour la période du trip, avec la pièce
  * photographiée, refacturés au voyageur avec les frais de gestion du pays (jamais un transfert de
  * l'amende ; parking de récupération non refacturable) ; (c) refacturations déclarées et leur état.
+ * Suite (0181, ADR-201) : référence du PV obligatoire, plafond du pays dans l'aide du montant, et
+ * pour chaque refacturation sa référence, l'échéance du voyageur (48 h, 08 BR-TT-02) et sa réponse.
  * Réservé au titulaire du compte d'hôte : toute autre personne ou un trip inconnu rend le même
  * message (404 de l'API).
  */
@@ -126,6 +139,8 @@ export default async function HostTripClaimsPage({
     .map((e) => ({ fileId: e.fileId, receivedAt: e.receivedAt }))
     .reverse();
   const number = getProfile(LOCALE_CONFIG, tag).number;
+  // heure du rendu (serveur) : seulement pour dire si l'échéance du voyageur est passée ; la base fait foi
+  const now = Date.now();
   return shell(
     <>
       {claims.theft !== null && (
@@ -212,6 +227,12 @@ export default async function HostTripClaimsPage({
                 month: t('web.traffic.dateLetters.month'),
                 year: t('web.traffic.dateLetters.year'),
               })}
+              capHint={
+                claims.capMinor === null
+                  ? null
+                  : t('web.traffic.amountCap', { amount: money(claims.capMinor) })
+              }
+              brand={brand.name}
             />
           </section>
         </>
@@ -236,23 +257,44 @@ export default async function HostTripClaimsPage({
           </p>
         ) : (
           <ul className={styles['rows']} data-testid="a09-charges">
-            {claims.charges.map((c) => (
-              <li key={c.id} className={styles['card']}>
-                <p className={styles['strong']}>
-                  {t(`web.traffic.kind.${c.kind}`)} · {i18n.dateTime(c.occurredAt, timezone)}
-                </p>
-                <p className={accountStyles['text']}>
-                  {t('web.traffic.list.amounts', {
-                    amount: money(c.amountMinor),
-                    fee: money(c.adminFeeMinor),
-                    total: money(c.totalMinor),
-                  })}
-                </p>
-                <Badge tone={STATUS_TONE[c.status] ?? 'neutral'}>
-                  {t(`web.traffic.status.${c.status}`)}
-                </Badge>
-              </li>
-            ))}
+            {claims.charges.map((c) => {
+              const answer = trafficHostAnswerKey(c, now);
+              return (
+                <li key={c.id} className={styles['card']} data-testid="a09-charge">
+                  <p className={styles['strong']}>
+                    {t(`web.traffic.kind.${c.kind}`)} · {i18n.dateTime(c.occurredAt, timezone)}
+                  </p>
+                  {c.reference !== null && (
+                    <p className={accountStyles['text']} data-testid="a09-charge-reference">
+                      {t('web.traffic.review.reference', { reference: c.reference })}
+                    </p>
+                  )}
+                  <p className={accountStyles['text']}>
+                    {t('web.traffic.list.amounts', {
+                      amount: money(c.amountMinor),
+                      fee: money(c.adminFeeMinor),
+                      total: money(c.totalMinor),
+                    })}
+                  </p>
+                  {answer !== null && c.guestStatus !== null && (
+                    <Badge tone={ANSWER_TONE[c.guestStatus] ?? 'neutral'}>
+                      <span data-testid="a09-charge-answer">
+                        {t(answer, {
+                          brand: brand.name,
+                          time:
+                            c.responseDueAt === null
+                              ? ''
+                              : i18n.dateTime(c.responseDueAt, timezone),
+                        })}
+                      </span>
+                    </Badge>
+                  )}
+                  <Badge tone={STATUS_TONE[c.status] ?? 'neutral'}>
+                    {t(`web.traffic.status.${c.status}`)}
+                  </Badge>
+                </li>
+              );
+            })}
           </ul>
         )}
       </section>

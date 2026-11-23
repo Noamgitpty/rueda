@@ -3794,6 +3794,22 @@ export const EN_MESSAGES = {
     'Hi {first_name}. The host of booking {booking_ref} requested a cost of {amount}. You can pay it or dispute it with a photo on {brand} until {due_at}. Without an answer, {brand} decides and may charge your saved card.',
   'ntf.invoiceToGuest.sms.body':
     '{brand}: the host requested {amount} ({booking_ref}). Pay or dispute in the app before {due_at}.',
+  // US-318 suite (0181, ADR-201) : avis au voyageur d'une amende, d'un péage ou d'une fourrière
+  'ntf.trafficFineToGuest.email.subject': 'Booking {booking_ref}: the host charges you a fine',
+  'ntf.trafficFineToGuest.email.body':
+    'Hi {first_name}. The host of booking {booking_ref} reported a fine received during your trip: {amount} including the handling fee. You have 48 hours, until {due_at}, to pay or dispute it on {brand}, under “Fines, tolls and towing” in your trip; a photo is optional. Without an answer, the amount is charged to your saved card when the deadline passes.',
+  'ntf.trafficFineToGuest.sms.body':
+    '{brand}: fine of {amount} ({booking_ref}). Pay or dispute in the app before {due_at}; otherwise your card is charged.',
+  'ntf.trafficTollToGuest.email.subject': 'Booking {booking_ref}: the host charges you a toll',
+  'ntf.trafficTollToGuest.email.body':
+    'Hi {first_name}. The host of booking {booking_ref} reported a toll paid during your trip: {amount} including the handling fee. You have 48 hours, until {due_at}, to pay or dispute it on {brand}, under “Fines, tolls and towing” in your trip; a photo is optional. Without an answer, the amount is charged to your saved card when the deadline passes.',
+  'ntf.trafficTollToGuest.sms.body':
+    '{brand}: toll of {amount} ({booking_ref}). Pay or dispute in the app before {due_at}; otherwise your card is charged.',
+  'ntf.trafficImpoundToGuest.email.subject': 'Booking {booking_ref}: the host charges you towing',
+  'ntf.trafficImpoundToGuest.email.body':
+    'Hi {first_name}. The host of booking {booking_ref} reported towing and impound costs paid because of your trip: {amount} including the handling fee. You have 48 hours, until {due_at}, to pay or dispute it on {brand}, under “Fines, tolls and towing” in your trip; a photo is optional. Without an answer, the amount is charged to your saved card when the deadline passes.',
+  'ntf.trafficImpoundToGuest.sms.body':
+    '{brand}: towing of {amount} ({booking_ref}). Pay or dispute in the app before {due_at}; otherwise your card is charged.',
   'web.incidental.evidence':
     'Proof chosen by the host: pickup and return photos, and files sent during this trip',
   'web.incidental.evidenceItem': '{side} · {slot} · {by} · received {date}',
@@ -3883,7 +3899,7 @@ export const EN_MESSAGES = {
   'web.traffic.sent.total': 'Total charged to the traveler: {amount}',
   'web.traffic.kind': 'Type of charge',
   'web.traffic.amount': 'Amount you paid',
-  'web.traffic.amountHint': 'Example: {example}',
+  'web.traffic.amountHint': 'Example: {example}.',
   'web.traffic.file': 'Receipt',
   'web.traffic.fileItem': 'Photo received at {time}',
   'web.traffic.fileNone': 'First take a photo of the receipt.',
@@ -3935,4 +3951,63 @@ export const EN_MESSAGES = {
   'web.help.roadside.useEmergency':
     'If there was an accident, call {number} now and notify {authority}.',
   'web.incident.needPhoto': 'Take at least one photo to send the report.',
+  // US-318 follow-up (0181, ADR-201): notice reference, cap, traveler response (48 h)
+  'common.tripClaims.trafficReferenceRequired':
+    'Enter the reference of the notice, ticket or receipt, exactly as it appears on the document.',
+  'common.tripClaims.trafficDuplicate':
+    'This reference is already declared for this trip: the same charge can be declared only once.',
+  'common.tripClaims.trafficAmountAboveCap':
+    'The amount is above the country cap for this charge. Check the amount you paid; if it is right, contact us from the trip help.',
+  'common.tripClaims.trafficNotOpen':
+    'This charge is no longer waiting for your answer: it was already paid, disputed or decided.',
+  'common.claim.trafficNotDisputed':
+    'Only a traffic charge disputed by the traveler is decided here.',
+  'web.traffic.reference': 'Reference of the notice, ticket or receipt',
+  'web.traffic.referenceHint':
+    'The number printed on the document: 3 to 40 characters, letters, digits, spaces, “.”, “/” or “-”.',
+  'web.traffic.referenceInvalid':
+    'Enter the reference as on the document: 3 to 40 characters, starting and ending with a letter or a digit.',
+  'web.traffic.amountCap': 'Country cap: {amount}.',
+  'web.traffic.review.reference': 'Reference: {reference}',
+  'web.traffic.review.response':
+    'The traveler will have {n} h to pay or dispute. Nothing is charged before then; if they dispute, {brand} decides.',
+  'web.traffic.sent.due': 'The traveler has until {time} to pay or dispute.',
+  'web.traffic.status.VOID': 'Voided',
+  'web.traffic.guest.AWAITING_GUEST': 'Waiting for the traveler’s answer before {time}',
+  'web.traffic.guest.expired': 'The traveler did not answer before {time}',
+  'web.traffic.guest.ACCEPTED': 'Paid by the traveler',
+  'web.traffic.guest.DISPUTED': 'Disputed by the traveler: {brand} decides',
+  'web.traffic.guest.DECIDED_CHARGE': '{brand} decision: charged to the traveler',
+  'web.traffic.guest.REJECTED': '{brand} decision: rejected',
+  'web.trafficGuest.title': 'Fines, tolls and towing',
+  'web.trafficGuest.lead':
+    'Your host paid these charges for events that happened during your trip, with a receipt. Pay or dispute them before the deadline: nothing is charged before then. If you dispute, {brand} decides.',
+  'web.trafficGuest.empty': 'No fines, tolls or towing for this trip.',
+  'web.trafficGuest.list': 'Charges passed on to you',
+  'web.trafficGuest.amount': 'Paid by your host: {amount}',
+  'web.trafficGuest.total': 'Total to pay: {amount}',
+  'web.trafficGuest.due': 'Answer before {date}',
+  'web.trafficGuest.payNotice':
+    'By paying, you accept this charge: {brand} charges the trip card, separately from the rental.',
+  'web.trafficGuest.dispute.reason': 'Why do you disagree with this charge?',
+  'web.trafficGuest.dispute.reasonHint': '20 to 1,000 characters, no names or phone numbers.',
+  'web.trafficGuest.dispute.photos': 'Trip photos as evidence (optional)',
+  'web.trafficGuest.dispute.photosHint':
+    'Tick the pickup or return photos that support your dispute, up to 10.',
+  'web.trafficGuest.dispute.submit': 'Send the dispute',
+  'web.trafficGuest.dispute.reasonInvalid': 'Your reason must be 20 to 1,000 characters long.',
+  'web.trafficGuest.status.EXPIRED':
+    'The time to answer ended on {date}: {brand} will charge the trip card.',
+  'web.trafficGuest.status.ACCEPTED': 'You accepted this charge: {brand} charges the trip card.',
+  'web.trafficGuest.status.DISPUTED':
+    'You disputed this charge: {brand} reviews the case and decides; nothing is charged before then.',
+  'web.trafficGuest.status.DECIDED_CHARGE':
+    '{brand} decision: the charge is due and is charged to the trip card.',
+  'web.trafficGuest.status.REJECTED':
+    '{brand} decision: the charge is cancelled, nothing is charged.',
+  'web.trafficGuest.disputeReason': 'Your dispute',
+  'web.trafficGuest.decidedAt': 'Decided on {date}',
+  'web.trafficGuest.done.accepted': 'Thank you. {brand} charges the trip card.',
+  'web.trafficGuest.done.disputed': 'Dispute sent. {brand} decides and lets you know.',
+  'web.trafficGuest.slot.OTHER': 'Other photo',
 } as const satisfies Readonly<Record<MessageKey, Message>>;

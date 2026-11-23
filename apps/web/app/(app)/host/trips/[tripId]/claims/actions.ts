@@ -10,6 +10,9 @@
  * du formulaire : l'heure murale saisie devient un instant UTC, le montant saisi dans la langue de
  * la vue devient des unités mineures sans flottant (`minorFromInput`). Aucun frais ni aucun total
  * n'est calculé ici : l'API les rend. Délai, période du trip et pièce sont jugés par la base.
+ * Suite (0181, ADR-201) : la référence de l'avis, du PV ou du reçu est obligatoire (format revérifié
+ * ici, unicité par trip jugée en base : `TRAFFIC_DUPLICATE`) ; le plafond du pays est appliqué par
+ * la base (`TRAFFIC_AMOUNT_ABOVE_CAP`) ; chaque refus est rendu sur son champ.
  */
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
@@ -24,8 +27,10 @@ import {
   parseLocalDate,
   parseLocalTime,
   TRAFFIC_KINDS,
+  TRAFFIC_REFERENCE_MAX,
   trafficDeclaredOf,
   trafficPreviewOf,
+  trafficReferenceOf,
   UUID,
 } from '../../../../../../account/trip-claims.ts';
 import type { TrafficDeclared, TrafficPreview } from '../../../../../../account/trip-claims.ts';
@@ -40,10 +45,12 @@ import {
   TRAFFIC_FILE_ID,
   TRAFFIC_FORM_ID,
   TRAFFIC_KIND_ID,
+  TRAFFIC_REFERENCE_ID,
 } from './ids.ts';
 
 export interface TrafficValues {
   readonly kind: string;
+  readonly reference: string;
   readonly date: string;
   readonly time: string;
   readonly amount: string;
@@ -74,6 +81,7 @@ export async function trafficChargeAction(
   const requestId = field(form, 'request');
   const values: TrafficValues = {
     kind: field(form, 'kind'),
+    reference: field(form, 'reference', TRAFFIC_REFERENCE_MAX + 1),
     date: field(form, 'date'),
     time: field(form, 'time'),
     amount: field(form, 'amount'),
@@ -104,9 +112,18 @@ export async function trafficChargeAction(
   const occurredAt =
     day === null || time === null ? null : localToUtc(`${day}T${time}`, read.trip.timezone);
   const amountMinor = minorFromInput(values.amount, read.market.currencyExponent, number);
+  const reference = trafficReferenceOf(values.reference);
   const errors: FormError[] = [];
   if (!(TRAFFIC_KINDS as readonly string[]).includes(values.kind)) {
     errors.push({ fieldId: TRAFFIC_KIND_ID, key: 'web.traffic.kindRequired' });
+  }
+  if (values.reference === '') {
+    errors.push({
+      fieldId: TRAFFIC_REFERENCE_ID,
+      key: 'common.tripClaims.trafficReferenceRequired',
+    });
+  } else if (reference === null) {
+    errors.push({ fieldId: TRAFFIC_REFERENCE_ID, key: 'web.traffic.referenceInvalid' });
   }
   if (day === null) errors.push({ fieldId: TRAFFIC_AT_ID, key: 'web.traffic.dateInvalid' });
   else if (time === null) errors.push({ fieldId: TRAFFIC_TIME_ID, key: 'web.traffic.timeInvalid' });
@@ -118,7 +135,14 @@ export async function trafficChargeAction(
   if (!UUID.test(values.file))
     errors.push({ fieldId: TRAFFIC_FILE_ID, key: 'web.traffic.fileRequired' });
   if (errors.length > 0) return { errors, values };
-  const payload = { requestId, kind: values.kind, occurredAt, amountMinor, fileId: values.file };
+  const payload = {
+    requestId,
+    kind: values.kind,
+    occurredAt,
+    amountMinor,
+    fileId: values.file,
+    reference,
+  };
   const reply = await callApi(
     'POST',
     intent === 'review'
@@ -153,7 +177,11 @@ export async function trafficChargeAction(
       ? TRAFFIC_AT_ID
       : code === 'TRAFFIC_EVIDENCE_REQUIRED'
         ? TRAFFIC_FILE_ID
-        : TRAFFIC_FORM_ID;
+        : code === 'TRAFFIC_DUPLICATE' || code === 'TRAFFIC_REFERENCE_REQUIRED'
+          ? TRAFFIC_REFERENCE_ID
+          : code === 'TRAFFIC_AMOUNT_ABOVE_CAP'
+            ? TRAFFIC_AMOUNT_ID
+            : TRAFFIC_FORM_ID;
   return fail(
     fieldId,
     reply.status === 'unavailable'

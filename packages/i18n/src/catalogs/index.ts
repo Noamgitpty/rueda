@@ -412,8 +412,15 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  `common.tripClaims.*` (réponses des routes `/trips/{tripId}/incidents`, `/claims` et
  `/traffic-charges`) et les écrans de l’incident du voyageur (S17) et des amendes, péages et
  fourrière de l’hôte.
+ Version 114 (réservée à la suite d’US-318 par l’orchestrateur ; la 113 est celle d’US-318) :
+ refacturation des amendes, péages et fourrières (0181, ADR-201, PROPOSÉ « comme Turo ») :
+ `common.tripClaims.trafficReferenceRequired`, `trafficDuplicate`, `trafficAmountAboveCap`,
+ `trafficNotOpen` (référence du PV obligatoire et unique par trip, plafond du pays, réponse du
+ voyageur close), `common.claim.trafficNotDisputed` (console : seule une refacturation contestée se
+ décide), `web.traffic.*` (référence, plafond, échéance et réponse du voyageur dans l’écran de
+ l’hôte) et `web.trafficGuest.*` (S12 : le voyageur paie ou conteste dans les 48 h, 08 BR-TT-02).
  */
-export const CATALOG_VERSION = 113;
+export const CATALOG_VERSION = 114;
 
 /** Catalogues de base par langue ; la langue d'un profil de locale choisit le sien. */
 export const CATALOGS: Readonly<Record<CatalogLanguage, VersionedCatalog<MessageKey>>> = {

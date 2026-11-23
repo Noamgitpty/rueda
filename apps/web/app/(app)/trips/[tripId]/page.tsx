@@ -11,6 +11,7 @@ import { getRequestI18n } from '../../../../i18n.ts';
 import accountStyles from '../../_account/account.module.css';
 import { REVIEWABLE_TRIP_STATUSES } from '../../../../account/trip-reviews.ts';
 import { incidentalHref, incidentalOffered } from '../../../../account/trip-incidental.ts';
+import { trafficGuestHref, trafficOffered } from '../../../../account/trip-traffic.ts';
 import { MAIN_ID } from '../../_shell/main-id.ts';
 import styles from '../../host/host.module.css';
 import { GuestTripCard } from '../guest-trip-card.tsx';
@@ -190,6 +191,12 @@ export default async function GuestTripPage({
           data-testid="s09-incidental"
         >
           {t('web.incidental.link.GUEST')}
+        </a>
+      )}
+      {/* amendes, péages et fourrière refacturés : payer ou contester dans les 48 h (suite d'US-318) */}
+      {trafficOffered(trip.status) && (
+        <a className={styles['link']} href={trafficGuestHref(trip.id)} data-testid="s09-traffic">
+          {t('web.traffic.link')}
         </a>
       )}
       {/* no-show de l'hôte signalé par le voyageur (US-307) : remise ouverte, pas encore commencée */}
