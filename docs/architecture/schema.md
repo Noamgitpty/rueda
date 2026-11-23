@@ -7,7 +7,7 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 
 ## Synthèse
 
-- 179 migrations ; 171 tables ; 6 vues ; 966 politiques RLS ; 440 fonctions `SECURITY DEFINER` ; 332 autres fonctions.
+- 180 migrations ; 171 tables ; 6 vues ; 966 politiques RLS ; 440 fonctions `SECURITY DEFINER` ; 332 autres fonctions.
 - Tables sans RLS `ENABLE` + `FORCE` : aucune.
 - Rôles applicatifs avec `SUPERUSER` ou `BYPASSRLS` : aucun.
 
@@ -194,6 +194,7 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 | `0176_trip_inspection_photo_fingerprint` | TRP : empreinte de photo d'état unique, tous trips, photos d'annonce comprises (bêta). |
 | `0177_claim_incidental_invoices` | CLM : frais annexes demandés par l'hôte (facture SM-5), délai de réponse du voyageur |
 | `0178_claim_p2p_theft_incident_traffic` | CLM : sinistres entre particuliers. Vol présumé après la non-restitution (dossier de vol, |
+| `0179_booking_hold_fast_refusal` | AVL : refus rapide de la pose perdante sous le verrou du véhicule, et paramètres de pays |
 
 ## Rôles
 
