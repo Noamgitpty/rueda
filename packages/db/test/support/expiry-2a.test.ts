@@ -32,9 +32,15 @@ describe('instruction 2a : une seule source', () => {
     expect(normalize(fixture)).toContain(normalize(`${expected} RETURNING ref_id )`));
   });
 
-  // 0056 (US-049, F-RLS-02) remplace le corps de la commande : la définition en vigueur est
-  // celle de 0056, qui doit garder la même instruction 2a que 0037.
-  it.each(['0037_booking_hold_commands.sql', '0056_booking_vehicle_ownership_guards.sql'])(
+  // 0056 (US-049, F-RLS-02) remplace le corps de la commande, puis 0126 (US-223c) le déplace dans
+  // core.booking_place_hold_kind et 0179 (US-007, ADR-199 : refus rapide) le remplace : la
+  // définition en vigueur est celle de 0179, qui doit garder la même instruction 2a que 0037.
+  it.each([
+    '0037_booking_hold_commands.sql',
+    '0056_booking_vehicle_ownership_guards.sql',
+    '0126_booking_request_mode.sql',
+    '0179_booking_hold_fast_refusal.sql',
+  ])(
     'la commande réelle core.booking_cmd_place_hold (%s) contient EXPIRY_2A_SQL aux paramètres près',
     (file) => {
       const migration = readFileSync(join(MIGRATIONS_DIR, file), 'utf8');
@@ -62,5 +68,30 @@ describe('instruction 2a : une seule source', () => {
     expect(sql).toContain('FOR UPDATE OF h SKIP LOCKED');
     expect(sql).toContain("AND kind = 'HOLD'");
     expect(sql.replaceAll('platform.now()', '')).not.toMatch(/now\(\)/i);
+  });
+
+  // US-007 (ADR-199, 0179) : le refus rapide est un court-circuit sous le verrou du véhicule,
+  // jamais une garde à la place de l'exclusion GiST ni une écriture.
+  it('0179 : refus rapide après les verrous guest puis véhicule, avant 2a, sans écriture, puis insertion inchangée', () => {
+    const sql = normalize(
+      readFileSync(join(MIGRATIONS_DIR, '0179_booking_hold_fast_refusal.sql'), 'utf8'),
+    );
+    const guestLock = sql.indexOf("hashtextextended('guest:' || v_guest::text, 0)");
+    const vehicleLock = sql.indexOf("hashtextextended('veh:' || p_vehicle_id::text, 0)");
+    const fast = sql.indexOf("RAISE EXCEPTION 'hold: vehicle unavailable'");
+    const expiry = sql.indexOf('WITH t AS (SELECT platform.now() AS ts), due AS');
+    const insert = sql.indexOf('INSERT INTO core.booking_vehicle_occupancy');
+    expect(guestLock).toBeGreaterThan(0);
+    expect(vehicleLock).toBeGreaterThan(guestLock);
+    expect(fast).toBeGreaterThan(vehicleLock);
+    expect(expiry).toBeGreaterThan(fast);
+    expect(insert).toBeGreaterThan(expiry);
+    // même erreur que la contrainte : 23P01, vehicle_occupancy_no_overlap (VEHICLE_UNAVAILABLE)
+    const raise = sql.slice(fast, sql.indexOf('END IF;', fast));
+    expect(raise).toContain("ERRCODE = 'exclusion_violation'");
+    expect(raise).toContain("CONSTRAINT = 'vehicle_occupancy_no_overlap'");
+    expect(raise).not.toMatch(/DETAIL/);
+    // entre le verrou du véhicule et le refus : une lecture, aucune écriture
+    expect(sql.slice(vehicleLock, fast)).not.toMatch(/\b(INSERT|UPDATE|DELETE)\b/);
   });
 });
