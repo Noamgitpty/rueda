@@ -254,12 +254,10 @@ describe.each(COUNTRIES)('RT-L3 débits MIT, passe de la porte ($country, $curre
           { origin: first.origin, purpose: 'INCIDENTAL', reason: 'DELAYED_CHARGES', legs: damage },
         ],
       ];
+      // les jambes permutées d'un vecteur dont HOST = PLATFORM ne changent rien : le cas n'a de sens
+      // que si elles diffèrent (témoin de population : jamais un test vide), affirmé sans condition
+      expect(damage.HOST === damage.PLATFORM).toBe(false);
       for (const [label, input] of hostile) {
-        // les jambes permutées d'un vecteur dont HOST = PLATFORM ne changent rien : le cas n'a de
-        // sens que si elles diffèrent (témoin de population : jamais un test vide)
-        if (label.startsWith('jambes permutées')) {
-          expect(damage.HOST === damage.PLATFORM).toBe(false);
-        }
         expect(await failure(tx, NOTIFY, notifyArgs(w, input)), label).toMatchObject({
           constraint: 'mit_charge_conflict',
         });

@@ -46,7 +46,7 @@ import {
   submit,
 } from '../../support/incidental.ts';
 import type { Row } from '../../support/incidental.ts';
-import { plus, sha, uuid } from './support-l3.ts';
+import { ADD, CAPTURE, plus, setVirtualNow, sha, uuid } from './support-l3.ts';
 import type { Tx } from './support-l3.ts';
 
 // -- amendes, péages et fourrières ------------------------------------------------------------
@@ -54,15 +54,9 @@ const START = '2077-04-07T10:00:00.000Z';
 const END = '2077-04-10T10:00:00.000Z';
 const DECLARED_AT = plus(END, 3600);
 
-const CAPTURE = 'SELECT * FROM core.trip_cmd_open_photo_capture($1, $2::uuid, $3, $4)';
-const ADD = `SELECT * FROM core.trip_cmd_add_inspection_photo($1, $2::uuid, $3, $4::uuid, $5, $6::uuid,
-                                                              $7, $8::bigint, $9, $10::timestamptz)`;
 const DECLARE = `SELECT outcome, charge_id::text AS charge_id, body
   FROM core.claim_cmd_declare_traffic_charge($1, $2::uuid, $3::uuid, $4, $5::timestamptz, $6::bigint,
                                              $7::uuid, $8, $9)`;
-
-const setNow = (tx: Tx, iso: string): Promise<unknown> =>
-  tx.query(`SELECT pg_catalog.set_config('app.virtual_now', $1, true)`, [iso]);
 
 const keys = new SubjectKeyStore(new FakeKeyWrapper());
 async function subjectKey(tx: Tx, userId: string): Promise<void> {
@@ -117,13 +111,13 @@ async function trafficWorld(tx: Tx, c: CountryCase, org: string): Promise<Traffi
     END,
   ]);
   await tx.query('SELECT test_fixture.us309_set_status($1, $2)', [trip, 'IN_PROGRESS']);
-  await setNow(tx, END);
+  await setVirtualNow(tx, END);
   await tx.query('SELECT test_fixture.us309_returned($1)', [trip]);
   await tx.query('SELECT test_fixture.us309_card_rent($1, $2)', [
     trip,
     c.priceStepMinor === 1 ? '30000' : '2000000',
   ]);
-  await setNow(tx, DECLARED_AT);
+  await setVirtualNow(tx, DECLARED_AT);
   const holder = (
     await tx.query<{ h: string }>('SELECT test_fixture.us309_holder($1)::text AS h', [trip])
   ).rows[0]!.h;
@@ -202,23 +196,24 @@ describe.each(COUNTRIES)('RT-L3 variantes contre la PR 300 ($country, $currency)
 
   // CONSTAT F-L3-SIN-03 : la clé de référence (majuscules, lettres et chiffres) ne reconnaît pas
   // un numéro écrit avec ou sans zéros de tête ; correction attendue : une clé canonique qui les
-  // ignore (le signal exact est TRAFFIC_DUPLICATE, comme pour les autres écritures du même PV)
+  // ignore (TRAFFIC_DUPLICATE) ou une escalade à l'ops : l'it.fails n'exige que « pas de seconde
+  // refacturation enregistrée sans décision », donc accepte un refus comme une escalade
   it.fails(
-    'RT-L3-S04 — CONSTAT F-L3-SIN-03 (zéros de tête) : « PV 000123 » puis « PV 123 » sur le même trip est refusé TRAFFIC_DUPLICATE',
+    'RT-L3-S04 — CONSTAT F-L3-SIN-03 (zéros de tête) : « PV 000123 » puis « PV 123 » sur le même trip n’est pas enregistré comme une seconde refacturation (refus ou escalade à l’ops)',
     async () => {
       await asApi(async (tx) => {
         const r = await twoSpellings(tx, 'PV 000123', 'PV 123');
-        expect(r.second['outcome']).toBe('TRAFFIC_DUPLICATE');
+        expect(r.second['outcome']).not.toBe('DECLARED');
       });
     },
   );
 
   it.fails(
-    'RT-L3-S04 — CONSTAT F-L3-SIN-03 (lettre O pour le zéro) : « PV 100200 » puis « PV 1OO2OO » sur le même trip est refusé TRAFFIC_DUPLICATE',
+    'RT-L3-S04 — CONSTAT F-L3-SIN-03 (lettre O pour le zéro) : « PV 100200 » puis « PV 1OO2OO » sur le même trip n’est pas enregistré comme une seconde refacturation (refus ou escalade à l’ops)',
     async () => {
       await asApi(async (tx) => {
         const r = await twoSpellings(tx, 'PV 100200', 'PV 1OO2OO');
-        expect(r.second['outcome']).toBe('TRAFFIC_DUPLICATE');
+        expect(r.second['outcome']).not.toBe('DECLARED');
       });
     },
   );
@@ -236,7 +231,9 @@ describe.each(COUNTRIES)('RT-L3 variantes contre la PR 300 ($country, $currency)
 
   // -----------------------------------------------------------------------------------------
   // plafond : par refacturation, jamais cumulé par trip
-  async function threeUnderTheCap(tx: Tx): Promise<{ trip: string; cap: bigint; total: bigint }> {
+  async function threeUnderTheCap(
+    tx: Tx,
+  ): Promise<{ trip: string; cap: bigint; total: bigint; outcomes: string[] }> {
     const w = await trafficWorld(tx, c, uuid());
     // le plafond du pays est rendu par le récapitulatif (aucune constante de pays ici)
     const probe = await declareOn(tx, w, 'FINE', FINE, `RT-${uuid().slice(0, 8)}`, true);
@@ -244,16 +241,20 @@ describe.each(COUNTRIES)('RT-L3 variantes contre la PR 300 ($country, $currency)
     const cap = BigInt(String((probe['body'] as Row)['capMinor']));
     const each = (cap * 6n) / 10n;
     expect(each > 0n && each < cap).toBe(true);
+    // l'aide n'affirme AUCUNE issue des trois déclarations (une correction peut refuser ou
+    // escalader la deuxième) : l'observation affirme les trois DECLARED, l'it.fails juge le cumul
+    const outcomes: string[] = [];
     for (const kind of ['FINE', 'TOLL', 'IMPOUND']) {
       const r = await declareOn(tx, w, kind, each, `RT-${uuid().slice(0, 8)}`);
-      expect(r['outcome'], kind).toBe('DECLARED');
+      outcomes.push(String(r['outcome']));
     }
-    return { trip: w.trip, cap, total: each * 3n };
+    return { trip: w.trip, cap, total: each * 3n, outcomes };
   }
 
   it('RT-L3-S04 — observation F-L3-SIN-04 : trois refacturations de 60 % du plafond du pays, trois références inventées, sur le même trip, sont toutes acceptées : 180 % du plafond, chacune seule sous le plafond', async () => {
     await asApi(async (tx) => {
       const r = await threeUnderTheCap(tx);
+      expect(r.outcomes).toEqual(['DECLARED', 'DECLARED', 'DECLARED']);
       const rows = await chargesOn(tx, r.trip);
       expect(rows).toHaveLength(3);
       const total = rows.reduce((s, x) => s + BigInt(String(x['amount_minor'])), 0n);
@@ -264,17 +265,21 @@ describe.each(COUNTRIES)('RT-L3 variantes contre la PR 300 ($country, $currency)
 
   // CONSTAT F-L3-SIN-04 : le plafond de 0181 borne UNE refacturation ; rien ne borne la somme des
   // refacturations d'un trip (chaque référence inventée de 3 caractères suffit) ; correction
-  // attendue : un plafond cumulé par trip (refus de la déclaration qui le dépasse, ou escalade à
-  // l'ops), quel que soit le signal
+  // attendue : aucune refacturation au-delà du plafond cumulé du trip sans décision de l'ops. Un
+  // refus ou une escalade à l'ops passent tous deux : la déclaration qui fait dépasser le plafond
+  // (la deuxième, 120 %) ne doit pas rendre l'issue simple DECLARED, ou la somme enregistrée reste
+  // sous le plafond. Le signal exact (refus, file de l'ops) n'est pas figé.
   it.fails(
-    'RT-L3-S04 — CONSTAT F-L3-SIN-04 : la somme des refacturations enregistrées sur un trip ne dépasse jamais le plafond du pays',
+    'RT-L3-S04 — CONSTAT F-L3-SIN-04 : aucune refacturation au-delà du plafond cumulé du trip sans refus ni escalade à l’ops',
     async () => {
       await asApi(async (tx) => {
         const r = await threeUnderTheCap(tx);
+        // témoin : la première, sous le plafond, est enregistrée
+        expect(r.outcomes[0]).toBe('DECLARED');
         const rows = await chargesOn(tx, r.trip);
         expect(rows.length).toBeGreaterThan(0);
-        const total = rows.reduce((s, x) => s + BigInt(String(x['amount_minor'])), 0n);
-        expect(total <= r.cap).toBe(true);
+        const total = rows.reduce((x, row) => x + BigInt(String(row['amount_minor'])), 0n);
+        expect(total <= r.cap || r.outcomes[1] !== 'DECLARED').toBe(true);
       });
     },
   );
@@ -347,7 +352,7 @@ describe.each(COUNTRIES)('RT-L3 variante contre la PR 299 ($country, $currency)'
       I_START,
       I_END,
     ]);
-    await setNow(tx, I_START);
+    await setVirtualNow(tx, I_START);
     await photo(tx, trip, 'CHECKIN', 'FUEL');
     for (const role of ['HOST', 'GUEST']) {
       await tx.query('SELECT test_fixture.us706_validation($1, $2, $3, $4::smallint)', [
@@ -357,7 +362,7 @@ describe.each(COUNTRIES)('RT-L3 variante contre la PR 299 ($country, $currency)'
         8,
       ]);
     }
-    await setNow(tx, I_END);
+    await setVirtualNow(tx, I_END);
     await photo(tx, trip, 'CHECKOUT', 'FUEL');
     const inner = await photo(tx, trip, 'CHECKOUT', 'INT_01');
     const guestInner = await photo(tx, trip, 'CHECKOUT', 'INT_02', 'GUEST');
@@ -386,7 +391,7 @@ describe.each(COUNTRIES)('RT-L3 variante contre la PR 299 ($country, $currency)'
   /** Nettoyage contesté puis annulé, puis le même fait redemandé sous le type « tabac », mêmes pièces. */
   async function retypeAttack(tx: Tx) {
     const w = await world(tx);
-    await setNow(tx, J0);
+    await setVirtualNow(tx, J0);
     const first = await submit(
       tx,
       await session(tx, w.holder),
@@ -396,7 +401,7 @@ describe.each(COUNTRIES)('RT-L3 variante contre la PR 299 ($country, $currency)'
       [w.inner],
     );
     expect(first['outcome']).toBe('SUBMITTED');
-    await setNow(tx, plus(J0, 2 * HOUR_S));
+    await setVirtualNow(tx, plus(J0, 2 * HOUR_S));
     expect(
       await outcomeOf(tx, DISPUTE, [
         await session(tx, w.guest),
@@ -405,11 +410,11 @@ describe.each(COUNTRIES)('RT-L3 variante contre la PR 299 ($country, $currency)'
         [w.guestInner],
       ]),
     ).toBe('DISPUTED');
-    await setNow(tx, plus(J0, 3 * HOUR_S));
+    await setVirtualNow(tx, plus(J0, 3 * HOUR_S));
     expect(await outcomeOf(tx, CANCEL, [await session(tx, w.holder), first['invoice_id']])).toBe(
       'CANCELLED',
     );
-    await setNow(tx, plus(J0, 4 * HOUR_S));
+    await setVirtualNow(tx, plus(J0, 4 * HOUR_S));
     const again = await submit(tx, await session(tx, w.holder), w.trip, 'SMOKING', a['cleaning']!, [
       w.inner,
     ]);
