@@ -860,11 +860,13 @@ describe.each(COUNTRIES)('US-706 — frais annexes ($country, $currency)', (c: C
         const last = await world(tx, c);
         const payLast = await world(tx, c);
         await now(tx, J0);
+        // une pièce ne soutient qu'une demande du trip (0184, ADR-204) : le tabac a la sienne
+        const smokeFile = await attach(tx, w.holder, w.trip);
         let h = await session(tx, w.holder);
         const firstReq = uuid();
         const smokeReq = uuid();
         const first = await submit(tx, h, w.trip, 'CLEANING', a['cleaning']!, [w.inner], firstReq);
-        const smoke = await submit(tx, h, w.trip, 'SMOKING', a['cleaning']!, [w.inner], smokeReq);
+        const smoke = await submit(tx, h, w.trip, 'SMOKING', a['cleaning']!, [smokeFile.id], smokeReq);
         const l = await submit(
           tx,
           await session(tx, last.holder),

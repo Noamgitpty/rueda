@@ -43,6 +43,8 @@ function jpeg(scanData: Buffer = Buffer.from([0x12, 0x34, 0x56, 0xff, 0x00, 0x78
   sof.writeUInt16BE(240, 1);
   sof.writeUInt16BE(320, 3);
   sof[5] = 3;
+  // composantes 1, 2, 3 (Y 2×2, Cb, Cr), lues par le scan : un JPEG que décode libjpeg (ADR-204)
+  sof.set([1, 0x22, 0, 2, 0x11, 1, 3, 0x11, 1], 6);
   return Buffer.concat([
     Buffer.from([0xff, 0xd8]),
     seg(0xe0, Buffer.from('JFIF\0\x01\x01\0\0\x01\0\x01\0\0', 'latin1')),

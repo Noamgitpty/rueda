@@ -33,6 +33,8 @@ function jpeg(width = 320, height = 240): Buffer {
   sof.writeUInt16BE(height, 1);
   sof.writeUInt16BE(width, 3);
   sof[5] = 3;
+  // composantes 1, 2, 3 (Y 2×2, Cb, Cr), lues par le scan : un JPEG que décode libjpeg (ADR-204)
+  sof.set([1, 0x22, 0, 2, 0x11, 1, 3, 0x11, 1], 6);
   return Buffer.concat([
     Buffer.from([0xff, 0xd8]),
     seg(0xe0, Buffer.from('JFIF\0\x01\x01\0\0\x01\0\x01\0\0', 'latin1')),
@@ -145,13 +147,15 @@ describe('métadonnées retirées, pixels conservés (L1-PM-19)', () => {
     },
   );
 
-  it('JPEG : données compressées et marqueurs de fin intacts ; APP0 (JFIF : densité, vignette) retiré, copie canonique (ADR-204)', () => {
+  it('JPEG : données compressées et marqueurs de fin intacts ; APP0 réécrit en un JFIF canonique, une seule fois, sans champ libre (ADR-204)', () => {
     const clean = preparePhoto(jpeg());
     expect(clean.dims).toEqual({ width: 320, height: 240 });
     expect(
       clean.body.subarray(-8).equals(Buffer.from([0x12, 0x34, 0x56, 0xff, 0x00, 0x78, 0xff, 0xd9])),
     ).toBe(true);
-    expect(clean.body.includes(Buffer.from('JFIF', 'latin1'))).toBe(false);
+    const canonical = Buffer.from('JFIF\0\x01\x01\0\0\x01\0\x01\0\0', 'latin1');
+    expect(clean.body.includes(canonical)).toBe(true);
+    expect(clean.body.indexOf(canonical)).toBe(clean.body.lastIndexOf(canonical));
   });
 
   it('WebP : drapeaux EXIF et XMP de VP8X remis à zéro ; taille RIFF recalculée', () => {
@@ -266,7 +270,7 @@ describe('liste blanche : rien après EOI, MPF, fragments inconnus (revue sécur
       base.subarray(12),
       extra('C2PA', GPS),
       extra('ICCP', Buffer.from('icc')),
-      extra('ALPH', Buffer.from('abc')),
+      extra('ALPH', Buffer.from([0x00, 0x62, 0x63])),
     ]);
     // fragment ALPH (conservé) de longueur impaire en fin de fichier, sans octet de bourrage
     const trimmed = body.subarray(0, body.length - 1);
@@ -279,7 +283,7 @@ describe('liste blanche : rien après EOI, MPF, fragments inconnus (revue sécur
     expect(clean.body.includes(GPS)).toBe(false);
     expect(clean.body.toString('latin1')).not.toMatch(/C2PA|after-riff/);
     expect(clean.body.includes(Buffer.from('ICCP', 'latin1'))).toBe(false);
-    expect(clean.body.includes(Buffer.from('abc\0', 'latin1'))).toBe(true);
+    expect(clean.body.includes(Buffer.from([0x00, 0x62, 0x63, 0x00]))).toBe(true);
     expect(clean.body.readUInt32LE(4)).toBe(clean.body.length - 8);
     expect(clean.body.length % 2).toBe(0);
   });

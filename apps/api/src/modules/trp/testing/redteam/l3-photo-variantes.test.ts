@@ -169,3 +169,33 @@ describe('RT-L3-P03 (L3-PM-03) — variantes de la même prise de vue contre l�
     expect(new Set([base, ...fingerprints]).size).toBe(1);
   });
 });
+
+/**
+ * Attaques AJOUTÉES après les revues de la PR 302 (tables JPEG) : la même prise de vue, tables
+ * identiques, réécrite avec la table de quantification après la trame, la même table répétée, ou
+ * un intervalle de reprise nul (DRI 0 : « pas d'intervalle », ITU T.81 B.2.4.4). Attendu : une
+ * seule empreinte (copie canonique, ADR-204) ; l'index unique refuse donc chaque variante.
+ */
+describe('RT-L3-P03 (L3-PM-03) — variantes de tables de la même prise de vue', () => {
+  const dqt = seg(0xdb, Buffer.concat([Buffer.from([0x00]), Buffer.alloc(64, 4)]));
+  const dri0 = seg(0xdd, Buffer.from([0, 0]));
+  const build = (...parts: Buffer[]): Buffer =>
+    Buffer.concat([Buffer.from([0xff, 0xd8]), ...parts, Buffer.from([0xff, 0xd9])]);
+  const original = build(jfif(72), dqt, PIXELS.frame, PIXELS.scanHeader, PIXELS.data);
+  const variants: readonly (readonly [string, Buffer])[] = [
+    ['DQT après la trame', build(jfif(72), PIXELS.frame, dqt, PIXELS.scanHeader, PIXELS.data)],
+    [
+      'DQT répétée à l’identique',
+      build(jfif(72), dqt, PIXELS.frame, dqt, dqt, PIXELS.scanHeader, PIXELS.data),
+    ],
+    ['DRI 0 ajouté', build(jfif(72), dqt, dri0, PIXELS.frame, PIXELS.scanHeader, PIXELS.data)],
+  ];
+
+  it('chaque variante de tables, octets différents, a l’empreinte de l’original : l’index unique les refuse toutes', async () => {
+    const base = await fingerprintOf(original);
+    for (const [label, body] of variants) {
+      expect(body.equals(original), label).toBe(false);
+      expect(await fingerprintOf(body), label).toBe(base);
+    }
+  });
+});

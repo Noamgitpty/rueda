@@ -88,16 +88,31 @@ export interface Dimensions {
 }
 
 // ---- JPEG ----------------------------------------------------------------------------------
-// Copie CANONIQUE (ADR-204) : seuls les segments qui portent l'image sont conservés — trames
-// (SOFn), scans (SOS et flux), tables (DQT, DHT, DAC), intervalle de reprise (DRI), DNL, DHP et
-// EXP (hiérarchique) — et APP14 « Adobe » réécrit (seule sa transformée de couleur décide des
-// pixels). Retirés : APP0 (JFIF : densité, vignette ; facultatif pour un décodeur), APP1 (EXIF,
-// dont GPS, et XMP), APP2 (profil ICC, MPF), APP3 à APP13 et APP15 (IPTC, métadonnées
-// d'appareils), COM (commentaire), JPGn et marqueurs réservés, et tout ce qui suit le premier EOI.
+// Copie CANONIQUE (ADR-204) : la copie est RÉÉCRITE à partir de ce qu'un décodeur (libjpeg,
+// celui des navigateurs) retient du fichier, jamais recopiée segment par segment :
+//   - espace de couleur : celui que retient libjpeg (jdapimin.c, default_decompress_parms : JFIF,
+//     puis le DERNIER APP14 « Adobe » avant le premier scan, puis les identifiants des
+//     composantes), réécrit en un segment canonique (JFIF sans champ libre, ou Adobe réduit à sa
+//     transformée) ; identifiants des composantes renumérotés 1..n ;
+//   - tables : seules celles que lit un scan sont émises, juste avant lui, une par segment, et
+//     seulement si elles diffèrent de la dernière émise au même emplacement ; quantification
+//     figée au premier scan de chaque composante (comme libjpeg), emplacements attribués par
+//     contenu ; Huffman : emplacements attribués par contenu dans chaque scan ; intervalle de
+//     reprise (DRI) émis quand il change (0 = absent) ;
+//   - scans : sélecteurs de tables non lus remis à 0 ; scan séquentiel : Ss = 0, Se = 63,
+//     Ah = Al = 0 ; flux sans octet de bourrage 0xFF ;
+//   - retirés : tous les APPn (EXIF, GPS, XMP, ICC, MPF, IPTC, vignette JFIF…), COM, DNL, DAC,
+//     DHP, EXP, JPGn, marqueurs réservés, tables non lues, et tout ce qui suit le premier EOI.
+// Trames acceptées : séquentielle de base ou étendue et progressive, codage de Huffman. Sans
+// perte, hiérarchique et arithmétique : refusées (MALFORMED ; aucun appareil photo ne les produit).
 const SOF = new Set([0xc0, 0xc1, 0xc2, 0xc3, 0xc5, 0xc6, 0xc7, 0xc9, 0xca, 0xcb, 0xcd, 0xce, 0xcf]);
-/** Segments recopiés tels quels (aucun champ libre) : SOFn, DAC, DNL, DHP, EXP. */
-const JPEG_KEEP = new Set([...SOF, 0xcc, 0xdc, 0xde, 0xdf]);
+const SOF_ACCEPTED = new Set([0xc0, 0xc1, 0xc2]);
+const JFIF_ID = Buffer.from('JFIF\0', 'latin1');
 const ADOBE = Buffer.from('Adobe', 'latin1');
+/** JFIF canonique : version 1.01, sans unité, rapport 1:1, sans vignette. */
+const CANONICAL_JFIF = Buffer.concat([JFIF_ID, Buffer.from([1, 1, 0, 0, 1, 0, 1, 0, 0])]);
+/** Table lue par un scan mais jamais définie (le décodeur échoue ou prend sa table par défaut). */
+const UNDEFINED_TABLE = Buffer.alloc(0);
 
 function jpegSegment(marker: number, payload: Buffer): Buffer {
   const h = Buffer.alloc(4);
@@ -107,33 +122,39 @@ function jpegSegment(marker: number, payload: Buffer): Buffer {
   return Buffer.concat([h, payload]);
 }
 
+const adobeSegment = (transform: number): Buffer =>
+  jpegSegment(0xee, Buffer.concat([ADOBE, Buffer.from([0, 100, 0, 0, 0, 0, transform])]));
+
 /**
- * Tables DQT, DHT et DRI d'une suite de segments, une par clé (la dernière définition l'emporte,
- * comme pour un décodeur) ; réécrites une table par segment, dans l'ordre des clés, avant le
- * segment suivant qui n'est pas une table. Découper, fusionner, réordonner ou redéfinir à
- * l'identique les tables ne change donc pas la copie.
+ * DQT : une table par emplacement (`Tq` = quatre bits de poids faible), la DERNIÈRE définition
+ * l'emporte ; le contenu gardé est la précision (`Pq`, sans l'emplacement) et les valeurs.
  */
-function readTables(marker: number, p: Buffer, into: Map<string, Buffer>): void {
-  if (marker === 0xdd) {
-    if (p.length !== 2) throw new PhotoRejectedError('MALFORMED');
-    into.set('R', jpegSegment(0xdd, p));
-    return;
-  }
+function readQuant(p: Buffer, into: Map<number, Buffer>): void {
   let k = 0;
   while (k < p.length) {
     const head = p[k] ?? 0;
-    if (head >> 4 > 1 || (head & 0x0f) > 3) throw new PhotoRejectedError('MALFORMED');
-    let size = 1 + 64 * (head >> 4 === 1 ? 2 : 1);
-    if (marker === 0xc4) {
-      if (k + 17 > p.length) throw new PhotoRejectedError('MALFORMED');
-      let n = 0;
-      for (let q = 1; q <= 16; q += 1) n += p[k + q] ?? 0;
-      size = 17 + n;
-    }
+    const pq = head >> 4;
+    if (pq > 1 || (head & 0x0f) > 3) throw new PhotoRejectedError('MALFORMED');
+    const size = 1 + 64 * (pq + 1);
     if (k + size > p.length) throw new PhotoRejectedError('MALFORMED');
-    const key = (marker === 0xdb ? 'Q' : 'H') + head.toString(16).padStart(2, '0');
-    into.set(key, jpegSegment(marker, p.subarray(k, k + size)));
+    into.set(head & 0x0f, Buffer.concat([Buffer.from([pq << 4]), p.subarray(k + 1, k + size)]));
     k += size;
+  }
+}
+
+/** DHT : une table par (classe, emplacement), la dernière l'emporte ; contenu sans l'emplacement. */
+function readHuffman(p: Buffer, into: Map<number, Buffer>): void {
+  let k = 0;
+  while (k < p.length) {
+    const head = p[k] ?? 0;
+    if (head >> 4 > 1 || (head & 0x0f) > 3 || k + 17 > p.length) {
+      throw new PhotoRejectedError('MALFORMED');
+    }
+    let n = 0;
+    for (let q = 1; q <= 16; q += 1) n += p[k + q] ?? 0;
+    if (n > 256 || k + 17 + n > p.length) throw new PhotoRejectedError('MALFORMED');
+    into.set(head, Buffer.concat([Buffer.from([head & 0xf0]), p.subarray(k + 1, k + 17 + n)]));
+    k += 17 + n;
   }
 }
 
@@ -174,18 +195,144 @@ function largest(prev: Dimensions | null, next: Dimensions): Dimensions {
   };
 }
 
-function jpeg(b: Buffer): { readonly clean: Buffer; readonly dims: Dimensions } {
-  const out: Buffer[] = [b.subarray(0, 2)];
+interface JpegComponent {
+  readonly id: number;
+  readonly hv: number;
+  readonly tq: number;
+  /** Table de quantification figée au premier scan de la composante ; `undefined` avant. */
+  latched: Buffer | undefined;
+}
+
+interface JpegScan {
+  /** Composantes du scan : index dans la trame, tables lues (`null` : non lue par ce scan). */
+  readonly comps: readonly {
+    readonly index: number;
+    readonly dc: Buffer | null;
+    readonly ac: Buffer | null;
+  }[];
+  /** Composantes dont la table de quantification est figée par ce scan. */
+  readonly latch: readonly number[];
+  /** Ss, Se, Ah / Al (séquentiel : 0, 63, 0). */
+  readonly spectral: Buffer;
+  readonly dri: number;
+  readonly data: Buffer;
+}
+
+interface JpegFrame {
+  readonly marker: number;
+  /** Précision, hauteur, largeur (5 octets). */
+  readonly head: Buffer;
+  readonly comps: JpegComponent[];
+}
+
+/** Résultat d'une analyse : copie, dimensions, et refus à prononcer APRÈS celui des dimensions. */
+interface Parsed {
+  readonly clean: Buffer;
+  readonly dims: Dimensions;
+  readonly invalid: boolean;
+}
+
+function jpegAssemble(
+  frame: JpegFrame,
+  scans: readonly JpegScan[],
+  jfif: boolean,
+  adobe: number | null,
+): Buffer {
+  const out: Buffer[] = [Buffer.from([0xff, 0xd8])];
+  const ids = frame.comps.map((c) => c.id);
+  // espace de couleur retenu par libjpeg, réécrit sans champ libre
+  if (ids.length === 3) {
+    const rgb = jfif
+      ? false
+      : adobe !== null
+        ? adobe === 0
+        : ids[0] === 0x52 && ids[1] === 0x47 && ids[2] === 0x42;
+    out.push(rgb ? adobeSegment(0) : jpegSegment(0xe0, CANONICAL_JFIF));
+  } else if (ids.length === 4 && adobe !== null) {
+    out.push(adobeSegment(adobe === 0 ? 0 : 2));
+  }
+  // quantification : emplacements attribués par contenu, dans l'ordre où les tables sont figées
+  const qSlots: Buffer[] = [];
+  const qOf: number[] = frame.comps.map(() => 0);
+  for (const s of scans) {
+    for (const index of s.latch) {
+      const t = frame.comps[index]!.latched!;
+      let slot = qSlots.findIndex((x) => x.equals(t));
+      if (slot < 0) slot = qSlots.push(t) - 1;
+      qOf[index] = slot;
+    }
+  }
+  const sof = Buffer.concat([
+    frame.head,
+    Buffer.from([frame.comps.length]),
+    ...frame.comps.map((c, k) => Buffer.from([k + 1, c.hv, qOf[k] ?? 0])),
+  ]);
+  const qSent = new Set<number>();
+  const hSent = new Map<number, Buffer>();
+  let dri = 0;
+  scans.forEach((s, n) => {
+    for (const index of s.latch) {
+      const slot = qOf[index] ?? 0;
+      const t = qSlots[slot]!;
+      if (!qSent.has(slot) && t.length > 0) {
+        out.push(
+          jpegSegment(0xdb, Buffer.concat([Buffer.from([(t[0] ?? 0) | slot]), t.subarray(1)])),
+        );
+      }
+      qSent.add(slot);
+    }
+    if (n === 0) out.push(jpegSegment(frame.marker, sof));
+    // Huffman : dans ce scan, emplacements attribués par contenu, par classe
+    const used: [Buffer[], Buffer[]] = [[], []];
+    const pick = (cls: 0 | 1, t: Buffer | null): number => {
+      if (t === null) return 0;
+      const list = used[cls];
+      const k = list.findIndex((x) => x.equals(t));
+      return k < 0 ? list.push(t) - 1 : k;
+    };
+    const selectors = s.comps.map((c) => (pick(0, c.dc) << 4) | pick(1, c.ac));
+    used.forEach((list, cls) => {
+      list.forEach((t, slot) => {
+        const key = (cls << 4) | slot;
+        if (t.length === 0 || hSent.get(key)?.equals(t) === true) return;
+        out.push(jpegSegment(0xc4, Buffer.concat([Buffer.from([key]), t.subarray(1)])));
+        hSent.set(key, t);
+      });
+    });
+    if (s.dri !== dri) {
+      const v = Buffer.alloc(2);
+      v.writeUInt16BE(s.dri);
+      out.push(jpegSegment(0xdd, v));
+      dri = s.dri;
+    }
+    out.push(
+      jpegSegment(
+        0xda,
+        Buffer.concat([
+          Buffer.from([s.comps.length]),
+          ...s.comps.map((c, k) => Buffer.from([c.index + 1, selectors[k] ?? 0])),
+          s.spectral,
+        ]),
+      ),
+      s.data,
+    );
+  });
+  out.push(Buffer.from([0xff, 0xd9]));
+  return Buffer.concat(out);
+}
+
+function jpeg(b: Buffer): Parsed {
   let i = 2;
   let dims: Dimensions | null = null;
-  // segment Adobe canonique, émis une fois avant la première trame ; `true` une fois émis
-  let adobe: Buffer | null = null;
-  let adobeDone = false;
-  const tables = new Map<string, Buffer>();
-  const flush = (): void => {
-    for (const key of [...tables.keys()].sort()) out.push(tables.get(key)!);
-    tables.clear();
-  };
+  let invalid = false;
+  let frame: JpegFrame | null = null;
+  let jfif = false;
+  let adobe: number | null = null;
+  let scanned = false;
+  let dri = 0;
+  const quant = new Map<number, Buffer>();
+  const huff = new Map<number, Buffer>();
+  const scans: JpegScan[] = [];
   while (i < b.length) {
     if (b[i] !== 0xff) throw new PhotoRejectedError('MALFORMED');
     let marker = b[i + 1];
@@ -195,11 +342,7 @@ function jpeg(b: Buffer): { readonly clean: Buffer; readonly dims: Dimensions } 
       marker = b[i + 1];
     }
     if (marker === undefined) throw new PhotoRejectedError('MALFORMED');
-    if (marker === 0xd9) {
-      flush();
-      out.push(b.subarray(i, i + 2));
-      break;
-    }
+    if (marker === 0xd9) break;
     if (marker === 0x01 || (marker >= 0xd0 && marker <= 0xd7)) {
       // TEM ou RSTn hors d'un flux : aucun pixel, retiré
       i += 2;
@@ -208,17 +351,44 @@ function jpeg(b: Buffer): { readonly clean: Buffer; readonly dims: Dimensions } 
     if (i + 4 > b.length) throw new PhotoRejectedError('MALFORMED');
     const len = b.readUInt16BE(i + 2);
     if (len < 2 || i + 2 + len > b.length) throw new PhotoRejectedError('MALFORMED');
-    const segment = b.subarray(i, i + 2 + len);
+    const p = b.subarray(i + 4, i + 2 + len);
     if (SOF.has(marker)) {
       if (len < 7) throw new PhotoRejectedError('MALFORMED');
       dims = largest(dims, { height: b.readUInt16BE(i + 5), width: b.readUInt16BE(i + 7) });
-    }
-    if (marker === 0xda) {
+      const nf = p[5] ?? 0;
+      if (
+        frame !== null ||
+        !SOF_ACCEPTED.has(marker) ||
+        nf < 1 ||
+        nf > 4 ||
+        p.length < 6 + 3 * nf
+      ) {
+        invalid = true;
+      } else {
+        const comps: JpegComponent[] = [];
+        for (let k = 0; k < nf; k += 1) {
+          const tq = p[8 + 3 * k] ?? 0;
+          if (tq > 3) invalid = true;
+          comps.push({
+            id: p[6 + 3 * k] ?? 0,
+            hv: p[7 + 3 * k] ?? 0,
+            tq: tq & 3,
+            latched: undefined,
+          });
+        }
+        frame = { marker, head: Buffer.from(p.subarray(0, 5)), comps };
+      }
+    } else if (marker === 0xdb) {
+      readQuant(p, quant);
+    } else if (marker === 0xc4) {
+      readHuffman(p, huff);
+    } else if (marker === 0xdd) {
+      if (p.length !== 2) throw new PhotoRejectedError('MALFORMED');
+      dri = p.readUInt16BE(0);
+    } else if (marker === 0xda) {
       // en-tête du scan, puis données compressées jusqu'au prochain marqueur : dans le flux,
       // 0xFF n'est suivi que de 0x00 (octet bourré) ou d'un RSTn ; tout autre marqueur (table,
       // scan suivant d'un JPEG progressif, APPn, EOI) reprend l'analyse des segments
-      flush();
-      out.push(segment);
       let j = i + 2 + len;
       while (j + 1 < b.length) {
         const next = b[j + 1] ?? 0;
@@ -228,39 +398,66 @@ function jpeg(b: Buffer): { readonly clean: Buffer; readonly dims: Dimensions } 
         j += 1;
       }
       if (j + 1 >= b.length) throw new PhotoRejectedError('MALFORMED');
-      out.push(canonicalScan(b.subarray(i + 2 + len, j)));
+      scanned = true;
+      const ns = p[0] ?? 0;
+      if (frame === null || ns < 1 || ns > 4 || p.length < 4 + 2 * ns) {
+        invalid = true;
+      } else {
+        const progressive = frame.marker === 0xc2;
+        const ss = p[1 + 2 * ns] ?? 0;
+        const se = p[2 + 2 * ns] ?? 0;
+        const ahal = p[3 + 2 * ns] ?? 0;
+        // tables lues : DC au premier passage DC, AC aux passages AC (progressif) ; les deux en
+        // séquentiel (ITU T.81, G.1.2)
+        const dcRead = !progressive || (ss === 0 && ahal >> 4 === 0);
+        const acRead = !progressive || ss > 0;
+        const comps: { index: number; dc: Buffer | null; ac: Buffer | null }[] = [];
+        const latch: number[] = [];
+        for (let k = 0; k < ns; k += 1) {
+          const cs = p[1 + 2 * k] ?? 0;
+          const t = p[2 + 2 * k] ?? 0;
+          const index = frame.comps.findIndex((c) => c.id === cs);
+          if (index < 0 || t >> 4 > 3 || (t & 0x0f) > 3) {
+            invalid = true;
+            continue;
+          }
+          const c = frame.comps[index]!;
+          if (c.latched === undefined) {
+            c.latched = quant.get(c.tq) ?? UNDEFINED_TABLE;
+            latch.push(index);
+          }
+          comps.push({
+            index,
+            dc: dcRead ? (huff.get(t >> 4) ?? UNDEFINED_TABLE) : null,
+            ac: acRead ? (huff.get(0x10 | (t & 0x0f)) ?? UNDEFINED_TABLE) : null,
+          });
+        }
+        scans.push({
+          comps,
+          latch,
+          spectral: progressive ? Buffer.from([ss, se, ahal]) : Buffer.from([0, 63, 0]),
+          dri,
+          data: canonicalScan(b.subarray(i + 2 + len, j)),
+        });
+      }
       i = j;
       continue;
-    }
-    const payload = segment.subarray(4);
-    if (marker === 0xdb || marker === 0xc4 || marker === 0xdd) {
-      readTables(marker, payload, tables);
+    } else if (marker === 0xe0) {
+      if (!scanned && p.length >= 14 && p.subarray(0, 5).equals(JFIF_ID)) jfif = true;
     } else if (marker === 0xee) {
-      // Adobe : version et drapeaux libres ; seule la transformée de couleur (12e octet) reste
-      if (
-        !adobeDone &&
-        adobe === null &&
-        payload.length >= 12 &&
-        payload.subarray(0, 5).equals(ADOBE)
-      ) {
-        adobe = jpegSegment(
-          0xee,
-          Buffer.concat([ADOBE, Buffer.from([0, 100, 0, 0, 0, 0, payload[11] ?? 0])]),
-        );
-      }
-    } else if (JPEG_KEEP.has(marker)) {
-      if (SOF.has(marker) && !adobeDone) {
-        if (adobe !== null) out.push(adobe);
-        adobeDone = true;
-      }
-      flush();
-      out.push(segment);
+      // le DERNIER Adobe avant le premier scan, comme libjpeg ; seule sa transformée compte
+      if (!scanned && p.length >= 12 && p.subarray(0, 5).equals(ADOBE)) adobe = p[11] ?? 0;
     }
+    // tout autre segment (APPn, COM, DNL, DAC, DHP, EXP, JPGn, réservés) : retiré
     i += 2 + len;
   }
   // EOI obligatoire : rien n'est conservé après lui
   if (dims === null || b[i + 1] !== 0xd9) throw new PhotoRejectedError('MALFORMED');
-  return { clean: Buffer.concat(out), dims };
+  if (frame === null || scans.length === 0 || frame.comps.some((c) => c.latched === undefined)) {
+    invalid = true;
+  }
+  if (invalid || frame === null) return { clean: Buffer.alloc(0), dims, invalid: true };
+  return { clean: jpegAssemble(frame, scans, jfif, adobe), dims, invalid: false };
 }
 
 // ---- PNG -----------------------------------------------------------------------------------
@@ -283,7 +480,7 @@ const PNG_KEEP = new Set([
   'hIST',
 ]);
 
-function png(b: Buffer): { readonly clean: Buffer; readonly dims: Dimensions } {
+function png(b: Buffer): Parsed {
   const out: Buffer[] = [b.subarray(0, 8)];
   let i = 8;
   let dims: Dimensions | null = null;
@@ -305,68 +502,81 @@ function png(b: Buffer): { readonly clean: Buffer; readonly dims: Dimensions } {
     }
   }
   if (dims === null || !ended) throw new PhotoRejectedError('MALFORMED');
-  return { clean: Buffer.concat(out), dims };
+  return { clean: Buffer.concat(out), dims, invalid: false };
 }
 
 // ---- WebP ----------------------------------------------------------------------------------
-// LISTE BLANCHE : VP8X, VP8, VP8L, ALPH, ANIM, ANMF. Retirés : EXIF, XMP, ICCP (profil ICC, charge
-// libre : copie canonique, ADR-204) et tout autre fragment (privé, inconnu), et les octets au-delà
-// de la taille RIFF ; drapeaux de VP8X réduits à alpha (0x10) et animation (0x02), octets réservés
-// et octet de bourrage d'un fragment impair remis à zéro.
-const WEBP_KEEP = new Set(['VP8X', 'VP8 ', 'VP8L', 'ALPH', 'ANIM', 'ANMF']);
+// Copie CANONIQUE (ADR-204) : une image fixe, RÉÉCRITE. Gardés : une trame VP8 ou VP8L et, pour un
+// VP8 avec transparence, son ALPH (octet d'en-tête : bits réservés remis à zéro) précédé d'un
+// VP8X canonique (drapeau alpha seul, octets réservés à zéro, taille du canevas). Sans ALPH, le
+// VP8X est retiré (sa taille est celle de la trame). Retirés : EXIF, XMP, ICCP, tout fragment
+// privé ou inconnu, les octets au-delà de la taille RIFF ; octets de bourrage remis à zéro.
+// Refusés (MALFORMED) : WebP animé (ANIM, ANMF ou drapeau d'animation), plusieurs trames ou
+// plusieurs ALPH, ALPH sans VP8X ou avec une trame VP8L.
+function webpChunk(type: string, data: Buffer): Buffer {
+  const h = Buffer.alloc(8);
+  h.write(type, 0, 'latin1');
+  h.writeUInt32LE(data.length, 4);
+  return Buffer.concat([h, data, data.length % 2 === 1 ? Buffer.alloc(1) : Buffer.alloc(0)]);
+}
 
-function webp(b: Buffer): { readonly clean: Buffer; readonly dims: Dimensions } {
-  const chunks: Buffer[] = [];
+function webp(b: Buffer): Parsed {
   let i = 12;
   let dims: Dimensions | null = null;
+  let invalid = false;
+  let canvas: Buffer | null = null;
+  let alph: Buffer | null = null;
+  let image: { readonly type: string; readonly data: Buffer } | null = null;
   const riff = b.readUInt32LE(4);
   if (riff < 4 || 8 + riff > b.length) throw new PhotoRejectedError('MALFORMED');
   const limit = 8 + riff;
   while (i + 8 <= limit) {
     const type = b.subarray(i, i + 4).toString('latin1');
     const len = b.readUInt32LE(i + 4);
-    const end = i + 8 + len + (len % 2);
     if (i + 8 + len > limit) throw new PhotoRejectedError('MALFORMED');
-    let chunk = b.subarray(i, Math.min(end, limit));
+    const data = b.subarray(i + 8, i + 8 + len);
     // Taille de l'en-tête VP8X ET de chaque image VP8 / VP8L : la PLUS GRANDE est retenue (règle
     // F2-U-01 étendue au WebP, BOARD N-120 : un VP8 démesuré derrière un petit VP8X ne passe plus)
     if (type === 'VP8X' && len >= 10) {
-      chunk = Buffer.from(chunk);
-      // seuls alpha (0x10) et animation (0x02) décident du rendu : ICC (0x20), EXIF (0x08), XMP
-      // (0x04), bits et octets réservés remis à zéro
-      chunk[8] = (chunk[8] ?? 0) & 0x12;
-      chunk.fill(0, 9, 12);
-      dims = largest(dims, {
-        width: 1 + chunk.readUIntLE(12, 3),
-        height: 1 + chunk.readUIntLE(15, 3),
-      });
-    } else if (type === 'VP8 ' && len >= 10) {
-      dims = largest(dims, {
-        width: b.readUInt16LE(i + 14) & 0x3fff,
-        height: b.readUInt16LE(i + 16) & 0x3fff,
-      });
-    } else if (type === 'VP8L' && len >= 5) {
-      const bits = b.readUInt32LE(i + 9);
-      dims = largest(dims, { width: (bits & 0x3fff) + 1, height: ((bits >>> 14) & 0x3fff) + 1 });
+      if (((data[0] ?? 0) & 0x02) !== 0 || canvas !== null) invalid = true;
+      canvas = Buffer.from(data.subarray(4, 10));
+      dims = largest(dims, { width: 1 + data.readUIntLE(4, 3), height: 1 + data.readUIntLE(7, 3) });
+    } else if (type === 'VP8 ' || type === 'VP8L') {
+      if (type === 'VP8 ' && len >= 10) {
+        dims = largest(dims, {
+          width: data.readUInt16LE(6) & 0x3fff,
+          height: data.readUInt16LE(8) & 0x3fff,
+        });
+      } else if (type === 'VP8L' && len >= 5) {
+        const bits = data.readUInt32LE(1);
+        dims = largest(dims, { width: (bits & 0x3fff) + 1, height: ((bits >>> 14) & 0x3fff) + 1 });
+      }
+      if (image !== null) invalid = true;
+      image = { type, data };
+    } else if (type === 'ALPH') {
+      if (alph !== null || len < 1) invalid = true;
+      alph = Buffer.from(data);
+      if (alph.length > 0) alph[0] = (alph[0] ?? 0) & 0x3f;
+    } else if (type === 'ANIM' || type === 'ANMF') {
+      invalid = true;
     }
-    // fragment de longueur impaire en fin de fichier sans octet de bourrage : bourrage ajouté
-    if (chunk.length < end - i)
-      chunk = Buffer.concat([chunk, Buffer.alloc(end - i - chunk.length)]);
-    // octet de bourrage d'un fragment impair : libre, remis à zéro
-    if (len % 2 === 1 && chunk[8 + len] !== 0) {
-      chunk = Buffer.from(chunk);
-      chunk[8 + len] = 0;
-    }
-    if (WEBP_KEEP.has(type)) chunks.push(chunk);
-    i = end;
+    i += 8 + len + (len % 2);
   }
-  if (dims === null) throw new PhotoRejectedError('MALFORMED');
+  if (dims === null || image === null) throw new PhotoRejectedError('MALFORMED');
+  if (alph !== null && (canvas === null || image.type !== 'VP8 ')) invalid = true;
+  if (invalid) return { clean: Buffer.alloc(0), dims, invalid: true };
+  const chunks: Buffer[] = [];
+  if (alph !== null && canvas !== null) {
+    chunks.push(webpChunk('VP8X', Buffer.concat([Buffer.from([0x10, 0, 0, 0]), canvas])));
+    chunks.push(webpChunk('ALPH', alph));
+  }
+  chunks.push(webpChunk(image.type, image.data));
   const body = Buffer.concat(chunks);
   const header = Buffer.alloc(12);
   header.write('RIFF', 0, 'latin1');
   header.writeUInt32LE(body.length + 4, 4);
   header.write('WEBP', 8, 'latin1');
-  return { clean: Buffer.concat([header, body]), dims };
+  return { clean: Buffer.concat([header, body]), dims, invalid: false };
 }
 
 /** Photo contrôlée et nettoyée (étapes 1 à 4), prête pour l'antivirus et le dépôt. */
@@ -381,7 +591,7 @@ export function preparePhoto(body: Buffer, limits: PhotoLimits = DEFAULT_PHOTO_L
   if (body.length === 0 || body.length > limits.maxBytes) throw new PhotoRejectedError('SIZE');
   const mime = sniffPhotoMime(body);
   if (mime === null) throw new PhotoRejectedError('TYPE');
-  let r: { clean: Buffer; dims: Dimensions };
+  let r: Parsed;
   try {
     r = mime === 'image/jpeg' ? jpeg(body) : mime === 'image/png' ? png(body) : webp(body);
   } catch (error) {
@@ -398,6 +608,9 @@ export function preparePhoto(body: Buffer, limits: PhotoLimits = DEFAULT_PHOTO_L
   ) {
     throw new PhotoRejectedError('DIMENSIONS');
   }
+  // structure refusée (trame non acceptée, plusieurs trames, WebP animé…), jugée APRÈS les
+  // dimensions : une taille démesurée reste refusée comme telle (F2-U-01)
+  if (r.invalid) throw new PhotoRejectedError('MALFORMED');
   return { mime, body: r.clean, dims: r.dims };
 }
 

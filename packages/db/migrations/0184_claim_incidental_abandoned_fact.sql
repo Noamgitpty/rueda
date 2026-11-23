@@ -1,8 +1,9 @@
 -- 0184 — CLM : frais annexes, passe de la porte de la red team du lot 3 (US-313) : un frais abandonné
 -- (rejeté par l'ops, ou annulé par l'hôte après une contestation) ne se redemande plus sous un autre
--- type ni avec la même pièce. US-706 (suite, preuves 2) ; constat F-L3-FRA-03 (élevé : nettoyage
--- contesté puis annulé, redemandé sous le type « tabac » avec la même pièce = fenêtre neuve de 72 h
--- sans décision de l'ops). 08 BR-REIMB-02 (la fenêtre du voyageur ne se rouvre jamais), BR-REIMB-03
+-- type du même groupe, et une pièce ne soutient qu'une seule demande du trip. US-706 (suite, preuves
+-- 2) ; constat F-L3-FRA-03 (élevé : nettoyage contesté puis annulé, redemandé sous le type « tabac »
+-- avec la même pièce = fenêtre neuve de 72 h sans décision de l'ops) ; revues de la PR 302 (argent :
+-- deux demandes vivantes, nettoyage et tabac, sur la même pièce = le même fait facturé deux fois). 08 BR-REIMB-02 (la fenêtre du voyageur ne se rouvre jamais), BR-REIMB-03
 -- (l'ops tranche une contestation), BR-REIMB-05 (doublons interdits), SM-5 (CANCELLED_BY_HOST et
 -- REJECTED finals) ; ADR-197 (0177), ADR-202 (0182), ADR-204 (cette migration, PROPOSÉ). Appliquée
 -- sous `migrator`, en une transaction.
@@ -12,13 +13,17 @@
 --      après une contestation (`disputed_at` posé, 0182). Le FAIT abandonné est (a) celui du type de
 --      la demande ET de son groupe : nettoyage et tabac forment un seul groupe « intérieur » (le même
 --      état de l'habitacle, 08 BR-REIMB-01 : même plafond, mêmes photos) ; le carburant est seul dans
---      le sien ; et (b) chacune des pièces de la demande. Une nouvelle demande du même trip dont le
---      type est du groupe d'un frais abandonné, ou qui reprend une de ses pièces (quel que soit son
---      type), est refusée `INCIDENTAL_DUPLICATE` (signal existant, aucun texte nouveau) : aucune
---      fenêtre du voyageur ne se rouvre, aucun avis n'est émis, rien n'est écrit.
---   2. Inchangé (0182) : une demande annulée AVANT toute contestation libère son type et ses pièces ;
---      deux demandes vivantes du groupe « intérieur » (nettoyage et tabac) coexistent, chacune avec
---      sa propre fenêtre (08 BR-REIMB-01 les liste séparément) ; le rejeu rend la même demande.
+--      le sien. Une nouvelle demande du même trip dont le type est du groupe d'un frais abandonné est
+--      refusée `INCIDENTAL_DUPLICATE` : aucune fenêtre du voyageur ne se rouvre, aucun avis n'est
+--      émis, rien n'est écrit. Les nouvelles pièces vont au support (l'ops), jamais à une redemande.
+--   2. Une PIÈCE ne soutient qu'UNE demande du trip : une nouvelle demande, de tout type, qui reprend
+--      une pièce d'une demande vivante, rejetée ou abandonnée du trip est refusée
+--      `INCIDENTAL_DUPLICATE` (08 BR-REIMB-05 : doublons interdits ; le même fait n'est jamais
+--      facturé deux fois). Seule une demande annulée AVANT toute contestation libère ses pièces.
+--   2 bis. Inchangé (0182) : une demande annulée AVANT toute contestation libère son type ; deux
+--      demandes vivantes du groupe « intérieur » (nettoyage et tabac) coexistent, chacune avec sa
+--      propre fenêtre et ses propres pièces (08 BR-REIMB-01 les liste séparément) ; le rejeu rend
+--      la même demande.
 --   3. Concurrence : la règle porte sur plusieurs lignes (groupe, pièces), elle n'est pas un index.
 --      Toute commande qui écrit une demande (demande, annulation, contestation, décision, débit)
 --      prend d'abord le verrou du trip (0177, 0182) : une redemande et l'annulation ou le rejet
@@ -230,19 +235,21 @@ BEGIN
     RETURN QUERY SELECT 'INCIDENTAL_DUPLICATE'::text, NULL::uuid, NULL::timestamptz;
     RETURN;
   END IF;
-  -- frais ABANDONNÉ (rejeté par l'ops, ou annulé par l'hôte après une contestation) : le même fait
-  -- ne se redemande plus sous un autre type du même groupe (nettoyage et tabac : l'état de
-  -- l'habitacle) ni avec une de ses pièces, quel que soit le type (0184, F-L3-FRA-03, ADR-204 ;
-  -- BR-REIMB-02 : la fenêtre du voyageur ne se rouvre jamais ; verrou du trip pris plus haut)
+  -- (a) frais ABANDONNÉ (rejeté par l'ops, ou annulé par l'hôte après une contestation) : le même
+  -- fait ne se redemande plus sous un autre type du même groupe (nettoyage et tabac : l'état de
+  -- l'habitacle) ; (b) une pièce ne soutient qu'une demande du trip : toute demande hors annulation
+  -- AVANT contestation la retient, quel que soit le type (0184, F-L3-FRA-03, ADR-204 ; BR-REIMB-02,
+  -- BR-REIMB-05 ; verrou du trip pris plus haut)
   IF EXISTS (SELECT 1 FROM core.claim_incidental_invoice AS x
               WHERE x.trip_id = p_trip_id
-                AND (x.status = 'REJECTED'
-                     OR (x.status = 'CANCELLED_BY_HOST' AND x.disputed_at IS NOT NULL))
-                AND ((CASE WHEN x.fee_type IN ('CLEANING', 'SMOKING') THEN 'INTERIOR'
-                           ELSE x.fee_type END)
-                     = (CASE WHEN p_fee_type IN ('CLEANING', 'SMOKING') THEN 'INTERIOR'
-                             ELSE p_fee_type END)
-                     OR x.evidence_file_ids && v_ev)) THEN
+                AND (((x.status = 'REJECTED'
+                       OR (x.status = 'CANCELLED_BY_HOST' AND x.disputed_at IS NOT NULL))
+                      AND (CASE WHEN x.fee_type IN ('CLEANING', 'SMOKING') THEN 'INTERIOR'
+                                ELSE x.fee_type END)
+                          = (CASE WHEN p_fee_type IN ('CLEANING', 'SMOKING') THEN 'INTERIOR'
+                                  ELSE p_fee_type END))
+                     OR ((x.status <> 'CANCELLED_BY_HOST' OR x.disputed_at IS NOT NULL)
+                         AND x.evidence_file_ids && v_ev))) THEN
     RETURN QUERY SELECT 'INCIDENTAL_DUPLICATE'::text, NULL::uuid, NULL::timestamptz;
     RETURN;
   END IF;
@@ -281,7 +288,8 @@ COMMENT ON FUNCTION core.claim_cmd_submit_incidental(bytea, uuid, uuid, text, bi
   'délai de l''hôte, plafond du pays, jambes figées HOST 100 %) ; notifiée à l''heure de la base, '
   'réponse du voyageur sous invoice_guest_response_h ; une demande annulée après contestation '
   'bloque le type pour ce trip ; un frais rejeté ou annulé après contestation bloque son groupe '
-  '(nettoyage et tabac) et ses pièces ; nettoyage : photo de l''intérieur au retour ou fichier de l''hôte '
+  '(nettoyage et tabac) ; une pièce ne soutient qu''une demande du trip ; nettoyage : photo '
+  'de l''intérieur au retour ou fichier de l''hôte '
   'reçu dans la fenêtre des photos. EXECUTE app_api. US-706 (ADR-197, ADR-202, ADR-204).';
 
 RESET ROLE;

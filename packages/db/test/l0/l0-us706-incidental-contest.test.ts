@@ -59,10 +59,12 @@ describe.each(COUNTRIES)('US-706 suite — contestation et pièces ($country, $c
         const ops = await staff(tx, 'OPS_AGENT', [c.country]);
         const w = await world(tx, c, { start: START, end: END });
         await now(tx, J0);
+        // une pièce ne soutient qu'une demande du trip (0184, ADR-204) : le tabac a la sienne
+        const smokeFile = await attach(tx, w.holder, w.trip);
         const h = await session(tx, w.holder);
         const firstReq = uuid();
         const first = await submit(tx, h, w.trip, 'CLEANING', a['cleaning']!, [w.inner], firstReq);
-        const smoke = await submit(tx, h, w.trip, 'SMOKING', a['cleaning']!, [w.inner]);
+        const smoke = await submit(tx, h, w.trip, 'SMOKING', a['cleaning']!, [smokeFile.id]);
         expect([first['outcome'], smoke['outcome']]).toEqual(['SUBMITTED', 'SUBMITTED']);
         // le voyageur conteste le nettoyage avec sa photo (BR-REIMB-03)
         await now(tx, at(J0, 2 * HOUR));
