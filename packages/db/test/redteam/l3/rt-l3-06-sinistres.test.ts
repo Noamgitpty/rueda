@@ -181,6 +181,10 @@ interface Batch {
   readonly againOutcome: unknown;
   readonly absurd: string | null;
   readonly absurdOutcome: unknown;
+  readonly ordinary: string | null;
+  readonly ordinaryOutcome: unknown;
+  readonly plusOne: string | null;
+  readonly plusOneOutcome: unknown;
   readonly otherTrip: string;
   readonly otherHolder: string;
   readonly files: readonly string[];
@@ -204,7 +208,9 @@ function batchOf(c: CountryCase): Promise<Batch> {
       const p2 = await shoot(tx, h, w.trip, 'TRAFFIC', 'DAMAGE_02');
       const p3 = await shoot(tx, h, w.trip, 'TRAFFIC', 'DAMAGE_03');
       const po = await shoot(tx, ho, o.trip, 'TRAFFIC', 'DAMAGE_01');
-      for (const p of [p1, p2, p3, po]) {
+      const p4 = await shoot(tx, h, w.trip, 'TRAFFIC', 'DAMAGE_04');
+      const p5 = await shoot(tx, h, w.trip, 'TRAFFIC', 'DAMAGE_07');
+      for (const p of [p1, p2, p3, po, p4, p5]) {
         if (p.outcome !== 'DONE' || p.fileId === null) throw new Error(`photo : ${p.outcome}`);
       }
       const occurred = plus(START, 3600);
@@ -221,6 +227,26 @@ function batchOf(c: CountryCase): Promise<Batch> {
         a['absurd']!,
         p3.fileId!,
       );
+      // témoin à montant ordinaire (le montant de l'amende, une autre pièce, un autre fait)
+      const ordinary = await declare(
+        tx,
+        h,
+        w.trip,
+        'TOLL',
+        plus(occurred, 120),
+        a['fine']!,
+        p4.fileId!,
+      );
+      // ATTAQUE : le même procès-verbal, un fait daté une seconde plus tard (la clé « fait » varie)
+      const plusOne = await declare(
+        tx,
+        h,
+        w.trip,
+        'FINE',
+        plus(occurred, 1),
+        a['fine']!,
+        p5.fileId!,
+      );
       if (first['outcome'] !== 'DECLARED') throw new Error(`témoin : ${String(first['outcome'])}`);
       const out: Batch = {
         trip: w.trip,
@@ -231,9 +257,13 @@ function batchOf(c: CountryCase): Promise<Batch> {
         againOutcome: again['outcome'],
         absurd: absurd['outcome'] === 'DECLARED' ? String(absurd['charge_id']) : null,
         absurdOutcome: absurd['outcome'],
+        ordinary: ordinary['outcome'] === 'DECLARED' ? String(ordinary['charge_id']) : null,
+        ordinaryOutcome: ordinary['outcome'],
+        plusOne: plusOne['outcome'] === 'DECLARED' ? String(plusOne['charge_id']) : null,
+        plusOneOutcome: plusOne['outcome'],
         otherTrip: o.trip,
         otherHolder: o.holder,
-        files: [p1.fileId!, p2.fileId!, p3.fileId!, po.fileId!],
+        files: [p1.fileId!, p2.fileId!, p3.fileId!, po.fileId!, p4.fileId!, p5.fileId!],
       };
       return out;
     }),
@@ -295,29 +325,82 @@ describe.each(COUNTRIES)('RT-L3 sinistres entre particuliers ($country, $currenc
     });
   });
 
-  // CONSTAT F-L3-SIN-01 → suite (US-318) : une même amende (trip, nature, fait, montant) ne se
-  // refacture qu'une fois, quelle que soit la photo ; la seconde déclaration est refusée
+  it('RT-L3-S04 (L3-PM-29) — observation F-L3-SIN-01 (variante) : le même procès-verbal daté une seconde plus tard est lui aussi accepté puis débité (une clé sur le fait ne le verrait pas)', async () => {
+    const b = await batchOf(c);
+    expect(b.plusOneOutcome).toBe('DECLARED');
+    await asWorker(DECLARED_AT, async (tx) => {
+      expect((await tx.query<Row>(EXECUTE, [b.plusOne, uuid()])).rows[0]).toEqual({
+        outcome: 'DONE',
+        code: null,
+      });
+      expect(await debitsOf(tx, b.plusOne!)).toHaveLength(1);
+    });
+  });
+
+  // CONSTAT F-L3-SIN-01 → suite (US-318) : une même amende ne se refacture qu'une fois, quelle que
+  // soit la photo ; la seconde déclaration est refusée TRAFFIC_DUPLICATE (signal exact)
   it.fails(
-    'RT-L3-S04 — CONSTAT F-L3-SIN-01 : la seconde déclaration du même fait et du même montant sur le même trip est refusée',
+    'RT-L3-S04 — CONSTAT F-L3-SIN-01 : la seconde déclaration du même fait et du même montant sur le même trip est refusée TRAFFIC_DUPLICATE',
     async () => {
       const b = await batchOf(c);
       expect(b.first).toMatch(/^[0-9a-f-]{36}$/);
-      expect(b.againOutcome).not.toBe('DECLARED');
+      expect(b.againOutcome).toBe('TRAFFIC_DUPLICATE');
+    },
+  );
+
+  it.fails(
+    'RT-L3-S04 — CONSTAT F-L3-SIN-01 (variante) : le même procès-verbal daté une seconde plus tard est refusé TRAFFIC_DUPLICATE',
+    async () => {
+      const b = await batchOf(c);
+      expect(b.first).toMatch(/^[0-9a-f-]{36}$/);
+      expect(b.plusOneOutcome).toBe('TRAFFIC_DUPLICATE');
     },
   );
 
   // -----------------------------------------------------------------------------------------
   // RT-L3-S04 — « pièce » et montant : aucun lien entre l'une et l'autre
-  it('RT-L3-S04 (L3-PM-29) — observation F-L3-SIN-02 : une photo quelconque justifie un montant absurde, exécuté à la seconde de la déclaration, sans réponse ni contestation possible du voyageur', async () => {
+  it('RT-L3-S04 (L3-PM-29) — observation F-L3-SIN-02 (fenêtre) : une refacturation de montant ORDINAIRE est exécutée à la seconde de sa déclaration, sans réponse ni contestation possible du voyageur', async () => {
     const b = await batchOf(c);
-    expect(b.absurdOutcome).toBe('DECLARED');
-    expect(b.absurd).not.toBeNull();
-    // à l'instant même de la déclaration, le travailleur l'exécute (aucune fenêtre de réponse)
+    expect(b.ordinaryOutcome).toBe('DECLARED');
     await asWorker(DECLARED_AT, async (tx) => {
       const state = await tx.query<Row>('SELECT * FROM test_fixture.us318_traffic_charge($1)', [
-        b.absurd,
+        b.ordinary,
       ]);
       expect(state.rows[0]).toMatchObject({ execution_status: 'PENDING', due: true });
+      expect((await tx.query<Row>(EXECUTE, [b.ordinary, uuid()])).rows[0]).toEqual({
+        outcome: 'DONE',
+        code: null,
+      });
+      const [d] = await debitsOf(tx, b.ordinary!);
+      expect(d).toMatchObject({
+        amount_minor: total.toString(),
+        leg_host_minor: a['fine']!.toString(),
+        guest_agreed: false,
+        status: 'NOTIFIED',
+      });
+    });
+  });
+
+  // CONSTAT F-L3-SIN-02 (fenêtre) → suite (US-318) : comme les frais annexes d'US-706 (BR-REIMB-02 /
+  // 03, BR-TT-02 : 48 h pour payer ou contester), le voyageur a un délai avant tout débit ; jugé sur
+  // un montant ORDINAIRE, que le plafond de la suite n'écarte pas
+  it.fails(
+    'RT-L3-S04 — CONSTAT F-L3-SIN-02 (fenêtre) : une refacturation de montant ordinaire n’est pas exécutée à l’instant de sa déclaration',
+    async () => {
+      const b = await batchOf(c);
+      expect(b.ordinary).not.toBeNull();
+      await asWorker(DECLARED_AT, async (tx) => {
+        const r = (await tx.query<Row>(EXECUTE, [b.ordinary, uuid()])).rows[0]!;
+        expect(r['outcome']).not.toBe('DONE');
+        expect(await debitsOf(tx, b.ordinary!)).toEqual([]);
+      });
+    },
+  );
+
+  it('RT-L3-S04 (L3-PM-29) — observation F-L3-SIN-02 (plafond) : une photo quelconque justifie un montant absurde, accepté à la déclaration puis exécuté', async () => {
+    const b = await batchOf(c);
+    expect(b.absurdOutcome).toBe('DECLARED');
+    await asWorker(DECLARED_AT, async (tx) => {
       expect((await tx.query<Row>(EXECUTE, [b.absurd, uuid()])).rows[0]).toEqual({
         outcome: 'DONE',
         code: null,
@@ -326,25 +409,18 @@ describe.each(COUNTRIES)('RT-L3 sinistres entre particuliers ($country, $currenc
       expect(d).toMatchObject({
         amount_minor: a['absurdTotal']!.toString(),
         leg_host_minor: a['absurd']!.toString(),
-        guest_agreed: false,
-        status: 'NOTIFIED',
       });
     });
   });
 
-  // CONSTAT F-L3-SIN-02 → suite (US-318) : comme les frais annexes d'US-706 (BR-REIMB-02 / 03,
-  // BR-TT-02), le voyageur a un délai pour payer ou contester avant tout débit ; une refacturation
-  // n'est pas exécutée à l'instant de sa déclaration
+  // CONSTAT F-L3-SIN-02 (plafond) → suite (US-318) : plafond par pays, fail-closed ; le montant
+  // absurde est refusé à la déclaration (signal exact)
   it.fails(
-    'RT-L3-S04 — CONSTAT F-L3-SIN-02 : une refacturation n’est pas exécutée à l’instant de sa déclaration (délai de réponse et contestation du voyageur)',
+    'RT-L3-S04 — CONSTAT F-L3-SIN-02 (plafond) : un montant absurde est refusé à la déclaration TRAFFIC_AMOUNT_ABOVE_CAP',
     async () => {
       const b = await batchOf(c);
-      expect(b.absurd).not.toBeNull();
-      await asWorker(DECLARED_AT, async (tx) => {
-        const r = (await tx.query<Row>(EXECUTE, [b.absurd, uuid()])).rows[0]!;
-        expect(r['outcome']).not.toBe('DONE');
-        expect(await debitsOf(tx, b.absurd!)).toEqual([]);
-      });
+      expect(b.first).toMatch(/^[0-9a-f-]{36}$/);
+      expect(b.absurdOutcome).toBe('TRAFFIC_AMOUNT_ABOVE_CAP');
     },
   );
 
@@ -535,7 +611,7 @@ describe.each(COUNTRIES)('RT-L3 sinistres entre particuliers ($country, $currenc
 
   // -----------------------------------------------------------------------------------------
   // commandes du travailleur : jamais sous l'API, même avec un contexte falsifié
-  it('RT-L3-S05 / V04 : les commandes de vol et de refacturation du travailleur sont fermées à l’API (contexte WORKER falsifié par set_config) et à un autre travailleur ; la référence d’assureur ne porte aucune donnée personnelle', async () => {
+  it('RT-L3-S05 / V04 : les commandes de vol et de refacturation du travailleur sont fermées à l’API (contexte WORKER falsifié par set_config) et à un autre travailleur (42501) ; le format de la référence d’assureur est refusé (22023) pour un courriel, un téléphone ou des espaces', async () => {
     const calls: readonly string[] = [
       `SELECT core.claim_cmd_open_theft_case('${uuid()}')`,
       `SELECT core.claim_cmd_close_theft_case('${uuid()}')`,
@@ -590,7 +666,7 @@ describe.each(COUNTRIES)('RT-L3 sinistres entre particuliers ($country, $currenc
     });
   });
 
-  it('RT-L3-S05 (L3-PM-17) : une déclaration de vol ne s’envoie pas tant que insurer_contract_active est faux (lu en base) — aucun dossier ne sort de la file des déclarations ; le versement du trip reste retenu', async () => {
+  it('RT-L3-S05 (L3-PM-17) : le verrou et l’envoi d’une déclaration de vol sont refusés INSURER_CONTRACT_INACTIVE tant que insurer_contract_active est faux (lu en base) ; le dossier reste PENDING sans référence', async () => {
     await asWorker(plus(END, 25 * 3600), async (tx) => {
       const sw = await tx.query<{ on: boolean }>(
         `SELECT core.config_go_live('insurer_contract_active', $1) AS on`,
@@ -624,13 +700,7 @@ describe.each(COUNTRIES)('RT-L3 sinistres entre particuliers ($country, $currenc
       const [theft] = (
         await tx.query<Row>('SELECT * FROM test_fixture.us318_theft_case($1)', [trip])
       ).rows;
-      // la déclaration n'est jamais « due » (aucun dossier du pays, aucun envoi) ; l'envoi forcé est refusé
-      const due = (
-        await tx.query<{ id: string }>(
-          'SELECT theft_case_id::text AS id FROM core.claim_theft_declarations_due(100)',
-        )
-      ).rows.filter((r) => r.id === theft!['id']);
-      expect(due).toEqual([]);
+      // l'envoi forcé est refusé tant que l'interrupteur est faux (lu en base)
       for (const sql of [
         'SELECT core.claim_cmd_lock_theft_declaration($1) AS r',
         `SELECT core.claim_cmd_record_theft_declaration($1, 'FORGED-REF-1') AS r`,

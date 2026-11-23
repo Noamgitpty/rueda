@@ -210,11 +210,13 @@ describe.each(COUNTRIES)('RT-L3 frais annexes ($country, $currency)', (c) => {
   // peut ni annuler pour redemander à neuf (« fenêtre jamais rouverte », « un rejet n'est jamais
   // redemandé » contournés) : redemander le même type après une contestation est refusé
   it.fails(
-    'RT-L3-S02 — CONSTAT F-L3-FRA-01 : la redemande du même frais après une contestation est refusée (INCIDENTAL_DUPLICATE), la fenêtre du voyageur ne se rouvre pas',
+    'RT-L3-S02 — CONSTAT F-L3-FRA-01 : après une contestation puis une annulation, aucune demande du même frais ne rouvre une fenêtre de réponse du voyageur (refus ou escalade à l’ops : les deux corrections passent)',
     async () => {
       await asApi(async (tx) => {
-        const { again } = await reopenAttack(tx);
-        expect(again['outcome']).toBe('INCIDENTAL_DUPLICATE');
+        const { w, first } = await reopenAttack(tx);
+        expect(first['outcome']).toBe('SUBMITTED');
+        const rows = await invoices(tx, w.trip);
+        expect(rows.filter((r) => r['status'] === 'AWAITING_GUEST')).toEqual([]);
       });
     },
   );
@@ -258,7 +260,7 @@ describe.each(COUNTRIES)('RT-L3 frais annexes ($country, $currency)', (c) => {
   // CONSTAT F-L3-FRA-02 → suite (US-706) : toute pièce retenue à la demande est visible de ceux qui
   // la jugent (voyageur avant de payer, ops avant de décider) — ou n'est pas admise
   it.fails(
-    'RT-L3-S01 — CONSTAT F-L3-FRA-02 : chaque pièce retenue d’une demande est décrite à l’ops (console) comme au voyageur',
+    'RT-L3-S01 — CONSTAT F-L3-FRA-02 : chaque pièce retenue d’une demande est décrite au voyageur (vue) comme à l’ops (console)',
     async () => {
       await asApi(async (tx) => {
         const { w, r } = await hostFileOnly(tx);
@@ -268,6 +270,7 @@ describe.each(COUNTRIES)('RT-L3 frais annexes ($country, $currency)', (c) => {
           .rows[0]!.v;
         const kept = (guestView['invoices'] as Row[])[0]!['evidenceCount'] as number;
         expect(kept).toBe(1);
+        expect(((guestView['invoices'] as Row[])[0]!['evidence'] as unknown[]).length).toBe(kept);
         const ops = await staff(tx, 'OPS_AGENT', [c.country]);
         const read = (
           await tx.query<Row>(STAFF_VIEW, [await elevated(tx, ops), uuid(), r['invoice_id']])

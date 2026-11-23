@@ -109,15 +109,16 @@ async function committedTrip(c: CountryCase): Promise<Setup> {
   });
 }
 
-/** Session bloquée sur un verrou non accordé (pid lu d'abord), sans attente à durée fixe. */
-async function waitBlocked(observer: Tx, pid: number, timeoutMs = 20_000): Promise<void> {
+/** Session bloquée (pid lu d'abord) : rend les pid qui la bloquent (`pg_blocking_pids`), sans attente à durée fixe. */
+async function waitBlocked(observer: Tx, pid: number, timeoutMs = 20_000): Promise<number[]> {
   const deadline = Date.now() + timeoutMs;
   for (;;) {
-    const r = await observer.query<{ waiting: boolean }>(
-      `SELECT EXISTS (SELECT 1 FROM pg_catalog.pg_locks WHERE pid = $1 AND NOT granted) AS waiting`,
+    const r = await observer.query<{ by: number[] }>(
+      `SELECT pg_catalog.pg_blocking_pids($1::integer) AS by`,
       [pid],
     );
-    if (r.rows[0]?.waiting === true) return;
+    const by = r.rows[0]?.by ?? [];
+    if (by.length > 0) return by;
     if (Date.now() > deadline) throw new Error(`la session ${pid} n'attend aucun verrou`);
     await sleep(5);
   }
@@ -142,6 +143,9 @@ interface Race {
   /** Issue de B (statut appliqué, ou code d'erreur si la commande l'a refusé). */
   readonly resultB: string;
   readonly blocked: boolean;
+  /** pid de A et pid(s) qui bloquent B (`pg_blocking_pids`). */
+  readonly pidA: number;
+  readonly blockedBy: readonly number[];
 }
 
 /**
@@ -153,6 +157,7 @@ async function race(opA: string, opB: string): Promise<Race> {
     withRole('app_worker', (clientA) =>
       withRole('app_worker', async (clientB) => {
         const pidB = await backendPid(clientB);
+        const pidA = await backendPid(clientA);
         let appliedA!: () => void;
         const aApplied = new Promise<void>((r) => (appliedA = r));
         let goA!: () => void;
@@ -171,7 +176,11 @@ async function race(opA: string, opB: string): Promise<Race> {
           await gate; // A tient ses verrous jusqu'à ce que B soit vu bloqué
           return out;
         });
-        const seen = await (async (): Promise<{ blocked: boolean; resultB: string }> => {
+        const seen = await (async (): Promise<{
+          blocked: boolean;
+          blockedBy: number[];
+          resultB: string;
+        }> => {
           try {
             await Promise.race([aApplied, a]);
             const b = payTx(clientB, opts, async (tx) => {
@@ -182,14 +191,21 @@ async function race(opA: string, opB: string): Promise<Race> {
               (out) => out,
               (error: unknown) => `ERREUR ${(error as { code?: string }).code ?? 'inconnue'}`,
             );
-            await waitBlocked(observer, pidB);
+            const blockedBy = await waitBlocked(observer, pidB);
             goA();
-            return { blocked: true, resultB: await b };
+            return { blocked: true, blockedBy, resultB: await b };
           } finally {
             goA();
           }
         })();
-        return { a: await a, b: opB, resultB: seen.resultB, blocked: seen.blocked };
+        return {
+          a: await a,
+          b: opB,
+          resultB: seen.resultB,
+          blocked: seen.blocked,
+          pidA,
+          blockedBy: seen.blockedBy,
+        };
       }),
     ),
   );
@@ -202,6 +218,7 @@ describe.each(COUNTRIES)(
       const s = await committedTrip(c);
       const r = await race(s.first, s.second);
       expect(r.blocked).toBe(true);
+      expect(r.blockedBy).toContain(r.pidA); // B attend bien A
       expect(r.a).toBe('APPLIED');
       // aucune des deux issues n'est une erreur de la commande ; le second statut est bien appliqué
       expect(r.resultB).toBe('APPLIED');
@@ -221,6 +238,7 @@ describe.each(COUNTRIES)(
       const s = await committedTrip(c);
       const r = await race(s.first, s.first);
       expect(r.blocked).toBe(true);
+      expect(r.blockedBy).toContain(r.pidA); // B attend bien A
       expect(r.a).toBe('APPLIED');
       // le rejeu n'impute rien de plus : une ligne, du montant encaissé
       await asPayments(false, async (tx) => {
@@ -228,8 +246,8 @@ describe.each(COUNTRIES)(
           { lost_trip_minor: s.total.toString(), currency: c.currency },
         ]);
         // le rejeu ne provoque ni interblocage, ni délai de verrou, ni délai d'instruction
-        expect(r.resultB).not.toMatch(/^ERREUR (40P01|55P03|57014)/);
-        expect(r.resultB).not.toBe('');
+        // issue exacte de B : le même statut, rejoué, est appliqué sans effet
+        expect(r.resultB).toBe('APPLIED');
       });
     }, 120_000);
 

@@ -20,8 +20,10 @@
  * app_anon) ; 17 §2.3 : `host_guest_v` = prénom, âge, note, statut de vérification, rien d'autre.
  */
 import { randomBytes } from 'node:crypto';
+import { readdirSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { setSessionContext } from '../../../src/index.ts';
+import { PACKAGE_ROOT, setSessionContext } from '../../../src/index.ts';
 import { withRole, withTestTransaction } from '../../../src/testing/index.ts';
 import { COUNTRIES } from '../../support/avl.ts';
 import type { CountryCase } from '../../support/avl.ts';
@@ -219,7 +221,7 @@ describe.each(COUNTRIES)('RT-L3 données et messagerie ($country, $currency)', (
     return m;
   }
 
-  it('RT-L3-D05 (L3-PM-49) : défenses du corpus — courriel espacé ou en lettres (es), numéro en lettres avec tirets, numéro à points : masqués et signalés ; faux positif de contrôle non masqué', async () => {
+  it('RT-L3-D05 (L3-PM-49) : défenses du corpus — courriel espacé ou en lettres (es), numéro en lettres avec tirets, numéro à points : masqués (drapeau masked) ; faux positif de contrôle non masqué', async () => {
     await asApi(async (tx) => {
       const t = await tripOf(tx, c);
       for (const [text, secret] of MUST_MASK) {
@@ -235,7 +237,7 @@ describe.each(COUNTRIES)('RT-L3 données et messagerie ($country, $currency)', (
     });
   });
 
-  it('RT-L3-D05 (L3-PM-49) — observation F-L3-DON-01 : un courriel écrit « at … dot », un numéro en guaraní et un numéro en chiffres arabes sont servis EN CLAIR et ne sont pas signalés', async () => {
+  it('RT-L3-D05 (L3-PM-49) — observation F-L3-DON-01 : un courriel écrit « at … dot », un numéro en guaraní et un numéro en chiffres arabes sont servis EN CLAIR et le drapeau masked reste faux', async () => {
     await asApi(async (tx) => {
       const t = await tripOf(tx, c);
       for (const [text, secret] of SUSPECT) {
@@ -247,7 +249,7 @@ describe.each(COUNTRIES)('RT-L3 données et messagerie ($country, $currency)', (
   });
 
   // CONSTAT F-L3-DON-01 → suite (US-525) : ces contournements (non listés parmi les limites d'ADR-181)
-  // sont masqués et signalés ; le corpus guaraní est exigé par le pré-mortem du lot 3 (L3-PM-49)
+  // sont masqués (drapeau masked, secret absent) ; le corpus guaraní est exigé par le pré-mortem du lot 3 (L3-PM-49)
   it.fails(
     'RT-L3-D05 — CONSTAT F-L3-DON-01 : les contournements « at / dot », guaraní et chiffres arabes sont masqués',
     async () => {
@@ -325,6 +327,21 @@ const LOT3_TABLES: readonly string[] = [
 const READABLE_BY_API = ['settlement_chargeback_imputation', 'settlement_host_ledger_state'];
 const ROLES = ['app_anon', 'app_api', 'app_worker'] as const;
 
+/** Fonctions `core.*` créées ou remplacées par les migrations 0158 à 0178 (lues dans les fichiers). */
+const LOT3_FUNCTIONS: readonly string[] = (() => {
+  const dir = join(PACKAGE_ROOT, 'migrations');
+  const names = new Set<string>();
+  for (const f of readdirSync(dir)) {
+    const n = Number(/^(d{4})_/.exec(f)?.[1] ?? '-1');
+    if (n < 158 || n > 178) continue;
+    const text = readFileSync(join(dir, f), 'utf8');
+    for (const m of text.matchAll(/^CREATE (?:OR REPLACE )?FUNCTION core.([a-z0-9_]+)/gm)) {
+      names.add(m[1]!);
+    }
+  }
+  return [...names].sort();
+})();
+
 describe('RT-L3-D06 (L3-PM-51) — inventaire des tables et commandes nouvelles du lot 3 (base de production)', () => {
   it('chaque table nouvelle : ENABLE + FORCE ; aucun rôle applicatif n’y écrit (INSERT, UPDATE, DELETE, TRUNCATE) ; app_anon et app_worker n’y lisent rien ; app_api ne lit que les deux vues d’état documentées', async () => {
     await withRole(
@@ -369,7 +386,7 @@ describe('RT-L3-D06 (L3-PM-51) — inventaire des tables et commandes nouvelles 
     );
   });
 
-  it('aucune commande ni lecture du lot 3 (claim_*, messaging_*, payout_*, trip_*, support_staff_*) n’est exécutable par app_anon ni par PUBLIC ; les commandes de travailleur (files …_due, débits, exécutions, vol présumé, lots de versement) ne le sont pas par app_api', async () => {
+  it('aucune fonction créée par les migrations 0158 à 0178 (noms lus dans les fichiers, toutes familles) n’est exécutable par app_anon ni par PUBLIC ; les commandes de travailleur (files …_due, débits, exécutions, vol présumé, lots de versement) ne le sont pas par app_api', async () => {
     await withRole(
       'app_api',
       async (client) => {
@@ -378,14 +395,36 @@ describe('RT-L3-D06 (L3-PM-51) — inventaire des tables et commandes nouvelles 
              FROM pg_catalog.pg_proc AS p
              JOIN pg_catalog.pg_namespace AS n ON n.oid = p.pronamespace
             WHERE n.nspname = 'core'
-              AND p.proname ~ '^(claim_|messaging_|payout_|trip_|support_staff_)'
+              AND p.proname = ANY($1::text[])
               AND (pg_catalog.has_function_privilege('app_anon', p.oid, 'EXECUTE')
                    OR EXISTS (SELECT 1 FROM pg_catalog.aclexplode(
                                 COALESCE(p.proacl, pg_catalog.acldefault('f', p.proowner))) AS a
                                WHERE a.grantee = 0 AND a.privilege_type = 'EXECUTE'))
             ORDER BY 1`,
+          [[...LOT3_FUNCTIONS]],
         );
         expect(anon.rows.map((r) => r.sig)).toEqual([]);
+        // témoin de population : la liste couvre bien les familles payment_, settlement_, finance_, review_
+        for (const family of [
+          'payment_',
+          'settlement_',
+          'finance_',
+          'review_',
+          'claim_',
+          'messaging_',
+        ]) {
+          expect(
+            LOT3_FUNCTIONS.some((n) => n.startsWith(family)),
+            family,
+          ).toBe(true);
+        }
+        const present = await client.query<{ n: number }>(
+          `SELECT pg_catalog.count(*)::int AS n FROM pg_catalog.pg_proc AS p
+             JOIN pg_catalog.pg_namespace AS n ON n.oid = p.pronamespace
+            WHERE n.nspname = 'core' AND p.proname = ANY($1::text[])`,
+          [[...LOT3_FUNCTIONS]],
+        );
+        expect(present.rows[0]!.n).toBeGreaterThan(100);
         const api = await client.query<{ sig: string }>(
           `SELECT p.oid::regprocedure::text AS sig
              FROM pg_catalog.pg_proc AS p
