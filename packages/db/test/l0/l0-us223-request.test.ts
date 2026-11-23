@@ -27,7 +27,7 @@ import { legVector, loadGoldenVectors } from '@rueda/money/golden-vectors';
 import type pg from 'pg';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { commandCallSql } from '../../src/index.ts';
-import { connectAs, releaseClient } from '../../src/testing/index.ts';
+import { connectAs, releaseClient, signedOpenParams } from '../../src/testing/index.ts';
 import { at, COUNTRIES, inTx, uuid } from '../support/avl.ts';
 import type { CountryCase, Worker } from '../support/avl.ts';
 import {
@@ -109,8 +109,8 @@ async function newHost(c: CountryCase, when: string, acceptTerms = true): Promis
     await tx.query('SELECT test_fixture.iam_set_account_status($1, $2)', [userId, 'ACTIVE']);
     const t = newToken();
     await tx.query(
-      `SELECT core.iam_cmd_open_session($1, $2, $3, $4, 'NONE', NULL, 'vitest') AS expires_at`,
-      [uuid(), userId, t.hash, SESSION_TTL_S],
+      `SELECT core.iam_cmd_open_session($1, $2, $3, $4, 'NONE', NULL, 'vitest', $5, $6) AS expires_at`,
+      await signedOpenParams(tx, [uuid(), userId, t.hash, SESSION_TTL_S]),
     );
     const { rows } = await tx.query<{ outcome: string; org_id: string | null }>(
       'SELECT * FROM core.iam_cmd_open_host_account($1, $2, $3)',
@@ -144,8 +144,8 @@ async function world(c: CountryCase, from: string, hostTerms = true): Promise<Wo
   const account = await inTx(api, { virtualNow: from, commit: true }, async (tx) => {
     await ensureParties(tx, [guest], host.org, c);
     await tx.query(
-      `SELECT core.iam_cmd_open_session($1, $2, $3, $4, 'NONE', NULL, 'vitest') AS expires_at`,
-      [uuid(), guest, guestToken.hash, SESSION_TTL_S],
+      `SELECT core.iam_cmd_open_session($1, $2, $3, $4, 'NONE', NULL, 'vitest', $5, $6) AS expires_at`,
+      await signedOpenParams(tx, [uuid(), guest, guestToken.hash, SESSION_TTL_S]),
     );
     await registerVehicles(tx, [vehicle], host.org, c);
     await tx.query('SELECT test_fixture.us209_driver($1, $2, $3::date, $4::date, $5)', [

@@ -15,7 +15,13 @@ import { request as httpRequest } from 'node:http';
 import 'reflect-metadata';
 import { NestFactory } from '@nestjs/core';
 import type { NestExpressApplication } from '@nestjs/platform-express';
-import { assertProductionRole, connectAs, releaseClient } from '@rueda/db/testing';
+import {
+  assertProductionRole,
+  connectAs,
+  releaseClient,
+  signedOpenParams,
+  TEST_SESSION_OPEN_KEY,
+} from '@rueda/db/testing';
 // types du contexte fourni par le globalSetup du banc (inject('ruedaBench'))
 import type {} from '@rueda/db/testing/global-setup';
 import type pg from 'pg';
@@ -71,11 +77,10 @@ async function register(): Promise<string> {
 
 async function session(userId: string): Promise<{ cookie: string; token: string }> {
   const t = token();
-  await client.query(`SELECT core.iam_cmd_open_session($1, $2, $3, 3600, 'NONE', NULL, 'rt')`, [
-    randomUUID(),
-    userId,
-    sha(t),
-  ]);
+  await client.query(
+    `SELECT core.iam_cmd_open_session($1, $2, $3, 3600, 'NONE', NULL, 'rt', $4, $5)`,
+    await signedOpenParams(client, [randomUUID(), userId, sha(t)], 3600),
+  );
   return { cookie: `__Host-session=${t}`, token: t };
 }
 
@@ -222,7 +227,9 @@ beforeAll(async () => {
   };
   app = await NestFactory.create<NestExpressApplication>(
     ApiModule.register(
-      await postgresIamAdapters(client),
+      await postgresIamAdapters(client, {
+        RUEDA_SESSION_OPEN_KEY: TEST_SESSION_OPEN_KEY.toString('hex'),
+      }),
       (await postgresPayAdapters(client, env)).webhooks,
       staff,
       {

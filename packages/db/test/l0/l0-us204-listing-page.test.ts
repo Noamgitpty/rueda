@@ -25,6 +25,7 @@ import { describe, expect, it } from 'vitest';
 import {
   connectAs,
   releaseClient,
+  signedOpenParams,
   withRole,
   withTestTransaction,
 } from '../../src/testing/index.ts';
@@ -96,8 +97,8 @@ async function person(c: Tx, country: string, first = 'Ana'): Promise<Person> {
   await c.query('SELECT test_fixture.iam_set_account_status($1, $2)', [userId, 'ACTIVE']);
   const t = newToken();
   const s = await c.query<{ expires_at: Date | null }>(
-    `SELECT core.iam_cmd_open_session($1, $2, $3, $4, 'NONE', NULL, 'vitest') AS expires_at`,
-    [uuid(), userId, t.hash, SESSION_TTL_S],
+    `SELECT core.iam_cmd_open_session($1, $2, $3, $4, 'NONE', NULL, 'vitest', $5, $6) AS expires_at`,
+    await signedOpenParams(c, [uuid(), userId, t.hash, SESSION_TTL_S]),
   );
   if (!s.rows[0]?.expires_at) throw new Error('session refusée');
   return { userId, hash: t.hash };

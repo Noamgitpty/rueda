@@ -33,7 +33,7 @@ import { describe, expect, it } from 'vitest';
 import type pg from 'pg';
 import { columnAad, open as openEnvelope, seal } from '../../src/audit/index.ts';
 import { setSessionContext } from '../../src/index.ts';
-import { withRole, withTestTransaction } from '../../src/testing/index.ts';
+import { signedOpenParams, withRole, withTestTransaction } from '../../src/testing/index.ts';
 import { COUNTRIES, uuid } from '../support/avl.ts';
 import { newToken, phcArgon2id, SESSION_TTL_S } from '../support/iam.ts';
 import {
@@ -161,8 +161,8 @@ async function person(client: pg.ClientBase, country: string): Promise<Person> {
   const t = newToken();
   const s = await one<{ expires_at: Date | null }>(
     client,
-    `SELECT core.iam_cmd_open_session($1, $2, $3, $4, 'NONE', NULL, 'vitest') AS expires_at`,
-    [uuid(), userId, t.hash, SESSION_TTL_S],
+    `SELECT core.iam_cmd_open_session($1, $2, $3, $4, 'NONE', NULL, 'vitest', $5, $6) AS expires_at`,
+    await signedOpenParams(client, [uuid(), userId, t.hash, SESSION_TTL_S]),
   );
   if (!s.expires_at) throw new Error('session refusée');
   await client.query('SELECT test_fixture.us105_verify_phone($1, $2)', [
@@ -362,8 +362,8 @@ const stateAt = (c: pg.ClientBase, p: Person, org: string, at: string) =>
     // la session de l'hôte est ouverte à l'instant virtuel (celle d'aujourd'hui y a expiré)
     const t = newToken();
     await tx.query(
-      `SELECT core.iam_cmd_open_session($1, $2, $3, $4, 'NONE', NULL, 'vitest') AS expires_at`,
-      [uuid(), p.userId, t.hash, SESSION_TTL_S],
+      `SELECT core.iam_cmd_open_session($1, $2, $3, $4, 'NONE', NULL, 'vitest', $5, $6) AS expires_at`,
+      await signedOpenParams(tx, [uuid(), p.userId, t.hash, SESSION_TTL_S]),
     );
     return state(tx, { userId: p.userId, token: t.hash }, org);
   });

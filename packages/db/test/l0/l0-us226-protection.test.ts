@@ -26,7 +26,7 @@
 import { createHash, randomBytes } from 'node:crypto';
 import type pg from 'pg';
 import { describe, expect, it } from 'vitest';
-import { withRole, withTestTransaction } from '../../src/testing/index.ts';
+import { signedOpenParams, withRole, withTestTransaction } from '../../src/testing/index.ts';
 import { COUNTRIES, uuid } from '../support/avl.ts';
 import type { CountryCase } from '../support/avl.ts';
 import { approveSwitch, freshSession, requestSwitch } from '../support/golive.ts';
@@ -224,8 +224,8 @@ interface Person {
 async function session(c: Tx, userId: string): Promise<Buffer> {
   const t = newToken();
   const s = await c.query<{ expires_at: Date | null }>(
-    `SELECT core.iam_cmd_open_session($1, $2, $3, $4, 'NONE', NULL, 'vitest') AS expires_at`,
-    [uuid(), userId, t.hash, SESSION_TTL_S],
+    `SELECT core.iam_cmd_open_session($1, $2, $3, $4, 'NONE', NULL, 'vitest', $5, $6) AS expires_at`,
+    await signedOpenParams(c, [uuid(), userId, t.hash, SESSION_TTL_S]),
   );
   if (!s.rows[0]?.expires_at) throw new Error('session refusée');
   return t.hash;

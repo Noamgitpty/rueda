@@ -7,6 +7,7 @@
  */
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import type pg from 'pg';
+import { signedOpenParams } from '../../src/testing/index.ts';
 
 export const uuid = (): string => randomUUID();
 
@@ -60,8 +61,8 @@ export async function openSession(
 ): Promise<{ token: string; hash: Buffer; expiresAt: Date | null }> {
   const t = newToken();
   const { rows } = await client.query<{ expires_at: Date | null }>(
-    `SELECT core.iam_cmd_open_session($1, $2, $3, $4, 'NONE', '203.0.113.7', 'vitest') AS expires_at`,
-    [uuid(), userId, t.hash, options.ttlS ?? SESSION_TTL_S],
+    `SELECT core.iam_cmd_open_session($1, $2, $3, $4, 'NONE', '203.0.113.7', 'vitest', $5, $6) AS expires_at`,
+    await signedOpenParams(client, [uuid(), userId, t.hash, options.ttlS ?? SESSION_TTL_S]),
   );
   return { ...t, expiresAt: rows[0]?.expires_at ?? null };
 }

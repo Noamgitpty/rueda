@@ -9,6 +9,7 @@
 import { createHash, createHmac, randomBytes, randomUUID } from 'node:crypto';
 import type pg from 'pg';
 import { newToken, phcArgon2id, SESSION_TTL_S } from './iam.ts';
+import { signedOpenParams } from '../../src/testing/index.ts';
 
 export const uuid = (): string => randomUUID();
 
@@ -83,8 +84,8 @@ export async function createStaff(
 export async function login(client: pg.ClientBase, userId: string): Promise<Buffer> {
   const t = newToken();
   const { rows } = await client.query<{ expires_at: Date | null }>(
-    `SELECT core.iam_cmd_open_session($1, $2, $3, $4, 'NONE', NULL, 'vitest') AS expires_at`,
-    [uuid(), userId, t.hash, SESSION_TTL_S],
+    `SELECT core.iam_cmd_open_session($1, $2, $3, $4, 'NONE', NULL, 'vitest', $5, $6) AS expires_at`,
+    await signedOpenParams(client, [uuid(), userId, t.hash, SESSION_TTL_S]),
   );
   if (!rows[0]?.expires_at) throw new Error('session refusée');
   return t.hash;

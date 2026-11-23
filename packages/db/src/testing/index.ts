@@ -16,3 +16,12 @@ export type { Bench, BenchInfo } from './bench.ts';
 export { parseAdminUrl, POSTGRES_IMAGE, readPasswordFile, resolveAdminSource } from './source.ts';
 export type { AdminSource, ConnectionTarget } from './source.ts';
 export { FakeKeyWrapper } from './fake-audit-adapters.ts';
+export {
+  databaseNowMs,
+  openSignedSession,
+  sessionOpenArgs,
+  sessionOpenProof,
+  signedOpenParams,
+  TEST_SESSION_OPEN_KEY,
+} from './session-open.ts';
+export type { SessionOpenFields } from './session-open.ts';

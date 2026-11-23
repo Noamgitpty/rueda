@@ -1469,6 +1469,17 @@
         "row_version": "C1"
       }
     },
+    "core.iam_session_open_key": {
+      "lifecycle": "C",
+      "export": "none",
+      "columns": {
+        "id": "C1",
+        "key": {
+          "class": "C4"
+        },
+        "installed_at": "C1"
+      }
+    },
     "core.iam_staff_role_assignment": {
       "lifecycle": "B",
       "subjects": [

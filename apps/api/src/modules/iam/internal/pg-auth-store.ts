@@ -21,6 +21,7 @@ import type {
   SessionRecord,
 } from './auth-store.js';
 import { HOST_ACCOUNT_OUTCOMES, SignupDocumentsError } from './auth-store.js';
+import { sessionOpenProof } from './session-open-key.js';
 
 /** Contraintes de la commande d'inscription avec consentements (0059) → motif du refus. */
 const SIGNUP_DOCUMENT_CONSTRAINTS: Readonly<Record<string, SignupDocumentsError['reason']>> = {
@@ -51,11 +52,21 @@ export class AuthStoreError extends Error {
   }
 }
 
+export interface PgAuthStoreOptions {
+  /**
+   * Clé de la preuve d'ouverture de session (US-410, ADR-205 ; `RUEDA_SESSION_OPEN_KEY`). Absente :
+   * aucune session ouverte (fail-closed) ; la base refuse de toute façon une ouverture sans preuve.
+   */
+  readonly sessionOpenKey?: Buffer | null;
+}
+
 export class PgAuthStore implements AuthStore {
   readonly #db: SqlExecutor;
+  readonly #sessionOpenKey: Buffer | null;
 
-  constructor(db: SqlExecutor) {
+  constructor(db: SqlExecutor, options: PgAuthStoreOptions = {}) {
     this.#db = db;
+    this.#sessionOpenKey = options.sessionOpenKey ?? null;
   }
 
   async #run<R extends Record<string, unknown>>(
@@ -138,10 +149,34 @@ export class PgAuthStore implements AuthStore {
     };
   }
 
+  /**
+   * US-410 : signée à l'instant de la base (`platform.now()`, lu juste avant), sous la clé de
+   * l'API. Sans clé : refus sans appel (`AuthStoreError`, SQLSTATE absent) ; la base refuse une
+   * preuve absente, fausse, périmée ou rejouée (42501).
+   */
   async openSession(input: OpenSessionInput): Promise<Date | null> {
+    const key = this.#sessionOpenKey;
+    if (key === null) {
+      throw new AuthStoreError('open_session_unavailable', undefined);
+    }
+    const clock = await this.#run<{ ms: string }>(
+      'open_session_clock',
+      'SELECT (floor(EXTRACT(EPOCH FROM platform.now()) * 1000))::int8::text AS ms',
+      [],
+    );
+    const ms = clock[0]?.ms;
+    if (ms === undefined) throw new AuthStoreError('open_session_clock', undefined);
+    const issuedAtMs = BigInt(ms);
+    const proof = sessionOpenProof(key, {
+      sessionId: input.sessionId,
+      userId: input.userId,
+      tokenHash: input.tokenHash,
+      ttlS: input.ttlS,
+      issuedAtMs,
+    });
     const rows = await this.#run<{ expires_at: Date | null }>(
       'open_session',
-      'SELECT core.iam_cmd_open_session($1, $2, $3, $4, $5, $6, $7) AS expires_at',
+      'SELECT core.iam_cmd_open_session($1, $2, $3, $4, $5, $6, $7, $8, $9) AS expires_at',
       [
         input.sessionId,
         input.userId,
@@ -150,6 +185,8 @@ export class PgAuthStore implements AuthStore {
         input.mfaLevel,
         input.ip,
         input.userAgent,
+        issuedAtMs.toString(),
+        proof,
       ],
     );
     return rows[0]?.expires_at ?? null;

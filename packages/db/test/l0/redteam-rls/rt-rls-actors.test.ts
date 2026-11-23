@@ -4,19 +4,22 @@
  * monde de test de support/rls.ts (US-011). Identifiants RT-RLS-xx : docs/team/redteam/L0-rls.md.
  *
  * Chaque test affirme que l'attaque est BLOQUÉE : un test rouge est une faille trouvée (jamais
- * `skip`, jamais maquillé). Exception ASSUMÉE et étiquetée « LIMITE DOCUMENTÉE » : la limite déjà
- * écrite de 17 §2.3 (RLS-18, contexte forgeable sous SQL arbitraire), éprouvée en caractérisation.
+ * `skip`, jamais maquillé). RT-RLS-18 (ouverture de session pour un compte choisi, F-RLS-03) était
+ * une caractérisation « LIMITE DOCUMENTÉE » ; US-410 (0185, ADR-205) l'a INVERSÉ : il exige le refus
+ * sans preuve signée sous app_api, app_worker et app_anon, en PA et en PY.
  *
  * Attendus : tableau RLS-1 à RLS-28 de 17 §2.3 (RLS-1, RLS-2, RLS-9, RLS-11, RLS-13, RLS-20,
  * RLS-22, RLS-23, RLS-25, RLS-28), 16 BKG-012 / ACC-014 (`SELF_BOOKING_FORBIDDEN`, y compris par un
  * compte lié), 17 §2.3 « Invariants par voyageur entre hôtes » ; jamais le code testé.
  */
-import { randomBytes } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
 import { beforeAll, describe, expect, it } from 'vitest';
 import type pg from 'pg';
 import {
   connectAs,
   releaseClient,
+  sessionOpenProof,
+  signedOpenParams,
   withRole,
   withTestTransaction,
 } from '../../../src/testing/index.ts';
@@ -633,11 +636,10 @@ describe('RT-RLS-15 — commandes appelées sans le rôle prévu (jetons et rôl
       await withTestTransaction(client, { commit: true }, async (tx) => {
         const guest = await account(tx);
         guestHash = Buffer.from(randomBytes(32));
-        await tx.query(`SELECT core.iam_cmd_open_session($1, $2, $3, 3600, 'NONE', NULL, 'rt')`, [
-          uuid(),
-          guest,
-          guestHash,
-        ]);
+        await tx.query(
+          `SELECT core.iam_cmd_open_session($1, $2, $3, 3600, 'NONE', NULL, 'rt', $4, $5)`,
+          await signedOpenParams(tx, [uuid(), guest, guestHash], 3600),
+        );
         const ops = await staff(tx, 'OPS_AGENT', [COUNTRIES[0].country]);
         opsHash = Buffer.from(staffSessionHash(ops) ?? '', 'hex');
         adminFirstId = await staff(tx, 'ADMIN', [COUNTRIES[0].country]);
@@ -709,11 +711,10 @@ describe('RT-RLS-15 — commandes appelées sans le rôle prévu (jetons et rôl
           `SELECT test_fixture.iam_grant_staff_role($1, $2, 'ADMIN', $3::text[], NULL, NULL)`,
           [uuid(), id, countryCodes()],
         );
-        await tx.query(`SELECT core.iam_cmd_open_session($1, $2, $3, 3600, 'NONE', NULL, 'rt')`, [
-          uuid(),
-          id,
-          token,
-        ]);
+        await tx.query(
+          `SELECT core.iam_cmd_open_session($1, $2, $3, 3600, 'NONE', NULL, 'rt', $4, $5)`,
+          await signedOpenParams(tx, [uuid(), id, token], 3600),
+        );
         return id;
       }),
     );
@@ -1004,26 +1005,114 @@ describe('RT-RLS-17 — IDOR par les commandes de réservation (hold d’un autr
 });
 
 // ---------------------------------------------------------------------------------------------
-describe('RT-RLS-18 — LIMITE DOCUMENTÉE (0011, 17 §2.3 RLS-18) : commandes dont l’argument choisit l’acteur', () => {
-  it('LIMITE DOCUMENTÉE : sous SQL arbitraire, app_api ouvre une session pour N’IMPORTE QUEL compte (caractérisation : ce test passe tant que la limite existe)', async () => {
-    await api(async (client) => {
-      const hash = Buffer.from(randomBytes(32));
-      await client.query('BEGIN');
-      try {
-        const opened = await client.query<{ expires: Date | null }>(
-          `SELECT core.iam_cmd_open_session($1, $2, $3, 3600, 'NONE', NULL, 'rt') AS expires`,
-          [uuid(), world.staff.supportAll, hash],
-        );
-        const resolved = await client.query<{ user_id: string | null }>(
-          'SELECT user_id FROM core.iam_session_resolve($1)',
-          [hash],
-        );
-        // la limite est exploitable : le jeton choisi par l'appelant désigne le compte de staff visé
-        expect(opened.rows[0]?.expires).not.toBeNull();
-        expect(resolved.rows[0]?.user_id).toBe(world.staff.supportAll);
-      } finally {
-        await client.query('ROLLBACK');
-      }
+describe('RT-RLS-18 — ouverture de session sans preuve signée REFUSÉE (F-RLS-03 fermé, US-410, ADR-205)', () => {
+  // Inversé par US-410 : la caractérisation « LIMITE DOCUMENTÉE » (app_api ouvrait une session
+  // pour n'importe quel compte) exige désormais le REFUS, sous les trois rôles de production, pour
+  // un compte de staff et pour l'hôte de chaque pays (PA, PY).
+  const ATTACKER_KEY = createHash('sha256')
+    .update('red team RT-RLS-18 : clé choisie par l’attaquant', 'utf8')
+    .digest();
+  const OPEN9 = `SELECT core.iam_cmd_open_session($1, $2, $3, 3600, 'NONE', NULL, 'rt', $4, $5) AS expires`;
+  const OPEN7 = `SELECT core.iam_cmd_open_session($1, $2, $3, 3600, 'NONE', NULL, 'rt') AS expires`;
+
+  /** Code de l'erreur (dans un point de sauvegarde) ; « OUVERTE » si une session est rendue. */
+  const tryOpen = async (tx: pg.ClientBase, sql: string, params: unknown[]): Promise<string> => {
+    const a = await attempt(tx, sql, params);
+    return a.code ?? (a.rows[0]?.['expires'] instanceof Date ? 'OUVERTE' : 'NULL');
+  };
+
+  /** Personne (via app_api) dont l'empreinte désigne une session ; null si aucune. */
+  const holderOf = (hash: Buffer): Promise<string | null> =>
+    api(async (client) => {
+      const r = await client.query<{ user_id: string }>(
+        'SELECT user_id FROM core.iam_session_resolve($1)',
+        [hash],
+      );
+      return r.rows[0]?.user_id ?? null;
     });
-  });
+
+  for (const role of ['app_api', 'app_worker', 'app_anon'] as const) {
+    it.each([0, 1])(
+      `${role} sous SQL arbitraire, pays n° %i : sans preuve, preuve au hasard, preuve sous une clé de l’attaquant, refus, aucune session (staff et hôte)`,
+      async (i) => {
+        const targets = [world.staff.supportAll, w(i).holderB];
+        const expected = '42501';
+        for (const target of targets) {
+          const hashes: Buffer[] = [];
+          await withRole(role, async (client) => {
+            await withTestTransaction(client, {}, async (tx) => {
+              const h = (): Buffer => {
+                const b = Buffer.from(randomBytes(32));
+                hashes.push(b);
+                return b;
+              };
+              const sid = uuid();
+              const hNull = h();
+              expect(
+                await tryOpen(tx, OPEN9, [sid, target, hNull, null, null]),
+                'sans preuve',
+              ).toBe(expected);
+              expect(
+                await tryOpen(tx, OPEN9, [uuid(), target, h(), '0', randomBytes(32)]),
+                'preuve au hasard',
+              ).toBe(expected);
+              const forgedHash = h();
+              const forgedId = uuid();
+              const forgedAt = 1_790_000_000_000n;
+              const forged = sessionOpenProof(
+                {
+                  sessionId: forgedId,
+                  userId: target,
+                  tokenHash: forgedHash,
+                  ttlS: 3600,
+                  issuedAtMs: forgedAt,
+                },
+                ATTACKER_KEY,
+              );
+              expect(
+                await tryOpen(tx, OPEN9, [
+                  forgedId,
+                  target,
+                  forgedHash,
+                  forgedAt.toString(),
+                  forged,
+                ]),
+                'preuve sous la clé de l’attaquant',
+              ).toBe(expected);
+            });
+          });
+          for (const hash of hashes) {
+            expect(await holderOf(hash), `${role} : aucune session pour ${target}`).toBeNull();
+          }
+        }
+      },
+    );
+  }
+
+  it.each([0, 1])(
+    'témoin, pays n° %i : la même ouverture AVEC une preuve signée sous la clé installée réussit (le refus vient de la preuve)',
+    async (i) => {
+      await api(async (client) => {
+        await withTestTransaction(client, {}, async (tx) => {
+          const hash = Buffer.from(randomBytes(32));
+          expect(
+            await tryOpen(
+              tx,
+              OPEN9,
+              await signedOpenParams(tx, [uuid(), w(i).holderB, hash], 3600),
+            ),
+          ).toBe('OUVERTE');
+          const r = await tx.query<{ user_id: string }>(
+            'SELECT user_id FROM core.iam_session_resolve($1)',
+            [hash],
+          );
+          expect(r.rows[0]?.user_id).toBe(w(i).holderB);
+          // l'ancienne signature à 7 arguments, sans preuve, n'existe plus (0185)
+          expect(
+            await tryOpen(tx, OPEN7, [uuid(), w(i).holderB, Buffer.from(randomBytes(32))]),
+          ).toBe('42883');
+        });
+      });
+    },
+  );
 });
