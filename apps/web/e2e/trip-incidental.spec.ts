@@ -51,9 +51,15 @@ async function setSession(context: BrowserContext, value: string): Promise<void>
   ]);
 }
 
-async function newTrip(guest: string, host: string, pending: boolean): Promise<string> {
+async function newTrip(
+  guest: string,
+  host: string,
+  pending: boolean,
+  hostFile = false,
+): Promise<string> {
   const r = await fetch(
-    `${API}/__e2e/incidental/new?guest=${guest}&host=${host}&pending=${pending ? 'yes' : 'no'}`,
+    `${API}/__e2e/incidental/new?guest=${guest}&host=${host}&pending=${pending ? 'yes' : 'no'}` +
+      `&hostfile=${hostFile ? 'yes' : 'no'}`,
   );
   expect(r.status).toBe(200);
   return ((await r.json()) as { tripId: string }).tripId;
@@ -218,6 +224,59 @@ for (const language of LANGUAGES) {
         'La voiture a été rendue propre, voir ma photo de l’intérieur au retour.',
       );
       await expectAccessible(page, { include: null });
+    });
+
+    test('ADR-202 : fichier de l’hôte décrit au voyageur avant de payer ; après une contestation, l’hôte est prévenu que l’annulation est définitive et le type ne se redemande plus', async ({
+      page,
+      context,
+    }) => {
+      const i18n = createTranslator(getProfile(LOCALE_CONFIG, tagOf(language)));
+      const t = i18n.t.bind(i18n);
+      const guest = token('G0st');
+      const host = token('H0st');
+      const trip = await newTrip(guest, host, true, true);
+      await setSession(context, guest);
+      await page.goto(`/trips/${trip}/incidental-fees`);
+      // chaque pièce retenue est décrite (F-L3-FRA-02) : la photo du retour et le fichier de l'hôte
+      await expect(page.locator('[data-testid="incidental-evidence"] li')).toHaveText([
+        t('web.incidental.evidenceItem', {
+          side: t('web.incidental.side.CHECKOUT'),
+          slot: t('web.incidental.slot.INTERIOR'),
+          by: t('web.incidental.by.HOST'),
+          date: i18n.dateTime('2097-03-10T08:00:00.000Z', TZ),
+        }),
+        t('web.incidental.evidenceHostFile', {
+          format: 'JPEG',
+          date: i18n.dateTime('2097-03-10T10:00:00.000Z', TZ),
+        }),
+      ]);
+      await expectMobileFriendly(page);
+      await expectAccessible(page, { include: null });
+      // le voyageur conteste
+      await page.locator('[data-testid="incidental-contest"]').click();
+      await page
+        .locator('[data-testid="incidental-reason"]')
+        .fill('La voiture a été rendue propre, voir ma photo de l’intérieur au retour.');
+      await page.locator('[data-testid="incidental-photo-CHECKOUT-INT_02-GUEST"]').check();
+      await page.locator('[data-testid="incidental-dispute-submit"]').click();
+      await expect(page.locator('[data-testid="incidental-dispute-reason"]')).toBeVisible();
+
+      // l'hôte : avertissement, annulation, puis le type n'est plus proposé (F-L3-FRA-01)
+      await setSession(context, host);
+      await page.goto(`/host/trips/${trip}/incidental-fees`);
+      await expect(page.locator('[data-testid="incidental-cancel-final"]')).toHaveText(
+        t('web.incidental.cancelDisputedFinal'),
+      );
+      await expectAccessible(page, { include: null });
+      await page.locator('[data-testid="incidental-cancel"]').click();
+      await expect(page.locator('[data-testid="incidental-status"]')).toHaveText(
+        t('web.incidental.status.CANCELLED_BY_HOST'),
+      );
+      await expect(page.locator('[data-testid="incidental-cancel-final"]')).toHaveCount(0);
+      await expect(
+        page.locator('[data-testid="incidental-type"] option[value="CLEANING"]'),
+      ).toHaveCount(0);
+      await expect(page.locator('[data-testid="incidental-type"] option')).toHaveCount(2);
     });
   });
 }

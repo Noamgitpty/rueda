@@ -34,7 +34,8 @@ export interface IncidentalInvoiceRow {
   readonly windowOpen: boolean;
   readonly description: string;
   readonly evidenceCount: number;
-  /** Photos du trip retenues comme pièces (côté, emplacement, auteur, heure serveur). */
+  /** Pièces retenues : photos du trip (côté, emplacement, auteur, heure serveur) et fichiers de
+   * l'hôte (type, heure serveur de dépôt ; ADR-202, F-L3-FRA-02). */
   readonly evidence: readonly IncidentalEvidenceRow[];
   readonly disputeReason: string | null;
   readonly decision: 'CHARGE' | 'REJECTED' | null;
@@ -42,13 +43,26 @@ export interface IncidentalInvoiceRow {
   readonly chargeStatus: IncidentalChargeStatus | null;
 }
 
-export interface IncidentalEvidenceRow {
-  readonly kind: 'CHECKIN' | 'CHECKOUT';
-  readonly slotCode: string;
-  readonly slotGroup: string;
-  readonly takenBy: IncidentalRole;
-  readonly receivedAt: Date;
-}
+export type IncidentalEvidenceRow =
+  | {
+      readonly kind: 'CHECKIN' | 'CHECKOUT';
+      readonly slotCode: string;
+      readonly slotGroup: string;
+      readonly takenBy: IncidentalRole;
+      readonly receivedAt: Date;
+    }
+  | {
+      /** Fichier de preuve déposé par l'hôte et rattaché au trip (jamais son identifiant). */
+      readonly kind: 'HOST_FILE';
+      readonly takenBy: 'HOST';
+      readonly mime: IncidentalHostFileMime;
+      readonly receivedAt: Date;
+    };
+
+/** Types de fichier admis pour une pièce de l'hôte (politique de 0177). */
+export const INCIDENTAL_HOST_FILE_MIMES = ['image/jpeg', 'image/webp'] as const;
+export type IncidentalHostFileMime = (typeof INCIDENTAL_HOST_FILE_MIMES)[number];
+const MIMES: readonly unknown[] = INCIDENTAL_HOST_FILE_MIMES;
 
 /** Plafonds du pays par type (unités mineures) ; `null` : non fixé (aucune demande). */
 export type IncidentalCaps = Readonly<Record<IncidentalFeeType, string | null>>;
@@ -204,6 +218,18 @@ export function parseIncidentalView(v: unknown, exponent?: unknown): IncidentalV
     const rawEvidence = i['evidence'];
     if (!Array.isArray(rawEvidence)) return bad();
     const evidence = rawEvidence.map((e): IncidentalEvidenceRow => {
+      if (isObj(e) && e['kind'] === 'HOST_FILE') {
+        // fichier de l'hôte (ADR-202) : type admis et heure serveur de dépôt, rien d'autre
+        if (e['takenBy'] !== 'HOST' || !MIMES.includes(e['mime'])) return bad();
+        const at = time(e['receivedAt']);
+        if (at === null) return bad();
+        return {
+          kind: 'HOST_FILE',
+          takenBy: 'HOST',
+          mime: e['mime'] as IncidentalHostFileMime,
+          receivedAt: at,
+        };
+      }
       if (
         !isObj(e) ||
         (e['kind'] !== 'CHECKIN' && e['kind'] !== 'CHECKOUT') ||

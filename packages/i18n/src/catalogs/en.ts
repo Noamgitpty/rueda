@@ -3806,6 +3806,10 @@ export const EN_MESSAGES = {
   'web.incidental.form.cap': 'Maximum for {fee}: {amount}.',
   'web.incidental.form.allRequested': 'You already requested every type of cost for this trip.',
   'web.incidental.form.capMissing': '{fee}: can’t be requested in this country yet.',
+  // US-706 suite (ADR-202) : fichier de l’hôte décrit ; annulation d’une demande contestée définitive
+  'web.incidental.evidenceHostFile': 'Photo sent by the host · {format} · received {date}',
+  'web.incidental.cancelDisputedFinal':
+    'The guest disputed this cost. Cancelling the request is final: this cost can’t be requested again for this trip.',
   // US-318 (ADR-198) : réponses des routes des sinistres d’un trip (incident, amendes, péages, fourrière)
   'common.tripClaims.notFound': 'We couldn’t find this trip.',
   'common.tripClaims.incidentNotOpen':

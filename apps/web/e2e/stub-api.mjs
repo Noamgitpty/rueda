@@ -3452,10 +3452,17 @@ async function incidentalRoute(req, res, url) {
       slotGroup,
       takenBy,
     }));
+    // `hostfile=yes` : un fichier de preuve de l'hôte rattaché au trip, retenu par la demande en
+    // attente (ADR-202 : décrit au voyageur par son type et son heure de dépôt, jamais son id)
+    const hostFiles =
+      url.searchParams.get('hostfile') === 'yes'
+        ? [{ fileId: uuid(), mime: 'image/jpeg', receivedAt: INC_NOW }]
+        : [];
     incidentals.set(tripId, {
       guest: url.searchParams.get('guest') ?? '',
       host: url.searchParams.get('host') ?? '',
       photos,
+      hostFiles,
       invoices: [],
     });
     // `pending=yes` : une demande de nettoyage déjà notifiée (écran du voyageur)
@@ -3467,7 +3474,7 @@ async function incidentalRoute(req, res, url) {
         amountMinor: '4500',
         status: 'AWAITING_GUEST',
         description: 'Sable et boue sur la banquette arrière',
-        evidence: [photos[2].fileId],
+        evidence: [photos[2].fileId, ...hostFiles.map((f) => f.fileId)],
         disputeReason: null,
       });
     }
@@ -3508,15 +3515,25 @@ async function incidentalRoute(req, res, url) {
         windowOpen: i.status === 'AWAITING_GUEST',
         description: i.description,
         evidenceCount: i.evidence.length,
-        evidence: t.photos
-          .filter((p) => i.evidence.includes(p.fileId))
-          .map((p) => ({
-            kind: p.kind,
-            slotCode: p.slotCode,
-            slotGroup: p.slotGroup,
-            takenBy: p.takenBy,
-            receivedAt: INC_END,
-          })),
+        evidence: [
+          ...t.photos
+            .filter((p) => i.evidence.includes(p.fileId))
+            .map((p) => ({
+              kind: p.kind,
+              slotCode: p.slotCode,
+              slotGroup: p.slotGroup,
+              takenBy: p.takenBy,
+              receivedAt: INC_END,
+            })),
+          ...t.hostFiles
+            .filter((f) => i.evidence.includes(f.fileId))
+            .map((f) => ({
+              kind: 'HOST_FILE',
+              takenBy: 'HOST',
+              mime: f.mime,
+              receivedAt: f.receivedAt,
+            })),
+        ],
         disputeReason: i.disputeReason,
         decision: null,
         decisionRationale: null,
@@ -3560,7 +3577,13 @@ async function incidentalRoute(req, res, url) {
     if (BigInt(b.amountMinor) > 15000n) {
       return err(res, 422, 'INCIDENTAL_AMOUNT_ABOVE_CAP', 'common.incidental.amountAboveCap');
     }
-    if (t.invoices.some((i) => i.feeType === b.feeType && i.status !== 'CANCELLED_BY_HOST')) {
+    // comme la base (ADR-202) : seule une annulation AVANT toute contestation libère le type
+    if (
+      t.invoices.some(
+        (i) =>
+          i.feeType === b.feeType && (i.status !== 'CANCELLED_BY_HOST' || i.disputeReason !== null),
+      )
+    ) {
       return err(res, 409, 'INCIDENTAL_DUPLICATE', 'common.incidental.duplicate');
     }
     const id = uuid();

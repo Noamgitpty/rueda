@@ -412,8 +412,13 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  `common.tripClaims.*` (réponses des routes `/trips/{tripId}/incidents`, `/claims` et
  `/traffic-charges`) et les écrans de l’incident du voyageur (S17) et des amendes, péages et
  fourrière de l’hôte.
+ Version 115 (réservée à la suite d’US-706 par l’orchestrateur ; la 114 est réservée au correctif
+ d’US-318 ; le numéro ne redescend jamais) : frais annexes, suite de la red team du lot 3 (ADR-202,
+ F-L3-FRA-01 et 02) : `web.incidental.evidenceHostFile` (fichier de l’hôte décrit : format et heure
+ serveur de dépôt) et `web.incidental.cancelDisputedFinal` (annuler une demande contestée est
+ définitif).
  */
-export const CATALOG_VERSION = 113;
+export const CATALOG_VERSION = 115;
 
 /** Catalogues de base par langue ; la langue d'un profil de locale choisit le sien. */
 export const CATALOGS: Readonly<Record<CatalogLanguage, VersionedCatalog<MessageKey>>> = {

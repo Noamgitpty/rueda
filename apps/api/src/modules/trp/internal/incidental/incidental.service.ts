@@ -107,13 +107,21 @@ export interface IncidentalView {
     readonly windowOpen: boolean;
     readonly description: string;
     readonly evidenceCount: number;
-    readonly evidence: readonly {
-      readonly kind: string;
-      readonly slotCode: string;
-      readonly slotGroup: string;
-      readonly takenBy: IncidentalRole;
-      readonly receivedAt: string;
-    }[];
+    readonly evidence: readonly (
+      | {
+          readonly kind: string;
+          readonly slotCode: string;
+          readonly slotGroup: string;
+          readonly takenBy: IncidentalRole;
+          readonly receivedAt: string;
+        }
+      | {
+          readonly kind: 'HOST_FILE';
+          readonly takenBy: 'HOST';
+          readonly mime: string;
+          readonly receivedAt: string;
+        }
+    )[];
     readonly disputeReason: string | null;
     readonly decision: string | null;
     readonly decisionRationale: string | null;

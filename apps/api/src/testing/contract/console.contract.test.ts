@@ -795,7 +795,27 @@ describe('contrat HTTP — /console', () => {
     legs: { HOST: '4500', INSURER: '0', TAX_THIRD_PARTY: '0', PLATFORM: '0' },
     status: 'DISPUTED',
     description: 'Sièges arrière couverts de sable au retour',
-    evidence: [{ kind: 'CHECKOUT', slotCode: 'INT_01', takenBy: 'HOST' }],
+    // ADR-202 (F-L3-FRA-02) : chaque pièce décrite, fichier de l'hôte compris
+    evidenceCount: 2,
+    evidence: [
+      {
+        kind: 'CHECKOUT',
+        slotCode: 'INT_01',
+        slotGroup: 'INTERIOR',
+        takenBy: 'HOST',
+        receivedAt: '2097-03-10T08:00:00.000Z',
+      },
+      {
+        kind: 'HOST_FILE',
+        takenBy: 'HOST',
+        fileId: ID,
+        mime: 'image/jpeg',
+        bytes: '2048',
+        sha256: 'ab'.repeat(32),
+        deleted: false,
+        receivedAt: '2097-03-10T09:00:00.000Z',
+      },
+    ],
     disputeEvidence: [{ kind: 'CHECKOUT', slotCode: 'INT_02', takenBy: 'GUEST' }],
     notifiedAt: '2097-03-10T10:00:00.000Z',
     responseDueAt: '2097-03-13T10:00:00.000Z',

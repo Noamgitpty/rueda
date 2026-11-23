@@ -43,3 +43,52 @@ describe('parseIncidentalView — plafonds (US-706)', () => {
     );
   });
 });
+
+describe('parseIncidentalView — pièces décrites (ADR-202, F-L3-FRA-02)', () => {
+  const invoice = (evidence: unknown[]) => ({
+    id: '0190f5a2-7c3e-7d4b-8a1f-3c5e9b2d4a70',
+    feeType: 'CLEANING',
+    amountMinor: '4500',
+    status: 'AWAITING_GUEST',
+    notifiedAt: '2097-03-10T10:00:00.000Z',
+    responseDueAt: '2097-03-13T10:00:00.000Z',
+    windowOpen: true,
+    description: 'Sable sur la banquette arrière',
+    evidenceCount: evidence.length,
+    evidence,
+    disputeReason: null,
+    decision: null,
+    decisionRationale: null,
+    chargeStatus: null,
+  });
+  const file = {
+    kind: 'HOST_FILE',
+    takenBy: 'HOST',
+    mime: 'image/jpeg',
+    receivedAt: '2097-03-10T09:00:00.000Z',
+  };
+
+  it('fichier de l’hôte : type et heure serveur de dépôt lus tels quels', () => {
+    const v = parseIncidentalView({ ...VIEW, invoices: [invoice([file])] }, 2);
+    expect(v?.invoices[0]?.evidence).toEqual([
+      {
+        kind: 'HOST_FILE',
+        takenBy: 'HOST',
+        mime: 'image/jpeg',
+        receivedAt: new Date(file.receivedAt),
+      },
+    ]);
+  });
+
+  it('type de fichier, auteur ou heure inattendus ⇒ erreur (jamais un état partiel)', () => {
+    for (const bad of [
+      { ...file, mime: 'application/pdf' },
+      { ...file, takenBy: 'GUEST' },
+      { ...file, receivedAt: 'hier' },
+    ]) {
+      expect(() => parseIncidentalView({ ...VIEW, invoices: [invoice([bad])] }, 2)).toThrow(
+        IncidentalStoreError,
+      );
+    }
+  });
+});

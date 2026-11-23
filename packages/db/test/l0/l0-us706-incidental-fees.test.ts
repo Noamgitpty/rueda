@@ -831,7 +831,8 @@ describe.each(COUNTRIES)('US-706 — frais annexes ($country, $currency)', (c: C
         await param(tx, 'incidental_host_window_h', c.country, 0);
         await now(tx, at(J0, 4 * MINUTE));
         expect((await attach(tx, strict.holder, strict.trip)).r).toBe('PARAM_MISSING');
-        // la vue ne liste que les photos du trip ; le fichier déposé est compté
+        // chaque pièce retenue est décrite (ADR-202, F-L3-FRA-02) : la photo du trip et le fichier
+        // déposé (type, heure serveur de dépôt ; jamais son identifiant)
         const g = await session(tx, loose.guest);
         const inv = (
           (await tx.query<{ v: Row }>(VIEW, [g, loose.trip])).rows[0]!.v['invoices'] as Row[]
@@ -845,6 +846,7 @@ describe.each(COUNTRIES)('US-706 — frais annexes ($country, $currency)', (c: C
             takenBy: 'HOST',
             receivedAt: END,
           },
+          { kind: 'HOST_FILE', takenBy: 'HOST', mime: 'image/jpeg', receivedAt: J0 },
         ]);
       });
     });

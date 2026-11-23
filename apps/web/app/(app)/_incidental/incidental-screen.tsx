@@ -21,6 +21,7 @@ import {
   CHARGE_KEYS,
   DONE_KEYS,
   FEE_KEYS,
+  HOST_FILE_FORMAT,
   incidentalHref,
   SLOT_KEYS,
   STATUS_TONE,
@@ -143,9 +144,13 @@ export async function IncidentalScreen({
   };
 
   // un type déjà demandé ou rejeté ne se redemande pas (INCIDENTAL_DUPLICATE) : masqué ; seule une
-  // annulation par l'hôte le libère (revue code delta, mineur)
+  // annulation par l'hôte AVANT toute contestation le libère (revue code delta ; ADR-202,
+  // F-L3-FRA-01 : une demande contestée puis annulée est abandonnée pour de bon)
   const openTypes = view.feeTypes.filter(
-    (f) => !view.invoices.some((i) => i.feeType === f && i.status !== 'CANCELLED_BY_HOST'),
+    (f) =>
+      !view.invoices.some(
+        (i) => i.feeType === f && (i.status !== 'CANCELLED_BY_HOST' || i.disputeReason !== null),
+      ),
   );
 
   const invoice = (inv: IncidentalInvoice) => (
@@ -166,20 +171,30 @@ export async function IncidentalScreen({
           prise de photos (revue ux delta) : vue des photos en lecture seule et vignettes : suite */}
       <p className={accountStyles['muted']}>{t('web.incidental.evidence')}</p>
       <ul className={styles['evidence']} data-testid="incidental-evidence">
-        {inv.evidence.map((e) => (
-          <li key={`${e.kind}-${e.slotCode}-${e.takenBy}-${e.receivedAt}`}>
-            {t('web.incidental.evidenceItem', {
-              side: t(
-                e.kind === 'CHECKIN'
-                  ? 'web.incidental.side.CHECKIN'
-                  : 'web.incidental.side.CHECKOUT',
-              ),
-              slot: t(SLOT_KEYS[e.slotGroup]),
-              by: t(e.takenBy === 'HOST' ? 'web.incidental.by.HOST' : 'web.incidental.by.GUEST'),
-              date: date(e.receivedAt),
-            })}
-          </li>
-        ))}
+        {inv.evidence.map((e, n) =>
+          e.kind === 'HOST_FILE' ? (
+            // fichier de l'hôte décrit (ADR-202, F-L3-FRA-02) : type et heure serveur de dépôt
+            <li key={`HOST_FILE-${n}-${e.receivedAt}`} data-testid="incidental-evidence-host-file">
+              {t('web.incidental.evidenceHostFile', {
+                format: HOST_FILE_FORMAT[e.mime],
+                date: date(e.receivedAt),
+              })}
+            </li>
+          ) : (
+            <li key={`${e.kind}-${e.slotCode}-${e.takenBy}-${e.receivedAt}`}>
+              {t('web.incidental.evidenceItem', {
+                side: t(
+                  e.kind === 'CHECKIN'
+                    ? 'web.incidental.side.CHECKIN'
+                    : 'web.incidental.side.CHECKOUT',
+                ),
+                slot: t(SLOT_KEYS[e.slotGroup]),
+                by: t(e.takenBy === 'HOST' ? 'web.incidental.by.HOST' : 'web.incidental.by.GUEST'),
+                date: date(e.receivedAt),
+              })}
+            </li>
+          ),
+        )}
         {inv.evidenceCount > inv.evidence.length && (
           <li>
             {t('web.incidental.evidenceUpload', {
@@ -236,6 +251,12 @@ export async function IncidentalScreen({
             photos={view.photos}
           />
         </>
+      )}
+      {role === 'HOST' && inv.status === 'DISPUTED' && (
+        // annuler une demande contestée est définitif (ADR-202, F-L3-FRA-01)
+        <p className={accountStyles['muted']} data-testid="incidental-cancel-final">
+          {t('web.incidental.cancelDisputedFinal')}
+        </p>
       )}
       {role === 'HOST' && (inv.status === 'AWAITING_GUEST' || inv.status === 'DISPUTED') && (
         <IncidentalCancelForm

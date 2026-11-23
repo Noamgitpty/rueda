@@ -3893,6 +3893,11 @@ export const ES_MESSAGES = {
   'web.incidental.form.cap': 'Máximo para {fee}: {amount}.',
   'web.incidental.form.allRequested': 'Ya pediste cada tipo de gasto para este viaje.',
   'web.incidental.form.capMissing': '{fee}: todavía no se puede pedir aquí.',
+  // US-706 suite (ADR-202) : fichier de l’hôte décrit ; annulation d’une demande contestée définitive
+  'web.incidental.evidenceHostFile':
+    'Foto enviada por el anfitrión · {format} · recibida el {date}',
+  'web.incidental.cancelDisputedFinal':
+    'El viajero impugnó este gasto. Si cancelas la solicitud, es definitivo: ya no podrás pedir este gasto para este viaje.',
   // US-318 (ADR-198) : réponses des routes des sinistres d’un trip (incident, amendes, péages, fourrière)
   'common.tripClaims.notFound': 'No encontramos este viaje.',
   'common.tripClaims.incidentNotOpen':
