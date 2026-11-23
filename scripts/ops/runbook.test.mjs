@@ -51,6 +51,7 @@ test('restauration : chaque étape appelée par l’exercice existe une fois dan
   const all = new Set([...steps, ...inner]);
   assert.deepEqual([...all].sort(), [
     'exercice-bascule',
+    'exercice-levee',
     'exercice-restauration',
     'exercice-sauvegarde',
     'exercice-verification',

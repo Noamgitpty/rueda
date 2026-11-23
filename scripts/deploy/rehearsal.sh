@@ -12,7 +12,10 @@
 #   3. déploie D : échec ⇒ retour arrière AUTOMATIQUE, A est servie, le journal le dit ;
 #   4. déploie B puis retour arrière MANUEL : A est servie, le journal le dit ;
 #   5. détruit l'environnement (base et secrets compris) puis le recrée depuis le dépôt : A servie,
-#      sans autre action que le tirage des secrets.
+#      sans autre action que le tirage des secrets ;
+#   6. US-402 (L4-PM-17) : image N−1 (docs/ops/rollback-reference.json, construite depuis son commit)
+#      déployée, puis N (migrations en plus), puis retour arrière manuel : N−1 saine sur le schéma N,
+#      sans migration descendante ; N redéployée.
 # Le journal (JSON Lines) est laissé dans $RUEDA_DEPLOY_JOURNAL (artefact de la CI).
 set -euo pipefail
 
@@ -126,6 +129,35 @@ bash "$LOCAL" deploy "$A"
 expect_served "$A" 'A sur l’environnement reconstruit'
 [ "$(http GET '/brand/content?locale=es')" = 200 ] || fail 'API reconstruite : GET /brand/content ≠ 200'
 
+say '6. image N−1 sur le schéma N (US-402, L4-PM-17) : retour arrière à travers de vraies migrations'
+PREV="${RUEDA_ROLLBACK_PREVIOUS_SHA:-$(node -e "process.stdout.write(require('./docs/ops/rollback-reference.json').previousRelease)")}"
+[[ "$PREV" =~ ^[0-9a-f]{40}$ ]] || fail "référence N−1 invalide : $PREV"
+PREV_TREE="$(mktemp -d)"
+trap 'git worktree remove --force "$PREV_TREE" >/dev/null 2>&1 || true; RUEDA_IMAGE=x docker compose -f infra/local/compose.yaml --profile job down -v --remove-orphans >/dev/null 2>&1 || true' EXIT
+git fetch --quiet --depth=1 origin "$PREV"
+git worktree add --quiet --detach "$PREV_TREE" FETCH_HEAD
+newer="$(comm -13 <(ls "$PREV_TREE/packages/db/migrations" | grep '\.sql$' | sort) \
+  <(ls packages/db/migrations | grep '\.sql$' | sort) | tr '\n' ' ')"
+[ -n "${newer// /}" ] || fail "N−1 ($PREV) a déjà toutes les migrations de N : avancer docs/ops/rollback-reference.json"
+say "migrations de N absentes de N−1 : $newer"
+docker build -f "$PREV_TREE/docker/prod/Dockerfile" --build-arg RUEDA_RELEASE="n-1-${PREV:0:12}" \
+  -t rueda-api:rehearsal-p "$PREV_TREE"
+P="$(id_of rueda-api:rehearsal-p)"
+bash "$LOCAL" destroy
+bash "$LOCAL" deploy "$P"
+expect_served "$P" "N−1 (${PREV:0:12}) sur un environnement vierge"
+bash "$LOCAL" deploy "$A"
+expect_served "$A" 'N (migrations de N appliquées)'
+bash "$LOCAL" rollback
+expect_served "$P" 'N−1 servie sur le schéma N (retour arrière manuel, sans migration descendante)'
+journal_has ROLLBACK "$P" SUCCEEDED "\"from\":\"$A\""
+[ "$(http GET '/brand/content?locale=es')" = 200 ] || fail 'N−1 sur le schéma N : GET /brand/content ≠ 200'
+# le schéma reste N : le job de base de N, rejoué, n'a rien à appliquer et réussit
+local_compose --profile job run --rm migrate >/dev/null
+bash "$LOCAL" deploy "$A"
+expect_served "$A" 'N redéployée après le retour arrière'
+git worktree remove --force "$PREV_TREE"
+
 say 'journal des déploiements'
 cat "$RUEDA_DEPLOY_JOURNAL"
-say 'répétition verte : déploiement, retour arrière automatique et manuel, reconstruction'
+say 'répétition verte : déploiement, retour arrière automatique et manuel, reconstruction, N−1 sur le schéma N'

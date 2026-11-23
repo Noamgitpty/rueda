@@ -284,6 +284,8 @@ const state: {
   instant?: Scenario;
   latest?: Scenario;
   rowsAtT?: number;
+  /** US-402 : file propre à l'exercice, une tâche due avant T. */
+  queue?: string;
 } = {};
 const heartbeat = new Heartbeat();
 let metaWriter: pg.Client | undefined;
@@ -341,6 +343,56 @@ function verificationReport(container: string): {
 }
 
 describe('US-051 — exercice de restauration chronométré', () => {
+  /** US-402 (ADR-206) : état de la garde de reprise, vu par app_worker sur une instance. */
+  async function guardOf(
+    port: number,
+  ): Promise<{ active: boolean; expected: number; current: number }> {
+    const worker = await open(port, 'app_worker');
+    try {
+      const { rows } = await worker.query<{ active: boolean; expected: number; current: number }>(
+        'SELECT active, expected_timeline AS expected, current_timeline AS current FROM platform.recovery_status()',
+      );
+      const r = rows[0];
+      if (r === undefined) throw new Error('recovery_status sans résultat');
+      return r;
+    } finally {
+      await worker.end();
+    }
+  }
+
+  /** Réclamation des tâches de la file de l'exercice, sous app_worker (transaction annulée). */
+  async function claimable(port: number, queue: string): Promise<number> {
+    const worker = await open(port, 'app_worker');
+    try {
+      await worker.query('BEGIN');
+      await worker.query(
+        `SELECT pg_catalog.set_config('app.actor_kind', 'WORKER', true),
+              pg_catalog.set_config('app.worker_name', $1, true)`,
+        [queue],
+      );
+      const { rows } = await worker.query(
+        `SELECT id FROM core.outbox_claim_jobs(10, interval '30 seconds')`,
+      );
+      return rows.length;
+    } finally {
+      await worker.query('ROLLBACK').catch(() => undefined);
+      await worker.end();
+    }
+  }
+
+  /** Tâches déjà réclamées une fois ou plus (tout ce qu'un travailleur aurait émis), sous l'administration. */
+  async function touchedJobs(port: number): Promise<number> {
+    const admin = await open(port, 'postgres');
+    try {
+      const { rows } = await admin.query<{ n: number }>(
+        `SELECT count(*)::integer AS n FROM core.outbox_scheduled_job WHERE attempts > 0 OR state <> 'CREATED'`,
+      );
+      return rows[0]?.n ?? -1;
+    } finally {
+      await admin.end();
+    }
+  }
+
   it('1. préproduction peuplée (deux pays), puis sauvegarde de base par le runbook', async () => {
     const w0 = await populate(0, 3);
     expect(sizeOf(w0)).toBe(COUNTRIES.length * 3 * 3);
@@ -356,6 +408,26 @@ describe('US-051 — exercice de restauration chronométré', () => {
   });
 
   it('2. instant T fixé, écritures après T, journaux archivés', async () => {
+    // US-402 : une tâche DUE avant T, dans une file propre à l'exercice (validée, sous app_worker)
+    state.queue = `us402_drill_${String(Date.now() % 1_000_000)}`;
+    const producer = await open(benchInfo().port, 'app_worker');
+    try {
+      await producer.query('BEGIN');
+      await producer.query(
+        `SELECT pg_catalog.set_config('app.actor_kind', 'WORKER', true),
+                pg_catalog.set_config('app.worker_name', $1, true)`,
+        [state.queue],
+      );
+      await producer.query(
+        `SELECT core.outbox_enqueue($1::text, '{"drill":"US-402"}'::jsonb, $1::text, NULL::uuid,
+                                    NULL::timestamptz, interval '0 seconds', 5)`,
+        [state.queue],
+      );
+      await producer.query('COMMIT');
+    } finally {
+      await producer.end();
+    }
+    expect((await guardOf(benchInfo().port)).active).toBe(false);
     const admin = await open(benchInfo().port, 'postgres');
     try {
       state.fingerprint = await dataFingerprint(admin);
@@ -419,10 +491,37 @@ describe('US-051 — exercice de restauration chronométré', () => {
     const beat = await lastHeartbeat(PORT_A);
     const t = Date.parse((state.t ?? '').replace(' ', 'T').replace('+00', 'Z'));
     expect(beat.getTime()).toBeLessThanOrEqual(t);
+    // US-402 (ADR-206, L4-PM-19) : base restaurée DÉTECTÉE (nouvelle ligne de temps) ⇒ garde active
+    const guard = await guardOf(PORT_A);
+    expect(guard.active).toBe(true);
+    expect(guard.current).not.toBe(guard.expected);
+    expect(
+      (
+        JSON.parse(readFileSync(join(work(), `verification-${container}.json`), 'utf8')) as {
+          recovery: { active: boolean };
+        }
+      ).recovery.active,
+    ).toBe(true);
+    const touchedAtT = await touchedJobs(PORT_A);
     // l'application redémarre sur la base restaurée
     state.instant = switchTo(PORT_A, rv);
     state.instant.rpoS = (t - beat.getTime()) / 1000;
+    // travailleur en marche sur la base restaurée : AUCUNE tâche réclamée, donc rien n'est émis
+    await sleep(5_000);
+    expect(await touchedJobs(PORT_A)).toBe(touchedAtT);
+    expect(await claimable(PORT_A, state.queue ?? '')).toBe(0);
     stopServing();
+    // levée par le runbook, après le rapprochement (FAKE : rien d'exécuté hors de la base)
+    runbook('exercice-levee', {
+      RUEDA_RESTORE_PORT: String(PORT_A),
+      RUEDA_RECOVERY_RESTORED_TO: new Date(t).toISOString(),
+      RUEDA_RECOVERY_RECONCILED: 'yes',
+      RUEDA_PSP_IDEMPOTENCY_WINDOW_S: '86400',
+      RUEDA_RECOVERY_NOTE: 'exercice US-402 : rapprochement FAKE, aucune commande en vol',
+    });
+    const released = await guardOf(PORT_A);
+    expect(released).toEqual({ active: false, expected: guard.current, current: guard.current });
+    expect(await claimable(PORT_A, state.queue ?? '')).toBe(1);
   });
 
   it('4. perte de l’instance : restauration au plus récent, RPO mesuré, intégrité, redémarrage', async () => {
@@ -445,6 +544,8 @@ describe('US-051 — exercice de restauration chronométré', () => {
     } finally {
       await admin.end();
     }
+    // US-402 : restauration au plus récent ⇒ garde active aussi (rien n'est émis avant la levée)
+    expect((await guardOf(PORT_B)).active).toBe(true);
     const rpoS = (lost - (await lastHeartbeat(PORT_B)).getTime()) / 1000;
     state.latest = switchTo(PORT_B, rv);
     state.latest.rpoS = rpoS;

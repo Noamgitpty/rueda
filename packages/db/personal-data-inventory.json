@@ -2805,6 +2805,29 @@
         "declared_by": "C1"
       }
     },
+    "platform.recovery_guard": {
+      "lifecycle": "C",
+      "export": "none",
+      "columns": {
+        "singleton": "C1",
+        "expected_timeline": "C1",
+        "recorded_at": "C1",
+        "recorded_by": "C1"
+      }
+    },
+    "platform.recovery_hold": {
+      "lifecycle": "C",
+      "export": "none",
+      "columns": {
+        "id": "C1",
+        "reason": "C1",
+        "placed_at": "C1",
+        "placed_by": "C1",
+        "released_at": "C1",
+        "released_by": "C1",
+        "release_note": "C1"
+      }
+    },
     "platform.schema_migration": {
       "lifecycle": "T",
       "export": "none",

@@ -1,0 +1,5 @@
+{
+  "$comment": "Version N−1 de la répétition « image N−1 sur le schéma N » (US-402, L4-PM-17, ADR-206 §4 ; scripts/deploy/rehearsal.sh étape 6). Commit de main AVANT la dernière migration du lot 3 (0184, PR #302) : son image est déployée, puis la version courante (qui ajoute au moins une migration), puis le retour arrière manuel ressert N−1 sur le schéma N sans migration descendante. À avancer quand une migration de contraction autorisée (expand-contract-allowlist.json) rend N−1 légitimement incompatible ; la répétition échoue si N−1 n'a plus de migration de retard. Variable de surcharge : RUEDA_ROLLBACK_PREVIOUS_SHA.",
+  "previousRelease": "5da56c993bb1c99a015dd2838deee90968348eb4",
+  "lastMigrationOfPrevious": "0183_claim_traffic_reference_canonical_trip_cap.sql"
+}

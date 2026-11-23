@@ -4,7 +4,7 @@
  *
  * Règles de jeu (comme au lot 2) : connexions sous les rôles de PRODUCTION (`withRole` : assertion
  * L0-05 en tête), une connexion par client, toujours libérée ; horloge de la base (`platform.now()`,
- * horloge virtuelle de test, années 2090 à 2096 pour les passes précédentes et 2076 à 2078 pour la passe de la porte : 2076 MIT, 2077 amendes, 2078 frais annexes ; aucune autre preuve ne les utilise) ; aucun
+ * horloge virtuelle de test, années 2090 à 2096 pour les passes précédentes et 2076 à 2078 pour la passe de la porte : 2076 MIT, 2077 amendes, 2078 frais annexes ; aucune autre preuve ne les utilise ; 2087 : dates de trips de US-402, apps/api/test/int/us402-reprise-sans-rejeu) ; aucun
  * interrupteur de mise en service ouvert hors d'une transaction ANNULÉE et par la vraie procédure à
  * deux personnes (US-125) ; aucune constante de pays (pays et devises de `COUNTRIES`) ; attendus
  * tirés de 16, de 08 et des oracles (`docs/specs/tools/`), jamais du code testé.
