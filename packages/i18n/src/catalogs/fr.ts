@@ -3875,7 +3875,7 @@ export const FR_MESSAGES = {
     'Le voyageur a acheté un extra pour ce voyage : le carburant n’est pas facturé.',
   'common.incidental.amountAboveCap': 'Le montant dépasse le maximum autorisé pour ces frais.',
   'common.incidental.duplicate':
-    'Cette demande n’est pas possible : ce frais (le nettoyage et le tabac comptent ensemble) a déjà été demandé, rejeté ou annulé après une contestation pour ce voyage, ou une pièce jointe sert déjà une autre demande.',
+    'Cette demande n’est pas possible : ce frais (le nettoyage et le tabac comptent ensemble) a déjà été demandé, rejeté ou annulé après une contestation pour ce voyage, ou une de ces photos sert déjà une autre demande. Si tu as du nouveau, contacte le support.',
   'common.incidental.notCancellable': 'Cette demande ne peut plus être annulée.',
   'common.incidental.notOpen': 'Ces frais n’attendent plus votre réponse.',
   'common.incidental.responseWindowClosed': 'Le délai pour payer ou contester ces frais est passé.',

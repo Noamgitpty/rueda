@@ -15,18 +15,16 @@
  *      (F2-U-01) ;
  *   4. métadonnées retirées (EXIF dont GPS, XMP, IPTC, MPF, commentaires, textes PNG ;
  *      L1-PM-19) par LISTE BLANCHE : JPEG coupé au premier EOI (rien après : ni image secondaire
- *      MPF / Ultra HDR, ni vidéo de « motion photo »), segments APPn retirés, y compris entre deux
- *      scans ; PNG et WebP : fragments connus seulement, rien après IEND ni au-delà de la taille
- *      RIFF. L'image n'est pas décodée ; les segments retirés ne portent aucun pixel ;
- *   4 bis. copie CANONIQUE (ADR-204, F-L3-PRE-04 ; JPEG et WebP) : la copie, donc son empreinte,
- *      ne dépend que des données de l'image, jamais d'un champ libre. JPEG : en-tête JFIF (densité,
- *      vignette) et profil ICC retirés, segment Adobe réécrit (seule la transformée de couleur
- *      reste), tables de quantification et de Huffman et intervalle de reprise réécrits une table
- *      par segment et dans un ordre fixe avant chaque trame ou scan, octets de bourrage 0xFF
- *      retirés du flux, segments d'extension (JPGn) et réservés retirés. WebP : profil ICCP
- *      retiré, drapeaux de VP8X réduits à alpha et animation, octets réservés et de bourrage remis
- *      à zéro. Limite (ADR-196, ADR-204) : un RÉ-ENCODAGE, ou un bit de remplissage du flux
- *      compressé, change l'empreinte (il faudrait décoder les pixels : aucune bibliothèque d'image) ;
+ *      MPF / Ultra HDR, ni vidéo de « motion photo ») ; PNG et WebP : fragments connus seulement,
+ *      rien après IEND ni au-delà de la taille RIFF. L'image n'est pas décodée ;
+ *   4 bis. copie CANONIQUE (ADR-204, F-L3-PRE-04 ; JPEG et WebP) : la copie est RÉÉCRITE à partir
+ *      de ce que retient un décodeur, et son empreinte ne dépend d'aucun champ libre. JPEG : JFIF
+ *      et Adobe RÉÉCRITS en segments canoniques (espace de couleur de libjpeg) ; orientation EXIF
+ *      (2 à 8) RÉÉCRITE seule dans un APP1 EXIF canonique ; tables lues seules, emplacements par
+ *      contenu, avant le scan qui les lit ; scans normalisés ; flux sans bourrage ; tout autre
+ *      segment retiré. WebP : une trame, ALPH derrière un VP8X canonique. Copie jamais plus grande
+ *      que le fichier reçu (plus une marge fixe). Limite (ADR-196, ADR-204) : un RÉ-ENCODAGE, ou un
+ *      octet ajouté dans le flux compressé, change l'empreinte (aucune bibliothèque d'image) ;
  *   5. antivirus (port `PhotoScanner`, Q-019 ouverte : AUCUN adaptateur réel en production, donc
  *      toujours `PHOTO_UPLOAD_UNAVAILABLE` en production, BOARD N-52) : seul `CLEAN` libère ;
  *   6. dépôt (port `PhotoStorage`, bucket public PUBLIC_LISTING, création seule) : la ligne
@@ -92,26 +90,40 @@ export interface Dimensions {
 // celui des navigateurs) retient du fichier, jamais recopiée segment par segment :
 //   - espace de couleur : celui que retient libjpeg (jdapimin.c, default_decompress_parms : JFIF,
 //     puis le DERNIER APP14 « Adobe » avant le premier scan, puis les identifiants des
-//     composantes), réécrit en un segment canonique (JFIF sans champ libre, ou Adobe réduit à sa
-//     transformée) ; identifiants des composantes renumérotés 1..n ;
-//   - tables : seules celles que lit un scan sont émises, juste avant lui, une par segment, et
-//     seulement si elles diffèrent de la dernière émise au même emplacement ; quantification
-//     figée au premier scan de chaque composante (comme libjpeg), emplacements attribués par
-//     contenu ; Huffman : emplacements attribués par contenu dans chaque scan ; intervalle de
-//     reprise (DRI) émis quand il change (0 = absent) ;
-//   - scans : sélecteurs de tables non lus remis à 0 ; scan séquentiel : Ss = 0, Se = 63,
-//     Ah = Al = 0 ; flux sans octet de bourrage 0xFF ;
-//   - retirés : tous les APPn (EXIF, GPS, XMP, ICC, MPF, IPTC, vignette JFIF…), COM, DNL, DAC,
-//     DHP, EXP, JPGn, marqueurs réservés, tables non lues, et tout ce qui suit le premier EOI.
-// Trames acceptées : séquentielle de base ou étendue et progressive, codage de Huffman. Sans
-// perte, hiérarchique et arithmétique : refusées (MALFORMED ; aucun appareil photo ne les produit).
+//     composantes), RÉÉCRIT en un JFIF canonique (YCbCr) ou un Adobe canonique réduit à sa
+//     transformée (RGB ; à quatre composantes, la présence d'Adobe et sa transformée) ;
+//     identifiants des composantes renumérotés 1..n ;
+//   - orientation : la balise EXIF Orientation (2 à 8) du premier APP1 EXIF avant le premier scan,
+//     RÉÉCRITE seule dans un APP1 EXIF canonique ; 1, absente ou illisible : aucun EXIF ;
+//   - tables : la dernière définition d'un emplacement l'emporte ; quantification figée au premier
+//     scan de chaque composante (comme libjpeg), 16 bits ramenée à 8 bits quand toutes ses valeurs
+//     y tiennent, emplacements attribués par contenu ; Huffman : emplacements STABLES par contenu
+//     (une table déjà émise garde son emplacement) ; seules les tables lues sont émises, juste
+//     avant le scan qui les lit, et seulement si elles manquent ; DRI émis quand il change (0 =
+//     absent) ; trame séquentielle étendue compatible (8 bits, tables 8 bits, Huffman 0 et 1)
+//     réécrite en trame de base ;
+//   - scans : sélecteurs non lus remis à 0 ; scan séquentiel : Ss = 0, Se = 63, Ah = Al = 0 ; flux
+//     sans octet de bourrage 0xFF ;
+//   - retirés : tout autre APPn (GPS, XMP, ICC, MPF, IPTC, vignette JFIF…), COM, DNL, DAC, DHP, EXP,
+//     JPGn, marqueurs réservés, tables non lues, et tout ce qui suit le premier EOI.
+// Refusés (MALFORMED) : trame sans perte, hiérarchique ou arithmétique, plusieurs trames, plus de
+// `JPEG_MAX_SCANS` scans, copie plus grande que le fichier reçu (plus `CANONICAL_MARGIN` octets :
+// jamais d'amplification). Une table lue mais jamais définie reste « absente » dans la copie.
 const SOF = new Set([0xc0, 0xc1, 0xc2, 0xc3, 0xc5, 0xc6, 0xc7, 0xc9, 0xca, 0xcb, 0xcd, 0xce, 0xcf]);
 const SOF_ACCEPTED = new Set([0xc0, 0xc1, 0xc2]);
+/** Scans au plus (un JPEG progressif d'appareil en a une dizaine). */
+const JPEG_MAX_SCANS = 128;
+/** Marge de la copie canonique sur le fichier reçu (en-têtes JFIF, Adobe, EXIF réécrits). */
+const CANONICAL_MARGIN = 1024;
 const JFIF_ID = Buffer.from('JFIF\0', 'latin1');
 const ADOBE = Buffer.from('Adobe', 'latin1');
+const EXIF_ID = Buffer.from('Exif\0\0', 'latin1');
 /** JFIF canonique : version 1.01, sans unité, rapport 1:1, sans vignette. */
 const CANONICAL_JFIF = Buffer.concat([JFIF_ID, Buffer.from([1, 1, 0, 0, 1, 0, 1, 0, 0])]);
-/** Table lue par un scan mais jamais définie (le décodeur échoue ou prend sa table par défaut). */
+/**
+ * Table lue par un scan mais jamais définie : quantification, libjpeg échoue ; Huffman, il prend sa
+ * table standard. La copie la garde absente (même comportement des deux côtés).
+ */
 const UNDEFINED_TABLE = Buffer.alloc(0);
 
 function jpegSegment(marker: number, payload: Buffer): Buffer {
@@ -125,9 +137,72 @@ function jpegSegment(marker: number, payload: Buffer): Buffer {
 const adobeSegment = (transform: number): Buffer =>
   jpegSegment(0xee, Buffer.concat([ADOBE, Buffer.from([0, 100, 0, 0, 0, 0, transform])]));
 
+/** APP1 EXIF canonique : TIFF gros-boutiste, une seule entrée (Orientation, SHORT). */
+const orientationSegment = (o: number): Buffer =>
+  jpegSegment(
+    0xe1,
+    Buffer.concat([
+      EXIF_ID,
+      Buffer.from([
+        0x4d,
+        0x4d,
+        0,
+        0x2a,
+        0,
+        0,
+        0,
+        8,
+        0,
+        1,
+        0x01,
+        0x12,
+        0,
+        3,
+        0,
+        0,
+        0,
+        1,
+        0,
+        o,
+        0,
+        0,
+      ]),
+      Buffer.alloc(4),
+    ]),
+  );
+
+/**
+ * Orientation EXIF d'un APP1 : 0 si ce n'est pas un EXIF ; sinon la balise 0x0112 de l'IFD0
+ * (1 à 8), 1 si elle est absente ou illisible.
+ */
+function exifOrientation(p: Buffer): number {
+  if (p.length < 14 || !p.subarray(0, 6).equals(EXIF_ID)) return 0;
+  const t = p.subarray(6);
+  const le = t[0] === 0x49 && t[1] === 0x49;
+  if (!le && !(t[0] === 0x4d && t[1] === 0x4d)) return 1;
+  const u16 = (o: number): number => (le ? t.readUInt16LE(o) : t.readUInt16BE(o));
+  const u32 = (o: number): number => (le ? t.readUInt32LE(o) : t.readUInt32BE(o));
+  try {
+    if (u16(2) !== 42) return 1;
+    const ifd = u32(4);
+    const n = u16(ifd);
+    for (let k = 0; k < n; k += 1) {
+      const e = ifd + 2 + 12 * k;
+      if (u16(e) !== 0x0112) continue;
+      if (u16(e + 2) !== 3 || u32(e + 4) !== 1) return 1;
+      const v = u16(e + 8);
+      return v >= 1 && v <= 8 ? v : 1;
+    }
+  } catch {
+    return 1;
+  }
+  return 1;
+}
+
 /**
  * DQT : une table par emplacement (`Tq` = quatre bits de poids faible), la DERNIÈRE définition
- * l'emporte ; le contenu gardé est la précision (`Pq`, sans l'emplacement) et les valeurs.
+ * l'emporte ; contenu gardé = précision et valeurs, sans l'emplacement ; une table 16 bits dont
+ * toutes les valeurs tiennent sur 8 bits est ramenée à 8 bits (mêmes coefficients).
  */
 function readQuant(p: Buffer, into: Map<number, Buffer>): void {
   let k = 0;
@@ -137,7 +212,22 @@ function readQuant(p: Buffer, into: Map<number, Buffer>): void {
     if (pq > 1 || (head & 0x0f) > 3) throw new PhotoRejectedError('MALFORMED');
     const size = 1 + 64 * (pq + 1);
     if (k + size > p.length) throw new PhotoRejectedError('MALFORMED');
-    into.set(head & 0x0f, Buffer.concat([Buffer.from([pq << 4]), p.subarray(k + 1, k + size)]));
+    let values = p.subarray(k + 1, k + size);
+    let precision = pq;
+    if (pq === 1) {
+      const narrow = Buffer.alloc(64);
+      let fits = true;
+      for (let q = 0; q < 64; q += 1) {
+        const v = values.readUInt16BE(2 * q);
+        if (v > 255) fits = false;
+        narrow[q] = v & 0xff;
+      }
+      if (fits) {
+        values = narrow;
+        precision = 0;
+      }
+    }
+    into.set(head & 0x0f, Buffer.concat([Buffer.from([precision << 4]), values]));
     k += size;
   }
 }
@@ -195,6 +285,17 @@ function largest(prev: Dimensions | null, next: Dimensions): Dimensions {
   };
 }
 
+/** Taille démesurée refusée DÈS sa lecture, avant tout autre travail (L1-PM-42). */
+function checkDimensions(d: Dimensions, limits: PhotoLimits): void {
+  if (
+    d.width > limits.maxSide ||
+    d.height > limits.maxSide ||
+    d.width * d.height > limits.maxPixels
+  ) {
+    throw new PhotoRejectedError('DIMENSIONS');
+  }
+}
+
 interface JpegComponent {
   readonly id: number;
   readonly hv: number;
@@ -232,25 +333,49 @@ interface Parsed {
   readonly invalid: boolean;
 }
 
+/**
+ * Emplacements STABLES des tables de Huffman d'une classe : une table déjà présente garde son
+ * emplacement ; une table manquante prend le premier emplacement dont le contenu n'est pas lu par
+ * ce scan. Rend les emplacements des tables lues et les tables à émettre (emplacement, contenu).
+ */
+function placeHuffman(
+  slots: (Buffer | null)[],
+  needed: readonly Buffer[],
+): { readonly at: number[]; readonly emit: [number, Buffer][] } {
+  const at: number[] = needed.map((t) => slots.findIndex((x) => x !== null && x.equals(t)));
+  const emit: [number, Buffer][] = [];
+  needed.forEach((t, k) => {
+    if ((at[k] ?? -1) >= 0) return;
+    const slot = slots.findIndex(
+      (x, j) => !at.includes(j) && (x === null || !needed.some((n) => n.equals(x))),
+    );
+    at[k] = slot;
+    slots[slot] = t;
+    if (t.length > 0) emit.push([slot, t]);
+  });
+  return { at, emit };
+}
+
 function jpegAssemble(
   frame: JpegFrame,
   scans: readonly JpegScan[],
-  jfif: boolean,
-  adobe: number | null,
+  color: { readonly jfif: boolean; readonly adobe: number | null; readonly orientation: number },
 ): Buffer {
-  const out: Buffer[] = [Buffer.from([0xff, 0xd8])];
+  const head: Buffer[] = [Buffer.from([0xff, 0xd8])];
   const ids = frame.comps.map((c) => c.id);
   // espace de couleur retenu par libjpeg, réécrit sans champ libre
   if (ids.length === 3) {
-    const rgb = jfif
+    const rgb = color.jfif
       ? false
-      : adobe !== null
-        ? adobe === 0
+      : color.adobe !== null
+        ? color.adobe === 0
         : ids[0] === 0x52 && ids[1] === 0x47 && ids[2] === 0x42;
-    out.push(rgb ? adobeSegment(0) : jpegSegment(0xe0, CANONICAL_JFIF));
-  } else if (ids.length === 4 && adobe !== null) {
-    out.push(adobeSegment(adobe === 0 ? 0 : 2));
+    head.push(rgb ? adobeSegment(0) : jpegSegment(0xe0, CANONICAL_JFIF));
+  } else if (ids.length === 4 && color.adobe !== null) {
+    // quatre composantes : sans Adobe, CMYK ; avec Adobe, CMYK inversé (0) ou YCCK (autre)
+    head.push(adobeSegment(color.adobe === 0 ? 0 : 2));
   }
+  if (color.orientation >= 2) head.push(orientationSegment(color.orientation));
   // quantification : emplacements attribués par contenu, dans l'ordre où les tables sont figées
   const qSlots: Buffer[] = [];
   const qOf: number[] = frame.comps.map(() => 0);
@@ -262,72 +387,96 @@ function jpegAssemble(
       qOf[index] = slot;
     }
   }
-  const sof = Buffer.concat([
-    frame.head,
-    Buffer.from([frame.comps.length]),
-    ...frame.comps.map((c, k) => Buffer.from([k + 1, c.hv, qOf[k] ?? 0])),
-  ]);
-  const qSent = new Set<number>();
-  const hSent = new Map<number, Buffer>();
+  // Huffman : emplacements stables par contenu, sur toute l'image
+  const slots: [(Buffer | null)[], (Buffer | null)[]] = [
+    [null, null, null, null],
+    [null, null, null, null],
+  ];
+  let maxSlot = 0;
+  const body: Buffer[] = [];
   let dri = 0;
+  const qSent = new Set<number>();
+  let sofAt = 0;
   scans.forEach((s, n) => {
+    const preQ: Buffer[] = [];
+    const pre: Buffer[] = [];
     for (const index of s.latch) {
       const slot = qOf[index] ?? 0;
       const t = qSlots[slot]!;
       if (!qSent.has(slot) && t.length > 0) {
-        out.push(
+        preQ.push(
           jpegSegment(0xdb, Buffer.concat([Buffer.from([(t[0] ?? 0) | slot]), t.subarray(1)])),
         );
       }
       qSent.add(slot);
     }
-    if (n === 0) out.push(jpegSegment(frame.marker, sof));
-    // Huffman : dans ce scan, emplacements attribués par contenu, par classe
-    const used: [Buffer[], Buffer[]] = [[], []];
-    const pick = (cls: 0 | 1, t: Buffer | null): number => {
-      if (t === null) return 0;
-      const list = used[cls];
-      const k = list.findIndex((x) => x.equals(t));
-      return k < 0 ? list.push(t) - 1 : k;
-    };
-    const selectors = s.comps.map((c) => (pick(0, c.dc) << 4) | pick(1, c.ac));
-    used.forEach((list, cls) => {
-      list.forEach((t, slot) => {
-        const key = (cls << 4) | slot;
-        if (t.length === 0 || hSent.get(key)?.equals(t) === true) return;
-        out.push(jpegSegment(0xc4, Buffer.concat([Buffer.from([key]), t.subarray(1)])));
-        hSent.set(key, t);
+    const sel = s.comps.map(() => 0);
+    ([0, 1] as const).forEach((cls) => {
+      const needed: Buffer[] = [];
+      for (const c of s.comps) {
+        const t = cls === 0 ? c.dc : c.ac;
+        if (t !== null && !needed.some((x) => x.equals(t))) needed.push(t);
+      }
+      const { at, emit } = placeHuffman(slots[cls], needed);
+      for (const [slot, t] of emit) {
+        pre.push(
+          jpegSegment(0xc4, Buffer.concat([Buffer.from([(cls << 4) | slot]), t.subarray(1)])),
+        );
+      }
+      s.comps.forEach((c, k) => {
+        const t = cls === 0 ? c.dc : c.ac;
+        if (t === null) return;
+        const slot = at[needed.findIndex((x) => x.equals(t))] ?? 0;
+        maxSlot = Math.max(maxSlot, slot);
+        sel[k] = (sel[k] ?? 0) | (cls === 0 ? slot << 4 : slot);
       });
     });
     if (s.dri !== dri) {
       const v = Buffer.alloc(2);
       v.writeUInt16BE(s.dri);
-      out.push(jpegSegment(0xdd, v));
+      pre.push(jpegSegment(0xdd, v));
       dri = s.dri;
     }
-    out.push(
-      jpegSegment(
-        0xda,
-        Buffer.concat([
-          Buffer.from([s.comps.length]),
-          ...s.comps.map((c, k) => Buffer.from([c.index + 1, selectors[k] ?? 0])),
-          s.spectral,
-        ]),
-      ),
-      s.data,
+    const sos = jpegSegment(
+      0xda,
+      Buffer.concat([
+        Buffer.from([s.comps.length]),
+        ...s.comps.map((c, k) => Buffer.from([c.index + 1, sel[k] ?? 0])),
+        s.spectral,
+      ]),
     );
+    body.push(...preQ);
+    // la trame suit les tables de quantification du premier scan, avant ses tables de Huffman
+    if (n === 0) sofAt = body.length;
+    body.push(...pre, sos, s.data);
   });
-  out.push(Buffer.from([0xff, 0xd9]));
-  return Buffer.concat(out);
+  // trame séquentielle étendue compatible avec la trame de base : réécrite en trame de base
+  const baseline =
+    frame.marker === 0xc1 &&
+    frame.head[0] === 8 &&
+    maxSlot <= 1 &&
+    qSlots.length <= 2 &&
+    qSlots.every((t) => (t[0] ?? 0) === 0);
+  const sof = jpegSegment(
+    baseline ? 0xc0 : frame.marker,
+    Buffer.concat([
+      frame.head,
+      Buffer.from([frame.comps.length]),
+      ...frame.comps.map((c, k) => Buffer.from([k + 1, c.hv, qOf[k] ?? 0])),
+    ]),
+  );
+  body.splice(sofAt, 0, sof);
+  return Buffer.concat([...head, ...body, Buffer.from([0xff, 0xd9])]);
 }
 
-function jpeg(b: Buffer): Parsed {
+function jpeg(b: Buffer, limits: PhotoLimits): Parsed {
   let i = 2;
   let dims: Dimensions | null = null;
   let invalid = false;
   let frame: JpegFrame | null = null;
   let jfif = false;
   let adobe: number | null = null;
+  let orientation: number | null = null;
   let scanned = false;
   let dri = 0;
   const quant = new Map<number, Buffer>();
@@ -355,6 +504,7 @@ function jpeg(b: Buffer): Parsed {
     if (SOF.has(marker)) {
       if (len < 7) throw new PhotoRejectedError('MALFORMED');
       dims = largest(dims, { height: b.readUInt16BE(i + 5), width: b.readUInt16BE(i + 7) });
+      checkDimensions(dims, limits);
       const nf = p[5] ?? 0;
       if (
         frame !== null ||
@@ -399,6 +549,7 @@ function jpeg(b: Buffer): Parsed {
       }
       if (j + 1 >= b.length) throw new PhotoRejectedError('MALFORMED');
       scanned = true;
+      if (scans.length >= JPEG_MAX_SCANS) throw new PhotoRejectedError('MALFORMED');
       const ns = p[0] ?? 0;
       if (frame === null || ns < 1 || ns > 4 || p.length < 4 + 2 * ns) {
         invalid = true;
@@ -423,6 +574,7 @@ function jpeg(b: Buffer): Parsed {
           }
           const c = frame.comps[index]!;
           if (c.latched === undefined) {
+            // table absente : contenu vide, gardé tel quel (libjpeg échoue des deux côtés)
             c.latched = quant.get(c.tq) ?? UNDEFINED_TABLE;
             latch.push(index);
           }
@@ -444,6 +596,12 @@ function jpeg(b: Buffer): Parsed {
       continue;
     } else if (marker === 0xe0) {
       if (!scanned && p.length >= 14 && p.subarray(0, 5).equals(JFIF_ID)) jfif = true;
+    } else if (marker === 0xe1) {
+      // le PREMIER APP1 EXIF avant le premier scan donne l'orientation (comme les navigateurs)
+      if (!scanned && orientation === null) {
+        const o = exifOrientation(p);
+        if (o > 0) orientation = o;
+      }
     } else if (marker === 0xee) {
       // le DERNIER Adobe avant le premier scan, comme libjpeg ; seule sa transformée compte
       if (!scanned && p.length >= 12 && p.subarray(0, 5).equals(ADOBE)) adobe = p[11] ?? 0;
@@ -457,7 +615,12 @@ function jpeg(b: Buffer): Parsed {
     invalid = true;
   }
   if (invalid || frame === null) return { clean: Buffer.alloc(0), dims, invalid: true };
-  return { clean: jpegAssemble(frame, scans, jfif, adobe), dims, invalid: false };
+  const clean = jpegAssemble(frame, scans, { jfif, adobe, orientation: orientation ?? 1 });
+  // jamais d'amplification : la copie ne dépasse pas le fichier reçu (plus une marge fixe)
+  if (clean.length > b.length + CANONICAL_MARGIN) {
+    return { clean: Buffer.alloc(0), dims, invalid: true };
+  }
+  return { clean, dims, invalid: false };
 }
 
 // ---- PNG -----------------------------------------------------------------------------------
@@ -480,7 +643,7 @@ const PNG_KEEP = new Set([
   'hIST',
 ]);
 
-function png(b: Buffer): Parsed {
+function png(b: Buffer, limits: PhotoLimits): Parsed {
   const out: Buffer[] = [b.subarray(0, 8)];
   let i = 8;
   let dims: Dimensions | null = null;
@@ -493,6 +656,7 @@ function png(b: Buffer): Parsed {
     if (type === 'IHDR') {
       if (len < 8) throw new PhotoRejectedError('MALFORMED');
       dims = largest(dims, { width: b.readUInt32BE(i + 8), height: b.readUInt32BE(i + 12) });
+      checkDimensions(dims, limits);
     }
     if (PNG_KEEP.has(type)) out.push(b.subarray(i, end));
     i = end;
@@ -520,7 +684,7 @@ function webpChunk(type: string, data: Buffer): Buffer {
   return Buffer.concat([h, data, data.length % 2 === 1 ? Buffer.alloc(1) : Buffer.alloc(0)]);
 }
 
-function webp(b: Buffer): Parsed {
+function webp(b: Buffer, limits: PhotoLimits): Parsed {
   let i = 12;
   let dims: Dimensions | null = null;
   let invalid = false;
@@ -541,6 +705,7 @@ function webp(b: Buffer): Parsed {
       if (((data[0] ?? 0) & 0x02) !== 0 || canvas !== null) invalid = true;
       canvas = Buffer.from(data.subarray(4, 10));
       dims = largest(dims, { width: 1 + data.readUIntLE(4, 3), height: 1 + data.readUIntLE(7, 3) });
+      checkDimensions(dims, limits);
     } else if (type === 'VP8 ' || type === 'VP8L') {
       if (type === 'VP8 ' && len >= 10) {
         dims = largest(dims, {
@@ -551,6 +716,7 @@ function webp(b: Buffer): Parsed {
         const bits = data.readUInt32LE(1);
         dims = largest(dims, { width: (bits & 0x3fff) + 1, height: ((bits >>> 14) & 0x3fff) + 1 });
       }
+      if (dims !== null) checkDimensions(dims, limits);
       if (image !== null) invalid = true;
       image = { type, data };
     } else if (type === 'ALPH') {
@@ -593,7 +759,12 @@ export function preparePhoto(body: Buffer, limits: PhotoLimits = DEFAULT_PHOTO_L
   if (mime === null) throw new PhotoRejectedError('TYPE');
   let r: Parsed;
   try {
-    r = mime === 'image/jpeg' ? jpeg(body) : mime === 'image/png' ? png(body) : webp(body);
+    r =
+      mime === 'image/jpeg'
+        ? jpeg(body, limits)
+        : mime === 'image/png'
+          ? png(body, limits)
+          : webp(body, limits);
   } catch (error) {
     if (error instanceof PhotoRejectedError) throw error;
     throw new PhotoRejectedError('MALFORMED');

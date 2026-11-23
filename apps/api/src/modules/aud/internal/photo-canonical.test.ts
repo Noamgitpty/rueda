@@ -406,3 +406,199 @@ describe('F-L3-PRE-04 (ADR-204) — WebP : mêmes données d’image, même copi
     }
   });
 });
+
+/** JPEG à quatre composantes, tables Huffman de 256 symboles (pire cas de taille par table). */
+function big(scans: number, permute: boolean, extra: Buffer[] = []): Buffer {
+  const many = Buffer.alloc(16);
+  many[0] = 1;
+  many[15] = 255;
+  const table = (cls: number, slot: number) =>
+    Buffer.concat([Buffer.from([(cls << 4) | slot]), many, Buffer.alloc(256, 16 * cls + slot)]);
+  const tables = [0, 1].flatMap((cls) => [0, 1, 2, 3].map((slot) => dht(table(cls, slot))));
+  const body: Buffer[] = [];
+  for (let n = 0; n < scans; n += 1) {
+    const order = permute ? [0, 1, 2, 3].map((k) => (k + n) % 4) : [0, 1, 2, 3];
+    body.push(
+      sos([1, 2, 3, 4].map((id, k) => [id, ((order[k] ?? 0) << 4) | (order[3 - k] ?? 0)] as const)),
+      Buffer.from([0x11 + (n % 7)]),
+    );
+  }
+  return jpeg(dqt(Q(0, 2)), ...tables, ...extra, sof([1, 2, 3, 4], [0, 0, 0, 0]), ...body);
+}
+
+describe('ADR-204 — borne de la copie (déni de service mémoire, revues de la PR 302)', () => {
+  it('huit tables de 256 symboles et des scans qui permutent les sélecteurs : chaque table est émise une fois ; la copie ne dépasse jamais le fichier reçu plus 1 024 octets', () => {
+    const body = big(100, true);
+    const clean = preparePhoto(body).body;
+    expect(clean.length).toBeLessThanOrEqual(body.length + 1024);
+    // huit DHT au plus dans la copie (emplacements stables par contenu)
+    let dhts = 0;
+    for (let k = 0; k + 1 < clean.length; k += 1) {
+      if (clean[k] === 0xff && clean[k + 1] === 0xc4) dhts += 1;
+    }
+    expect(dhts).toBeLessThanOrEqual(8);
+  });
+
+  it('plus de 128 scans ⇒ MALFORMED ; 128 scans acceptés', () => {
+    expect(() => preparePhoto(big(129, false))).toThrow(/MALFORMED/);
+    expect(preparePhoto(big(128, false)).body.length).toBeGreaterThan(0);
+  });
+
+  it('taille démesurée refusée dès la lecture de la trame (DIMENSIONS), avant toute autre analyse : même un fichier tronqué après elle', () => {
+    const huge = Buffer.alloc(9);
+    huge[0] = 8;
+    huge.writeUInt16BE(60_000, 1);
+    huge.writeUInt16BE(60_000, 3);
+    huge[5] = 1;
+    huge.set([1, 0x11, 0], 6);
+    // aucun EOI : sans contrôle immédiat, le refus serait MALFORMED
+    expect(() =>
+      preparePhoto(
+        Buffer.concat([Buffer.from([0xff, 0xd8]), seg(0xc0, huge), Buffer.from([0x12])]),
+      ),
+    ).toThrow(/DIMENSIONS/);
+  });
+});
+
+describe('ADR-204 — trame, tables 16 bits, quantification figée, quatre composantes, orientation', () => {
+  const base = fingerprint(BASE);
+
+  it('trame séquentielle étendue compatible (8 bits, tables 8 bits, Huffman 0 et 1) ⇒ celle de base ; DQT 16 bits dont les valeurs tiennent sur 8 bits ⇒ 8 bits', () => {
+    expect(fingerprint(jpeg(jfif(72), QT, HT, sof(undefined, undefined, 0xc1), sos(), DATA))).toBe(
+      base,
+    );
+    const wide = (v: number) =>
+      Buffer.concat([
+        Buffer.from([0x10]),
+        Buffer.alloc(128)
+          .fill(0)
+          .map((_, k) => (k % 2 === 1 ? v : 0)),
+      ]);
+    expect(fingerprint(jpeg(jfif(72), dqt(wide(2), Q(1, 3)), HT, sof(), sos(), DATA))).toBe(base);
+    // une valeur sur 16 bits (300) : autre table, autre copie ; et la trame étendue reste étendue
+    const w300 = Buffer.concat([Buffer.from([0x10]), Buffer.alloc(128)]);
+    w300.writeUInt16BE(300, 1);
+    const ext = fingerprint(
+      jpeg(jfif(72), dqt(w300, Q(1, 3)), HT, sof(undefined, undefined, 0xc1), sos(), DATA),
+    );
+    expect(ext).not.toBe(base);
+    expect(
+      preparePhoto(
+        jpeg(jfif(72), dqt(w300, Q(1, 3)), HT, sof(undefined, undefined, 0xc1), sos(), DATA),
+      ).body.includes(Buffer.from([0xff, 0xc1])),
+    ).toBe(true);
+  });
+
+  it('quantification figée au premier scan de chaque composante : redéfinie ensuite, sans effet sur elle ; une composante lue plus tard prend la nouvelle', () => {
+    const one = (id: number, sel: number) => sos([[id, sel]]);
+    const ref = fingerprint(
+      jpeg(
+        jfif(72),
+        dqt(Q(0, 2), Q(1, 9)),
+        HT,
+        sof([1, 2, 3], [0, 1, 1]),
+        one(1, 0x00),
+        DATA,
+        one(2, 0x11),
+        DATA,
+        one(3, 0x11),
+        DATA,
+      ),
+    );
+    // composante 1 lue avec Q0 = 2 ; Q0 redéfinie à 9 ensuite, lue par 2 et 3
+    expect(
+      fingerprint(
+        jpeg(
+          jfif(72),
+          dqt(Q(0, 2)),
+          HT,
+          sof([1, 2, 3], [0, 0, 0]),
+          one(1, 0x00),
+          DATA,
+          dqt(Q(0, 9)),
+          one(2, 0x11),
+          DATA,
+          one(3, 0x11),
+          DATA,
+        ),
+      ),
+    ).toBe(ref);
+    // redéfinie avant le premier scan de 1 : autre copie
+    expect(
+      fingerprint(
+        jpeg(
+          jfif(72),
+          dqt(Q(0, 9)),
+          HT,
+          sof([1, 2, 3], [0, 0, 0]),
+          one(1, 0x00),
+          DATA,
+          one(2, 0x11),
+          DATA,
+          one(3, 0x11),
+          DATA,
+        ),
+      ),
+    ).not.toBe(ref);
+  });
+
+  it('quatre composantes : sans Adobe (CMYK) ≠ Adobe 0 (CMYK inversé) ≠ Adobe 2 (YCCK) ; Adobe 1 lu comme YCCK', () => {
+    const four = (...app: Buffer[]) =>
+      jpeg(
+        ...app,
+        QT,
+        HT,
+        sof([1, 2, 3, 4], [0, 1, 1, 0]),
+        sos([
+          [1, 0x00],
+          [2, 0x11],
+          [3, 0x11],
+          [4, 0x00],
+        ]),
+        DATA,
+      );
+    const none = fingerprint(four());
+    const a0 = fingerprint(four(adobe(100, 0, 0)));
+    const a2 = fingerprint(four(adobe(100, 0, 2)));
+    expect(new Set([none, a0, a2]).size).toBe(3);
+    expect(fingerprint(four(adobe(101, 7, 1)))).toBe(a2);
+    expect(fingerprint(four(jfif(72)))).toBe(none);
+  });
+
+  /** APP1 EXIF petit-boutiste : Make (texte libre) puis Orientation. */
+  const exif = (orientation: number, make = 'appareil'): Buffer => {
+    const ifd = Buffer.alloc(2 + 2 * 12 + 4);
+    ifd.writeUInt16LE(2, 0);
+    const text = Buffer.from(`${make}\0`, 'latin1');
+    const textAt = 8 + ifd.length;
+    ifd.set([0x0f, 0x01, 2, 0], 2);
+    ifd.writeUInt32LE(text.length, 6);
+    ifd.writeUInt32LE(textAt, 10);
+    ifd.set([0x12, 0x01, 3, 0], 14);
+    ifd.writeUInt32LE(1, 18);
+    ifd.writeUInt16LE(orientation, 22);
+    const tiff = Buffer.concat([Buffer.from([0x49, 0x49, 0x2a, 0, 8, 0, 0, 0]), ifd, text]);
+    return seg(0xe1, Buffer.concat([Buffer.from('Exif\0\0', 'latin1'), tiff]));
+  };
+
+  it('orientation EXIF gardée seule (2 à 8), dans un APP1 canonique : 6 avec un autre appareil ⇒ même copie ; 6 ≠ 8 ; 1 ⇒ sans EXIF', () => {
+    const six = fingerprint(jpeg(jfif(72), exif(6), QT, HT, sof(), sos(), DATA));
+    expect(six).not.toBe(base);
+    expect(
+      fingerprint(jpeg(jfif(72), exif(6, 'autre-appareil GPS'), QT, HT, sof(), sos(), DATA)),
+    ).toBe(six);
+    expect(fingerprint(jpeg(jfif(72), exif(8), QT, HT, sof(), sos(), DATA))).not.toBe(six);
+    expect(fingerprint(jpeg(jfif(72), exif(1), QT, HT, sof(), sos(), DATA))).toBe(base);
+    const clean = preparePhoto(
+      jpeg(jfif(72), exif(6, 'GPSLatitude=8.98'), QT, HT, sof(), sos(), DATA),
+    ).body;
+    expect(clean.includes(Buffer.from('GPSLatitude', 'latin1'))).toBe(false);
+    expect(
+      clean.includes(
+        Buffer.from([0x4d, 0x4d, 0, 0x2a, 0, 0, 0, 8, 0, 1, 0x01, 0x12, 0, 3, 0, 0, 0, 1, 0, 6]),
+      ),
+    ).toBe(true);
+    // le premier EXIF l'emporte (comme les navigateurs)
+    expect(fingerprint(jpeg(jfif(72), exif(6), exif(8), QT, HT, sof(), sos(), DATA))).toBe(six);
+  });
+});

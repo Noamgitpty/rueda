@@ -3800,7 +3800,7 @@ export const PT_MESSAGES = {
     'O viajante comprou um extra nesta viagem: o combustível não é cobrado.',
   'common.incidental.amountAboveCap': 'O valor passa do máximo permitido para este custo.',
   'common.incidental.duplicate':
-    'Não é possível fazer este pedido: este custo (limpeza e cigarro contam juntos) já foi pedido, recusado ou cancelado depois de uma contestação nesta viagem, ou um anexo já sustenta outro pedido.',
+    'Não é possível fazer este pedido: este custo (limpeza e cigarro contam juntos) já foi pedido, recusado ou cancelado depois de uma contestação nesta viagem, ou uma destas fotos já sustenta outro pedido. Se você tiver algo novo, fale com o suporte.',
   'common.incidental.notCancellable': 'Este pedido não pode mais ser cancelado.',
   'common.incidental.notOpen': 'Esta cobrança não espera mais a sua resposta.',
   'common.incidental.responseWindowClosed':

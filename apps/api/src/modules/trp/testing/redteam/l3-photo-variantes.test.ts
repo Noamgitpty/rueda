@@ -199,3 +199,64 @@ describe('RT-L3-P03 (L3-PM-03) — variantes de tables de la même prise de vue'
     }
   });
 });
+
+/**
+ * Attaque AJOUTÉE après les revues delta de la PR 302 (déni de service mémoire) : huit tables de
+ * Huffman de 256 symboles, puis des scans de quelques octets qui permutent les sélecteurs. Une
+ * réécriture naïve réémet les tables à chaque scan (×139 en sortie). Attendu (ADR-204) : la copie
+ * n'est jamais plus grande que l'envoi plus une marge fixe ; au-delà de 128 scans, refus.
+ */
+describe('RT-L3-P03 (L3-PM-03) — amplification de la copie canonique', () => {
+  const huffSeg = (cls: number, slot: number): Buffer => {
+    const counts = Buffer.alloc(16);
+    counts[0] = 1;
+    counts[15] = 255;
+    return seg(
+      0xc4,
+      Buffer.concat([Buffer.from([(cls << 4) | slot]), counts, Buffer.alloc(256, slot + 1)]),
+    );
+  };
+  const attack = (scans: number): Buffer => {
+    const sof = Buffer.alloc(18);
+    sof[0] = 8;
+    sof.writeUInt16BE(64, 1);
+    sof.writeUInt16BE(64, 3);
+    sof[5] = 4;
+    [1, 2, 3, 4].forEach((id, k) => sof.set([id, 0x11, 0], 6 + 3 * k));
+    const parts: Buffer[] = [
+      Buffer.from([0xff, 0xd8]),
+      seg(0xdb, Buffer.concat([Buffer.from([0]), Buffer.alloc(64, 3)])),
+      ...[0, 1].flatMap((cls) => [0, 1, 2, 3].map((slot) => huffSeg(cls, slot))),
+      seg(0xc0, sof),
+    ];
+    for (let n = 0; n < scans; n += 1) {
+      const sel = [0, 1, 2, 3].map((k) => (k + n) % 4);
+      parts.push(
+        seg(
+          0xda,
+          Buffer.from([
+            4,
+            ...[1, 2, 3, 4].flatMap((id, k) => [id, ((sel[k] ?? 0) << 4) | (sel[3 - k] ?? 0)]),
+            0,
+            63,
+            0,
+          ]),
+        ),
+        Buffer.from([0x10 + (n % 5)]),
+      );
+    }
+    parts.push(Buffer.from([0xff, 0xd9]));
+    return Buffer.concat(parts);
+  };
+
+  it('scans qui permutent les sélecteurs : la photo est acceptée et sa copie ne dépasse pas l’envoi plus 1 024 octets', async () => {
+    const body = attack(120);
+    await fingerprintOf(body);
+    const { preparePhoto } = await import('../../../aud/index.js');
+    expect(preparePhoto(body).body.length).toBeLessThanOrEqual(body.length + 1024);
+  });
+
+  it('au-delà de 128 scans : refus (PHOTO_INVALID), rien n’est déposé', async () => {
+    await expect(fingerprintOf(attack(400))).rejects.toMatchObject({ code: 'PHOTO_INVALID' });
+  });
+});

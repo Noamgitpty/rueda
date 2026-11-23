@@ -435,7 +435,7 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  Version 117 (réservée aux correctifs F-L3-FRA-03 / F-L3-PRE-04 par l’orchestrateur) : frais
  annexes, passe de porte de la red team du lot 3 (0184, ADR-204) : `common.incidental.duplicate`
  reformulée (le type est déjà demandé, rejeté ou abandonné pour ce voyage, y compris le nettoyage
- et le tabac ensemble, ou une pièce jointe sert déjà une autre demande).
+ et le tabac ensemble, ou une de ces photos sert déjà une autre demande ; « contacte le support »).
  */
 export const CATALOG_VERSION = 117;
 
