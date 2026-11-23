@@ -191,6 +191,8 @@ interface Batch {
   readonly absurd: string | null;
   readonly absurdOutcome: unknown;
   readonly absurdBody: unknown;
+  /** Clé normalisée de la référence du procès-verbal attaqué (0181). */
+  readonly pvKey: string;
   readonly ordinary: string | null;
   readonly ordinaryOutcome: unknown;
   readonly plusOne: string | null;
@@ -295,6 +297,7 @@ function batchOf(c: CountryCase): Promise<Batch> {
         absurd: absurd['outcome'] === 'DECLARED' ? String(absurd['charge_id']) : null,
         absurdOutcome: absurd['outcome'],
         absurdBody: absurd['body'],
+        pvKey: pv.toUpperCase().replace(/[^A-Z0-9]/g, ''),
         ordinary: ordinary['outcome'] === 'DECLARED' ? String(ordinary['charge_id']) : null,
         ordinaryOutcome: ordinary['outcome'],
         plusOne: plusOne['outcome'] === 'DECLARED' ? String(plusOne['charge_id']) : null,
@@ -322,6 +325,17 @@ interface Debit {
   readonly guest_agreed: boolean;
   readonly status: string;
   readonly tender_operation_id: string;
+}
+/**
+ * Refacturations enregistrées sur le trip, lues sous le rôle de production app_worker (transaction
+ * annulée) : « rien n'est écrit » se juge par objet (fixture 9904).
+ */
+async function chargesOn(trip: string): Promise<Row[]> {
+  return asWorker(
+    DECLARED_AT,
+    async (tx) =>
+      (await tx.query<Row>('SELECT * FROM test_fixture.us318s_charges($1)', [trip])).rows,
+  );
 }
 async function debitsOf(tx: Tx, charge: string): Promise<Debit[]> {
   return (await tx.query<Debit>('SELECT * FROM test_fixture.us318_post_trip_charges($1)', [charge]))
@@ -364,6 +378,9 @@ describe.each(COUNTRIES)('RT-L3 sinistres entre particuliers ($country, $currenc
     const b = await batchOf(c);
     expect(b.plusOneOutcome).toBe('TRAFFIC_DUPLICATE');
     expect(b.plusOne).toBeNull();
+    // une seule refacturation pour ce procès-verbal : la première
+    const same = (await chargesOn(b.trip)).filter((r) => r['reference_key'] === b.pvKey);
+    expect(same.map((r) => r['id'])).toEqual([b.first]);
   });
 
   // CONSTAT F-L3-SIN-01 → corrigé (US-318 suite, 0181) : une même amende ne se refacture qu'une
@@ -373,12 +390,16 @@ describe.each(COUNTRIES)('RT-L3 sinistres entre particuliers ($country, $currenc
     const b = await batchOf(c);
     expect(b.first).toMatch(/^[0-9a-f-]{36}$/);
     expect(b.againOutcome).toBe('TRAFFIC_DUPLICATE');
+    const same = (await chargesOn(b.trip)).filter((r) => r['reference_key'] === b.pvKey);
+    expect(same).toHaveLength(1);
   });
 
   it('RT-L3-S04 — CONSTAT F-L3-SIN-01 (variante) : le même procès-verbal daté une seconde plus tard est refusé TRAFFIC_DUPLICATE', async () => {
     const b = await batchOf(c);
     expect(b.first).toMatch(/^[0-9a-f-]{36}$/);
     expect(b.plusOneOutcome).toBe('TRAFFIC_DUPLICATE');
+    const same = (await chargesOn(b.trip)).filter((r) => r['reference_key'] === b.pvKey);
+    expect(same).toHaveLength(1);
   });
 
   // -----------------------------------------------------------------------------------------
@@ -438,6 +459,9 @@ describe.each(COUNTRIES)('RT-L3 sinistres entre particuliers ($country, $currenc
     const cap = (b.absurdBody as Row | null)?.['capMinor'];
     expect(typeof cap === 'string' && BigInt(cap) < a['absurd']!).toBe(true);
     expect((b.absurdBody as Row)['currency']).toBe(c.currency);
+    // aucune refacturation du montant absurde n'est enregistrée
+    const rows = await chargesOn(b.trip);
+    expect(rows.filter((r) => r['amount_minor'] === a['absurd']!.toString())).toEqual([]);
   });
 
   // CONSTAT F-L3-SIN-02 (plafond) → suite (US-318) : plafond par pays, fail-closed ; le montant
@@ -446,6 +470,8 @@ describe.each(COUNTRIES)('RT-L3 sinistres entre particuliers ($country, $currenc
     const b = await batchOf(c);
     expect(b.first).toMatch(/^[0-9a-f-]{36}$/);
     expect(b.absurdOutcome).toBe('TRAFFIC_AMOUNT_ABOVE_CAP');
+    const rows = await chargesOn(b.trip);
+    expect(rows.filter((r) => r['amount_minor'] === a['absurd']!.toString())).toEqual([]);
   });
 
   // -----------------------------------------------------------------------------------------
