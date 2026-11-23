@@ -7,7 +7,7 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 
 ## Synthèse
 
-- 185 migrations ; 172 tables ; 6 vues ; 973 politiques RLS ; 458 fonctions `SECURITY DEFINER` ; 339 autres fonctions.
+- 186 migrations ; 174 tables ; 6 vues ; 982 politiques RLS ; 461 fonctions `SECURITY DEFINER` ; 343 autres fonctions.
 - Tables sans RLS `ENABLE` + `FORCE` : aucune.
 - Rôles applicatifs avec `SUPERUSER` ou `BYPASSRLS` : aucun.
 
@@ -200,6 +200,7 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 | `0182_claim_incidental_contest_and_evidence` | CLM : frais annexes, suite de la red team du lot 3 (US-313) : une demande contestée puis |
 | `0183_claim_traffic_reference_canonical_trip_cap` | CLM : refacturation des amendes, péages et fourrières — clé canonique du PV, unicité par |
 | `0184_claim_incidental_abandoned_fact` | CLM : frais annexes, passe de la porte de la red team du lot 3 (US-313) : un frais abandonné |
+| `0185_platform_recovery_hold` | PLATFORM : garde de reprise après une restauration (US-402, ADR-206 PROPOSÉ ; L4-PM-19, |
 
 ## Rôles
 
@@ -8910,6 +8911,71 @@ Déclencheurs :
 - `environment_declaration_no_truncate` : `CREATE TRIGGER environment_declaration_no_truncate BEFORE TRUNCATE ON platform.environment_declaration FOR EACH STATEMENT EXECUTE FUNCTION platform.environment_declaration_immutable()`
 - `environment_declaration_no_update` : `CREATE TRIGGER environment_declaration_no_update BEFORE DELETE OR UPDATE ON platform.environment_declaration FOR EACH ROW EXECUTE FUNCTION platform.environment_declaration_immutable()`
 
+### `platform.recovery_guard`
+
+- RLS : ENABLE + FORCE ; propriétaire `migrator`
+- Droits : guard_owner: SELECT ; migrator: DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE
+
+| Colonne | Type | NOT NULL | Défaut |
+| ------- | ---- | -------- | ------ |
+| `singleton` | `boolean` | oui | `true` |
+| `expected_timeline` | `integer` | oui | — |
+| `recorded_at` | `timestamp with time zone` | oui | `platform.now()` |
+| `recorded_by` | `text` | oui | `CURRENT_USER` |
+
+Contraintes :
+
+- `recovery_guard_expected_timeline_check` : `CHECK (expected_timeline > 0)`
+- `recovery_guard_pkey` : `PRIMARY KEY (singleton)`
+- `recovery_guard_singleton_check` : `CHECK (singleton)`
+
+Politiques RLS :
+
+- `guard_read` (SELECT, PERMISSIVE, guard_owner) USING `true`
+- `migrator_read` (SELECT, PERMISSIVE, migrator) USING `true`
+- `migrator_record` (INSERT, PERMISSIVE, migrator) WITH CHECK `true`
+- `migrator_rerecord` (UPDATE, PERMISSIVE, migrator) USING `true` WITH CHECK `true`
+
+Déclencheurs :
+
+- `recovery_guard_no_delete` : `CREATE TRIGGER recovery_guard_no_delete BEFORE DELETE ON platform.recovery_guard FOR EACH ROW EXECUTE FUNCTION platform.recovery_no_truncate()`
+- `recovery_guard_no_truncate` : `CREATE TRIGGER recovery_guard_no_truncate BEFORE TRUNCATE ON platform.recovery_guard FOR EACH STATEMENT EXECUTE FUNCTION platform.recovery_no_truncate()`
+
+### `platform.recovery_hold`
+
+- RLS : ENABLE + FORCE ; propriétaire `migrator`
+- Droits : guard_owner: INSERT, SELECT ; migrator: DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE
+
+| Colonne | Type | NOT NULL | Défaut |
+| ------- | ---- | -------- | ------ |
+| `id` | `uuid` | oui | `gen_random_uuid()` |
+| `reason` | `text` | oui | — |
+| `placed_at` | `timestamp with time zone` | oui | `platform.now()` |
+| `placed_by` | `text` | oui | `CURRENT_USER` |
+| `released_at` | `timestamp with time zone` | non | — |
+| `released_by` | `text` | non | — |
+| `release_note` | `text` | non | — |
+
+Contraintes :
+
+- `recovery_hold_pkey` : `PRIMARY KEY (id)`
+- `recovery_hold_reason_check` : `CHECK (length(reason) >= 3 AND length(reason) <= 200)`
+- `recovery_hold_release_complete` : `CHECK ((released_at IS NULL) = (released_by IS NULL) AND (released_at IS NULL) = (release_note IS NULL))`
+- `recovery_hold_release_note_check` : `CHECK (release_note IS NULL OR length(release_note) >= 3 AND length(release_note) <= 500)`
+
+Politiques RLS :
+
+- `guard_place` (INSERT, PERMISSIVE, guard_owner) WITH CHECK `(released_at IS NULL)`
+- `guard_read` (SELECT, PERMISSIVE, guard_owner) USING `true`
+- `migrator_place` (INSERT, PERMISSIVE, migrator) WITH CHECK `(released_at IS NULL)`
+- `migrator_read` (SELECT, PERMISSIVE, migrator) USING `true`
+- `migrator_release` (UPDATE, PERMISSIVE, migrator) USING `(released_at IS NULL)` WITH CHECK `(released_at IS NOT NULL)`
+
+Déclencheurs :
+
+- `recovery_hold_append_only` : `CREATE TRIGGER recovery_hold_append_only BEFORE DELETE OR UPDATE ON platform.recovery_hold FOR EACH ROW EXECUTE FUNCTION platform.recovery_hold_immutable()`
+- `recovery_hold_no_truncate` : `CREATE TRIGGER recovery_hold_no_truncate BEFORE TRUNCATE ON platform.recovery_hold FOR EACH STATEMENT EXECUTE FUNCTION platform.recovery_no_truncate()`
+
 ### `platform.schema_migration`
 
 - RLS : ENABLE + FORCE ; propriétaire `migrator`
@@ -9430,6 +9496,9 @@ Chacune a un propriétaire `NOLOGIN` dédié (ADR-053) et un `search_path` figé
 | `core.trip_photo_capture_check(p_token_hash bytea, p_trip_id uuid, p_kind text, p_capture_id uuid, p_slot text)` | `TABLE(outcome text, max_kb integer, max_px integer)` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; cmd_hold_owner: EXECUTE |
 | `platform.declared_environment()` | `text` | `guard_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; app_worker: EXECUTE ; cmd_hold_owner: EXECUTE ; cmd_money_owner: EXECUTE ; guard_owner: EXECUTE |
 | `platform.guest_hold_guard(p_period tstzrange)` | `TABLE(live_holds integer, trip_overlap boolean)` | `guard_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; cmd_hold_owner: EXECUTE ; guard_owner: EXECUTE |
+| `platform.recovery_hold_active()` | `boolean` | `guard_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; app_worker: EXECUTE ; guard_owner: EXECUTE |
+| `platform.recovery_place_hold(p_reason text)` | `uuid` | `guard_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; guard_owner: EXECUTE |
+| `platform.recovery_status()` | `TABLE(active boolean, expected_timeline integer, current_timeline integer, open_holds integer)` | `guard_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; guard_owner: EXECUTE |
 
 ## Autres fonctions
 
@@ -9772,5 +9841,10 @@ Chacune a un propriétaire `NOLOGIN` dédié (ADR-053) et un `search_path` figé
 | `platform.deployment_env()` | `text` | `migrator` | app_api: EXECUTE ; app_worker: EXECUTE ; cmd_hold_owner: EXECUTE ; cmd_money_owner: EXECUTE ; kyc_cmd_owner: EXECUTE ; migrator: EXECUTE ; privacy_cmd_owner: EXECUTE |
 | `platform.environment_declaration_immutable()` | `trigger` | `migrator` | migrator: EXECUTE |
 | `platform.now()` | `timestamp with time zone` | `migrator` | app_api: EXECUTE ; app_worker: EXECUTE ; audit_chain_owner: EXECUTE ; catalog_cmd_owner: EXECUTE ; catalog_probe_owner: EXECUTE ; cmd_golive_owner: EXECUTE ; cmd_hold_owner: EXECUTE ; cmd_money_owner: EXECUTE ; cmd_param_owner: EXECUTE ; guard_owner: EXECUTE ; host_view_owner: EXECUTE ; iam_auth_owner: EXECUTE ; iam_staff_owner: EXECUTE ; integrity_owner: EXECUTE ; kyc_cmd_owner: EXECUTE ; messaging_cmd_owner: EXECUTE ; migrator: EXECUTE ; policy_fn_owner: EXECUTE ; privacy_cmd_owner: EXECUTE ; review_cmd_owner: EXECUTE ; risk_limit_owner: EXECUTE |
+| `platform.recovery_hold_immutable()` | `trigger` | `migrator` | migrator: EXECUTE |
+| `platform.recovery_no_truncate()` | `trigger` | `migrator` | migrator: EXECUTE |
+| `platform.recovery_release(p_note text)` | `integer` | `migrator` | migrator: EXECUTE |
+| `platform.recovery_timeline()` | `integer` | `migrator` | guard_owner: EXECUTE ; migrator: EXECUTE |
 | `platform.touch_row()` | `trigger` | `migrator` | migrator: EXECUTE |
 | `platform.uuid_v7()` | `uuid` | `migrator` | app_api: EXECUTE ; app_worker: EXECUTE ; catalog_cmd_owner: EXECUTE ; cmd_golive_owner: EXECUTE ; cmd_hold_owner: EXECUTE ; cmd_money_owner: EXECUTE ; cmd_param_owner: EXECUTE ; iam_auth_owner: EXECUTE ; iam_staff_owner: EXECUTE ; kyc_cmd_owner: EXECUTE ; messaging_cmd_owner: EXECUTE ; migrator: EXECUTE ; privacy_cmd_owner: EXECUTE ; review_cmd_owner: EXECUTE |
+
