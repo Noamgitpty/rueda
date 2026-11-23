@@ -3822,7 +3822,7 @@ export const FR_MESSAGES = {
   'backoffice.overdue.effect.FORMAL_NOTICE':
     'En confirmant, l’étape est inscrite au dossier et l’hôte reçoit par e-mail un modèle de mise en demeure à envoyer en son nom, et la demande de noter la position GPS si sa voiture en a un.',
   'backoffice.overdue.effect.POLICE_REPORT':
-    'En confirmant, l’étape est inscrite au dossier et l’hôte reçoit par e-mail une plainte pré-remplie, qu’il dépose lui-même auprès de la police.',
+    'En confirmant, l’étape est inscrite au dossier et l’hôte reçoit par e-mail une plainte pré-remplie, qu’il dépose lui-même auprès de la police. Le dossier de vol présumé s’ouvre : la déclaration à l’assureur est enregistrée et le versement de l’hôte pour ce trajet est retenu jusqu’au retour de la voiture.',
   'backoffice.overdue.never':
     'La plateforme ne dépose aucune plainte, ne récupère aucune voiture et n’agit jamais à distance sur elle.',
   'backoffice.overdue.reasonHint':
@@ -3856,7 +3856,7 @@ export const FR_MESSAGES = {
     '{brand} : modèle de mise en demeure pour la réservation {booking_ref} envoyé par e-mail. Note la position GPS si ta voiture en a un.',
   'ntf.unreturnedPoliceReport.email.subject': 'Réservation {booking_ref} : plainte pré-remplie',
   'ntf.unreturnedPoliceReport.email.body':
-    'Bonjour {first_name}. La voiture de la réservation {booking_ref} n’est pas rendue depuis plus d’un jour. Voici une plainte pré-remplie que tu peux déposer toi-même auprès de la police ou du ministère public, avec ton contrat de location et ta pièce d’identité : « Je soussigné(e), hôte qui a mis en location le véhicule indiqué au contrat de location joint (marque, modèle et plaque), déclare que ce véhicule, loué par la réservation {booking_ref} sur {brand}, devait m’être restitué le {end_at} et ne l’a pas été malgré mes relances. L’identité du locataire figure au contrat joint. Je dépose plainte pour non-restitution du véhicule. » Garde le numéro de la plainte. {brand} ne dépose pas de plainte à ta place, ne récupère pas la voiture et n’agit pas à distance sur elle ; ton versement n’est pas bloqué par cette procédure.',
+    'Bonjour {first_name}. La voiture de la réservation {booking_ref} n’est pas rendue depuis plus d’un jour. Voici une plainte pré-remplie que tu peux déposer toi-même auprès de la police ou du ministère public, avec ton contrat de location et ta pièce d’identité : « Je soussigné(e), hôte qui a mis en location le véhicule indiqué au contrat de location joint (marque, modèle et plaque), déclare que ce véhicule, loué par la réservation {booking_ref} sur {brand}, devait m’être restitué le {end_at} et ne l’a pas été malgré mes relances. L’identité du locataire figure au contrat joint. Je dépose plainte pour non-restitution du véhicule. » Garde le numéro de la plainte. {brand} ne dépose pas de plainte à ta place, ne récupère pas la voiture et n’agit pas à distance sur elle ; ton versement de ce trajet est retenu tant que le vol est présumé et libéré au retour de la voiture.',
   'ntf.unreturnedPoliceReport.sms.body':
     '{brand} : plainte pré-remplie pour la réservation {booking_ref} envoyée par e-mail. C’est toi qui la déposes auprès de la police.',
   // US-706 (ADR-197) : frais annexes demandés par l’hôte, payés ou contestés par le voyageur
@@ -3975,4 +3975,134 @@ export const FR_MESSAGES = {
   'web.incidental.form.cap': 'Maximum pour {fee} : {amount}.',
   'web.incidental.form.allRequested': 'Vous avez déjà demandé chaque type de frais pour ce voyage.',
   'web.incidental.form.capMissing': '{fee} : pas encore demandable dans ce pays.',
+  // US-318 (ADR-198) : réponses des routes des sinistres d’un trip (incident, amendes, péages, fourrière)
+  'common.tripClaims.notFound': 'Nous ne trouvons pas ce trajet.',
+  'common.tripClaims.incidentNotOpen': 'Tu ne peux déclarer un incident que pendant le trajet.',
+  'common.tripClaims.incidentCaseRequired':
+    'Demande d’abord de l’aide pour un accident ou une panne depuis l’écran d’aide du trajet.',
+  'common.tripClaims.incidentPhotosRequired':
+    'Prends au moins une photo avec l’appareil photo de l’application avant de déclarer l’incident.',
+  'common.tripClaims.trafficTripNotEnded':
+    'Tu pourras déclarer une amende, un péage ou une fourrière une fois le trajet terminé.',
+  'common.tripClaims.trafficDeadlinePassed': 'Le délai pour déclarer ces frais est dépassé.',
+  'common.tripClaims.trafficOutsideTrip':
+    'La date des frais doit se situer pendant le trajet, entre la remise et le retour.',
+  'common.tripClaims.trafficEvidenceRequired':
+    'Prends en photo le justificatif avec l’appareil photo de l’application ; chaque photo ne sert qu’à une seule demande.',
+  'common.tripClaims.trafficTermsUnknown':
+    'Nous ne pouvons pas encore enregistrer ces frais pour ce trajet. Réessaie plus tard.',
+  'common.tripClaims.unavailable':
+    'Nous n’avons pas pu l’enregistrer. Vérifie ta connexion et réessaie.',
+  'web.incident.open': 'Déclarer l’incident avec des photos',
+  'web.incident.title': 'Déclarer un accident ou une panne',
+  'web.incident.back': 'Retour à l’aide du trajet',
+  'web.incident.stopDriving':
+    'Si la voiture a plus qu’un dommage mineur, ne continue pas à rouler : attends l’assistance ou les consignes de l’assureur.',
+  'web.incident.askHelp': 'Demander de l’aide pour un accident ou une panne',
+  'web.incident.photos.title': 'Photos de l’incident',
+  'web.incident.photos.lead':
+    'Photographie la voiture, les dommages et, s’il y a un autre véhicule, sa plaque. L’heure qui fait foi est celle du serveur.',
+  'web.incident.form.title': 'Ce qui s’est passé',
+  'web.incident.thirdParty': 'Un autre véhicule ou une personne est-il impliqué ?',
+  'web.incident.police': 'As-tu appelé la police ou l’autorité de la circulation ?',
+  'web.incident.yes': 'Oui',
+  'web.incident.no': 'Non',
+  'web.incident.answerRequired': 'Choisis une réponse.',
+  'web.incident.serverTime':
+    'Nous enregistrons l’heure du serveur à l’envoi. Les photos restent dans le dossier du trajet pour notre équipe de support.',
+  'web.incident.submit': 'Envoyer la déclaration',
+  'web.incident.sent': 'Incident enregistré',
+  'web.incident.sentAt': 'Heure du serveur : {time}',
+  'web.incident.sentPhotos': 'Photos jointes : {count}',
+  'web.incident.next':
+    'Notre équipe de support te contactera. En cas de danger, appelle d’abord les urgences.',
+  'web.freePhotos.sent': 'Photo reçue.',
+  'web.freePhotos.none': 'Aucune photo pour l’instant.',
+  'web.freePhotos.list': 'Photos reçues',
+  'web.freePhotos.item': 'Photo {n} · reçue à {time}',
+  'web.freePhotos.camera': 'Appareil photo',
+  'web.freePhotos.take': 'Prendre une photo',
+  'web.freePhotos.full': 'Tu as atteint le maximum de 10 photos.',
+  'web.freePhotos.cameraOnly':
+    'Seules les photos prises sur le moment avec l’appareil photo de l’application sont acceptées.',
+  'web.traffic.link': 'Amendes, péages et fourrière',
+  'web.traffic.title': 'Amendes, péages et fourrière du trajet',
+  'web.traffic.back': 'Retour au trajet',
+  'web.traffic.rules.title': 'Comment ça marche',
+  'web.traffic.deadline': 'Tu peux déclarer des frais jusqu’au {time}.',
+  'web.traffic.feeRule':
+    'Nous facturons au voyageur le montant que tu as payé plus des frais de gestion de {pct} %. Tu reçois 100 % de ce que tu as payé.',
+  'web.traffic.rules.lead':
+    'Seulement des frais que tu as payés pour des faits survenus pendant le trajet, avec leur justificatif. Le voyageur est débité à part de la location, après un préavis.',
+  'web.traffic.photos.title': 'Justificatifs',
+  'web.traffic.closed': 'Le délai pour déclarer des frais de ce trajet est dépassé.',
+  'web.traffic.list.title': 'Frais déclarés',
+  'web.traffic.list.empty': 'Tu n’as encore déclaré aucuns frais.',
+  'web.traffic.list.amounts': 'Payé par toi {amount} · frais {fee} · total au voyageur {total}',
+  'web.traffic.kind.TOLL': 'Péage',
+  'web.traffic.kind.FINE': 'Amende',
+  'web.traffic.kind.IMPOUND': 'Fourrière',
+  'web.traffic.status.PENDING': 'En préparation',
+  'web.traffic.status.DONE': 'Préavis envoyé au voyageur',
+  'web.traffic.status.BLOCKED': 'En revue par le support',
+  'web.traffic.form.title': 'Déclarer une amende, un péage ou une fourrière',
+  'web.traffic.sent': 'Frais enregistrés',
+  'web.traffic.sent.amount': 'Montant payé par toi : {amount}',
+  'web.traffic.sent.fee': 'Frais de gestion : {amount}',
+  'web.traffic.sent.total': 'Total facturé au voyageur : {amount}',
+  'web.traffic.kind': 'Type de frais',
+  'web.traffic.amount': 'Montant que tu as payé',
+  'web.traffic.amountHint': 'Exemple : {example}',
+  'web.traffic.file': 'Justificatif',
+  'web.traffic.fileItem': 'Photo reçue à {time}',
+  'web.traffic.fileNone': 'Prends d’abord une photo du justificatif.',
+  'web.traffic.notTransferred':
+    'Nous facturons le montant au voyageur ; l’amende reste à ton nom auprès de l’autorité.',
+  'web.traffic.noParking':
+    'Le stationnement que tu paies pour récupérer ta voiture n’est pas facturé au voyageur.',
+  'web.traffic.kindRequired': 'Choisis le type de frais.',
+  'web.traffic.atRequired': 'Indique la date et l’heure du fait.',
+  'web.traffic.amountInvalid': 'Écris le montant payé, comme dans l’exemple.',
+  'web.traffic.fileRequired': 'Choisis la photo du justificatif.',
+  'web.theft.title': 'Voiture non rendue',
+  'web.theft.status.THEFT_INVESTIGATION': 'Vol présumé depuis le {time} : dossier ouvert.',
+  'web.theft.status.RETURNED': 'La voiture est revenue : dossier clos le {time}.',
+  'web.theft.insurer.PENDING':
+    'Déclaration à l’assureur enregistrée : elle sera envoyée quand le contrat avec l’assureur sera actif.',
+  'web.theft.insurer.SENT': 'Déclaration envoyée à l’assureur.',
+  'web.theft.insurer.WITHDRAWN':
+    'La voiture est revenue avant l’envoi : la déclaration à l’assureur a été retirée.',
+  'web.theft.payoutHeld':
+    'Ton versement de ce trajet est retenu tant que le vol est présumé ; il est libéré au retour de la voiture.',
+  'web.theft.noRecovery':
+    'C’est toi qui déposes la plainte. {brand} ne récupère pas la voiture et ne l’immobilise pas à distance.',
+  // US-318, revues (2026-11-22) : confirmation de la refacturation, plainte, numéros
+  'web.traffic.review.submit': 'Vérifier la demande',
+  'web.traffic.review.title': 'Vérifie avant de confirmer',
+  'web.traffic.review.kind': 'Type de frais : {kind}',
+  'web.traffic.review.at': 'Date du fait : {time}',
+  'web.traffic.review.total': 'Total qui sera débité au voyageur : {amount}',
+  'web.traffic.review.card':
+    'Calculé par nous. Le montant est débité à part sur la carte du trajet, après un avis au voyageur. Vérifie le montant : si tu confirmes, la demande est enregistrée.',
+  'web.traffic.review.confirm': 'Confirmer',
+  'web.traffic.review.correct': 'Corriger',
+  'web.traffic.date': 'Date du fait',
+  'web.traffic.dateHint': 'Format {example}, heure locale du trajet, entre la remise et le retour.',
+  'web.traffic.time': 'Heure du fait',
+  'web.traffic.timeHint': 'Format 24 h, par exemple 14:30.',
+  'web.traffic.dateInvalid': 'Écris une date valide au format indiqué.',
+  'web.traffic.timeInvalid': 'Écris l’heure au format 24 h, par exemple 14:30.',
+  'web.traffic.dateLetters.day': 'jj',
+  'web.traffic.dateLetters.month': 'mm',
+  'web.traffic.dateLetters.year': 'aaaa',
+  'web.theft.report.title': 'Que faire de la plainte',
+  'web.theft.report.where':
+    'Regarde tes e-mails : l’équipe de {brand} t’a envoyé la plainte pré-remplie quand la voiture avait 24 heures de retard.',
+  'web.theft.report.file':
+    'Imprime-la et dépose-la toi-même auprès de la police ou du ministère public, avec ton contrat de location. Garde le numéro de la plainte.',
+  'web.theft.report.returned':
+    'Si la voiture revient, préviens le support de {brand} : le dossier est clos et ton versement est libéré.',
+  'web.help.roadside.useEmergency':
+    'En cas d’accident, appelle tout de suite le {number} et préviens {authority}.',
+  'web.incident.needPhoto': 'Prends au moins une photo pour pouvoir envoyer la déclaration.',
 } as const satisfies Readonly<Record<MessageKey, Message>>;

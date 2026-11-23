@@ -34,6 +34,7 @@ import {
   UnavailableBrandScanner,
 } from '../modules/cfg/index.js';
 import type { BrandOptions } from '../modules/cfg/index.js';
+import type { ClmTripClaimsOptions } from '../modules/clm/index.js';
 import type { CtrLegalOptions } from '../modules/ctr/index.js';
 import type { IamAuthOptions, StaffOptions } from '../modules/iam/index.js';
 import { kycCountries } from '../modules/kyc/index.js';
@@ -156,6 +157,8 @@ export interface ApiHarnessOverrides {
   readonly claims?: SupClaimsOptions;
   /** US-311 : vues de la bêta et rapprochement (absent : magasin indisponible, routes 503). */
   readonly report?: ReportStore;
+  /** US-318 : sinistres d'un trip (absent : magasin indisponible, routes 503). */
+  readonly tripClaims?: ClmTripClaimsOptions;
 }
 
 export async function startApiHarness(overrides: ApiHarnessOverrides = {}): Promise<ApiHarness> {
@@ -412,6 +415,7 @@ export async function startApiHarness(overrides: ApiHarnessOverrides = {}): Prom
       { ...unavailableRevOptions(), ...overrides.rev },
       { ...overrides.claims },
       overrides.report,
+      { ...overrides.tripClaims },
     ),
     {
       rawBody: true,

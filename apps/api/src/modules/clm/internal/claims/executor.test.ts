@@ -8,8 +8,14 @@
  */
 import { FakeInsurerClaims } from '@rueda/fake-adapters/insurer';
 import { describe, expect, it } from 'vitest';
-import type { SqlClient, WorkerTransactions } from '../../../bus/index.js';
-import { CLAIM_PAYMENT_COMMAND_WORKER, ClaimDecisionExecutor } from './executor.js';
+import { BusRegistry } from '../../../bus/index.js';
+import type { OpsAlert, SqlClient, WorkerTransactions } from '../../../bus/index.js';
+import {
+  CLAIM_DECISION_WORKER,
+  CLAIM_PAYMENT_COMMAND_WORKER,
+  ClaimDecisionExecutor,
+  registerClaimDecisionExecutor,
+} from './executor.js';
 
 interface Call {
   readonly worker: string;
@@ -120,5 +126,43 @@ describe('claim_decision_executor (US-309)', () => {
 
   it('le FAKE de l’assureur refuse de se construire en production (C19)', () => {
     expect(() => new FakeInsurerClaims({ env: { RUEDA_ENV: 'production' } })).toThrow();
+  });
+
+  it('US-318 (revue code n° 3) : la file des décisions en panne ne saute jamais la passe des sinistres entre particuliers ; panne journalisée par SQLSTATE', async () => {
+    const texts: string[] = [];
+    const transactions: WorkerTransactions = {
+      run: async (_worker, fn) =>
+        fn({
+          query: <R>(text: string) => {
+            texts.push(text);
+            return Promise.resolve({ rows: [] as R[], rowCount: 0 });
+          },
+        }),
+    };
+    const lines: string[] = [];
+    const sent: OpsAlert[] = [];
+    const registry = new BusRegistry();
+    registerClaimDecisionExecutor(registry, transactions, (l) => lines.push(l), null, {
+      send: (a) => {
+        sent.push(a);
+        return Promise.resolve();
+      },
+    });
+    const handler = registry.handlerOf(CLAIM_DECISION_WORKER);
+    expect(handler?.kind).toBe('timer');
+    // transaction de la tâche : la file des décisions lève (panne de la base)
+    const tx: SqlClient = {
+      query: <R>(text: string) =>
+        text.includes('claim_decisions_due')
+          ? Promise.reject(Object.assign(new Error('panne'), { code: '57P01' }))
+          : Promise.resolve({ rows: [] as R[], rowCount: 0 }),
+    };
+    if (handler?.kind !== 'timer') throw new Error('tâche absente');
+    await handler.handle({}, tx);
+    // la passe d'US-318 a tourné (ses files lues dans leurs propres transactions)
+    expect(texts.some((t) => t.includes('claim_theft_cases_due'))).toBe(true);
+    expect(texts.some((t) => t.includes('claim_traffic_charges_due'))).toBe(true);
+    expect(lines.some((l) => l.includes('"error":"57P01"'))).toBe(true);
+    expect(sent).toEqual([]);
   });
 });

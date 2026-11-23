@@ -124,3 +124,26 @@ export type {
   IncidentalDecisionOutcome,
   IncidentalStaffStore,
 } from './internal/incidental/staff-store.js';
+// Sinistres entre particuliers d'un trip (US-318, ADR-198) : incident du voyageur depuis S17,
+// amendes, péages et fourrière déclarés par l'hôte et refacturés par débit séparé, dossier de vol
+// présumé (travailleur dans la passe de `claim_decision_executor`).
+export { ClmTripClaimsModule, postgresClmTripAdapters } from './internal/clm-trip-claims.module.js';
+export type { ClmTripClaimsOptions } from './internal/clm-trip-claims.module.js';
+export { TRIP_CLAIM_MESSAGES, TripClaimHttpError } from './internal/p2p/errors.js';
+export type { TripClaimCode } from './internal/p2p/errors.js';
+export {
+  PgTripClaimsStore,
+  TRAFFIC_CHARGE_KINDS,
+  TripClaimStoreError,
+  UnavailableTripClaimsStore,
+} from './internal/p2p/store.js';
+export type {
+  IncidentInput,
+  IncidentResult,
+  TrafficChargeInput,
+  TrafficChargeKind,
+  TrafficChargeResult,
+  TripClaimsStore,
+} from './internal/p2p/store.js';
+export { P2P_CLAIM_BATCH, P2pClaimsExecutor } from './internal/p2p/executor.js';
+export type { P2pClaimsExecutorDeps, P2pClaimsPass } from './internal/p2p/executor.js';

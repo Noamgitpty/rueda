@@ -407,8 +407,13 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  `common.claim.incidentalNotDisputed` (console), `web.incidental.*` (écrans de l’hôte et du
  voyageur) et les clés de 10b §4.3 `web.a04.addFee` (devenue officielle, retirée du prototype),
  `web.s12.accept`, `web.s12.contest`.
+ Version 113 (réservée à US-318 par l’orchestrateur ; 111 et 112 sont celles d’US-303 suite et
+ d’US-706 ; le numéro ne redescend jamais) : sinistres entre particuliers (US-318, ADR-198) :
+ `common.tripClaims.*` (réponses des routes `/trips/{tripId}/incidents`, `/claims` et
+ `/traffic-charges`) et les écrans de l’incident du voyageur (S17) et des amendes, péages et
+ fourrière de l’hôte.
  */
-export const CATALOG_VERSION = 112;
+export const CATALOG_VERSION = 113;
 
 /** Catalogues de base par langue ; la langue d'un profil de locale choisit le sien. */
 export const CATALOGS: Readonly<Record<CatalogLanguage, VersionedCatalog<MessageKey>>> = {

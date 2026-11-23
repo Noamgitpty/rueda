@@ -3656,7 +3656,7 @@ export const EN_MESSAGES = {
   'backoffice.overdue.effect.FORMAL_NOTICE':
     'When you confirm, the step is added to the case and the host gets an email with a formal demand letter template to send in their own name, and a request to note the GPS location if their car has one.',
   'backoffice.overdue.effect.POLICE_REPORT':
-    'When you confirm, the step is added to the case and the host gets an email with a pre-filled police report, which they file themselves with the police.',
+    'When you confirm, the step is added to the case and the host gets an email with a pre-filled police report, which they file themselves with the police. A presumed-theft case opens: the insurer report is recorded and the host’s payout for this trip is held until the car comes back.',
   'backoffice.overdue.never':
     'The platform files no police report, recovers no car and never acts on it remotely.',
   'backoffice.overdue.reasonHint':
@@ -3690,7 +3690,7 @@ export const EN_MESSAGES = {
     '{brand}: formal demand letter template for booking {booking_ref} sent by email. Note the GPS location if your car has one.',
   'ntf.unreturnedPoliceReport.email.subject': 'Booking {booking_ref}: pre-filled police report',
   'ntf.unreturnedPoliceReport.email.body':
-    'Hi {first_name}. The car for booking {booking_ref} has not been returned for more than a day. Here is a pre-filled police report that you can file yourself with the police or the public prosecutor, with your rental contract and your ID: “I, the host who rented out the vehicle stated in the attached rental contract (make, model and plate), declare that this vehicle, rented through booking {booking_ref} on {brand}, was due back to me on {end_at} and has not been returned despite my reminders. The renter’s identity is in the attached contract. I am filing a complaint for failure to return the vehicle.” Keep the report number. {brand} does not file the report for you, does not recover the car and does not act on it remotely; your payout is not blocked by this procedure.',
+    'Hi {first_name}. The car for booking {booking_ref} has not been returned for more than a day. Here is a pre-filled police report that you can file yourself with the police or the public prosecutor, with your rental contract and your ID: “I, the host who rented out the vehicle stated in the attached rental contract (make, model and plate), declare that this vehicle, rented through booking {booking_ref} on {brand}, was due back to me on {end_at} and has not been returned despite my reminders. The renter’s identity is in the attached contract. I am filing a complaint for failure to return the vehicle.” Keep the report number. {brand} does not file the report for you, does not recover the car and does not act on it remotely; your payout for this trip is held while theft is presumed and released when the car comes back.',
   'ntf.unreturnedPoliceReport.sms.body':
     '{brand}: pre-filled police report for booking {booking_ref} sent by email. You file it with the police yourself.',
   // US-706 (ADR-197) : frais annexes demandés par l’hôte, payés ou contestés par le voyageur
@@ -3806,4 +3806,133 @@ export const EN_MESSAGES = {
   'web.incidental.form.cap': 'Maximum for {fee}: {amount}.',
   'web.incidental.form.allRequested': 'You already requested every type of cost for this trip.',
   'web.incidental.form.capMissing': '{fee}: can’t be requested in this country yet.',
+  // US-318 (ADR-198) : réponses des routes des sinistres d’un trip (incident, amendes, péages, fourrière)
+  'common.tripClaims.notFound': 'We couldn’t find this trip.',
+  'common.tripClaims.incidentNotOpen':
+    'You can only report an incident while the trip is in progress.',
+  'common.tripClaims.incidentCaseRequired':
+    'First ask for help with an accident or breakdown from the trip’s help screen.',
+  'common.tripClaims.incidentPhotosRequired':
+    'Take at least one photo with the app’s camera before reporting the incident.',
+  'common.tripClaims.trafficTripNotEnded':
+    'You can report fines, tolls or towing once the trip has ended.',
+  'common.tripClaims.trafficDeadlinePassed': 'The deadline to report this charge has passed.',
+  'common.tripClaims.trafficOutsideTrip':
+    'The charge date must fall within the trip, between pickup and return.',
+  'common.tripClaims.trafficEvidenceRequired':
+    'Take a photo of the receipt with the app’s camera; each photo can be used for one charge only.',
+  'common.tripClaims.trafficTermsUnknown':
+    'We can’t record charges for this trip yet. Try again later.',
+  'common.tripClaims.unavailable': 'We couldn’t record it. Check your connection and try again.',
+  'web.incident.open': 'Report the incident with photos',
+  'web.incident.title': 'Report an accident or breakdown',
+  'web.incident.back': 'Back to trip help',
+  'web.incident.stopDriving':
+    'If the car has more than minor damage, don’t keep driving: wait for roadside assistance or the insurer’s instructions.',
+  'web.incident.askHelp': 'Ask for help with an accident or breakdown',
+  'web.incident.photos.title': 'Incident photos',
+  'web.incident.photos.lead':
+    'Photograph the car, the damage and, if another vehicle is involved, its plate. The time that counts is the server’s.',
+  'web.incident.form.title': 'What happened',
+  'web.incident.thirdParty': 'Is another vehicle or person involved?',
+  'web.incident.police': 'Did you call the police or the traffic authority?',
+  'web.incident.yes': 'Yes',
+  'web.incident.no': 'No',
+  'web.incident.answerRequired': 'Choose an answer.',
+  'web.incident.serverTime':
+    'We record the server time when you send. The photos are kept in the trip’s file for our support team.',
+  'web.incident.submit': 'Send the report',
+  'web.incident.sent': 'Incident recorded',
+  'web.incident.sentAt': 'Server time: {time}',
+  'web.incident.sentPhotos': 'Photos attached: {count}',
+  'web.incident.next':
+    'Our support team will contact you. If anyone is in danger, call emergency services first.',
+  'web.freePhotos.sent': 'Photo received.',
+  'web.freePhotos.none': 'No photos yet.',
+  'web.freePhotos.list': 'Photos received',
+  'web.freePhotos.item': 'Photo {n} · received at {time}',
+  'web.freePhotos.camera': 'Camera',
+  'web.freePhotos.take': 'Take a photo',
+  'web.freePhotos.full': 'You’ve reached the maximum of 10 photos.',
+  'web.freePhotos.cameraOnly':
+    'Only photos taken with the app’s camera, on the spot, are accepted.',
+  'web.traffic.link': 'Fines, tolls and towing',
+  'web.traffic.title': 'Trip fines, tolls and towing',
+  'web.traffic.back': 'Back to the trip',
+  'web.traffic.rules.title': 'How it works',
+  'web.traffic.deadline': 'You can report a charge until {time}.',
+  'web.traffic.feeRule':
+    'We charge the traveler the amount you paid plus a {pct} % handling fee. You get 100 % of what you paid.',
+  'web.traffic.rules.lead':
+    'Only charges you paid for events during the trip, with their receipt. The traveler is charged separately from the rental, after a notice.',
+  'web.traffic.photos.title': 'Receipts',
+  'web.traffic.closed': 'The deadline to report charges for this trip has passed.',
+  'web.traffic.list.title': 'Reported charges',
+  'web.traffic.list.empty': 'You haven’t reported any charge yet.',
+  'web.traffic.list.amounts': 'You paid {amount} · fee {fee} · total to the traveler {total}',
+  'web.traffic.kind.TOLL': 'Toll',
+  'web.traffic.kind.FINE': 'Fine',
+  'web.traffic.kind.IMPOUND': 'Towing or impound',
+  'web.traffic.status.PENDING': 'Being prepared',
+  'web.traffic.status.DONE': 'Notice sent to the traveler',
+  'web.traffic.status.BLOCKED': 'Under support review',
+  'web.traffic.form.title': 'Report a fine, a toll or towing',
+  'web.traffic.sent': 'Charge recorded',
+  'web.traffic.sent.amount': 'Amount you paid: {amount}',
+  'web.traffic.sent.fee': 'Handling fee: {amount}',
+  'web.traffic.sent.total': 'Total charged to the traveler: {amount}',
+  'web.traffic.kind': 'Type of charge',
+  'web.traffic.amount': 'Amount you paid',
+  'web.traffic.amountHint': 'Example: {example}',
+  'web.traffic.file': 'Receipt',
+  'web.traffic.fileItem': 'Photo received at {time}',
+  'web.traffic.fileNone': 'First take a photo of the receipt.',
+  'web.traffic.notTransferred':
+    'We charge the amount to the traveler; the fine stays in your name with the authority.',
+  'web.traffic.noParking': 'Parking you pay to get your car back is not charged to the traveler.',
+  'web.traffic.kindRequired': 'Choose the type of charge.',
+  'web.traffic.atRequired': 'Enter the date and time of the event.',
+  'web.traffic.amountInvalid': 'Enter the amount you paid, as in the example.',
+  'web.traffic.fileRequired': 'Choose the photo of the receipt.',
+  'web.theft.title': 'Car not returned',
+  'web.theft.status.THEFT_INVESTIGATION': 'Presumed theft since {time}: case open.',
+  'web.theft.status.RETURNED': 'The car came back: case closed on {time}.',
+  'web.theft.insurer.PENDING':
+    'Insurer report recorded: it will be sent once the insurer contract is active.',
+  'web.theft.insurer.SENT': 'Report sent to the insurer.',
+  'web.theft.insurer.WITHDRAWN':
+    'The car came back before sending: the insurer report was withdrawn.',
+  'web.theft.payoutHeld':
+    'Your payout for this trip is held while theft is presumed; it is released when the car comes back.',
+  'web.theft.noRecovery':
+    'You file the police report. {brand} does not recover the car or immobilize it remotely.',
+  // US-318, revues (2026-11-22) : confirmation de la refacturation, plainte, numéros
+  'web.traffic.review.submit': 'Review the charge',
+  'web.traffic.review.title': 'Check before you confirm',
+  'web.traffic.review.kind': 'Type of charge: {kind}',
+  'web.traffic.review.at': 'Date of the event: {time}',
+  'web.traffic.review.total': 'Total that will be charged to the traveler: {amount}',
+  'web.traffic.review.card':
+    'Calculated by us. It is charged separately to the trip card, after the traveler is notified. Check the amount: once you confirm, the charge is recorded.',
+  'web.traffic.review.confirm': 'Confirm',
+  'web.traffic.review.correct': 'Make changes',
+  'web.traffic.date': 'Date of the event',
+  'web.traffic.dateHint': 'Format {example}, trip local time, between pickup and return.',
+  'web.traffic.time': 'Time of the event',
+  'web.traffic.timeHint': '24-hour format, for example 14:30.',
+  'web.traffic.dateInvalid': 'Enter a valid date in the format shown.',
+  'web.traffic.timeInvalid': 'Enter the time in 24-hour format, for example 14:30.',
+  'web.traffic.dateLetters.day': 'dd',
+  'web.traffic.dateLetters.month': 'mm',
+  'web.traffic.dateLetters.year': 'yyyy',
+  'web.theft.report.title': 'What to do with the police report',
+  'web.theft.report.where':
+    'Check your email: the {brand} team sent you the pre-filled police report when the car was 24 hours overdue.',
+  'web.theft.report.file':
+    'Print it and file it yourself with the police or the public prosecutor, with your rental contract. Keep the report number.',
+  'web.theft.report.returned':
+    'If the car comes back, tell {brand} support: the file is closed and your payout is released.',
+  'web.help.roadside.useEmergency':
+    'If there was an accident, call {number} now and notify {authority}.',
+  'web.incident.needPhoto': 'Take at least one photo to send the report.',
 } as const satisfies Readonly<Record<MessageKey, Message>>;

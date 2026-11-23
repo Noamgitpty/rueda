@@ -562,6 +562,40 @@ async function openIncidental(
   ).toBeVisible();
 }
 
+/**
+ * US-318 : S17 · incidente du voyageur (trip en cours, demande d'aide « accident », une photo
+ * déposée par le double : la CI n'a pas de caméra).
+ */
+async function openIncident(
+  page: Page,
+  context: BrowserContext,
+  language: Language,
+): Promise<void> {
+  await signInGuest(context, language);
+  const token = (await context.cookies()).find((c) => c.name === '__Host-session')?.value ?? '';
+  const r = await fetch(`${API}/__e2e/p2p/new?guest=${token}&host=&status=IN_PROGRESS`);
+  expect(r.status).toBe(200);
+  const { tripId } = (await r.json()) as { tripId: string };
+  expect((await fetch(`${API}/__e2e/p2p/photo?trip=${tripId}&kind=incident`)).status).toBe(200);
+  await page.goto(`/trips/${tripId}/help`);
+  await page.locator('[data-testid="s17-topic-ACCIDENT"]').check();
+  await page.locator('[data-testid="s17-request-submit"]').click();
+  await page.locator('[data-testid="s17-incident-link"]').click();
+  await expect(page.locator('[data-testid="s17-incident-submit"]')).toBeVisible();
+}
+
+/** US-318 : A09 · amendes, péages et fourrière de l'hôte, vol présumé annoncé, une pièce reçue. */
+async function openTrafficCharges(page: Page, context: BrowserContext): Promise<void> {
+  await signInHost(context);
+  const token = (await context.cookies()).find((c) => c.name === '__Host-session')?.value ?? '';
+  const r = await fetch(`${API}/__e2e/p2p/new?guest=&host=${token}&status=COMPLETED&theft=yes`);
+  expect(r.status).toBe(200);
+  const { tripId } = (await r.json()) as { tripId: string };
+  expect((await fetch(`${API}/__e2e/p2p/photo?trip=${tripId}&kind=traffic`)).status).toBe(200);
+  await page.goto(`/host/trips/${tripId}/claims`);
+  await expect(page.locator('[data-testid="a09-traffic-submit"]')).toBeVisible();
+}
+
 interface Screen {
   /** Nom stable de la capture (dossier de références). */
   readonly name: string;
@@ -996,6 +1030,17 @@ export const SCREENS: readonly Screen[] = [
     name: 'avis-recus',
     source: 'US-317 (droit d’accès)',
     open: (page, context, language) => openReceivedReviews(page, context, language),
+  },
+  // US-318 : incident du voyageur depuis S17 et sinistres du trip vus par l'hôte (A09)
+  {
+    name: 'incident-voyageur',
+    source: 'S17 · incidente, US-318',
+    open: (page, context, language) => openIncident(page, context, language),
+  },
+  {
+    name: 'sinistres-hote',
+    source: 'A09, US-318',
+    open: (page, context) => openTrafficCharges(page, context),
   },
   { name: 'vitrine-composants', source: 'US-032', open: at('/ui?width=mobile') },
 ];

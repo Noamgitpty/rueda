@@ -71,6 +71,11 @@ export const ALERT_CODES = [
   // frais annexes (US-706, ADR-197 n° 18) : débit reporté 12 fois (erreur, issue inconnue), sorti de
   // la file et à revoir par l'ops ; P2, une fois par frais
   'CLAIM_INCIDENTAL_REVIEW_REQUIRED',
+  // sinistres entre particuliers (US-318, ADR-198) : erreur de la base dans la passe du travailleur
+  // (vol présumé, déclaration à l'assureur, refacturation ; étiquette error_code = étape_SQLSTATE,
+  // P1) ; refacturation passée BLOCKED (sans carte du loyer, essais épuisés ; P1)
+  'CLAIM_P2P_FAILED',
+  'CLAIM_TRAFFIC_BLOCKED',
 ] as const;
 export type AlertCode = (typeof ALERT_CODES)[number];
 

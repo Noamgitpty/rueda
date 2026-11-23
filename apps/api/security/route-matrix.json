@@ -856,6 +856,22 @@
       "roles": ["OPS_AGENT", "ADMIN"],
       "portee": "pays",
       "idor": "frais inconnu ou de l’autre pays : 403 FORBIDDEN journalisé ; trip qui concerne l’agent (ADMIN compris) : 403 STAFF_SELF_FORBIDDEN, rien n’est décidé (preuve L0 l0-us706-incidental-fees, RT-L3-H09)"
+    },
+    "POST /trips/{tripId}/incidents": {
+      "acces": "session",
+      "idor": "trip dont la session n'est pas le voyageur (hôte, co-hôte, autre personne), inconnu ou identifiant mal formé : 404 TRIP_CLAIM_NOT_FOUND, même réponse (17 §2.3 point 5) ; la partie est celle de la session, jugée en base (core.claim_cmd_report_incident, 0178) ; la demande d'aide citée doit être celle de cette personne sur ce trip ; photos de SA série INCIDENT seulement ; aucune heure reçue du client ; rejeu par requestId de la même personne seulement (sinon 400) ; preuves base : l0-us318-p2p-claims"
+    },
+    "GET /trips/{tripId}/claims": {
+      "acces": "session",
+      "idor": "trip dont la session n'est pas le titulaire du compte d'hôte (voyageur, co-hôte, autre personne), inconnu ou identifiant mal formé : 404 TRIP_CLAIM_NOT_FOUND, même réponse (17 §2.3 point 5) ; la partie est celle de la session, jugée en base (core.claim_host_trip_claims, core.claim_cmd_declare_traffic_charge, 0178) ; pièce de SA série TRAFFIC de ce trip seulement ; frais, délai et jambes calculés par la base, jamais reçus ; aucune donnée nominative du voyageur ; rejeu par requestId de la même personne seulement (sinon 400) ; preuves base : l0-us318-p2p-claims"
+    },
+    "POST /trips/{tripId}/traffic-charges": {
+      "acces": "session",
+      "idor": "trip dont la session n'est pas le titulaire du compte d'hôte (voyageur, co-hôte, autre personne), inconnu ou identifiant mal formé : 404 TRIP_CLAIM_NOT_FOUND, même réponse (17 §2.3 point 5) ; la partie est celle de la session, jugée en base (core.claim_host_trip_claims, core.claim_cmd_declare_traffic_charge, 0178) ; pièce de SA série TRAFFIC de ce trip seulement ; frais, délai et jambes calculés par la base, jamais reçus ; aucune donnée nominative du voyageur ; rejeu par requestId de la même personne seulement (sinon 400) ; preuves base : l0-us318-p2p-claims"
+    },
+    "POST /trips/{tripId}/traffic-charges/preview": {
+      "acces": "session",
+      "idor": "mêmes règles que POST /trips/{tripId}/traffic-charges (titulaire du compte d'hôte de la session seulement ; voyageur, co-hôte, autre personne, trip inconnu ou identifiant mal formé : 404 TRIP_CLAIM_NOT_FOUND, même réponse) ; récapitulatif calculé par la base (core.claim_cmd_declare_traffic_charge, p_preview, 0178) : rien n'est écrit ni le requestId consommé ; montants jamais reçus ; preuves base : l0-us318-p2p-claims"
     }
   }
 }

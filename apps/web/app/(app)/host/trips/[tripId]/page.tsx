@@ -165,6 +165,27 @@ export default async function HostTripPage({
           {t('web.a04.addFee')}
         </a>
       )}
+      {/* sinistres du trip (US-318, A09) : vol présumé, amendes, péages et fourrière, une fois le
+          trip en retard ou la voiture rendue */}
+      {(
+        [
+          'OVERDUE',
+          'UNRETURNED',
+          'VEHICLE_LOST',
+          'RETURNED',
+          'POST_TRIP',
+          'COMPLETED',
+          'IN_DISPUTE',
+        ] as const
+      ).some((s) => s === read.trip.status) && (
+        <a
+          className={styles['link']}
+          href={`/host/trips/${tripId}/claims?org=${account.orgId}`}
+          data-testid="a05-claims"
+        >
+          {t('web.traffic.link')}
+        </a>
+      )}
       {/* no-show du voyageur déclaré par l'hôte (US-307) : remise ouverte, pas encore commencée */}
       {(read.trip.status === 'CHECKIN_OPEN' || read.trip.status === 'START_WINDOW_EXPIRED') && (
         <a

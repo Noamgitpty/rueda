@@ -6,15 +6,37 @@
  */
 import { InspectionHttpError } from './errors.js';
 
-export type InspectionKind = 'CHECKIN' | 'CHECKOUT';
+/**
+ * `INCIDENT` (voyageur, pendant le trip) et `TRAFFIC` (titulaire, pièces d'une amende, d'un péage
+ * ou d'une fourrière après le retour) : séries de photos libres d'US-318 (ADR-198), mêmes jetons,
+ * empreinte et heure serveur ; seuls les angles `DAMAGE_nn` y sont admis et elles ne se valident
+ * pas (la déclaration de l'incident ou de la refacturation les cite).
+ */
+export type InspectionKind = 'CHECKIN' | 'CHECKOUT' | 'INCIDENT' | 'TRAFFIC';
+export type InspectionSegment = 'checkin' | 'checkout' | 'incident' | 'traffic';
 export type InspectionRole = 'HOST' | 'GUEST';
 
-/** Segment de l'URL (`checkin`, `checkout`) → type de série ; sinon `null`. */
+/** Segment de l'URL (`checkin`, `checkout`, `incident`, `traffic`) → type de série ; sinon `null`. */
 export function kindOf(segment: string): InspectionKind | null {
   if (segment === 'checkin') return 'CHECKIN';
   if (segment === 'checkout') return 'CHECKOUT';
+  if (segment === 'incident') return 'INCIDENT';
+  if (segment === 'traffic') return 'TRAFFIC';
   return null;
 }
+
+/** Type de série → segment de l'URL. */
+export function segmentOf(kind: InspectionKind): InspectionSegment {
+  return kind.toLowerCase() as InspectionSegment;
+}
+
+/** Séries libres d'US-318 : photos `DAMAGE_nn` seulement, jamais validées par `submit`. */
+export function isFreeSeries(kind: InspectionKind): boolean {
+  return kind === 'INCIDENT' || kind === 'TRAFFIC';
+}
+
+/** Angle admis pour une série libre (US-318). */
+export const FREE_SLOT = /^DAMAGE_[0-9]{2}$/;
 
 export const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 /** Forme d'un angle du gabarit (la liste fermée fait foi en base, `trip_photo_slot`). */

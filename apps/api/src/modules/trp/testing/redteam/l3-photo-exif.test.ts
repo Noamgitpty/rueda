@@ -77,7 +77,7 @@ async function deposit(original: Buffer): Promise<{ stored: Buffer; sha256: stri
   store.trips.set(trip, {
     hostProof: Buffer.alloc(32, 2).toString('hex'),
     guestProof: proof.toString('hex'),
-    open: { CHECKIN: true, CHECKOUT: false },
+    open: { CHECKIN: true, CHECKOUT: false, INCIDENT: false, TRAFFIC: false },
     maxKb: 500,
     maxPx: 1600,
   });

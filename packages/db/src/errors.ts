@@ -416,6 +416,12 @@ export const CONSTRAINT_CODES: Readonly<Record<string, readonly [string, DbBusin
   claim_incidental_immutable: [SQLSTATE.integrityConstraintViolation, 'IMMUTABLE_RECORD'],
   claim_incidental_live_unique: [SQLSTATE.uniqueViolation, 'INVARIANT_VIOLATION'],
   claim_incidental_charge_unique: [SQLSTATE.uniqueViolation, 'INVARIANT_VIOLATION'],
+  // sinistres entre particuliers (0178, US-318, ADR-198) : commandes du travailleur payment_command,
+  // registres immuables, une refacturation par pièce, un incident par demande d'aide
+  claim_p2p_command_forbidden: [SQLSTATE.insufficientPrivilege, 'FORBIDDEN'],
+  claim_p2p_record_immutable: [SQLSTATE.integrityConstraintViolation, 'IMMUTABLE_RECORD'],
+  claim_traffic_charge_file_unique: [SQLSTATE.uniqueViolation, 'INVARIANT_VIOLATION'],
+  claim_incident_report_case_unique: [SQLSTATE.uniqueViolation, 'INVARIANT_VIOLATION'],
   // intention de paiement, conversion gardée et compensation (0040, 0041, US-024)
   hold_not_payable: [SQLSTATE.objectNotInPrerequisiteState, 'HOLD_EXPIRED'],
   hold_payment_terminal: [SQLSTATE.objectNotInPrerequisiteState, 'INVALID_TRANSITION'],

@@ -375,7 +375,7 @@ export function registerWorkerTasks(registry: BusRegistry, deps: WorkerTaskDeps)
   // séparé du voyageur NOTIFIÉ (débité par mit_charge_scheduler, jamais la caution), franchise de
   // l'hôte au host_ledger, déclaration à l'assureur journalisée ; AUCUN port d'assureur en
   // production avant le lot C (`null` : rien n'est envoyé, l'ops transmet la déclaration)
-  registerClaimDecisionExecutor(registry, deps.transactions, deps.log, null);
+  registerClaimDecisionExecutor(registry, deps.transactions, deps.log, null, alerts);
 
   // Frais annexes (US-706, ADR-197) : débités par Kmino sous `payment_command` — payés par le
   // voyageur, décidés par l'ops après contestation, ou sans réponse après l'échéance relue en base

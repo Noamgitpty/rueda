@@ -3749,7 +3749,7 @@ export const PT_MESSAGES = {
   'backoffice.overdue.effect.FORMAL_NOTICE':
     'Ao confirmar, a etapa entra no processo e o anfitrião recebe por e-mail um modelo de notificação extrajudicial para enviar em seu próprio nome, e o pedido de anotar a localização GPS se o carro tiver um.',
   'backoffice.overdue.effect.POLICE_REPORT':
-    'Ao confirmar, a etapa entra no processo e o anfitrião recebe por e-mail um boletim de ocorrência pré-preenchido, que ele mesmo registra na polícia.',
+    'Ao confirmar, a etapa entra no processo e o anfitrião recebe por e-mail um boletim de ocorrência pré-preenchido, que ele mesmo registra na polícia. Abre-se o processo de suspeita de roubo: a comunicação à seguradora fica registrada e o repasse do anfitrião desta viagem fica retido até o carro voltar.',
   'backoffice.overdue.never':
     'A plataforma não registra nenhum boletim, não recupera nenhum carro e nunca age sobre ele a distância.',
   'backoffice.overdue.reasonHint':
@@ -3782,7 +3782,7 @@ export const PT_MESSAGES = {
     '{brand}: modelo de notificação da reserva {booking_ref} enviado por e-mail. Anote a localização GPS se o carro tiver um.',
   'ntf.unreturnedPoliceReport.email.subject': 'Reserva {booking_ref}: boletim pré-preenchido',
   'ntf.unreturnedPoliceReport.email.body':
-    'Olá, {first_name}. O carro da reserva {booking_ref} está sem devolução há mais de um dia. Aqui está um boletim de ocorrência pré-preenchido que você mesmo pode registrar na polícia ou no Ministério Público, com o seu contrato de locação e o seu documento de identidade: “Eu, anfitrião que colocou para locação o veículo indicado no contrato de locação anexo (marca, modelo e placa), declaro que este veículo, alugado pela reserva {booking_ref} na {brand}, devia ser devolvido a mim em {end_at} e não foi, apesar das minhas cobranças. A identidade do locatário consta no contrato anexo. Registro queixa pela não devolução do veículo.” Guarde o número do boletim. A {brand} não registra o boletim por você, não recupera o carro e não age sobre ele a distância; o seu repasse não fica bloqueado por este procedimento.',
+    'Olá, {first_name}. O carro da reserva {booking_ref} está sem devolução há mais de um dia. Aqui está um boletim de ocorrência pré-preenchido que você mesmo pode registrar na polícia ou no Ministério Público, com o seu contrato de locação e o seu documento de identidade: “Eu, anfitrião que colocou para locação o veículo indicado no contrato de locação anexo (marca, modelo e placa), declaro que este veículo, alugado pela reserva {booking_ref} na {brand}, devia ser devolvido a mim em {end_at} e não foi, apesar das minhas cobranças. A identidade do locatário consta no contrato anexo. Registro queixa pela não devolução do veículo.” Guarde o número do boletim. A {brand} não registra o boletim por você, não recupera o carro e não age sobre ele a distância; o seu repasse desta viagem fica retido enquanto houver suspeita de roubo e é liberado quando o carro volta.',
   'ntf.unreturnedPoliceReport.sms.body':
     '{brand}: boletim pré-preenchido da reserva {booking_ref} enviado por e-mail. Você mesmo o registra na polícia.',
   // US-706 (ADR-197) : frais annexes demandés par l’hôte, payés ou contestés par le voyageur
@@ -3900,4 +3900,135 @@ export const PT_MESSAGES = {
   'web.incidental.form.cap': 'Máximo para {fee}: {amount}.',
   'web.incidental.form.allRequested': 'Você já pediu cada tipo de custo para esta viagem.',
   'web.incidental.form.capMissing': '{fee}: ainda não pode ser pedido aqui.',
+  // US-318 (ADR-198) : réponses des routes des sinistres d’un trip (incident, amendes, péages, fourrière)
+  'common.tripClaims.notFound': 'Não encontramos esta viagem.',
+  'common.tripClaims.incidentNotOpen':
+    'Você só pode informar um incidente enquanto a viagem estiver em andamento.',
+  'common.tripClaims.incidentCaseRequired':
+    'Primeiro peça ajuda por um acidente ou uma pane na tela de ajuda da viagem.',
+  'common.tripClaims.incidentPhotosRequired':
+    'Tire pelo menos uma foto com a câmera do app antes de informar o incidente.',
+  'common.tripClaims.trafficTripNotEnded':
+    'Você poderá informar multas, pedágios ou guincho quando a viagem terminar.',
+  'common.tripClaims.trafficDeadlinePassed': 'O prazo para informar esta cobrança já terminou.',
+  'common.tripClaims.trafficOutsideTrip':
+    'A data da cobrança precisa estar dentro da viagem, entre a entrega e a devolução.',
+  'common.tripClaims.trafficEvidenceRequired':
+    'Tire uma foto do comprovante com a câmera do app; cada foto serve para uma única cobrança.',
+  'common.tripClaims.trafficTermsUnknown':
+    'Ainda não podemos registrar cobranças para esta viagem. Tente mais tarde.',
+  'common.tripClaims.unavailable':
+    'Não conseguimos registrar. Verifique sua conexão e tente de novo.',
+  'web.incident.open': 'Informar o incidente com fotos',
+  'web.incident.title': 'Informar um acidente ou uma pane',
+  'web.incident.back': 'Voltar à ajuda da viagem',
+  'web.incident.stopDriving':
+    'Se o carro tiver mais do que um dano leve, não continue dirigindo: espere a assistência ou as orientações da seguradora.',
+  'web.incident.askHelp': 'Pedir ajuda por um acidente ou uma pane',
+  'web.incident.photos.title': 'Fotos do incidente',
+  'web.incident.photos.lead':
+    'Fotografe o carro, os danos e, se houver outro veículo, a placa dele. O horário que vale é o do servidor.',
+  'web.incident.form.title': 'O que aconteceu',
+  'web.incident.thirdParty': 'Há outro veículo ou alguma pessoa envolvida?',
+  'web.incident.police': 'Você chamou a polícia ou a autoridade de trânsito?',
+  'web.incident.yes': 'Sim',
+  'web.incident.no': 'Não',
+  'web.incident.answerRequired': 'Escolha uma resposta.',
+  'web.incident.serverTime':
+    'Registramos o horário do servidor no envio. As fotos ficam no dossiê da viagem para nossa equipe de suporte.',
+  'web.incident.submit': 'Enviar a declaração',
+  'web.incident.sent': 'Incidente registrado',
+  'web.incident.sentAt': 'Horário do servidor: {time}',
+  'web.incident.sentPhotos': 'Fotos anexadas: {count}',
+  'web.incident.next':
+    'Nossa equipe de suporte vai entrar em contato. Se houver perigo, ligue primeiro para a emergência.',
+  'web.freePhotos.sent': 'Foto recebida.',
+  'web.freePhotos.none': 'Ainda não há fotos.',
+  'web.freePhotos.list': 'Fotos recebidas',
+  'web.freePhotos.item': 'Foto {n} · recebida às {time}',
+  'web.freePhotos.camera': 'Câmera',
+  'web.freePhotos.take': 'Tirar uma foto',
+  'web.freePhotos.full': 'Você chegou ao máximo de 10 fotos.',
+  'web.freePhotos.cameraOnly': 'Só são aceitas fotos tiradas na hora com a câmera do app.',
+  'web.traffic.link': 'Multas, pedágios e guincho',
+  'web.traffic.title': 'Multas, pedágios e guincho da viagem',
+  'web.traffic.back': 'Voltar à viagem',
+  'web.traffic.rules.title': 'Como funciona',
+  'web.traffic.deadline': 'Você pode informar uma cobrança até {time}.',
+  'web.traffic.feeRule':
+    'Cobramos do viajante o valor que você pagou mais uma taxa de gestão de {pct} %. Você recebe 100 % do que pagou.',
+  'web.traffic.rules.lead':
+    'Somente cobranças que você pagou por fatos ocorridos durante a viagem, com o comprovante. O viajante é cobrado à parte do aluguel, após um aviso.',
+  'web.traffic.photos.title': 'Comprovantes',
+  'web.traffic.closed': 'O prazo para informar cobranças desta viagem terminou.',
+  'web.traffic.list.title': 'Cobranças informadas',
+  'web.traffic.list.empty': 'Você ainda não informou nenhuma cobrança.',
+  'web.traffic.list.amounts': 'Você pagou {amount} · taxa {fee} · total ao viajante {total}',
+  'web.traffic.kind.TOLL': 'Pedágio',
+  'web.traffic.kind.FINE': 'Multa',
+  'web.traffic.kind.IMPOUND': 'Guincho ou pátio',
+  'web.traffic.status.PENDING': 'Em preparação',
+  'web.traffic.status.DONE': 'Aviso enviado ao viajante',
+  'web.traffic.status.BLOCKED': 'Em revisão pelo suporte',
+  'web.traffic.form.title': 'Informar uma multa, um pedágio ou um guincho',
+  'web.traffic.sent': 'Cobrança registrada',
+  'web.traffic.sent.amount': 'Valor que você pagou: {amount}',
+  'web.traffic.sent.fee': 'Taxa de gestão: {amount}',
+  'web.traffic.sent.total': 'Total cobrado do viajante: {amount}',
+  'web.traffic.kind': 'Tipo de cobrança',
+  'web.traffic.amount': 'Valor que você pagou',
+  'web.traffic.amountHint': 'Exemplo: {example}',
+  'web.traffic.file': 'Comprovante',
+  'web.traffic.fileItem': 'Foto recebida às {time}',
+  'web.traffic.fileNone': 'Primeiro tire uma foto do comprovante.',
+  'web.traffic.notTransferred':
+    'Cobramos o valor do viajante; a multa continua no seu nome perante a autoridade.',
+  'web.traffic.noParking':
+    'O estacionamento que você pagar para recuperar o carro não é cobrado do viajante.',
+  'web.traffic.kindRequired': 'Escolha o tipo de cobrança.',
+  'web.traffic.atRequired': 'Informe a data e a hora do fato.',
+  'web.traffic.amountInvalid': 'Digite o valor que você pagou, como no exemplo.',
+  'web.traffic.fileRequired': 'Escolha a foto do comprovante.',
+  'web.theft.title': 'Carro não devolvido',
+  'web.theft.status.THEFT_INVESTIGATION': 'Suspeita de roubo desde {time}: processo aberto.',
+  'web.theft.status.RETURNED': 'O carro voltou: processo encerrado em {time}.',
+  'web.theft.insurer.PENDING':
+    'Comunicação à seguradora registrada: será enviada quando o contrato com a seguradora estiver ativo.',
+  'web.theft.insurer.SENT': 'Comunicação enviada à seguradora.',
+  'web.theft.insurer.WITHDRAWN':
+    'O carro voltou antes do envio: a comunicação à seguradora foi retirada.',
+  'web.theft.payoutHeld':
+    'O seu repasse desta viagem fica retido enquanto houver suspeita de roubo; ele é liberado quando o carro volta.',
+  'web.theft.noRecovery':
+    'Você registra o boletim. A {brand} não recupera o carro nem o imobiliza a distância.',
+  // US-318, revues (2026-11-22) : confirmation de la refacturation, plainte, numéros
+  'web.traffic.review.submit': 'Revisar a cobrança',
+  'web.traffic.review.title': 'Revise antes de confirmar',
+  'web.traffic.review.kind': 'Tipo de cobrança: {kind}',
+  'web.traffic.review.at': 'Data do fato: {time}',
+  'web.traffic.review.total': 'Total que será cobrado do viajante: {amount}',
+  'web.traffic.review.card':
+    'Calculado por nós. É cobrado à parte no cartão da viagem, depois de avisar o viajante. Revise o valor: se você confirmar, a cobrança fica registrada.',
+  'web.traffic.review.confirm': 'Confirmar',
+  'web.traffic.review.correct': 'Corrigir',
+  'web.traffic.date': 'Data do fato',
+  'web.traffic.dateHint':
+    'Formato {example}, horário local da viagem, entre a entrega e a devolução.',
+  'web.traffic.time': 'Horário do fato',
+  'web.traffic.timeHint': 'Formato 24 h, por exemplo 14:30.',
+  'web.traffic.dateInvalid': 'Escreva uma data válida no formato indicado.',
+  'web.traffic.timeInvalid': 'Escreva o horário no formato 24 h, por exemplo 14:30.',
+  'web.traffic.dateLetters.day': 'dd',
+  'web.traffic.dateLetters.month': 'mm',
+  'web.traffic.dateLetters.year': 'aaaa',
+  'web.theft.report.title': 'O que fazer com o boletim de ocorrência',
+  'web.theft.report.where':
+    'Confira seu e-mail: a equipe da {brand} enviou o boletim pré-preenchido quando o carro completou 24 horas sem voltar.',
+  'web.theft.report.file':
+    'Imprima e registre você mesmo na polícia ou no Ministério Público, com o seu contrato de locação. Guarde o número do boletim.',
+  'web.theft.report.returned':
+    'Se o carro voltar, avise o suporte da {brand}: o processo é encerrado e o seu repasse é liberado.',
+  'web.help.roadside.useEmergency':
+    'Se houve um acidente, ligue já para o {number} e avise {authority}.',
+  'web.incident.needPhoto': 'Tire pelo menos uma foto para enviar a declaração.',
 } as const satisfies Readonly<Record<MessageKey, Message>>;
