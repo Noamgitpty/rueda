@@ -210,13 +210,21 @@ export class FakeIncidentalStore implements IncidentalStore {
     if (!this.#known(t, input.evidenceFileIds)) return out('CLAIM_EVIDENCE_MISSING');
     if (t.capMinor === null) return out('PARAM_MISSING');
     if (BigInt(input.amountMinor) > t.capMinor) return out('INCIDENTAL_AMOUNT_ABOVE_CAP');
+    // comme la base (ADR-202, ADR-204) : seule une annulation AVANT toute contestation libère le
+    // type et les pièces ; un frais abandonné (rejeté, annulé après contestation) bloque son groupe
+    // (nettoyage et tabac) ; une pièce ne soutient qu'une demande du trip
+    const group = (f: string) => (f === 'CLEANING' || f === 'SMOKING' ? 'INTERIOR' : f);
     if (
-      t.invoices.some(
-        (i) =>
-          i.feeType === input.feeType &&
-          // comme la base (ADR-202) : seule une annulation AVANT toute contestation libère le type
-          (i.status !== 'CANCELLED_BY_HOST' || i.disputeReason !== null),
-      )
+      t.invoices.some((i) => {
+        const held = i.status !== 'CANCELLED_BY_HOST' || i.disputeReason !== null;
+        const abandoned =
+          i.status === 'REJECTED' || (i.status === 'CANCELLED_BY_HOST' && i.disputeReason !== null);
+        return (
+          (held && i.feeType === input.feeType) ||
+          (abandoned && group(i.feeType) === group(input.feeType)) ||
+          (held && i.evidence.some((e) => input.evidenceFileIds.includes(e)))
+        );
+      })
     ) {
       return out('INCIDENTAL_DUPLICATE');
     }

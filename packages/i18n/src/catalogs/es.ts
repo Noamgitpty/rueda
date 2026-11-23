@@ -3795,7 +3795,7 @@ export const ES_MESSAGES = {
     'El viajero compró un extra en este viaje: no se cobra combustible.',
   'common.incidental.amountAboveCap': 'El monto supera el máximo permitido para este gasto.',
   'common.incidental.duplicate':
-    'Ya no puedes pedir este tipo de gasto para este viaje: ya hay una solicitud, fue rechazada o se canceló después de una impugnación.',
+    'No puedes hacer esta solicitud: este gasto (la limpieza y el tabaco cuentan juntos) ya se pidió, fue rechazado o se canceló después de una impugnación en este viaje, o un archivo adjunto ya respalda otra solicitud.',
   'common.incidental.notCancellable': 'Esta solicitud ya no se puede cancelar.',
   'common.incidental.notOpen': 'Este cargo ya no espera tu respuesta.',
   'common.incidental.responseWindowClosed': 'El plazo para pagar o impugnar este cargo terminó.',

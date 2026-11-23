@@ -3707,7 +3707,7 @@ export const EN_MESSAGES = {
   'common.incidental.fuelPrepaid': 'The guest bought an extra on this trip: fuel isn’t charged.',
   'common.incidental.amountAboveCap': 'The amount is above the maximum allowed for this cost.',
   'common.incidental.duplicate':
-    'This kind of cost can’t be requested again for this trip: a request already exists, was rejected, or was cancelled after a dispute.',
+    'This request isn’t possible: this cost (cleaning and smoking count together) was already requested, rejected, or cancelled after a dispute for this trip, or an attachment already supports another request.',
   'common.incidental.notCancellable': 'This request can no longer be cancelled.',
   'common.incidental.notOpen': 'This charge is no longer waiting for your answer.',
   'common.incidental.responseWindowClosed':

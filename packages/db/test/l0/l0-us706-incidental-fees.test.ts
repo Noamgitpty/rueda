@@ -866,7 +866,15 @@ describe.each(COUNTRIES)('US-706 — frais annexes ($country, $currency)', (c: C
         const firstReq = uuid();
         const smokeReq = uuid();
         const first = await submit(tx, h, w.trip, 'CLEANING', a['cleaning']!, [w.inner], firstReq);
-        const smoke = await submit(tx, h, w.trip, 'SMOKING', a['cleaning']!, [smokeFile.id], smokeReq);
+        const smoke = await submit(
+          tx,
+          h,
+          w.trip,
+          'SMOKING',
+          a['cleaning']!,
+          [smokeFile.id],
+          smokeReq,
+        );
         const l = await submit(
           tx,
           await session(tx, last.holder),

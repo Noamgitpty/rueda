@@ -165,4 +165,72 @@ describe.each(COUNTRIES)('US-706 suite — frais abandonné ($country, $currency
       });
     });
   });
+
+  it('une pièce ne soutient qu’une demande du trip (revue argent) : nettoyage vivant puis tabac sur la même photo ⇒ INCIDENTAL_DUPLICATE, aucun second avis ; témoins : tabac avec sa propre pièce accepté, pièce libérée par une annulation AVANT contestation', async () => {
+    await withRole('app_api', async (api) => {
+      await withTestTransaction(api, { virtualNow: START }, async (tx) => {
+        const w = await world(tx, c, { start: START, end: END });
+        await now(tx, J0);
+        const file = await attach(tx, w.holder, w.trip);
+        expect(file.r).toBe('ATTACHED');
+        const h = await session(tx, w.holder);
+        const cleaning = await submit(tx, h, w.trip, 'CLEANING', a['cleaning']!, [w.inner]);
+        expect(cleaning['outcome']).toBe('SUBMITTED');
+        // le même fait (même pièce) facturé une seconde fois sous l'autre type : refusé
+        for (const evidence of [[w.inner], [file.id, w.inner]]) {
+          expect(
+            (await submit(tx, h, w.trip, 'SMOKING', a['cleaning']!, evidence))['outcome'],
+          ).toBe('INCIDENTAL_DUPLICATE');
+        }
+        expect(await shape(tx, w.trip)).toEqual([['CLEANING', 'AWAITING_GUEST']]);
+        expect(await events(tx, cleaning['invoice_id'])).toBe(1);
+        // témoin : le tabac avec sa propre pièce coexiste (08 BR-REIMB-01 les liste à part)
+        const smoking = await submit(tx, h, w.trip, 'SMOKING', a['cleaning']!, [file.id]);
+        expect(smoking['outcome']).toBe('SUBMITTED');
+        // témoin : une annulation AVANT contestation libère la pièce, qui sert à nouveau
+        await now(tx, at(J0, HOUR));
+        expect(await one(tx, CANCEL, [await session(tx, w.holder), cleaning['invoice_id']])).toBe(
+          'CANCELLED',
+        );
+        const again = await submit(
+          tx,
+          await session(tx, w.holder),
+          w.trip,
+          'CLEANING',
+          a['cleaning']!,
+          [w.inner],
+        );
+        expect(again['outcome']).toBe('SUBMITTED');
+        expect(await shape(tx, w.trip)).toEqual([
+          ['CLEANING', 'CANCELLED_BY_HOST'],
+          ['SMOKING', 'AWAITING_GUEST'],
+          ['CLEANING', 'AWAITING_GUEST'],
+        ]);
+      });
+    });
+  });
+
+  it('sens inverse et portée : tabac contesté puis annulé ⇒ le nettoyage du même trip est refusé ; un frais abandonné sur un AUTRE trip ne bloque rien', async () => {
+    await withRole('app_api', async (api) => {
+      await withTestTransaction(api, { virtualNow: START }, async (tx) => {
+        const w = await world(tx, c, { start: START, end: END });
+        const other = await world(tx, c, { start: START, end: END });
+        await now(tx, J0);
+        const file = await attach(tx, w.holder, w.trip);
+        expect(file.r).toBe('ATTACHED');
+        await abandoned(tx, w, 'SMOKING', a['cleaning']!, [w.inner]);
+        const h = await session(tx, w.holder);
+        expect(
+          (await submit(tx, h, w.trip, 'CLEANING', a['cleaning']!, [file.id]))['outcome'],
+        ).toBe('INCIDENTAL_DUPLICATE');
+        expect(await shape(tx, w.trip)).toEqual([['SMOKING', 'CANCELLED_BY_HOST']]);
+        // autre trip (autre hôte, autres pièces) : nettoyage et tabac restent ouverts
+        const ho = await session(tx, other.holder);
+        expect(
+          (await submit(tx, ho, other.trip, 'CLEANING', a['cleaning']!, [other.inner]))['outcome'],
+        ).toBe('SUBMITTED');
+        expect(await shape(tx, other.trip)).toEqual([['CLEANING', 'AWAITING_GUEST']]);
+      });
+    });
+  });
 });
