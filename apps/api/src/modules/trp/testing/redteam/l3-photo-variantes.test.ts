@@ -146,28 +146,26 @@ describe('RT-L3-P03 (L3-PM-03) — variantes de la même prise de vue contre l�
     expect(await fingerprintOf(withExif)).toBe(await fingerprintOf(original));
   });
 
-  it('observation F-L3-PRE-04 : chaque variante, pixels identiques, a une empreinte DIFFÉRENTE de l’original et des autres ; l’index unique les accepterait toutes', async () => {
+  // CORRIGÉ (ADR-204, copie canonique) : l'observation de l'attaque devient la preuve du refus. Les
+  // variantes sont inchangées ; chacune a l'empreinte de l'original, que l'index unique
+  // `trip_inspection_photo_sha256_unique` refuse déjà (PHOTO_DUPLICATE)
+  it('preuve du refus F-L3-PRE-04 : chaque variante, pixels identiques, a l’empreinte de l’original ; l’index unique les refuse toutes', async () => {
     const base = await fingerprintOf(original);
-    const seen = new Set<string>([base]);
     for (const [label, body] of VARIANTS) {
-      const f = await fingerprintOf(body);
-      expect(f, label).not.toBe(base);
-      expect(seen.has(f), label).toBe(false);
-      seen.add(f);
+      // l'octet envoyé diffère bien de l'original (l'attaque est jouée)
+      expect(body.equals(original), label).toBe(false);
+      expect(await fingerprintOf(body), label).toBe(base);
     }
-    expect(seen.size).toBe(VARIANTS.length + 1);
   });
 
   // CONSTAT F-L3-PRE-04 : l'empreinte est celle des octets de la copie nettoyée, qui garde des
   // champs libres (densité et vignette JFIF, charge d'un segment ICC, bourrage du flux) ; correction
   // attendue : une copie CANONIQUE (champs libres normalisés ou retirés, bourrage supprimé) dont
-  // l'empreinte ne dépend que des pixels
-  it.fails(
-    'CONSTAT F-L3-PRE-04 : des octets de pixels identiques donnent la même empreinte, quelle que soit la retouche des champs libres (densité, vignette, profil ICC, bourrage)',
-    async () => {
-      const base = await fingerprintOf(original);
-      const fingerprints = await Promise.all(VARIANTS.map(([, body]) => fingerprintOf(body)));
-      expect(new Set([base, ...fingerprints]).size).toBe(1);
-    },
-  );
+  // l'empreinte ne dépend que des pixels. CORRIGÉ (ADR-204) : inversé en test de comportement, attaque
+  // et attendu inchangés
+  it('CONSTAT F-L3-PRE-04 (corrigé) : des octets de pixels identiques donnent la même empreinte, quelle que soit la retouche des champs libres (densité, vignette, profil ICC, bourrage)', async () => {
+    const base = await fingerprintOf(original);
+    const fingerprints = await Promise.all(VARIANTS.map(([, body]) => fingerprintOf(body)));
+    expect(new Set([base, ...fingerprints]).size).toBe(1);
+  });
 });
