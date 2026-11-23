@@ -52,7 +52,11 @@ const asPayments = <T>(fn: (tx: Tx) => Promise<T>): Promise<T> =>
     payTx(client, { worker: 'payment_command', deploymentEnv: 'test', virtualNow: T0 }, fn),
   );
 
-/** Compte PSP FAKE ACTIVE du pays et SUPPORTS_MIT validée pour la carte (une seule fois par transaction). */
+/**
+ * Compte PSP FAKE ACTIVE du pays et SUPPORTS_MIT validée pour la carte (une seule fois par transaction).
+ * Version en vigueur dès 2076-01-01 : des lignes UNKNOWN validées (committées) d'autres preuves, datées
+ * de 2036, masqueraient sinon une version de 2035 à l'horloge virtuelle 2076 (MIT_RAIL_UNAVAILABLE).
+ */
 async function bench(tx: Tx, c: CountryCase): Promise<string> {
   // compte FAKE ACTIVE partagé du pays (lire ou créer : un seul ACTIVE par pays dans la base)
   const psp = (
@@ -60,7 +64,7 @@ async function bench(tx: Tx, c: CountryCase): Promise<string> {
   ).rows[0]!.id;
   await tx.query(
     `SELECT test_fixture.us024_set_capability('FAKE', $1, 'CARD', 'SUPPORTS_MIT', 'true'::jsonb,
-                                              'VALIDATED_SANDBOX', '2035-01-01T00:00:00Z')`,
+                                              'VALIDATED_SANDBOX', '2076-01-01T00:00:00Z')`,
     [c.country],
   );
   return psp;
