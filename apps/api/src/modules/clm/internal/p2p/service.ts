@@ -484,6 +484,8 @@ export class TripClaimsService {
       responseHours: hours,
       capMinor: minorText(b['capMinor']),
       chargedBy: 'SEPARATE_CARD_CHARGE' as const,
+      // 0183 (ADR-203, F-L3-SIN-04) : somme du trip au-delà du plafond cumulé ⇒ revue de l'ops
+      opsReviewRequired: b['opsReviewRequired'] === true,
     };
   }
 
@@ -545,6 +547,8 @@ export class TripClaimsService {
       deadlineAt: new Date(deadline).toISOString(),
       responseDueAt: new Date(due).toISOString(),
       replayed: r.outcome === 'DUPLICATE',
+      // 0183 (ADR-203, F-L3-SIN-04) : aucun débit sans décision de l'ops
+      opsReviewRequired: b['opsReviewRequired'] === true,
     };
   }
 

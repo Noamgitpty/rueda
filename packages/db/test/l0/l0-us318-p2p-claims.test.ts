@@ -613,6 +613,8 @@ describe.each(COUNTRIES)('US-318 — sinistres entre particuliers ($country, $cu
           deadlineAt: DEADLINE,
           // 08 BR-TT-02 : 48 h pour payer ou contester (0181)
           responseDueAt: plus(DEADLINE, 48 * HOUR),
+          // 0183 (ADR-203) : sous le seuil cumulé du trip, aucune revue de l'ops
+          opsReviewRequired: false,
           legs: {
             HOST: a.amount.toString(),
             INSURER: '0',

@@ -18747,7 +18747,7 @@
             }
           },
           "409": {
-            "description": "Trip non terminé (aucun retour) ; référence déjà refacturée sur ce trip (TRAFFIC_DUPLICATE, chargeId), quelles que soient la nature, l'heure, le montant ou la photo",
+            "description": "Trip non terminé (aucun retour) ; PV déjà refacturé (clé canonique : casse, séparateurs, zéros de tête, O / I / L dans un numéro) sur ce trip ou un autre trip du même compte d'hôte du pays (TRAFFIC_DUPLICATE, chargeId), quelles que soient la nature, l'heure, le montant ou la photo",
             "headers": {
               "Cache-Control": {
                 "$ref": "#/components/headers/NoStore"
@@ -18978,7 +18978,7 @@
             }
           },
           "409": {
-            "description": "Trip non terminé (aucun retour) ; référence déjà refacturée sur ce trip (TRAFFIC_DUPLICATE, chargeId), quelles que soient la nature, l'heure, le montant ou la photo",
+            "description": "Trip non terminé (aucun retour) ; PV déjà refacturé (clé canonique : casse, séparateurs, zéros de tête, O / I / L dans un numéro) sur ce trip ou un autre trip du même compte d'hôte du pays (TRAFFIC_DUPLICATE, chargeId), quelles que soient la nature, l'heure, le montant ou la photo",
             "headers": {
               "Cache-Control": {
                 "$ref": "#/components/headers/NoStore"
@@ -21023,7 +21023,7 @@
           },
           "chargeId": {
             "type": "string",
-            "description": "TRAFFIC_DUPLICATE (US-318 suite, 0181) : refacturation déjà enregistrée sous cette référence sur ce trip"
+            "description": "TRAFFIC_DUPLICATE (US-318 suite, 0181 ; 0183) : refacturation déjà enregistrée sous ce PV (clé canonique) sur un trip du même compte d'hôte du pays"
           },
           "capMinor": {
             "type": "string",
@@ -32171,7 +32171,7 @@
           "reference": {
             "type": "string",
             "maxLength": 40,
-            "description": "Référence de l'avis, du PV ou du reçu (3 à 40 caractères : lettres et chiffres ASCII, espaces, « . », « / », « - ») ; unique par trip (sinon 409 TRAFFIC_DUPLICATE) ; absente ou vide : 422 TRAFFIC_REFERENCE_REQUIRED (0181)"
+            "description": "Référence de l'avis, du PV ou du reçu (3 à 40 caractères : lettres et chiffres ASCII, espaces, « . », « / », « - ») ; unique par compte d'hôte du pays après mise en forme canonique (0183 ; sinon 409 TRAFFIC_DUPLICATE) ; absente ou vide : 422 TRAFFIC_REFERENCE_REQUIRED (0181)"
           }
         }
       },
@@ -32215,6 +32215,10 @@
             "type": "string",
             "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}[.][0-9]{3}Z$",
             "description": "Échéance du voyageur pour payer ou contester (déclaration + délai du pays, 08 BR-TT-02 : 48 h) ; aucun débit avant"
+          },
+          "opsReviewRequired": {
+            "type": "boolean",
+            "description": "US-318 suite 2 (0183, ADR-203) : la somme des refacturations du trip dépasse le plafond cumulé du pays ; aucun débit sans décision de l'ops"
           }
         }
       },
@@ -32459,6 +32463,10 @@
           "chargedBy": {
             "type": "string",
             "const": "SEPARATE_CARD_CHARGE"
+          },
+          "opsReviewRequired": {
+            "type": "boolean",
+            "description": "US-318 suite 2 (0183, ADR-203) : avec ce montant, la somme des refacturations du trip dépasserait le plafond cumulé du pays ; la refacturation serait revue par l'ops avant tout débit"
           },
           "reference": {
             "type": "string",

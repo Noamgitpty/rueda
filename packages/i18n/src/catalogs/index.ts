@@ -426,8 +426,14 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  définitif), `web.incidental.cancelDisputedConfirm` (case de confirmation),
  `web.incidental.form.abandonedTypes` (type retiré du formulaire et pourquoi) ;
  `common.incidental.duplicate` reformulée (demande existante, rejetée ou abandonnée).
+ Version 116 (réservée à la suite 2 d’US-318 par l’orchestrateur ; la 117 est réservée aux
+ correctifs F-L3-FRA-03 / F-L3-PRE-04 ; le numéro ne redescend jamais) : refacturation des
+ amendes, péages et fourrières, passe de porte de la red team du lot 3 (0183, ADR-203, F-L3-SIN-03 à
+ 05) : `web.traffic.opsReview` (au-delà du plafond cumulé du trip, l’équipe revoit la demande avant
+ tout débit du voyageur) ; `common.tripClaims.trafficDuplicate` reformulée (le même PV sur un des
+ trajets de l’hôte, plus seulement sur ce trajet).
  */
-export const CATALOG_VERSION = 115;
+export const CATALOG_VERSION = 116;
 
 /** Catalogues de base par langue ; la langue d'un profil de locale choisit le sien. */
 export const CATALOGS: Readonly<Record<CatalogLanguage, VersionedCatalog<MessageKey>>> = {

@@ -82,7 +82,14 @@ describe('US-318 — sinistres du trip côté site', () => {
       deadlineAt: '2057-08-08T10:00:00.000Z',
       responseDueAt: '2057-04-13T10:00:00.000Z',
     };
-    expect(trafficDeclaredOf(ok(body, 201))).toEqual(body);
+    expect(trafficDeclaredOf(ok(body, 201))).toEqual({ ...body, opsReviewRequired: false });
+    // 0183 (ADR-203) : somme du trip au-delà du plafond cumulé ⇒ revue de l'ops annoncée
+    expect(trafficDeclaredOf(ok({ ...body, opsReviewRequired: true }, 201))).toMatchObject({
+      opsReviewRequired: true,
+    });
+    expect(trafficDeclaredOf(ok({ ...body, opsReviewRequired: 'yes' }, 201))).toMatchObject({
+      opsReviewRequired: false,
+    });
     expect(trafficDeclaredOf(ok({ ...body, totalMinor: 1292 }, 201))).toBeNull();
     expect(trafficDeclaredOf(ok({ ...body, adminFeeMinor: '6.2' }, 201))).toBeNull();
   });
@@ -194,6 +201,10 @@ describe('US-318, revue ux n° 1 — récapitulatif rendu par l’API', () => {
   };
   it('lu tel quel, montants en chaînes', () => {
     expect(trafficPreviewOf(ok(body))).toMatchObject({ totalMinor: '1292', feeBps: 500 });
+    expect(trafficPreviewOf(ok(body))).toMatchObject({ opsReviewRequired: false });
+    expect(trafficPreviewOf(ok({ ...body, opsReviewRequired: true }))).toMatchObject({
+      opsReviewRequired: true,
+    });
   });
   it('forme inattendue ⇒ null', () => {
     expect(trafficPreviewOf(ok({ ...body, totalMinor: 1292 }))).toBeNull();

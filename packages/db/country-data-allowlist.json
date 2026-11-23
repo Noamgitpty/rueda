@@ -120,6 +120,10 @@
     {
       "path": "packages/db/migrations/0182_claim_incidental_contest_and_evidence.sql",
       "justification": "Bloc final GÉNÉRÉ du paramètre incidental_cleaning_photo_window_h (valeurs PA / PY), rendu par apps/api/src/modules/cfg/internal/seed-sql.ts (renderParamSeedSql, groupe `embedded` de POST_SEED_PARAMS) depuis les données CFG ; seed-sql.test.ts exige le bloc à l'identique. Le reste de la migration ne nomme aucun pays (fenêtre des photos lue en paramètre du pays, 08 BR-REIMB-01). US-706 suite, ADR-202."
+    },
+    {
+      "path": "packages/db/migrations/0183_claim_traffic_reference_canonical_trip_cap.sql",
+      "justification": "Bloc GÉNÉRÉ du paramètre traffic_trip_charge_max_minor (valeurs PA / PY), rendu par apps/api/src/modules/cfg/internal/seed-sql.ts (renderParamSeedSql, groupe `embedded` de POST_SEED_PARAMS) depuis les données CFG ; seed-sql.test.ts exige le bloc à l'identique. Le reste de la migration ne nomme aucun pays (plafond cumulé du trip lu en paramètre du pays, unicité par pays et compte d'hôte lue sur la ligne). US-318 suite 2, ADR-203."
     }
   ]
 }
