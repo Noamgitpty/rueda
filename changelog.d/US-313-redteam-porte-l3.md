@@ -1,0 +1,4 @@
+lot: L3
+module: Porte de lot
+
+- Ajouté : dernière passe de la red team du lot 3 (critères 2 et 3 d'US-313) sur le code de main 9aa0def0 (avec #299, 0182) : débits MIT d'US-703 (RT-L3-M01 à M04 : accord écrit ajouté après coup, motifs et couples hors liste, bornes du préavis et du délai par réseau, retenue de no-show jamais débitée, dette jamais ranimée, relances, encaissements partiels fractionnés à l'unité mineure) ; versement de l'hôte face à un gel avec `payouts_enabled` ouvert par la procédure à deux personnes dans une fenêtre d'horloge lointaine (capacité SUPPORTS_PAYOUT_ADJUSTMENT inconnue, dossier de vol avant la libération et entre la libération et l'émission) ; variantes contre les correctifs de #300, #299 et #291 ; tests d'attaque sous les rôles de production, en USD et en PYG, contre le FAKE ; constats prouvés par `it.fails` (voir `docs/team/redteam/L3-porte.md`) (US-313)
