@@ -332,10 +332,10 @@ const LOT3_FUNCTIONS: readonly string[] = (() => {
   const dir = join(PACKAGE_ROOT, 'migrations');
   const names = new Set<string>();
   for (const f of readdirSync(dir)) {
-    const n = Number(/^(d{4})_/.exec(f)?.[1] ?? '-1');
+    const n = Number(/^(\d{4})_/.exec(f)?.[1] ?? '-1');
     if (n < 158 || n > 178) continue;
     const text = readFileSync(join(dir, f), 'utf8');
-    for (const m of text.matchAll(/^CREATE (?:OR REPLACE )?FUNCTION core.([a-z0-9_]+)/gm)) {
+    for (const m of text.matchAll(/^CREATE (?:OR REPLACE )?FUNCTION core\.([a-z0-9_]+)/gm)) {
       names.add(m[1]!);
     }
   }

@@ -246,8 +246,8 @@ describe.each(COUNTRIES)(
           { lost_trip_minor: s.total.toString(), currency: c.currency },
         ]);
         // le rejeu ne provoque ni interblocage, ni délai de verrou, ni délai d'instruction
-        // issue exacte de B : le même statut, rejoué, est appliqué sans effet
-        expect(r.resultB).toBe('APPLIED');
+        // issue exacte de B : le même statut, rejoué, est reconnu comme doublon (aucun effet)
+        expect(r.resultB).toBe('DUPLICATE');
       });
     }, 120_000);
 
