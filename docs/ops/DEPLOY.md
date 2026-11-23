@@ -101,6 +101,7 @@ Si une condition manque, le run échoue sans rien toucher. Le rôle AWS n'est as
   - En **préproduction** : sans accord.
   - En **production** : il passe par la **même porte d'approbation** qu'un déploiement (ADR-084). GitHub retient le job jusqu'à l'accord du fondateur, et la porte « accord du fondateur » le revérifie. L'orchestrateur lance le run et prévient aussitôt le fondateur, avec le motif et le lien du run.
   - En cas d'incident, la version défectueuse reste servie jusqu'à l'accord. Le fondateur garde donc les notifications d'approbation actives.
+- **À travers de vraies migrations** (US-402, ADR-206) : la répétition de la CI (`rehearsal.sh`, étape 6) ressert l'image N−1 (`docs/ops/rollback-reference.json`) sur le schéma N après le déploiement de N : saine, sans migration descendante. Rapport : [`RESTORE_REPORT.md`](RESTORE_REPORT.md).
 - **Si une migration est en cause** : ne jamais modifier une migration appliquée. Écrire une migration corrective (nouvelle version), la faire passer par la préproduction, puis déployer.
 - **Si le retour arrière échoue** (`ROLLBACK FAILED`) : incident ; le mode dégradé et l'astreinte sont décrits en 17 §6.4 (procédure d'incident : US-405). Sauvegardes et restauration : [`BACKUP_RESTORE.md`](BACKUP_RESTORE.md) ; alertes : [`MONITORING.md`](MONITORING.md) (US-004).
 

@@ -92,9 +92,19 @@ Variables : `RUEDA_PG_CONTAINER` (instance source), `RUEDA_BACKUP_VOLUME` et `RU
    PGHOST=127.0.0.1 PGPORT="$RUEDA_RESTORE_PORT" bash scripts/ops/serve-local.sh start
    ```
 
+5. Levée de la garde de reprise (US-402, ADR-206), APRÈS le rapprochement avec le PSP (voir « Reprise gardée ») ; refusée si le rapprochement n'est pas attesté ou si la fenêtre d'idempotence du PSP est dépassée :
+
+   ```bash exercice-levee
+   PGHOST=127.0.0.1 PGPORT="$RUEDA_RESTORE_PORT" RUEDA_DB_ADMIN_USER=postgres      RUEDA_DB_ADMIN_PASSWORD="$(cat "$RUEDA_SECRETS_DIR/postgres")"      node packages/db/src/restore/release-cli.ts
+   ```
+
+   Variables lues par l'outil : `RUEDA_RECOVERY_RESTORED_TO` (instant restauré, ISO 8601), `RUEDA_RECOVERY_RECONCILED` (`yes`), `RUEDA_PSP_IDEMPOTENCY_WINDOW_S`, `RUEDA_RECOVERY_PSP_LISTING` (`yes` si le relevé complet du PSP depuis T est rapproché), `RUEDA_RECOVERY_NOTE`.
+
 L'exercice (`packages/db/test/drill/restore-drill.test.ts`) enchaîne deux scénarios. **A, erreur récente** : sauvegarde, écritures, instant T, écritures après T ; restauration à T ⇒ données identiques à celles de T (comptes de lignes de chaque table, sommes d'argent par devise, tête de la chaîne d'audit), écritures d'après la sauvegarde présentes, aucune écriture postérieure à T, catalogue de sécurité identique (rôles, appartenances, politiques, RLS, droits), vérification verte, application redémarrée. **B, perte de l'instance** : l'instance source est tuée sans préavis ; restauration au plus récent ⇒ RPO = instant de la perte − dernière écriture rendue (borné par `archive_timeout`), vérification verte, application redémarrée. RTO = restauration + vérification + bascule.
 
 ### Mesures
+
+Mesures répétées, environnement nommé et ce qui reste EN ATTENTE : [`RESTORE_REPORT.md`](RESTORE_REPORT.md) (US-402).
 
 Base de l'exercice : 960 lignes à T (PA et PY), sauvegarde de base en 0,59 s. Ces durées mesurent la **procédure** sur une petite base, pas le volume de la production. Depuis US-112, chaque scénario est comparé à son objectif (RPO 15 min, RTO 4 h, PROPOSÉS) et le rapport les consigne (`objectives`) ; la mesure sur un volume représentatif se fera à l'exercice cloud du fondateur (Q-009), en préproduction, et sera reportée ici.
 
@@ -104,6 +114,15 @@ Base de l'exercice : 960 lignes à T (PA et PY), sauvegarde de base en 0,59 s. C
 | 2026-11-04 | `9d6f745` (run 41828640740)         | B : perte de l'instance, restauration au plus récent | 6,57 s (borné par `archive_timeout` = 30 s)      | 2,87 s (1,48 + 0,30 + 1,09)                                   | idem : **tenus**                                       |
 | 2026-11-14 | `b8ad919` (run 43570361558, US-112) | A : restauration à l'instant T (2 752 lignes à T)    | 0,18 s                                           | 4,21 s (2,89 + 0,21 + 1,10)                                   | objectif `instant` RPO ≤ 15 min, RTO ≤ 4 h : **tenus** |
 | 2026-11-14 | `b8ad919` (run 43570361558, US-112) | B : perte de l'instance, restauration au plus récent | 8,09 s                                           | 3,68 s (2,40 + 0,22 + 1,07)                                   | objectif `latest` RPO ≤ 15 min, RTO ≤ 4 h : **tenus**  |
+
+## Reprise gardée : rien n'est réémis avant le rapprochement (US-402, ADR-206)
+
+Une base restaurée à l'instant T ignore ce qui a été exécuté chez le PSP ou envoyé après T (débits, remboursements, débits MIT, versements, avis). La migration 0185 pose donc une **garde de reprise** : tant qu'elle est active, `core.outbox_claim_jobs` ne rend aucune tâche. Aucun travailleur n'émet rien. L'outbox et les tâches restent en attente, intactes.
+
+- **Détection automatique** : chaque promotion d'une instance restaurée change la ligne de temps de PostgreSQL. Si la ligne de temps courante diffère de l'attendue, ou si elle est illisible, la garde est active. Une restauration logique (`pg_restore`, portabilité) ne change pas la ligne de temps : poser la garde à la main **avant** d'ouvrir la base (`SELECT platform.recovery_place_hold('motif')`, sous `app_worker` ou l'administration).
+- **Pendant la garde** : l'API peut servir (lecture, consultation). Les réservations restent gelées (DISASTER_RECOVERY.md §4). La vérification (`restore/cli.ts`) affiche l'état de la garde et l'inventaire de ce qui attend (`inFlight` : événements non publiés, tâches, commandes d'argent `PENDING` / `SUBMITTED` / `UNKNOWN` par type, lots de versement engagés, avis en file). Relire aussi l'état de contrôle (interrupteurs, demandes de bascule, accès du staff, L4-PM-20) : la restauration a pu remettre un état antérieur. Les secrets se rejouent depuis SECRET_ROTATION.md.
+- **Rapprochement** : chaque commande en vol est **lue au PSP** par notre clé avant tout envoi. Une commande exécutée au PSP après T et absente de la base n'est retrouvée que par le **relevé des opérations du PSP depuis T**. En bêta, le PSP est `FAKE` : rien n'est exécuté hors de la base. Le rapprochement réel (C12 contre le PSP, N-420) arrive au lot C.
+- **Levée** (`exercice-levee`, sous `migrator` en cloud) : refusée sans `RUEDA_RECOVERY_RECONCILED=yes`. Elle est refusée aussi quand **(levée − T) + 1 h ≥ W**, où W est la fenêtre d'idempotence du PSP (hypothèse H-IDEM, PROPOSÉE : 24 h, à confirmer à la porte go / no-go du PSP ; inconnue = refus). Au-delà de W, le PSP pourrait accepter une seconde fois une clé recréée : seul `RUEDA_RECOVERY_PSP_LISTING=yes` (relevé complet rapproché) permet alors la levée. La levée enregistre la nouvelle ligne de temps et trace la note (`platform.recovery_hold`).
 
 ## En cas d'alerte de sauvegarde
 

@@ -8,12 +8,16 @@
  * `RUEDA_DB_APP_WORKER_PASSWORD` (secrets du coffre, ceux du job de base), `RUEDA_RESTORE_REPORT`
  * (facultatif : fichier où écrire le rapport JSON). TLS : `PGSSLMODE`, `NODE_EXTRA_CA_CERTS`.
  *
+ * US-402 : le rapport porte aussi l'état de la garde de reprise (0185) et l'inventaire de ce qui
+ * attend d'être émis (`recovery.ts`) ; la levée est un outil séparé (`release-cli.ts`).
+ *
  * Sortie : une ligne par contrôle, puis le rapport JSON (empreintes, aucun secret) ; code 1 si un
  * contrôle échoue. Tout message d'erreur est expurgé des secrets.
  */
 import { writeFileSync } from 'node:fs';
 import pg from 'pg';
 import { redactError } from '../secrets.ts';
+import { inFlightInventory, recoveryCheck, recoveryStatus } from './recovery.ts';
 import { catalogFingerprint, dataFingerprint, verifyRestoredDatabase } from './verify.ts';
 
 const IDENTIFIER = /^[a-z][a-z0-9_]{0,62}$/;
@@ -57,7 +61,11 @@ export async function main(env: Readonly<Record<string, string | undefined>>): P
     const api = await connect('app_api', required(env, 'RUEDA_DB_APP_API_PASSWORD'));
     const worker = await connect('app_worker', required(env, 'RUEDA_DB_APP_WORKER_PASSWORD'));
 
-    const checks = await verifyRestoredDatabase({ admin, api, worker }, { environment });
+    const recovery = await recoveryStatus(worker);
+    const checks = [
+      ...(await verifyRestoredDatabase({ admin, api, worker }, { environment })),
+      recoveryCheck(recovery),
+    ];
     for (const c of checks) {
       console.log(`[restore-verify] ${c.ok ? 'OK  ' : 'ÉCHEC'} ${c.name} : ${c.detail}`);
     }
@@ -66,6 +74,9 @@ export async function main(env: Readonly<Record<string, string | undefined>>): P
       environment,
       ok: checks.every((c) => c.ok),
       checks,
+      // US-402 (ADR-206) : garde de reprise et ce qui sera repris à sa levée (comptes seulement)
+      recovery,
+      inFlight: await inFlightInventory(admin),
       catalog: await catalogFingerprint(admin),
       data: await dataFingerprint(admin),
     };

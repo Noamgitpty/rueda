@@ -51,9 +51,9 @@ La bascule Multi-AZ est automatique (quelques minutes) : surveiller les alarmes,
 1. **Geler** : aucune nouvelle réservation tant que la base, l'outbox ou les webhooks sont en panne depuis plus de 30 min (mode dégradé de 17 §6.4) ; les holds en cours expirent d'eux-mêmes. Les interrupteurs de mise en service (`payouts_enabled`, etc.) ne se touchent jamais pendant une reprise : ils changent par la seule commande à deux personnes (17 v6).
 2. **Base** : restaurer, puis `restore/cli.ts` : rôles, RLS ENABLE + FORCE, migrations, environnement déclaré, L0-05, chaîne d'audit, oracle C12, invariants d'argent, occupations. Code 1 : ne pas basculer.
 3. **Secrets** : vérifier ceux du nouvel environnement ; en cas de doute de compromission, tourner (SECRET_ROTATION.md) **avant** la réouverture.
-4. **Application** : bascule (`PGHOST`, nouvelle révision), API puis travailleur ; surveiller les alarmes 30 min.
+4. **Application** : bascule (`PGHOST`, nouvelle révision), API puis travailleur ; surveiller les alarmes 30 min. Sur une base restaurée, la **garde de reprise** (US-402, ADR-206) est active : le travailleur ne réclame aucune tâche, donc n'émet rien (débits, versements, avis), jusqu'à l'étape 6.
 5. **Fichiers** : restaurer les compartiments si touchés ; empreintes vérifiées (`verifyFileAsset`).
-6. **Rouvrir** les réservations ; rapprocher l'argent (travailleur `reconciliation`, puis le PSP au lot C).
+6. **Rapprocher puis lever la garde** : lire au PSP chaque commande en vol (inventaire `inFlight` du rapport de vérification), relire l'état de contrôle (interrupteurs, demandes de bascule, accès du staff), puis `exercice-levee` (BACKUP_RESTORE.md « Reprise gardée » : refusée sans rapprochement attesté ou hors de la fenêtre d'idempotence du PSP). **Rouvrir** ensuite les réservations ; rapprochement C12 contre le PSP réel au lot C (N-420).
 7. **Mesurer** RPO (instant restauré → dernière écriture rendue) et RTO (début → API saine), les consigner dans la note d'incident et dans BACKUP_RESTORE.md « Mesures ».
 
 ## 5. Communication (gabarits, quatre langues)

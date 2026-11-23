@@ -3223,6 +3223,27 @@
       "owner": "iam_staff_owner",
       "execute": ["app_api"],
       "story": "US-318"
+    },
+    {
+      "signature": "platform.recovery_hold_active()",
+      "family": "guard",
+      "owner": "guard_owner",
+      "execute": ["app_api", "app_worker"],
+      "story": "US-402"
+    },
+    {
+      "signature": "platform.recovery_status()",
+      "family": "guard",
+      "owner": "guard_owner",
+      "execute": ["app_worker"],
+      "story": "US-402"
+    },
+    {
+      "signature": "platform.recovery_place_hold(text)",
+      "family": "guard",
+      "owner": "guard_owner",
+      "execute": ["app_worker"],
+      "story": "US-402"
     }
   ]
 }
