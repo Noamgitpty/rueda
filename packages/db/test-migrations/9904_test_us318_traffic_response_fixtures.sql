@@ -7,7 +7,7 @@
 --
 -- Rôle (SECURITY DEFINER sous migrator, search_path figé, aucun SQL dynamique) : relire une
 -- refacturation et son avis (aucun rôle applicatif ne les lit), poser une nouvelle version d'un
--- paramètre traffic_guest_* (preuve du refus fail-closed, transaction ANNULÉE) et tenter une
+-- paramètre traffic_guest_* fermé (preuve du refus fail-closed, transaction ANNULÉE) et tenter une
 -- écriture interdite. « Échue » est lue par le prédicat de production
 -- `core.claim_traffic_charge_eligible`, jamais recopié. Les attendus des tests viennent de 08
 -- (BR-TT-02 : 48 h pour payer ou contester ; BR-REIMB-02 / 03 / 05), 19 US-318 et du rapport de
@@ -65,20 +65,26 @@ AS $fn$
    WHERE e.aggregate_id = p_charge AND e.aggregate_type = 'traffic_charge'
 $fn$;
 
--- Nouvelle version d'un paramètre traffic_guest_* du pays (valeur illisible ou autre valeur ;
--- transaction ANNULÉE seulement)
-CREATE FUNCTION test_fixture.us318s_param_version(p_key text, p_country text, p_value jsonb)
-  RETURNS void
+-- Paramètre traffic_guest_* du pays fermé 10 ms après l'heure (virtuelle) de la transaction (preuve
+-- du refus fail-closed, transaction ANNULÉE seulement ; même motif que us318_param_close, 9906)
+CREATE FUNCTION test_fixture.us318s_param_close(p_key text, p_country text)
+  RETURNS integer
   LANGUAGE plpgsql
   SECURITY DEFINER
   SET search_path = pg_catalog, pg_temp
 AS $fn$
+DECLARE
+  v_n integer;
 BEGIN
   IF p_key NOT IN ('traffic_guest_response_h', 'traffic_guest_charge_max_minor') THEN
     RAISE EXCEPTION 'clé hors liste : %', p_key USING ERRCODE = 'invalid_parameter_value';
   END IF;
-  INSERT INTO core.config_param_value (key, country_code, scope_type, value, change_reason)
-  VALUES (p_key, p_country, 'COUNTRY', p_value, 'test US-318 suite (annulé)');
+  UPDATE core.config_param_value AS v
+     SET valid_to = platform.now() + pg_catalog.make_interval(secs => 0.01)
+   WHERE v.key = p_key AND v.country_code = p_country AND v.scope_type = 'COUNTRY'
+     AND v.valid_to IS NULL;
+  GET DIAGNOSTICS v_n = ROW_COUNT;
+  RETURN v_n;
 END
 $fn$;
 
@@ -145,7 +151,7 @@ REVOKE ALL ON FUNCTION
   test_fixture.us318s_state(uuid),
   test_fixture.us318s_charges(uuid),
   test_fixture.us318s_events(uuid),
-  test_fixture.us318s_param_version(text, text, jsonb),
+  test_fixture.us318s_param_close(text, text),
   test_fixture.us318s_try_write(text, uuid),
   test_fixture.us318s_insert_charge(uuid)
 FROM PUBLIC;
@@ -153,7 +159,7 @@ GRANT EXECUTE ON FUNCTION
   test_fixture.us318s_state(uuid),
   test_fixture.us318s_charges(uuid),
   test_fixture.us318s_events(uuid),
-  test_fixture.us318s_param_version(text, text, jsonb),
+  test_fixture.us318s_param_close(text, text),
   test_fixture.us318s_try_write(text, uuid),
   test_fixture.us318s_insert_charge(uuid)
 TO app_worker, app_api;

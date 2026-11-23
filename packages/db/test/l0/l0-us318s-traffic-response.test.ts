@@ -325,7 +325,7 @@ describe.each(COUNTRIES)('US-318 suite — refacturations ($country, $currency)'
     );
   });
 
-  it('F-L3-SIN-02 (plafond) : montant au plafond du pays accepté, plafond + 1 et montant absurde de la red team refusés TRAFFIC_AMOUNT_ABOVE_CAP (capMinor rendu), rien d’écrit ; délai du voyageur ou plafond illisibles : TRAFFIC_RESPONSE_WINDOW_UNKNOWN / TRAFFIC_CAP_UNKNOWN', async () => {
+  it('F-L3-SIN-02 (plafond) : montant au plafond du pays accepté, plafond + 1 et montant absurde de la red team refusés TRAFFIC_AMOUNT_ABOVE_CAP (capMinor rendu), rien d’écrit ; délai du voyageur ou plafond absents : TRAFFIC_RESPONSE_WINDOW_UNKNOWN / TRAFFIC_CAP_UNKNOWN', async () => {
     await withRole('app_api', (api) =>
       withTestTransaction(api, { virtualNow: START }, async (tx) => {
         const w = await world(tx, c);
@@ -358,22 +358,20 @@ describe.each(COUNTRIES)('US-318 suite — refacturations ($country, $currency)'
         expect(
           (await tx.query('SELECT * FROM test_fixture.us318s_charges($1)', [w.trip])).rows,
         ).toEqual([]);
-        // paramètres illisibles (nouvelle version dans la transaction annulée) : fail-closed
+        // paramètres absents (fermés dans la transaction annulée) : fail-closed
         await setNow(tx, plus(D, 1000));
-        await tx.query('SELECT test_fixture.us318s_param_version($1, $2, $3::jsonb)', [
+        await tx.query('SELECT test_fixture.us318s_param_close($1, $2)', [
           'traffic_guest_charge_max_minor',
           c.country,
-          JSON.stringify('beaucoup'),
         ]);
         await setNow(tx, plus(D, 2000));
         const h2 = await session(tx, w.holder);
         expect(
           (await declare(tx, h2, w.trip, { amount: a['fine']!, file: f, ref: ref() }))['outcome'],
         ).toBe('TRAFFIC_CAP_UNKNOWN');
-        await tx.query('SELECT test_fixture.us318s_param_version($1, $2, $3::jsonb)', [
+        await tx.query('SELECT test_fixture.us318s_param_close($1, $2)', [
           'traffic_guest_response_h',
           c.country,
-          '0',
         ]);
         await setNow(tx, plus(D, 3000));
         const h3 = await session(tx, w.holder);

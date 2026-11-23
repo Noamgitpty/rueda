@@ -44,6 +44,11 @@ const START = '2073-04-07T10:00:00.000Z';
 const END = '2073-04-10T10:00:00.000Z';
 /** Instant de toutes les déclarations (une heure après le retour). */
 const DECLARED_AT = plus(END, 3600);
+/**
+ * Échéance du voyageur (correctif US-318 suite, migration 0181, ADR-201) : déclaration + 48 h
+ * (08 BR-TT-02 : « 48 h pour payer/contester »), échéance exclue ; aucun débit avant.
+ */
+const GUEST_DUE = plus(DECLARED_AT, 48 * 3600);
 
 /**
  * Par pays (ordre de `COUNTRIES`) : montant de l'amende et frais de gestion de l'oracle, loyer par
@@ -61,7 +66,7 @@ const ADD = `SELECT * FROM core.trip_cmd_add_inspection_photo($1, $2::uuid, $3, 
                                                               $7, $8::bigint, $9, $10::timestamptz)`;
 const DECLARE = `SELECT outcome, charge_id::text AS charge_id, body
   FROM core.claim_cmd_declare_traffic_charge($1, $2::uuid, $3::uuid, $4, $5::timestamptz, $6::bigint,
-                                             $7::uuid, $8)`;
+                                             $7::uuid, $8, $9)`;
 const EXECUTE = 'SELECT outcome, code FROM core.claim_cmd_execute_traffic_charge($1, $2)';
 const NOTIFY = `SELECT outcome, charge_id::text AS charge_id
   FROM core.payment_cmd_notify_post_trip_charge($1::uuid, $2::uuid, 'INCIDENTAL', 'DELAYED_CHARGES',
@@ -156,6 +161,9 @@ async function declare(
   file: string,
   preview = false,
   req: string = uuid(),
+  // référence de l'avis ou du PV, obligatoire depuis 0181 (unique par trip) ; par défaut, une
+  // référence neuve (un autre PV)
+  reference: string = `RT-${uuid().slice(0, 8)}`,
 ): Promise<Row> {
   return (
     await tx.query<Row>(DECLARE, [
@@ -167,6 +175,7 @@ async function declare(
       amount.toString(),
       file,
       preview,
+      reference,
     ])
   ).rows[0]!;
 }
@@ -181,6 +190,7 @@ interface Batch {
   readonly againOutcome: unknown;
   readonly absurd: string | null;
   readonly absurdOutcome: unknown;
+  readonly absurdBody: unknown;
   readonly ordinary: string | null;
   readonly ordinaryOutcome: unknown;
   readonly plusOne: string | null;
@@ -214,9 +224,33 @@ function batchOf(c: CountryCase): Promise<Batch> {
         if (p.outcome !== 'DONE' || p.fileId === null) throw new Error(`photo : ${p.outcome}`);
       }
       const occurred = plus(START, 3600);
-      const first = await declare(tx, h, w.trip, 'FINE', occurred, a['fine']!, p1.fileId!);
+      // la référence du procès-verbal photographié (saisie par l'hôte, 0181)
+      const pv = `PV ${uuid().slice(0, 8)}`;
+      const first = await declare(
+        tx,
+        h,
+        w.trip,
+        'FINE',
+        occurred,
+        a['fine']!,
+        p1.fileId!,
+        false,
+        uuid(),
+        pv,
+      );
       // ATTAQUE : le même procès-verbal (même nature, même fait, même montant), une autre photo
-      const again = await declare(tx, h, w.trip, 'FINE', occurred, a['fine']!, p2.fileId!);
+      const again = await declare(
+        tx,
+        h,
+        w.trip,
+        'FINE',
+        occurred,
+        a['fine']!,
+        p2.fileId!,
+        false,
+        uuid(),
+        pv,
+      );
       // ATTAQUE : montant sans rapport avec la pièce (une photo quelconque)
       const absurd = await declare(
         tx,
@@ -243,9 +277,12 @@ function batchOf(c: CountryCase): Promise<Batch> {
         h,
         w.trip,
         'FINE',
-        plus(occurred, 1),
+        plus(occurred, 1000),
         a['fine']!,
         p5.fileId!,
+        false,
+        uuid(),
+        pv.toLowerCase().replace(' ', '-'),
       );
       if (first['outcome'] !== 'DECLARED') throw new Error(`témoin : ${String(first['outcome'])}`);
       const out: Batch = {
@@ -257,6 +294,7 @@ function batchOf(c: CountryCase): Promise<Batch> {
         againOutcome: again['outcome'],
         absurd: absurd['outcome'] === 'DECLARED' ? String(absurd['charge_id']) : null,
         absurdOutcome: absurd['outcome'],
+        absurdBody: absurd['body'],
         ordinary: ordinary['outcome'] === 'DECLARED' ? String(ordinary['charge_id']) : null,
         ordinaryOutcome: ordinary['outcome'],
         plusOne: plusOne['outcome'] === 'DECLARED' ? String(plusOne['charge_id']) : null,
@@ -296,77 +334,74 @@ describe.each(COUNTRIES)('RT-L3 sinistres entre particuliers ($country, $currenc
 
   // -----------------------------------------------------------------------------------------
   // RT-L3-S04 — double débit : la même amende refacturée deux fois
-  it('RT-L3-S04 (L3-PM-29) — observation F-L3-SIN-01 : la même amende déclarée deux fois (deux photos du même procès-verbal) est acceptée et DEUX débits séparés sont notifiés au voyageur', async () => {
+  // Correctif F-L3-SIN-01 (US-318 suite, 0181, ADR-201) : l'observation de l'attaque devient la
+  // preuve du refus — la seconde photo du même PV est refusée, un seul débit après l'échéance
+  it('RT-L3-S04 (L3-PM-29) — F-L3-SIN-01 corrigé : la même amende déclarée deux fois (deux photos du même procès-verbal, même référence) est refusée TRAFFIC_DUPLICATE ; UN seul débit, après l’échéance du voyageur', async () => {
     const b = await batchOf(c);
-    expect(b.againOutcome).toBe('DECLARED'); // la seconde déclaration n'est pas refusée
-    expect(b.again).not.toBeNull();
-    await asWorker(DECLARED_AT, async (tx) => {
-      const ids = [b.first, b.again!];
-      for (const id of ids) {
-        expect(
-          (await tx.query<Row>(EXECUTE, [id, uuid()])).rows[0],
-          'exécution du travailleur',
-        ).toEqual({ outcome: 'DONE', code: null });
-      }
-      const debits = (await Promise.all(ids.map((id) => debitsOf(tx, id)))).flat();
-      // deux débits distincts, de même montant, pour un seul fait générateur
-      expect(debits).toHaveLength(2);
-      for (const d of debits) {
-        expect(d).toMatchObject({
-          amount_minor: total.toString(),
-          leg_host_minor: a['fine']!.toString(),
-          leg_platform_minor: a['fee']!.toString(),
-          guest_agreed: false,
-          status: 'NOTIFIED',
-        });
-      }
-      // le voyageur est débité de DEUX fois le total de l'amende
-      expect(debits.reduce((s, d) => s + BigInt(d.amount_minor), 0n)).toBe(2n * total);
-    });
-  });
-
-  it('RT-L3-S04 (L3-PM-29) — observation F-L3-SIN-01 (variante) : le même procès-verbal daté une seconde plus tard est lui aussi accepté puis débité (une clé sur le fait ne le verrait pas)', async () => {
-    const b = await batchOf(c);
-    expect(b.plusOneOutcome).toBe('DECLARED');
-    await asWorker(DECLARED_AT, async (tx) => {
-      expect((await tx.query<Row>(EXECUTE, [b.plusOne, uuid()])).rows[0]).toEqual({
-        outcome: 'DONE',
-        code: null,
+    expect(b.againOutcome).toBe('TRAFFIC_DUPLICATE'); // la seconde déclaration est refusée
+    expect(b.again).toBeNull();
+    await asWorker(GUEST_DUE, async (tx) => {
+      expect(
+        (await tx.query<Row>(EXECUTE, [b.first, uuid()])).rows[0],
+        'exécution du travailleur',
+      ).toEqual({ outcome: 'DONE', code: null });
+      const debits = await debitsOf(tx, b.first);
+      // un seul débit pour un seul fait générateur
+      expect(debits).toHaveLength(1);
+      expect(debits[0]).toMatchObject({
+        amount_minor: total.toString(),
+        leg_host_minor: a['fine']!.toString(),
+        leg_platform_minor: a['fee']!.toString(),
+        guest_agreed: false,
+        status: 'NOTIFIED',
       });
-      expect(await debitsOf(tx, b.plusOne!)).toHaveLength(1);
+      // le voyageur est débité UNE fois du total de l'amende
+      expect(debits.reduce((t, d) => t + BigInt(d.amount_minor), 0n)).toBe(total);
     });
   });
 
-  // CONSTAT F-L3-SIN-01 → suite (US-318) : une même amende ne se refacture qu'une fois, quelle que
-  // soit la photo ; la seconde déclaration est refusée TRAFFIC_DUPLICATE (signal exact)
-  it.fails(
-    'RT-L3-S04 — CONSTAT F-L3-SIN-01 : la seconde déclaration du même fait et du même montant sur le même trip est refusée TRAFFIC_DUPLICATE',
-    async () => {
-      const b = await batchOf(c);
-      expect(b.first).toMatch(/^[0-9a-f-]{36}$/);
-      expect(b.againOutcome).toBe('TRAFFIC_DUPLICATE');
-    },
-  );
+  it('RT-L3-S04 (L3-PM-29) — F-L3-SIN-01 corrigé (variante) : le même procès-verbal daté une seconde plus tard, sa référence saisie autrement, est refusé TRAFFIC_DUPLICATE ; rien n’est écrit', async () => {
+    const b = await batchOf(c);
+    expect(b.plusOneOutcome).toBe('TRAFFIC_DUPLICATE');
+    expect(b.plusOne).toBeNull();
+  });
 
-  it.fails(
-    'RT-L3-S04 — CONSTAT F-L3-SIN-01 (variante) : le même procès-verbal daté une seconde plus tard est refusé TRAFFIC_DUPLICATE',
-    async () => {
-      const b = await batchOf(c);
-      expect(b.first).toMatch(/^[0-9a-f-]{36}$/);
-      expect(b.plusOneOutcome).toBe('TRAFFIC_DUPLICATE');
-    },
-  );
+  // CONSTAT F-L3-SIN-01 → corrigé (US-318 suite, 0181) : une même amende ne se refacture qu'une
+  // fois, quelle que soit la photo ; la seconde déclaration est refusée TRAFFIC_DUPLICATE (signal
+  // exact) — ancien it.fails, inversé
+  it('RT-L3-S04 — CONSTAT F-L3-SIN-01 : la seconde déclaration du même fait et du même montant sur le même trip est refusée TRAFFIC_DUPLICATE', async () => {
+    const b = await batchOf(c);
+    expect(b.first).toMatch(/^[0-9a-f-]{36}$/);
+    expect(b.againOutcome).toBe('TRAFFIC_DUPLICATE');
+  });
+
+  it('RT-L3-S04 — CONSTAT F-L3-SIN-01 (variante) : le même procès-verbal daté une seconde plus tard est refusé TRAFFIC_DUPLICATE', async () => {
+    const b = await batchOf(c);
+    expect(b.first).toMatch(/^[0-9a-f-]{36}$/);
+    expect(b.plusOneOutcome).toBe('TRAFFIC_DUPLICATE');
+  });
 
   // -----------------------------------------------------------------------------------------
   // RT-L3-S04 — « pièce » et montant : aucun lien entre l'une et l'autre
-  it('RT-L3-S04 (L3-PM-29) — observation F-L3-SIN-02 (fenêtre) : une refacturation de montant ORDINAIRE est exécutée à la seconde de sa déclaration, sans réponse ni contestation possible du voyageur', async () => {
+  // Correctif F-L3-SIN-02 (fenêtre, US-318 suite, 0181) : l'observation devient la preuve — aucun
+  // débit à la déclaration, ni une milliseconde avant l'échéance ; sans réponse, débit à l'échéance
+  it('RT-L3-S04 (L3-PM-29) — F-L3-SIN-02 corrigé (fenêtre) : une refacturation de montant ORDINAIRE n’est PAS exécutée à la seconde de sa déclaration ni à l’échéance − 1 ms (le voyageur peut payer ou contester) ; sans réponse, elle l’est à l’échéance', async () => {
     const b = await batchOf(c);
     expect(b.ordinaryOutcome).toBe('DECLARED');
-    await asWorker(DECLARED_AT, async (tx) => {
-      const state = await tx.query<Row>('SELECT * FROM test_fixture.us318_traffic_charge($1)', [
-        b.ordinary,
-      ]);
-      expect(state.rows[0]).toMatchObject({ execution_status: 'PENDING', due: true });
+    for (const at of [DECLARED_AT, plus(GUEST_DUE, -1)]) {
+      await asWorker(at, async (tx) => {
+        const state = await tx.query<Row>('SELECT * FROM test_fixture.us318_traffic_charge($1)', [
+          b.ordinary,
+        ]);
+        expect(state.rows[0], at).toMatchObject({ execution_status: 'PENDING', due: false });
+        expect((await tx.query<Row>(EXECUTE, [b.ordinary, uuid()])).rows[0], at).toEqual({
+          outcome: 'NOT_DUE',
+          code: 'GUEST_RESPONSE_WINDOW_OPEN',
+        });
+        expect(await debitsOf(tx, b.ordinary!)).toEqual([]);
+      });
+    }
+    await asWorker(GUEST_DUE, async (tx) => {
       expect((await tx.query<Row>(EXECUTE, [b.ordinary, uuid()])).rows[0]).toEqual({
         outcome: 'DONE',
         code: null,
@@ -384,45 +419,34 @@ describe.each(COUNTRIES)('RT-L3 sinistres entre particuliers ($country, $currenc
   // CONSTAT F-L3-SIN-02 (fenêtre) → suite (US-318) : comme les frais annexes d'US-706 (BR-REIMB-02 /
   // 03, BR-TT-02 : 48 h pour payer ou contester), le voyageur a un délai avant tout débit ; jugé sur
   // un montant ORDINAIRE, que le plafond de la suite n'écarte pas
-  it.fails(
-    'RT-L3-S04 — CONSTAT F-L3-SIN-02 (fenêtre) : une refacturation de montant ordinaire n’est pas exécutée à l’instant de sa déclaration',
-    async () => {
-      const b = await batchOf(c);
-      expect(b.ordinary).not.toBeNull();
-      await asWorker(DECLARED_AT, async (tx) => {
-        const r = (await tx.query<Row>(EXECUTE, [b.ordinary, uuid()])).rows[0]!;
-        expect(r['outcome']).not.toBe('DONE');
-        expect(await debitsOf(tx, b.ordinary!)).toEqual([]);
-      });
-    },
-  );
-
-  it('RT-L3-S04 (L3-PM-29) — observation F-L3-SIN-02 (plafond) : une photo quelconque justifie un montant absurde, accepté à la déclaration puis exécuté', async () => {
+  it('RT-L3-S04 — CONSTAT F-L3-SIN-02 (fenêtre) : une refacturation de montant ordinaire n’est pas exécutée à l’instant de sa déclaration', async () => {
     const b = await batchOf(c);
-    expect(b.absurdOutcome).toBe('DECLARED');
+    expect(b.ordinary).not.toBeNull();
     await asWorker(DECLARED_AT, async (tx) => {
-      expect((await tx.query<Row>(EXECUTE, [b.absurd, uuid()])).rows[0]).toEqual({
-        outcome: 'DONE',
-        code: null,
-      });
-      const [d] = await debitsOf(tx, b.absurd!);
-      expect(d).toMatchObject({
-        amount_minor: a['absurdTotal']!.toString(),
-        leg_host_minor: a['absurd']!.toString(),
-      });
+      const r = (await tx.query<Row>(EXECUTE, [b.ordinary, uuid()])).rows[0]!;
+      expect(r['outcome']).not.toBe('DONE');
+      expect(await debitsOf(tx, b.ordinary!)).toEqual([]);
     });
   });
 
+  // Correctif F-L3-SIN-02 (plafond, US-318 suite, 0181) : l'observation devient la preuve — le
+  // montant absurde est refusé à la déclaration, rien n'est écrit, aucun débit possible
+  it('RT-L3-S04 (L3-PM-29) — F-L3-SIN-02 corrigé (plafond) : un montant absurde justifié par une photo quelconque est refusé à la déclaration (plafond du pays rendu) ; rien n’est écrit', async () => {
+    const b = await batchOf(c);
+    expect(b.absurdOutcome).toBe('TRAFFIC_AMOUNT_ABOVE_CAP');
+    expect(b.absurd).toBeNull();
+    const cap = (b.absurdBody as Row | null)?.['capMinor'];
+    expect(typeof cap === 'string' && BigInt(cap) < a['absurd']!).toBe(true);
+    expect((b.absurdBody as Row)['currency']).toBe(c.currency);
+  });
+
   // CONSTAT F-L3-SIN-02 (plafond) → suite (US-318) : plafond par pays, fail-closed ; le montant
-  // absurde est refusé à la déclaration (signal exact)
-  it.fails(
-    'RT-L3-S04 — CONSTAT F-L3-SIN-02 (plafond) : un montant absurde est refusé à la déclaration TRAFFIC_AMOUNT_ABOVE_CAP',
-    async () => {
-      const b = await batchOf(c);
-      expect(b.first).toMatch(/^[0-9a-f-]{36}$/);
-      expect(b.absurdOutcome).toBe('TRAFFIC_AMOUNT_ABOVE_CAP');
-    },
-  );
+  // absurde est refusé à la déclaration (signal exact) — ancien it.fails, inversé (0181)
+  it('RT-L3-S04 — CONSTAT F-L3-SIN-02 (plafond) : un montant absurde est refusé à la déclaration TRAFFIC_AMOUNT_ABOVE_CAP', async () => {
+    const b = await batchOf(c);
+    expect(b.first).toMatch(/^[0-9a-f-]{36}$/);
+    expect(b.absurdOutcome).toBe('TRAFFIC_AMOUNT_ABOVE_CAP');
+  });
 
   // -----------------------------------------------------------------------------------------
   // pièces : reçu réutilisé, octets réutilisés, prévisualisation par un tiers
@@ -555,7 +579,7 @@ describe.each(COUNTRIES)('RT-L3 sinistres entre particuliers ($country, $currenc
         }
       });
     }
-    await asWorker(DECLARED_AT, async (tx) => {
+    await asWorker(GUEST_DUE, async (tx) => {
       expect((await tx.query<Row>(EXECUTE, [b.first, uuid()])).rows[0]).toEqual({
         outcome: 'DONE',
         code: null,

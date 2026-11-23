@@ -78,7 +78,7 @@
 --     core.support_staff_traffic_charge(bytea, uuid, uuid),
 --     core.support_staff_decide_traffic_charge(bytea, uuid, uuid, text, text),
 --     core.support_staff_traffic_review(bytea, uuid) ;
---   DROP POLICY cmd_money_traffic_party_upd, iam_staff_traffic_sel, cmd_hold_traffic_ins_v2 ON
+--   DROP POLICY cmd_money_traffic_party_upd, iam_staff_traffic_sel ON
 --     core.claim_traffic_charge ; DROP POLICY cmd_money_traffic_guest_param_read ON
 --     core.config_param_value ; DROP POLICY cmd_money_traffic_event ON core.outbox_outbox_event ;
 --   révoquer les colonnes accordées à cmd_money_owner et à iam_staff_owner ;
@@ -319,12 +319,6 @@ COMMENT ON FUNCTION core.claim_p2p_guard() IS
   'de DELETE ni de TRUNCATE. US-318 (ADR-198, ADR-201).';
 REVOKE ALL ON FUNCTION core.claim_p2p_guard() FROM PUBLIC;
 
--- 1.3 Écriture de la déclaration (cmd_hold_owner) : version 2 seulement, en attente du voyageur
-CREATE POLICY cmd_hold_traffic_ins_v2 ON core.claim_traffic_charge AS RESTRICTIVE FOR INSERT
-  TO cmd_hold_owner
-  WITH CHECK (rules_version = 2 AND guest_status = 'AWAITING_GUEST' AND accepted_at IS NULL
-              AND disputed_at IS NULL AND decided_at IS NULL AND charge_basis IS NULL);
-
 -- 1.4 Réponse du voyageur et décision du staff (cmd_money_owner, contexte posé par la commande)
 GRANT UPDATE (guest_status, accepted_at, disputed_at, dispute_reason, dispute_evidence_file_ids,
               decided_at, decided_by, decided_role, decision_request_id, decision_rationale,
@@ -380,6 +374,10 @@ COMMENT ON FUNCTION core.claim_traffic_charge_eligible(smallint, text, text, tim
   '(ADR-201).';
 REVOKE ALL ON FUNCTION core.claim_traffic_charge_eligible(smallint, text, text, timestamptz,
   timestamptz, timestamptz) FROM PUBLIC;
+-- fonction pure, sans donnée : relue par les fixtures de test (propriétaire migrator) pour juger
+-- « échue » par le prédicat de production, jamais recopié
+GRANT EXECUTE ON FUNCTION core.claim_traffic_charge_eligible(smallint, text, text, timestamptz,
+  timestamptz, timestamptz) TO migrator;
 
 -- 2.2 Délai du voyageur et plafond du pays en vigueur (NULL : absent ou mal formé, l'appelant
 -- refuse). Lu pour la déclaration (cmd_hold_owner) sans politique nouvelle de cmd_hold_owner.
