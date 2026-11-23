@@ -25,13 +25,7 @@ import { describe, expect, it } from 'vitest';
 import { withRole } from '../../../src/testing/index.ts';
 import { COUNTRIES } from '../../support/avl.ts';
 import type { CountryCase } from '../../support/avl.ts';
-import {
-  applySignedStatus,
-  applyStatus,
-  insertAccount,
-  payTx,
-  recordOperation,
-} from '../../support/pay.ts';
+import { applySignedStatus, applyStatus, payTx, recordOperation } from '../../support/pay.ts';
 import type { Legs } from '../../support/pay.ts';
 import { golden } from '../../support/settlement.ts';
 import { failure, setVirtualNow, uuid } from './support-l3.ts';
@@ -60,7 +54,10 @@ const asPayments = <T>(fn: (tx: Tx) => Promise<T>): Promise<T> =>
 
 /** Compte PSP FAKE ACTIVE du pays et SUPPORTS_MIT validée pour la carte (une seule fois par transaction). */
 async function bench(tx: Tx, c: CountryCase): Promise<string> {
-  const psp = await insertAccount(tx, { country: c.country });
+  // compte FAKE ACTIVE partagé du pays (lire ou créer : un seul ACTIVE par pays dans la base)
+  const psp = (
+    await tx.query<{ id: string }>('SELECT test_fixture.us024_psp_account($1) AS id', [c.country])
+  ).rows[0]!.id;
   await tx.query(
     `SELECT test_fixture.us024_set_capability('FAKE', $1, 'CARD', 'SUPPORTS_MIT', 'true'::jsonb,
                                               'VALIDATED_SANDBOX', '2035-01-01T00:00:00Z')`,

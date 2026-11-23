@@ -28,13 +28,7 @@ import { COUNTRIES } from '../../support/avl.ts';
 import type { CountryCase } from '../../support/avl.ts';
 import { goLive, openSwitchWindow } from '../../support/golive.ts';
 import type { StaffActor } from '../../support/golive.ts';
-import {
-  applySignedStatus,
-  insertAccount,
-  payTx,
-  recordOperation,
-  uuid,
-} from '../../support/pay.ts';
+import { applySignedStatus, payTx, recordOperation, uuid } from '../../support/pay.ts';
 import type { Legs } from '../../support/pay.ts';
 import { staff, staffSessionHash } from '../../support/rls.ts';
 import { golden } from '../../support/settlement.ts';
@@ -73,7 +67,10 @@ interface World {
  * fériés des années de la fenêtre. Mêmes appels que `l0-us319-charge-payouts`.
  */
 async function world(tx: Tx, c: CountryCase, years: readonly number[]): Promise<World> {
-  const psp = await insertAccount(tx, { country: c.country });
+  // compte FAKE ACTIVE partagé du pays (lire ou créer : un seul ACTIVE par pays dans la base)
+  const psp = (
+    await tx.query<{ id: string }>('SELECT test_fixture.us024_psp_account($1) AS id', [c.country])
+  ).rows[0]!.id;
   await tx.query(`SELECT test_fixture.us708_validate_blocking_capabilities('FAKE', $1)`, [
     c.country,
   ]);
