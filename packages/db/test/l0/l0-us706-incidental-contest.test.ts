@@ -243,9 +243,16 @@ describe.each(COUNTRIES)('US-706 suite — contestation et pièces ($country, $c
         const before = await attach(tx, edge.holder, edge.trip);
         await now(tx, at(END, PHOTO_WINDOW_MS));
         const inWindow = await attach(tx, edge.holder, edge.trip);
+        // pièce propre au tabac : une pièce ne soutient qu'une demande du trip (0184, ADR-204)
+        const inWindowSmoke = await attach(tx, edge.holder, edge.trip);
         await now(tx, at(END, PHOTO_WINDOW_MS + 1));
         const outside = await attach(tx, late.holder, late.trip);
-        expect([before.r, inWindow.r, outside.r]).toEqual(['ATTACHED', 'ATTACHED', 'ATTACHED']);
+        expect([before.r, inWindow.r, inWindowSmoke.r, outside.r]).toEqual([
+          'ATTACHED',
+          'ATTACHED',
+          'ATTACHED',
+          'ATTACHED',
+        ]);
         await now(tx, at(END, PHOTO_WINDOW_MS + MINUTE));
         const he = await session(tx, edge.holder);
         const hl = await session(tx, late.holder);
@@ -279,7 +286,9 @@ describe.each(COUNTRIES)('US-706 suite — contestation et pièces ($country, $c
           (await submit(tx, he, edge.trip, 'SMOKING', a['cleaning']!, [before.id]))['outcome'],
         ).toBe('INCIDENTAL_NOT_BILLABLE');
         expect(
-          (await submit(tx, he, edge.trip, 'SMOKING', a['cleaning']!, [inWindow.id]))['outcome'],
+          (await submit(tx, he, edge.trip, 'SMOKING', a['cleaning']!, [inWindowSmoke.id]))[
+            'outcome'
+          ],
         ).toBe('SUBMITTED');
         // fenêtre illisible (hors bornes) : aucune demande, même avec la photo de l'intérieur
         await tx.query('SELECT test_fixture.us706s_param_version($1, $2, $3::jsonb)', [
