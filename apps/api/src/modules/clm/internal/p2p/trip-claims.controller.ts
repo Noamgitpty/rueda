@@ -12,7 +12,13 @@
  * | POST /trips/{tripId}/incidents        | 201 incident ouvert (rejeu : le même) ; 409 ; 422      |
  * | GET  /trips/{tripId}/claims           | 200 délai, frais, dossier de vol, refacturations       |
  * | POST /trips/{tripId}/traffic-charges/preview | 200 récapitulatif calculé par la base, rien d'écrit |
- * | POST /trips/{tripId}/traffic-charges  | 201 refacturation enregistrée (rejeu : la même) ; 422  |
+ * | POST /trips/{tripId}/traffic-charges  | 201 refacturation enregistrée (rejeu : la même) ; 409 TRAFFIC_DUPLICATE ; 422 |
+ * | GET  /trips/{tripId}/traffic-charges  | 200 refacturations vues par le voyageur (0181)         |
+ * | POST /trips/{tripId}/traffic-charges/{chargeId}/accept  | 200 payée (accord écrit) ; 409       |
+ * | POST /trips/{tripId}/traffic-charges/{chargeId}/dispute | 200 contestée (motif) ; 409 ; 422     |
+ *
+ * Suite (0181, ADR-201) : référence du PV obligatoire, unique par trip ; le voyageur du trip paie ou
+ * conteste avant l'échéance (08 BR-TT-02 : 48 h) ; aucun débit avant ; décision de l'ops ensuite.
  *
  * Aucune heure de réception ni aucun frais n'est reçu du client.
  */
@@ -73,5 +79,32 @@ export class TripClaimsController {
   @HttpCode(201)
   async trafficCharge(@Req() request: Req, @Param('tripId') tripId: string) {
     return this.claims.declareTrafficCharge(proofOf(request), tripOf(tripId), bodyOf(request));
+  }
+
+  @Get(':tripId/traffic-charges')
+  async guestTrafficCharges(@Req() request: Req, @Param('tripId') tripId: string) {
+    return this.claims.guestCharges(proofOf(request), tripOf(tripId));
+  }
+
+  @Post(':tripId/traffic-charges/:chargeId/accept')
+  @HttpCode(200)
+  async acceptTrafficCharge(
+    @Req() request: Req,
+    @Param('tripId') tripId: string,
+    @Param('chargeId') chargeId: string,
+  ) {
+    tripOf(tripId);
+    return this.claims.acceptTrafficCharge(proofOf(request), tripOf(chargeId), bodyOf(request));
+  }
+
+  @Post(':tripId/traffic-charges/:chargeId/dispute')
+  @HttpCode(200)
+  async disputeTrafficCharge(
+    @Req() request: Req,
+    @Param('tripId') tripId: string,
+    @Param('chargeId') chargeId: string,
+  ) {
+    tripOf(tripId);
+    return this.claims.disputeTrafficCharge(proofOf(request), tripOf(chargeId), bodyOf(request));
   }
 }

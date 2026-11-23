@@ -857,6 +857,27 @@
       "portee": "pays",
       "idor": "frais inconnu ou de l’autre pays : 403 FORBIDDEN journalisé ; trip qui concerne l’agent (ADMIN compris) : 403 STAFF_SELF_FORBIDDEN, rien n’est décidé (preuve L0 l0-us706-incidental-fees, RT-L3-H09)"
     },
+    "GET /console/traffic-charges": {
+      "acces": "staff",
+      "permission": "dispute.decide (OPS_AGENT, ADMIN) ; pays de la vue : ceux où l’agent détient ce droit, refus journalisés (US-318 suite, 0181, ADR-201)",
+      "roles": ["OPS_AGENT", "ADMIN"],
+      "portee": "sans_pays",
+      "idor": "refacturations des pays hors de la portée de l’agent : jamais rendues ; trips qui concernent l’agent écartés avant la limite ; aucune donnée nominative (preuve L0 l0-us318s-traffic-response)"
+    },
+    "GET /console/traffic-charges/{chargeId}": {
+      "acces": "staff",
+      "permission": "dispute.decide dans le pays de la refacturation, garde ADR-122 (US-318 suite, 0181) ; aucune donnée nominative rendue",
+      "roles": ["OPS_AGENT", "ADMIN"],
+      "portee": "pays",
+      "idor": "refacturation inconnue ou de l’autre pays : 403 FORBIDDEN journalisé (aucune existence révélée) ; trip qui concerne l’agent : 403 STAFF_SELF_FORBIDDEN (preuve L0 l0-us318s-traffic-response)"
+    },
+    "POST /console/traffic-charges/{chargeId}/decision": {
+      "acces": "staff",
+      "permission": "dispute.decide (OPS_AGENT, ADMIN) dans le pays de la refacturation, garde ADR-122 ; débiter réservé à ADMIN ; refacturation CONTESTÉE seulement ; motif jugé par la base ; aucun montant reçu ; décision et refus journalisés (US-318 suite, 0181)",
+      "roles": ["OPS_AGENT", "ADMIN"],
+      "portee": "pays",
+      "idor": "refacturation inconnue ou de l’autre pays : 403 FORBIDDEN journalisé ; trip qui concerne l’agent (ADMIN compris) : 403 STAFF_SELF_FORBIDDEN, rien n’est décidé (preuve L0 l0-us318s-traffic-response)"
+    },
     "POST /trips/{tripId}/incidents": {
       "acces": "session",
       "idor": "trip dont la session n'est pas le voyageur (hôte, co-hôte, autre personne), inconnu ou identifiant mal formé : 404 TRIP_CLAIM_NOT_FOUND, même réponse (17 §2.3 point 5) ; la partie est celle de la session, jugée en base (core.claim_cmd_report_incident, 0178) ; la demande d'aide citée doit être celle de cette personne sur ce trip ; photos de SA série INCIDENT seulement ; aucune heure reçue du client ; rejeu par requestId de la même personne seulement (sinon 400) ; preuves base : l0-us318-p2p-claims"
@@ -868,6 +889,18 @@
     "POST /trips/{tripId}/traffic-charges": {
       "acces": "session",
       "idor": "trip dont la session n'est pas le titulaire du compte d'hôte (voyageur, co-hôte, autre personne), inconnu ou identifiant mal formé : 404 TRIP_CLAIM_NOT_FOUND, même réponse (17 §2.3 point 5) ; la partie est celle de la session, jugée en base (core.claim_host_trip_claims, core.claim_cmd_declare_traffic_charge, 0178) ; pièce de SA série TRAFFIC de ce trip seulement ; frais, délai et jambes calculés par la base, jamais reçus ; aucune donnée nominative du voyageur ; rejeu par requestId de la même personne seulement (sinon 400) ; preuves base : l0-us318-p2p-claims"
+    },
+    "GET /trips/{tripId}/traffic-charges": {
+      "acces": "session",
+      "idor": "trip dont la session n'est pas le voyageur (hôte, co-hôte, autre personne), inconnu ou identifiant mal formé : 404 TRIP_CLAIM_NOT_FOUND, même réponse (17 §2.3 point 5) ; refacturations du voyageur de la session seulement, jugé en base (core.claim_traffic_guest_view, 0181) ; aucune donnée nominative de l'hôte ; preuves base : l0-us318s-traffic-response"
+    },
+    "POST /trips/{tripId}/traffic-charges/{chargeId}/accept": {
+      "acces": "session",
+      "idor": "refacturation dont la session n'est pas le voyageur (hôte, autre personne), inconnue ou identifiant mal formé : 404 TRIP_CLAIM_NOT_FOUND, même réponse ; partie jugée en base (core.claim_cmd_accept_traffic_charge, 0181) ; avant l'échéance seulement (heure de la base) ; aucun montant reçu ; preuves base : l0-us318s-traffic-response"
+    },
+    "POST /trips/{tripId}/traffic-charges/{chargeId}/dispute": {
+      "acces": "session",
+      "idor": "mêmes règles que …/accept (voyageur de la session seulement, 404 sinon) ; pièces : photos des séries de CE trip seulement (core.claim_incidental_trip_photos) ; avant l'échéance seulement ; aucun débit avant la décision de l'ops (core.claim_cmd_dispute_traffic_charge, 0181) ; preuves base : l0-us318s-traffic-response"
     },
     "POST /trips/{tripId}/traffic-charges/preview": {
       "acces": "session",

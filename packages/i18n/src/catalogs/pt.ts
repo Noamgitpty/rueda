@@ -3889,6 +3889,22 @@ export const PT_MESSAGES = {
     'Olá, {first_name}. O anfitrião da reserva {booking_ref} pediu um custo de {amount}. Você pode pagar ou contestar com uma foto em {brand} até {due_at}. Sem resposta, {brand} decide e pode cobrar o seu cartão salvo.',
   'ntf.invoiceToGuest.sms.body':
     '{brand}: o anfitrião pediu {amount} ({booking_ref}). Pague ou conteste no app antes de {due_at}.',
+  // US-318 suite (0181, ADR-201) : avis au voyageur d'une amende, d'un péage ou d'une fourrière
+  'ntf.trafficFineToGuest.email.subject': 'Reserva {booking_ref}: o anfitrião cobra uma multa',
+  'ntf.trafficFineToGuest.email.body':
+    'Olá, {first_name}. O anfitrião da reserva {booking_ref} declarou uma multa recebida durante a sua viagem: {amount} com a taxa de gestão. Você tem 48 horas, até {due_at}, para pagar ou contestar em {brand}, em “Multas, pedágios e guincho” da sua viagem; a foto é opcional. Sem resposta, o valor é cobrado no seu cartão salvo ao fim do prazo.',
+  'ntf.trafficFineToGuest.sms.body':
+    '{brand}: multa de {amount} ({booking_ref}). Pague ou conteste no app antes de {due_at}; senão, o seu cartão é cobrado.',
+  'ntf.trafficTollToGuest.email.subject': 'Reserva {booking_ref}: o anfitrião cobra um pedágio',
+  'ntf.trafficTollToGuest.email.body':
+    'Olá, {first_name}. O anfitrião da reserva {booking_ref} declarou um pedágio pago durante a sua viagem: {amount} com a taxa de gestão. Você tem 48 horas, até {due_at}, para pagar ou contestar em {brand}, em “Multas, pedágios e guincho” da sua viagem; a foto é opcional. Sem resposta, o valor é cobrado no seu cartão salvo ao fim do prazo.',
+  'ntf.trafficTollToGuest.sms.body':
+    '{brand}: pedágio de {amount} ({booking_ref}). Pague ou conteste no app antes de {due_at}; senão, o seu cartão é cobrado.',
+  'ntf.trafficImpoundToGuest.email.subject': 'Reserva {booking_ref}: o anfitrião cobra o guincho',
+  'ntf.trafficImpoundToGuest.email.body':
+    'Olá, {first_name}. O anfitrião da reserva {booking_ref} declarou custos de guincho e pátio pagos por causa da sua viagem: {amount} com a taxa de gestão. Você tem 48 horas, até {due_at}, para pagar ou contestar em {brand}, em “Multas, pedágios e guincho” da sua viagem; a foto é opcional. Sem resposta, o valor é cobrado no seu cartão salvo ao fim do prazo.',
+  'ntf.trafficImpoundToGuest.sms.body':
+    '{brand}: guincho de {amount} ({booking_ref}). Pague ou conteste no app antes de {due_at}; senão, o seu cartão é cobrado.',
   'web.incidental.evidence':
     'Provas escolhidas pelo anfitrião: fotos da entrega e da devolução, e arquivos enviados durante esta viagem',
   'web.incidental.evidenceItem': '{side} · {slot} · {by} · recebida em {date}',
@@ -3986,7 +4002,7 @@ export const PT_MESSAGES = {
   'web.traffic.sent.total': 'Total cobrado do viajante: {amount}',
   'web.traffic.kind': 'Tipo de cobrança',
   'web.traffic.amount': 'Valor que você pagou',
-  'web.traffic.amountHint': 'Exemplo: {example}',
+  'web.traffic.amountHint': 'Exemplo: {example}.',
   'web.traffic.file': 'Comprovante',
   'web.traffic.fileItem': 'Foto recebida às {time}',
   'web.traffic.fileNone': 'Primeiro tire uma foto do comprovante.',
@@ -4040,4 +4056,63 @@ export const PT_MESSAGES = {
   'web.help.roadside.useEmergency':
     'Se houve um acidente, ligue já para o {number} e avise {authority}.',
   'web.incident.needPhoto': 'Tire pelo menos uma foto para enviar a declaração.',
+  // US-318 continuação (0181, ADR-201): referência do aviso, teto, resposta do viajante (48 h)
+  'common.tripClaims.trafficReferenceRequired':
+    'Escreva a referência do aviso, do auto de infração ou do recibo, como aparece no documento.',
+  'common.tripClaims.trafficDuplicate':
+    'Esta referência já foi declarada nesta viagem: a mesma cobrança só se declara uma vez.',
+  'common.tripClaims.trafficAmountAboveCap':
+    'O valor passa do teto fixado para esta cobrança. Confira o valor que você pagou; se estiver certo, fale com a gente pela ajuda da viagem.',
+  'common.tripClaims.trafficNotOpen':
+    'Esta cobrança não espera mais a sua resposta: ela já foi paga, contestada ou decidida.',
+  'common.claim.trafficNotDisputed':
+    'Só se decide aqui uma cobrança de trânsito contestada pelo viajante.',
+  'web.traffic.reference': 'Referência do aviso, do auto de infração ou do recibo',
+  'web.traffic.referenceHint':
+    'O número impresso no documento: de 3 a 40 caracteres, letras, números, espaços, “.”, “/” ou “-”.',
+  'web.traffic.referenceInvalid':
+    'Escreva a referência como no documento: de 3 a 40 caracteres, com uma letra ou um número no começo e no fim.',
+  'web.traffic.amountCap': 'Teto máximo: {amount}.',
+  'web.traffic.review.reference': 'Referência: {reference}',
+  'web.traffic.review.response':
+    'O viajante terá {n} h para pagar ou contestar. Nada é cobrado antes; se ele contestar, a decisão é da {brand}.',
+  'web.traffic.sent.due': 'O viajante tem até {time} para pagar ou contestar.',
+  'web.traffic.status.VOID': 'Anulada',
+  'web.traffic.guest.AWAITING_GUEST': 'Resposta do viajante esperada até {time}',
+  'web.traffic.guest.expired': 'O viajante não respondeu até {time}',
+  'web.traffic.guest.ACCEPTED': 'Paga pelo viajante',
+  'web.traffic.guest.DISPUTED': 'Contestada pelo viajante: a decisão é da {brand}',
+  'web.traffic.guest.DECIDED_CHARGE': 'Decisão da {brand}: cobrada do viajante',
+  'web.traffic.guest.REJECTED': 'Decisão da {brand}: rejeitada',
+  'web.trafficGuest.title': 'Multas, pedágios e guincho',
+  'web.trafficGuest.lead':
+    'Seu anfitrião pagou estas cobranças por fatos ocorridos durante a sua viagem, com comprovante. Pague ou conteste antes do prazo: nada é cobrado antes. Se você contestar, a decisão é da {brand}.',
+  'web.trafficGuest.empty': 'Nenhuma multa, pedágio ou guincho nesta viagem.',
+  'web.trafficGuest.list': 'Cobranças repassadas a você',
+  'web.trafficGuest.amount': 'Pago pelo seu anfitrião: {amount}',
+  'web.trafficGuest.total': 'Total a pagar: {amount}',
+  'web.trafficGuest.due': 'Responda até {date}',
+  'web.trafficGuest.payNotice':
+    'Ao pagar, você aceita esta cobrança: a {brand} cobra o cartão da viagem, separado do aluguel.',
+  'web.trafficGuest.dispute.reason': 'Por que você não concorda com esta cobrança?',
+  'web.trafficGuest.dispute.reasonHint': 'De 20 a 1.000 caracteres, sem nomes nem telefones.',
+  'web.trafficGuest.dispute.photos': 'Fotos da viagem como prova (opcional)',
+  'web.trafficGuest.dispute.photosHint':
+    'Selecione as fotos da entrega ou da devolução que apoiam a sua contestação, até 10.',
+  'web.trafficGuest.dispute.submit': 'Enviar a contestação',
+  'web.trafficGuest.dispute.reasonInvalid': 'O seu motivo deve ter de 20 a 1.000 caracteres.',
+  'web.trafficGuest.status.EXPIRED':
+    'O prazo para responder terminou em {date}: a {brand} vai cobrar o cartão da viagem.',
+  'web.trafficGuest.status.ACCEPTED':
+    'Você aceitou esta cobrança: a {brand} cobra o cartão da viagem.',
+  'web.trafficGuest.status.DISPUTED':
+    'Você contestou esta cobrança: a {brand} analisa o caso e decide; nada é cobrado antes.',
+  'web.trafficGuest.status.DECIDED_CHARGE':
+    'Decisão da {brand}: a cobrança é devida e é feita no cartão da viagem.',
+  'web.trafficGuest.status.REJECTED': 'Decisão da {brand}: a cobrança foi anulada, nada é cobrado.',
+  'web.trafficGuest.disputeReason': 'A sua contestação',
+  'web.trafficGuest.decidedAt': 'Decidido em {date}',
+  'web.trafficGuest.done.accepted': 'Obrigado. A {brand} cobra o cartão da viagem.',
+  'web.trafficGuest.done.disputed': 'Contestação enviada. A {brand} decide e avisa você.',
+  'web.trafficGuest.slot.OTHER': 'Outra foto',
 } as const satisfies Readonly<Record<MessageKey, Message>>;

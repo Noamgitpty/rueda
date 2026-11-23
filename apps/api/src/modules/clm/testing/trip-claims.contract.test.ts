@@ -16,7 +16,11 @@
  *   écrit, l'identifiant de requête reste libre, mêmes refus que la déclaration ;
  * - corps strict (clé inconnue, identifiant, montant, nature) ⇒ 400 ; JSON exigé ⇒ 415 ; sans
  *   session ⇒ 401 ; aucun magasin ⇒ 503.
- * Les règles de la base sont prouvées sur PostgreSQL (l0-us318-p2p-claims). Données fictives.
+ * - suite (0181, ADR-201, red team F-L3-SIN-01 / 02) : référence du PV exigée et unique par trip
+ *   (409 TRAFFIC_DUPLICATE, chargeId), plafond du pays (422 TRAFFIC_AMOUNT_ABOVE_CAP, capMinor) ;
+ *   le voyageur lit ses refacturations, paie ou conteste avant l'échéance (08 BR-TT-02 : 48 h).
+ * Les règles de la base sont prouvées sur PostgreSQL (l0-us318-p2p-claims,
+ * l0-us318s-traffic-response). Données fictives.
  */
 import { randomUUID } from 'node:crypto';
 import { afterAll, describe, expect, it } from 'vitest';
@@ -65,6 +69,23 @@ const preview = (w: World, who: Record<string, string>, body: unknown, trip = w.
   w.app.api.request('POST', `/trips/${trip}/traffic-charges/preview`, { headers: who, body });
 const view = (w: World, who: Record<string, string>, trip = w.trip) =>
   w.app.api.request('GET', `/trips/${trip}/claims`, { headers: who });
+const guestView = (w: World, who: Record<string, string>, trip = w.trip) =>
+  w.app.api.request('GET', `/trips/${trip}/traffic-charges`, { headers: who });
+const respond = (
+  w: World,
+  who: Record<string, string>,
+  id: string,
+  action: 'accept' | 'dispute',
+  body: unknown,
+  trip = w.trip,
+) =>
+  w.app.api.request('POST', `/trips/${trip}/traffic-charges/${id}/${action}`, {
+    headers: who,
+    body,
+  });
+const ref = (): string => `PV-${randomUUID().slice(0, 8)}`;
+const HOUR = 3_600_000;
+const REASON = 'Je ne conduisais pas sur cette route ce jour-là.';
 const incidentBody = (caseId: string, requestId: string = randomUUID()) => ({
   requestId,
   caseId,
@@ -123,6 +144,7 @@ describe('US-318 — routes des sinistres d’un trip (contrat OpenAPI)', () => 
       occurredAt: START.toISOString(),
       amountMinor: '1230',
       fileId: file,
+      reference: ref(),
       ...o,
     });
     const notEnded = await charge(w, host(w), body());
@@ -200,13 +222,15 @@ describe('US-318 — routes des sinistres d’un trip (contrat OpenAPI)', () => 
       occurredAt: START.toISOString(),
       amountMinor: '1230',
       fileId: file,
+      reference: ref(),
       ...o,
     });
     expect(code(await preview(w, host(w), body()))).toBe('TRAFFIC_TRIP_NOT_ENDED');
     t.status = 'COMPLETED';
     t.end = END;
     w.store.now = () => DEADLINE;
-    const p = await preview(w, host(w), body());
+    const pb = body({ reference: 'PEAJE 2031/77' });
+    const p = await preview(w, host(w), pb);
     expect(p.status).toBe(200);
     expect(p.json).toEqual({
       kind: 'TOLL',
@@ -217,6 +241,9 @@ describe('US-318 — routes des sinistres d’un trip (contrat OpenAPI)', () => 
       adminFeeMinor: '62',
       totalMinor: '1292',
       deadlineAt: DEADLINE.toISOString(),
+      reference: 'PEAJE 2031/77',
+      responseHours: 48,
+      capMinor: '100000',
       chargedBy: 'SEPARATE_CARD_CHARGE',
     });
     const big = await preview(w, host(w), body({ amountMinor: '25010' }));
@@ -305,6 +332,7 @@ describe('US-318 — routes des sinistres d’un trip (contrat OpenAPI)', () => 
       occurredAt: START.toISOString(),
       amountMinor: '100',
       fileId: randomUUID(),
+      reference: ref(),
     };
     for (const bad of [
       {},
@@ -317,6 +345,9 @@ describe('US-318 — routes des sinistres d’un trip (contrat OpenAPI)', () => 
       { ...good, kind: 'PARKING' },
       { ...good, occurredAt: 'hier' },
       { ...good, adminFeeMinor: '5' },
+      { ...good, reference: 'ana@correo.com' },
+      { ...good, reference: 42 },
+      { ...good, reference: 'P-1' },
     ]) {
       const r = await charge(w, host(w), bad);
       expect(r.status, JSON.stringify(bad)).toBe(400);
@@ -401,6 +432,190 @@ describe('US-318 — routes des sinistres d’un trip (contrat OpenAPI)', () => 
         code: 'TRIP_CLAIM_UNAVAILABLE',
         messageKey: 'common.tripClaims.unavailable',
       });
+    }
+  });
+
+  it('suite (0181) : référence exigée et unique par trip (409 TRAFFIC_DUPLICATE même avec une autre saisie, heure + 1 s, autre nature), plafond (422 TRAFFIC_AMOUNT_ABOVE_CAP) ; le voyageur lit, paie ou conteste avant l’échéance (48 h) ; IDOR, 401, 415, 503', async () => {
+    const w = await world();
+    apps.push(w.app);
+    const t = w.store.trips.get(w.trip)!;
+    t.status = 'COMPLETED';
+    t.end = END;
+    const at = new Date(END.getTime() + HOUR);
+    w.store.now = () => at;
+    const files = [randomUUID(), randomUUID(), randomUUID()];
+    for (const [i, f] of files.entries()) {
+      t.evidence.set(f, { slot: `DAMAGE_0${i + 1}`, receivedAt: END });
+    }
+    const body = (o: Record<string, unknown> = {}) => ({
+      requestId: randomUUID(),
+      kind: 'FINE',
+      occurredAt: START.toISOString(),
+      amountMinor: '1230',
+      fileId: files[0],
+      reference: 'PV 2031-0042',
+      ...o,
+    });
+    const noRef: Record<string, unknown> = { ...body() };
+    delete noRef['reference'];
+    for (const b of [noRef, body({ reference: '   ' })]) {
+      for (const call of [charge, preview]) {
+        const r = await call(w, host(w), b);
+        expect(r.status).toBe(422);
+        expect(r.json).toMatchObject({
+          code: 'TRAFFIC_REFERENCE_REQUIRED',
+          messageKey: 'common.tripClaims.trafficReferenceRequired',
+        });
+      }
+    }
+    const above = await charge(w, host(w), body({ amountMinor: '100001' }));
+    expect(above.status).toBe(422);
+    expect(above.json).toEqual({
+      code: 'TRAFFIC_AMOUNT_ABOVE_CAP',
+      messageKey: 'common.tripClaims.trafficAmountAboveCap',
+      capMinor: '100000',
+    });
+    const ok = await charge(w, host(w), body());
+    expect(ok.status).toBe(201);
+    const first = (ok.json as { chargeId: string; responseDueAt: string }).chargeId;
+    expect(ok.json).toMatchObject({
+      responseDueAt: new Date(at.getTime() + 48 * HOUR).toISOString(),
+    });
+    for (const b of [
+      body({ fileId: files[1], reference: 'pv-2031/0042' }),
+      body({ fileId: files[1], occurredAt: new Date(START.getTime() + 1000).toISOString() }),
+      body({ fileId: files[1], kind: 'TOLL', amountMinor: '1231' }),
+    ]) {
+      for (const call of [charge, preview]) {
+        const r = await call(w, host(w), b);
+        expect(r.status).toBe(409);
+        expect(r.json).toEqual({
+          code: 'TRAFFIC_DUPLICATE',
+          messageKey: 'common.tripClaims.trafficDuplicate',
+          chargeId: first,
+        });
+      }
+    }
+    const second = await charge(w, host(w), body({ fileId: files[1], reference: 'PEAJE-77' }));
+    expect(second.status).toBe(201);
+    const other = (second.json as { chargeId: string }).chargeId;
+    // vue de l'hôte : référence, échéance et réponse du voyageur
+    const hv = await view(w, host(w));
+    expect(hv.json).toMatchObject({ responseHours: 48, capMinor: '100000' });
+    expect((hv.json as { charges: unknown[] }).charges).toContainEqual(
+      expect.objectContaining({
+        id: first,
+        reference: 'PV 2031-0042',
+        guestStatus: 'AWAITING_GUEST',
+      }),
+    );
+    // vue du voyageur
+    const gv = await guestView(w, guest(w));
+    expect(gv.status).toBe(200);
+    expect((gv.json as { charges: unknown[] }).charges).toContainEqual(
+      expect.objectContaining({ id: first, totalMinor: '1292', canRespond: true }),
+    );
+    for (const [who, trip] of [
+      [host(w), w.trip],
+      [stranger(w), w.trip],
+      [guest(w), randomUUID()],
+      [guest(w), 'not-a-uuid'],
+    ] as const) {
+      const r = await guestView(w, who, trip);
+      expect(r.status).toBe(404);
+      expect(code(r)).toBe('TRIP_CLAIM_NOT_FOUND');
+    }
+    // paiement et contestation
+    const paid = await respond(w, guest(w), first, 'accept', {});
+    expect(paid.status).toBe(200);
+    expect(paid.json).toEqual({ chargeId: first, status: 'ACCEPTED', replayed: false });
+    expect((await respond(w, guest(w), first, 'accept', {})).json).toMatchObject({
+      replayed: true,
+    });
+    const notOpen = await respond(w, guest(w), first, 'dispute', { reason: REASON });
+    expect(notOpen.status).toBe(409);
+    expect(code(notOpen)).toBe('TRAFFIC_NOT_OPEN');
+    const short = await respond(w, guest(w), other, 'dispute', { reason: 'trop court' });
+    expect(short.status).toBe(422);
+    expect(short.json).toMatchObject({
+      code: 'INCIDENTAL_DISPUTE_REASON_REQUIRED',
+      messageKey: 'common.incidental.disputeReasonRequired',
+    });
+    const foreign = await respond(w, guest(w), other, 'dispute', {
+      reason: REASON,
+      evidence: [randomUUID()],
+    });
+    expect(foreign.status).toBe(422);
+    expect(code(foreign)).toBe('CLAIM_EVIDENCE_MISSING');
+    for (const bad of [
+      { reason: REASON, extra: 1 },
+      { reason: 5 },
+      { reason: REASON, evidence: ['x'] },
+    ]) {
+      const r = await respond(w, guest(w), other, 'dispute', bad);
+      expect(r.status, JSON.stringify(bad)).toBe(400);
+      expect(code(r)).toBe('REQUEST_INVALID');
+    }
+    expect((await respond(w, guest(w), other, 'accept', { x: 1 })).status).toBe(400);
+    const disputed = await respond(w, guest(w), other, 'dispute', { reason: REASON });
+    expect(disputed.status).toBe(200);
+    expect(disputed.json).toEqual({ chargeId: other, status: 'DISPUTED', replayed: false });
+    // fenêtre close à l'échéance, jamais rouverte
+    const third = await charge(w, host(w), body({ fileId: files[2], reference: 'GRUA-9' }));
+    const late = (third.json as { chargeId: string }).chargeId;
+    w.store.now = () => new Date(at.getTime() + 48 * HOUR);
+    for (const [action, b] of [
+      ['accept', {}],
+      ['dispute', { reason: REASON }],
+    ] as const) {
+      const r = await respond(w, guest(w), late, action, b);
+      expect(r.status).toBe(409);
+      expect(r.json).toMatchObject({
+        code: 'GUEST_RESPONSE_WINDOW_CLOSED',
+        messageKey: 'common.incidental.responseWindowClosed',
+      });
+    }
+    // IDOR : l'hôte, un tiers, un identifiant inconnu ou mal formé ⇒ la même 404
+    for (const action of ['accept', 'dispute'] as const) {
+      const b = action === 'accept' ? {} : { reason: REASON };
+      for (const [who, id, trip] of [
+        [host(w), late, w.trip],
+        [stranger(w), late, w.trip],
+        [guest(w), randomUUID(), w.trip],
+        [guest(w), 'not-a-uuid', w.trip],
+        [guest(w), late, 'not-a-uuid'],
+      ] as const) {
+        const r = await respond(w, who, id, action, b, trip);
+        expect(r.status, `${action} ${id}`).toBe(404);
+        expect(code(r)).toBe('TRIP_CLAIM_NOT_FOUND');
+      }
+      const path = `/trips/${w.trip}/traffic-charges/${late}/${action}`;
+      expect((await w.app.api.request('POST', path, { body: b })).status).toBe(401);
+      expect((await w.app.api.request('POST', path, textBody(guest(w)))).status).toBe(415);
+    }
+    expect((await w.app.api.request('GET', `/trips/${w.trip}/traffic-charges`)).status).toBe(401);
+    const none = await startContractApp();
+    apps.push(none);
+    for (const [method, path, json] of [
+      ['GET', `/trips/${w.trip}/traffic-charges`, undefined],
+      ['POST', `/trips/${w.trip}/traffic-charges/${late}/accept`, {}],
+      ['POST', `/trips/${w.trip}/traffic-charges/${late}/dispute`, { reason: REASON }],
+    ] as const) {
+      const x = await none.api.request(method, path, {
+        headers: none.cookie('voyageur'),
+        ...(json !== undefined ? { body: json } : {}),
+      });
+      expect(x.status, path).toBe(503);
+      expect(code(x)).toBe('TRIP_CLAIM_UNAVAILABLE');
+    }
+  });
+
+  it('couverture : chaque statut déclaré pour les routes du voyageur (refacturations) est exercé', () => {
+    for (const path of [
+      '/trips/{tripId}/traffic-charges/{chargeId}/accept',
+      '/trips/{tripId}/traffic-charges/{chargeId}/dispute',
+    ]) {
+      expect(missingCoverage(contract, path, coverageOf(...apps)), path).toEqual([]);
     }
   });
 

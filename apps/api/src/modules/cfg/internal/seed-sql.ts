@@ -210,6 +210,13 @@ export const POST_SEED_PARAMS: readonly {
     embedded: true,
   },
   {
+    prefix: 'traffic_guest_',
+    file: '0181_claim_traffic_charge_guest_response.sql',
+    story: 'US-318',
+    refs: '08 BR-TT-02, BR-TT-03, BR-REIMB-05 ; ADR-201',
+    embedded: true,
+  },
+  {
     prefix: 'incidental_cleaning_photo_window_h',
     file: '0182_claim_incidental_contest_and_evidence.sql',
     story: 'US-706 suite',

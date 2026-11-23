@@ -2890,6 +2890,36 @@
         "PA": 120,
         "PY": 120
       }
+    },
+    {
+      "key": "traffic_guest_charge_max_minor",
+      "type": "MONEY",
+      "scopes": ["COUNTRY"],
+      "currencyBound": true,
+      "failMode": "BLOCK",
+      "source": "08 BR-TT-02 à 04, BR-REIMB-05 (« montant non justifié » interdit) ; red team F-L3-SIN-02 ; ADR-201 : plafond du montant d’une amende, d’un péage ou d’une fourrière déclaré par l’hôte, en unités mineures de la devise du pays (frais de gestion non compris) ; au-delà, la déclaration est refusée (TRAFFIC_AMOUNT_ABOVE_CAP) et l’hôte passe par le support ; absent ou mal formé : aucune refacturation (TRAFFIC_CAP_UNKNOWN, fail-closed)",
+      "status": "PROPOSÉ (ADR-201) : 1 000,00 USD au Panama ; 7 500 000 PYG au Paraguay (même conversion que incidental_cleaning_max_minor) ; Turo n’a pas de plafond publié, mais ne débite jamais sans délai de réponse ; réglage modifiable par l’administration des paramètres",
+      "decision": "PROPOSED",
+      "decisionRef": "ADR-201 ; COMME_TURO (US-318 suite)",
+      "values": {
+        "PA": "100000",
+        "PY": "7500000"
+      }
+    },
+    {
+      "key": "traffic_guest_response_h",
+      "type": "DURATION",
+      "unit": "h",
+      "scopes": ["COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "08 BR-TT-02 (« 48 h pour payer/contester »), BR-TT-03 (mêmes délais), BR-REIMB-02 / 03 ; red team F-L3-SIN-02 ; ADR-201 : délai du voyageur pour payer ou contester une amende, un péage ou une fourrière refacturés, compté depuis la déclaration (heure de la base), échéance exclue ; aucun débit avant ; absent ou hors [1 ; 720] : aucune refacturation (TRAFFIC_RESPONSE_WINDOW_UNKNOWN, fail-closed)",
+      "status": "PROPOSÉ comme Turo (ADR-201, 08 BR-TT-02) : 48 h au PA / PY",
+      "decision": "PROPOSED",
+      "decisionRef": "ADR-201 ; COMME_TURO (US-318 suite) ; 08 BR-TT-02",
+      "values": {
+        "PA": 48,
+        "PY": 48
+      }
     }
   ]
 }

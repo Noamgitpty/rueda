@@ -57,6 +57,8 @@ describe('abonnement', () => {
       'payout.batch.status_changed',
       // US-310 : réponse automatique à une demande d'aide hors plage
       'support.help_request.received',
+      // US-318 suite : amende, péage ou fourrière refacturés (avis au voyageur)
+      'traffic_charge.status_changed',
       // US-305 : trip suivant à risque (prolongation du trip en retard bornée)
       'trip.at_risk.flagged',
       // US-316 : rendez-vous de remise ou de retour accepté (avis aux deux parties)
@@ -262,6 +264,44 @@ describe.each(COUNTRY_CASES)('planDispatches — $country ($currency)', (c) => {
     }
     // voyageur introuvable en base : erreur de contrat, jamais un envoi au hasard
     expect(() => planDispatches(changed('AWAITING_GUEST'), RULES, tripMap(null))).toThrow(
+      NotificationContractError,
+    );
+  });
+
+  it('US-318 suite : amende, péage ou fourrière refacturés (`traffic_charge.status_changed`, 0181) ⇒ le voyageur du trip seul (base), e-mail d’abord, gabarit de la nature ; total refacturé et échéance de la base ; nature hors liste : aucun envoi ; voyageur introuvable : erreur de contrat', () => {
+    const declared = (kind: string) =>
+      event(
+        'traffic_charge.status_changed',
+        {
+          charge_id: randomUUID(),
+          trip_id: tripId,
+          status: 'AWAITING_GUEST',
+          fee_type: kind,
+          amount_minor: '1292',
+          currency: c.currency,
+          response_due_at: '2066-05-09T11:00:00.000Z',
+        },
+        c.country,
+      );
+    for (const [kind, key] of [
+      ['FINE', 'EVT_TRAFFIC_FINE_TO_GUEST'],
+      ['TOLL', 'EVT_TRAFFIC_TOLL_TO_GUEST'],
+      ['IMPOUND', 'EVT_TRAFFIC_IMPOUND_TO_GUEST'],
+    ] as const) {
+      const plan = planDispatches(declared(kind), RULES, tripMap());
+      expect(who(plan), kind).toEqual([['GUEST', guest, 'EMAIL', key]]);
+      expect(plan[0]?.variables).toEqual({
+        booking_ref: '0190F5A2',
+        amount: { amount_minor: '1292', currency: c.currency },
+        due_at: '2066-05-09T11:00:00.000Z',
+      });
+    }
+    // jamais le gabarit des frais annexes (autre type d'événement)
+    expect(who(planDispatches(declared('FINE'), RULES, tripMap())).map((x) => x[3])).not.toContain(
+      'EVT_INVOICE_TO_GUEST',
+    );
+    expect(planDispatches(declared('PARKING'), RULES, tripMap())).toEqual([]);
+    expect(() => planDispatches(declared('FINE'), RULES, tripMap(null))).toThrow(
       NotificationContractError,
     );
   });

@@ -18747,7 +18747,7 @@
             }
           },
           "409": {
-            "description": "Trip non terminé (aucun retour)",
+            "description": "Trip non terminé (aucun retour) ; référence déjà refacturée sur ce trip (TRAFFIC_DUPLICATE, chargeId), quelles que soient la nature, l'heure, le montant ou la photo",
             "headers": {
               "Cache-Control": {
                 "$ref": "#/components/headers/NoStore"
@@ -18759,7 +18759,7 @@
                   "$ref": "#/components/schemas/AuthBody",
                   "properties": {
                     "code": {
-                      "const": "TRAFFIC_TRIP_NOT_ENDED"
+                      "enum": ["TRAFFIC_TRIP_NOT_ENDED", "TRAFFIC_DUPLICATE"]
                     }
                   }
                 }
@@ -18770,7 +18770,7 @@
             "$ref": "#/components/responses/NotJson"
           },
           "422": {
-            "description": "Délai dépassé (deadlineAt), fait hors de la période du trip, pièce absente de la série TRAFFIC ou déjà utilisée",
+            "description": "Délai dépassé (deadlineAt), fait hors de la période du trip, pièce absente de la série TRAFFIC ou déjà utilisée, référence absente, montant au-delà du plafond du pays (capMinor)",
             "headers": {
               "Cache-Control": {
                 "$ref": "#/components/headers/NoStore"
@@ -18785,7 +18785,9 @@
                       "enum": [
                         "TRAFFIC_CHARGE_DEADLINE_PASSED",
                         "TRAFFIC_OUTSIDE_TRIP",
-                        "TRAFFIC_EVIDENCE_REQUIRED"
+                        "TRAFFIC_EVIDENCE_REQUIRED",
+                        "TRAFFIC_REFERENCE_REQUIRED",
+                        "TRAFFIC_AMOUNT_ABOVE_CAP"
                       ]
                     }
                   }
@@ -18794,7 +18796,7 @@
             }
           },
           "503": {
-            "description": "Délai ou frais du pays absents (fail-closed), ou base injoignable : rien n'est écrit",
+            "description": "Délai, frais, délai du voyageur ou plafond du pays absents (fail-closed), ou base injoignable : rien n'est écrit",
             "headers": {
               "Cache-Control": {
                 "$ref": "#/components/headers/NoStore"
@@ -18807,6 +18809,81 @@
                   "properties": {
                     "code": {
                       "enum": ["TRAFFIC_TERMS_UNKNOWN", "TRIP_CLAIM_UNAVAILABLE"]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "operationId": "getTripTrafficChargesForGuest",
+        "tags": ["clm"],
+        "summary": "Refacturations d'amendes, de péages et de fourrières du trip vues par son voyageur (US-318 suite, 0181) : nature, référence, montants et frais, échéance pour payer ou contester (08 BR-TT-02 : 48 h), état, contestation et décision ; aucune donnée nominative de l'hôte",
+        "parameters": [
+          {
+            "name": "tripId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Refacturations du trip (liste vide si aucune)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TripTrafficGuestView"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthRequired"
+          },
+          "404": {
+            "description": "Trip ou refacturation inconnus, d'une autre personne (hôte compris) ou identifiant mal formé : même réponse (17 §2.3 point 5)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "TRIP_CLAIM_NOT_FOUND"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Base injoignable ou vue illisible ; réessayer",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "TRIP_CLAIM_UNAVAILABLE"
                     }
                   }
                 }
@@ -18901,7 +18978,7 @@
             }
           },
           "409": {
-            "description": "Trip non terminé (aucun retour)",
+            "description": "Trip non terminé (aucun retour) ; référence déjà refacturée sur ce trip (TRAFFIC_DUPLICATE, chargeId), quelles que soient la nature, l'heure, le montant ou la photo",
             "headers": {
               "Cache-Control": {
                 "$ref": "#/components/headers/NoStore"
@@ -18913,7 +18990,7 @@
                   "$ref": "#/components/schemas/AuthBody",
                   "properties": {
                     "code": {
-                      "const": "TRAFFIC_TRIP_NOT_ENDED"
+                      "enum": ["TRAFFIC_TRIP_NOT_ENDED", "TRAFFIC_DUPLICATE"]
                     }
                   }
                 }
@@ -18924,7 +19001,7 @@
             "$ref": "#/components/responses/NotJson"
           },
           "422": {
-            "description": "Délai dépassé (deadlineAt), fait hors de la période du trip, pièce absente de la série TRAFFIC ou déjà utilisée",
+            "description": "Délai dépassé (deadlineAt), fait hors de la période du trip, pièce absente de la série TRAFFIC ou déjà utilisée, référence absente, montant au-delà du plafond du pays (capMinor)",
             "headers": {
               "Cache-Control": {
                 "$ref": "#/components/headers/NoStore"
@@ -18939,7 +19016,9 @@
                       "enum": [
                         "TRAFFIC_CHARGE_DEADLINE_PASSED",
                         "TRAFFIC_OUTSIDE_TRIP",
-                        "TRAFFIC_EVIDENCE_REQUIRED"
+                        "TRAFFIC_EVIDENCE_REQUIRED",
+                        "TRAFFIC_REFERENCE_REQUIRED",
+                        "TRAFFIC_AMOUNT_ABOVE_CAP"
                       ]
                     }
                   }
@@ -18948,7 +19027,7 @@
             }
           },
           "503": {
-            "description": "Délai ou frais du pays absents (fail-closed), ou base injoignable : rien n'est écrit",
+            "description": "Délai, frais, délai du voyageur ou plafond du pays absents (fail-closed), ou base injoignable : rien n'est écrit",
             "headers": {
               "Cache-Control": {
                 "$ref": "#/components/headers/NoStore"
@@ -18961,6 +19040,609 @@
                   "properties": {
                     "code": {
                       "enum": ["TRAFFIC_TERMS_UNKNOWN", "TRIP_CLAIM_UNAVAILABLE"]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/trips/{tripId}/traffic-charges/{chargeId}/accept": {
+      "post": {
+        "operationId": "acceptTripTrafficCharge",
+        "tags": ["clm"],
+        "summary": "Paiement d'une refacturation par le voyageur du trip avant l'échéance (accord écrit) ; débit séparé par Kmino ensuite, montant explicite de chaque jambe ; corps vide",
+        "parameters": [
+          {
+            "name": "tripId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "chargeId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TripIncidentalEmptyRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Réponse enregistrée (rejeu : la même, replayed)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TripTrafficChargeAction"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Corps invalide (clé inconnue, motif ou pièce mal formés)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "REQUEST_INVALID"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthRequired"
+          },
+          "404": {
+            "description": "Trip ou refacturation inconnus, d'une autre personne (hôte compris) ou identifiant mal formé : même réponse (17 §2.3 point 5)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "TRIP_CLAIM_NOT_FOUND"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Réponse impossible : refacturation déjà payée, contestée, décidée ou exécutée, ou échéance passée (fenêtre jamais rouverte)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "enum": ["TRAFFIC_NOT_OPEN", "GUEST_RESPONSE_WINDOW_CLOSED"]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "415": {
+            "$ref": "#/components/responses/NotJson"
+          },
+          "503": {
+            "description": "Base injoignable ou vue illisible ; réessayer",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "TRIP_CLAIM_UNAVAILABLE"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/trips/{tripId}/traffic-charges/{chargeId}/dispute": {
+      "post": {
+        "operationId": "disputeTripTrafficCharge",
+        "tags": ["clm"],
+        "summary": "Contestation d'une refacturation par le voyageur du trip avant l'échéance : motif écrit, photos du trip facultatives ; aucun débit avant la décision de l'ops (US-318 suite, 0181)",
+        "parameters": [
+          {
+            "name": "tripId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "chargeId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TripTrafficDisputeRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Réponse enregistrée (rejeu : la même, replayed)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TripTrafficChargeAction"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Corps invalide (clé inconnue, motif ou pièce mal formés)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "REQUEST_INVALID"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthRequired"
+          },
+          "404": {
+            "description": "Trip ou refacturation inconnus, d'une autre personne (hôte compris) ou identifiant mal formé : même réponse (17 §2.3 point 5)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "TRIP_CLAIM_NOT_FOUND"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Réponse impossible : refacturation déjà payée, contestée, décidée ou exécutée, ou échéance passée (fenêtre jamais rouverte)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "enum": ["TRAFFIC_NOT_OPEN", "GUEST_RESPONSE_WINDOW_CLOSED"]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "415": {
+            "$ref": "#/components/responses/NotJson"
+          },
+          "503": {
+            "description": "Base injoignable ou vue illisible ; réessayer",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "TRIP_CLAIM_UNAVAILABLE"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Motif absent ou trop court, ou pièce étrangère au trip",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "enum": ["INCIDENTAL_DISPUTE_REASON_REQUIRED", "CLAIM_EVIDENCE_MISSING"]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/console/traffic-charges": {
+      "get": {
+        "operationId": "consoleTrafficChargeReviews",
+        "tags": ["sup"],
+        "summary": "Refacturations contestées à décider (US-318 suite, 0181) : pays où l'agent détient dispute.decide, trips qui le concernent écartés avant la limite (ADR-122), 500 au plus (troncature signalée), refus journalisés, aucune donnée nominative",
+        "responses": {
+          "200": {
+            "description": "Refacturations à décider (liste vide si aucune)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrafficReviewList"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/StaffAuthRequired"
+          },
+          "403": {
+            "$ref": "#/components/responses/StaffForbidden"
+          },
+          "429": {
+            "$ref": "#/components/responses/StaffRateLimited"
+          },
+          "503": {
+            "description": "Base indisponible",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "CLAIMS_UNAVAILABLE"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/console/traffic-charges/{chargeId}": {
+      "get": {
+        "operationId": "consoleTrafficChargeView",
+        "tags": ["sup"],
+        "summary": "Vue d'une refacturation d'amende, de péage ou de fourrière (US-318 suite, 0181) : nature, référence, montant, frais et jambes figés, pièce de l'hôte, échéance du voyageur, contestation, décision ; dispute.decide dans le pays, garde ADR-122 ; aucune donnée nominative",
+        "parameters": [
+          {
+            "name": "chargeId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Frais annexe",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrafficChargeEnvelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/StaffRequestInvalid"
+          },
+          "401": {
+            "$ref": "#/components/responses/StaffAuthRequired"
+          },
+          "429": {
+            "$ref": "#/components/responses/StaffRateLimited"
+          },
+          "403": {
+            "description": "Sans rôle interne, sans dispute.decide dans le pays ou refacturation inconnue (FORBIDDEN, journalisé) ; session non élevée (2FA_REQUIRED) ; trip qui concerne l'agent (STAFF_SELF_FORBIDDEN, ADR-122)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "enum": ["FORBIDDEN", "2FA_REQUIRED", "STAFF_SELF_FORBIDDEN"]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Base indisponible",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "CLAIMS_UNAVAILABLE"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/console/traffic-charges/{chargeId}/decision": {
+      "post": {
+        "operationId": "consoleTrafficChargeDecision",
+        "tags": ["sup"],
+        "summary": "Décision motivée de l'ops sur une refacturation CONTESTÉE par le voyageur (US-318 suite, 0181 ; mêmes règles qu'US-706) : débiter (réservé à ADMIN) ou rejeter (jamais débitée) ; motif de 20 à 2 000 caractères, jamais « définitif » ; aucun montant reçu ; débit par Kmino ensuite (US-703)",
+        "parameters": [
+          {
+            "name": "chargeId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["requestId", "outcome", "rationale"],
+                "properties": {
+                  "requestId": {
+                    "$ref": "#/components/schemas/Uuid"
+                  },
+                  "outcome": {
+                    "enum": ["CHARGE", "REJECT"]
+                  },
+                  "rationale": {
+                    "type": "string",
+                    "maxLength": 2000,
+                    "description": "Motif de la décision (20 caractères au moins, sinon DECISION_RATIONALE_REQUIRED ; aucun nom ni contact)"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Rejeu de la même requête",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrafficChargeEnvelope"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Décision enregistrée ; débit par le travailleur si « débiter »",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrafficChargeEnvelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/StaffRequestInvalid"
+          },
+          "401": {
+            "$ref": "#/components/responses/StaffAuthRequired"
+          },
+          "429": {
+            "$ref": "#/components/responses/StaffRateLimited"
+          },
+          "403": {
+            "description": "Sans rôle interne, sans dispute.decide dans le pays ou frais inconnu (FORBIDDEN, journalisé) ; session non élevée (2FA_REQUIRED) ; agent partie au trip ou lié (STAFF_SELF_FORBIDDEN, ADR-122) ; débit réservé à ADMIN (DECISION_ADMIN_REQUIRED, journalisé)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "enum": [
+                        "FORBIDDEN",
+                        "2FA_REQUIRED",
+                        "STAFF_SELF_FORBIDDEN",
+                        "DECISION_ADMIN_REQUIRED"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Refacturation non contestée (attente du voyageur, payée, déjà décidée, exécutée) : rien n'est décidé",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "TRAFFIC_NOT_DISPUTED"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "415": {
+            "$ref": "#/components/responses/NotJsonNoStore"
+          },
+          "422": {
+            "description": "Motif absent ou trop court, ou décision « définitive » (journalisé)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "enum": ["DECISION_RATIONALE_REQUIRED", "DECISION_FINALITY_FORBIDDEN"]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Base indisponible",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "CLAIMS_UNAVAILABLE"
                     }
                   }
                 }
@@ -20338,6 +21020,14 @@
           "deadlineAt": {
             "type": "string",
             "description": "TRAFFIC_CHARGE_DEADLINE_PASSED (US-318) : échéance dépassée (fin effective + délai du pays)"
+          },
+          "chargeId": {
+            "type": "string",
+            "description": "TRAFFIC_DUPLICATE (US-318 suite, 0181) : refacturation déjà enregistrée sous cette référence sur ce trip"
+          },
+          "capMinor": {
+            "type": "string",
+            "description": "TRAFFIC_AMOUNT_ABOVE_CAP (US-318 suite, 0181) : plafond du montant du pays, unités mineures"
           }
         }
       },
@@ -31477,6 +32167,11 @@
             "type": "string",
             "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
             "description": "Pièce : photo de la série TRAFFIC du titulaire (POST /trips/{tripId}/inspections/traffic/photos)"
+          },
+          "reference": {
+            "type": "string",
+            "maxLength": 40,
+            "description": "Référence de l'avis, du PV ou du reçu (3 à 40 caractères : lettres et chiffres ASCII, espaces, « . », « / », « - ») ; unique par trip (sinon 409 TRAFFIC_DUPLICATE) ; absente ou vide : 422 TRAFFIC_REFERENCE_REQUIRED (0181)"
           }
         }
       },
@@ -31489,6 +32184,7 @@
           "adminFeeMinor",
           "totalMinor",
           "deadlineAt",
+          "responseDueAt",
           "replayed"
         ],
         "properties": {
@@ -31514,6 +32210,11 @@
           },
           "replayed": {
             "type": "boolean"
+          },
+          "responseDueAt": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}[.][0-9]{3}Z$",
+            "description": "Échéance du voyageur pour payer ou contester (déclaration + délai du pays, 08 BR-TT-02 : 48 h) ; aucun débit avant"
           }
         }
       },
@@ -31529,6 +32230,8 @@
           "tripEndAt",
           "deadlineAt",
           "feeBps",
+          "responseHours",
+          "capMinor",
           "theft",
           "charges",
           "evidence"
@@ -31607,6 +32310,9 @@
                 "adminFeeMinor",
                 "totalMinor",
                 "declaredAt",
+                "reference",
+                "responseDueAt",
+                "guestStatus",
                 "status"
               ],
               "properties": {
@@ -31638,7 +32344,26 @@
                   "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}[.][0-9]{3}Z$"
                 },
                 "status": {
-                  "enum": ["PENDING", "DONE", "BLOCKED"]
+                  "enum": ["PENDING", "DONE", "BLOCKED", "VOID"]
+                },
+                "reference": {
+                  "type": ["string", "null"],
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9 ./-]{1,38}[A-Za-z0-9]$"
+                },
+                "responseDueAt": {
+                  "type": ["string", "null"],
+                  "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}[.][0-9]{3}Z$"
+                },
+                "guestStatus": {
+                  "enum": [
+                    "AWAITING_GUEST",
+                    "ACCEPTED",
+                    "DISPUTED",
+                    "DECIDED_CHARGE",
+                    "REJECTED",
+                    null
+                  ],
+                  "description": "Réponse du voyageur et décision de l'ops ; null : refacturation antérieure à 0181"
                 }
               }
             }
@@ -31667,6 +32392,16 @@
                 }
               }
             }
+          },
+          "responseHours": {
+            "type": ["integer", "null"],
+            "minimum": 1,
+            "description": "Délai du voyageur pour payer ou contester (h) ; null : paramètre absent"
+          },
+          "capMinor": {
+            "type": ["string", "null"],
+            "pattern": "^(0|[1-9][0-9]{0,17})$",
+            "description": "Plafond du montant du pays ; null : paramètre absent"
           }
         }
       },
@@ -31682,6 +32417,9 @@
           "adminFeeMinor",
           "totalMinor",
           "deadlineAt",
+          "reference",
+          "responseHours",
+          "capMinor",
           "chargedBy"
         ],
         "properties": {
@@ -31721,6 +32459,324 @@
           "chargedBy": {
             "type": "string",
             "const": "SEPARATE_CARD_CHARGE"
+          },
+          "reference": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9 ./-]{1,38}[A-Za-z0-9]$"
+          },
+          "responseHours": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 720,
+            "description": "Délai du voyageur pour payer ou contester, en heures"
+          },
+          "capMinor": {
+            "type": "string",
+            "pattern": "^(0|[1-9][0-9]{0,17})$",
+            "description": "Plafond du montant du pays (au-delà : 422 TRAFFIC_AMOUNT_ABOVE_CAP)"
+          }
+        }
+      },
+      "TripTrafficGuestView": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["tripId", "currency", "charges", "photos"],
+        "properties": {
+          "tripId": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+          },
+          "currency": {
+            "type": "string",
+            "pattern": "^[A-Z]{3}$"
+          },
+          "charges": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "id",
+                "kind",
+                "occurredAt",
+                "reference",
+                "amountMinor",
+                "adminFeeMinor",
+                "totalMinor",
+                "declaredAt",
+                "responseDueAt",
+                "status",
+                "executionStatus",
+                "canRespond",
+                "disputeReason",
+                "decidedAt",
+                "decisionRationale"
+              ],
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+                },
+                "kind": {
+                  "enum": ["TOLL", "FINE", "IMPOUND"]
+                },
+                "occurredAt": {
+                  "type": "string",
+                  "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}[.][0-9]{3}Z$"
+                },
+                "reference": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9 ./-]{1,38}[A-Za-z0-9]$"
+                },
+                "amountMinor": {
+                  "type": "string",
+                  "pattern": "^(0|[1-9][0-9]{0,17})$"
+                },
+                "adminFeeMinor": {
+                  "type": "string",
+                  "pattern": "^(0|[1-9][0-9]{0,17})$"
+                },
+                "totalMinor": {
+                  "type": "string",
+                  "pattern": "^(0|[1-9][0-9]{0,17})$"
+                },
+                "declaredAt": {
+                  "type": "string",
+                  "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}[.][0-9]{3}Z$"
+                },
+                "responseDueAt": {
+                  "type": "string",
+                  "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}[.][0-9]{3}Z$"
+                },
+                "status": {
+                  "enum": ["AWAITING_GUEST", "ACCEPTED", "DISPUTED", "DECIDED_CHARGE", "REJECTED"]
+                },
+                "executionStatus": {
+                  "enum": ["PENDING", "DONE", "BLOCKED", "VOID"]
+                },
+                "canRespond": {
+                  "type": "boolean",
+                  "description": "Payer ou contester possible maintenant (avant l'échéance, aucune réponse)"
+                },
+                "disputeReason": {
+                  "type": ["string", "null"]
+                },
+                "decidedAt": {
+                  "type": ["string", "null"],
+                  "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}[.][0-9]{3}Z$"
+                },
+                "decisionRationale": {
+                  "type": ["string", "null"]
+                }
+              }
+            }
+          },
+          "photos": {
+            "type": "array",
+            "description": "Photos du trip proposées comme pièces d'une contestation (vide si aucune réponse n'est possible)",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["fileId", "kind", "slot", "takenBy", "receivedAt"],
+              "properties": {
+                "fileId": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+                },
+                "kind": {
+                  "enum": ["CHECKIN", "CHECKOUT"]
+                },
+                "slot": {
+                  "type": "string",
+                  "pattern": "^[A-Z][A-Z0-9_]{1,31}$"
+                },
+                "takenBy": {
+                  "enum": ["HOST", "GUEST"]
+                },
+                "receivedAt": {
+                  "type": "string",
+                  "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}[.][0-9]{3}Z$"
+                }
+              }
+            }
+          }
+        }
+      },
+      "TripTrafficChargeAction": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["chargeId", "status", "replayed"],
+        "properties": {
+          "chargeId": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+          },
+          "status": {
+            "enum": ["ACCEPTED", "DISPUTED"]
+          },
+          "replayed": {
+            "type": "boolean"
+          }
+        }
+      },
+      "TripTrafficDisputeRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["reason"],
+        "properties": {
+          "reason": {
+            "type": "string",
+            "maxLength": 1000,
+            "description": "Motif écrit (20 caractères au moins, sinon INCIDENTAL_DISPUTE_REASON_REQUIRED ; aucun nom ni contact)"
+          },
+          "evidence": {
+            "type": "array",
+            "maxItems": 10,
+            "items": {
+              "type": "string",
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+            },
+            "description": "Photos du trip (facultatives)"
+          }
+        }
+      },
+      "TrafficChargeStaffView": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": [
+          "id",
+          "tripId",
+          "country",
+          "currency",
+          "kind",
+          "reference",
+          "amountMinor",
+          "adminFeeMinor",
+          "totalMinor",
+          "legs",
+          "status",
+          "executionStatus",
+          "decidable"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+          },
+          "tripId": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+          },
+          "country": {
+            "type": "string",
+            "pattern": "^[A-Z]{2}$"
+          },
+          "currency": {
+            "type": "string",
+            "pattern": "^[A-Z]{3}$"
+          },
+          "kind": {
+            "enum": ["TOLL", "FINE", "IMPOUND"]
+          },
+          "reference": {
+            "type": ["string", "null"]
+          },
+          "amountMinor": {
+            "type": "string",
+            "pattern": "^(0|[1-9][0-9]{0,17})$"
+          },
+          "adminFeeMinor": {
+            "type": "string",
+            "pattern": "^(0|[1-9][0-9]{0,17})$"
+          },
+          "totalMinor": {
+            "type": "string",
+            "pattern": "^(0|[1-9][0-9]{0,17})$"
+          },
+          "legs": {
+            "type": "object"
+          },
+          "status": {
+            "enum": ["AWAITING_GUEST", "ACCEPTED", "DISPUTED", "DECIDED_CHARGE", "REJECTED", null]
+          },
+          "executionStatus": {
+            "enum": ["PENDING", "DONE", "BLOCKED", "VOID"]
+          },
+          "decidable": {
+            "type": "boolean"
+          }
+        },
+        "description": "Refacturation vue par la console (montants, jambes, référence, pièce, échéance, contestation, décision) ; aucune donnée nominative"
+      },
+      "TrafficChargeEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["trafficCharge"],
+        "properties": {
+          "trafficCharge": {
+            "$ref": "#/components/schemas/TrafficChargeStaffView"
+          }
+        }
+      },
+      "TrafficReviewList": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["countries", "truncated", "charges"],
+        "properties": {
+          "countries": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[A-Z]{2}$"
+            }
+          },
+          "truncated": {
+            "type": "boolean"
+          },
+          "charges": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "id",
+                "tripId",
+                "country",
+                "currency",
+                "kind",
+                "totalMinor",
+                "disputedAt"
+              ],
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+                },
+                "tripId": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+                },
+                "country": {
+                  "type": "string",
+                  "pattern": "^[A-Z]{2}$"
+                },
+                "currency": {
+                  "type": "string",
+                  "pattern": "^[A-Z]{3}$"
+                },
+                "kind": {
+                  "enum": ["TOLL", "FINE", "IMPOUND"]
+                },
+                "totalMinor": {
+                  "type": "string",
+                  "pattern": "^(0|[1-9][0-9]{0,17})$"
+                },
+                "disputedAt": {
+                  "type": "string",
+                  "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}[.][0-9]{3}Z$"
+                }
+              }
+            }
           }
         }
       }

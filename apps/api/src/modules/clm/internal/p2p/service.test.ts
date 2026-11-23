@@ -8,6 +8,8 @@ import { TRIP_CLAIM_MESSAGES, TripClaimHttpError, tripClaimOutcomeCode } from '.
 import {
   parseIncidentRequest,
   parseTrafficChargeRequest,
+  parseTrafficDisputeRequest,
+  parseTrafficGuestView,
   parseTripClaimsView,
   TripClaimsService,
 } from './service.js';
@@ -56,8 +58,16 @@ describe('US-318 — corps des routes', () => {
       occurredAt: '2031-06-11T07:00:00-03:00',
       amountMinor: '25010',
       fileId: ID,
+      reference: '  PV 2031/0042 ',
     };
     const r = parseTrafficChargeRequest(ok);
+    expect(r.reference).toBe('PV 2031/0042');
+    // référence absente ou vide : refus explicite (0181, F-L3-SIN-01)
+    const noRef: Record<string, unknown> = { ...ok };
+    delete noRef['reference'];
+    for (const b of [noRef, { ...ok, reference: '  ' }]) {
+      expect(codeOf(() => parseTrafficChargeRequest(b))).toBe('TRAFFIC_REFERENCE_REQUIRED');
+    }
     expect(r.kind).toBe('IMPOUND');
     expect(r.amountMinor).toBe(25010n);
     expect(r.occurredAt.toISOString()).toBe(ISO);
@@ -72,6 +82,11 @@ describe('US-318 — corps des routes', () => {
       { ...ok, occurredAt: '2031-06-11T10:00:00' },
       { ...ok, fileId: 'x' },
       { ...ok, adminFeeMinor: '1' },
+      { ...ok, reference: 'ana@correo.com' },
+      { ...ok, reference: 'P-1' },
+      { ...ok, reference: 'PV#12' },
+      { ...ok, reference: 12345 },
+      { ...ok, reference: `PV${'9'.repeat(40)}` },
     ]) {
       expect(
         codeOf(() => parseTrafficChargeRequest(bad)),
@@ -86,6 +101,18 @@ describe('US-318 — issues de la base', () => {
     expect(tripClaimOutcomeCode('NOT_FOUND')).toBe('TRIP_CLAIM_NOT_FOUND');
     expect(tripClaimOutcomeCode('TRAFFIC_WINDOW_UNKNOWN')).toBe('TRAFFIC_TERMS_UNKNOWN');
     expect(tripClaimOutcomeCode('TRAFFIC_FEE_UNKNOWN')).toBe('TRAFFIC_TERMS_UNKNOWN');
+    expect(tripClaimOutcomeCode('TRAFFIC_RESPONSE_WINDOW_UNKNOWN')).toBe('TRAFFIC_TERMS_UNKNOWN');
+    expect(tripClaimOutcomeCode('TRAFFIC_CAP_UNKNOWN')).toBe('TRAFFIC_TERMS_UNKNOWN');
+    for (const o of [
+      'GUEST_RESPONSE_WINDOW_CLOSED',
+      'INCIDENTAL_DISPUTE_REASON_REQUIRED',
+      'CLAIM_EVIDENCE_MISSING',
+    ]) {
+      expect(tripClaimOutcomeCode(o)).toBe(o);
+      expect(TRIP_CLAIM_MESSAGES[tripClaimOutcomeCode(o)].messageKey).toMatch(
+        /^common\.incidental\./,
+      );
+    }
     for (const o of [
       'INCIDENT_NOT_OPEN',
       'INCIDENT_CASE_REQUIRED',
@@ -94,6 +121,10 @@ describe('US-318 — issues de la base', () => {
       'TRAFFIC_CHARGE_DEADLINE_PASSED',
       'TRAFFIC_OUTSIDE_TRIP',
       'TRAFFIC_EVIDENCE_REQUIRED',
+      'TRAFFIC_REFERENCE_REQUIRED',
+      'TRAFFIC_DUPLICATE',
+      'TRAFFIC_AMOUNT_ABOVE_CAP',
+      'TRAFFIC_NOT_OPEN',
     ]) {
       expect(tripClaimOutcomeCode(o)).toBe(o);
       expect(TRIP_CLAIM_MESSAGES[tripClaimOutcomeCode(o)].messageKey).toMatch(
@@ -112,6 +143,9 @@ describe('US-318 — issues de la base', () => {
       reportIncident: () => Promise.reject(new TripClaimStoreError('x', '22023')),
       declareTrafficCharge: () => Promise.reject(new TripClaimStoreError('x', '40001')),
       hostClaims: () => Promise.resolve(null),
+      guestCharges: () => Promise.resolve(null),
+      acceptTrafficCharge: () => Promise.resolve('NOT_FOUND'),
+      disputeTrafficCharge: () => Promise.resolve('NOT_FOUND'),
     };
     const s = new TripClaimsService(taken);
     await expect(
@@ -129,6 +163,7 @@ describe('US-318 — issues de la base', () => {
         occurredAt: ISO,
         amountMinor: '100',
         fileId: ID,
+        reference: 'PV-100',
       }),
     ).rejects.toMatchObject({ code: 'TRIP_CLAIM_UNAVAILABLE' });
     await expect(s.view(Buffer.alloc(32), ID)).rejects.toMatchObject({
@@ -142,6 +177,9 @@ describe('US-318 — issues de la base', () => {
       declareTrafficCharge: () =>
         Promise.resolve({ outcome, chargeId: outcome === 'DECLARED' ? ID : null, body }),
       hostClaims: () => Promise.resolve(null),
+      guestCharges: () => Promise.resolve(null),
+      acceptTrafficCharge: () => Promise.resolve('NOT_FOUND'),
+      disputeTrafficCharge: () => Promise.resolve('NOT_FOUND'),
     });
     const input = {
       requestId: ID,
@@ -149,6 +187,7 @@ describe('US-318 — issues de la base', () => {
       occurredAt: ISO,
       amountMinor: '1230',
       fileId: ID,
+      reference: 'PV-1230',
     };
     await expect(
       new TripClaimsService(
@@ -164,6 +203,7 @@ describe('US-318 — issues de la base', () => {
         adminFeeMinor: '62',
         totalMinor: '1292',
         deadlineAt: '2031-10-12T10:00:00.000Z',
+        responseDueAt: '2031-06-16T10:00:00.000Z',
       }),
     ).declareTrafficCharge(Buffer.alloc(32), ID, input);
     expect(ok).toEqual({
@@ -172,7 +212,27 @@ describe('US-318 — issues de la base', () => {
       adminFeeMinor: '62',
       totalMinor: '1292',
       deadlineAt: '2031-10-12T10:00:00.000Z',
+      responseDueAt: '2031-06-16T10:00:00.000Z',
       replayed: false,
+    });
+    // doublon et plafond : identifiant existant et plafond rendus (0181)
+    await expect(
+      new TripClaimsService(store('TRAFFIC_DUPLICATE', { chargeId: ID })).declareTrafficCharge(
+        Buffer.alloc(32),
+        ID,
+        input,
+      ),
+    ).rejects.toMatchObject({
+      code: 'TRAFFIC_DUPLICATE',
+      response: expect.objectContaining({ chargeId: ID }),
+    });
+    await expect(
+      new TripClaimsService(
+        store('TRAFFIC_AMOUNT_ABOVE_CAP', { capMinor: '100000', currency: 'XTA' }),
+      ).declareTrafficCharge(Buffer.alloc(32), ID, input),
+    ).rejects.toMatchObject({
+      code: 'TRAFFIC_AMOUNT_ABOVE_CAP',
+      response: expect.objectContaining({ capMinor: '100000' }),
     });
     // montant illisible : jamais servi
     await expect(
@@ -191,6 +251,9 @@ describe('US-318 — issues de la base', () => {
         return Promise.resolve({ outcome, chargeId: null, body });
       },
       hostClaims: () => Promise.resolve(null),
+      guestCharges: () => Promise.resolve(null),
+      acceptTrafficCharge: () => Promise.resolve('NOT_FOUND'),
+      disputeTrafficCharge: () => Promise.resolve('NOT_FOUND'),
     });
     const input = {
       requestId: ID,
@@ -198,6 +261,7 @@ describe('US-318 — issues de la base', () => {
       occurredAt: ISO,
       amountMinor: '25010',
       fileId: ID,
+      reference: 'PEAJE-25010',
     };
     const body = {
       amountMinor: '25010',
@@ -206,6 +270,9 @@ describe('US-318 — issues de la base', () => {
       currency: 'XTB',
       feeBps: 500,
       deadlineAt: '2031-10-12T10:00:00.000Z',
+      reference: 'PEAJE-25010',
+      responseHours: 48,
+      capMinor: '7500000',
     };
     const ok = await new TripClaimsService(store('PREVIEW', body)).previewTrafficCharge(
       Buffer.alloc(32),
@@ -222,6 +289,9 @@ describe('US-318 — issues de la base', () => {
       adminFeeMinor: '1251',
       totalMinor: '26261',
       deadlineAt: '2031-10-12T10:00:00.000Z',
+      reference: 'PEAJE-25010',
+      responseHours: 48,
+      capMinor: '7500000',
       chargedBy: 'SEPARATE_CARD_CHARGE',
     });
     // la déclaration elle-même n'est jamais un aperçu
@@ -258,6 +328,8 @@ describe('US-318 — issues de la base', () => {
       { ...body, currency: 'xtb' },
       { ...body, feeBps: '500' },
       { ...body, deadlineAt: null },
+      { ...body, responseHours: 0 },
+      { ...body, capMinor: 7500000 },
     ]) {
       await expect(
         new TripClaimsService(store('PREVIEW', bad)).previewTrafficCharge(
@@ -280,6 +352,8 @@ describe('US-318 — vue des sinistres du trip (lecture stricte)', () => {
     tripEndAt: ISO,
     deadlineAt: ISO,
     feeBps: 500,
+    responseHours: 48,
+    capMinor: '100000',
     theft: {
       status: 'THEFT_INVESTIGATION',
       openedAt: ISO,
@@ -295,6 +369,9 @@ describe('US-318 — vue des sinistres du trip (lecture stricte)', () => {
         adminFeeMinor: '5',
         totalMinor: '105',
         declaredAt: ISO,
+        reference: 'PV-100',
+        responseDueAt: ISO,
+        guestStatus: 'DISPUTED',
         status: 'PENDING',
       },
     ],
@@ -315,10 +392,117 @@ describe('US-318 — vue des sinistres du trip (lecture stricte)', () => {
       { ...view, evidence: [{ ...view.evidence[0], slot: 'EXT_01' }] },
       { ...view, tripStartAt: 'hier' },
       { ...view, charges: null },
+      { ...view, responseHours: 0 },
+      { ...view, capMinor: 100000 },
+      { ...view, charges: [{ ...view.charges[0], guestStatus: 'PAID' }] },
+      { ...view, charges: [{ ...view.charges[0], reference: 'a@b.c' }] },
     ]) {
       expect(() => parseTripClaimsView(bad as never), JSON.stringify(bad)).toThrow(
         TripClaimStoreError,
       );
     }
+  });
+});
+
+describe('US-318 suite — refacturations du voyageur (lecture stricte, réponses)', () => {
+  const gv = {
+    tripId: ID,
+    currency: 'XTA',
+    charges: [
+      {
+        id: ID,
+        kind: 'FINE',
+        occurredAt: ISO,
+        reference: 'PV-100',
+        amountMinor: '100',
+        adminFeeMinor: '5',
+        totalMinor: '105',
+        declaredAt: ISO,
+        responseDueAt: ISO,
+        status: 'AWAITING_GUEST',
+        executionStatus: 'PENDING',
+        canRespond: true,
+        disputeReason: null,
+        decidedAt: null,
+        decisionRationale: null,
+      },
+    ],
+    photos: [{ fileId: ID, kind: 'CHECKOUT', slot: 'INT_02', takenBy: 'GUEST', receivedAt: ISO }],
+  };
+
+  it('forme attendue relue telle quelle ; toute autre forme ⇒ erreur', () => {
+    expect(parseTrafficGuestView(gv)).toEqual(gv);
+    for (const bad of [
+      { ...gv, currency: 'x' },
+      { ...gv, photos: null },
+      { ...gv, charges: [{ ...gv.charges[0], canRespond: 'oui' }] },
+      { ...gv, charges: [{ ...gv.charges[0], status: 'PAID' }] },
+      { ...gv, charges: [{ ...gv.charges[0], reference: null }] },
+      { ...gv, photos: [{ ...gv.photos[0], takenBy: 'STAFF' }] },
+    ]) {
+      expect(() => parseTrafficGuestView(bad as never), JSON.stringify(bad)).toThrow(
+        TripClaimStoreError,
+      );
+    }
+  });
+
+  it('contestation : motif texte (1 000 au plus), pièces : identifiants (10 au plus), clés fermées', () => {
+    expect(parseTrafficDisputeRequest({ reason: 'x', evidence: [ID.toUpperCase()] })).toEqual({
+      reason: 'x',
+      evidence: [ID],
+    });
+    expect(parseTrafficDisputeRequest({ reason: 'x' })).toEqual({ reason: 'x', evidence: [] });
+    for (const bad of [
+      {},
+      { reason: 5 },
+      { reason: 'x'.repeat(1001) },
+      { reason: 'x', evidence: 'y' },
+      { reason: 'x', evidence: ['y'] },
+      { reason: 'x', evidence: Array.from({ length: 11 }, () => ID) },
+      { reason: 'x', at: ISO },
+    ]) {
+      expect(
+        codeOf(() => parseTrafficDisputeRequest(bad)),
+        JSON.stringify(bad),
+      ).toBe('REQUEST_INVALID');
+    }
+  });
+
+  it('issues des commandes du voyageur traduites ; rejeu signalé ; vue absente ⇒ 404', async () => {
+    const store = (r: string): TripClaimsStore => ({
+      reportIncident: () => Promise.reject(new Error('non')),
+      declareTrafficCharge: () => Promise.reject(new Error('non')),
+      hostClaims: () => Promise.resolve(null),
+      guestCharges: () => Promise.resolve(null),
+      acceptTrafficCharge: () => Promise.resolve(r),
+      disputeTrafficCharge: () => Promise.resolve(r),
+    });
+    const p = Buffer.alloc(32);
+    expect(await new TripClaimsService(store('ACCEPTED')).acceptTrafficCharge(p, ID, {})).toEqual({
+      chargeId: ID,
+      status: 'ACCEPTED',
+      replayed: false,
+    });
+    expect(
+      await new TripClaimsService(store('ALREADY_DISPUTED')).disputeTrafficCharge(p, ID, {
+        reason: 'motif',
+      }),
+    ).toEqual({ chargeId: ID, status: 'DISPUTED', replayed: true });
+    for (const [r, code] of [
+      ['NOT_FOUND', 'TRIP_CLAIM_NOT_FOUND'],
+      ['TRAFFIC_NOT_OPEN', 'TRAFFIC_NOT_OPEN'],
+      ['GUEST_RESPONSE_WINDOW_CLOSED', 'GUEST_RESPONSE_WINDOW_CLOSED'],
+      ['SURPRISE', 'TRIP_CLAIM_UNAVAILABLE'],
+    ] as const) {
+      await expect(
+        new TripClaimsService(store(r)).acceptTrafficCharge(p, ID, {}),
+      ).rejects.toMatchObject({ code });
+    }
+    await expect(
+      new TripClaimsService(store('ACCEPTED')).acceptTrafficCharge(p, ID, { x: 1 }),
+    ).rejects.toMatchObject({ code: 'REQUEST_INVALID' });
+    await expect(new TripClaimsService(store('X')).guestCharges(p, ID)).rejects.toMatchObject({
+      code: 'TRIP_CLAIM_NOT_FOUND',
+    });
   });
 });

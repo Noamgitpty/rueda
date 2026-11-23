@@ -187,6 +187,10 @@ export const TEMPLATE_KEYS = [
   // frais annexe demandé par l'hôte, à payer ou contester avant l'échéance (US-706, ADR-197 ; 16
   // CLM-021 `EVT_INVOICE_TO_GUEST`)
   'EVT_INVOICE_TO_GUEST',
+  // amende, péage ou fourrière refacturés (US-318 suite, 0181, ADR-201) : un gabarit par nature
+  'EVT_TRAFFIC_FINE_TO_GUEST',
+  'EVT_TRAFFIC_TOLL_TO_GUEST',
+  'EVT_TRAFFIC_IMPOUND_TO_GUEST',
 ] as const;
 export type TemplateKey = (typeof TEMPLATE_KEYS)[number];
 
@@ -471,6 +475,48 @@ export const TEMPLATES: Readonly<Record<TemplateKey, TemplateSpec>> = {
   EVT_INVOICE_TO_GUEST: {
     key: 'EVT_INVOICE_TO_GUEST',
     slug: 'invoiceToGuest',
+    variables: {
+      first_name: FIRST_NAME,
+      brand: BRAND,
+      booking_ref: BOOKING_REF,
+      amount: { from: 'payload', type: 'money', field: 'amount_minor', currencyField: 'currency' },
+      due_at: { from: 'payload', type: 'instant', field: 'response_due_at' },
+    },
+    channels: EMAIL_THEN_SMS,
+    critical: false,
+  },
+  // amende, péage ou fourrière refacturés au voyageur (US-318 suite, 0181, ADR-201 ; 08 BR-TT-02) :
+  // nature dans le gabarit, 48 h pour payer ou contester (photo facultative), débit à l'échéance
+  // sans réponse ; e-mail d'abord, SMS en repli
+  EVT_TRAFFIC_FINE_TO_GUEST: {
+    key: 'EVT_TRAFFIC_FINE_TO_GUEST',
+    slug: 'trafficFineToGuest',
+    variables: {
+      first_name: FIRST_NAME,
+      brand: BRAND,
+      booking_ref: BOOKING_REF,
+      amount: { from: 'payload', type: 'money', field: 'amount_minor', currencyField: 'currency' },
+      due_at: { from: 'payload', type: 'instant', field: 'response_due_at' },
+    },
+    channels: EMAIL_THEN_SMS,
+    critical: false,
+  },
+  EVT_TRAFFIC_TOLL_TO_GUEST: {
+    key: 'EVT_TRAFFIC_TOLL_TO_GUEST',
+    slug: 'trafficTollToGuest',
+    variables: {
+      first_name: FIRST_NAME,
+      brand: BRAND,
+      booking_ref: BOOKING_REF,
+      amount: { from: 'payload', type: 'money', field: 'amount_minor', currencyField: 'currency' },
+      due_at: { from: 'payload', type: 'instant', field: 'response_due_at' },
+    },
+    channels: EMAIL_THEN_SMS,
+    critical: false,
+  },
+  EVT_TRAFFIC_IMPOUND_TO_GUEST: {
+    key: 'EVT_TRAFFIC_IMPOUND_TO_GUEST',
+    slug: 'trafficImpoundToGuest',
     variables: {
       first_name: FIRST_NAME,
       brand: BRAND,
@@ -781,6 +827,31 @@ export const RULES: readonly RuleSpec[] = [
     eventType: 'invoice.status_changed',
     template: 'EVT_INVOICE_TO_GUEST',
     condition: fieldIs('status', 'AWAITING_GUEST'),
+    recipients: [GUEST],
+    parties: TRIP_PARTIES,
+  },
+  // amende, péage ou fourrière refacturés (0181, US-318 suite, ADR-201) :
+  // traffic_charge.status_changed (AWAITING_GUEST, émis à la déclaration seulement) : charge_id,
+  // trip_id, status, fee_type, amount_minor (total refacturé), currency, response_due_at ; jamais la
+  // référence ; voyageur du trip lu en base ; un gabarit par nature
+  {
+    eventType: 'traffic_charge.status_changed',
+    template: 'EVT_TRAFFIC_FINE_TO_GUEST',
+    condition: fieldIs('fee_type', 'FINE'),
+    recipients: [GUEST],
+    parties: TRIP_PARTIES,
+  },
+  {
+    eventType: 'traffic_charge.status_changed',
+    template: 'EVT_TRAFFIC_TOLL_TO_GUEST',
+    condition: fieldIs('fee_type', 'TOLL'),
+    recipients: [GUEST],
+    parties: TRIP_PARTIES,
+  },
+  {
+    eventType: 'traffic_charge.status_changed',
+    template: 'EVT_TRAFFIC_IMPOUND_TO_GUEST',
+    condition: fieldIs('fee_type', 'IMPOUND'),
     recipients: [GUEST],
     parties: TRIP_PARTIES,
   },

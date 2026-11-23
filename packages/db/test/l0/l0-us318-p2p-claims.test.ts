@@ -71,7 +71,7 @@ const REPORT = `SELECT outcome, incident_id::text AS incident_id, reported_at, p
   FROM core.claim_cmd_report_incident($1, $2::uuid, $3::uuid, $4::uuid, $5, $6)`;
 const DECLARE = `SELECT outcome, charge_id::text AS charge_id, body
   FROM core.claim_cmd_declare_traffic_charge($1, $2::uuid, $3::uuid, $4, $5::timestamptz, $6::bigint,
-                                             $7::uuid, $8)`;
+                                             $7::uuid, $8, $9)`;
 /**
  * Cas de l'oracle `packages/money/test/oracle/traffic_fee_oracle.py` (sortie recopiée : devise,
  * montant, frais ; `rhu` de docs/specs/tools, 08 BR-PRICE-15 ligne 1692, BR-PRICE-14 ligne 1686),
@@ -444,6 +444,7 @@ describe.each(COUNTRIES)('US-318 — sinistres entre particuliers ($country, $cu
               AMOUNTS[c.currency]!.amount.toString(),
               uuid(),
               preview,
+              `PV-${uuid().slice(0, 8)}`,
             ])
           ).rows[0]!['outcome'];
         // accès (vraie fonction, revue sécurité delta) : voyageur, autre hôte, autre trip
@@ -528,9 +529,11 @@ describe.each(COUNTRIES)('US-318 — sinistres entre particuliers ($country, $cu
           req = uuid(),
           preview = false,
           amount = a.amount,
+          // référence obligatoire, unique par trip (0181, F-L3-SIN-01)
+          ref = `PV-${uuid().slice(0, 8)}`,
         ) =>
           tx
-            .query<Row>(DECLARE, [who, req, trip, kind, at, amount.toString(), file, preview])
+            .query<Row>(DECLARE, [who, req, trip, kind, at, amount.toString(), file, preview, ref])
             .then((r) => r.rows[0]!);
 
         // délai : fin effective (retour à END) + 120 j ; + 1 ms : refus, rien d'écrit
@@ -590,13 +593,26 @@ describe.each(COUNTRIES)('US-318 — sinistres entre particuliers ($country, $cu
         );
 
         const req = uuid();
-        const fine = await declare(h, w.trip, 'FINE', START, f1.fileId, req);
+        const fineRef = `PV-${uuid().slice(0, 8)}`;
+        const fine = await declare(
+          h,
+          w.trip,
+          'FINE',
+          START,
+          f1.fileId,
+          req,
+          false,
+          a.amount,
+          fineRef,
+        );
         expect(fine['outcome']).toBe('DECLARED');
         expect(fine['body']).toEqual({
           amountMinor: a.amount.toString(),
           adminFeeMinor: a.fee.toString(),
           totalMinor: (a.amount + a.fee).toString(),
           deadlineAt: DEADLINE,
+          // 08 BR-TT-02 : 48 h pour payer ou contester (0181)
+          responseDueAt: plus(DEADLINE, 48 * HOUR),
           legs: {
             HOST: a.amount.toString(),
             INSURER: '0',
@@ -604,7 +620,9 @@ describe.each(COUNTRIES)('US-318 — sinistres entre particuliers ($country, $cu
             PLATFORM: a.fee.toString(),
           },
         });
-        expect(await declare(h, w.trip, 'FINE', START, f1.fileId, req)).toMatchObject({
+        expect(
+          await declare(h, w.trip, 'FINE', START, f1.fileId, req, false, a.amount, fineRef),
+        ).toMatchObject({
           outcome: 'DUPLICATE',
           charge_id: fine['charge_id'],
         });
@@ -665,82 +683,92 @@ describe.each(COUNTRIES)('US-318 — sinistres entre particuliers ($country, $cu
       }),
     );
 
-    // exécution par Kmino (travailleur payment_command), transaction annulée
+    // exécution par Kmino (travailleur payment_command), transaction annulée, à l'échéance du
+    // voyageur (déclaration + 48 h, 0181) : sans réponse, la refacturation est due
     await withRole('app_worker', (client) =>
-      payTx(client, { worker: 'payment_command', virtualNow: DEADLINE }, async (tx) => {
-        // état lu par objet du test (jamais par la file globale, revue qa n° 5)
-        const state = async (id: string): Promise<Row> =>
-          (await tx.query<Row>('SELECT * FROM test_fixture.us318_traffic_charge($1)', [id]))
-            .rows[0]!;
-        for (const id of [ids.fine, ids.toll, ids.impound]) {
-          expect(await state(id)).toMatchObject({ execution_status: 'PENDING', due: true });
-        }
-        const exec = (id: string) =>
-          tx
-            .query<Row>('SELECT outcome, code FROM core.claim_cmd_execute_traffic_charge($1, $2)', [
-              id,
-              uuid(),
+      payTx(
+        client,
+        { worker: 'payment_command', virtualNow: plus(DEADLINE, 48 * HOUR) },
+        async (tx) => {
+          // état lu par objet du test (jamais par la file globale, revue qa n° 5)
+          const state = async (id: string): Promise<Row> =>
+            (await tx.query<Row>('SELECT * FROM test_fixture.us318_traffic_charge($1)', [id]))
+              .rows[0]!;
+          for (const id of [ids.fine, ids.toll, ids.impound]) {
+            expect(await state(id)).toMatchObject({ execution_status: 'PENDING', due: true });
+          }
+          const exec = (id: string) =>
+            tx
+              .query<Row>(
+                'SELECT outcome, code FROM core.claim_cmd_execute_traffic_charge($1, $2)',
+                [id, uuid()],
+              )
+              .then((r) => r.rows[0]!);
+          expect(await exec(ids.fine)).toEqual({ outcome: 'DONE', code: null });
+          expect(await exec(ids.fine)).toEqual({ outcome: 'DONE', code: null });
+          const charges = (
+            await tx.query<Row>('SELECT * FROM test_fixture.us318_post_trip_charges($1)', [
+              ids.fine,
             ])
-            .then((r) => r.rows[0]!);
-        expect(await exec(ids.fine)).toEqual({ outcome: 'DONE', code: null });
-        expect(await exec(ids.fine)).toEqual({ outcome: 'DONE', code: null });
-        const charges = (
-          await tx.query<Row>('SELECT * FROM test_fixture.us318_post_trip_charges($1)', [ids.fine])
-        ).rows;
-        expect(charges).toHaveLength(1);
-        expect(charges[0]).toMatchObject({
-          purpose: 'INCIDENTAL',
-          reason: 'DELAYED_CHARGES',
-          origin_type: 'TRAFFIC_CHARGE',
-          amount_minor: (a.amount + a.fee).toString(),
-          leg_host_minor: a.amount.toString(),
-          leg_insurer_minor: '0',
-          leg_tax_third_party_minor: '0',
-          leg_platform_minor: a.fee.toString(),
-          guest_agreed: false,
-          status: 'NOTIFIED',
-        });
-        expect(await exec(ids.impound)).toEqual({ outcome: 'BLOCKED', code: 'NO_CARD_TENDER' });
-        expect(
-          (await tx.query('SELECT * FROM test_fixture.us318_post_trip_charges($1)', [ids.impound]))
-            .rows,
-        ).toEqual([]);
-        expect(
-          (
-            await tx.query<{ r: string }>(
-              'SELECT core.claim_cmd_defer_traffic_charge($1, $2) AS r',
-              [ids.toll, 'EXECUTION_FAILED'],
-            )
-          ).rows[0]!.r,
-        ).toBe('DEFERRED');
-        expect(await state(ids.toll)).toMatchObject({
-          execution_status: 'PENDING',
-          due: false,
-          failed_attempts: 1,
-        });
-        expect(await state(ids.fine)).toMatchObject({ execution_status: 'DONE', due: false });
-        // plafond d'essais (revue code n° 2) : au 5e échec, BLOCKED RETRY_EXHAUSTED, plus jamais dû
-        const defer = async (): Promise<string> =>
-          (
-            await tx.query<{ r: string }>(
-              'SELECT core.claim_cmd_defer_traffic_charge($1, $2) AS r',
-              [ids.toll, 'EXECUTION_FAILED'],
-            )
-          ).rows[0]!.r;
-        expect([await defer(), await defer(), await defer()]).toEqual([
-          'DEFERRED',
-          'DEFERRED',
-          'DEFERRED',
-        ]);
-        expect(await defer()).toBe('BLOCKED');
-        expect(await state(ids.toll)).toMatchObject({
-          execution_status: 'BLOCKED',
-          execution_code: 'RETRY_EXHAUSTED',
-          failed_attempts: 5,
-          due: false,
-        });
-        expect(await defer()).toBe('NOT_DUE');
-      }),
+          ).rows;
+          expect(charges).toHaveLength(1);
+          expect(charges[0]).toMatchObject({
+            purpose: 'INCIDENTAL',
+            reason: 'DELAYED_CHARGES',
+            origin_type: 'TRAFFIC_CHARGE',
+            amount_minor: (a.amount + a.fee).toString(),
+            leg_host_minor: a.amount.toString(),
+            leg_insurer_minor: '0',
+            leg_tax_third_party_minor: '0',
+            leg_platform_minor: a.fee.toString(),
+            guest_agreed: false,
+            status: 'NOTIFIED',
+          });
+          expect(await exec(ids.impound)).toEqual({ outcome: 'BLOCKED', code: 'NO_CARD_TENDER' });
+          expect(
+            (
+              await tx.query('SELECT * FROM test_fixture.us318_post_trip_charges($1)', [
+                ids.impound,
+              ])
+            ).rows,
+          ).toEqual([]);
+          expect(
+            (
+              await tx.query<{ r: string }>(
+                'SELECT core.claim_cmd_defer_traffic_charge($1, $2) AS r',
+                [ids.toll, 'EXECUTION_FAILED'],
+              )
+            ).rows[0]!.r,
+          ).toBe('DEFERRED');
+          expect(await state(ids.toll)).toMatchObject({
+            execution_status: 'PENDING',
+            due: false,
+            failed_attempts: 1,
+          });
+          expect(await state(ids.fine)).toMatchObject({ execution_status: 'DONE', due: false });
+          // plafond d'essais (revue code n° 2) : au 5e échec, BLOCKED RETRY_EXHAUSTED, plus jamais dû
+          const defer = async (): Promise<string> =>
+            (
+              await tx.query<{ r: string }>(
+                'SELECT core.claim_cmd_defer_traffic_charge($1, $2) AS r',
+                [ids.toll, 'EXECUTION_FAILED'],
+              )
+            ).rows[0]!.r;
+          expect([await defer(), await defer(), await defer()]).toEqual([
+            'DEFERRED',
+            'DEFERRED',
+            'DEFERRED',
+          ]);
+          expect(await defer()).toBe('BLOCKED');
+          expect(await state(ids.toll)).toMatchObject({
+            execution_status: 'BLOCKED',
+            execution_code: 'RETRY_EXHAUSTED',
+            failed_attempts: 5,
+            due: false,
+          });
+          expect(await defer()).toBe('NOT_DUE');
+        },
+      ),
     );
   });
 });

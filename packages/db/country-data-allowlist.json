@@ -114,6 +114,10 @@
       "justification": "Bloc GÉNÉRÉ des paramètres traffic_charge_* (valeurs PA / PY), rendu par apps/api/src/modules/cfg/internal/seed-sql.ts (renderParamSeedSql, groupe `embedded` de POST_SEED_PARAMS) depuis les données CFG ; seed-sql.test.ts exige le bloc à l'identique. Le reste de la migration ne nomme aucun pays (délai et frais lus en base, numéros d'assistance en donnée de pays d'ADR-174). US-318, ADR-198."
     },
     {
+      "path": "packages/db/migrations/0181_claim_traffic_charge_guest_response.sql",
+      "justification": "Bloc GÉNÉRÉ des paramètres traffic_guest_response_h et traffic_guest_charge_max_minor (valeurs PA / PY), rendu par apps/api/src/modules/cfg/internal/seed-sql.ts (renderParamSeedSql, groupe `embedded` de POST_SEED_PARAMS) depuis les données CFG ; seed-sql.test.ts exige le bloc à l'identique. Le reste de la migration ne nomme aucun pays (délai du voyageur et plafond lus en base). US-318 suite, ADR-201."
+    },
+    {
       "path": "packages/db/migrations/0182_claim_incidental_contest_and_evidence.sql",
       "justification": "Bloc final GÉNÉRÉ du paramètre incidental_cleaning_photo_window_h (valeurs PA / PY), rendu par apps/api/src/modules/cfg/internal/seed-sql.ts (renderParamSeedSql, groupe `embedded` de POST_SEED_PARAMS) depuis les données CFG ; seed-sql.test.ts exige le bloc à l'identique. Le reste de la migration ne nomme aucun pays (fenêtre des photos lue en paramètre du pays, 08 BR-REIMB-01). US-706 suite, ADR-202."
     }

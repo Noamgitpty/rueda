@@ -828,7 +828,58 @@ describe('contrat HTTP — /console', () => {
     deferCount: 0,
     reviewRequiredAt: null,
   };
-  const incidentalState = { down: false, view: 'OK', decide: 'DECIDED', review: 'OK' };
+  const incidentalState = {
+    down: false,
+    view: 'OK',
+    decide: 'DECIDED',
+    review: 'OK',
+    trafficView: 'OK',
+    trafficDecide: 'DECIDED',
+    trafficReview: 'OK',
+  };
+  // refacturation contestée (US-318 suite, 0181) : forme de core.claim_traffic_staff_view
+  const TRAFFIC_VIEW = {
+    id: ID,
+    tripId: ID,
+    country: 'XA',
+    currency: 'XTA',
+    exponent: 2,
+    kind: 'FINE',
+    reference: 'PV 2097-0042',
+    occurredAt: '2097-03-08T10:00:00.000Z',
+    amountMinor: '1230',
+    adminFeeMinor: '62',
+    totalMinor: '1292',
+    capMinor: '100000',
+    legs: { HOST: '1230', INSURER: '0', TAX_THIRD_PARTY: '0', PLATFORM: '62' },
+    evidenceFileId: ID,
+    declaredAt: '2097-03-10T11:00:00.000Z',
+    responseDueAt: '2097-03-12T11:00:00.000Z',
+    status: 'DISPUTED',
+    executionStatus: 'PENDING',
+    acceptedAt: null,
+    disputedAt: '2097-03-11T09:00:00.000Z',
+    disputeReason: 'Je ne conduisais pas sur cette route ce jour-là.',
+    disputeEvidence: [],
+    decision: null,
+    chargeBasis: null,
+    decidable: true,
+  };
+  const TRAFFIC_REVIEW = {
+    countries: ['XA'],
+    truncated: false,
+    charges: [
+      {
+        id: ID,
+        tripId: ID,
+        country: 'XA',
+        currency: 'XTA',
+        kind: 'FINE',
+        totalMinor: '1292',
+        disputedAt: '2097-03-11T09:00:00.000Z',
+      },
+    ],
+  };
   const INCIDENTAL_REVIEW = {
     countries: ['XA'],
     truncated: false,
@@ -856,6 +907,10 @@ describe('contrat HTTP — /console', () => {
     view: () => Promise.resolve(claimResult(incidentalState.view, INCIDENTAL_VIEW)),
     decide: () => Promise.resolve(claimResult(incidentalState.decide, INCIDENTAL_VIEW)),
     review: () => Promise.resolve(claimResult(incidentalState.review, INCIDENTAL_REVIEW)),
+    trafficView: () => Promise.resolve(claimResult(incidentalState.trafficView, TRAFFIC_VIEW)),
+    trafficDecide: () => Promise.resolve(claimResult(incidentalState.trafficDecide, TRAFFIC_VIEW)),
+    trafficReview: () =>
+      Promise.resolve(claimResult(incidentalState.trafficReview, TRAFFIC_REVIEW)),
   };
   afterAll(closeContractApps);
 
@@ -1552,6 +1607,80 @@ describe('contrat HTTP — /console', () => {
     expect((await a.api.request('GET', reviews, { headers })).status).toBe(503);
     incidentalState.down = false;
     await refusals(a, 'GET', reviews);
+  });
+
+  it('refacturations contestées (US-318 suite) : liste 200, 403, 503 ; vue 200, 400, 403, 503 ; décision 201, 200 (rejeu), 400, 403, 409, 422, 503', async () => {
+    const a = await app();
+    const headers = a.cookie('staff');
+    const list = '/console/traffic-charges';
+    expect((await a.api.request('GET', list, { headers })).json).toEqual(TRAFFIC_REVIEW);
+    incidentalState.trafficReview = 'FORBIDDEN';
+    expect((await a.api.request('GET', list, { headers })).status).toBe(403);
+    incidentalState.trafficReview = 'OK';
+    incidentalState.down = true;
+    expect((await a.api.request('GET', list, { headers })).status).toBe(503);
+    incidentalState.down = false;
+    await refusals(a, 'GET', list);
+
+    const read = `/console/traffic-charges/${ID}`;
+    expect((await a.api.request('GET', read, { headers })).json).toEqual({
+      trafficCharge: TRAFFIC_VIEW,
+    });
+    expect((await a.api.request('GET', '/console/traffic-charges/x', { headers })).status).toBe(
+      400,
+    );
+    for (const [outcome, code] of [
+      ['FORBIDDEN', 'FORBIDDEN'],
+      ['SELF_FORBIDDEN', 'STAFF_SELF_FORBIDDEN'],
+    ] as const) {
+      incidentalState.trafficView = outcome;
+      const r = await a.api.request('GET', read, { headers });
+      expect(r.status, outcome).toBe(403);
+      expect(r.json).toMatchObject({ code });
+    }
+    incidentalState.trafficView = 'OK';
+    incidentalState.down = true;
+    expect((await a.api.request('GET', read, { headers })).json).toMatchObject({
+      code: 'CLAIMS_UNAVAILABLE',
+    });
+    incidentalState.down = false;
+    await refusals(a, 'GET', read);
+
+    const decide = `/console/traffic-charges/${ID}/decision`;
+    const decision = {
+      requestId: randomUUID(),
+      outcome: 'REJECT',
+      rationale: 'Avis officiel illisible : la plaque ne correspond pas au véhicule.',
+    };
+    expect((await a.api.request('POST', decide, { headers, body: decision })).status).toBe(201);
+    incidentalState.trafficDecide = 'ALREADY_DECIDED';
+    expect((await a.api.request('POST', decide, { headers, body: decision })).status).toBe(200);
+    for (const bad of [
+      { ...decision, outcome: 'FINAL' },
+      { ...decision, requestId: 'x' },
+      { ...decision, amountMinor: '1230' },
+      { requestId: decision.requestId, outcome: 'REJECT' },
+    ]) {
+      expect((await a.api.request('POST', decide, { headers, body: bad })).status).toBe(400);
+    }
+    for (const [outcome, status, code] of [
+      ['FORBIDDEN', 403, 'FORBIDDEN'],
+      ['SELF_FORBIDDEN', 403, 'STAFF_SELF_FORBIDDEN'],
+      ['DECISION_ADMIN_REQUIRED', 403, 'DECISION_ADMIN_REQUIRED'],
+      ['TRAFFIC_NOT_DISPUTED', 409, 'TRAFFIC_NOT_DISPUTED'],
+      ['DECISION_RATIONALE_REQUIRED', 422, 'DECISION_RATIONALE_REQUIRED'],
+      ['DECISION_FINALITY_FORBIDDEN', 422, 'DECISION_FINALITY_FORBIDDEN'],
+    ] as const) {
+      incidentalState.trafficDecide = outcome;
+      const r = await a.api.request('POST', decide, { headers, body: decision });
+      expect(r.status, outcome).toBe(status);
+      expect(r.json).toMatchObject({ code });
+    }
+    incidentalState.trafficDecide = 'DECIDED';
+    incidentalState.down = true;
+    expect((await a.api.request('POST', decide, { headers, body: decision })).status).toBe(503);
+    incidentalState.down = false;
+    await refusals(a, 'POST', decide);
   });
 
   it('files de revue, fiche 360°, notes, dossiers, pièces (US-109) : chaque statut déclaré', async () => {

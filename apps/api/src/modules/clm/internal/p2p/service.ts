@@ -5,6 +5,10 @@
  * frais du pays, jambes explicites) : le service lit le corps strictement, appelle la commande et
  * traduit l'issue. Aucune heure de réception ni aucun montant de frais n'est lu du client ; le
  * montant payé par l'hôte est un texte d'entier en unités mineures. Base injoignable ⇒ 503.
+ *
+ * Suite (0181, ADR-201) : référence du PV obligatoire (unique par trip, jugée en base) ; le
+ * voyageur lit ses refacturations, paie ou conteste avant l'échéance (08 BR-TT-02 : 48 h) ;
+ * aucune heure ni aucun montant n'est reçu de lui.
  */
 import { Inject, Injectable } from '@nestjs/common';
 import { CLM_TRIP_CLAIMS_STORE } from '../tokens.js';
@@ -14,6 +18,7 @@ import type {
   IncidentInput,
   TrafficChargeInput,
   TrafficChargeKind,
+  TrafficDisputeInput,
   TripClaimsStore,
 } from './store.js';
 
@@ -26,6 +31,8 @@ const CODE = /^[A-Z][A-Z0-9_]{1,63}$/;
 const CURRENCY = /^[A-Z]{3}$/;
 const COUNTRY = /^[A-Z]{2}$/;
 const SLOT = /^DAMAGE_[0-9]{2}$/;
+/** Référence d'un avis, d'un PV ou d'un reçu (même format que la base, 0181). */
+export const TRAFFIC_REFERENCE = /^[A-Za-z0-9][A-Za-z0-9 ./-]{1,38}[A-Za-z0-9]$/;
 
 function only(body: Body, keys: readonly string[], required: readonly string[] = keys): void {
   for (const k of Object.keys(body)) {
@@ -64,7 +71,23 @@ export function parseIncidentRequest(body: Body): IncidentInput {
  * `{ requestId, kind, occurredAt, amountMinor, fileId }` (montant payé par l'hôte, texte d'entier).
  */
 export function parseTrafficChargeRequest(body: Body): TrafficChargeInput {
-  only(body, ['requestId', 'kind', 'occurredAt', 'amountMinor', 'fileId']);
+  only(
+    body,
+    ['requestId', 'kind', 'occurredAt', 'amountMinor', 'fileId', 'reference'],
+    ['requestId', 'kind', 'occurredAt', 'amountMinor', 'fileId'],
+  );
+  const rawRef = body['reference'];
+  if (rawRef !== undefined && typeof rawRef !== 'string') {
+    throw new TripClaimHttpError('REQUEST_INVALID');
+  }
+  const reference = (rawRef ?? '').trim();
+  if (reference === '') throw new TripClaimHttpError('TRAFFIC_REFERENCE_REQUIRED');
+  if (
+    !TRAFFIC_REFERENCE.test(reference) ||
+    reference.toUpperCase().replace(/[^A-Z0-9]/g, '').length < 3
+  ) {
+    throw new TripClaimHttpError('REQUEST_INVALID');
+  }
   const kind = body['kind'];
   const at = body['occurredAt'];
   const amount = body['amountMinor'];
@@ -87,8 +110,42 @@ export function parseTrafficChargeRequest(body: Body): TrafficChargeInput {
     occurredAt,
     amountMinor: BigInt(amount),
     fileId: uuidOf(body['fileId']),
+    reference,
   };
 }
+
+/** `POST /trips/{tripId}/traffic-charges/{chargeId}/dispute` : `{ reason, evidence? }`. */
+export function parseTrafficDisputeRequest(body: Body): TrafficDisputeInput {
+  only(body, ['reason', 'evidence'], ['reason']);
+  const reason = body['reason'];
+  const evidence = body['evidence'] ?? [];
+  if (
+    typeof reason !== 'string' ||
+    reason.length > 1000 ||
+    !Array.isArray(evidence) ||
+    evidence.length > 10
+  ) {
+    throw new TripClaimHttpError('REQUEST_INVALID');
+  }
+  return { reason, evidence: evidence.map(uuidOf) };
+}
+
+export type TrafficGuestStatus =
+  'AWAITING_GUEST' | 'ACCEPTED' | 'DISPUTED' | 'DECIDED_CHARGE' | 'REJECTED';
+export const TRAFFIC_GUEST_STATUSES: readonly TrafficGuestStatus[] = [
+  'AWAITING_GUEST',
+  'ACCEPTED',
+  'DISPUTED',
+  'DECIDED_CHARGE',
+  'REJECTED',
+];
+export type TrafficExecutionStatus = 'PENDING' | 'DONE' | 'BLOCKED' | 'VOID';
+const EXECUTION_STATUSES: readonly TrafficExecutionStatus[] = [
+  'PENDING',
+  'DONE',
+  'BLOCKED',
+  'VOID',
+];
 
 export interface TripClaimsView {
   readonly tripId: string;
@@ -99,6 +156,9 @@ export interface TripClaimsView {
   readonly tripEndAt: string | null;
   readonly deadlineAt: string | null;
   readonly feeBps: number | null;
+  /** Délai du voyageur pour payer ou contester (h) et plafond du montant du pays (0181). */
+  readonly responseHours: number | null;
+  readonly capMinor: string | null;
   readonly theft: {
     readonly status: 'THEFT_INVESTIGATION' | 'RETURNED';
     readonly openedAt: string;
@@ -113,7 +173,11 @@ export interface TripClaimsView {
     readonly adminFeeMinor: string;
     readonly totalMinor: string;
     readonly declaredAt: string;
-    readonly status: 'PENDING' | 'DONE' | 'BLOCKED';
+    /** Référence du PV ; échéance et réponse du voyageur (`null` : refacturation de 0178). */
+    readonly reference: string | null;
+    readonly responseDueAt: string | null;
+    readonly guestStatus: TrafficGuestStatus | null;
+    readonly status: TrafficExecutionStatus;
   }[];
   readonly evidence: readonly {
     readonly fileId: string;
@@ -156,6 +220,12 @@ export function parseTripClaimsView(v: Readonly<Record<string, unknown>>): TripC
   }
   const fee = v['feeBps'];
   if (fee !== null && (typeof fee !== 'number' || !Number.isInteger(fee) || fee < 0)) return bad();
+  const hours = v['responseHours'] ?? null;
+  if (hours !== null && (typeof hours !== 'number' || !Number.isInteger(hours) || hours < 1)) {
+    return bad();
+  }
+  const cap = v['capMinor'] ?? null;
+  const capMinor = cap === null ? null : minor(cap);
   const t = v['theft'];
   let theft: TripClaimsView['theft'] = null;
   if (t !== null && t !== undefined) {
@@ -177,7 +247,13 @@ export function parseTripClaimsView(v: Readonly<Record<string, unknown>>): TripC
       adminFeeMinor: minor(c['adminFeeMinor']),
       totalMinor: minor(c['totalMinor']),
       declaredAt: iso(c['declaredAt']),
-      status: oneOf(c['status'], ['PENDING', 'DONE', 'BLOCKED'] as const),
+      reference: referenceOrNull(c['reference'], bad),
+      responseDueAt: isoOrNull(c['responseDueAt']),
+      guestStatus:
+        c['guestStatus'] === null || c['guestStatus'] === undefined
+          ? null
+          : oneOf(c['guestStatus'], TRAFFIC_GUEST_STATUSES),
+      status: oneOf(c['status'], EXECUTION_STATUSES),
     };
   });
   const evidence = (v['evidence'] as unknown[]).map((e) => {
@@ -207,10 +283,116 @@ export function parseTripClaimsView(v: Readonly<Record<string, unknown>>): TripC
     tripEndAt: isoOrNull(v['tripEndAt']),
     deadlineAt: isoOrNull(v['deadlineAt']),
     feeBps: fee as number | null,
+    responseHours: hours as number | null,
+    capMinor,
     theft,
     charges,
     evidence,
   };
+}
+
+function referenceOrNull(x: unknown, bad: () => never): string | null {
+  if (x === null || x === undefined) return null;
+  return typeof x === 'string' && TRAFFIC_REFERENCE.test(x) ? x : bad();
+}
+
+/** Refacturations du trip vues par son voyageur (`core.claim_traffic_guest_view`). */
+export interface TrafficGuestView {
+  readonly tripId: string;
+  readonly currency: string;
+  readonly charges: readonly {
+    readonly id: string;
+    readonly kind: TrafficChargeKind;
+    readonly occurredAt: string;
+    readonly reference: string;
+    readonly amountMinor: string;
+    readonly adminFeeMinor: string;
+    readonly totalMinor: string;
+    readonly declaredAt: string;
+    readonly responseDueAt: string;
+    readonly status: TrafficGuestStatus;
+    readonly executionStatus: TrafficExecutionStatus;
+    readonly canRespond: boolean;
+    readonly disputeReason: string | null;
+    readonly decidedAt: string | null;
+    readonly decisionRationale: string | null;
+  }[];
+  /** Photos du trip proposées comme pièces d'une contestation (tant qu'une réponse est possible). */
+  readonly photos: readonly {
+    readonly fileId: string;
+    readonly kind: 'CHECKIN' | 'CHECKOUT';
+    readonly slot: string;
+    readonly takenBy: 'HOST' | 'GUEST';
+    readonly receivedAt: string;
+  }[];
+}
+
+/** Vue jsonb du voyageur ; forme inattendue ⇒ 503 (jamais une vue partielle). */
+export function parseTrafficGuestView(v: Readonly<Record<string, unknown>>): TrafficGuestView {
+  const bad = (): never => {
+    throw new TripClaimStoreError('lecture des refacturations : vue illisible', undefined);
+  };
+  const iso = (x: unknown): string =>
+    typeof x === 'string' && ISO.test(x) && Number.isFinite(Date.parse(x))
+      ? new Date(x).toISOString()
+      : bad();
+  const isoOrNull = (x: unknown): string | null => (x === null || x === undefined ? null : iso(x));
+  const minor = (x: unknown): string =>
+    typeof x === 'string' && /^(0|[1-9][0-9]{0,17})$/.test(x) ? x : bad();
+  const oneOf = <T extends string>(x: unknown, values: readonly T[]): T =>
+    typeof x === 'string' && (values as readonly string[]).includes(x) ? (x as T) : bad();
+  const text = (x: unknown): string | null =>
+    x === null || x === undefined ? null : typeof x === 'string' ? x : bad();
+  const tripId = v['tripId'];
+  if (
+    typeof tripId !== 'string' ||
+    !UUID.test(tripId) ||
+    typeof v['currency'] !== 'string' ||
+    !CURRENCY.test(v['currency']) ||
+    !Array.isArray(v['charges']) ||
+    !Array.isArray(v['photos'])
+  ) {
+    return bad();
+  }
+  const charges = (v['charges'] as unknown[]).map((c) => {
+    if (
+      !isObj(c) ||
+      typeof c['id'] !== 'string' ||
+      !UUID.test(c['id']) ||
+      typeof c['canRespond'] !== 'boolean'
+    ) {
+      return bad();
+    }
+    return {
+      id: c['id'],
+      kind: oneOf(c['kind'], TRAFFIC_CHARGE_KINDS),
+      occurredAt: iso(c['occurredAt']),
+      reference: referenceOrNull(c['reference'], bad) ?? bad(),
+      amountMinor: minor(c['amountMinor']),
+      adminFeeMinor: minor(c['adminFeeMinor']),
+      totalMinor: minor(c['totalMinor']),
+      declaredAt: iso(c['declaredAt']),
+      responseDueAt: iso(c['responseDueAt']),
+      status: oneOf(c['status'], TRAFFIC_GUEST_STATUSES),
+      executionStatus: oneOf(c['executionStatus'], EXECUTION_STATUSES),
+      canRespond: c['canRespond'],
+      disputeReason: text(c['disputeReason']),
+      decidedAt: isoOrNull(c['decidedAt']),
+      decisionRationale: text(c['decisionRationale']),
+    };
+  });
+  const photos = (v['photos'] as unknown[]).map((p) => {
+    if (!isObj(p) || typeof p['fileId'] !== 'string' || !UUID.test(p['fileId'])) return bad();
+    if (typeof p['slot'] !== 'string' || !/^[A-Z][A-Z0-9_]{1,31}$/.test(p['slot'])) return bad();
+    return {
+      fileId: p['fileId'],
+      kind: oneOf(p['kind'], ['CHECKIN', 'CHECKOUT'] as const),
+      slot: p['slot'],
+      takenBy: oneOf(p['takenBy'], ['HOST', 'GUEST'] as const),
+      receivedAt: iso(p['receivedAt']),
+    };
+  });
+  return { tripId, currency: v['currency'], charges, photos };
 }
 
 /** Texte d'un entier en unités mineures rendu par la base ; autre forme ⇒ 503 (fail-closed). */
@@ -276,12 +458,16 @@ export class TripClaimsService {
     const currency = b['currency'];
     const fee = b['feeBps'];
     const deadline = b['deadlineAt'];
+    const hours = b['responseHours'];
     if (
       typeof currency !== 'string' ||
       !CURRENCY.test(currency) ||
       typeof fee !== 'number' ||
       !Number.isInteger(fee) ||
-      typeof deadline !== 'string'
+      typeof deadline !== 'string' ||
+      typeof hours !== 'number' ||
+      !Number.isInteger(hours) ||
+      hours < 1
     ) {
       throw new TripClaimHttpError('TRIP_CLAIM_UNAVAILABLE');
     }
@@ -294,6 +480,9 @@ export class TripClaimsService {
       adminFeeMinor: minorText(b['adminFeeMinor']),
       totalMinor: minorText(b['totalMinor']),
       deadlineAt: new Date(deadline).toISOString(),
+      reference: input.reference,
+      responseHours: hours,
+      capMinor: minorText(b['capMinor']),
       chargedBy: 'SEPARATE_CARD_CHARGE' as const,
     };
   }
@@ -304,26 +493,32 @@ export class TripClaimsService {
   }): never {
     const code = tripClaimOutcomeCode(r.outcome);
     const deadline = r.body?.['deadlineAt'];
-    throw new TripClaimHttpError(
-      code,
-      code === 'TRAFFIC_CHARGE_DEADLINE_PASSED' && typeof deadline === 'string'
-        ? { deadlineAt: deadline }
-        : undefined,
-    );
+    const existing = r.body?.['chargeId'];
+    const cap = r.body?.['capMinor'];
+    let extra: Record<string, string> | undefined;
+    if (code === 'TRAFFIC_CHARGE_DEADLINE_PASSED' && typeof deadline === 'string') {
+      extra = { deadlineAt: deadline };
+    } else if (
+      code === 'TRAFFIC_DUPLICATE' &&
+      typeof existing === 'string' &&
+      UUID.test(existing)
+    ) {
+      extra = { chargeId: existing };
+    } else if (
+      code === 'TRAFFIC_AMOUNT_ABOVE_CAP' &&
+      typeof cap === 'string' &&
+      /^(0|[1-9][0-9]{0,17})$/.test(cap)
+    ) {
+      extra = { capMinor: cap };
+    }
+    throw new TripClaimHttpError(code, extra);
   }
 
   async declareTrafficCharge(proof: Buffer, tripId: string, body: Body) {
     const input = parseTrafficChargeRequest(body);
     const r = await this.#call(() => this.store.declareTrafficCharge(proof, tripId, input, false));
     if ((r.outcome !== 'DECLARED' && r.outcome !== 'DUPLICATE') || r.chargeId === null) {
-      const code = tripClaimOutcomeCode(r.outcome);
-      const deadline = r.body?.['deadlineAt'];
-      throw new TripClaimHttpError(
-        code,
-        code === 'TRAFFIC_CHARGE_DEADLINE_PASSED' && typeof deadline === 'string'
-          ? { deadlineAt: deadline }
-          : undefined,
-      );
+      this.#refuse(r);
     }
     const b = r.body ?? {};
     const text = (x: unknown): string => {
@@ -333,7 +528,13 @@ export class TripClaimsService {
       return x;
     };
     const deadline = b['deadlineAt'];
-    if (typeof deadline !== 'string' || !CODE.test(r.outcome)) {
+    const due = b['responseDueAt'];
+    if (
+      typeof deadline !== 'string' ||
+      typeof due !== 'string' ||
+      !Number.isFinite(Date.parse(due)) ||
+      !CODE.test(r.outcome)
+    ) {
       throw new TripClaimHttpError('TRIP_CLAIM_UNAVAILABLE');
     }
     return {
@@ -342,7 +543,35 @@ export class TripClaimsService {
       adminFeeMinor: text(b['adminFeeMinor']),
       totalMinor: text(b['totalMinor']),
       deadlineAt: new Date(deadline).toISOString(),
+      responseDueAt: new Date(due).toISOString(),
       replayed: r.outcome === 'DUPLICATE',
     };
+  }
+
+  /** Refacturations du trip vues par son voyageur (S12 : payer ou contester). */
+  async guestCharges(proof: Buffer, tripId: string): Promise<TrafficGuestView> {
+    const v = await this.#call(() => this.store.guestCharges(proof, tripId));
+    if (v === null) throw new TripClaimHttpError('TRIP_CLAIM_NOT_FOUND');
+    return this.#call(async () => parseTrafficGuestView(v));
+  }
+
+  /** Paiement par le voyageur avant l'échéance (accord écrit) ; débit par Kmino ensuite. */
+  async acceptTrafficCharge(proof: Buffer, chargeId: string, body: Body) {
+    only(body, []);
+    const r = await this.#call(() => this.store.acceptTrafficCharge(proof, chargeId));
+    if (r !== 'ACCEPTED' && r !== 'ALREADY_ACCEPTED') {
+      throw new TripClaimHttpError(tripClaimOutcomeCode(r));
+    }
+    return { chargeId, status: 'ACCEPTED' as const, replayed: r === 'ALREADY_ACCEPTED' };
+  }
+
+  /** Contestation par le voyageur avant l'échéance (motif, photos du trip facultatives). */
+  async disputeTrafficCharge(proof: Buffer, chargeId: string, body: Body) {
+    const input = parseTrafficDisputeRequest(body);
+    const r = await this.#call(() => this.store.disputeTrafficCharge(proof, chargeId, input));
+    if (r !== 'DISPUTED' && r !== 'ALREADY_DISPUTED') {
+      throw new TripClaimHttpError(tripClaimOutcomeCode(r));
+    }
+    return { chargeId, status: 'DISPUTED' as const, replayed: r === 'ALREADY_DISPUTED' };
   }
 }
