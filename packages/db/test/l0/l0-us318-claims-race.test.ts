@@ -296,12 +296,14 @@ describe.each(COUNTRIES)('US-318 — courses à deux connexions ($country, $curr
             await pending;
             await two.query('COMMIT');
             await worker(two);
-            const due = (
-              await two.query<Row>(
-                'SELECT trip_id::text AS trip_id, action FROM core.claim_theft_cases_due(100)',
-              )
-            ).rows.filter((r) => r['trip_id'] === s.overdueB);
-            expect(due).toEqual([{ trip_id: s.overdueB, action: 'CLOSE' }]);
+            // lu par objet (revue qa delta) : le dossier ouvert reste à clore, le trip est rendu
+            expect(
+              (
+                await two.query<Row>('SELECT * FROM test_fixture.us318_theft_case($1)', [
+                  s.overdueB,
+                ])
+              ).rows[0],
+            ).toMatchObject({ status: 'THEFT_INVESTIGATION' });
             expect(
               (
                 await two.query<{ r: string }>('SELECT core.claim_cmd_close_theft_case($1) AS r', [

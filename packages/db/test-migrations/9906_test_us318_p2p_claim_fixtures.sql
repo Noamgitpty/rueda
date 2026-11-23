@@ -121,6 +121,29 @@ AS $fn$
    WHERE c.origin_type = 'TRAFFIC_CHARGE' AND c.origin_id = p_traffic_charge
 $fn$;
 
+-- Paramètre traffic_charge_* du pays fermé 10 ms après l'heure (virtuelle) de la transaction (preuve
+-- du refus fail-closed, transaction annulée ; même motif que us122_param_close, 9954)
+CREATE FUNCTION test_fixture.us318_param_close(p_key text, p_country text)
+  RETURNS integer
+  LANGUAGE plpgsql
+  SECURITY DEFINER
+  SET search_path = pg_catalog, pg_temp
+AS $fn$
+DECLARE
+  v_n integer;
+BEGIN
+  IF p_key NOT IN ('traffic_charge_deadline_days', 'traffic_charge_admin_fee_bps') THEN
+    RAISE EXCEPTION 'clé hors liste : %', p_key USING ERRCODE = 'invalid_parameter_value';
+  END IF;
+  UPDATE core.config_param_value AS v
+     SET valid_to = platform.now() + pg_catalog.make_interval(secs => 0.01)
+   WHERE v.key = p_key AND v.country_code = p_country AND v.scope_type = 'COUNTRY'
+     AND v.valid_to IS NULL;
+  GET DIAGNOSTICS v_n = ROW_COUNT;
+  RETURN v_n;
+END
+$fn$;
+
 -- Écritures interdites (la garde claim_p2p_guard s'applique aussi sous migrator)
 CREATE FUNCTION test_fixture.us318_try_write(p_what text, p_id uuid)
   RETURNS void
@@ -155,7 +178,8 @@ REVOKE ALL ON FUNCTION
   test_fixture.us318_traffic_charges(uuid),
   test_fixture.us318_post_trip_charges(uuid),
   test_fixture.us318_try_write(text, uuid),
-  test_fixture.us318_traffic_charge(uuid)
+  test_fixture.us318_traffic_charge(uuid),
+  test_fixture.us318_param_close(text, text)
 FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION
   test_fixture.us318_overdue_t24h(uuid),
@@ -165,5 +189,6 @@ GRANT EXECUTE ON FUNCTION
   test_fixture.us318_traffic_charges(uuid),
   test_fixture.us318_post_trip_charges(uuid),
   test_fixture.us318_try_write(text, uuid),
-  test_fixture.us318_traffic_charge(uuid)
+  test_fixture.us318_traffic_charge(uuid),
+  test_fixture.us318_param_close(text, text)
 TO app_worker, app_api;

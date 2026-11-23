@@ -192,15 +192,17 @@ describe.each(COUNTRIES)('US-318 — sinistres entre particuliers ($country, $cu
           closed_at: null,
         });
         expect(new Date(theft!['opened_at'] as string).toISOString()).toBe(plus(END, 25 * HOUR));
-        expect(await due()).toEqual([]);
 
-        // interrupteur faux (lu en base) : rien à envoyer, l'envoi est refusé, rien ne change
-        const declarations = (
-          await tx.query<{ id: string }>(
-            'SELECT theft_case_id::text AS id FROM core.claim_theft_declarations_due(100)',
-          )
-        ).rows.map((r) => r.id);
-        expect(declarations).not.toContain(theft!['id']);
+        // interrupteur faux (lu en base), preuve par objet (revue qa delta) : la déclaration est
+        // verrouillée puis refusée AVANT tout appel au port (revue sécurité delta n° 2 : corps
+        // plpgsql, FOR UPDATE sous RLS et droits de colonnes de cmd_money_owner) ; inconnue ⇒
+        // NOT_FOUND ; l'envoi est refusé, rien ne change
+        const lock = (id: unknown) =>
+          tx
+            .query<{ r: string }>('SELECT core.claim_cmd_lock_theft_declaration($1) AS r', [id])
+            .then((r) => r.rows[0]!.r);
+        expect(await lock(theft!['id'])).toBe('INSURER_CONTRACT_INACTIVE');
+        expect(await lock(uuid())).toBe('NOT_FOUND');
         const send = (ref: string) =>
           tx.query<{ r: string }>('SELECT core.claim_cmd_record_theft_declaration($1, $2) AS r', [
             theft!['id'],
@@ -233,6 +235,7 @@ describe.each(COUNTRIES)('US-318 — sinistres entre particuliers ($country, $cu
             .rows[0],
         ).toMatchObject({ status: 'RETURNED', insurer_status: 'WITHDRAWN', insurer_ref: null });
         expect((await send('FAKE-INS-2')).rows[0]!.r).toBe('WITHDRAWN');
+        expect(await lock(theft!['id'])).toBe('WITHDRAWN');
         const reopen = await caught(tx, () =>
           tx.query('SELECT test_fixture.us318_try_write($1, $2)', ['THEFT_REOPEN', theft!['id']]),
         );
@@ -242,6 +245,11 @@ describe.each(COUNTRIES)('US-318 — sinistres entre particuliers ($country, $cu
         await tx.query(`SELECT pg_catalog.set_config('app.worker_name', 'trip_overdue', true)`);
         const other = await caught(tx, () => open(early.trip));
         expect(other).toMatchObject({ code: '42501', constraint: 'claim_p2p_command_forbidden' });
+        const otherLock = await caught(tx, () => lock(theft!['id']));
+        expect(otherLock).toMatchObject({
+          code: '42501',
+          constraint: 'claim_p2p_command_forbidden',
+        });
       }),
     );
     // app_api n'a aucun droit sur les commandes du travailleur
@@ -251,6 +259,10 @@ describe.each(COUNTRIES)('US-318 — sinistres entre particuliers ($country, $cu
           tx.query('SELECT core.claim_cmd_open_theft_case($1)', [uuid()]),
         );
         expect(e?.code).toBe('42501');
+        const l = await caught(tx, () =>
+          tx.query('SELECT core.claim_cmd_lock_theft_declaration($1)', [uuid()]),
+        );
+        expect(l?.code).toBe('42501');
       }),
     );
   });
@@ -404,6 +416,61 @@ describe.each(COUNTRIES)('US-318 — sinistres entre particuliers ($country, $cu
           ]),
         );
         expect(e).toMatchObject({ code: '23000', constraint: 'claim_p2p_record_immutable' });
+      }),
+    );
+  });
+
+  it('critère 3 (refus) : paramètres du pays absents ⇒ TRAFFIC_WINDOW_UNKNOWN puis TRAFFIC_FEE_UNKNOWN ; fait futur ⇒ TRAFFIC_OUTSIDE_TRIP ; récapitulatif refusé au voyageur, à un autre hôte et pour un autre trip (NOT_FOUND), rien d’écrit', async () => {
+    const T = plus(END, DAY);
+    await withRole('app_api', (api) =>
+      withTestTransaction(api, { virtualNow: plus(END, -HOUR) }, async (tx) => {
+        const w = await world(tx, c, 'IN_PROGRESS');
+        const o = await world(tx, c, 'IN_PROGRESS');
+        await setNow(tx, END);
+        await tx.query('SELECT test_fixture.us309_returned($1)', [w.trip]);
+        await tx.query('SELECT test_fixture.us309_returned($1)', [o.trip]);
+        await setNow(tx, T);
+        const h = (await openSession(tx, w.holder)).hash;
+        const g = (await openSession(tx, w.guest)).hash;
+        const ho = (await openSession(tx, o.holder)).hash;
+        const call = async (who: Buffer, trip: string, at: string, preview: boolean) =>
+          (
+            await tx.query<Row>(DECLARE, [
+              who,
+              uuid(),
+              trip,
+              'TOLL',
+              at,
+              AMOUNTS[c.currency]!.amount.toString(),
+              uuid(),
+              preview,
+            ])
+          ).rows[0]!['outcome'];
+        // accès (vraie fonction, revue sécurité delta) : voyageur, autre hôte, autre trip
+        expect(await call(g, w.trip, START, true)).toBe('NOT_FOUND');
+        expect(await call(ho, w.trip, START, true)).toBe('NOT_FOUND');
+        expect(await call(h, o.trip, START, true)).toBe('NOT_FOUND');
+        // fait futur (après l'heure de la base) : hors du trip
+        expect(await call(h, w.trip, plus(T, HOUR), true)).toBe('TRAFFIC_OUTSIDE_TRIP');
+        expect(await call(h, w.trip, plus(T, HOUR), false)).toBe('TRAFFIC_OUTSIDE_TRIP');
+        // frais absents (valeur fermée dans la transaction annulée) ⇒ refus fail-closed
+        await tx.query('SELECT test_fixture.us318_param_close($1, $2)', [
+          'traffic_charge_admin_fee_bps',
+          c.country,
+        ]);
+        await setNow(tx, plus(T, 1000));
+        expect(await call(h, w.trip, START, true)).toBe('TRAFFIC_FEE_UNKNOWN');
+        expect(await call(h, w.trip, START, false)).toBe('TRAFFIC_FEE_UNKNOWN');
+        // délai absent ⇒ refus avant les frais
+        await tx.query('SELECT test_fixture.us318_param_close($1, $2)', [
+          'traffic_charge_deadline_days',
+          c.country,
+        ]);
+        await setNow(tx, plus(T, 2000));
+        expect(await call(h, w.trip, START, false)).toBe('TRAFFIC_WINDOW_UNKNOWN');
+        expect(
+          (await tx.query('SELECT * FROM test_fixture.us318_traffic_charges($1)', [w.trip])).rows,
+        ).toEqual([]);
       }),
     );
   });

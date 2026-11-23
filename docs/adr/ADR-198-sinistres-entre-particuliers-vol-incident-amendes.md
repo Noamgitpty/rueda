@@ -42,6 +42,12 @@ US-306 escalade un trip non rendu jusqu'à T+24 h (plainte pré-remplie remise �
 - **Écrans** (ux n° 2 à 7) : étapes de la plainte pré-remplie, consigne « ne continuez pas à rouler » en tête, renvoi à l'urgence et à l'autorité du pays si le numéro de l'assureur manque, envoi de l'incident impossible sans photo, date et heure au format de la langue.
 - **Taxe sur les frais de gestion** (argent n° 4) : frais « toutes taxes comprises » gardés (PROPOSÉ, fail-closed) ; « TTC » ou « en sus » (ITBMS 7 % PA, IVA 10 % PY, taxe de Kmino dans PLATFORM / `tax_payable`) est à trancher par le fondateur avant l'ouverture d'un pays (OQ-BR-14, POUR_LE_FONDATEUR §7.14).
 
+## Reprise après la revue delta (2026-11-22)
+
+- **Dossier de retard résolu avant le travailleur** : l'ouverture exige un trip encore OVERDUE (ou UNRETURNED) ET un dossier à l'étape T24H, relus sous le verrou du trip. Si l'ops résout le dossier ou si le trip est rendu entre l'escalade et le passage du travailleur, `claim_cmd_open_theft_case` rend NOT_DUE : aucun dossier, aucune déclaration, aucune retenue (le trip rendu suit son cours, la retenue `TRIP_NOT_COMPLETED` couvrant la fenêtre). Un dossier déjà ouvert n'est clos que par le retour du véhicule (statut du trip), jamais par l'étape du dossier de retard.
+- **Exigences du connecteur de l'assureur (lot C)** : le port est appelé dans une transaction ouverte, sous le verrou de la déclaration ; le connecteur réel doit donc être idempotent par `declarationId` (un rejeu après une panne rend la même référence) et borné par un délai maximal court (au plus quelques secondes, au-delà : UNAVAILABLE, déclaration laissée PENDING et retentée), pour ne jamais tenir le verrou au-delà du `statement_timeout`.
+- **Preuves** : `core.claim_cmd_lock_theft_declaration` exécutée en L0 sous les rôles de production (NOT_FOUND, INSURER_CONTRACT_INACTIVE, WITHDRAWN, 42501 pour un autre travailleur et pour app_api), PA et PY ; paramètres absents (`TRAFFIC_WINDOW_UNKNOWN`, `TRAFFIC_FEE_UNKNOWN`), fait futur, refus d'accès du récapitulatif (voyageur, autre hôte, autre trip) contre la vraie fonction.
+
 ## Suites
 
 - Jambe HOST d'une refacturation TRAFFIC reportée dans les versements : ticket commun avec INCIDENTAL et DAMAGE (US-703 ne reporte un mouvement de jambe que pour RENT_SHORTFALL et NO_SHOW_RETENTION ; argent n° 8).
