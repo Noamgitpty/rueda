@@ -2945,7 +2945,7 @@
       "story": "US-314"
     },
     {
-      "signature": "core.payout_release_hold_reasons_of_operation(uuid)",
+      "signature": "core.payout_release_operation_hold_reasons(uuid)",
       "family": "cmd_money",
       "owner": "cmd_money_owner",
       "execute": [],

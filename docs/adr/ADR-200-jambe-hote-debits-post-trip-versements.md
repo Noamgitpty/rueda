@@ -20,7 +20,7 @@ Un frais annexe (US-706), une part de dommage (US-309) ou une amende refacturée
 
 - N-463 fermée par le code (prérequis de `payouts_enabled`) ; ADR-189 (a) complété.
 - Fonctions remplacées à signature, propriétaire et droits identiques (corps recopiés, blocs marqués US-319) : `settlement_cmd_apply_leg_movement` (0123), `payment_cmd_settle_mit_attempt` (0169), `payout_refresh_batch` (0167), `payout_trips_to_prepare`, `payout_cmd_prepare_trip`, `payout_release_items`, `payout_release_item_guard`, `payout_item_amount`, `payout_schedule` (0165), `settlement_release_blocker` (0172), `payout_payout_item_guard` (0165). Une migration suivante part des corps de 0180.
-- `payout_release_hold_reasons(trip)` (0172) n'est plus appelée par la garde (remplacée par `payout_release_hold_reasons_of_operation`) ; conservée (expand).
+- `payout_release_hold_reasons(trip)` (0172) n'est plus appelée par la garde (remplacée par `payout_release_operation_hold_reasons`) ; conservée (expand).
 - API (PYO) : `PayoutScheduler.prepareCharge`, port `PayoutBatchStore.chargesToPrepare` / `prepareCharge`. Aucun texte visible, aucun paramètre nouveau, aucun catalogue.
 - Preuves : `l0-us319-charge-payouts` (PA / USD, PY / PYG ; interrupteur ouvert à deux personnes dans une fenêtre lointaine refermée, transaction annulée) ; ordonnanceur sur le FAKE (`i1` puis `i2`, registre du FAKE équilibré).
 

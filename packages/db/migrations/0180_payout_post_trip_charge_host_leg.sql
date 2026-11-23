@@ -58,7 +58,7 @@
 --     core.settlement_release_blocker de 0172 et core.payout_payout_item_guard de 0165 (sous
 --     migrator) ;
 --   DROP FUNCTION core.payout_cmd_prepare_charge(uuid), core.payout_charges_to_prepare(integer),
---     core.payout_release_hold_reasons_of_operation(uuid), core.payout_next_release_rank(uuid, uuid),
+--     core.payout_release_operation_hold_reasons(uuid), core.payout_next_release_rank(uuid, uuid),
 --     core.payout_charge_item_amount(uuid), core.payout_schedule_after(uuid, timestamptz, boolean) ;
 --   DROP TABLE core.payout_item_charge ; DROP FUNCTION core.payout_item_charge_guard() ;
 --   ALTER TABLE core.payout_payout_item DROP CONSTRAINT payout_item_charge_batch_trip_unique,
@@ -326,7 +326,7 @@ $fn$;
 -- 3.6 Motifs de retenue du lot de l'item qui porte un ordre LEG_RELEASE (NULL : ordre rattaché à
 -- aucun item), relus par la garde de libération (`settlement_release_blocker`, §12) à l'ordre et au
 -- report. SECURITY DEFINER, aucun EXECUTE (comme `payout_release_hold_reasons` de 0172).
-CREATE FUNCTION core.payout_release_hold_reasons_of_operation(p_operation_id uuid)
+CREATE FUNCTION core.payout_release_operation_hold_reasons(p_operation_id uuid)
   RETURNS text[]
   LANGUAGE sql
   STABLE
@@ -1288,7 +1288,7 @@ COMMENT ON FUNCTION core.payout_schedule(uuid, boolean) IS
 COMMENT ON FUNCTION core.payout_next_release_rank(uuid, uuid) IS
   'Rang suivant d''une libération de la jambe HOST d''un trip (i{n} de la clé release:…) : 1 + plus '
   'haut rang des ordres LEG_RELEASE HOST du trip. US-319 (ADR-200).';
-COMMENT ON FUNCTION core.payout_release_hold_reasons_of_operation(uuid) IS
+COMMENT ON FUNCTION core.payout_release_operation_hold_reasons(uuid) IS
   'Motifs de retenue du lot de l''item qui porte un ordre LEG_RELEASE (NULL : aucun item), relus par '
   'settlement_release_blocker. SECURITY DEFINER, aucun EXECUTE. US-319 (ADR-200).';
 COMMENT ON FUNCTION core.payout_release_item_guard() IS
@@ -1314,7 +1314,7 @@ REVOKE ALL ON FUNCTION
   core.payout_charge_item_amount(uuid),
   core.payout_schedule_after(uuid, timestamptz, boolean),
   core.payout_next_release_rank(uuid, uuid),
-  core.payout_release_hold_reasons_of_operation(uuid),
+  core.payout_release_operation_hold_reasons(uuid),
   core.payout_charges_to_prepare(integer),
   core.payout_cmd_prepare_charge(uuid)
 FROM PUBLIC;
@@ -1388,7 +1388,7 @@ BEGIN
               WHERE l.operation_id = p_operation_id AND l.leg = 'HOST' AND l.amount_minor > 0)
      AND EXISTS (SELECT 1 FROM core.payout_payout_item AS i
                   WHERE i.trip_id = v_trip AND i.segment_no = 1 AND i.leg = 'HOST') THEN
-    v_reasons := core.payout_release_hold_reasons_of_operation(p_operation_id);
+    v_reasons := core.payout_release_operation_hold_reasons(p_operation_id);
     IF v_reasons IS NULL OR pg_catalog.cardinality(v_reasons) > 0 THEN
       RETURN 'leg_release_payout_held';
     END IF;
