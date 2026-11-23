@@ -26,6 +26,7 @@ import {
   HOUR,
   invoices,
   now,
+  param,
   session,
   submit,
   world,
@@ -78,6 +79,8 @@ describe.each(COUNTRIES)('US-706 suite — frais abandonné ($country, $currency
   it('F-L3-FRA-03 : nettoyage contesté puis annulé ⇒ le tabac (même pièce, ou autre pièce : même groupe) et tout frais qui reprend sa pièce sont refusés (INCIDENTAL_DUPLICATE), aucune fenêtre neuve, aucun avis ; témoin : le carburant, autre groupe et autres pièces, passe', async () => {
     await withRole('app_api', async (api) => {
       await withTestTransaction(api, { virtualNow: START }, async (tx) => {
+        // plafond du carburant « à fixer » (0009) : posé par le test, dans la transaction annulée
+        await param(tx, 'fuel_refill_max', c.country, a['fuelCap']!.toString());
         const w = await world(tx, c, { start: START, end: END });
         await now(tx, J0);
         // fichier de l'hôte reçu dans la fenêtre des photos : une pièce distincte de la photo
@@ -114,6 +117,8 @@ describe.each(COUNTRIES)('US-706 suite — frais abandonné ($country, $currency
     await withRole('app_api', async (api) => {
       await withTestTransaction(api, { virtualNow: START }, async (tx) => {
         const ops = await staff(tx, 'OPS_AGENT', [c.country]);
+        // plafond du carburant « à fixer » (0009) : posé par le test, dans la transaction annulée
+        await param(tx, 'fuel_refill_max', c.country, a['fuelCap']!.toString());
         const w = await world(tx, c, { start: START, end: END });
         const f = await world(tx, c, { start: START, end: END });
         await now(tx, J0);
