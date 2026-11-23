@@ -238,6 +238,12 @@ describe('schéma outbox (US-008)', () => {
           expect(r).toMatchObject({ roles: 'iam_staff_owner', cmd: 'a' });
           continue;
         }
+        // frais annexe demandé (0177, US-706, ADR-197) : invoice.status_changed seulement, agrégat
+        // incidental_invoice, acteur HOST (le titulaire de la session)
+        if (r.pol === 'outbox_outbox_event.cmd_money_incidental_event') {
+          expect(r).toMatchObject({ roles: 'cmd_money_owner', cmd: 'a' });
+          continue;
+        }
         // rendez-vous accepté (0166, US-316, ADR-186) : trip.meeting.confirmed seulement, agrégat
         // trip, acteur GUEST (le voyageur de la session)
         if (r.pol === 'outbox_outbox_event.messaging_cmd_meeting_event') {

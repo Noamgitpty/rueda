@@ -18,7 +18,11 @@ import {
 } from '../modules/avl/index.js';
 import { HOST_LISTING_MESSAGES, SEARCH_MESSAGES } from '../modules/cat/index.js';
 import { BRAND_MESSAGES } from '../modules/cfg/index.js';
-import { CLAIM_MESSAGES, EVIDENCE_BUNDLE_MESSAGES } from '../modules/clm/index.js';
+import {
+  CLAIM_MESSAGES,
+  EVIDENCE_BUNDLE_MESSAGES,
+  TRIP_CLAIM_MESSAGES,
+} from '../modules/clm/index.js';
 import { CONSTANCIA_MESSAGES, CONTRACT_MESSAGES, LEGAL_MESSAGES } from '../modules/ctr/index.js';
 import { AUTH_MESSAGES } from '../modules/iam/index.js';
 import { KYC_MESSAGES } from '../modules/kyc/index.js';
@@ -29,7 +33,12 @@ import { QUOTE_MESSAGES } from '../modules/prc/index.js';
 import { REPORT_MESSAGES } from '../modules/rpt/index.js';
 import { RISK_MESSAGES } from '../modules/risk/index.js';
 import { REV_MESSAGES } from '../modules/rev/index.js';
-import { HANDOVER_MESSAGES, INSPECTION_MESSAGES, NO_SHOW_MESSAGES } from '../modules/trp/index.js';
+import {
+  HANDOVER_MESSAGES,
+  INCIDENTAL_MESSAGES,
+  INSPECTION_MESSAGES,
+  NO_SHOW_MESSAGES,
+} from '../modules/trp/index.js';
 import { startApiHarness } from './api-harness.js';
 import type { ApiHarness } from './api-harness.js';
 import { controllerRoutes } from './controller-routes.js';
@@ -261,9 +270,13 @@ const CATALOG: ReadonlyMap<string, ReadonlySet<number>> = (() => {
     HANDOVER_MESSAGES,
     // US-307 : no-show déclaré par une partie
     NO_SHOW_MESSAGES,
+    // US-706 : frais annexes demandés par l'hôte, payés ou contestés par le voyageur
+    INCIDENTAL_MESSAGES,
     HELP_MESSAGES,
     EVIDENCE_BUNDLE_MESSAGES,
     CLAIM_MESSAGES,
+    // US-318 : sinistres entre particuliers d'un trip
+    TRIP_CLAIM_MESSAGES,
     REV_MESSAGES,
     REPORT_MESSAGES,
   ] as const) {

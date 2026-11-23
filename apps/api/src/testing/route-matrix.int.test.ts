@@ -41,7 +41,12 @@ import {
 } from '../modules/ctr/index.js';
 import { postgresIamAdapters, postgresStaffAdapters } from '../modules/iam/index.js';
 import { postgresKycAdapters } from '../modules/kyc/index.js';
-import { PgHandoverStore, PgInspectionStore, PgNoShowStore } from '../modules/trp/index.js';
+import {
+  PgHandoverStore,
+  PgIncidentalStore,
+  PgInspectionStore,
+  PgNoShowStore,
+} from '../modules/trp/index.js';
 import { postgresPyoAdapters } from '../modules/pyo/index.js';
 import { postgresMsgAdapters } from '../modules/msg/index.js';
 import { postgresRevAdapters } from '../modules/rev/index.js';
@@ -65,6 +70,7 @@ import {
   unavailableEvidence,
 } from '../modules/sup/index.js';
 import type { SqlPool } from '../modules/sup/index.js';
+import { postgresClmTripAdapters } from '../modules/clm/index.js';
 import { PgReportStore } from '../modules/rpt/index.js';
 import { ROUTE_MATRIX } from './route-matrix.js';
 
@@ -155,6 +161,20 @@ async function claimOf(country: string): Promise<string> {
   );
   const id = rows[0]?.id ?? randomUUID();
   claimByCountry.set(country, id);
+  return id;
+}
+
+/** Frais annexe du trip du pays (fixture 9907, AWAITING_GUEST : jamais décidé). */
+const invoiceByCountry = new Map<string, string>();
+async function invoiceOf(country: string): Promise<string> {
+  const known = invoiceByCountry.get(country);
+  if (known !== undefined) return known;
+  const { rows } = await client.query<{ id: string }>(
+    'SELECT test_fixture.us706_insert_invoice($1)::text AS id',
+    [tripOf.get(country)],
+  );
+  const id = rows[0]?.id ?? randomUUID();
+  invoiceByCountry.set(country, id);
   return id;
 }
 
@@ -692,6 +712,23 @@ async function requestOf(
           facts: 'Matrice US-043 : aperçu du gabarit de décision',
         },
       };
+    // US-706 : frais annexe du pays ; décision d'un frais NON contesté ⇒ OPS et ADMIN du pays :
+    // 409 INCIDENTAL_NOT_DISPUTED, rien n'est décidé ; autre pays : FORBIDDEN
+    // US-706 : frais à revoir des pays de l'agent (aucun ⇒ 200, liste vide)
+    case 'GET /console/incidental-reviews':
+      return { method: 'GET', path: '/console/incidental-reviews' };
+    case 'GET /console/incidental-fees/{invoiceId}':
+      return { method: 'GET', path: `/console/incidental-fees/${await invoiceOf(country)}` };
+    case 'POST /console/incidental-fees/{invoiceId}/decision':
+      return {
+        method: 'POST',
+        path: `/console/incidental-fees/${await invoiceOf(country)}/decision`,
+        body: {
+          requestId: id,
+          outcome: 'REJECT',
+          rationale: 'Matrice US-043 : décision sur un frais non contesté',
+        },
+      };
     // US-114 : file d'ajout au catalogue (élément du pays de l'acteur)
     case 'POST /console/queues/items/{id}/catalog-addition':
       return {
@@ -1129,6 +1166,77 @@ async function requestOf(
         path: `/trips/${randomUUID()}/no-show`,
         body: { requestId: randomUUID() },
       };
+    // frais annexes (US-706) : trip ou frais inconnu de l'acteur ⇒ 404 (rien n'est écrit)
+    case 'GET /trips/{tripId}/incidental-fees':
+      return { method: 'GET', path: `/trips/${randomUUID()}/incidental-fees` };
+    case 'POST /trips/{tripId}/incidental-fees':
+      return {
+        method: 'POST',
+        path: `/trips/${randomUUID()}/incidental-fees`,
+        body: {
+          requestId: randomUUID(),
+          feeType: 'CLEANING',
+          amountMinor: '100',
+          description: 'Motif de la matrice des routes',
+          evidenceFileIds: [randomUUID()],
+        },
+      };
+    case 'POST /trips/{tripId}/incidental-fees/{invoiceId}/accept':
+      return {
+        method: 'POST',
+        path: `/trips/${randomUUID()}/incidental-fees/${randomUUID()}/accept`,
+        body: {},
+      };
+    case 'POST /trips/{tripId}/incidental-fees/{invoiceId}/dispute':
+      return {
+        method: 'POST',
+        path: `/trips/${randomUUID()}/incidental-fees/${randomUUID()}/dispute`,
+        body: { reason: 'Motif de la contestation de la matrice', evidenceFileIds: [randomUUID()] },
+      };
+    case 'POST /trips/{tripId}/incidental-fees/{invoiceId}/cancel':
+      return {
+        method: 'POST',
+        path: `/trips/${randomUUID()}/incidental-fees/${randomUUID()}/cancel`,
+        body: {},
+      };
+    // sinistres d'un trip (US-318) : trip inconnu de l'acteur ⇒ 404 (rien n'est écrit)
+    case 'POST /trips/{tripId}/incidents':
+      return {
+        method: 'POST',
+        path: `/trips/${randomUUID()}/incidents`,
+        body: {
+          requestId: randomUUID(),
+          caseId: randomUUID(),
+          thirdParty: false,
+          policeReport: false,
+        },
+      };
+    case 'GET /trips/{tripId}/claims':
+      return { method: 'GET', path: `/trips/${randomUUID()}/claims` };
+    case 'POST /trips/{tripId}/traffic-charges/preview':
+      return {
+        method: 'POST',
+        path: `/trips/${randomUUID()}/traffic-charges/preview`,
+        body: {
+          requestId: randomUUID(),
+          kind: 'TOLL',
+          occurredAt: '2030-01-01T10:00:00.000Z',
+          amountMinor: '100',
+          fileId: randomUUID(),
+        },
+      };
+    case 'POST /trips/{tripId}/traffic-charges':
+      return {
+        method: 'POST',
+        path: `/trips/${randomUUID()}/traffic-charges`,
+        body: {
+          requestId: randomUUID(),
+          kind: 'TOLL',
+          occurredAt: '2030-01-01T10:00:00.000Z',
+          amountMinor: '100',
+          fileId: randomUUID(),
+        },
+      };
     // constancia d'arrendamiento (US-212) : trip inconnu de l'acteur ⇒ 404 ; recherche de l'hôte :
     // plaque dans le corps, aucun trip d'un autre compte
     case 'GET /trips/{tripId}/constancia':
@@ -1494,6 +1602,8 @@ beforeAll(async () => {
         handover: new PgHandoverStore(client),
         // no-show (US-307) : commandes réelles de 0171 sous app_api
         noShow: new PgNoShowStore(client),
+        // frais annexes (US-706) : commandes réelles de 0177 sous app_api
+        incidental: new PgIncidentalStore(client),
       },
       // compte de versement (US-707) : commandes réelles de 0159 sous app_api ; aucun coffre (503)
       postgresPyoAdapters(client),
@@ -1508,6 +1618,8 @@ beforeAll(async () => {
       postgresClaims(singlePool as unknown as Parameters<typeof postgresClaims>[0]),
       // US-311 : portes réelles de 0174 (vues de la bêta, rapprochement), même connexion de test
       new PgReportStore(client),
+      // US-318 : commandes réelles de 0178 (sinistres d'un trip) sous app_api
+      postgresClmTripAdapters(client),
     ),
     { rawBody: true, logger: false },
   );

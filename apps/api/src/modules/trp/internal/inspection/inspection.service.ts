@@ -31,8 +31,16 @@ import { isCleanScan, PhotoRejectedError, preparePhoto } from '../../../aud/inde
 import type { CleanPhoto } from '../../../aud/index.js';
 import { TRP_EVIDENCE_PIPELINE, TRP_INSPECTION_STORE } from '../tokens.js';
 import { InspectionHttpError, outcomeCode } from './errors.js';
-import { INSPECTION_MIME_TYPES, kindOf, parseCaptureRequest, parsePhotoUpload } from './model.js';
-import type { InspectionKind } from './model.js';
+import {
+  FREE_SLOT,
+  INSPECTION_MIME_TYPES,
+  isFreeSeries,
+  kindOf,
+  parseCaptureRequest,
+  parsePhotoUpload,
+  segmentOf,
+} from './model.js';
+import type { InspectionKind, InspectionSegment } from './model.js';
 import { evidenceOpen } from './ports.js';
 import type { EvidencePipeline, SqlExecutor } from './ports.js';
 import { EvidenceDepositError, InspectionStoreError } from './store.js';
@@ -43,7 +51,7 @@ export const JSON_PHOTO_MAX_BYTES = Math.floor(((API_BODY_LIMIT_BYTES - 1024) * 
 
 export interface InspectionView {
   readonly tripId: string;
-  readonly kind: 'checkin' | 'checkout';
+  readonly kind: InspectionSegment;
   readonly viewerRole: 'HOST' | 'GUEST';
   readonly timezone: string;
   readonly open: boolean;
@@ -99,7 +107,7 @@ export class InspectionService {
     const limits = this.#limits(v.maxKb, v.maxPx);
     return {
       tripId,
-      kind: kind === 'CHECKIN' ? 'checkin' : 'checkout',
+      kind: segmentOf(kind),
       viewerRole: v.viewerRole,
       timezone: v.timezone,
       open: v.open,
@@ -117,6 +125,8 @@ export class InspectionService {
   async openCapture(proof: Buffer, tripId: string, segment: string, body: Body) {
     const kind = this.#kind(segment);
     const { slot } = parseCaptureRequest(body);
+    if (isFreeSeries(kind) && !FREE_SLOT.test(slot))
+      throw new InspectionHttpError('REQUEST_INVALID');
     const r = await this.#call(() => this.store.openCapture(proof, tripId, kind, slot));
     if (r.outcome !== 'DONE' || r.captureId === null || r.expiresAt === null) {
       throw new InspectionHttpError(outcomeCode(r.outcome));
@@ -127,6 +137,9 @@ export class InspectionService {
   async addPhoto(proof: Buffer, userId: string, tripId: string, segment: string, body: Body) {
     const kind = this.#kind(segment);
     const input = parsePhotoUpload(body);
+    if (isFreeSeries(kind) && !FREE_SLOT.test(input.slot)) {
+      throw new InspectionHttpError('REQUEST_INVALID');
+    }
     const check = await this.#call(() =>
       this.store.captureCheck(proof, tripId, kind, input.captureId, input.slot),
     );
@@ -212,6 +225,8 @@ export class InspectionService {
 
   async submit(proof: Buffer, tripId: string, segment: string, body: Body) {
     const kind = this.#kind(segment);
+    // séries libres d'US-318 : jamais validées (la déclaration les cite)
+    if (isFreeSeries(kind)) throw new InspectionHttpError('INSPECTION_NOT_FOUND');
     // corps vide attendu : la base juge la série de la session, rien n'est reçu du client
     if (Object.keys(body).length > 0) throw new InspectionHttpError('REQUEST_INVALID');
     const r = await this.#call(() => this.store.submit(proof, tripId, kind));

@@ -73,6 +73,9 @@ const SPEC_GAPS: Readonly<Partial<Record<ModuleCode, readonly ModuleCode[]>>> = 
   // US-317 (ADR-190) : SessionGuard (IAM) et TermsGuard (CTR) sur les routes des avis, servies par
   // REV ; à reporter dans 17 §2.2 par une demande de fusion revue
   REV: ['IAM', 'CTR'],
+  // US-318 (ADR-198) : SessionGuard (IAM) et TermsGuard (CTR) sur les routes des sinistres d'un
+  // trip, servies par CLM ; à reporter dans 17 §2.2 par une demande de fusion revue
+  CLM: ['IAM', 'CTR'],
 };
 
 /** Colonne « Dépend de » de 17 §2.2, par module ; `null` pour « tous ». */

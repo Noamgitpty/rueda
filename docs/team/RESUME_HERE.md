@@ -1,6 +1,6 @@
 # RESUME_HERE — point de reprise du dépôt
 
-> Lu en premier par toute session qui reprend le travail (handoff §4.9). Tenu par l'orchestrateur à chaque fin de session. **Dernière mise à jour : 2026-11-22, 19 h UTC (lot 3 : 18 stories sur 21 MERGED, 97 points sur 110 ; détail au `BOARD.md`).** Mise à jour précédente : 2026-11-20, 6 h UTC (lot 3 : 8 sur 21, 48 points). Avant : 2026-11-19, 12 h UTC (fin du lot 2 : 27 stories sur 27 MERGED, 140 points sur 140 ; porte L2 franchie, #261). Avant : 2026-11-19, 7 h UTC (lot 2 : 26 sur 27, 137 points). Avant : 2026-11-18, 23 h UTC (lot 2 : 21 sur 27, 110 points). Avant : 2026-11-10 (porte du lot 0 tenue : PR #92, #93 et #94 fusionnées ; US-027 en revue).
+> Lu en premier par toute session qui reprend le travail (handoff §4.9). Tenu par l'orchestrateur à chaque fin de session. **Dernière mise à jour : 2026-11-23, 3 h 50 UTC (lot 3 : 20 stories sur 21 MERGED, 107 points sur 110 ; détail au `BOARD.md`).** Mise à jour précédente : 2026-11-22, 19 h UTC (lot 3 : 18 sur 21, 97 points). Avant : 2026-11-20, 6 h UTC (lot 3 : 8 sur 21, 48 points). Avant : 2026-11-19, 12 h UTC (fin du lot 2 : 27 stories sur 27 MERGED, 140 points sur 140 ; porte L2 franchie, #261). Avant : 2026-11-19, 7 h UTC (lot 2 : 26 sur 27, 137 points). Avant : 2026-11-18, 23 h UTC (lot 2 : 21 sur 27, 110 points). Avant : 2026-11-10 (porte du lot 0 tenue : PR #92, #93 et #94 fusionnées ; US-027 en revue).
 
 ## Pour reprendre
 
@@ -8,7 +8,27 @@
 2. Sous Git Bash : `export PATH="/c/Program Files/nodejs:/c/Users/noamm/AppData/Roaming/npm:/c/Program Files/GitHub CLI:$PATH"`. Vérifie `node -v`, qui doit donner v26.13.0 (ADR-041).
 3. `git fetch`, `git worktree list`, puis relance les tests de chaque branche en cours **avant** de continuer (OPERATING_RULES §3).
 
-## État au 2026-11-22
+## État au 2026-11-23
+
+Le `BOARD.md` fait foi ; ce résumé ne sert qu'à reprendre vite.
+
+- **Lots 0 à 2** : inchangés (lot 2 clos, porte L2 franchie le 2026-11-19).
+- **Lot 3** (21 stories, 110 points) : **20 MERGED, 107 points** (97 %). Fusionnées depuis #294 : **US-706** (#292, `15952e76`, 0177, ADR-197, v112, frais annexes) et **US-318** (#293, `0e3fcd24`, 0178, ADR-198, v113, sinistres entre particuliers). Hors total : **#295** (`2bddc6c8`, US-007 suite, 0179, ADR-199) : refus rapide de la pose et paramètres de pays en PL/pgSQL, p95 de L0-02 à 75 ms pour un seuil inchangé de 300 ms ; sur un créneau définitivement pris, `VEHICLE_UNAVAILABLE` passe avant les autres refus (PROPOSÉ, `COMME_TURO.md`) ; **N-468 faite**. Bêta : environ **66 %** (573 points sur 869).
+- **Reste du lot 3** : la suite de la red team (N-474, `story/US-313-redteam-suite`, PR #296, brouillon, en cours : V08, V09 logique, axe « données », H08 complet, S01 à S04 et M04), puis le **post-mortem d'US-313** (critère 4 ; N-422, N-423).
+- **En cours, hors total** : **US-319 IN_PROGRESS** (PR #297, brouillon ; 0180 / ADR-200 / fixture 9905 ; revues code, architecture, argent, qa, securite) : report de la jambe HOST des frais `INCIDENTAL`, `DAMAGE` et `TRAFFIC` dans les versements, avant `payouts_enabled`.
+- **Numéros sur `main`** : dernière migration **0179** (#295), dernier ADR **ADR-199**, catalogue **v113**, fixtures jusqu'à **9906**. **Réservés** : US-319 (#297) 0180 / ADR-200 / 9905. **Prochains libres** : 0181 / ADR-201 / v114 / 9904 (vérifier #296 et #297 avant de réserver).
+- **Suites** : N-490 à N-495 inscrites (#295 ; revues delta de #292 et #293). Avant l'ouverture d'un pays : N-492 (route d'envoi des fichiers de l'hôte, empreinte calculée côté serveur) et N-495 (connecteur de l'assureur idempotent par `declarationId`) ; avant `payouts_enabled` : N-491 (reprise des frais « à revoir par ops »). Inventaire « avant l'ouverture d'un pays » : **47 suites**. Story **US-320 PROPOSÉE** (contestation d'une amende, d'un péage ou d'une fourrière par le voyageur, avec notification ; N-482). Specs de #295 et OQ-BR-14 ajoutées à la PR de specs N-475.
+- **Fondateur** : `POUR_LE_FONDATEUR.md` §0 à jour (66 %) ; §7.14 (sinistres, US-318) garde la question de la taxe sur les frais de gestion de 5 % (OQ-BR-14, avec le comptable) ; red team et versements renumérotés §7.15 et §7.16 après la fusion de `main`.
+
+## Prochaine action exacte (orchestrateur, 2026-11-23)
+
+1. Fusionner la PR du BOARD (#294) quand sa CI est verte.
+2. Mener **#296** (suite de la red team, N-474) à ses revues, puis lancer le **post-mortem du lot 3** (US-313 critère 4).
+3. Mener **#297** (US-319) à ses revues (code, architecture, argent sur un autre modèle, qa, securite).
+4. Planifier US-320 et les suites N-491 à N-495 ; `payouts_enabled` ne change que par la commande à deux personnes sur décision écrite du fondateur.
+5. Ne supprimer aucune branche distante sans le « oui » écrit du fondateur (`POUR_LE_FONDATEUR.md` §5, N-428).
+
+## État au 2026-11-22 (historique)
 
 Le `BOARD.md` fait foi ; ce résumé ne sert qu'à reprendre vite.
 
@@ -21,7 +41,7 @@ Le `BOARD.md` fait foi ; ce résumé ne sert qu'à reprendre vite.
 - **Suites** : N-462 à N-489 inscrites au BOARD ; N-19, N-272, N-402, N-415, N-471, N-472 faites ; N-270, N-271, N-274, N-384, N-455 en partie. Story **US-319** ouverte (report de la jambe HOST des frais `INCIDENTAL`, `DAMAGE` et `TRAFFIC` dans les versements, N-463). **Bogue** : « {brand_name} » non résolu dans le titre de la console (N-462). **Prérequis d'ouverture de `payouts_enabled`** : US-319, N-464 (gains d'annulation `CXL_EARNINGS`), N-465 (`EVT_PAYOUT_ON_HOLD`), N-467 (calendrier complet), N-473, N-483, N-437, N-438, N-454, N-455, N-270, N-271, N-384. Inventaire « avant l'ouverture d'un pays » : 45 suites.
 - **Fondateur** : `POUR_LE_FONDATEUR.md` §0 à jour ; quatre réglages nouveaux au §3 (plafond `fuel_refill_max`, à fixer après avoir distingué BR-FUEL-02 et la fin anticipée due à l'hôte ; frais de gestion de 5 % TTC ou en sus ; débit d'un frais annexe à l'échéance et préavis Visa J+6 ; gel du versement en cas de vol) ; en information : `incidental_evidence_trip_photos_only` = faux par défaut, comme Turo (DEC-FONDATEUR-22, appliqué dans #292) ; doublons du §7 signalés (N-489) ; §7.14 (red team) et §7.15 (versements) ; branches mortes : vingt et une, aucune nouvelle.
 
-## Prochaine action exacte (orchestrateur, 2026-11-22)
+## Prochaine action exacte (orchestrateur, 2026-11-22, historique)
 
 1. #291 fusionnée (`be5e1026`) : RISKS et BOARD déjà à jour.
 2. Mener **#292** (US-706) et **#293** (US-318) à la fin de leurs corrections et à leurs revues delta, puis les fusionner dans l'ordre de leurs numéros (0177 puis 0178).

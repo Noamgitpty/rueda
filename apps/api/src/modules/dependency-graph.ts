@@ -162,8 +162,10 @@ export const MODULES: Readonly<Record<ModuleCode, ModuleSpec>> = {
     name: 'Claims & Disputes',
     responsibility:
       'dommages et incidents, factures annexes, débits de dommage par jambe, litiges, dossiers de preuve, décisions',
-    dependsOn: ['TRP', 'STL', 'PAY', 'AUD'],
-    source: '17 §2.2 ; §2.1 CLM --> TRP, STL',
+    // US-318 (ADR-198) : SessionGuard (IAM) et TermsGuard (CTR) sur les routes des sinistres d'un
+    // trip ; écart assumé de 17 §2.2, à reporter
+    dependsOn: ['TRP', 'STL', 'PAY', 'AUD', 'IAM', 'CTR'],
+    source: '17 §2.2 ; §2.1 CLM --> TRP, STL ; ADR-198 (CLM --> IAM, CTR)',
   },
   MSG: {
     code: 'MSG',

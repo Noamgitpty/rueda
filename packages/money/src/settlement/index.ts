@@ -23,6 +23,7 @@ export {
   remainingLegs,
 } from './partial-collection.ts';
 export { settlementOrders, type SettlementOrders } from './refunds.ts';
+export { TRAFFIC_CHARGE_RULE_VERSION, trafficChargeLegs } from './traffic-charge.ts';
 export {
   refundsByTender,
   tenderRefundOrders,

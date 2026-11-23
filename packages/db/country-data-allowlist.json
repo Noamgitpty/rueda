@@ -104,6 +104,14 @@
     {
       "path": "packages/db/migrations/0171_trip_no_show_refusal.sql",
       "justification": "Bloc final GÉNÉRÉ du paramètre no_show_report_review_alert_minutes (valeurs PA / PY), rendu par apps/api/src/modules/cfg/internal/seed-sql.ts (renderParamSeedSql, groupe `embedded` de POST_SEED_PARAMS) depuis les données CFG ; seed-sql.test.ts exige le bloc à l'identique. Le reste de la migration ne nomme aucun pays (délais du no-show communs aux deux pays, 08). US-307, ADR-191."
+    },
+    {
+      "path": "packages/db/migrations/0177_claim_incidental_invoices.sql",
+      "justification": "Bloc final GÉNÉRÉ des paramètres incidental_host_window_h et incidental_cleaning_max_minor (valeurs PA / PY), rendu par apps/api/src/modules/cfg/internal/seed-sql.ts (renderParamSeedSql, groupe `embedded` de POST_SEED_PARAMS) depuis les données CFG ; seed-sql.test.ts exige le bloc à l'identique. Le reste de la migration ne nomme aucun pays (liste fermée, délais et plafonds lus en paramètres du pays, 08). US-706, ADR-197."
+    },
+    {
+      "path": "packages/db/migrations/0178_claim_p2p_theft_incident_traffic.sql",
+      "justification": "Bloc GÉNÉRÉ des paramètres traffic_charge_* (valeurs PA / PY), rendu par apps/api/src/modules/cfg/internal/seed-sql.ts (renderParamSeedSql, groupe `embedded` de POST_SEED_PARAMS) depuis les données CFG ; seed-sql.test.ts exige le bloc à l'identique. Le reste de la migration ne nomme aucun pays (délai et frais lus en base, numéros d'assistance en donnée de pays d'ADR-174). US-318, ADR-198."
     }
   ]
 }

@@ -537,6 +537,65 @@ async function openNoShow(page: Page, context: BrowserContext): Promise<void> {
   await expect(page.locator('[data-testid="no-show-form"]')).toBeVisible();
 }
 
+/** US-706 : frais annexes, écran de l'hôte (formulaire) ou du voyageur (frais à payer ou contester). */
+async function openIncidental(
+  page: Page,
+  context: BrowserContext,
+  role: 'HOST' | 'GUEST',
+): Promise<void> {
+  if (role === 'HOST') await signInHost(context);
+  else await signIn(context, 'B00k');
+  const token = (await context.cookies()).find((c) => c.name === '__Host-session')?.value ?? '';
+  const who = role === 'HOST' ? `guest=&host=${token}` : `guest=${token}&host=`;
+  const r = await fetch(
+    `${API}/__e2e/incidental/new?${who}&pending=${role === 'GUEST' ? 'yes' : 'no'}`,
+  );
+  expect(r.status).toBe(200);
+  const { tripId } = (await r.json()) as { tripId: string };
+  await page.goto(
+    role === 'HOST' ? `/host/trips/${tripId}/incidental-fees` : `/trips/${tripId}/incidental-fees`,
+  );
+  await expect(
+    page.locator(
+      role === 'HOST' ? '[data-testid="incidental-form"]' : '[data-testid="incidental-accept"]',
+    ),
+  ).toBeVisible();
+}
+
+/**
+ * US-318 : S17 · incidente du voyageur (trip en cours, demande d'aide « accident », une photo
+ * déposée par le double : la CI n'a pas de caméra).
+ */
+async function openIncident(
+  page: Page,
+  context: BrowserContext,
+  language: Language,
+): Promise<void> {
+  await signInGuest(context, language);
+  const token = (await context.cookies()).find((c) => c.name === '__Host-session')?.value ?? '';
+  const r = await fetch(`${API}/__e2e/p2p/new?guest=${token}&host=&status=IN_PROGRESS`);
+  expect(r.status).toBe(200);
+  const { tripId } = (await r.json()) as { tripId: string };
+  expect((await fetch(`${API}/__e2e/p2p/photo?trip=${tripId}&kind=incident`)).status).toBe(200);
+  await page.goto(`/trips/${tripId}/help`);
+  await page.locator('[data-testid="s17-topic-ACCIDENT"]').check();
+  await page.locator('[data-testid="s17-request-submit"]').click();
+  await page.locator('[data-testid="s17-incident-link"]').click();
+  await expect(page.locator('[data-testid="s17-incident-submit"]')).toBeVisible();
+}
+
+/** US-318 : A09 · amendes, péages et fourrière de l'hôte, vol présumé annoncé, une pièce reçue. */
+async function openTrafficCharges(page: Page, context: BrowserContext): Promise<void> {
+  await signInHost(context);
+  const token = (await context.cookies()).find((c) => c.name === '__Host-session')?.value ?? '';
+  const r = await fetch(`${API}/__e2e/p2p/new?guest=&host=${token}&status=COMPLETED&theft=yes`);
+  expect(r.status).toBe(200);
+  const { tripId } = (await r.json()) as { tripId: string };
+  expect((await fetch(`${API}/__e2e/p2p/photo?trip=${tripId}&kind=traffic`)).status).toBe(200);
+  await page.goto(`/host/trips/${tripId}/claims`);
+  await expect(page.locator('[data-testid="a09-traffic-submit"]')).toBeVisible();
+}
+
 interface Screen {
   /** Nom stable de la capture (dossier de références). */
   readonly name: string;
@@ -943,6 +1002,18 @@ export const SCREENS: readonly Screen[] = [
     source: 'A05, US-307',
     open: (page, context) => openNoShow(page, context),
   },
+  // US-706 : frais annexes demandés par l'hôte avec justificatif (A04) et payés ou contestés par
+  // le voyageur (S12)
+  {
+    name: 'frais-annexes-hote',
+    source: 'A04, US-706',
+    open: (page, context) => openIncidental(page, context, 'HOST'),
+  },
+  {
+    name: 'frais-annexes-voyageur',
+    source: 'S12, US-706',
+    open: (page, context) => openIncidental(page, context, 'GUEST'),
+  },
   // US-525 : messages du trip (S16), fil du voyageur
   {
     name: 'messages-voyage',
@@ -959,6 +1030,17 @@ export const SCREENS: readonly Screen[] = [
     name: 'avis-recus',
     source: 'US-317 (droit d’accès)',
     open: (page, context, language) => openReceivedReviews(page, context, language),
+  },
+  // US-318 : incident du voyageur depuis S17 et sinistres du trip vus par l'hôte (A09)
+  {
+    name: 'incident-voyageur',
+    source: 'S17 · incidente, US-318',
+    open: (page, context, language) => openIncident(page, context, language),
+  },
+  {
+    name: 'sinistres-hote',
+    source: 'A09, US-318',
+    open: (page, context) => openTrafficCharges(page, context),
   },
   { name: 'vitrine-composants', source: 'US-032', open: at('/ui?width=mobile') },
 ];

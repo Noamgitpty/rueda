@@ -120,6 +120,8 @@ describe('lecture défensive des réponses de l’aide', () => {
     expect(helpRequestOf(ok({ caseId: trip, outcome: 'OPENED', offHours: true }, 201))).toEqual({
       outcome: 'OPENED',
       offHours: true,
+      // US-318 : le dossier est rendu pour déclarer l'incident depuis S17
+      caseId: trip,
     });
     expect(helpRequestOf(ok({ caseId: trip, outcome: 'DONE', offHours: true }, 201))).toBeNull();
   });

@@ -115,9 +115,12 @@ export function tripHelpOf(reply: ApiResult, tripId: string): TripHelp | null {
 }
 
 /** Issue d'une demande d'aide (`POST /trips/{id}/help-requests`) ; `null` si illisible. */
-export function helpRequestOf(
-  reply: ApiResult,
-): { readonly outcome: 'OPENED' | 'DUPLICATE' | 'EXISTS'; readonly offHours: boolean } | null {
+export function helpRequestOf(reply: ApiResult): {
+  readonly outcome: 'OPENED' | 'DUPLICATE' | 'EXISTS';
+  readonly offHours: boolean;
+  /** Dossier du support (US-318 : rattaché à l'incident déclaré depuis S17). */
+  readonly caseId: string;
+} | null {
   if (reply.status !== 201 && reply.status !== 200) return null;
   const j = obj(reply.json);
   const outcome = j?.['outcome'];
@@ -130,7 +133,7 @@ export function helpRequestOf(
   ) {
     return null;
   }
-  return { outcome, offHours: j['offHours'] };
+  return { outcome, offHours: j['offHours'], caseId: j['caseId'] };
 }
 
 /** Lien d'appel d'un numéro (`tel:` E.164 ou numéro d'urgence court). */

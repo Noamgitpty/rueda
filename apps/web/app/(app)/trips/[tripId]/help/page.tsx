@@ -84,6 +84,7 @@ export default async function TripHelpPage({
           tripId={tripId}
           requestId={randomUUID()}
           brand={brand.name}
+          role={help.role}
         />
       </section>
     </>,
