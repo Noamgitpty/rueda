@@ -579,6 +579,10 @@
       "require": ["code", "architecture", "securite", "argent", "ux", "qa"],
       "why": "sinistres entre particuliers (TRP-038, ADM-022, CLM-002, BR-TT) : overdue_case, incident_report, support_case, jambe HOST gelée au vol présumé, amendes / péages / fourrière refacturés par débit séparé US-703 avec frais de gestion, déclaration à l assureur partenaire : argent, sécurité, schéma, écran S17 (ux) ; chemins db, i18n, ui, money, fake-adapters ; lot 3 (19 v3 §3.4), inscrite avant son démarrage ; PROPOSÉ, décision de l orchestrateur 2026-11-19"
     },
+    "US-319": {
+      "require": ["code", "architecture", "securite", "argent", "qa"],
+      "why": "report de la jambe HOST des frais annexes, dommages et amendes dans les versements (BOARD N-463) : mouvement de jambe des débits post-trip MIT (settle_mit_attempt, apply_leg_movement), item POST_TRIP_CHARGE et parts payout_item_charge du lot suivant, rang de libération par trip, contre-passation après chargeback perdu, aucun fonds de tiers détenu : argent, concurrence, sécurité (SECURITY DEFINER, RLS, pathRule securite de packages/db), schéma ; aucun écran (Revue design : NON) ; chemin db ; lot 3 (suite, prérequis de payouts_enabled) ; PROPOSÉ, décision de l orchestrateur 2026-11-23"
+    },
     "US-311": {
       "require": ["code", "architecture", "securite", "argent", "ux", "qa"],
       "why": "vues de la bêta, KPI et rapprochement par jambe (FIN-005) : vues RPT, data.export CSV, reconciliation_run, reconciliation_item, listLegBalances du FAKE apparié à l unité mineure, TJ15a à TJ15d : argent, sécurité (export, RLS de la console), écrans (Revue design : OUI, ux) ; chemins db, i18n, ui, money, fake-adapters, config (vecteurs dorés) ; lot 3 (19 v3 §3.4), inscrite avant son démarrage ; PROPOSÉ, décision de l orchestrateur 2026-11-19"
@@ -729,7 +733,8 @@
       "US-318",
       "US-311",
       "US-312",
-      "US-313"
+      "US-313",
+      "US-319"
     ],
     "packages/money/": [
       "US-015",
