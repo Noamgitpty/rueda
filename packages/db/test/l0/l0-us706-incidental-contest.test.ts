@@ -94,17 +94,32 @@ describe.each(COUNTRIES)('US-706 suite — contestation et pièces ($country, $c
         expect(
           await submit(tx, h2, w.trip, 'CLEANING', a['cleaning']!, [w.inner], firstReq),
         ).toMatchObject({ outcome: 'ALREADY_SUBMITTED', invoice_id: first['invoice_id'] });
-        // témoin : le tabac, annulé avant toute contestation, se redemande
+        // le tabac, annulé avant toute contestation, est du groupe du nettoyage ABANDONNÉ et reprend
+        // sa pièce : refusé depuis 0184 (F-L3-FRA-03, ADR-204), aucune fenêtre neuve
         expect(
           (await submit(tx, h2, w.trip, 'SMOKING', a['cleaning']!, [w.inner]))['outcome'],
-        ).toBe('SUBMITTED');
+        ).toBe('INCIDENTAL_DUPLICATE');
         const rows = await invoices(tx, w.trip);
         expect(rows.filter((r) => r['fee_type'] === 'CLEANING').map((r) => r['status'])).toEqual([
           'CANCELLED_BY_HOST',
         ]);
+        expect(rows.filter((r) => r['status'] === 'AWAITING_GUEST')).toEqual([]);
+        // témoin : sur un trip sans frais abandonné, le tabac annulé avant toute contestation se
+        // redemande (même pièce)
+        const ws = await world(tx, c, { start: START, end: END });
+        const hs = await session(tx, ws.holder);
+        const s1 = await submit(tx, hs, ws.trip, 'SMOKING', a['cleaning']!, [ws.inner]);
+        expect(s1['outcome']).toBe('SUBMITTED');
+        expect(await one(tx, CANCEL, [await session(tx, ws.holder), s1['invoice_id']])).toBe(
+          'CANCELLED',
+        );
         expect(
-          rows.filter((r) => r['status'] === 'AWAITING_GUEST').map((r) => r['fee_type']),
-        ).toEqual(['SMOKING']);
+          (
+            await submit(tx, await session(tx, ws.holder), ws.trip, 'SMOKING', a['cleaning']!, [
+              ws.inner,
+            ])
+          )['outcome'],
+        ).toBe('SUBMITTED');
         // un seul avis au voyageur pour le nettoyage (celui de la demande d'origine)
         expect(
           (await tx.query('SELECT * FROM test_fixture.us706_events($1)', [first['invoice_id']]))

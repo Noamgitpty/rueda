@@ -1,6 +1,7 @@
 # ADR-099 — Lieux de remise, véhicules et annonces de l'hôte (modèle bêta) ; clé étrangère du véhicule
 
 - **Statut** : PROPOSÉ (US-115, agent back-end, claude-opus-5-5, 2026-11-11). Revues exigées (`review-requirements.json`, story US-115) : code, architecture (`packages/db/`), **sécurité** (RLS, nouveau propriétaire NOLOGIN, `SECURITY DEFINER`, clés étrangères des réservations, photos), **argent** (prix journalier, pas du prix), UX, QA ; RLS, `SECURITY DEFINER` et argent sur un autre modèle que l'auteur.
+- **Modifié par** : ADR-204 (2026-11-23) — copie canonique : l'en-tête JFIF (APP0), le profil ICC (APP2, ICCP du WebP) et les champs libres ne sont plus conservés (F-L3-PRE-04).
 - **Sources** : 19 US-115 (critères) ; 16 HST-011, HST-005, HST-012, PRC-001, HST-033, HST-016 ; 08 BR-LIST-04, BR-LIST-05, BR-PRICE-01, BR-PRICE-14, BR-MILEAGE-01, SM-2 ; 17 §2.3 (« org_id = catalog.vehicle_org(vehicle_id), jamais choisi par le client », point 5 : 404 à l'hôte B), §3.1.3, §3.1.4 (C0 : EXIF / GPS retirés), §3.2.3, §5 (téléversements), §7.2 (`pyg_price_step`) ; 22 OQ-P2P-05, OQ-P2P-10, OQ-CAT-01 ; DEC-FONDATEUR-13, DEC-FONDATEUR-19 ; ADR-060, ADR-089 (F-RLS-01, N-03), ADR-094, ADR-096 ; BOARD N-03, N-37, N-52, réserve de la revue d'US-113 ; pré-mortem L1-PM-11, L1-PM-19, L1-PM-20, L1-PM-21, L1-PM-41, L1-PM-42, L1-PM-45.
 
 ## Contexte

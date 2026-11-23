@@ -51,7 +51,7 @@ function jpeg(width: number, height: number, filler = 64): Buffer {
   sof.set([1, 0x11, 0], 6);
   return Buffer.concat([
     Buffer.from([0xff, 0xd8]),
-    seg(0xe0, Buffer.from('JFIF\0\x01\x01\0\0\x01\0\x01\0\0', 'latin1')),
+    // copie canonique (ADR-204) : aucun champ libre (ni JFIF ni ICC), copie nettoyée = octets envoyés
     seg(0xc0, sof),
     seg(0xda, Buffer.from([1, 1, 0, 0, 0x3f, 0])),
     Buffer.alloc(filler, 0x11),

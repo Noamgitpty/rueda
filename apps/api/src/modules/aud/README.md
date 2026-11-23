@@ -38,6 +38,8 @@ Consommés (cible 17 §4.5) : `contract.document.generated` / `.signed` (CTR) et
 
 **Contrôles communs des photos téléversées** (US-303, ADR-179) : `internal/photo-checks.ts` (écrit pour les photos d'annonce d'US-115, déplacé depuis CAT) expose par `index.ts` `preparePhoto` (taille, type réel JPEG / PNG / WebP, dimensions, retrait des métadonnées), `sniffPhotoMime`, `isCleanScan` et les ports `PhotoScanner` / `PhotoStorage` avec leurs adaptateurs indisponibles. CAT les réexporte (`host-listings/photo-ingest.ts`) ; TRP s'en sert pour les photos d'état du véhicule, sans retrait des métadonnées (les octets d'une preuve restent ceux reçus). Plusieurs tailles annoncées ⇒ la plus grande, aussi pour le WebP (VP8X et VP8 / VP8L, BOARD N-120). Test : `internal/photo-checks.test.ts`.
 
+**Copie canonique** (ADR-204, F-L3-PRE-04) : `preparePhoto` rend une copie dont les octets, donc l'empreinte SHA-256 stockée, ne dépendent que des données de l'image. JPEG : JFIF, ICC et tous les APPn, COM, JPGn, marqueurs réservés et bourrage `0xFF` retirés ; Adobe réduit à sa transformée ; tables DQT / DHT / DRI réécrites une par segment dans un ordre fixe. WebP : ICCP retiré, VP8X réduit à alpha et animation, octets réservés et de bourrage à zéro. PNG inchangé. Limite : un ré-encodage n'est pas reconnu (ADR-196). Preuves : `internal/photo-canonical.test.ts`.
+
 Ports du socle d'audit, dans `@rueda/db/audit` (US-009, US-020, ADR-058) :
 
 - `KeyWrapper` (enveloppe des clés par sujet, KMS) : FAKE `FakeKeyWrapper` dans `@rueda/db/testing` ;

@@ -2,6 +2,7 @@
 
 - **Statut** : PROPOSÉ (US-706 suite, agent de story, rôle back-end, claude-opus-5-5, 2026-11-23). Revues exigées : celles de `node scripts/ci/check-story-reviews.mjs` ; argent, RLS / rôles, `SECURITY DEFINER` et concurrence sur un autre modèle que l'auteur.
 - **Complète** : ADR-197 (frais annexes, migration 0177). Ne remplace aucun point d'ADR-197 sauf le n° 15 (« seule l'annulation par l'hôte libère le type », précisé ci-dessous) et le n° 3 / n° 12 pour la preuve d'un nettoyage.
+- **Complété par** : ADR-204 (2026-11-23, 0184) — l'abandon d'une demande rejetée ou contestée puis annulée vaut pour son groupe de types (nettoyage et tabac) et ses pièces (F-L3-FRA-03).
 - **Sources** : red team du lot 3 (US-313, `docs/team/redteam/L3-donnees-sinistres.md`) : **F-L3-FRA-01** (élevé) et **F-L3-FRA-02** (moyen), preuves `rt-l3-05-frais-annexes` › RT-L3-S02 et RT-L3-S01 ; 08 BR-REIMB-01 (nettoyage / tabac : « photos dans les fenêtres de 24 h »), BR-REIMB-02 (la fenêtre du voyageur « ne peut pas être rouverte »), BR-REIMB-03 (annuler, réviser ou escalader ; le support tranche), BR-REIMB-05 (doublons), SM-5 (CANCELLED_BY_HOST final ; une révision est une nouvelle facture) ; 16 CLM-021 (le voyageur voit les preuves avant de payer).
 
 ## Contexte

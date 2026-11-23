@@ -94,6 +94,9 @@ const ISOLATED = [
   // US-706 suite : annulation d'une demande contestée contre une redemande ou une décision de l'ops,
   // à deux sessions ; trips, sessions et demandes contestées commités
   'test/l0/l0-us706-incidental-contest-race.test.ts',
+  // US-706 suite (preuves 2) : annulation ou rejet d'un nettoyage contesté contre un tabac de
+  // l'hôte, à deux sessions ; trips, fichiers de l'hôte, sessions et demandes contestées commités
+  'test/l0/l0-us706-incidental-abandoned-race.test.ts',
 ];
 const C11 = ['test/l0/l0-c11-fuzz.test.ts'];
 // US-049 : les attaques de la red team (test/redteam/<axe>/) tournent seules, après tous les autres

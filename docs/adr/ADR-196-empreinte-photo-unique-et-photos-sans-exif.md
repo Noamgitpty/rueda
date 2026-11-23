@@ -2,6 +2,7 @@
 
 - **Statut** : PROPOSÉ (suite d'US-303, agent backend, claude-opus-5-5, 2026-11-22). Revues exigées : celles de `node scripts/ci/check-story-reviews.mjs` ; RLS / rôles, `SECURITY DEFINER` et concurrence sur un autre modèle que l'auteur.
 - **Complète** : ADR-179 (photos guidées, US-303), ADR-099 (contrôles des photos d'annonce, `preparePhoto`), ADR-184 (dossier de preuve, US-308).
+- **Complété par** : ADR-204 (2026-11-23) — la copie nettoyée est canonique : ses octets, donc l'empreinte, ne dépendent plus d'aucun champ libre (F-L3-PRE-04) ; la limite du ré-encodage reste.
 - **Sources** : red team du lot 3 (`docs/team/redteam/L3-preuves-versements.md`) : F-L3-PRE-01 (élevé) et F-L3-PRE-02 (élevé) ; pré-mortem du lot 3, L3-PM-03 (« refus d'une empreinte SHA-256 déjà enregistrée, tous trips, photos d'annonce comprises ») et L3-PM-06 (« EXIF retiré de la copie servie ») ; 16 TRP-004 ; 19 US-303 critère 2 ; 17 §3.2.10, §3.2.13, §5.
 
 ## Contexte

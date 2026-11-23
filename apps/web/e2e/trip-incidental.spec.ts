@@ -280,14 +280,17 @@ for (const language of LANGUAGES) {
         t('web.incidental.status.CANCELLED_BY_HOST'),
       );
       await expect(page.locator('[data-testid="incidental-cancel-final"]')).toHaveCount(0);
-      // le type retiré est dit à l'hôte, avec la raison
-      await expect(page.locator('[data-testid="incidental-abandoned"]')).toContainText(
-        t('web.incidental.fee.CLEANING'),
-      );
-      await expect(
-        page.locator('[data-testid="incidental-type"] option[value="CLEANING"]'),
-      ).toHaveCount(0);
-      await expect(page.locator('[data-testid="incidental-type"] option')).toHaveCount(2);
+      // le type retiré est dit à l'hôte, avec la raison ; depuis ADR-204 (F-L3-FRA-03), le tabac
+      // (même groupe : l'habitacle) est retiré avec lui, le carburant reste proposé
+      const abandonedLine = page.locator('[data-testid="incidental-abandoned"]');
+      await expect(abandonedLine).toContainText(t('web.incidental.fee.CLEANING'));
+      await expect(abandonedLine).toContainText(t('web.incidental.fee.SMOKING'));
+      for (const fee of ['CLEANING', 'SMOKING']) {
+        await expect(
+          page.locator(`[data-testid="incidental-type"] option[value="${fee}"]`),
+        ).toHaveCount(0);
+      }
+      await expect(page.locator('[data-testid="incidental-type"] option')).toHaveCount(1);
     });
   });
 }

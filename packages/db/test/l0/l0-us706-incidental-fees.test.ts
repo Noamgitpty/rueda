@@ -852,7 +852,7 @@ describe.each(COUNTRIES)('US-706 — frais annexes ($country, $currency)', (c: C
     });
   });
 
-  it('doublon après rejet (revue code n° 1) : une demande REJETÉE par l’ops ne se redemande pas (INCIDENTAL_DUPLICATE) ; une demande annulée par l’hôte, si ; contestation à 1 ms de l’échéance acceptée', async () => {
+  it('doublon après rejet (revue code n° 1) : une demande REJETÉE par l’ops ne se redemande pas (INCIDENTAL_DUPLICATE), ni, depuis 0184, un tabac du même trip (groupe du nettoyage) ; contestation à 1 ms de l’échéance acceptée', async () => {
     await withRole('app_api', async (api) => {
       await withTestTransaction(api, { virtualNow: START }, async (tx) => {
         const ops = await staff(tx, 'OPS_AGENT', [c.country]);
@@ -929,13 +929,15 @@ describe.each(COUNTRIES)('US-706 — frais annexes ($country, $currency)', (c: C
         expect(
           (await submit(tx, h, w.trip, 'CLEANING', a['cleaning']!, [w.inner]))['outcome'],
         ).toBe('INCIDENTAL_DUPLICATE');
+        // le tabac annulé (sans contestation) est du groupe du nettoyage REJETÉ et reprend sa pièce :
+        // refusé depuis 0184 (F-L3-FRA-03, ADR-204) ; le témoin « annulée par l'hôte, si » est
+        // joué sur un trip sans rejet (l0-us706-incidental-contest, l0-us706-incidental-abandoned)
         expect((await submit(tx, h, w.trip, 'SMOKING', a['cleaning']!, [w.inner]))['outcome']).toBe(
-          'SUBMITTED',
+          'INCIDENTAL_DUPLICATE',
         );
         expect((await invoices(tx, w.trip)).map((x) => [x['fee_type'], x['status']])).toEqual([
           ['CLEANING', 'REJECTED'],
           ['SMOKING', 'CANCELLED_BY_HOST'],
-          ['SMOKING', 'AWAITING_GUEST'],
         ]);
         // borne de l'échéance : 1 ms avant J+3 10:00, la contestation passe encore
         await now(tx, at(DUE, -1));
