@@ -36,6 +36,7 @@ locals {
         merge(local.secret_ref["app_api_password"], { name = "PGPASSWORD" }),
         local.secret_ref["rate_limit_key"],
         local.secret_ref["staff_mfa_proof_key"],
+        local.secret_ref["session_open_key"],
       ]
       ports = [3000]
     }

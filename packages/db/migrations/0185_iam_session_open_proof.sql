@@ -185,15 +185,17 @@ COMMENT ON FUNCTION core.iam_cmd_open_session(uuid, uuid, bytea, integer, text, 
   'clés installées), fraîche (60 s) et à usage unique ; refus 42501 sans preuve valable ou sans '
   'clé (fail-closed). SECURITY DEFINER, EXECUTE app_api. US-010, US-012, US-410.';
 
-RESET ROLE;
-REVOKE CREATE ON SCHEMA core FROM iam_auth_owner;
-
+-- droits posés par le PROPRIÉTAIRE (un REVOKE de migrator, non propriétaire, serait sans effet) :
+-- EXECUTE au seul app_api, comme 0011
 REVOKE ALL ON FUNCTION
   core.iam_cmd_open_session(uuid, uuid, bytea, integer, text, inet, text, bigint, bytea)
 FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION
   core.iam_cmd_open_session(uuid, uuid, bytea, integer, text, inet, text, bigint, bytea)
 TO app_api;
+
+RESET ROLE;
+REVOKE CREATE ON SCHEMA core FROM iam_auth_owner;
 
 -- 4. Gestes de l'exploitation (sous migrator, propriétaire de la table et de la fonction) --------
 -- SECURITY INVOKER : seul `migrator` passe la politique migrator_all ; EXECUTE accordé à personne.

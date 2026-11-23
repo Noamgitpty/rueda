@@ -10,15 +10,16 @@ Une rotation ne coupe jamais le service : pendant la transition, **deux valeurs*
 
 ## 2. Inventaire
 
-| Secret                                                                         | Consommateurs                                | Mécanisme sans coupure                                                                                                                                                                                                   | Ancienne valeur refusée                                       | Preuve                                              |
-| ------------------------------------------------------------------------------ | -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------- | --------------------------------------------------- |
-| mots de passe des rôles `app_api`, `app_worker`, `app_anon`, `migrator`        | API, travailleur, job de base                | `RUEDA_PGPASSWORD_NEXT` : une nouvelle connexion essaie la valeur courante puis, sur `28P01`, la suivante (`apps/api/src/db-pool.ts`) ; le job de base pose la suivante sur le rôle ; les connexions ouvertes continuent | oui, par PostgreSQL (un seul mot de passe par rôle)           | répétition locale (§ 4), `db-pool.test.ts`          |
-| `RUEDA_RATE_LIMIT_KEY` (HMAC des compteurs)                                    | API                                          | `RUEDA_RATE_LIMIT_KEY_PREVIOUS` : chaque événement compté sous les deux empreintes, refus si l'une dépasse ; aucune limite remise à zéro ; retrait après 24 h (plus longue fenêtre)                                      | sans objet (clé de comptage) : retirée, elle n'a plus d'effet | répétition locale, `abuse-guard.test.ts`            |
-| `RUEDA_STAFF_MFA_PROOF_KEY` (preuve d'élévation MFA)                           | API et `core.iam_mfa_proof_key`              | deux emplacements en base (migration 0053) : la base accepte la preuve sous l'ancienne et la nouvelle clé pendant le redéploiement                                                                                       | oui, après `PROMOTE`                                          | `l0-us051-mfa-key-rotation` (L0), répétition locale |
-| mot de passe d'administration de la base                                       | job de base, vérification d'une restauration | géré par le service de base (`manage_master_user_password`, rotation du coffre) ; lu à chaque lancement du job                                                                                                           | oui, par le service                                           | hors dépôt (service géré)                           |
-| jetons de session (voyageurs, hôtes, staff)                                    | API                                          | **aucun secret serveur** : jetons opaques, seule leur empreinte SHA-256 est en base ; en cas de doute, on révoque des sessions, on ne fait pas tourner de clé                                                            | —                                                             | US-010                                              |
-| clés KMS (`data`, `files`, `backup`, `alerts`), secrets TOTP du staff          | coffre, stockage, enveloppes                 | rotation automatique annuelle des clés KMS (IaC) ; secret TOTP : nouvel enrôlement du membre du staff                                                                                                                    | —                                                             | US-036 (adaptateurs KMS réels)                      |
-| identifiants PSP, KYC, facture électronique ; secret de signature des webhooks | lot C                                        | **aucun en préproduction aujourd'hui** (image sans FAKE, C19). Même schéma à deux valeurs exigé des adaptateurs réels (deux secrets de webhook acceptés pendant la transition)                                           | à câbler avec l'adaptateur                                    | US-061, US-223 (lot C)                              |
+| Secret                                                                         | Consommateurs                                | Mécanisme sans coupure                                                                                                                                                                                                               | Ancienne valeur refusée                                       | Preuve                                                |
+| ------------------------------------------------------------------------------ | -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------- | ----------------------------------------------------- |
+| mots de passe des rôles `app_api`, `app_worker`, `app_anon`, `migrator`        | API, travailleur, job de base                | `RUEDA_PGPASSWORD_NEXT` : une nouvelle connexion essaie la valeur courante puis, sur `28P01`, la suivante (`apps/api/src/db-pool.ts`) ; le job de base pose la suivante sur le rôle ; les connexions ouvertes continuent             | oui, par PostgreSQL (un seul mot de passe par rôle)           | répétition locale (§ 4), `db-pool.test.ts`            |
+| `RUEDA_RATE_LIMIT_KEY` (HMAC des compteurs)                                    | API                                          | `RUEDA_RATE_LIMIT_KEY_PREVIOUS` : chaque événement compté sous les deux empreintes, refus si l'une dépasse ; aucune limite remise à zéro ; retrait après 24 h (plus longue fenêtre)                                                  | sans objet (clé de comptage) : retirée, elle n'a plus d'effet | répétition locale, `abuse-guard.test.ts`              |
+| `RUEDA_STAFF_MFA_PROOF_KEY` (preuve d'élévation MFA)                           | API et `core.iam_mfa_proof_key`              | deux emplacements en base (migration 0053) : la base accepte la preuve sous l'ancienne et la nouvelle clé pendant le redéploiement                                                                                                   | oui, après `PROMOTE`                                          | `l0-us051-mfa-key-rotation` (L0), répétition locale   |
+| `RUEDA_SESSION_OPEN_KEY` (preuve d'ouverture de session, US-410)               | API et `core.iam_session_open_key`           | deux emplacements en base (migration 0185, ADR-205) : la base accepte la preuve sous l'ancienne et la nouvelle clé pendant le redéploiement, l'ancienne 24 h au plus ; **sans clé en base, aucune session ne s'ouvre** (fail-closed) | oui, après `PROMOTE`                                          | `l0-us410-session-open-proof` (L0), répétition locale |
+| mot de passe d'administration de la base                                       | job de base, vérification d'une restauration | géré par le service de base (`manage_master_user_password`, rotation du coffre) ; lu à chaque lancement du job                                                                                                                       | oui, par le service                                           | hors dépôt (service géré)                             |
+| jetons de session (voyageurs, hôtes, staff)                                    | API                                          | **aucun secret serveur** : jetons opaques, seule leur empreinte SHA-256 est en base ; en cas de doute, on révoque des sessions, on ne fait pas tourner de clé                                                                        | —                                                             | US-010                                                |
+| clés KMS (`data`, `files`, `backup`, `alerts`), secrets TOTP du staff          | coffre, stockage, enveloppes                 | rotation automatique annuelle des clés KMS (IaC) ; secret TOTP : nouvel enrôlement du membre du staff                                                                                                                                | —                                                             | US-036 (adaptateurs KMS réels)                        |
+| identifiants PSP, KYC, facture électronique ; secret de signature des webhooks | lot C                                        | **aucun en préproduction aujourd'hui** (image sans FAKE, C19). Même schéma à deux valeurs exigé des adaptateurs réels (deux secrets de webhook acceptés pendant la transition)                                                       | à câbler avec l'adaptateur                                    | US-061, US-223 (lot C)                                |
 
 ## 3. Cloud (préproduction puis production, par le fondateur)
 
@@ -48,9 +49,21 @@ Première installation (ouverture de la console staff) : `node packages/db/src/r
 2. Promouvoir `AWSPENDING` ; redéployer l'API (nouvelle clé).
 3. Tâche ponctuelle `mfa-proof-key PROMOTE` : l'ancienne clé est refusée. En cas d'abandon avant cette étape : `mfa-proof-key ABORT`.
 
-### 3.4 Secret compromis
+### 3.4 Clé de preuve d'ouverture de session `RUEDA_SESSION_OPEN_KEY` (US-410)
 
-Même procédure, sans attendre : pour un mot de passe de base, enchaîner 3.1 en une fois ; pour la clé de débit, retirer `RUEDA_RATE_LIMIT_KEY_PREVIOUS` tout de suite (les compteurs repartent de zéro : risque accepté) ; pour la clé MFA, `STAGE` puis `PROMOTE` aussitôt après le redéploiement. Ouvrir un incident (17 §6.4, procédure US-405).
+Sans cette clé **en base ET dans l'API**, aucune session ne s'ouvre (connexion refusée, fail-closed, ADR-205) : l'installation est un préalable du premier déploiement d'un environnement (GL-01).
+
+Première installation : nouvelle clé tirée au hasard dans le contenant `session_open_key` (sortie `secret_arns`), puis `node packages/db/src/rotation/cli.ts session-open-key INSTALL` en tâche ponctuelle de l'image (sous `migrator`, `RUEDA_SESSION_OPEN_KEY_NEXT` = la clé), puis déploiement de l'API avec `RUEDA_SESSION_OPEN_KEY` = la même clé (déjà câblée dans la définition de tâche `api`). Rotation :
+
+1. Nouvelle clé en `AWSPENDING` ; tâche ponctuelle `session-open-key STAGE` avec `RUEDA_SESSION_OPEN_KEY_NEXT` = `AWSPENDING`. La base accepte alors les deux clés, l'ancienne **24 h au plus** (bornée en base, migration 0185) : redéployer l'API dans ce délai.
+2. Promouvoir `AWSPENDING` ; redéployer l'API (nouvelle clé). Les ouvertures signées par une instance pas encore redéployée restent acceptées (ancienne clé) ; les sessions déjà ouvertes ne dépendent d'aucune clé (jeton opaque).
+3. Tâche ponctuelle `session-open-key PROMOTE` : l'ancienne clé est refusée. En cas d'abandon avant cette étape : `session-open-key ABORT`.
+
+Contrôle : une connexion réussit après chaque étape (connexion de recette du fondateur) ; aucune alarme 5xx sur `POST /auth/login` pendant 30 min.
+
+### 3.5 Secret compromis
+
+Même procédure, sans attendre : pour un mot de passe de base, enchaîner 3.1 en une fois ; pour la clé de débit, retirer `RUEDA_RATE_LIMIT_KEY_PREVIOUS` tout de suite (les compteurs repartent de zéro : risque accepté) ; pour la clé MFA et la clé d'ouverture de session, `STAGE` puis `PROMOTE` aussitôt après le redéploiement (pour la seconde, révoquer aussi les sessions ouvertes pendant la fenêtre de doute si l'enquête le demande). Ouvrir un incident (17 §6.4, procédure US-405).
 
 ## 4. Préproduction locale (exécutée telle quelle par la CI)
 
@@ -119,6 +132,29 @@ docker compose -f infra/local/compose.yaml --profile rotation run --rm secrets-r
 
 ```bash rotation-mfa-promouvoir-base
 docker compose -f infra/local/compose.yaml --profile rotation run --rm mfa-rotate PROMOTE
+```
+
+### 4.4 Clé de preuve d'ouverture de session (US-410)
+
+Installer la première clé en base (l'API la reçoit déjà de `secret-session-open-key`), puis **redéployer** :
+
+```bash rotation-session-installer
+docker compose -f infra/local/compose.yaml --profile rotation run --rm session-open-rotate INSTALL
+```
+
+Préparer (clé suivante posée en base : les deux acceptées), promouvoir dans le coffre, **redéployer**, puis promouvoir en base (l'ancienne refusée) :
+
+```bash rotation-session-preparer
+docker compose -f infra/local/compose.yaml --profile rotation run --rm secrets-rotate stage session-open
+docker compose -f infra/local/compose.yaml --profile rotation run --rm session-open-rotate STAGE
+```
+
+```bash rotation-session-promouvoir-coffre
+docker compose -f infra/local/compose.yaml --profile rotation run --rm secrets-rotate promote session-open
+```
+
+```bash rotation-session-promouvoir-base
+docker compose -f infra/local/compose.yaml --profile rotation run --rm session-open-rotate PROMOTE
 ```
 
 La répétition (`bash scripts/ops/rotation-drill.sh`, job CI « reprise ») enchaîne ces étapes dans l'ordre ci-dessus, sonde active du début à la fin : elle exige **zéro** réponse autre que 401 `AUTH_REQUIRED` de `GET /auth/session` (route sans cache qui lit la base à chaque requête), la bascule de chaque instance sur la valeur suivante (`db.password.switched`) quand elle redémarre après l'étape « appliquer », et le refus de chaque ancien mot de passe.

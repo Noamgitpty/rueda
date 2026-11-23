@@ -113,6 +113,14 @@ step rotation-mfa-promouvoir-coffre
 step rotation-redeployer
 step rotation-mfa-promouvoir-base
 
+say '2d. clé de preuve d’ouverture de session (US-410)'
+step rotation-session-installer
+step rotation-redeployer
+step rotation-session-preparer
+step rotation-session-promouvoir-coffre
+step rotation-redeployer
+step rotation-session-promouvoir-base
+
 say '3. sonde'
 sleep 2
 kill "$PROBE_PID"
