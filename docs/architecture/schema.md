@@ -7,7 +7,7 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 
 ## Synthèse
 
-- 182 migrations ; 172 tables ; 6 vues ; 974 politiques RLS ; 455 fonctions `SECURITY DEFINER` ; 338 autres fonctions.
+- 182 migrations ; 172 tables ; 6 vues ; 973 politiques RLS ; 455 fonctions `SECURITY DEFINER` ; 338 autres fonctions.
 - Tables sans RLS `ENABLE` + `FORCE` : aucune.
 - Rôles applicatifs avec `SUPERUSER` ou `BYPASSRLS` : aucun.
 
@@ -2880,7 +2880,6 @@ Index :
 Politiques RLS :
 
 - `cmd_hold_traffic_ins` (INSERT, PERMISSIVE, cmd_hold_owner) WITH CHECK `((execution_status = 'PENDING'::text) AND (charge_id IS NULL) AND (executed_at IS NULL) AND (failed_attempts = 0))`
-- `cmd_hold_traffic_ins_v2` (INSERT, RESTRICTIVE, cmd_hold_owner) WITH CHECK `((rules_version = 2) AND (guest_status = 'AWAITING_GUEST'::text) AND (accepted_at IS NULL) AND (disputed_at IS NULL) AND (decided_at IS NULL) AND (charge_basis IS NULL))`
 - `cmd_hold_traffic_sel` (SELECT, PERMISSIVE, cmd_hold_owner) USING `true`
 - `cmd_money_traffic_party_upd` (UPDATE, PERMISSIVE, cmd_money_owner) USING `(((app.actor_kind() = 'GUEST'::text) AND (guest_user_id = app.actor_id())) OR (app.actor_kind() = 'STAFF'::text))` WITH CHECK `(((app.actor_kind() = 'GUEST'::text) AND (guest_user_id = app.actor_id()) AND (guest_status = ANY (ARRAY['ACCEPTED'::text, 'DISPUTED'::text]))) OR ((app.actor_kind() = 'STAFF'::text) AND (guest_status = ANY (ARRAY['DECIDED_CHARGE'::text, 'REJECTED'::text]))))`
 - `cmd_money_traffic_sel` (SELECT, PERMISSIVE, cmd_money_owner) USING `true`
@@ -9546,7 +9545,7 @@ Chacune a un propriétaire `NOLOGIN` dédié (ADR-053) et un `search_path` figé
 | `core.claim_incidental_party(p_token_hash bytea, p_trip_id uuid)` | `TABLE(user_id uuid, role text)` | `cmd_money_owner` | cmd_money_owner: EXECUTE |
 | `core.claim_p2p_guard()` | `trigger` | `migrator` | migrator: EXECUTE |
 | `core.claim_record_guard()` | `trigger` | `migrator` | migrator: EXECUTE |
-| `core.claim_traffic_charge_eligible(p_rules_version smallint, p_execution text, p_guest text, p_due timestamp with time zone, p_next timestamp with time zone, p_now timestamp with time zone)` | `boolean` | `cmd_money_owner` | cmd_money_owner: EXECUTE |
+| `core.claim_traffic_charge_eligible(p_rules_version smallint, p_execution text, p_guest text, p_due timestamp with time zone, p_next timestamp with time zone, p_now timestamp with time zone)` | `boolean` | `cmd_money_owner` | cmd_money_owner: EXECUTE ; migrator: EXECUTE |
 | `core.claim_traffic_charge_legs(p_amount bigint, p_fee_bps integer)` | `bigint[]` | `cmd_hold_owner` | cmd_hold_owner: EXECUTE |
 | `core.claim_traffic_facts(p_trip_id uuid)` | `TABLE(trip_id uuid, country_code text, currency text, org_id uuid, holder_user_id uuid, status text, start_at timestamp with time zone, end_at timestamp with time zone, deadline_days integer, deadline_at timestamp with time zone, fee_bps integer)` | `cmd_hold_owner` | cmd_hold_owner: EXECUTE |
 | `core.claim_traffic_param(p_key text, p_country text)` | `integer` | `cmd_hold_owner` | cmd_hold_owner: EXECUTE |
