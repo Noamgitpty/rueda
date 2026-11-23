@@ -176,6 +176,7 @@ async function race(opA: string, opB: string): Promise<Race> {
           await gate; // A tient ses verrous jusqu'à ce que B soit vu bloqué
           return out;
         });
+        const pendingB: Promise<string>[] = [];
         const seen = await (async (): Promise<{
           blocked: boolean;
           blockedBy: number[];
@@ -191,11 +192,13 @@ async function race(opA: string, opB: string): Promise<Race> {
               (out) => out,
               (error: unknown) => `ERREUR ${(error as { code?: string }).code ?? 'inconnue'}`,
             );
+            pendingB.push(b);
             const blockedBy = await waitBlocked(observer, pidB);
             goA();
             return { blocked: true, blockedBy, resultB: await b };
           } finally {
             goA();
+            await Promise.allSettled(pendingB); // B est attendu avant de libérer sa connexion
           }
         })();
         return {

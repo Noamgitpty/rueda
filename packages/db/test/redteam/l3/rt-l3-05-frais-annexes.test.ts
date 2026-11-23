@@ -216,6 +216,8 @@ describe.each(COUNTRIES)('RT-L3 frais annexes ($country, $currency)', (c) => {
         const { w, first } = await reopenAttack(tx);
         expect(first['outcome']).toBe('SUBMITTED');
         const rows = await invoices(tx, w.trip);
+        // témoin de population : la première demande existe bien, annulée
+        expect(rows.map((r) => r['status'])).toContain('CANCELLED_BY_HOST');
         expect(rows.filter((r) => r['status'] === 'AWAITING_GUEST')).toEqual([]);
       });
     },
