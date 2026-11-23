@@ -166,7 +166,7 @@ const chargesOn = async (tx: Tx, trip: string): Promise<Row[]> =>
 const asApi = (body: (tx: Tx) => Promise<void>): Promise<void> =>
   withRole('app_api', (api) => withTestTransaction(api, { virtualNow: DECLARED_AT }, body));
 
-describe.each(COUNTRIES)('RT-L3 variantes contre #300 ($country, $currency)', (c) => {
+describe.each(COUNTRIES)('RT-L3 variantes contre la PR 300 ($country, $currency)', (c) => {
   const FINE = c.priceStepMinor === 1 ? 1230n : 25010n;
 
   // -----------------------------------------------------------------------------------------
@@ -323,7 +323,7 @@ const I_END = '2078-03-10T08:00:00.000Z';
 const J0 = '2078-03-10T10:00:00.000Z';
 const HOUR_S = 3600;
 
-describe.each(COUNTRIES)('RT-L3 variante contre #299 ($country, $currency)', (c) => {
+describe.each(COUNTRIES)('RT-L3 variante contre la PR 299 ($country, $currency)', (c) => {
   const a = incidentalAmounts(c);
 
   /** Trip rendu à I_END, photos des deux séries, validations, loyer par carte (mêmes fixtures que `rt-l3-05`). */

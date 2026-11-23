@@ -132,7 +132,7 @@ describe('RT-L3-P03 (L3-PM-03) — variantes de la même prise de vue contre l�
     expect(await fingerprintOf(original)).toBe(await fingerprintOf(Buffer.from(original)));
   });
 
-  it('témoin : les segments EXIF et les commentaires, eux, ne changent pas l’empreinte (le correctif de #291 tient)', async () => {
+  it('témoin : les segments EXIF et les commentaires, eux, ne changent pas l’empreinte (le correctif de la PR 291 tient)', async () => {
     const withExif = Buffer.concat([
       Buffer.from([0xff, 0xd8]),
       jfif(72),
