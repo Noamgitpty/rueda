@@ -2920,6 +2920,21 @@
         "PA": 48,
         "PY": 48
       }
+    },
+    {
+      "key": "traffic_trip_charge_max_minor",
+      "type": "MONEY",
+      "scopes": ["COUNTRY"],
+      "currencyBound": true,
+      "failMode": "BLOCK",
+      "source": "08 BR-TT-02 à 04, BR-REIMB-03, BR-REIMB-05 (« doublons », « montant non justifié » interdits) ; red team F-L3-SIN-04 ; ADR-203 : seuil CUMULÉ des amendes, péages et fourrières refacturés sur un même trip (montants déclarés, frais de gestion non compris, refacturations rejetées par l’ops exclues), en unités mineures de la devise du pays ; une déclaration qui porte la somme du trip au-delà est enregistrée mais revue par l’ops avant tout débit (ops_review_required : jamais débitée sans décision de l’ops) ; absent ou mal formé : aucune refacturation (TRAFFIC_CAP_UNKNOWN, fail-closed)",
+      "status": "PROPOSÉ comme Turo (ADR-203) : 1 000,00 USD au Panama ; 7 500 000 PYG au Paraguay (égal au plafond d’une refacturation) ; au-delà, revue de l’ops plutôt qu’un refus (plusieurs amendes réelles sur un trajet sont légitimes ; Turo fait revoir par son support, jamais plus lourd que Turo) ; réglage modifiable par l’administration des paramètres",
+      "decision": "PROPOSED",
+      "decisionRef": "ADR-203 ; COMME_TURO (US-318 suite 2)",
+      "values": {
+        "PA": "100000",
+        "PY": "7500000"
+      }
     }
   ]
 }

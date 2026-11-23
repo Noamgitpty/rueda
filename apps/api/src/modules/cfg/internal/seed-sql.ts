@@ -223,6 +223,13 @@ export const POST_SEED_PARAMS: readonly {
     refs: '08 BR-REIMB-01 ; 16 CLM-021 ; ADR-202',
     embedded: true,
   },
+  {
+    prefix: 'traffic_trip_charge_max_minor',
+    file: '0183_claim_traffic_reference_canonical_trip_cap.sql',
+    story: 'US-318 suite 2',
+    refs: '08 BR-TT-02 à 04, BR-REIMB-05 ; ADR-203',
+    embedded: true,
+  },
 ];
 
 /** La clé appartient au groupe : préfixe ou clé nouvelle nommée (`extraKeys`). */

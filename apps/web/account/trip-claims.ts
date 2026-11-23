@@ -92,6 +92,8 @@ export interface TrafficDeclared {
   readonly deadlineAt: string;
   /** Échéance du voyageur pour payer ou contester (0181). */
   readonly responseDueAt: string;
+  /** Somme du trip au-delà du plafond cumulé (0183, ADR-203) : revue de l'ops avant tout débit. */
+  readonly opsReviewRequired: boolean;
 }
 
 /** Refacturation enregistrée (201) ; `null` si la réponse est illisible. */
@@ -117,6 +119,7 @@ export function trafficDeclaredOf(reply: ApiResult): TrafficDeclared | null {
     totalMinor: j['totalMinor'] as string,
     deadlineAt: j['deadlineAt'],
     responseDueAt: j['responseDueAt'],
+    opsReviewRequired: j['opsReviewRequired'] === true,
   };
 }
 
@@ -300,6 +303,8 @@ export interface TrafficPreview {
   readonly reference: string;
   readonly responseHours: number;
   readonly capMinor: string;
+  /** Avec ce montant, somme du trip au-delà du plafond cumulé (0183) : revue de l'ops. */
+  readonly opsReviewRequired: boolean;
 }
 
 /**
@@ -345,6 +350,7 @@ export function trafficPreviewOf(reply: ApiResult): TrafficPreview | null {
     reference: j['reference'],
     responseHours: j['responseHours'],
     capMinor: j['capMinor'] as string,
+    opsReviewRequired: j['opsReviewRequired'] === true,
   };
 }
 

@@ -3141,6 +3141,13 @@
       "story": "US-318"
     },
     {
+      "signature": "core.claim_traffic_trip_cap(text)",
+      "family": "cmd_money",
+      "owner": "cmd_money_owner",
+      "execute": ["cmd_hold_owner"],
+      "story": "US-318"
+    },
+    {
       "signature": "core.claim_traffic_notify_guest(uuid)",
       "family": "cmd_money",
       "owner": "cmd_money_owner",

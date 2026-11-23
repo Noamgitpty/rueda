@@ -4054,7 +4054,7 @@ export const ES_MESSAGES = {
   'common.tripClaims.trafficReferenceRequired':
     'Escribe la referencia del aviso, la boleta o el recibo, tal como aparece en el documento.',
   'common.tripClaims.trafficDuplicate':
-    'Esta referencia ya está declarada en este viaje: el mismo cargo se declara una sola vez.',
+    'Esta referencia ya está declarada en uno de tus viajes: el mismo cargo se declara una sola vez.',
   'common.tripClaims.trafficAmountAboveCap':
     'El monto supera el tope fijado para este cargo. Revisa el monto que pagaste; si es correcto, escríbenos desde la ayuda del viaje.',
   'common.tripClaims.trafficNotOpen':
@@ -4071,6 +4071,8 @@ export const ES_MESSAGES = {
   'web.traffic.review.response':
     'El viajero tendrá {n} h para pagar o impugnar. No se cobra nada antes; si impugna, lo decide {brand}.',
   'web.traffic.sent.due': 'El viajero tiene hasta el {time} para pagar o impugnar.',
+  'web.traffic.opsReview':
+    'Con este cargo, el total cobrado en este viaje supera el tope: nuestro equipo revisa la solicitud antes de cualquier cobro al viajero.',
   'web.traffic.status.VOID': 'Anulado',
   'web.traffic.guest.AWAITING_GUEST': 'Respuesta del viajero esperada antes del {time}',
   'web.traffic.guest.expired': 'El viajero no respondió antes del {time}',

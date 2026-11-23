@@ -4060,7 +4060,7 @@ export const PT_MESSAGES = {
   'common.tripClaims.trafficReferenceRequired':
     'Escreva a referência do aviso, do auto de infração ou do recibo, como aparece no documento.',
   'common.tripClaims.trafficDuplicate':
-    'Esta referência já foi declarada nesta viagem: a mesma cobrança só se declara uma vez.',
+    'Esta referência já foi declarada em uma das suas viagens: a mesma cobrança só se declara uma vez.',
   'common.tripClaims.trafficAmountAboveCap':
     'O valor passa do teto fixado para esta cobrança. Confira o valor que você pagou; se estiver certo, fale com a gente pela ajuda da viagem.',
   'common.tripClaims.trafficNotOpen':
@@ -4077,6 +4077,8 @@ export const PT_MESSAGES = {
   'web.traffic.review.response':
     'O viajante terá {n} h para pagar ou contestar. Nada é cobrado antes; se ele contestar, a decisão é da {brand}.',
   'web.traffic.sent.due': 'O viajante tem até {time} para pagar ou contestar.',
+  'web.traffic.opsReview':
+    'Com esta cobrança, o total desta viagem passa do teto: nossa equipe revisa o pedido antes de qualquer cobrança ao viajante.',
   'web.traffic.status.VOID': 'Anulada',
   'web.traffic.guest.AWAITING_GUEST': 'Resposta do viajante esperada até {time}',
   'web.traffic.guest.expired': 'O viajante não respondeu até {time}',

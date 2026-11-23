@@ -3964,7 +3964,7 @@ export const EN_MESSAGES = {
   'common.tripClaims.trafficReferenceRequired':
     'Enter the reference of the notice, ticket or receipt, exactly as it appears on the document.',
   'common.tripClaims.trafficDuplicate':
-    'This reference is already declared for this trip: the same charge can be declared only once.',
+    'This reference is already declared on one of your trips: the same charge can be declared only once.',
   'common.tripClaims.trafficAmountAboveCap':
     'The amount is above the country cap for this charge. Check the amount you paid; if it is right, contact us from the trip help.',
   'common.tripClaims.trafficNotOpen':
@@ -3981,6 +3981,8 @@ export const EN_MESSAGES = {
   'web.traffic.review.response':
     'The traveler will have {n} h to pay or dispute. Nothing is charged before then; if they dispute, {brand} decides.',
   'web.traffic.sent.due': 'The traveler has until {time} to pay or dispute.',
+  'web.traffic.opsReview':
+    'With this charge, the total for this trip goes over the cap: our team reviews the request before the guest is charged.',
   'web.traffic.status.VOID': 'Voided',
   'web.traffic.guest.AWAITING_GUEST': 'Waiting for the traveler’s answer before {time}',
   'web.traffic.guest.expired': 'The traveler did not answer before {time}',
