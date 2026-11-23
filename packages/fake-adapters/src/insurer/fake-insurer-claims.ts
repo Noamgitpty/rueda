@@ -14,7 +14,8 @@ import type { EnvironmentVariables } from '../guard.ts';
 export interface InsurerClaimRequest {
   /** Identifiant de la déclaration (clé d'idempotence chez l'assureur). */
   readonly declarationId: string;
-  readonly kind: 'DAMAGE' | 'INCIDENT';
+  /** THEFT : vol présumé d'un trip non rendu (US-318, ADR-198), coût constaté « 0 ». */
+  readonly kind: 'DAMAGE' | 'INCIDENT' | 'THEFT';
   readonly country: string;
   readonly currency: string;
   /** Coût de réparation constaté, unités mineures (texte d'un entier). */

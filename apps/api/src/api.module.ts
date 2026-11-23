@@ -6,6 +6,8 @@ import type { AvlCheckoutOptions } from './modules/avl/index.js';
 import { CatHostModule, CatSearchModule } from './modules/cat/index.js';
 import type { CatHostOptions, CatSearchOptions } from './modules/cat/index.js';
 import { BrandModule, RegulatoryNoticesModule } from './modules/cfg/index.js';
+import { ClmTripClaimsModule } from './modules/clm/index.js';
+import type { ClmTripClaimsOptions } from './modules/clm/index.js';
 import { CtrLegalModule } from './modules/ctr/index.js';
 import type { CtrLegalOptions } from './modules/ctr/index.js';
 import type { BrandOptions } from './modules/cfg/index.js';
@@ -75,6 +77,7 @@ export class ApiModule {
     rev?: RevReviewsOptions,
     claims?: SupClaimsOptions,
     report?: ReportStore,
+    tripClaims?: ClmTripClaimsOptions,
   ): DynamicModule {
     return {
       module: ApiModule,
@@ -106,6 +109,9 @@ export class ApiModule {
         // et CTR), /reviews/received, /listings/{listingId}/host-profile (public) ; sans
         // adaptateurs, 503
         RevReviewsModule.register(rev),
+        // US-318 : sinistres d'un trip /trips/{tripId}/incidents, /claims, /traffic-charges
+        // (SessionGuard + TermsGuard, après IAM et CTR) ; sans magasin, 503
+        ClmTripClaimsModule.register(tripClaims),
         PayWebhookModule.register(pay),
         StaffConsoleModule.register(staff),
         SupConsoleModule.register(sup),

@@ -8,7 +8,7 @@
  */
 import { useActionState } from 'react';
 import { createTranslator, getProfile } from '@rueda/i18n';
-import { Banner, Button, ErrorSummary } from '@rueda/ui';
+import { Banner, Button, ButtonLink, ErrorSummary } from '@rueda/ui';
 import { HELP_TOPICS } from '../../../../../account/help.ts';
 import { LOCALE_CONFIG } from '../../../../../locale-config.ts';
 import accountStyles from '../../../_account/account.module.css';
@@ -24,9 +24,17 @@ export interface HelpRequestFormProps {
   readonly tripId: string;
   readonly requestId: string;
   readonly brand: string;
+  /** Partie de la session : seul le voyageur déclare un incident (US-318, 16 CLM-002). */
+  readonly role: 'GUEST' | 'HOST';
 }
 
-export function HelpRequestForm({ localeTag, tripId, requestId, brand }: HelpRequestFormProps) {
+export function HelpRequestForm({
+  localeTag,
+  tripId,
+  requestId,
+  brand,
+  role,
+}: HelpRequestFormProps) {
   const i18n = createTranslator(getProfile(LOCALE_CONFIG, localeTag));
   const t = i18n.t.bind(i18n);
   const [state, run, pending] = useActionState(requestHelpAction, INITIAL);
@@ -46,6 +54,18 @@ export function HelpRequestForm({ localeTag, tripId, requestId, brand }: HelpReq
               ? t('web.help.request.offHours')
               : t('web.help.request.inHours')}
         </p>
+        {/* US-318 (16 CLM-002) : après un accident ou une panne, le voyageur déclare l'incident
+            avec photos ; le dossier du support y est rattaché (identifiant, jamais une donnée
+            personnelle) */}
+        {role === 'GUEST' &&
+          (state.sent.topic === 'ACCIDENT' || state.sent.topic === 'BREAKDOWN') && (
+            <ButtonLink
+              href={`/trips/${tripId}/incident?case=${state.sent.caseId}`}
+              data-testid="s17-incident-link"
+            >
+              {t('web.incident.open')}
+            </ButtonLink>
+          )}
       </div>
     );
   }

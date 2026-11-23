@@ -15,7 +15,7 @@ import { callApi, codeOf } from '../../../account/api-client.ts';
 import type { ApiResult } from '../../../account/api-client.ts';
 import { messageKeyOf } from '../../../account/host-listings.ts';
 import { clientContext } from '../../../account/request.ts';
-import { kindSegmentOf, SLOT, UUID } from '../../../account/trip-inspection.ts';
+import { kindSegmentOf, photoSeriesOf, SLOT, UUID } from '../../../account/trip-inspection.ts';
 
 export type InspectionActionResult =
   | { readonly ok: true; readonly captureId?: string }
@@ -39,7 +39,8 @@ function failure(reply: ApiResult): InspectionActionResult {
 }
 
 const valid = (tripId: string, kind: string, slot: string): boolean =>
-  UUID.test(tripId) && kindSegmentOf(kind) !== null && SLOT.test(slot);
+  // US-318 : aussi les séries libres `incident` et `traffic` (même chaîne, jamais validées)
+  UUID.test(tripId) && photoSeriesOf(kind) !== null && SLOT.test(slot);
 
 export async function openCaptureAction(
   tripId: string,

@@ -10,6 +10,7 @@ import { UUID } from '../../../../account/trip-contract.ts';
 import { getRequestI18n } from '../../../../i18n.ts';
 import accountStyles from '../../_account/account.module.css';
 import { REVIEWABLE_TRIP_STATUSES } from '../../../../account/trip-reviews.ts';
+import { incidentalHref, incidentalOffered } from '../../../../account/trip-incidental.ts';
 import { MAIN_ID } from '../../_shell/main-id.ts';
 import styles from '../../host/host.module.css';
 import { GuestTripCard } from '../guest-trip-card.tsx';
@@ -179,6 +180,16 @@ export default async function GuestTripPage({
       {REVIEWABLE_TRIP_STATUSES.some((s) => s === trip.status) && (
         <a className={styles['link']} href={`/trips/${trip.id}/review`} data-testid="s09-review">
           {t('web.review.link')}
+        </a>
+      )}
+      {/* frais annexes demandés par l'hôte, payés ou contestés (US-706, 10b S12) : après le retour */}
+      {incidentalOffered(trip.status) && (
+        <a
+          className={styles['link']}
+          href={incidentalHref('GUEST', trip.id, null)}
+          data-testid="s09-incidental"
+        >
+          {t('web.incidental.link.GUEST')}
         </a>
       )}
       {/* no-show de l'hôte signalé par le voyageur (US-307) : remise ouverte, pas encore commencée */}

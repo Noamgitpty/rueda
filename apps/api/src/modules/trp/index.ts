@@ -32,6 +32,16 @@ export type { HandoverStore, HandoverViewRow } from './internal/handover/store.j
 export { NO_SHOW_MESSAGES, NoShowHttpError } from './internal/no-show/errors.js';
 export { PgNoShowStore, UnavailableNoShowStore } from './internal/no-show/store.js';
 export type { NoShowStore, NoShowViewRow } from './internal/no-show/store.js';
+// Frais annexes demandés par l'hôte, payés ou contestés par le voyageur (US-706, ADR-197)
+export { INCIDENTAL_MESSAGES, IncidentalHttpError } from './internal/incidental/errors.js';
+export type { IncidentalCode } from './internal/incidental/errors.js';
+export {
+  INCIDENTAL_FEE_TYPES,
+  INCIDENTAL_STATUSES,
+  PgIncidentalStore,
+  UnavailableIncidentalStore,
+} from './internal/incidental/store.js';
+export type { IncidentalStore, IncidentalViewRow } from './internal/incidental/store.js';
 // Détection automatique des retards (US-305, ADR-188)
 export {
   alertOps,

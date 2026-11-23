@@ -8,3 +8,5 @@ export const VEHICLE_FILES = Symbol('sup.VehicleFiles');
 export const EVIDENCE_BUNDLE_SERVICE = Symbol('EVIDENCE_BUNDLE_SERVICE');
 /** Magasin des déclarations de dommage et des décisions (US-309, CLM) injecté dans la console. */
 export const CLAIM_STORE = Symbol('CLAIM_STORE');
+/** Magasin de la décision de l'ops sur un frais annexe contesté (US-706, CLM). */
+export const INCIDENTAL_STAFF_STORE = Symbol('INCIDENTAL_STAFF_STORE');

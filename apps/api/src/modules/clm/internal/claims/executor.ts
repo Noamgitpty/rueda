@@ -18,7 +18,13 @@
  * Seuls des comptes sont journalisés, jamais un identifiant ni une donnée personnelle (17 §6.3).
  */
 import { randomUUID } from 'node:crypto';
-import type { BusRegistry, SqlClient, WorkerTransactions } from '../../../bus/index.js';
+import type {
+  AlertChannel,
+  BusRegistry,
+  SqlClient,
+  WorkerTransactions,
+} from '../../../bus/index.js';
+import { P2pClaimsExecutor } from '../p2p/executor.js';
 
 export const CLAIM_DECISION_WORKER = 'claim_decision_executor';
 /** Nom de travailleur exigé par la base pour les commandes d'argent. */
@@ -29,7 +35,8 @@ export const CLAIM_DECISION_BATCH = 50;
 /** Déclaration envoyée à l'assureur partenaire : aucune donnée personnelle. */
 export interface InsurerClaimRequest {
   readonly declarationId: string;
-  readonly kind: 'DAMAGE' | 'INCIDENT';
+  /** THEFT : vol présumé d'un trip non rendu (US-318, ADR-198), coût constaté « 0 ». */
+  readonly kind: 'DAMAGE' | 'INCIDENT' | 'THEFT';
   readonly country: string;
   readonly currency: string;
   readonly repairCostMinor: string;
@@ -199,8 +206,12 @@ export function registerClaimDecisionExecutor(
   transactions: WorkerTransactions,
   log: (line: string) => void,
   insurer: InsurerClaimsPort | null,
+  alerts?: AlertChannel,
 ): void {
   const executor = new ClaimDecisionExecutor({ transactions, insurer, log });
+  // US-318 (ADR-198) : vol présumé, déclarations de vol, refacturations des amendes, péages et
+  // fourrières, dans la même passe (même nom de travailleur `payment_command`)
+  const p2p = new P2pClaimsExecutor({ transactions, insurer, log, ...(alerts ? { alerts } : {}) });
   registry.registerPeriodic(
     CLAIM_DECISION_WORKER,
     CLAIM_DECISION_PERIOD_SECONDS,
@@ -208,8 +219,22 @@ export function registerClaimDecisionExecutor(
       await tx.query(`SELECT pg_catalog.set_config('app.worker_name', $1, true)`, [
         CLAIM_PAYMENT_COMMAND_WORKER,
       ]);
-      const due = await ClaimDecisionExecutor.due(tx);
-      await executor.process(due);
+      // chaque passe est isolée : une erreur de la file des décisions ne saute jamais la passe
+      // d'US-318 (revue code n° 3) ; elle est journalisée par son SQLSTATE
+      try {
+        const due = await ClaimDecisionExecutor.due(tx);
+        await executor.process(due);
+      } catch (error) {
+        const code = (error as { code?: unknown } | null)?.code;
+        log(
+          JSON.stringify({
+            level: 'warn',
+            worker: CLAIM_DECISION_WORKER,
+            error: typeof code === 'string' ? code : 'UNEXPECTED',
+          }),
+        );
+      }
+      await p2p.process();
     },
   );
 }

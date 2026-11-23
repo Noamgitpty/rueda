@@ -22,9 +22,21 @@ export interface HelpNumbersProps {
   readonly idPrefix: string;
   /** Titre du pays affiché au-dessus des numéros (plusieurs pays) ; absent : aucun. */
   readonly countryHeading?: boolean;
+  /**
+   * Page d'incident (US-318, revue ux n° 3) : numéro de l'assureur absent ⇒ renvoyer aussi au
+   * numéro d'urgence et à l'autorité de circulation DU PAYS (données de pays), en plus de l'aide.
+   */
+  readonly emergencyFallback?: boolean;
 }
 
-export function HelpNumbers({ i18n, help, brand, idPrefix, countryHeading }: HelpNumbersProps) {
+export function HelpNumbers({
+  i18n,
+  help,
+  brand,
+  idPrefix,
+  countryHeading,
+  emergencyFallback,
+}: HelpNumbersProps) {
   const t = i18n.t.bind(i18n);
   const id = (part: string) => `${idPrefix}-${part}`;
   const Heading = countryHeading === true ? 'h3' : 'h2';
@@ -67,9 +79,19 @@ export function HelpNumbers({ i18n, help, brand, idPrefix, countryHeading }: Hel
             </a>
           </p>
         ) : (
-          <p className={accountStyles['text']} data-testid={id('roadsideInApp')}>
-            {t('web.help.roadside.inApp')}
-          </p>
+          <>
+            <p className={accountStyles['text']} data-testid={id('roadsideInApp')}>
+              {t('web.help.roadside.inApp')}
+            </p>
+            {emergencyFallback === true && (
+              <p className={accountStyles['text']} data-testid={id('roadsideFallback')}>
+                {t('web.help.roadside.useEmergency', {
+                  number: help.emergencyNumber,
+                  authority: t(help.authorityKey),
+                })}
+              </p>
+            )}
+          </>
         )}
       </section>
 

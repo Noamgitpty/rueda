@@ -13,6 +13,11 @@ const HEX64 = /^[0-9a-f]{64}$/;
 const GROUPS = ['EXTERIOR', 'INTERIOR', 'FUEL', 'ODOMETER', 'KEY', 'DAMAGE'] as const;
 
 export type InspectionKindSegment = 'checkin' | 'checkout';
+/**
+ * Séries de photos de la chaîne d'US-303 : gabarit guidé (`checkin`, `checkout`) ou séries libres
+ * d'US-318 (`incident` du voyageur, `traffic` : pièces de l'hôte), angles `DAMAGE_nn` seulement.
+ */
+export type PhotoSeriesSegment = InspectionKindSegment | 'incident' | 'traffic';
 export type InspectionRole = 'HOST' | 'GUEST';
 
 export interface InspectionSlotView {
@@ -37,7 +42,7 @@ export interface InspectionSideView {
 
 export interface TripInspectionView {
   readonly tripId: string;
-  readonly kind: InspectionKindSegment;
+  readonly kind: PhotoSeriesSegment;
   readonly viewerRole: InspectionRole;
   /** Fuseau IANA du pays du trip (heure serveur affichée). */
   readonly timezone: string;
@@ -60,6 +65,11 @@ const isTime = (v: unknown): v is string => typeof v === 'string' && Number.isFi
 
 export function kindSegmentOf(raw: string): InspectionKindSegment | null {
   return raw === 'checkin' || raw === 'checkout' ? raw : null;
+}
+
+/** Toute série de la chaîne de photos (gabarit ou libre, US-318) ; sinon `null`. */
+export function photoSeriesOf(raw: string): PhotoSeriesSegment | null {
+  return raw === 'incident' || raw === 'traffic' ? raw : kindSegmentOf(raw);
 }
 
 function sideOf(v: unknown): InspectionSideView | null {
@@ -102,7 +112,7 @@ export function tripInspectionOf(reply: ApiResult): TripInspectionView | null {
   if (reply.status !== 200 || !isObj(reply.json)) return null;
   const j = reply.json;
   const role = j['viewerRole'];
-  const kind = typeof j['kind'] === 'string' ? kindSegmentOf(j['kind']) : null;
+  const kind = typeof j['kind'] === 'string' ? photoSeriesOf(j['kind']) : null;
   const uploads = j['uploads'];
   if (
     typeof j['tripId'] !== 'string' ||
