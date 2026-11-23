@@ -7,7 +7,7 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 
 ## Synthèse
 
-- 182 migrations ; 172 tables ; 6 vues ; 973 politiques RLS ; 455 fonctions `SECURITY DEFINER` ; 338 autres fonctions.
+- 182 migrations ; 172 tables ; 6 vues ; 973 politiques RLS ; 456 fonctions `SECURITY DEFINER` ; 338 autres fonctions.
 - Tables sans RLS `ENABLE` + `FORCE` : aucune.
 - Rôles applicatifs avec `SUPERUSER` ou `BYPASSRLS` : aucun.
 
@@ -2879,7 +2879,7 @@ Index :
 
 Politiques RLS :
 
-- `cmd_hold_traffic_ins` (INSERT, PERMISSIVE, cmd_hold_owner) WITH CHECK `((execution_status = 'PENDING'::text) AND (charge_id IS NULL) AND (executed_at IS NULL) AND (failed_attempts = 0))`
+- `cmd_hold_traffic_ins` (INSERT, PERMISSIVE, cmd_hold_owner) WITH CHECK `((execution_status = 'PENDING'::text) AND (charge_id IS NULL) AND (executed_at IS NULL) AND (failed_attempts = 0) AND (rules_version = 2) AND (guest_status = 'AWAITING_GUEST'::text) AND (accepted_at IS NULL) AND (disputed_at IS NULL) AND (decided_at IS NULL) AND (charge_basis IS NULL))`
 - `cmd_hold_traffic_sel` (SELECT, PERMISSIVE, cmd_hold_owner) USING `true`
 - `cmd_money_traffic_party_upd` (UPDATE, PERMISSIVE, cmd_money_owner) USING `(((app.actor_kind() = 'GUEST'::text) AND (guest_user_id = app.actor_id())) OR (app.actor_kind() = 'STAFF'::text))` WITH CHECK `(((app.actor_kind() = 'GUEST'::text) AND (guest_user_id = app.actor_id()) AND (guest_status = ANY (ARRAY['ACCEPTED'::text, 'DISPUTED'::text]))) OR ((app.actor_kind() = 'STAFF'::text) AND (guest_status = ANY (ARRAY['DECIDED_CHARGE'::text, 'REJECTED'::text]))))`
 - `cmd_money_traffic_sel` (SELECT, PERMISSIVE, cmd_money_owner) USING `true`
@@ -5281,7 +5281,7 @@ Politiques RLS :
 - `cmd_hold_review_event` (INSERT, PERMISSIVE, cmd_hold_owner) WITH CHECK `((aggregate_type = 'checkout_hold'::text) AND (type = 'booking.hold.review_decided'::text) AND (actor_role = ANY (ARRAY['OPS_AGENT'::text, 'ADMIN'::text])) AND (actor_user_id IS NOT NULL))`
 - `cmd_hold_trip_notice_ins` (INSERT, PERMISSIVE, cmd_hold_owner) WITH CHECK `((type = ANY (ARRAY['booking.trip.host_restricted'::text, 'booking.trip.host_restriction_lifted'::text, 'trip.no_show.reported'::text])) AND (aggregate_type = 'trip'::text) AND (actor_user_id IS NOT NULL))`
 - `cmd_money_incidental_event` (INSERT, PERMISSIVE, cmd_money_owner) WITH CHECK `((type = 'invoice.status_changed'::text) AND (aggregate_type = 'incidental_invoice'::text) AND (actor_role = 'HOST'::text) AND (actor_user_id IS NOT NULL))`
-- `cmd_money_traffic_event` (INSERT, PERMISSIVE, cmd_money_owner) WITH CHECK `((type = 'invoice.status_changed'::text) AND (aggregate_type = 'traffic_charge'::text) AND (actor_role = 'HOST'::text) AND (actor_user_id IS NOT NULL))`
+- `cmd_money_traffic_event` (INSERT, PERMISSIVE, cmd_money_owner) WITH CHECK `((type = 'traffic_charge.status_changed'::text) AND (aggregate_type = 'traffic_charge'::text) AND (actor_role = 'HOST'::text) AND (actor_user_id IS NOT NULL))`
 - `cmd_param_event_ins` (INSERT, PERMISSIVE, cmd_param_owner) WITH CHECK `((type = 'config.param.changed'::text) AND (aggregate_type = 'param_value'::text) AND (actor_role = ANY (ARRAY['ADMIN'::text, 'SUPERADMIN'::text])) AND (actor_user_id IS NOT NULL))`
 - `cmd_trip_escalation_event_ins` (INSERT, PERMISSIVE, cmd_hold_owner) WITH CHECK `((aggregate_type = 'trip'::text) AND (type = 'trip.overdue.escalated'::text) AND (actor_role = ANY (ARRAY['OPS_AGENT'::text, 'ADMIN'::text])) AND (app.actor_kind() = 'STAFF'::text) AND (actor_user_id = app.actor_id()))`
 - `cmd_trip_event_ins` (INSERT, PERMISSIVE, cmd_hold_owner) WITH CHECK `((aggregate_type = 'trip'::text) AND (type = ANY (ARRAY['trip.status_changed'::text, 'trip.cancellation.qualified'::text])) AND (actor_role = 'SYSTEM'::text) AND (actor_user_id IS NULL))`
@@ -9136,6 +9136,7 @@ Chacune a un propriétaire `NOLOGIN` dédié (ADR-053) et un `search_path` figé
 | `core.claim_theft_cases_due(p_limit integer)` | `TABLE(trip_id uuid, action text)` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; cmd_money_owner: EXECUTE |
 | `core.claim_theft_declarations_due(p_limit integer)` | `TABLE(theft_case_id uuid, country_code text, currency text, opened_at timestamp with time zone)` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; cmd_money_owner: EXECUTE |
 | `core.claim_traffic_charges_due(p_limit integer)` | `TABLE(traffic_charge_id uuid)` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; cmd_money_owner: EXECUTE |
+| `core.claim_traffic_charges_due(p_limit integer, p_only uuid[])` | `TABLE(traffic_charge_id uuid)` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; cmd_money_owner: EXECUTE |
 | `core.claim_traffic_guest_terms(p_country text)` | `TABLE(response_hours integer, cap_minor bigint)` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | cmd_hold_owner: EXECUTE ; cmd_money_owner: EXECUTE |
 | `core.claim_traffic_guest_view(p_token_hash bytea, p_trip_id uuid)` | `jsonb` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; cmd_money_owner: EXECUTE |
 | `core.claim_traffic_notify_guest(p_traffic_charge_id uuid)` | `boolean` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | cmd_hold_owner: EXECUTE ; cmd_money_owner: EXECUTE |
